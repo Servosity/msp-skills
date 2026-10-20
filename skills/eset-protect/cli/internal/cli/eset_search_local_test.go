@@ -37,3 +37,18 @@ func TestSearchIsLocalOnly(t *testing.T) {
 		t.Fatalf("a refused live search still called the API (%d)", atomic.LoadInt32(&calls))
 	}
 }
+
+// TestSearchProvenanceIsNotAnOutage (search-is-local-only): default search
+// never calls ESET, so it must not label its answer api_unreachable.
+func TestSearchProvenanceIsNotAnOutage(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("search reached the API: %s", r.URL.Path)
+	})
+	out, _, _ := captureExecuteAll(t, "search", "anything", "--json")
+	if strings.Contains(string(out), "api_unreachable") {
+		t.Fatalf("local-only search reported an outage: %s", out)
+	}
+}

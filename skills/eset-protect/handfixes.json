@@ -5554,18 +5554,28 @@
     },
     {
       "id": "export-empty-list-is-zero-records",
-      "summary": "export treats a list page with no extractable items and nothing but paging metadata (`{}`, `{\"nextPageToken\":\"\",\"totalSize\":0}`) as zero records instead of exporting the envelope as one record",
-      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`).",
+      "summary": "export treats a list page with no extractable items and nothing but paging metadata (`{}`, `{\"nextPageToken\":\"\",\"totalSize\":0}`) as zero records instead of exporting the envelope as one record; a dry run's {\"dry_run\": true} sentinel is passed through, and an empty or short page that still carries a next-page token keeps paginating",
+      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`). Adversarial round 8: the first version rejected the dry-run sentinel, so every `export <resource> --dry-run` exited 1 (CLI and MCP), and a token-only page ended the export early; TestExportDryRunAndTokenOnlyPages failed with each of those two pieces disabled. The short-page break now also requires that no next-page token came back (AIP-158 pages may be short mid-stream).",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/export.go",
-          "contains": "empty, err := exportEmptyListPage(data, config)",
+          "contains": "empty, next, err := exportEmptyListPage(data, config)",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/export.go",
-          "contains": "func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (bool, error) {",
+          "contains": "if items == nil && isDryRunResponse(flags.dryRun, data) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if config.paginationType == \"\" || (len(items) == 0 && nextCursor == \"\") || (limit > 0 && count >= limit) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if config.limitParam != \"\" && !hasMore && nextCursor == \"\" {",
           "code_only": true
         }
       ]
@@ -5573,7 +5583,7 @@
     {
       "id": "search-is-local-only",
       "summary": "generic `search` runs only on the local mirror (FTS5); --data-source live is refused with a pointer to detection-groups-search",
-      "why": "The generated default (auto) search posted the query as `q` with `filter: \"\"` to POST /v2/detection-groups:search, whose request schema accepts only filter and returnTotalSize, and ignored --type, so `search \"ransomware\" --type devices` could return unrelated detection groups as matches (Codex round 14 P1). ESET has no general search endpoint. TestSearchIsLocalOnly failed with search.go reverted (`default search reached the API`) and checks live mode is refused without a request. The now-unused extractSearchResults helper was removed.",
+      "why": "The generated default (auto) search posted the query as `q` with `filter: \"\"` to POST /v2/detection-groups:search, whose request schema accepts only filter and returnTotalSize, and ignored --type, so `search \"ransomware\" --type devices` could return unrelated detection groups as matches (Codex round 14 P1). ESET has no general search endpoint. TestSearchIsLocalOnly failed with search.go reverted (`default search reached the API`) and checks live mode is refused without a request. The now-unused extractSearchResults helper was removed. Adversarial round 8: the auto branch still labelled every local answer api_unreachable (a false outage signal agents act on); it is now no_search_endpoint (TestSearchProvenanceIsNotAnOutage).",
       "status": "active",
       "asserts": [
         {
@@ -5584,6 +5594,11 @@
         {
           "file": "cli/internal/cli/search.go",
           "not_contains": "/v2/detection-groups:search\", map[string]any{"
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "contains": "reason = \"no_search_endpoint\"",
+          "code_only": true
         }
       ]
     },

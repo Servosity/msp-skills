@@ -127,9 +127,11 @@ refused; for live detection groups use 'detection-groups-search --filter'.`,
 				return fmt.Errorf("search failed: %w", err)
 			}
 
+			// search-is-local-only: auto never tried the API, so the reason is
+			// that ESET has no search endpoint, not an outage.
 			reason := "user_requested"
 			if flags.dataSource == "auto" {
-				reason = "api_unreachable"
+				reason = "no_search_endpoint"
 			}
 			prov := localProvenance(db, "search", reason)
 

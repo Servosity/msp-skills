@@ -99,3 +99,30 @@ func TestExportEmptyListPageIsZeroRecords(t *testing.T) {
 		}
 	}
 }
+
+// TestExportDryRunAndTokenOnlyPages (export-empty-list-is-zero-records):
+// the empty-page check rejected the {"dry_run": true} sentinel, so every
+// `export <resource> --dry-run` exited 1; and a page holding only a
+// next-page token ended the export early instead of following the token.
+func TestExportDryRunAndTokenOnlyPages(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("pageToken") == "" {
+			_, _ = io.WriteString(w, `{"nextPageToken":"p2"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"devices":[{"uuid":"00000000-0000-0000-0000-000000000001","displayName":"PAGE-TWO"}],"nextPageToken":""}`)
+	})
+	if _, errOut, err := captureExecuteAll(t, "export", "devices", "--dry-run", "--format", "json"); err != nil {
+		t.Fatalf("export --dry-run: %v\n%s", err, errOut)
+	}
+	out, errOut, err := captureExecuteAll(t, "export", "devices", "--format", "jsonl", "--no-cache")
+	if err != nil {
+		t.Fatalf("export: %v\n%s", err, errOut)
+	}
+	if !strings.Contains(string(out), "PAGE-TWO") {
+		t.Fatalf("export stopped at a token-only page: %q", out)
+	}
+}

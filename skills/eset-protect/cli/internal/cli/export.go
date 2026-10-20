@@ -187,16 +187,22 @@ large datasets as it has no memory pressure.`,
 					break
 				}
 				items, nextCursor, hasMore := extractResourcePage(data, config)
+				if items == nil && isDryRunResponse(flags.dryRun, data) {
+					// A dry run returns the {"dry_run": true} sentinel; it is
+					// not a list page (export-empty-list-is-zero-records).
+					items = []json.RawMessage{data}
+				}
 				if items == nil {
 					// Hand-fix export-empty-list-is-zero-records: ESET omits an
 					// empty repeated field, so `{}` (or only paging metadata) is
 					// an empty page, not one record.
-					empty, err := exportEmptyListPage(data, config)
+					empty, next, err := exportEmptyListPage(data, config)
 					if err != nil {
 						return fmt.Errorf("export %s: %w", resource, err)
 					}
 					if empty {
 						items = []json.RawMessage{}
+						nextCursor = next
 					} else {
 						items = []json.RawMessage{data}
 					}
@@ -215,7 +221,9 @@ large datasets as it has no memory pressure.`,
 					count++
 				}
 
-				if config.paginationType == "" || len(items) == 0 || (limit > 0 && count >= limit) {
+				// An empty page that still carries a next-page token is not the
+				// end (export-empty-list-is-zero-records).
+				if config.paginationType == "" || (len(items) == 0 && nextCursor == "") || (limit > 0 && count >= limit) {
 					break
 				}
 				page++
@@ -227,7 +235,9 @@ large datasets as it has no memory pressure.`,
 				if stop {
 					break
 				}
-				if config.limitParam != "" && !hasMore {
+				// A short page is the end only when no next-page token came
+				// back (AIP-158 pages may be short, or empty, mid-stream).
+				if config.limitParam != "" && !hasMore && nextCursor == "" {
 					requested, _ := strconv.Atoi(params[config.limitParam])
 					if requested > 0 && len(items) < requested {
 						break
@@ -277,10 +287,10 @@ large datasets as it has no memory pressure.`,
 // resource that declares a list field, holding other keys but not that field,
 // is an unexpected shape and an error (handfixes.json:
 // export-empty-list-is-zero-records).
-func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (bool, error) {
+func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (empty bool, next string, err error) {
 	var obj map[string]json.RawMessage
 	if json.Unmarshal(data, &obj) != nil {
-		return false, nil
+		return false, "", nil
 	}
 	other := 0
 	for k := range obj {
@@ -291,12 +301,16 @@ func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (bool,
 		}
 	}
 	if other == 0 {
-		return true, nil
+		// An empty page may still carry the next page's token.
+		if raw, ok := obj[config.nextCursorPath]; ok && config.nextCursorPath != "" {
+			_ = json.Unmarshal(raw, &next)
+		}
+		return true, next, nil
 	}
 	if config.responsePath != "" {
-		return false, fmt.Errorf("list response has no %q field", config.responsePath)
+		return false, "", fmt.Errorf("list response has no %q field", config.responsePath)
 	}
-	return false, nil
+	return false, "", nil
 }
 
 // exportJSONLine is one JSONL record: compacted, so a pretty-printed API

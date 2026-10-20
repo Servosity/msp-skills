@@ -250,8 +250,8 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			// default login.
 			defaultNote := ""
 			clearDefault := "run auth logout without --config to clear it"
-			if strings.TrimSpace(flags.configPath) == "" && strings.TrimSpace(os.Getenv("ESET_PROTECT_CONFIG")) != "" {
-				clearDefault = "unset ESET_PROTECT_CONFIG and run auth logout to clear it"
+			if strings.TrimSpace(os.Getenv("ESET_PROTECT_CONFIG")) != "" {
+				clearDefault = "unset ESET_PROTECT_CONFIG and run auth logout without --config to clear it"
 			}
 			ownPath, _ := cfg.CredentialsPath()
 			globalPath, _ := cliutil.CredentialsFilePath()
