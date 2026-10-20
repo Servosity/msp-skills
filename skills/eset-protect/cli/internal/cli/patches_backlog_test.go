@@ -607,3 +607,23 @@ func TestPatchesBacklogCommandNestedCustomerAndRejects(t *testing.T) {
 		t.Errorf("human output must name the left-out rows:\n%s", human)
 	}
 }
+
+// TestPatchesBacklogRestartAggregation (handfixes.json:
+// profile-restart-keeps-unknown): aggregating a patch across devices turned an
+// unknown restart requirement into NO when another device said NO.
+func TestPatchesBacklogRestartAggregation(t *testing.T) {
+	for _, tc := range []struct {
+		seen map[string]bool
+		want string
+	}{
+		{map[string]bool{"YES": true, "NO": true}, "YES"},
+		{map[string]bool{"NO": true, "UNSPECIFIED": true}, "UNSPECIFIED"},
+		{map[string]bool{"NO": true, "": true}, "UNSPECIFIED"},
+		{map[string]bool{"NO": true}, "NO"},
+		{map[string]bool{}, ""},
+	} {
+		if got := patchesBacklogRestart(tc.seen); got != tc.want {
+			t.Errorf("patchesBacklogRestart(%v) = %q, want %q", tc.seen, got, tc.want)
+		}
+	}
+}

@@ -1511,13 +1511,23 @@ func scanLocalList(db *store.Store, resourceType string, parents []localPathPare
 		if ok, err := db.TypedListScan(resourceType, visit); err != nil {
 			return nil, false, nil, err
 		} else if ok {
-			return items, sawValid, unmatchedEqualityKeys(present), nil
+			return localTrim(items, q.limit), sawValid, unmatchedEqualityKeys(present), nil
 		}
 	}
 	if err := db.ListScan(resourceType, visit); err != nil {
 		return nil, false, nil, err
 	}
-	return items, sawValid, unmatchedEqualityKeys(present), nil
+	return localTrim(items, q.limit), sawValid, unmatchedEqualityKeys(present), nil
+}
+
+// localTrim caps a scan at the page limit (hand-fix local-filter-proto-defaults):
+// the scanner keeps reading past a full page while it looks for evidence that
+// a filtered field exists, and must not return those extra rows.
+func localTrim(items []json.RawMessage, limit int) []json.RawMessage {
+	if limit >= 0 && len(items) > limit {
+		return items[:limit]
+	}
+	return items
 }
 
 func unmatchedEqualityKeys(present map[string]bool) []string {

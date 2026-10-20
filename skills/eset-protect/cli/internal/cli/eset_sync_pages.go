@@ -2,7 +2,10 @@
 
 package cli
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // esetMetadataOnlyPage reports whether a list page holds nothing but paging
 // metadata, and returns its next-page token. Protobuf JSON can omit an empty
@@ -44,4 +47,30 @@ func esetMalformedPageToken(data json.RawMessage) bool {
 	}
 	var token string
 	return json.Unmarshal(raw, &token) != nil
+}
+
+// esetUnexpectedListShape reports a list page that lacks every declared list
+// key yet carries keys other than paging metadata: an error envelope such as
+// {"message":"...","details":[]} or a foreign wrapper, not an empty page
+// (handfixes.json: sync-unexpected-list-shape). ESET list responses hold
+// only the list key, nextPageToken and totalSize; a page that has its list
+// key is accepted even with extra keys.
+func esetUnexpectedListShape(data json.RawMessage, listKeys ...string) bool {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil || obj == nil {
+		return false
+	}
+	for _, k := range listKeys {
+		if _, ok := obj[strings.SplitN(k, ".", 2)[0]]; ok {
+			return false
+		}
+	}
+	for k := range obj {
+		switch k {
+		case "nextPageToken", "totalSize", "pageToken", "totalCount":
+		default:
+			return true
+		}
+	}
+	return false
 }

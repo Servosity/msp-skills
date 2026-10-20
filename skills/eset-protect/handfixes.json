@@ -5931,7 +5931,7 @@
     {
       "id": "local-filter-proto-defaults",
       "summary": "local equality filters treat an *_UNSPECIFIED enum filter as no filter and let a row that omits the field match false / 0 (protobuf JSON omits defaults)",
-      "why": "With one muted device and one device whose isMuted was omitted, `devices list --is-muted=false --data-source local --all` (and the outage fallback) returned an empty successful result, and an UNSPECIFIED filter matched only rows that literally carried UNSPECIFIED (Codex round 18 P1). A filter key no row carries is still refused (unmatchedEqualityKeys) unless it is UNSPECIFIED. TestLocalFilterProtoDefaults failed with data_source.go at the previous commit.",
+      "why": "With one muted device and one device whose isMuted was omitted, `devices list --is-muted=false --data-source local --all` (and the outage fallback) returned an empty successful result, and an UNSPECIFIED filter matched only rows that literally carried UNSPECIFIED (Codex round 18 P1). A filter key no row carries is still refused (unmatchedEqualityKeys) unless it is UNSPECIFIED. TestLocalFilterProtoDefaults failed with data_source.go at the previous commit. Codex round 23 (P2): the scanner kept collecting rows past a full page while it looked for a row carrying the filtered field; scanLocalList now trims to the page limit (TestLocalDefaultFilterRespectsPageSize failed without the trim).",
       "status": "active",
       "asserts": [
         {
@@ -5943,13 +5943,18 @@
           "file": "cli/internal/cli/data_source.go",
           "contains": "present[key] = strings.HasSuffix(want, \"_UNSPECIFIED\")",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "return localTrim(items, q.limit), sawValid, unmatchedEqualityKeys(present), nil",
+          "code_only": true
         }
       ]
     },
     {
       "id": "profile-restart-keeps-unknown",
-      "summary": "devices profile reports restart_required as ESET's enum (YES, NO or UNSPECIFIED), as patches backlog does, instead of a bool that read every non-YES value as false",
-      "why": "The profile mapped restartRequired to `== RESTART_REQUIREMENT_YES`, so UNSPECIFIED (ESET: unknown whether a restart is required) or an omitted value appeared as restart_required:false, safe to install without scheduling a restart (Codex round 18 P1). The bare-patch assertion in the devices profile test failed with an omitted value mapped to NO. Adversarial round 11: the app patch fixture now carries RESTART_REQUIREMENT_UNSPECIFIED so the kind branch is covered, not only the bare row.",
+      "summary": "devices profile reports restart_required as ESET's enum (YES, NO or UNSPECIFIED), as patches backlog does, instead of a bool that read every non-YES value as false; patches backlog aggregates a patch across devices as YES if any device needs a restart, UNSPECIFIED if any is unknown, and NO only when every device said NO",
+      "why": "The profile mapped restartRequired to `== RESTART_REQUIREMENT_YES`, so UNSPECIFIED (ESET: unknown whether a restart is required) or an omitted value appeared as restart_required:false, safe to install without scheduling a restart (Codex round 18 P1). The bare-patch assertion in the devices profile test failed with an omitted value mapped to NO. Adversarial round 11: the app patch fixture now carries RESTART_REQUIREMENT_UNSPECIFIED so the kind branch is covered, not only the bare row. Codex round 23: patchesBacklogRestart ranked NO above UNSPECIFIED, so one NO plus one unknown reported NO; TestPatchesBacklogRestartAggregation failed with the previous ordering.",
       "status": "active",
       "asserts": [
         {
@@ -5960,6 +5965,11 @@
         {
           "file": "cli/internal/cli/devices_profile.go",
           "not_contains": "p.RestartRequired = core.RestartRequired == \"RESTART_REQUIREMENT_YES\""
+        },
+        {
+          "file": "cli/internal/cli/patches_backlog.go",
+          "contains": "\tfor k := range seen {\n\t\tif k != \"NO\" {\n\t\t\treturn \"UNSPECIFIED\"",
+          "code_only": true
         }
       ]
     },
@@ -6038,13 +6048,28 @@
     },
     {
       "id": "sync-unexpected-list-shape",
-      "summary": "sync stores a response as a single row only for a declared single-object resource; for a list resource an unexpected 200 body is a warning that leaves the attempt incomplete, with nothing stored and no prune",
-      "why": "The generated fallback stored any non-list 200 body (`{\"message\":\"upstream unavailable\"}`) as one row and marked the walk complete; no device IDs reached seenIDs, so `sync --full` reconciled every device away and recorded a completed empty sync (Codex round 22 P1). TestSyncUnexpectedListShapeAndCappedFullPage failed with the guard disabled (`0 devices`).",
+      "summary": "a list page that lacks its declared list key and carries anything beyond paging metadata (an error envelope such as {\"message\":...,\"details\":[]}, a foreign wrapper like {\"data\":[]}) is an unexpected shape: sync stops incomplete with nothing stored and no prune, and the live pager (esetFetchAll) returns an error; only declared single-object resources store a body as one row",
+      "why": "The generated fallback stored any non-list 200 body (`{\"message\":\"upstream unavailable\"}`) as one row and marked the walk complete; no device IDs reached seenIDs, so `sync --full` reconciled every device away and recorded a completed empty sync (Codex round 22 P1). TestSyncUnexpectedListShapeAndCappedFullPage failed with the guard disabled (`0 devices`). Adversarial round 15 / Codex round 23: the generic empty-page check accepted any object with exactly one empty array, so ESET's rpcStatus `details:[]`, `{\"data\":[]}` or `{\"errors\":[]}` still completed the walk and --full pruned every device; and the hand-written live pager read such a body as an empty final page, truncating exposure results and customer membership. esetUnexpectedListShape now runs on every list page in sync and in esetFetchAll; the sync and membership tests failed with each check disabled.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
           "contains": "outcome.reason = \"unexpected_list_shape\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if paths := responsePathForResource(resource, path); len(paths) > 0 && esetUnexpectedListShape(data, paths...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/eset_fleet.go",
+          "contains": "if esetUnexpectedListShape(data, itemsKey) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/eset_sync_pages.go",
+          "contains": "func esetUnexpectedListShape(data json.RawMessage, listKeys ...string) bool {",
           "code_only": true
         }
       ]

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"eset-protect-pp-cli/internal/cliutil"
 	"eset-protect-pp-cli/internal/cliutil/testenv"
 	"eset-protect-pp-cli/internal/store"
 )
@@ -19,9 +20,7 @@ import (
 // --page-size 1` returned one device and `--page-size 0` (the server default
 // page of 50) returned none. A plain --page-size 1 is still one page.
 func TestLocalReadPageSizeIsNotATotal(t *testing.T) {
-	testenv.Isolate(t)
-	setDefaultDBScopeIdentity("", "", "")
-	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	localTestReset(t)
 	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
 	if err != nil {
 		t.Fatal(err)
@@ -77,9 +76,7 @@ func TestLocalReadPageSizeIsNotATotal(t *testing.T) {
 // mirrored rows do not carry, so a local (or outage-fallback) read returned
 // an empty, successful result. It must refuse instead.
 func TestLocalReadRefusesRecursiveGroupFilter(t *testing.T) {
-	testenv.Isolate(t)
-	setDefaultDBScopeIdentity("", "", "")
-	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	localTestReset(t)
 	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
 	if err != nil {
 		t.Fatal(err)
@@ -105,9 +102,7 @@ func TestLocalReadRefusesRecursiveGroupFilter(t *testing.T) {
 // --data-source local --all` returned nothing; and an *_UNSPECIFIED enum
 // filter (ESET's "no filter") matched only rows that literally said so.
 func TestLocalFilterProtoDefaults(t *testing.T) {
-	testenv.Isolate(t)
-	setDefaultDBScopeIdentity("", "", "")
-	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	localTestReset(t)
 	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
 	if err != nil {
 		t.Fatal(err)
@@ -144,9 +139,7 @@ func TestLocalFilterProtoDefaults(t *testing.T) {
 // a resource whose last sync completed with zero rows read as "Run sync
 // first" instead of an empty list.
 func TestLocalEmptyAfterCompleteSync(t *testing.T) {
-	testenv.Isolate(t)
-	setDefaultDBScopeIdentity("", "", "")
-	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	localTestReset(t)
 	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
 	if err != nil {
 		t.Fatal(err)
@@ -158,5 +151,52 @@ func TestLocalEmptyAfterCompleteSync(t *testing.T) {
 	out, errOut, err := captureExecuteAll(t, "detections", "list", "--data-source", "local", "--all", "--json")
 	if err != nil {
 		t.Fatalf("an empty, completely synced resource failed: %v\n%s%s", err, out, errOut)
+	}
+}
+
+// localTestReset clears the process-global home override and DB scope that
+// earlier tests' --home and credentials leave behind, so defaultDBPath here
+// matches what the command under test resolves.
+func localTestReset(t *testing.T) {
+	t.Helper()
+	if _, err := cliutil.SetHomeOverride(""); err != nil {
+		t.Fatal(err)
+	}
+	testenv.Isolate(t)
+	setDefaultDBScopeIdentity("", "", "")
+	t.Cleanup(func() {
+		_, _ = cliutil.SetHomeOverride("")
+		setDefaultDBScopeIdentity("", "", "")
+	})
+}
+
+// TestLocalDefaultFilterRespectsPageSize (local-filter-proto-defaults): the
+// scanner kept appending rows that omit a filtered field while it looked for
+// one that carries it, so --page-size 1 returned two rows.
+func TestLocalDefaultFilterRespectsPageSize(t *testing.T) {
+	localTestReset(t)
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, body := range map[string]string{
+		"00000000-0000-0000-0000-000000000001": `{"uuid":"00000000-0000-0000-0000-000000000001","displayName":"ONE"}`,
+		"00000000-0000-0000-0000-000000000002": `{"uuid":"00000000-0000-0000-0000-000000000002","displayName":"TWO"}`,
+		"00000000-0000-0000-0000-000000000003": `{"uuid":"00000000-0000-0000-0000-000000000003","displayName":"THREE","isMuted":true}`,
+	} {
+		if err := db.Upsert("devices", id, json.RawMessage(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.SaveSyncState("devices", "", 3); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	out, errOut, err := captureExecuteAll(t, "devices", "list", "--data-source", "local", "--is-muted=false", "--page-size", "1", "--json")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, errOut)
+	}
+	if strings.Count(string(out), "displayName") != 1 {
+		t.Fatalf("--page-size 1 returned more than one row: %s", out)
 	}
 }

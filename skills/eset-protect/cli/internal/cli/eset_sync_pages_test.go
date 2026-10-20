@@ -214,10 +214,17 @@ func TestSyncUnexpectedListShapeAndCappedFullPage(t *testing.T) {
 		return n
 	}
 	_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full")
-	body = `{"message":"upstream unavailable"}`
-	_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full")
-	if n := count(); n != 2 {
-		t.Fatalf("an unexpected 200 body let --full prune or store a row: %d devices", n)
+	for _, b := range []string{
+		`{"message":"upstream unavailable"}`,
+		`{"code":14,"message":"upstream unavailable","details":[]}`, // rpcStatus with an empty array
+		`{"data":[]}`, // a foreign wrapper
+		`{"errors":[]}`,
+	} {
+		body = b
+		_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full")
+		if n := count(); n != 2 {
+			t.Fatalf("unexpected 200 body %s let --full prune or store a row: %d devices", b, n)
+		}
 	}
 	// 101 mirrored; one full page of 100 with an empty token under --max-pages 1.
 	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))

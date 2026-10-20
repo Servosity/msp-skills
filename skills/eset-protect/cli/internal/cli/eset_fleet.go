@@ -769,6 +769,12 @@ func esetFetchAll(ctx context.Context, c *client.Client, url string, params map[
 		if err := json.Unmarshal(data, &page); err != nil {
 			return res, fmt.Errorf("decoding %s page %d: %w", itemsKey, res.Pages, err)
 		}
+		// Hand-fix sync-unexpected-list-shape (live pager twin): an error
+		// envelope or foreign wrapper is not an empty final page; reading it
+		// as one truncated exposure results and customer membership.
+		if esetUnexpectedListShape(data, itemsKey) {
+			return res, fmt.Errorf("decoding %s page %d: the response is not a %s list page", itemsKey, res.Pages, itemsKey)
+		}
 		var items []json.RawMessage
 		if raw, ok := page[itemsKey]; ok && len(raw) > 0 && string(raw) != "null" {
 			if err := json.Unmarshal(raw, &items); err != nil {

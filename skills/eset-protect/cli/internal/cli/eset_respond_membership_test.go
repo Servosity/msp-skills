@@ -71,6 +71,12 @@ func TestRespondCustomerWaitUsesLiveMembership(t *testing.T) {
 			t.Fatalf("an unreadable member must leave completion unknown: %v\n%s", got, text)
 		}
 	})
+	t.Run("an error envelope instead of a member list", func(t *testing.T) {
+		got, text := run(t, `{"code":14,"message":"maintenance","details":[]}`, http.StatusOK, finished(respondTestDevice))
+		if got["complete"] == true || !strings.Contains(text, "completion stays unknown") {
+			t.Fatalf("an error envelope must leave completion unknown: %v\n%s", got, text)
+		}
+	})
 	t.Run("membership cannot be listed", func(t *testing.T) {
 		got, text := run(t, `{}`, http.StatusInternalServerError, finished(respondTestDevice, "22222222-2222-4222-8222-222222222222"))
 		if got["complete"] == true || !strings.Contains(text, "completion stays unknown") {

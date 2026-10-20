@@ -825,6 +825,18 @@ func syncResource(ctx context.Context, c interface {
 			}
 			break
 		}
+		// sync-unexpected-list-shape: an error envelope or foreign wrapper is
+		// not an (empty) list page, even when it holds an empty array, so it
+		// must not complete the walk or let --full prune.
+		if paths := responsePathForResource(resource, path); len(paths) > 0 && esetUnexpectedListShape(data, paths...) {
+			outcome.reason = "unexpected_list_shape"
+			if humanFriendly {
+				fmt.Fprintf(os.Stderr, "\n  %s: the response is not a list page; stopped without pruning.\n", resource)
+			} else {
+				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"unexpected_list_shape","message":"the response is not a list page; nothing was stored and the mirror is not pruned"}`+"\n", resource)
+			}
+			break
+		}
 		// Only list resources: a single-object resource (quarantined-objects-
 		// count) answering {} is its zero value, stored by the fallback below.
 		if len(items) == 0 && len(responsePathForResource(resource, path)) > 0 {
