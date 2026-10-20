@@ -28,10 +28,12 @@ from the client's own logins and easy to revoke.
   the CLI keeps it with that NAS's cached session and sends it on later logins.
   `SYNOLOGY_DEVICE_ID` (or `<prefix>_DEVICE_ID`) overrides the kept token.
 
-**The password goes only to a DSM.** Before every login (`auth login`, every
-live command, `fleet add --check`, `fleet sync`, `abb triage`, `doctor`) the CLI
-asks the address for `SYNO.API.Info` without credentials. Only a host that
-answers the way DSM does gets the account and password; anything else (a
+**The password and the session go only to a DSM.** Before the first request
+that carries a password, one-time code, trusted-device token or session (a
+login, a cached session, or a raw session id in the config), the CLI asks the
+address for `SYNO.API.Info` without credentials, once per address per run.
+Only a host that answers the way DSM does gets the account, password or
+session; anything else (a
 mistyped address, the client's router, a web page, a redirect) fails with "not
 a DSM WebAPI ... the password was not sent". No DSM request ever follows a
 redirect (DSM's WebAPI never redirects), so a DSM that redirects `http://` to
@@ -50,8 +52,12 @@ PowerShell (`"%USERNAME%:(OI)(CI)F"` in cmd.exe). `export` shows
 secret-named fields (passwords, tokens, encrypted share passwords) as
 `[redacted]`, as the local store and the response cache do; and if a NAS answer
 ever carries one of the CLI's own secret values (the password, a one-time code,
-the trusted-device token, the session id or SynoToken), every output, the cache,
-the store and exports show `[redacted]` in its place. Anyone who can read
+the trusted-device token, the session id or SynoToken) as a text value, every
+output, the cache, the store and exports show `[redacted]` in its place (a whole
+text field of any length; inside longer text, values of 8 characters or more).
+Numbers are never rewritten. A cached session is reused only for the exact NAS
+address and account it was issued for, and its cookies stay bound to that
+address. Anyone who can read
 the session file can act as the CLI's DSM
 session until it expires, and the trusted-device token spares a future login the
 second factor. `synology-cli auth logout` forgets the cached session and

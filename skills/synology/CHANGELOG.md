@@ -31,8 +31,16 @@ All notable changes to this skill are documented here. Format follows
   server.
 - Credential safety: the DSM password goes only to an address that answers
   SYNO.API.Info as DSM, never across a redirect; logins over plain `http://`
-  warn on stderr and in `doctor`; secret values and secret-named fields are
-  masked in output, the response cache, the local store and exports.
+  warn on stderr and in `doctor`; the CLI's own secret values are masked in
+  output, the response cache, the local store and exports, and secret-named
+  fields (passwords, tokens) are redacted in the cache, the store and exports
+  (live reads show what the NAS returned).
+- Sessions: a cached session is reused only for the exact NAS address and
+  account it came from, and no session or credential is sent before the
+  address answers SYNO.API.Info as DSM.
 - Operator-only registry: `fleet add` and `fleet remove` are CLI commands, not
   MCP tools, and `fleet add <name> --tls-fingerprint <sha256>` re-pins a NAS
-  whose certificate was renewed, keeping its history.
+  whose certificate was renewed, keeping its history. Re-running `fleet add`
+  on a registered NAS changes only the fields you pass and lists them.
+- Reports never show an unknown as zero: rows about a NAS that did not sync
+  carry null counts, and unknown durations are null with a note.

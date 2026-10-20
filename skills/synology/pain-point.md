@@ -7,12 +7,14 @@ PCs, servers and VMs: the backup software is free with the NAS, and the NAS sits
 at the client's site. The catch shows up at scale. Every NAS is its own island,
 with its own web UI, its own task list and its own notification emails.
 
-An MSP running "almost a hundred NAS in production at our clients" put it
-plainly on the French NAS community forum: the email notifications had become
-too hard to manage, nothing alerted on a backup that had not run for a number
-of days, and "Synology Active Insight doesn't offer monitoring for these
-packages, and neither does CMS"
+An MSP with almost a hundred NAS units in production at its clients put it
+plainly on the French NAS community forum (translated here from French): the
+email notifications had become too hard to manage, nothing alerted on a backup
+that had not run for a number of days, and neither Synology Active Insight nor
+CMS monitored Active Backup or Hyper Backup
 ([nas-forum.com, Nov 2021](https://www.nas-forum.com/forum/topic/73029-monitoring-multiple-active-backup-for-business)).
+Active Insight added Hyper Backup monitoring a few weeks later; it still lists
+no Active Backup for Business monitoring.
 The replies are the usual workarounds: SNMP (another member answered that
 Synology's MIBs do not expose backup state), and an SSH script that reads Active
 Backup's internal SQLite files on every NAS into a dashboard someone has to
