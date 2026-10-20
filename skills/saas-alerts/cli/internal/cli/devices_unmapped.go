@@ -26,7 +26,7 @@ func newDevicesUnmappedCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Retrieves a list of unmapped devices based on the specified query parameters.",
 		Example:     "  saas-alerts-cli devices unmapped",
 		Args:        cobra.NoArgs,
-		Annotations: map[string]string{"pp:endpoint": "devices.unmapped", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/unmapped", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:data-source": "live", "pp:endpoint": "devices.unmapped", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/unmapped", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/manageApi/api/v1/unify/devices/unmapped"
 			c, err := flags.newClient()
@@ -42,7 +42,7 @@ func newDevicesUnmappedCmd(flags *rootFlags) *cobra.Command {
 			if flagSearchAfter != "" {
 				path = appendArrayQueryParam(path, "searchAfter", flagSearchAfter, "form", true)
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "devices", path, retainCLIQueryParams(cmd, map[string]string{
 				"confidence": formatCLIParamValue(flagConfidence),
 				"deviceName": formatCLIParamValue(flagDeviceName),
 				"pageSize":   formatCLIParamValue(flagPageSize),

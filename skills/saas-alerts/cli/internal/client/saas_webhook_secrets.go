@@ -8,6 +8,8 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -70,4 +72,42 @@ func withholdTokenKeys(v any) bool {
 		}
 	}
 	return changed
+}
+
+// refuseWithheldWebhookToken rejects a Webhooks API write whose body carries
+// the [withheld] placeholder as a token. Every read prints that placeholder in
+// place of the real token, so an agent that copies a listed subscription into
+// create or update would otherwise overwrite the receiver's real token with
+// it. Refused before the dry-run branch too, so a preview fails exactly like
+// the real send.
+func refuseWithheldWebhookToken(method, path string, body []byte) error {
+	if method == http.MethodGet || len(body) == 0 || !strings.Contains(path, "/outgoingWebhookApi/") {
+		return nil
+	}
+	var v any
+	if json.Unmarshal(body, &v) != nil || !containsWithheldToken(v) {
+		return nil
+	}
+	return fmt.Errorf("refusing %s %s: token is %q, the placeholder this CLI prints instead of a real webhook token; send the real token, or leave token out to keep the current one", method, path, WebhookTokenWithheld)
+}
+
+func containsWithheldToken(v any) bool {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			if s, ok := val.(string); ok && strings.EqualFold(k, "token") && s == WebhookTokenWithheld {
+				return true
+			}
+			if containsWithheldToken(val) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range t {
+			if containsWithheldToken(item) {
+				return true
+			}
+		}
+	}
+	return false
 }

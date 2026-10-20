@@ -414,6 +414,15 @@ func containResolve(ctx context.Context, email, orgID, accountID, dbPath string)
 		return containResolution{}, err
 	}
 	if ok {
+		// saas-alerts hand-fix: a unique trigger match is accepted only when the
+		// synced users name no different Microsoft 365 account for this email.
+		ur, uok, _, uerr := containResolveFromUsers(ctx, db, email, orgID, accountID)
+		if uerr != nil {
+			return containResolution{}, fmt.Errorf("%s resolves to organization %s / account %s from synced rule triggers, but synced users cannot confirm it is the only Microsoft 365 account with this email: %v", email, r.OrganizationID, r.AccountID, uerr)
+		}
+		if uok && (ur.OrganizationID != r.OrganizationID || ur.AccountID != r.AccountID) {
+			return containResolution{}, fmt.Errorf("%s matches more than one Microsoft 365 account: --org-id %s --account-id %s (synced rule triggers) and --org-id %s --account-id %s (synced users); pick one with --org-id and --account-id", email, r.OrganizationID, r.AccountID, ur.OrganizationID, ur.AccountID)
+		}
 		return r, nil
 	}
 	r, ok, nonMSUsers, err := containResolveFromUsers(ctx, db, email, orgID, accountID)

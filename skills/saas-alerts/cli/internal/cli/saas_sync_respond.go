@@ -7,6 +7,9 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -198,16 +201,28 @@ func recordSaasEventsCoverage(db *store.Store, sinceTS string, lastSynced time.T
 	return db.SaveEventsCoverage(saasEventsCoverageFloor(sinceTS, lastSynced, full, prev, havePrev))
 }
 
-// saasEventsSyncFiltered reports whether user query params (--param,
-// --global-param, --resource-param events:...) narrow an events sync. Such a
-// sync stores what it fetched but must not advance the partner-wide watermark
-// or coverage floor: later incremental syncs would start after it and never
-// fetch the other customers' events for that period.
-func saasEventsSyncFiltered(p *syncUserParams) bool {
+// saasSyncFiltered reports whether user query params (--param, --global-param,
+// --resource-param <resource>:...) changed what a sync of resource fetched,
+// mirroring syncUserParams.applyTo (--param skips dependents). A narrowed sync
+// (organizationIds, customerId) or one with an overridden page size cannot
+// prove the whole resource was enumerated, so it stores what it fetched but
+// must not prune other rows, advance the watermark or record an events
+// coverage floor.
+func saasSyncFiltered(p *syncUserParams, resource string, isDependent bool) bool {
 	if p == nil {
 		return false
 	}
-	return len(p.flatGlobal) > 0 || len(p.trueGlobal) > 0 || len(p.perResource["events"]) > 0
+	return (!isDependent && len(p.flatGlobal) > 0) || len(p.trueGlobal) > 0 || len(p.perResource[resource]) > 0
+}
+
+// emitSaasFilteredSyncWarning reports a filtered sync that does not count as
+// complete.
+func emitSaasFilteredSyncWarning(w io.Writer, resource string) {
+	if humanFriendly {
+		fmt.Fprintf(os.Stderr, "  %s: query params changed what this sync fetched, so it does not count as a complete sync\n", resource)
+		return
+	}
+	fmt.Fprintf(w, `{"event":"sync_warning","resource":%q,"reason":"filtered_sync_not_complete","message":"query params changed what this sync fetched, so its rows are stored but it does not count as a complete sync: nothing was pruned and the incremental watermark did not move; local reads that check completeness report synced:false until an unfiltered sync finishes"}`+"\n", resource)
 }
 
 // saasResumeCursor returns the saved cursor a sync may resume from. Events
@@ -219,4 +234,23 @@ func saasResumeCursor(resource, saved string) string {
 		return ""
 	}
 	return saved
+}
+
+// saasEventsLateAllowance is how far before the previous watermark an explicit
+// incremental events sync starts. Events are filtered by their event time, and
+// SaaS Alerts can pull an event after that time (the API's isLatent flag marks
+// a long pull lag), so a sync starting exactly at the watermark never fetches
+// an event that happened before it but was pulled after it. Rows dedupe by
+// _id, so the overlap only costs requests.
+const saasEventsLateAllowance = 6 * time.Hour
+
+// saasIncrementalSince is the start of an incremental sync. The page-capped
+// automatic refresh (latestOnly) keeps the plain watermark: its one page holds
+// the newest events, and widening it would mark busy stores unfinished on
+// every refresh; the next explicit sync re-reads the allowance.
+func saasIncrementalSince(resource string, watermark time.Time, latestOnly bool) time.Time {
+	if resource == "events" && !latestOnly {
+		return watermark.Add(-saasEventsLateAllowance)
+	}
+	return watermark
 }

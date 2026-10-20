@@ -3842,9 +3842,9 @@ var resourceIDFieldOverrides = map[string]string{
 	"rule-templates":                "id",
 	"rule-triggers":                 "id",
 	"rules":                         "id",
-	"subscriptions":                 "url",
+	"subscriptions":                 "channelId", // saas-alerts hand-fix: the Webhooks schema identifies a subscription by channelId; url is shared by subscriptions to one receiver
 	"subscriptions-customers":       "id",
-	"subscriptions-disabled":        "url",
+	"subscriptions-disabled":        "channelId", // saas-alerts hand-fix: see subscriptions
 	"users":                         "id",
 	"webhook-domains":               "id",
 	"webhook-queue":                 "id",

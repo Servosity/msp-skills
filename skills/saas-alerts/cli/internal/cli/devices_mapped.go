@@ -25,7 +25,7 @@ func newDevicesMappedCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Retrieves a list of mapped devices based on the specified query parameters.",
 		Example:     "  saas-alerts-cli devices mapped",
 		Args:        cobra.NoArgs,
-		Annotations: map[string]string{"pp:endpoint": "devices.mapped", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/mapped", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:data-source": "live", "pp:endpoint": "devices.mapped", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/mapped", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/manageApi/api/v1/unify/devices/mapped"
 			c, err := flags.newClient()
@@ -41,7 +41,7 @@ func newDevicesMappedCmd(flags *rootFlags) *cobra.Command {
 			if flagSearchAfter != "" {
 				path = appendArrayQueryParam(path, "searchAfter", flagSearchAfter, "form", true)
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "devices", path, retainCLIQueryParams(cmd, map[string]string{
 				"deviceName": formatCLIParamValue(flagDeviceName),
 				"pageSize":   formatCLIParamValue(flagPageSize),
 			}, map[string][]string{"deviceName": {"device-name"}, "pageSize": {"page-size"}}, "searchAfter", "cursor"), nil, flagAll, "searchAfter", "cursor", "pageSize", 0, "meta.sort", "", "", cmd.ErrOrStderr()) // saas-alerts hand-fix: Unify v2 pages with searchAfter = meta.sort

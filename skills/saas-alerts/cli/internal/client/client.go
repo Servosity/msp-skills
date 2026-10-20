@@ -1214,6 +1214,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		}
 		bodyBytes = b
 	}
+	if err := refuseWithheldWebhookToken(method, path, bodyBytes); err != nil { // saas-alerts hand-fix: never write the [withheld] placeholder as a token
+		return nil, 0, err
+	}
 
 	// Resolve auth material before the dry-run branch so --dry-run can preview
 	// exactly what would be sent. Uses only cached credentials; a token that
@@ -1671,7 +1674,7 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	if cfg != nil && strings.HasPrefix(cfg.AuthSource, "env:") { // saas-alerts hand-fix: name the variable, not a config file
 		location = "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
 	} else if cfg != nil && cfg.CredentialSource == "credentials file" { // saas-alerts hand-fix: auth set-token saves to credentials.toml
-		location = "the saved credentials file (saas-alerts-cli doctor shows its path; replace it with auth set-token)"
+		location = "the saved credentials file (credentials.toml in the data directory saas-alerts-cli doctor lists under Paths; replace it with auth set-token)"
 	}
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }

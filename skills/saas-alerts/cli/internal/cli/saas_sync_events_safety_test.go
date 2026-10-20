@@ -96,8 +96,8 @@ func TestSaasFilteredEventsSyncIsNotComplete(t *testing.T) {
 	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 	out := saasRunSync(t, "--resources", "events", "--since", "7d", "--param", "customerId=C1", "--db", dbPath, "--json")
-	if !strings.Contains(out, "filtered_sync_not_complete") {
-		t.Fatalf("no filtered-sync warning:\n%s", out)
+	if !strings.Contains(out, "filtered_sync_not_complete") || !strings.Contains(out, `"warned":1`) {
+		t.Fatalf("filtered sync not reported as warned:\n%s", out)
 	}
 	db, err := store.OpenWithContext(context.Background(), dbPath)
 	if err != nil {
@@ -117,5 +117,93 @@ func TestSaasFilteredEventsSyncIsNotComplete(t *testing.T) {
 	}
 	if _, ok, _ := db.EventsCoverage(); ok {
 		t.Fatal("filtered sync recorded an events coverage floor")
+	}
+}
+
+// TestSaasFilteredFullSyncNeverPrunes: a --full rule-triggers sync narrowed to
+// one organization must not delete other organizations' stored triggers.
+func TestSaasFilteredFullSyncNeverPrunes(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/respondApi/api/v1/auth":
+			w.Write([]byte(`{"accessToken":"t"}`))
+		case "/respondApi/api/v1/rule-triggers":
+			if len(r.URL.Query()["organizationIds[]"]) > 0 {
+				w.Write([]byte(`{"ruleTriggers":[{"id":"RT_A","status":"PENDING","triggeredAt":1686299747000,"organization":{"id":"ORG_A"}}],"pagination":{"hasNextPage":false,"cursor":null}}`))
+				return
+			}
+			w.Write([]byte(`{"ruleTriggers":[{"id":"RT_A","status":"PENDING","triggeredAt":1686299747000,"organization":{"id":"ORG_A"}},{"id":"RT_B","status":"PENDING","triggeredAt":1686299747001,"organization":{"id":"ORG_B"}}],"pagination":{"hasNextPage":false,"cursor":null}}`))
+		default:
+			w.Write([]byte(`[]`))
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("SAAS_ALERTS_BASE_URL", srv.URL)
+	t.Setenv("SAAS_ALERTS_API_KEY", "test-partner-key")
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	saasRunSync(t, "--resources", "rule-triggers", "--full", "--db", dbPath, "--json")
+	out := saasRunSync(t, "--resources", "rule-triggers", "--full", "--resource-param", "rule-triggers:organizationIds[]=ORG_A", "--db", dbPath, "--json")
+	if !strings.Contains(out, "filtered_sync_not_complete") {
+		t.Fatalf("no filtered-sync warning:\n%s", out)
+	}
+	db, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if n, _ := db.Count("rule-triggers"); n != 2 {
+		t.Fatalf("filtered --full sync left %d triggers, want 2 (ORG_B pruned)", n)
+	}
+}
+
+// TestSaasIncrementalEventsSyncRereadsLateAllowance: an explicit incremental
+// events sync starts saasEventsLateAllowance before the previous watermark, so
+// an event pulled after the last sync but timestamped before it is fetched.
+func TestSaasIncrementalEventsSyncRereadsLateAllowance(t *testing.T) {
+	testenv.Isolate(t)
+	var mu sync.Mutex
+	var starts []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/reportApi/api/v1/reports/events" {
+			mu.Lock()
+			starts = append(starts, r.URL.Query().Get("start"))
+			mu.Unlock()
+			w.Write([]byte(fmt.Sprintf(`[{"_id":"ev1","time":%q,"jointType":"login.failure","customer":{"id":"C1"},"user":{"id":"u1"},"product":{"id":"p","name":"Microsoft"}}]`, time.Now().UTC().Format(time.RFC3339))))
+			return
+		}
+		w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+	t.Setenv("SAAS_ALERTS_BASE_URL", srv.URL)
+	t.Setenv("SAAS_ALERTS_API_KEY", "test-partner-key")
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	saasRunSync(t, "--resources", "events", "--db", dbPath, "--json")
+	db, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, watermark, _, err := db.GetSyncState("events")
+	db.Close()
+	if err != nil || watermark.IsZero() {
+		t.Fatalf("no watermark after the first sync: %v", err)
+	}
+	mu.Lock()
+	starts = nil
+	mu.Unlock()
+	saasRunSync(t, "--resources", "events", "--db", dbPath, "--json")
+	if len(starts) == 0 {
+		t.Fatal("second sync sent no events request")
+	}
+	got, err := time.Parse(time.RFC3339, starts[0])
+	if err != nil {
+		t.Fatalf("start %q: %v", starts[0], err)
+	}
+	if want := watermark.Add(-saasEventsLateAllowance); !got.Equal(want.Truncate(time.Second)) {
+		t.Fatalf("incremental start = %v, want %v (watermark %v minus the late allowance)", got, want, watermark)
 	}
 }

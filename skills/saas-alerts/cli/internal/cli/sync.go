@@ -518,7 +518,7 @@ func syncResource(ctx context.Context, c interface {
 	effectiveSince := sinceTS
 	if effectiveSince == "" && !lastSynced.IsZero() && !full {
 		// UTC so the zone renders as "Z"; see the --since resolution above.
-		effectiveSince = lastSynced.UTC().Format(time.RFC3339)
+		effectiveSince = saasIncrementalSince(resource, lastSynced, latestOnly).UTC().Format(time.RFC3339) // saas-alerts hand-fix: re-read late-pulled events
 	}
 	// Resources whose list endpoint declares no temporal-filter parameter
 	// fall back to plain pagination — sending a synthetic since=... would
@@ -1011,14 +1011,10 @@ func syncResource(ctx context.Context, c interface {
 
 	var reconcileErr error
 
-	if resource == "events" && saasEventsSyncFiltered(userParams) && outcome.complete { // saas-alerts hand-fix: a filtered events sync is never partner-wide complete (no prune, no watermark, no coverage floor)
+	if saasSyncFiltered(userParams, resource, false) && outcome.complete { // saas-alerts hand-fix: a filtered sync is never complete (no prune, no watermark, no coverage floor)
 		outcome.complete = false
 		outcome.reason = "filtered_sync"
-		if !humanFriendly {
-			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"events","reason":"filtered_sync_not_complete","message":"query params narrowed this events sync, so its rows are stored but it does not count as a complete sync; triage, investigate, cross-tenant and coverage report synced:false until an unfiltered events sync finishes"}`+"\n")
-		} else {
-			fmt.Fprintln(os.Stderr, "  events: query params narrowed this sync, so it does not count as a complete events sync")
-		}
+		emitSaasFilteredSyncWarning(syncEvents, resource)
 	}
 
 	// Flat reconcile: prune local rows the API no longer returns, gated on a
@@ -1153,6 +1149,9 @@ func syncResource(ctx context.Context, c interface {
 
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
+	}
+	if outcome.reason == "filtered_sync" { // saas-alerts hand-fix: the summary counts a filtered sync as warned, not done
+		return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf("query params changed what this sync fetched, so it is not a complete sync"), Duration: time.Since(started)}
 	}
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
 }
@@ -3016,6 +3015,11 @@ func syncOneParent(
 		cursor = nextCursor
 	}
 
+	if saasSyncFiltered(userParams, dep.Name, true) && outcome.complete { // saas-alerts hand-fix: a filtered dependent sync never prunes or completes
+		outcome.complete = false
+		outcome.reason = "filtered_sync"
+		emitSaasFilteredSyncWarning(syncEvents, dep.Name)
+	}
 	if prune && outcome.complete && dep.ReconcileMode == "per_parent" {
 		deleted, rerr := db.ReconcilePartition(
 			dep.Name, dep.GenericScopeJSONPath, outcome.scopeVal,
@@ -3564,9 +3568,9 @@ var resourceIDFieldOverrides = map[string]string{
 	"rule-templates":                "id",
 	"rule-triggers":                 "id",
 	"rules":                         "id",
-	"subscriptions":                 "url",
+	"subscriptions":                 "channelId", // saas-alerts hand-fix: the Webhooks schema identifies a subscription by channelId; url is shared by subscriptions to one receiver
 	"subscriptions-customers":       "id",
-	"subscriptions-disabled":        "url",
+	"subscriptions-disabled":        "channelId", // saas-alerts hand-fix: see subscriptions
 	"users":                         "id",
 	"webhook-domains":               "id",
 	"webhook-queue":                 "id",

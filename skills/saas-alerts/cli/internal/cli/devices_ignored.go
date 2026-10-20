@@ -26,7 +26,7 @@ func newDevicesIgnoredCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Retrieves a list of ignored devices based on the specified query parameters.",
 		Example:     "  saas-alerts-cli devices ignored",
 		Args:        cobra.NoArgs,
-		Annotations: map[string]string{"pp:endpoint": "devices.ignored", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/ignored", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:data-source": "live", "pp:endpoint": "devices.ignored", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/ignored", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/manageApi/api/v1/unify/devices/ignored"
 			c, err := flags.newClient()
@@ -42,7 +42,7 @@ func newDevicesIgnoredCmd(flags *rootFlags) *cobra.Command {
 			if flagSearchAfter != "" {
 				path = appendArrayQueryParam(path, "searchAfter", flagSearchAfter, "form", true)
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "devices", path, retainCLIQueryParams(cmd, map[string]string{
 				"confidence": formatCLIParamValue(flagConfidence),
 				"deviceName": formatCLIParamValue(flagDeviceName),
 				"pageSize":   formatCLIParamValue(flagPageSize),

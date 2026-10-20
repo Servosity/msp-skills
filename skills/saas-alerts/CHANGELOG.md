@@ -19,8 +19,13 @@ All notable changes to this skill are documented here. Format follows
   until `--confirm`.
 - `contain` blocks sign-in, expires sessions and resets the password for one Microsoft
   365 account in order, previewed until `--confirm`.
-- `rule-triggers list --all` follows Respond's cursor across every page, and Unify device
-  syncs page with `searchAfter`.
+- `rule-triggers list --all` follows Respond's cursor across every page; Unify device syncs
+  and the `devices` list commands page with `searchAfter`, and the `devices` commands read
+  live only (their local copy cannot answer per-account questions).
+- A sync narrowed with `--param`, `--global-param` or `--resource-param` stores its rows but
+  never prunes, never moves the incremental watermark, and is reported as a warning.
+- An explicit incremental events sync re-reads the 6 hours before the previous sync, so an
+  event SaaS Alerts recorded late is still fetched.
 - `subscriptions health` checks every webhook subscription, its unsent queue and domain,
   and plans re-enabling disabled ones (`--reenable --confirm`).
 - `SAAS_ALERTS_MCP_READ_ONLY=1` limits the MCP server to reads and previews.
@@ -28,8 +33,11 @@ All notable changes to this skill are documented here. Format follows
 ### Security
 - Webhook subscription delivery tokens are withheld before they are printed, cached,
   stored or returned over MCP.
-- Values from the API cannot drive the terminal: `--csv`, `--plain` and `--quiet` drop
-  control characters, and JSON output escapes C1 controls.
+- Tenant values cannot drive the terminal through command output: `--csv`, `--plain`,
+  `--quiet` and the human output of the workflow commands drop control characters, and
+  JSON output escapes C1 controls.
+- A Webhooks API write whose token is the `[withheld]` placeholder is refused, so copying a
+  listed subscription into an update never overwrites the real token.
 - An environment `SAAS_ALERTS_BASE_URL` is never saved to `config.toml`.
 
 ### Known limitations

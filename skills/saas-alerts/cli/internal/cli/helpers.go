@@ -1299,6 +1299,9 @@ func paginatedGet(ctx context.Context, c interface {
 			clean[k] = v
 		}
 	}
+	if fetchAll && cursorParam == "searchAfter" && limitParam != "" && strings.TrimSpace(clean[limitParam]) == "" { // saas-alerts hand-fix: Unify --all asks for the documented maximum page, so a short bare page proves the end
+		clean[limitParam] = strconv.Itoa(unifyMaxPageSize)
+	}
 	cursorLookupPath := nextCursorPath
 	if cursorLookupPath == "" && paginationType != "offset" && paginationType != "page" {
 		cursorLookupPath = cursorParam

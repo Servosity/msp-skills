@@ -82,3 +82,22 @@ func TestWebhookTokenWithheldFromDryRunPreview(t *testing.T) {
 		t.Fatalf("dry-run preview leaked the token: %s", out)
 	}
 }
+
+// TestWithheldPlaceholderIsNeverWritten: copying a listed subscription (token
+// [withheld]) into an update must not overwrite the real token.
+func TestWithheldPlaceholderIsNeverWritten(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key"}, 5*time.Second, 0)
+	_, _, err := c.Patch(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions/ch-1", map[string]any{"enabled": true, "token": WebhookTokenWithheld})
+	if err == nil || hits != 0 {
+		t.Fatalf("placeholder token sent: err=%v hits=%d", err, hits)
+	}
+	if _, _, err := c.Patch(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions/ch-1", map[string]any{"enabled": true}); err != nil || hits != 1 {
+		t.Fatalf("an update without token must pass: err=%v hits=%d", err, hits)
+	}
+}

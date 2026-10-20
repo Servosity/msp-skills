@@ -57,6 +57,10 @@ func respondEndOfPages(obj map[string]json.RawMessage, cursorParam, hasMoreField
 	return ok && strings.TrimSpace(string(raw)) == "false"
 }
 
+// unifyMaxPageSize is the Manage 1.2.0 spec's documented pageSize maximum for
+// the Unify v2 device lists.
+const unifyMaxPageSize = 1000
+
 // unifyFullBarePage reports whether a bare-array Unify page (no meta.sort to
 // page from) filled the requested page, so more devices may exist. The spec's
 // example response is a bare array while its searchAfter description implies

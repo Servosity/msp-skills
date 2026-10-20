@@ -26,7 +26,7 @@ func newDevicesInvolvedCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
-		Annotations: map[string]string{"pp:endpoint": "devices.involved", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/involved/{userEmail}", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:data-source": "live", "pp:endpoint": "devices.involved", "pp:method": "GET", "pp:path": "/manageApi/api/v1/unify/devices/involved/{userEmail}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
@@ -61,7 +61,7 @@ func newDevicesInvolvedCmd(flags *rootFlags) *cobra.Command {
 			if flagSearchAfter != "" {
 				path = appendArrayQueryParam(path, "searchAfter", flagSearchAfter, "form", true)
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "devices", path, retainCLIQueryParams(cmd, map[string]string{
 				"deviceName": formatCLIParamValue(flagDeviceName),
 				"pageSize":   formatCLIParamValue(flagPageSize),
 			}, map[string][]string{"deviceName": {"device-name"}, "pageSize": {"page-size"}}, "searchAfter", "cursor"), nil, flagAll, "searchAfter", "cursor", "pageSize", 0, "meta.sort", "", "", cmd.ErrOrStderr()) // saas-alerts hand-fix: Unify v2 pages with searchAfter = meta.sort
