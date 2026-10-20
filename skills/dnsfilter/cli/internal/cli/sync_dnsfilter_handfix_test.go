@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -804,6 +805,79 @@ func TestSyncDependentWithNoParentRows(t *testing.T) {
 	syncHFRunOK(t, "sync", "--resources", "networks", "--db", dbPath)
 	syncHFWantComplete(t, dbPath, "networks", 1, "empty networks walk")
 	syncHFWantComplete(t, dbPath, "lan_ips", 1, "lan_ips under a complete, empty networks walk")
+}
+
+// A parent collection that becomes complete while a child walk is running
+// (another process finishing a networks sync) does not certify the parent
+// rows the child walk enumerated before it.
+func TestSyncDependentParentGenerationIsCaptured(t *testing.T) {
+	testenv.Isolate(t)
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	var once sync.Once
+	var racing atomic.Bool
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		switch {
+		case path == "/v1/networks/all":
+			if p := q.Get("page[number]"); p != "" && p != "1" {
+				return `{"data":[]}`, true
+			}
+			return `{"data":[{"id":"50","type":"networks","attributes":{"name":"HQ"}}]}`, true
+		case strings.HasPrefix(path, "/v1/networks/") && racing.Load():
+			once.Do(func() {
+				db, err := store.Open(dbPath)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				defer db.Close()
+				if err := db.SaveSyncState("networks", "", 2); err != nil {
+					t.Error(err)
+				}
+			})
+			return `{"data":[]}`, true
+		}
+		return "", false
+	})
+	syncHFRunOK(t, "sync", "--resources", "networks", "--resource-param", "networks:organization_id=1", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "networks", 0, "narrowed networks walk")
+	racing.Store(true)
+	syncHFRun("sync", "--resources", "lan_ips", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "networks", 1, "networks completed by the concurrent writer")
+	syncHFWantComplete(t, dbPath, "lan_ips", 0, "lan_ips enumerated while networks was incomplete")
+}
+
+func TestSyncCollectionGeneration(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if done, _ := syncCollectionGeneration(db, "networks"); done {
+		t.Fatal("a never-synced collection reported complete")
+	}
+	t0 := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
+	if err := db.SaveSyncStateAt("networks", "", 1, t0); err != nil {
+		t.Fatal(err)
+	}
+	done, g1 := syncCollectionGeneration(db, "networks")
+	if !done {
+		t.Fatal("a complete collection reported incomplete")
+	}
+	if err := db.SaveSyncProgress("networks", "", 1); err != nil {
+		t.Fatal(err)
+	}
+	if done, g2 := syncCollectionGeneration(db, "networks"); done || g2 == g1 {
+		t.Fatalf("a new attempt did not change the generation: %v %q %q", done, g1, g2)
+	}
+	// The watermark is stored to the second: a whole new parent sync that
+	// both starts and completes inside one enumeration (milliseconds) and in
+	// the same second as the previous completion is the residual ABA case.
+	if err := db.SaveSyncStateAt("networks", "", 1, t0.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if done, g3 := syncCollectionGeneration(db, "networks"); !done || g3 == g1 {
+		t.Fatalf("a completed new attempt kept the old generation: %v %q %q", done, g1, g3)
+	}
 }
 
 func TestSyncSinceCoveredByWatermark(t *testing.T) {

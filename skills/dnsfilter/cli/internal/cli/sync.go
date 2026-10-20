@@ -1299,6 +1299,19 @@ func syncSinceCoveredByWatermark(sinceTS, effectiveSince string, watermark time.
 	return err == nil && !start.After(watermark)
 }
 
+// syncCollectionGeneration reports whether resource's latest sync attempt was
+// a complete walk, and a token that changes whenever an attempt starts or
+// completes (the complete flag and the watermark).
+// HAND-FIX(sync-dependent-needs-parent-rows)
+func syncCollectionGeneration(db *store.Store, resource string) (bool, string) {
+	var complete int
+	var at sql.NullString
+	if err := db.DB().QueryRow(`SELECT last_attempt_complete, last_synced_at FROM sync_state WHERE resource_type = ?`, resource).Scan(&complete, &at); err != nil {
+		return false, ""
+	}
+	return complete == 1, fmt.Sprintf("%d|%s", complete, at.String)
+}
+
 // syncCollectionComplete reports whether resource's latest sync attempt was a
 // complete walk.
 // HAND-FIX(sync-complete-means-whole-fleet)
@@ -3615,7 +3628,14 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 	tenantUUID := resolveTenantID()
 	parentScopeColumn := parentTenantScopeColumns[dep.ParentTable]
+	// HAND-FIX(sync-dependent-needs-parent-rows): the parent rows certify a
+	// complete child walk only when the parent collection was complete and
+	// unchanged (same sync generation) across their enumeration; a parent
+	// sync that starts or finishes meanwhile must not certify them later.
+	parentDoneBefore, parentGenBefore := syncCollectionGeneration(db, dep.ParentTable)
 	parentRows, err := dependentParentRows(db, dep.ParentTable, pathParams, parentScopeColumn, tenantUUID)
+	parentDoneAfter, parentGenAfter := syncCollectionGeneration(db, dep.ParentTable)
+	parentCertified := parentDoneBefore && parentDoneAfter && parentGenBefore == parentGenAfter
 	if err != nil {
 		return syncResult{Resource: dep.Name, Err: fmt.Errorf("querying parent table %s: %w", dep.ParentTable, err), Duration: time.Since(started)}
 	}
@@ -3624,7 +3644,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	// complete; otherwise nothing was walked, which is a warning, never
 	// "(done)".
 	if len(parentRows) == 0 {
-		if syncCollectionComplete(db, dep.ParentTable) {
+		if parentCertified {
 			if err := db.SaveSyncState(dep.Name, "", 0); err != nil {
 				return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, err), Duration: time.Since(started)}
 			}
@@ -3799,7 +3819,9 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 		if rep.complete {
 			completeParents++
-		} else if coverageReason == "" && rep.reason != "" {
+		} else if rep.reason != "" && (coverageReason == "" || syncScopedByRequest(coverageReason) && !syncScopedByRequest(rep.reason)) {
+			// HAND-FIX(sync-resumed-walk-warns): a truncation outranks a
+			// requested scope, whatever order the parents report in.
 			coverageReason = rep.reason
 		}
 		if rep.failure != nil {
@@ -3901,7 +3923,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	attemptComplete := parentCoverageComplete && reportedParents == len(parentRows) && completeParents == len(parentRows)
 	// HAND-FIX(sync-complete-means-whole-fleet): children of an incomplete
 	// parent collection cover only the parents it holds.
-	if attemptComplete && !syncCollectionComplete(db, dep.ParentTable) {
+	if attemptComplete && !parentCertified {
 		attemptComplete = false
 		coverageReason = "parent_collection_incomplete"
 	}

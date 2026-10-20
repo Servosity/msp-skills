@@ -428,6 +428,12 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		// A word after the secret word that is not a qualifier is another label.
 		"Password Policy: strict", "Password Policy 2: strict", "public key: ssh-ed25519", "Token Expiry Policy: 90 days",
 		"Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")",
+		// A qualifier never reaches past the end of its JSON string.
+		`{"id":1,"name":"Office of the Secretary of State","status":"active"}`,
+		`{"block_page_message":"Ask the front desk for the Wi-Fi password at check-in.","block_org_name":"Acme"}`,
+		`{"name":"Spin (cycling studio)","organization_id":7}`,
+		`{"note":"Unblocked so staff can reset password for payroll portal","fqdn":"payroll.example"}`,
+		`[{"id":7,"name":"Secretary of State Office","industry":"gov"},{"id":8,"name":"Acme"}]`,
 	} {
 		if TextNamesSecret(text) {
 			t.Errorf("TextNamesSecret(%q) = true, want false", text)
@@ -446,6 +452,9 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		// A qualifier between the secret label and its separator.
 		"Uninstall PIN for Acme laptops: 482915", "Uninstall PIN (Acme): 482915", "PIN - HQ: 4821", "password #2: hunter2",
 		"admin password, HQ: hunter2", "Uninstall PIN(Acme)=4821", "wifi password for the guest network at HQ: hunter2",
+		"Uninstall PIN [Acme]: 482915", "Uninstall PIN \u2013 HQ: 482915", "Uninstall PIN \u2014 HQ: 4821", "Uninstall PIN @ HQ: 4821",
+		"Uninstall PIN {Acme}: 4821", "Uninstall PIN <Acme>: 4821", "secret_key#1: abc", "Uninstall PIN#2: 482915",
+		"password for " + strings.Repeat("A", 130) + ": hunter2", `{"note":"password for ` + strings.Repeat("A ", 300) + `: hunter2"}`,
 		// Semicolon tables and long spaced headers.
 		"Site;Network Secret Key;Address\nHQ;abc123;1 Main", "Site;secret_key;Address\nHQ;abc123;1 Main",
 		"Site,Roaming Client Uninstall PIN\nHQ,482915",
@@ -463,10 +472,16 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 // separator took 100s on 1.2 MB).
 func TestTextRuleStaysLinear(t *testing.T) {
 	row := `{"name":"Acme Dental HQ","organization_id":12345,"policy_ids":[1,2,3],"address":"1 Main St, Springfield"},`
-	big := "[" + strings.Repeat(row, 12000) + "]"
-	start := time.Now()
-	TextNamesSecret(big)
-	if d := time.Since(start); d > 20*time.Second {
-		t.Fatalf("TextNamesSecret on %d bytes took %v", len(big), d)
+	for _, big := range []string{
+		"[" + strings.Repeat(row, 12000) + "]",
+		strings.Repeat("(:", 500000),
+		strings.Repeat("(:", 500000) + strings.Repeat("\\", 64),
+		strings.Repeat("PIN (a): ", 100000),
+	} {
+		start := time.Now()
+		TextNamesSecret(big)
+		if d := time.Since(start); d > 20*time.Second {
+			t.Fatalf("TextNamesSecret on %d bytes took %v", len(big), d)
+		}
 	}
 }

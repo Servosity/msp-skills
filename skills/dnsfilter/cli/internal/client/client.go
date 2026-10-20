@@ -1751,6 +1751,8 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	// placeholder from the environment is not in the config file.
 	if cfg != nil && strings.HasPrefix(cfg.AuthSource, "env:") {
 		location = "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
+	} else if cfg != nil && cfg.CredentialSource == "credentials file" {
+		location = "the saved credentials file (dnsfilter-cli doctor shows its path)"
 	}
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }

@@ -325,24 +325,16 @@ func encodeCompactJSON(v any) (string, bool) {
 	return strings.TrimRight(buf.String(), "\n"), true
 }
 
-// pairSepRE finds the separator of a name=value / name: value pair; the label
-// before it is judged by secretLabelBefore and the value after it by
-// pairCarriesValue.
-var pairSepRE = regexp.MustCompile(`[:=]`)
+// labelPrepositions lead a qualifier between a secret label and its
+// separator (Uninstall PIN for Acme laptops: 4821). "with" is left out so the
+// CLI's own hint "Set your API key with: export ..." is judged by the pair
+// inside it.
+var labelPrepositions = map[string]bool{"for": true, "of": true, "on": true, "at": true, "in": true, "from": true, "to": true, "via": true, "by": true, "per": true}
 
-// labelWordRE is one word of a label.
-var labelWordRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.\-]*$`)
-
-// qualifierLeadRE is how a qualifier between a secret label and its separator
-// starts: a parenthetical, a number, a comma or dash, or a preposition
-// (Uninstall PIN (Acme): 4821, password #2: x, PIN - HQ: x, PIN for Acme
-// laptops: x). "with" is left out so the CLI's own hint "Set your API key
-// with: export ..." is judged by the pair inside it.
-var qualifierLeadRE = regexp.MustCompile(`^(?:[(#,0-9]|- |(?i:for|of|on|at|in|from|to|via|by|per)(?:[^A-Za-z0-9_]|$))`)
-
-// maxLabelWindow bounds how far before a separator a label and its qualifier
-// may start.
-const maxLabelWindow = 120
+// isLabelWordByte reports a byte that continues a label word.
+func isLabelWordByte(c byte) bool {
+	return c == '_' || c == '.' || c == '-' || c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
+}
 
 // tableSplitRE splits a CSV, TSV, pipe or column-aligned table row.
 var tableSplitRE = regexp.MustCompile(`\s*[,;\t|]\s*|\s{2,}`)
@@ -449,85 +441,92 @@ func labelNamesSecret(label string) bool {
 	return false
 }
 
-// SecretPairInText reports whether text holds a secret-named key followed by
-// a separator (= or :, quotes allowed around the name) and a value that is
-// not exempt; see pairCarriesValue for how the value is taken. It reads text
-// at one escape level, as given, and never unescapes; TextNamesSecret runs it
-// on every level of raw text.
+// SecretPairInText reports whether text holds a secret label followed by a
+// separator (= or :) and a value that is not exempt (pairCarriesValue). One
+// linear pass, no window: a separator is labelled when the one to three
+// space-separated words right before it (closing quotes, backslashes and
+// whitespace between them allowed) name a secret (labelNamesSecret), or when
+// earlier in the same segment a secret label was followed by a qualifier,
+// however long: punctuation or a digit (PIN (Acme), password #2, PIN - HQ,
+// PIN, HQ, PIN [Acme], password#2) or a preposition (PIN for Acme laptops).
+// A segment ends at a line break (real or escaped as \n / \r) or at the end
+// of a JSON string (a quote followed by , } or ]), so an org named "Office of
+// the Secretary of State" arms nothing past its own string. A secret word
+// followed by another word is a different label (Password Policy: strict is
+// kept). It reads text at one escape level, as given, and never unescapes;
+// TextNamesSecret runs it on every level of raw text.
 func SecretPairInText(text string) bool {
 	if !strings.ContainsAny(text, ":=") {
 		return false
 	}
-	for _, m := range pairSepRE.FindAllStringIndex(text, -1) {
-		// The window is bounded before any scan: the separator loop stays
-		// linear in len(text).
-		if secretLabelBefore(labelLine(text[max(0, m[0]-2*maxLabelWindow):m[0]])) && pairCarriesValue(text[m[1]:]) {
-			return true
-		}
-	}
-	return false
-}
-
-// labelLine is the text before a separator that can hold its label: closing
-// quotes, escaping backslashes and whitespace are dropped from the end, then
-// the text is cut to its last line (a line break, or one escaped as \n or
-// \r) and to maxLabelWindow bytes.
-func labelLine(pre string) string {
-	pre = strings.TrimRight(pre, " \t\r\n\"'\\")
-	for _, br := range []string{"\n", "\r", `\n`, `\r`} {
-		if i := strings.LastIndex(pre, br); i >= 0 {
-			pre = pre[i+len(br):]
-		}
-	}
-	if len(pre) > maxLabelWindow {
-		pre = pre[len(pre)-maxLabelWindow:]
-	}
-	return pre
-}
-
-// secretLabelBefore reports whether line ends in a secret label: one to three
-// space-separated words that name a secret (labelNamesSecret), optionally
-// followed by a qualifier (see qualifierLeadRE). A word after the secret word
-// that is not a qualifier makes it a different label (Password Policy: strict
-// is kept).
-func secretLabelBefore(line string) bool {
-	splits := []int{len(line)}
-	for i := 0; i < len(line); i++ {
-		if line[i] == '(' || line[i] == ',' || (i > 0 && (line[i-1] == ' ' || line[i-1] == '\t') && line[i] != ' ' && line[i] != '\t') {
-			splits = append(splits, i)
-		}
-	}
-	for _, q := range splits {
-		if qual := strings.TrimSpace(line[q:]); qual != "" && !qualifierLeadRE.MatchString(qual) {
+	var run []string // the last one to three words of the current run
+	// runSecret: the run names a secret. pending: it does and nothing has
+	// followed yet. armed: a secret label then a qualifier in this segment.
+	// clean: only whitespace, quotes and backslashes since the last word.
+	// joined: the next word continues the run (only spaces since a word).
+	runSecret, pending, armed, clean, joined := false, false, false, false, false
+	for i := 0; i < len(text); {
+		c := text[i]
+		switch {
+		case c == '[' && strings.HasPrefix(text[i:], WithheldValuePlaceholder):
+			i += len(WithheldValuePlaceholder)
+			runSecret, pending, clean, joined = false, false, false, false
 			continue
+		case c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z':
+			j := i + 1
+			for j < len(text) && isLabelWordByte(text[j]) {
+				j++
+			}
+			w := text[i:j]
+			if pending && labelPrepositions[strings.ToLower(w)] {
+				armed = true
+			}
+			if !joined {
+				run = run[:0]
+			}
+			if run = append(run, w); len(run) > 3 {
+				run = append(run[:0], run[1:]...)
+			}
+			runSecret = labelNamesSecret(strings.Join(run, " "))
+			pending, clean, joined = runSecret, true, true
+			i = j
+			continue
+		case c == ' ' || c == '\t':
+		case c == '\n' || c == '\r':
+			armed, pending, joined = false, false, false
+		case c == '\\' && i+1 < len(text) && (text[i+1] == 'n' || text[i+1] == 'r'):
+			armed, pending, joined = false, false, false
+			i += 2
+			continue
+		case c == '\\' && i+1 < len(text) && text[i+1] == 't':
+			i += 2
+			continue
+		case c == '"' || c == '\'' || c == '\\':
+			if c != '\\' && i+1 < len(text) && (text[i+1] == ',' || text[i+1] == '}' || text[i+1] == ']') {
+				armed = false
+			}
+			pending, joined = false, false
+		case c == ':' || c == '=':
+			labelled := armed || clean && runSecret
+			if labelled && pairCarriesValue(text[i+1:]) {
+				return true
+			}
+			runSecret, pending, clean, joined = false, false, false, false
+			if labelled {
+				// An exempt value (<token>, "your-token-here") is skipped:
+				// its own words never arm a qualifier.
+				i += 1 + pairValueLen(text[i+1:])
+				continue
+			}
+		default:
+			if pending {
+				armed = true
+			}
+			pending, clean, joined = false, false, false
 		}
-		if words := trailingLabelWords(line[:q]); words != "" && labelNamesSecret(words) {
-			return true
-		}
+		i++
 	}
 	return false
-}
-
-// trailingLabelWords returns the last one to three space-separated words of s
-// (JSON punctuation glued to the left of the first word is dropped, and stops
-// the label there).
-func trailingLabelWords(s string) string {
-	fields := strings.Fields(s)
-	var words []string
-	for i := len(fields) - 1; i >= 0 && len(words) < 3; i-- {
-		f := fields[i]
-		if !labelWordRE.MatchString(f) {
-			j := strings.LastIndexFunc(f, func(r rune) bool {
-				return !(r == '_' || r == '.' || r == '-' || r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z')
-			})
-			if f = f[j+1:]; labelWordRE.MatchString(f) {
-				words = append([]string{f}, words...)
-			}
-			break
-		}
-		words = append([]string{f}, words...)
-	}
-	return strings.Join(words, " ")
 }
 
 // maxUnescapeRounds bounds how many levels of JSON string escaping the text
@@ -669,6 +668,33 @@ func pairCarriesValue(rest string) bool {
 		return !onlyDelimiters(rest)
 	}
 	return !exemptPairValue(rest[:end])
+}
+
+// pairValueLen is the length of rest that pairCarriesValue reads as the
+// value: leading whitespace and line breaks, then a quoted value to its
+// closing quote, the placeholder whole, or a bare value to the first
+// delimiter.
+func pairValueLen(rest string) int {
+	v := skipInlineSpace(rest)
+	if line, ok := afterNewline(v); ok {
+		v = skipInlineSpace(line)
+	}
+	n := 0
+	for n < len(v) && v[n] == '\\' {
+		n++
+	}
+	if n < len(v) && (v[n] == '"' || v[n] == '\'') {
+		_, after, _ := quotedValue(v[n+1:], v[n], n)
+		return len(rest) - len(after)
+	}
+	if strings.HasPrefix(v, WithheldValuePlaceholder) {
+		return len(rest) - len(v) + len(WithheldValuePlaceholder)
+	}
+	end := 0
+	for end < len(v) && !isValueDelimiter(v[end]) {
+		end++
+	}
+	return len(rest) - len(v) + end
 }
 
 // skipInlineSpace drops leading spaces, tabs and escaped tabs (\t).
