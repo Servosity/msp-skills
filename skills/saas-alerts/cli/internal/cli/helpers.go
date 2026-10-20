@@ -150,6 +150,9 @@ func colorEnabled() bool {
 }
 
 func isTerminal(w io.Writer) bool {
+	if u, ok := w.(interface{ Unwrap() io.Writer }); ok {
+		w = u.Unwrap() // c1EscapeWriter around stdout/stderr
+	}
 	if f, ok := w.(*os.File); ok {
 		fi, err := f.Stat()
 		if err != nil {
@@ -3466,6 +3469,7 @@ func writeCSVRows(w io.Writer, items []map[string]any) error {
 func writeCSVRow(w io.Writer, cells []string) {
 	escaped := make([]string, len(cells))
 	for i, cell := range cells {
+		cell = scrubCell(cell)
 		if strings.ContainsAny(cell, ",\"\r\n") {
 			escaped[i] = `"` + strings.ReplaceAll(cell, `"`, `""`) + `"`
 		} else {
@@ -3518,7 +3522,7 @@ func printPlain(w io.Writer, data json.RawMessage, documentedFields ...map[strin
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Fprintln(w, strings.Join(keys, "\t"))
+	fmt.Fprintln(w, scrubCell(strings.Join(keys, "\t")))
 	for _, item := range items {
 		var vals []string
 		for _, k := range keys {
@@ -3551,7 +3555,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 			if v == nil {
 				continue
 			}
-			fmt.Fprintln(w, fmt.Sprint(v))
+			fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))
 		}
 		return nil
 	}
@@ -3566,7 +3570,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 	if trimmed == "" || trimmed == "null" {
 		return nil
 	}
-	fmt.Fprintln(w, trimmed)
+	fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))
 	return nil
 }
 
@@ -3605,7 +3609,7 @@ func quietScalar(v any) string {
 	}
 	switch t := v.(type) {
 	case string:
-		return t
+		return cliutil.ScrubTerminal(t) // one value per line, tenant text
 	case bool:
 		return strconv.FormatBool(t)
 	case float64:
@@ -3661,8 +3665,24 @@ func objectEnvelopeRows(obj map[string]any) ([]map[string]any, bool) {
 	return rows, true
 }
 
+// scrubCell drops terminal control characters (ESC, BEL, C1) from a --csv or
+// --plain value: tenant strings (customer, user and event fields) reach the
+// terminal through these printers. Tab, CR and LF stay for CSV quoting and
+// plainCellValue to handle.
+func scrubCell(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\n' || r == '\r' {
+			return r
+		}
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func plainCellValue(v any) string {
-	s := formatTabularCell(v)
+	s := scrubCell(formatTabularCell(v))
 	s = strings.ReplaceAll(s, "\t", " ")
 	s = strings.ReplaceAll(s, "\r\n", " ")
 	s = strings.ReplaceAll(s, "\n", " ")

@@ -177,6 +177,10 @@ func RootCmd() *cobra.Command {
 func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
+	// Tenant strings reach stdout/stderr inside JSON, where encoding/json
+	// leaves C1 controls raw (handfixes.json: output-escapes-c1-controls).
+	rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})
+	rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})
 	defer finalizePlatformInvocation(&flags, &retErr)
 
 	executedCmd, err := rootCmd.ExecuteC()
@@ -380,7 +384,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 			flags.deliverSink = sink
 			if sink.Scheme != "stdout" && sink.Scheme != "" {
 				flags.deliverBuf = &bytes.Buffer{}
-				cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))
+				cmd.SetOut(io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf))
 			}
 		}
 		if flags.runProfileName != "" {
