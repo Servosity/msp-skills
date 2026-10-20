@@ -5486,6 +5486,34 @@
           "not_contains": "GenericScopeJSONPath: \"$.device-group\""
         }
       ]
+    },
+    {
+      "id": "credentials-path-follows-config",
+      "summary": "the Config remembers which credentials file Load read (an explicit --config's colocated data/credentials.toml unless Load fell back to the global file) and SaveTokens, the save lock and rollback, ClearTokens (auth logout) and auth's save-path message all use it",
+      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err := cliutil.RemoveCredentialsAt(credsPath); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err := cliutil.SaveCredentialsAt(credsPath, persisted.credentials()); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if colocated, perr := cliutil.CredentialsFilePathForConfig(path); perr == nil {\n\t\t\t\t\tcfg.credentialsPath = colocated",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if path, err := cfg.CredentialsPath(); err == nil {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

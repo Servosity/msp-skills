@@ -35,7 +35,12 @@ type Config struct {
 	// legacySourcePath records the legacy config path when Load fell
 	// back to it. Used by save() to scrub credential fields from the
 	// old location after relocation. Unexported: never persisted.
-	legacySourcePath    string
+	legacySourcePath string
+	// credentialsPath is the credentials file this Config reads and writes:
+	// an explicit --config's colocated data/credentials.toml unless Load fell
+	// back to the global file; "" means the global file (hand-fix
+	// credentials-path-follows-config).
+	credentialsPath     string
 	AccessToken         string          `toml:"access_token"`
 	RefreshToken        string          `toml:"refresh_token"`
 	TokenExpiry         time.Time       `toml:"token_expiry"`
@@ -139,6 +144,9 @@ func Load(configPath string) (*Config, error) {
 		credentialsRefused := false
 		if !cfg.hasCompleteCredentialFields() {
 			if explicitConfigFile {
+				if colocated, perr := cliutil.CredentialsFilePathForConfig(path); perr == nil {
+					cfg.credentialsPath = colocated
+				}
 				var status cliutil.CredentialLoadStatus
 				creds, status, err = cliutil.LoadCredentialsForConfigWithStatus(path)
 				if err != nil {
@@ -157,6 +165,9 @@ func Load(configPath string) (*Config, error) {
 					return nil, err
 				}
 				ok = status.Loaded
+				if ok && creds != nil && creds.HasValues() {
+					cfg.credentialsPath = "" // the global file is the one in use
+				}
 				if status.Refusal != nil {
 					cfg.addCredentialRefusal(*status.Refusal)
 				}
@@ -591,7 +602,11 @@ func (c *Config) saveCredentialsFirst() error {
 		return nil
 	}
 	persisted := c.configForSave()
-	if err := cliutil.SaveCredentials(persisted.credentials()); err != nil {
+	credsPath, err := c.CredentialsPath()
+	if err != nil {
+		return err
+	}
+	if err := cliutil.SaveCredentialsAt(credsPath, persisted.credentials()); err != nil {
 		return err
 	}
 	c.CredentialSource = "credentials file"
@@ -609,7 +624,7 @@ type credentialsSnapshot struct {
 // Credentials and config are separate files. Publishing tokens first would
 // otherwise leave a new credentials.toml if the config write fails.
 func (c *Config) saveCredentialsThenConfig() error {
-	credsPath, err := cliutil.CredentialsFilePath()
+	credsPath, err := c.CredentialsPath()
 	if err != nil {
 		return err
 	}
@@ -775,10 +790,23 @@ func (c *Config) ClearTokens() error {
 		// back; returning early would leave the secrets on disk.
 		return c.save()
 	}
-	if err := cliutil.RemoveCredentials(); err != nil {
+	credsPath, err := c.CredentialsPath()
+	if err != nil {
+		return err
+	}
+	if err := cliutil.RemoveCredentialsAt(credsPath); err != nil {
 		return err
 	}
 	return c.save()
+}
+
+// CredentialsPath is the credentials file this Config reads and writes
+// (hand-fix credentials-path-follows-config).
+func (c *Config) CredentialsPath() (string, error) {
+	if c != nil && c.credentialsPath != "" {
+		return c.credentialsPath, nil
+	}
+	return cliutil.CredentialsFilePath()
 }
 
 func (c *Config) markEnvOverride(field string) {
