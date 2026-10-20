@@ -493,34 +493,45 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	cmd.Stderr = stderr
 	err := cmd.Run()
 	stdoutText := stdout.String()
+	stderrRaw := stderr.String()
+	// Hand-wired (handfixes.json: mcp-failure-keeps-stdout-remedy): under the
+	// read-only switch nothing selects, tails or cuts child output before it
+	// is redacted WHOLE (redactChildOutput): a cut taken first can drop a key
+	// name and keep its value ('ret_key":"<secret>'), which no later rule
+	// recognizes. Whole texts (stdout as the result, stderr in an error) go
+	// to bound.Text, which redacts before it budgets or previews.
 	result := CLICommandResult{
 		Stdout:      stdoutText,
-		StderrHints: stderrHintLines(stderr.String()),
+		StderrHints: stderrHintLines(redactChildOutput(stderrRaw)),
 	}
 	if err != nil {
-		stderrText := strings.TrimSpace(stderr.String())
-		msg := stderrText
-		if msg == "" {
-			msg = strings.TrimSpace(stdoutText)
-		} else if detail := failedStdoutDetail(stdoutText); detail != "" {
-			// Hand-wired (handfixes.json: mcp-failure-keeps-stdout-remedy): a
-			// command that exits non-zero can print its remedy on stdout (sync's
-			// {"event":"sync_warning",...,"message":"run 'dnsfilter-cli sync
-			// --full --resources user-agents'..."}); stderr alone only says
-			// "completed with warnings". Carried here, it still passes
-			// bound.Text (redaction, budget) and the MCP result funnel.
-			msg += "\noutput: " + detail
-		}
-		if msg != "" {
-			label := "stderr"
-			if stderrText == "" {
-				label = "output"
-			}
-			return result, fmt.Errorf("cli %s: %w (%s: %s)", binPath, err, label, bound.Text(msg))
-		}
-		return result, fmt.Errorf("cli %s: %w", binPath, err)
+		return result, cliFailureError(binPath, err, stdoutText, stderrRaw)
 	}
 	return result, nil
+}
+
+// cliFailureError builds the error for a command that exited non-zero.
+func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string) error {
+	stderrText := strings.TrimSpace(stderrRaw)
+	msg := stderrText
+	if msg == "" {
+		msg = strings.TrimSpace(stdoutText)
+	} else if detail := failedStdoutDetail(redactChildOutput(stdoutText)); detail != "" {
+		// A command that exits non-zero can print its remedy on stdout
+		// (sync's {"event":"sync_warning",...,"message":"run 'dnsfilter-cli
+		// sync --full --resources user-agents'..."}); stderr alone only says
+		// "completed with warnings". Carried here, it still passes
+		// bound.Text (redaction, budget) and the MCP result funnel.
+		msg += "\noutput: " + detail
+	}
+	if msg != "" {
+		label := "stderr"
+		if stderrText == "" {
+			label = "output"
+		}
+		return fmt.Errorf("cli %s: %w (%s: %s)", binPath, runErr, label, bound.Text(msg))
+	}
+	return fmt.Errorf("cli %s: %w", binPath, runErr)
 }
 
 // failedStdoutTailLines and failedStdoutDetailBytes bound what a failed
@@ -531,7 +542,7 @@ const (
 )
 
 // failedStdoutDetail picks what an agent needs from a failed command's
-// stdout: every warning, hint or error line (an NDJSON event whose "event"
+// stdout (which the caller has already redacted whole, redactChildOutput): every warning, hint or error line (an NDJSON event whose "event"
 // names a warning, hint or error, such as sync_warning, or a plain line that
 // starts with hint:, warning: or error:), else the last lines of output. The
 // result is cut from the front to failedStdoutDetailBytes, so the newest

@@ -2601,14 +2601,44 @@
     },
     {
       "id": "mcp-failure-keeps-stdout-remedy",
-      "summary": "when a mirrored command exits non-zero with something on stderr, the MCP tool error also carries the command's stdout warning, hint and error lines (NDJSON events such as sync_warning, or lines starting hint:/warning:/error:), or the last 20 stdout lines when there are none, cut to 8000 bytes, still through bound.Text (redaction, budget) and the MCP result funnel",
-      "why": "Adversarial round 5 (2026-10-20, P2): RunCLICommand built the error from stderr alone, so over MCP a sync on a resumed walk returned only 'exit status 1 (stderr: Error: 1 resource(s) completed with warnings but no successful syncs)' and dropped the stdout {\"event\":\"sync_warning\",\"reason\":\"resumed_from_cursor\",...\"run 'dnsfilter-cli sync --full --resources user-agents' to complete it\"} line, the one actionable remedy. Same class as quotewerks mcp-partial-failure-keeps-receipt, with the stdout part narrowed to remedy lines. Proven over stdio 2026-10-20: a user-agents walk interrupted at page 2 (the mock answered 400), then tools/call sync {resources:\"user-agents\"} resumed at page 2 and its error showed the sync_warning with the --full remedy. TestRunCLICommandFailureKeepsStdoutRemedy and TestSyncToolFailureShowsStdoutRemedy fail when the stdout detail is dropped; TestFailedStdoutDetailPicksRemedyLines fails when the line picker is disabled.",
+      "summary": "when a mirrored command exits non-zero with something on stderr, the MCP tool error also carries the command's stdout warning, hint and error lines (NDJSON events such as sync_warning, or lines starting hint:/warning:/error:), or the last 20 stdout lines when there are none, cut to 8000 bytes, still through bound.Text (redaction, budget) and the MCP result funnel; under the read-only switch the captured stdout and stderr are redacted WHOLE (redact.Raw, then every line that still names a credential replaced, then the whole text withheld if it still trips the funnel) before any line is selected, tailed or cut",
+      "why": "Adversarial round 5 (2026-10-20, P2): RunCLICommand built the error from stderr alone, so over MCP a sync on a resumed walk returned only 'exit status 1 (stderr: Error: 1 resource(s) completed with warnings but no successful syncs)' and dropped the stdout {\"event\":\"sync_warning\",\"reason\":\"resumed_from_cursor\",...\"run 'dnsfilter-cli sync --full --resources user-agents' to complete it\"} line, the one actionable remedy. Same class as quotewerks mcp-partial-failure-keeps-receipt, with the stdout part narrowed to remedy lines. Proven over stdio 2026-10-20: a user-agents walk interrupted at page 2 (the mock answered 400), then tools/call sync {resources:\"user-agents\"} resumed at page 2 and its error showed the sync_warning with the --full remedy. TestRunCLICommandFailureKeepsStdoutRemedy and TestSyncToolFailureShowsStdoutRemedy fail when the stdout detail is dropped; TestFailedStdoutDetailPicksRemedyLines fails when the line picker is disabled. Adversarial round 6 (2026-10-20, P1): the round-5 version tailed 20 lines and cut them from the front to 8000 bytes BEFORE redaction, so a cut inside a row's \"secret_key\" key name left 'ret_key\":\"<secret>' that neither the key rule nor the withheld-value backstop recognizes; read-only tools/call tail {resource:networks, interval:0s} (the child panics after printing) returned it in clear. Now redactChildOutput runs on the whole capture first and failedStdoutDetail and the stderr hint selection only ever see redacted text; whole stdout and stderr still go through bound.Text, which redacts before it budgets or previews. The capture cap only drops a suffix, which never separates a value from the key or header in front of it, and a record it cuts short is replaced line-wise. Proven over stdio with 25 networks rows (the tail line size swept from 403 to 420 bytes): the previous binary returned output: ret_key\":\"SKLEAK108... at 414-byte rows (and a 08QXZJ... suffix at 415); the fixed binary returned no secret fragment at any size. TestFailureDetailFrontCutInsideKeyName, TestFailureDetailLineTailBetweenKeyAndValue and TestFailureDetailCutSweep (the 8000-byte cut at every offset of the key name and value, the 20-line boundary on every line of a pretty-printed record, the capture cap at every offset of a row) fail when the detail is selected before redaction; TestStderrHintSelectionAfterRedaction fails when hints are selected from raw stderr or when the whole-text check is dropped; TestFailureDetailCaptureCapInsideValue fails when the per-line pass is dropped (everything withheld).",
       "status": "active",
       "spec_encode_followup": "Press-side: shellout.go.tmpl RunCLICommand should keep a failed command's stdout warning lines (or a bounded tail) in the error.",
       "asserts": [
         {
           "file": "cli/internal/mcp/cobratree/shellout.go",
-          "contains": "} else if detail := failedStdoutDetail(stdoutText); detail != \"\" {",
+          "contains": "} else if detail := failedStdoutDetail(redactChildOutput(stdoutText)); detail != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "StderrHints: stderrHintLines(redactChildOutput(stderrRaw)),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/child_output.go",
+          "contains": "func redactChildOutput(s string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/child_output.go",
+          "contains": "lines := strings.Split(redact.Raw(s), \"\\n\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/child_output.go",
+          "contains": "if strings.TrimSpace(line) != \"\" && redact.Final(line) == redact.WithheldBlockMessage {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/child_output.go",
+          "contains": "if redact.Final(out) == redact.WithheldBlockMessage {",
           "code_only": true
         },
         {
@@ -2639,6 +2669,21 @@
         {
           "file": "cli/internal/mcp/oversized_redaction_test.go",
           "contains": "func TestSyncToolFailureShowsStdoutRemedy(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/cut_point_test.go",
+          "contains": "func TestFailureDetailFrontCutInsideKeyName(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/cut_point_test.go",
+          "contains": "func TestFailureDetailCutSweep(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/cut_point_test.go",
+          "contains": "func TestStderrHintSelectionAfterRedaction(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -2830,6 +2875,24 @@
         {
           "file": "cli/internal/mcp/redact/redact_property_test.go",
           "contains": "`{\"meta\":\"password=true!SECRETX8\"}`,",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tail-interval-positive",
+      "summary": "tail refuses a zero or negative --interval as a usage error (exit 2) before any request, instead of panicking in time.NewTicker after the first fetch has printed",
+      "why": "Adversarial round 6: `tail networks --interval 0s` printed the rows, then panicked with a Go stack trace (local build paths included), which over MCP became the tool error and was a deterministic trigger for the failed-command output path. TestTailRejectsNonPositiveInterval fails (panics) when the guard is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "if follow && interval <= 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail_interval_test.go",
+          "contains": "func TestTailRejectsNonPositiveInterval(t *testing.T) {",
           "code_only": true
         }
       ]

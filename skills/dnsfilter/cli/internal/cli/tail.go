@@ -35,6 +35,11 @@ Note: For APIs with WebSocket or SSE support, a future version will use
 native streaming instead of polling.`,
 		Example: "  # Poll one resource once and exit\n  dnsfilter-cli tail agent-local-users --follow=false\n\n  # Tail a resource until interrupted\n  dnsfilter-cli tail agent-local-users --interval 30s",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// handfixes.json: tail-interval-positive. time.NewTicker panics on
+			// a non-positive interval after the first fetch has printed.
+			if follow && interval <= 0 {
+				return usageErr(fmt.Errorf("--interval must be greater than 0 (got %s)", interval))
+			}
 			if len(args) > 0 {
 				resource = args[0]
 			}
