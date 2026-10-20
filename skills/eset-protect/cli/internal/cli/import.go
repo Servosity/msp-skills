@@ -30,7 +30,7 @@ but do not stop the import.`,
 		Example: `  # Import from a JSONL file
   eset-protect-cli import <resource> --input data.jsonl
 
-  # Dry-run to preview without sending
+  # Dry-run: preview the records without writing them (an access token may still be requested)
   eset-protect-cli import <resource> --input data.jsonl --dry-run
 
   # Import from stdin
@@ -135,7 +135,7 @@ but do not stop the import.`,
 
 	cmd.Flags().StringVarP(&inputFile, "input", "i", "", "Input JSONL file path (use - for stdin)")
 	_ = cmd.MarkFlagRequired("input")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview import without sending requests")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview import without writing records (an access token may still be requested)")
 	cmd.Flags().IntVar(&batchSize, "batch-size", 1, "Records per batch (future: batch API support)")
 
 	return cmd

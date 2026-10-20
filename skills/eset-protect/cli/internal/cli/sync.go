@@ -141,6 +141,15 @@ Resource scoping:
 			if err != nil {
 				return usageErr(err)
 			}
+			// Hand-fix path-context-known-keys-only: replacePathParam substitutes
+			// "{"+key+"}" for ANY key, so a crafted key such as
+			// `region}.<svc>.eset.systems/v1/policies/{policyUuid` spans the host
+			// and bypasses the region check below. Refuse unknown keys up front.
+			for k := range pathContext {
+				if !pathContextVarSet[k] {
+					return usageErr(fmt.Errorf("--path-context key %q is not a known endpoint placeholder (known: policyUuid, region)", k))
+				}
+			}
 			// Hand-fix region-normalized-and-validated: the region override is
 			// cleaned and checked like ESET_PROTECT_REGION, and it must name the
 			// configured region. newClient mints the token for the configured
@@ -179,15 +188,8 @@ Resource scoping:
 				if c.Config.TemplateVars == nil {
 					c.Config.TemplateVars = map[string]string{}
 				}
-				// Warn on keys outside pathContextVarSet so typos
-				// (e.g. --path-context tneant=...) surface immediately
-				// instead of silently producing a run that used the
-				// env-resolved default. Non-fatal: the merge still proceeds
-				// so callers passing forward-compat keys aren't blocked.
+				// Unknown keys were refused above (path-context-known-keys-only).
 				for k, v := range pathContext {
-					if !pathContextVarSet[k] {
-						fmt.Fprintf(os.Stderr, "warning: --path-context key %q is not a known endpoint placeholder; this value will not be substituted into any request path\n", k)
-					}
 					c.Config.TemplateVars[k] = v
 				}
 			}

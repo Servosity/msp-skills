@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `eset-protect-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `eset-protect-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `eset-protect-mcp --transport http` with `ESET_PROTECT_MCP_HTTP_TOKEN` set (it refuses to start without one) and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -199,7 +199,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ESET MCP server runs locally, but it speaks HTTP natively: start it with `eset-protect-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ESET MCP server runs locally, but it speaks HTTP natively: start it with `eset-protect-mcp --transport http` and `ESET_PROTECT_MCP_HTTP_TOKEN` set to a long random value (it refuses to start without one; it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -250,7 +250,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `fleet health`, `fleet gaps`, `fleet stale`, `triage`, `exposure`, `report customer`, `report vulnerabilities`, `patches backlog`, `detections spread`, `detections latest`, `devices profile`, `incidents context`, `executables find`, `policies decode`, `devices list`, `incidents list`, `detections list`, `policies list`, `sync` (writes only the local mirror) | Allow |
+| Read | `fleet health`, `fleet gaps`, `fleet stale`, `triage`, `exposure`, `report customer`, `report vulnerabilities`, `patches backlog`, `detections spread`, `detections latest`, `devices profile`, `incidents context`, `executables find`, `policies decode`, `devices list`, `incidents list`, `detections list`, `policies list`, `sync` (writes only the local mirror), `export` (writes a local file; Credential-tier fields redacted) | Allow |
 | Endpoint response | `respond scan`, `respond isolate`, `respond release` (preview unless `--yes`), `device-tasks create`, `device-tasks update-targets`, `device-tasks update-triggers`, `mobile-devices-batch-activate-product` | Human-in-the-loop, explicit confirmation - these reach real customer machines |
 | Protection and policy config | `executables block`, `executables unblock`, `edr-rules create`, `edr-rules enable`, `edr-rules disable`, `edr-rules update-definition`, `edr-rule-exclusions create`, `edr-rule-exclusions update-definition`, `policies create`, `policies clone` (preview unless `--yes`), `policy-assignments assign-policy`, `policy-assignments unassign-policy`, `policy-assignments update-ranking`, `ip-sets update`, `web-address-rules domains web-address-rules-update`, `devices move`, `groups move` | Preview with `--dry-run`, then a human-approved write - an exclusion, a disabled rule or a move into another group's policy can open a hole |
 | Write (routine) | `incidents close`, `incidents reopen`, `incidents basic-attributes-update incidents-update-incident-basic-attributes`, `incidents comments incident-create-incident`, `incidents comments incident-update-incident-text`, `detection-groups resolve`, `detections-v2 resolve`, `devices rename`, `groups create`, `groups rename`, `installers create` | Preview with `--dry-run`, then a reviewed write |

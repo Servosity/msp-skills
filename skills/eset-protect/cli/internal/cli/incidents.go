@@ -11,7 +11,7 @@ import (
 func newIncidentsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "incidents",
-		Short:       "List, get, and create incidents",
+		Short:       "List, get, close, reopen, update, and comment on incidents",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

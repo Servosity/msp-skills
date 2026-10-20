@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/eset-protect/install.ps1
 ---
 
-# ESET PROTECT  -  Printing Press CLI
+# ESET PROTECT CLI
 
 ## Prerequisites: Install the CLI
 
@@ -556,7 +556,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
   ```bash
   eset-protect-cli detection-groups list --agent --select category,circumstances,cloudOfficeTenantUuid
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
+- **Previewable**  -  `--dry-run` shows the request without sending (the API request only: `--deliver webhook:<url>` still posts the output, `feedback --send` still sends, and `import --dry-run` may still request an access token)
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
@@ -793,7 +793,7 @@ The amend command appends to the family's existing notes with a timestamped mark
 
 #### PII discipline for amend notes
 
-`playbook amend` notes are designed to potentially flow upstream as shared knowledge in future versions of the Printing Press. Keep them clean of user-identifying content so the upstream-contribution path stays open without retroactive scrubbing:
+`playbook amend` notes are designed to potentially flow upstream as shared knowledge in future versions of the CLI generator. Keep them clean of user-identifying content so the upstream-contribution path stays open without retroactive scrubbing:
 
 - **Do NOT embed** paths to user filesystems, personal API keys or tokens, user email addresses, user GitHub handles, or specific query histories tied to a single user.
 - **Acceptable**: endpoint shapes, undocumented field names, API gotchas, observed schema drift, workarounds for CLI surfaces, generalizable pagination or retry tactics.
@@ -831,7 +831,7 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 |------|--------|
 | `stdout` | Default; write to stdout only |
 | `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). This happens even under `--dry-run`. |
 
 Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
 

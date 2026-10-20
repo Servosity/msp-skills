@@ -58,10 +58,11 @@ Where the credentials live is your choice:
   The mirror holds what the API user can read, so keep the CLI's data
   directory private. Links and files that enroll a device into your tenant
   (installer download links, GPO/SCCM deployment files, mobile enrollment links)
-  are never written to disk: installer rows are stored with `downloadUrl` set to
-  `[redacted]`, those responses are never cached, and installers are not in the
-  default `sync`. Live `installers list` and `installers get` still show the
-  link. Device identity tokens (`deviceToken`) are replaced with `[redacted]` as
+  are never persisted by the CLI: installer rows in the mirror and in `export`
+  files carry `downloadUrl` set to `[redacted]`, those responses are never
+  cached, and installers are not in the default `sync`. Live `installers list`
+  and `installers get` still print the link, so redirecting their output, or
+  `--deliver file:<path>`, writes it. Device identity tokens (`deviceToken`) are replaced with `[redacted]` as
   each response is read, so they are never stored or shown.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
   add any write gating; the preview-then-approve policy still applies. See
@@ -91,7 +92,7 @@ require a human for anything below the Read row.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, lists, the local mirror. No change in ESET. | `fleet health`, `fleet gaps`, `fleet stale`, `triage`, `exposure`, `report customer`, `report vulnerabilities`, `patches backlog`, `detections spread`, `detections latest`, `devices profile`, `incidents context`, `executables find`, `policies decode`, `devices list`, `incidents list`, `detections list`, `policies list`, `vulnerable-devices`, `scans`, `sync` | Allow |
+| **Read** | Reports, rollups, lists, the local mirror. No change in ESET. | `fleet health`, `fleet gaps`, `fleet stale`, `triage`, `exposure`, `report customer`, `report vulnerabilities`, `patches backlog`, `detections spread`, `detections latest`, `devices profile`, `incidents context`, `executables find`, `policies decode`, `devices list`, `incidents list`, `detections list`, `policies list`, `vulnerable-devices`, `scans`, `sync`, `export` (writes a local file; Credential-tier fields redacted) | Allow |
 | **Endpoint response** | Creates tasks that run on real customer machines. | `respond scan`, `respond isolate`, `respond release` (preview unless `--yes`), `device-tasks create`, `device-tasks update-targets`, `device-tasks update-triggers`, `mobile-devices-batch-activate-product` | Human-in-the-loop, explicit confirmation |
 | **Protection and policy config** | Changes what protection a device gets. An exclusion, a disabled rule or a move into another group's policy can open a hole. | `executables block`, `executables unblock`, `edr-rules create`, `edr-rules enable`, `edr-rules disable`, `edr-rules update-definition`, `edr-rule-exclusions create`, `edr-rule-exclusions update-definition`, `policies create`, `policies clone`, `policy-assignments assign-policy`, `policy-assignments unassign-policy`, `policy-assignments update-ranking`, `ip-sets update`, `web-address-rules domains web-address-rules-update`, `devices move`, `groups move` | Preview with `--dry-run`, then a human-approved write |
 | **Write (routine)** | Day-to-day incident and inventory housekeeping. | `incidents close`, `incidents reopen`, `incidents basic-attributes-update incidents-update-incident-basic-attributes`, `incidents comments incident-create-incident`, `incidents comments incident-update-incident-text`, `detection-groups resolve`, `detections-v2 resolve`, `devices rename`, `groups create`, `groups rename`, `installers create` | Preview with `--dry-run`, then a reviewed write |

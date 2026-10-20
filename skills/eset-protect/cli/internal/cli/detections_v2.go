@@ -11,7 +11,7 @@ import (
 func newDetectionsV2Cmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "detections-v2",
-		Short:       "List, get, batch, and create detections v2",
+		Short:       "List, get, batch-get, and resolve detections v2",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

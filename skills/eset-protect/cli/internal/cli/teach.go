@@ -643,8 +643,8 @@ is an information query, not a not-found error.
 
 Disabling: ` + noLearnEnvVar + `=true returns the empty shape even
 when learnings exist.`,
-		Example: `  QUERY="$(cat /path/to/question.txt)" eset-protect-cli recall "$QUERY" --agent
-  QUERY="$(cat /path/to/question.txt)" eset-protect-cli recall "$QUERY" --agent --min-confidence 2`,
+		Example: `  eset-protect-cli recall "$(cat /path/to/question.txt)" --agent
+  eset-protect-cli recall "$(cat /path/to/question.txt)" --agent --min-confidence 2`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -977,8 +977,8 @@ func newLearningsForgetCmd(flags *rootFlags, learnCfg *entities.Config) *cobra.C
 undone without dropping the whole DB.
 
 Requires at least one of --resource, --action, or --all.`,
-		Example: `  QUERY="$(cat /path/to/question.txt)" eset-protect-cli learnings forget "$QUERY" --resource <id>
-  QUERY="$(cat /path/to/question.txt)" eset-protect-cli learnings forget "$QUERY" --all`,
+		Example: `  eset-protect-cli learnings forget "$(cat /path/to/question.txt)" --resource <id>
+  eset-protect-cli learnings forget "$(cat /path/to/question.txt)" --all`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()

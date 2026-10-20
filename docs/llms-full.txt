@@ -1190,7 +1190,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide.
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http with ESET_PROTECT_MCP_HTTP_TOKEN set (it refuses to start without one) and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my ESET data safe?

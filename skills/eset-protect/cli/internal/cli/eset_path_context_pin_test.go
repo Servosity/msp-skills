@@ -313,3 +313,50 @@ func TestConfigFileRegionIsHonored(t *testing.T) {
 		}
 	})
 }
+
+// TestSyncPathContextRefusesUnknownKeys (handfixes.json:
+// path-context-known-keys-only): replacePathParam substitutes "{"+key+"}" for
+// any key, so a key that spans from {region} to {policyUuid} rewrites the host
+// without ever passing the region check. Unknown keys must fail up front with
+// no request built; a known key must still be accepted.
+func TestSyncPathContextRefusesUnknownKeys(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Setenv("ESET_PROTECT_BASE_URL", "")
+	t.Setenv("ESET_PROTECT_TOKEN", "test-token")
+	t.Setenv("ESET_PROTECT_REGION", "eu")
+	t.Setenv("ESET_PROTECT_USERNAME", "")
+	t.Setenv("ESET_PROTECT_PASSWORD", "")
+
+	rec := &pinRecorder{}
+	saved := clientHooks
+	t.Cleanup(func() { clientHooks = saved })
+	clientHooks = append(append([]func(*client.Client) error{}, saved...), func(c *client.Client) error {
+		if tr, ok := c.HTTPClient.Transport.(*client.EsetTransport); ok {
+			tr.Base = rec
+		}
+		return nil
+	})
+
+	run := func(pc string) string {
+		cmd := RootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{"sync", "--resources", "ip-sets", "--path-context", pc, "--json", "--home", t.TempDir()})
+		_ = cmd.Execute()
+		return out.String()
+	}
+
+	got := run("region}.network-access-protection.eset.systems/v1/policies/{policyUuid=attacker.example")
+	if !strings.Contains(got, "is not a known endpoint placeholder") {
+		t.Fatalf("a crafted --path-context key was not refused:\n%s", got)
+	}
+	if len(rec.sent) != 0 {
+		t.Fatalf("a refused --path-context key still sent requests: %v", rec.sent)
+	}
+
+	if got := run("policyUuid=00000000-0000-0000-0000-000000000001"); strings.Contains(got, "is not a known endpoint placeholder") {
+		t.Fatalf("a known --path-context key was refused:\n%s", got)
+	}
+}

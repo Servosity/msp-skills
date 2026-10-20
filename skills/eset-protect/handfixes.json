@@ -3984,6 +3984,110 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "path-context-known-keys-only",
+      "summary": "sync refuses any --path-context key outside pathContextVarSet (region, policyUuid) before a client is built, instead of warning and substituting it",
+      "why": "replacePathParam substitutes \"{\"+key+\"}\" for ANY key, so `sync --path-context 'region}.network-access-protection.eset.systems/v1/policies/{policyUuid=<host>'` (also reachable from the MCP sync tool) spanned the host of the absolute ip-sets template and bypassed the region check; only the credential host pin kept the token on ESET, and an eu-minted token could still be steered to another ESET region. The generated warning also claimed the value 'will not be substituted into any request path', which was false. Found by the 2026-10-20 fresh-context security review. TestSyncPathContextRefusesUnknownKeys failed with sync.go reverted (the crafted key was not refused) and passes with the fix; a known key (policyUuid) is still accepted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return usageErr(fmt.Errorf(\"--path-context key %q is not a known endpoint placeholder (known: policyUuid, region)\", k))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "this value will not be substituted into any request path"
+        }
+      ]
+    },
+    {
+      "id": "help-text-matches-surface",
+      "summary": "generated help names only the verbs each group really has, `import --dry-run` discloses that an access token may still be requested, and the recall/learnings forget examples pass the query inline",
+      "why": "Press 4.33.5 described devices, incidents, executables, detection-groups and detections-v2 as 'List, get, and create ...' although none has a create subcommand (their writes are move/rename, close/reopen, block/unblock, resolve); told users `import --dry-run` previews 'without sending requests' although it still mints a token (sending the API user's email and password) when none is cached; and wrote `QUERY=\"$(...)\" cli recall \"$QUERY\"` examples, where \"$QUERY\" expands before the prefix assignment so an empty or stale query is passed. Found by the 2026-10-20 fresh-context prose review (the import text was its P1). TestHelpTextMatchesSurface failed with each of devices.go, incidents.go, executables.go, detection-groups.go, detections_v2.go, import.go and teach.go reverted in turn.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/devices.go",
+          "contains": "Short:       \"List, get, profile, move, and rename devices\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents.go",
+          "contains": "Short:       \"List, get, close, reopen, update, and comment on incidents\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables.go",
+          "contains": "Short:       \"List, get, find, block, and unblock executables\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detection-groups.go",
+          "contains": "Short:       \"List, get, and resolve detection groups\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2.go",
+          "contains": "Short:       \"List, get, batch-get, and resolve detections v2\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "\"Preview import without writing records (an access token may still be requested)\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "not_contains": "Preview import without sending requests"
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "not_contains": "QUERY=\"$(cat /path/to/question.txt)\""
+        }
+      ]
+    },
+    {
+      "id": "export-redacts-credential-tier",
+      "summary": "export applies the mirror's Credential-tier redaction (cliutil.PersistForm) to every page it writes, so `export installers` writes downloadUrl as [redacted]",
+      "why": "`export installers --output <file>` wrote each installer's enrollment downloadUrl to disk unredacted, while the mirror and cache redact it and governance.md says the CLI never persists those links; export sat in no safety tier, so a tier-based agent policy had nothing stopping it. Found by the 2026-10-20 fresh-context prose review. TestExportRedactsCredentialTier failed with export.go reverted (`wrote the enrollment link to disk`) and passes with the fix; export is now listed in the Read tier with the redaction noted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "data, ok := cliutil.PersistForm(resource+\" \"+path, data)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "skill-doc-dry-run-scope-and-brand",
+      "summary": "SKILL.md and guide.md state what --dry-run does NOT suppress (webhook delivery, feedback --send, the import token request), and the SKILL.md H1 and amend note carry no generator brand",
+      "why": "The generated SKILL.md (the doc agents load) said only '--dry-run shows the request without sending' and listed webhook delivery with no caveat, while `--deliver webhook:` still POSTs under --dry-run, `feedback --send` still sends and `import --dry-run` may still mint a token (press retro 17-19, deliberately not patched in code). Its H1 was 'ESET PROTECT  -  Printing Press CLI'. Found by the 2026-10-20 fresh-context prose review. A reprint or onboard --resume re-vendors both files, so these asserts catch the revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "# ESET PROTECT CLI\n"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "Printing Press CLI"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "`--deliver webhook:<url>` still posts the output, `feedback --send` still sends, and `import --dry-run` may still request an access token"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "This happens even under `--dry-run`."
+        },
+        {
+          "file": "guide.md",
+          "contains": "`--deliver webhook:<url>` still posts the output, `feedback --send` still sends, and `import --dry-run` may still request an access token"
+        }
+      ]
     }
   ]
 }

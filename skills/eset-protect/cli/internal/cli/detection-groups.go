@@ -11,7 +11,7 @@ import (
 func newDetectionGroupsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "detection-groups",
-		Short:       "List, get, and create detection groups",
+		Short:       "List, get, and resolve detection groups",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

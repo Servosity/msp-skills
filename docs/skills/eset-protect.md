@@ -12,7 +12,7 @@ faqs:
   - q: "Is the ESET PROTECT MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `ESET_PROTECT_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `ESET_PROTECT_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http with ESET_PROTECT_MCP_HTTP_TOKEN set (it refuses to start without one) and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my ESET data safe?"
@@ -158,7 +158,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http with ESET_PROTECT_MCP_HTTP_TOKEN set (it refuses to start without one) and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

@@ -167,6 +167,13 @@ large datasets as it has no memory pressure.`,
 				if err != nil {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
+				// Hand-fix export-redacts-credential-tier: an export is a file
+				// on disk, so it gets the same redaction as the mirror
+				// (installer downloadUrl and friends become "[redacted]").
+				data, ok := cliutil.PersistForm(resource+" "+path, data)
+				if !ok {
+					return fmt.Errorf("export %s: %w", resource, cliutil.ErrNotPersistable)
+				}
 				if singleItem {
 					count = 1
 					if format == "jsonl" {

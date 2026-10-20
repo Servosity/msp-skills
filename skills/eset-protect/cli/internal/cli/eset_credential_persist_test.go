@@ -55,8 +55,8 @@ func persistFakeESET(t *testing.T) {
 // TestCredentialTierNeverPersisted guards credential-tier-never-persisted end
 // to end: every command that receives a Credential-tier value (installers
 // list and get with the default --data-source auto, in JSON and plain;
-// installers create; sync --resources installers; export installers; the
-// GPO/SCCM file; mobile enrollment links) prints it live, and after each one
+// installers create; sync --resources installers; the GPO/SCCM file; mobile
+// enrollment links) prints it live (export installers prints the marker), and after each one
 // no byte under --home (the SQLite mirror and its WAL, the response cache)
 // holds it. The mirror still keeps the installer row, with the marker.
 func TestCredentialTierNeverPersisted(t *testing.T) {
@@ -78,7 +78,9 @@ func TestCredentialTierNeverPersisted(t *testing.T) {
 		{[]string{"installers", "create", "--installer-display-name", "x", "--installer-operating-system-family-id", "1", "--json", "--yes"}, persistInstallerLink},
 		{[]string{"sync", "--resources", "installers", "--json"}, ""},
 		{[]string{"sync", "--resources", "installers,devices", "--full", "--json"}, ""},
-		{[]string{"export", "installers", "--format", "jsonl"}, persistInstallerLink},
+		// export-redacts-credential-tier: an export is a file on disk, so
+		// it carries the marker, never the link, even on stdout.
+		{[]string{"export", "installers", "--format", "jsonl"}, `"downloadUrl":"[redacted]"`},
 		{[]string{"gpo-sccm-files-generate", "--json", "--yes"}, gpoB64},
 		{[]string{"mobile-devices-batch-get-enrollment-links", "--device-uuids", "00000000-0000-0000-0000-000000000001", "--json", "--yes"}, persistEnrollLink},
 		{[]string{"installers", "list", "--json"}, persistInstallerLink},
