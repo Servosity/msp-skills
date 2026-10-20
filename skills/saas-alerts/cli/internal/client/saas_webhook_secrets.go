@@ -79,22 +79,16 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 // webhookTokenValueLeft reports whether text, with JSON escapes decoded,
 // still holds a "token" key with a value other than the placeholder.
 func webhookTokenValueLeft(text []byte) bool {
-	// Escapes are decoded to a fixed point, so a token inside an embedded,
-	// twice-escaped JSON string is seen too. ponytail: capped at 32 levels.
-	view := string(text)
-	for i := 0; i < 32; i++ {
+	// The same decodings as the secret funnel (escapes, percent, HTML
+	// entities, unprintable characters), so the two cannot drift apart.
+	return anyDecodedView(string(text), func(view string) bool {
 		for _, m := range webhookTokenValue.FindAllStringSubmatch(view, -1) {
 			if v := strings.Trim(strings.TrimSpace(m[1]), `"'`); v != "" && v != WebhookTokenWithheld {
 				return true
 			}
 		}
-		next := jsonUnescape(view)
-		if next == view {
-			return false
-		}
-		view = next
-	}
-	return false
+		return false
+	})
 }
 
 // withholdTokenKeys walks v and replaces the value of every object key named

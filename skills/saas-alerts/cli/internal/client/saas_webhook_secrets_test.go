@@ -318,6 +318,8 @@ func TestWebhookTokenWithheldFromEveryAnswerShape(t *testing.T) {
 		{200, "text/html", `<html><head><title>{"token":"test-secret-html"}</title></head><body>x</body></html>`},
 		{400, "text/plain", `bad subscription {"token":"test-secret-text"}`},
 		{400, "text/plain", `Error: bad subscription { channelId: 'ch-1', token: 'test-secret-inspect' }`},
+		{200, "text/html", `<html><head><title>&quot;token&quot;:&quot;test-secret-entity&quot;</title></head><body>x</body></html>`},
+		{400, "text/html", `<html><head><title>&quot;token&quot;:&quot;test-secret-entity&quot;</title></head><body>x</body></html>`},
 	} {
 		status, ctype, answer = tc.status, tc.ctype, tc.answer
 		data, err := c.Get(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", nil)

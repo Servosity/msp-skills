@@ -52,25 +52,33 @@ func echoesAny(view string, secrets []string) bool {
 	if len(secrets) == 0 || view == "" {
 		return false
 	}
-	contains := func(v string) bool {
+	return anyDecodedView(view, func(v string) bool {
 		for _, s := range secrets {
 			if strings.Contains(v, s) {
 				return true
 			}
 		}
 		return false
-	}
-	if contains(view) {
+	})
+}
+
+// funnelDecoders are the decodings every secret check looks through.
+var funnelDecoders = []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString}
+
+// anyDecodedView reports whether match holds for view or for any view the
+// funnel decoders produce, decoding until nothing changes. Every decoder only
+// shortens the text or leaves it alone, so this reaches a fixed point.
+// ponytail: capped at 32 rounds, so pathological input stays linear-ish; 32
+// nested encodings of one echo would slip through.
+func anyDecodedView(view string, match func(string) bool) bool {
+	if match(view) {
 		return true
 	}
-	// Every decoder only shortens the text or leaves it alone, so this reaches
-	// a fixed point. ponytail: capped at 32 rounds, so pathological input stays
-	// linear-ish; 32 nested encodings of one echo would slip through.
 	for round := 0; round < 32; round++ {
 		before := view
-		for _, decode := range []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString} {
+		for _, decode := range funnelDecoders {
 			view = decode(view)
-			if contains(view) {
+			if match(view) {
 				return true
 			}
 		}
