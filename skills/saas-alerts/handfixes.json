@@ -1,0 +1,1608 @@
+{
+  "slug": "saas-alerts",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/saas-alerts/handfixes/regen.sh (re-applies apply_client_patch.py + apply_doc_patch.py).",
+  "handfixes": [
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "sid, err := windows.StringToSid(alias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if len(fields) != 6 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "respond-access-token-exchange",
+      "summary": "Respond API calls mint an accesstoken from the partner api_key (POST /respondApi/api/v1/auth), attach it, re-mint once on rejection, and mask every token in output",
+      "why": "The Respond API (spec 2.0.0) requires an accesstoken header minted from the partner api_key; without it every call answers 400 'Only secure origins are allowed' (live receipt 2026-10-14). Press 4.33.5 has no api-key-to-token exchange auth mode, so client.go is hand-patched to call respond_token.go. A reprint re-emits client.go without the hook and every Respond command (rule-triggers, rules, response-actions, contain) silently fails.",
+      "status": "active",
+      "spec_encode_followup": "Generator auth mode for an api_key -> access-token exchange scoped to a path prefix (cli-factory/saas-alerts/handfixes/patches/saas-alerts-respond-access-token.json)",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if isRespondPath(path) && req.Header.Get(\"accesstoken\") == \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if isRespondPath(path) && !respondReminted && respondTokenRejected(resp.StatusCode, respBody) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, tok := range respondTokensForMask() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/respond_token.go",
+          "contains": "func (c *Client) respondAccessToken(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "events-scoped-storage-identity",
+      "summary": "synced events are keyed by _id, else a customer/product/account-scoped eventId, else a content hash",
+      "why": "Reports eventId is the source product's raw id and collides across customers, products and users; the press id override cannot express a prefer-_id fallback chain, so distinct events overwrote each other at sync and triage/cross-tenant undercounted. A reprint restores the generic id extraction.",
+      "status": "active",
+      "spec_encode_followup": "Ordered id fallback chains (x-resource-id with alternatives) in the generator",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if id := saasEventStorageID(obj); id != \"\" || !saasVerifyFixtures() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/saas_events_id.go",
+          "contains": "func saasEventStorageID(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-events-start-and-respond-array-cursor",
+      "summary": "events sync maps --since to the documented `start` param; rule-trigger sync follows Respond's [ts, id] array cursor as repeated startAfter keys and treats only a literal pagination.hasNextPage:false as the end",
+      "why": "GET /reports/events filters by `start` (date-time), which the press since-detector misses, so incremental sync re-pulled everything. GET /rule-triggers pages with pagination.cursor = [ts, id] passed back as repeated startAfter keys and a nested pagination.hasNextPage flag; generic sync handles only scalar cursors and top-level has_more names, so it stopped after page 1 or pruned rows on an unproven end.",
+      "status": "active",
+      "spec_encode_followup": "Since detection for `start` date-time params; array cursors and nested has-more flags in generic sync",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "case \"events\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if resource == \"rule-triggers\" && params[\"startAfter\"] != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if raw, ok := rawAtPath(envelope, \"pagination.hasNextPage\"); ok {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if saasRespondEndUnproven(resource, data) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasRespondEndUnproven(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "live-writers-preview-unless-confirm",
+      "summary": "rule-triggers decide, contain and subscriptions health --reenable only preview without --confirm, and the MCP read-only mode treats them as reads only while --confirm is absent",
+      "why": "These three commands change live Respond triggers, Microsoft 365 accounts (block sign-in, expire sessions, reset password) and webhook subscriptions. The preview default and the mcp:read-only-unless-flags annotation are what keep an agent from acting on a customer tenant by accident; governance.md tiers them as writes on that basis. A reprint that loses either turns a preview into a live write.",
+      "status": "active",
+      "spec_encode_followup": "Novel commands; re-author with the same --confirm contract on any reprint",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "\"mcp:read-only-unless-flags\": \"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "if !flagConfirm {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "\"mcp:read-only-unless-flags\": \"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if flagConfirm {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "\"mcp:read-only-unless-flags\": \"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "if flagReenable && flagConfirm {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unreadable-answer-is-unknown-outcome",
+      "summary": "whether a failed live write was applied is decided from the wire, not from error text: the client records (httptrace GotConn, conservative: an HTTP/2 timeout can return before WroteRequest) whether a connection was in hand; an error before that, a local refusal (unresolved path parameter, unmarshalable body, the [withheld] placeholder as a token, a placeholder credential) or a Respond token rejection whose re-mint failed is a typed notSent, and client.WriteOutcomeUnknown is false only for notSent, a 4xx or a 429; a 5xx, an unreadable answer (failed body read, unsupported Content-Encoding, HTML where JSON was expected: client.IsAnswerUnreadable), a reset stream, a malformed answer or a timeout after sending is unknown. contain stops sending account changes on an unknown outcome; rule-triggers decide and subscriptions health --reenable verify it by re-reading",
+      "why": "contain classified a response-decoding failure on the execute call as a known refusal and went on to the next account change, including the password reset, although Respond had answered and may have applied the action (Codex round 14, 2026-10-20, P1). decide and health had the same gap in a milder form (a possibly applied write reported as an error). TestContainUnreadableExecuteAnswerStopsLaterActions, TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead and TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead each fail with their check removed (proven 2026-10-20). Adversarial round 18 (2026-10-20, P1): contain still decided 'unknown' from an allowlist of error strings, so an HTTP/2 stream reset or a malformed answer after Respond read the execute call counted as a refusal and the password reset was sent; decide and health reported a 5xx as a failure without re-reading (P2). TestWriteOutcomeUnknownFollowsTheWire fails with the wire tracking removed or with the default flipped back to 'refused'; the contain test's malformed-answer case and TestRuleTriggersDecide5xxIsVerifiedByReRead fail likewise (all proven 2026-10-20). Adversarial round 19 (2026-10-20, P2s, verdict pass): an HTTP/2 timeout could return before WroteRequest although the server had the body, so the mark moved to GotConn; local refusals and a rejected token with a failed re-mint read as unknown. TestLocalRefusalsAndRejectedTokensAreKnownNo fails with either wrap removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func IsAnswerUnreadable(err error) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, resp.StatusCode, unreadableAnswer{fmt.Errorf(\"%s %s: expected JSON, API returned HTML instead of JSON: %s\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain_test.go",
+          "contains": "func TestContainUnreadableExecuteAnswerStopsLaterActions(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health_test.go",
+          "contains": "func TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, 0, sent(ctxErr)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, 0, sent(terr)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func WriteOutcomeUnknown(err error) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "return client.WriteOutcomeUnknown(err)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if err != nil && !client.WriteOutcomeUnknown(err) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "if err != nil && !client.WriteOutcomeUnknown(err) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_write_outcome_test.go",
+          "contains": "func TestWriteOutcomeUnknownFollowsTheWire(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecide5xxIsVerifiedByReRead(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "GotConn: func(httptrace.GotConnInfo) { wrote.Store(true) },",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, resp.StatusCode, notSent{terr}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_write_outcome_test.go",
+          "contains": "func TestLocalRefusalsAndRejectedTokensAreKnownNo(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "contain-microsoft-only-refusal",
+      "summary": "contain refuses a non-Microsoft 365 account and an email that maps to more than one Microsoft 365 account instead of guessing",
+      "why": "Respond response actions run against application MS only. Acting on the wrong account, or on a Google Workspace user that happens to share an email, would block or reset a real person. contain exits non-zero on any unclear case and asks for --org-id/--account-id.",
+      "status": "active",
+      "spec_encode_followup": "Novel command; re-author with the same refusal on any reprint",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "if a.product != containProductMicrosoft {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.saas_alerts_mcp_http_token} placeholder refuses to start instead of becoming the secret",
+      "why": "The generated requireHTTPCallerToken read SAAS_ALERTS_MCP_HTTP_TOKEN with os.Getenv. The variable is declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. Same fix as bitdefender and sophos-central. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "the press main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector.",
+      "asserts": [
+        {
+          "file": "cli/cmd/saas-alerts-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/saas-alerts-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "webhook-subscription-token-withheld",
+      "summary": "every Webhooks API (/outgoingWebhookApi/) response has its subscription `token` replaced with [withheld] in the client's JSON success path, before print, response cache, sync, tail and MCP; the --dry-run request preview of a Webhooks API write withholds the token too; a Webhooks API write whose token is the [withheld] placeholder is refused (dry-run included); applied at one point right after the body is read and decoded, for every status and shape (JSON, HTML, text, binary-labelled)",
+      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20). Echoes in error text are now handled for every credential by error-text-secret-funnel. Every JSON value of an answer is walked (an answer holding several values kept a later record's token, adversarial round 17, 2026-10-20, P2), and text that does not parse but holds a \"token\" key is withheld whole. TestWebhookTokenWithheldFromEveryJSONValue fails with the single-value version (proven 2026-10-20). Only a real \"token\": key triggers the whole-text withhold, so a validation message such as `\"token\" is required` stays readable (adversarial round 18, 2026-10-20, P2; proven). A decoded backstop then scans what would leave: any \"token\" key still holding a value (a duplicate key whose last copy is null, an escaped key name, a key in text that is not JSON) withholds the whole answer (Codex round 15, 2026-10-20, P1s). TestWebhookTokenBackstopCatchesWhatTheWalkMisses fails with either backstop removed (proven 2026-10-20). The backstop decodes escapes to a fixed point (a twice-escaped embedded token leaked) and matches only quoted string values, so free text such as `\"token\": must be a string` is not withheld (adversarial round 19, 2026-10-20, P2s; proven). Codex round 16 (2026-10-20, P1): a 2xx HTML page on a Webhooks path reached the 'expected JSON' error before any withholding; the single point after the read closes every shape. TestWebhookTokenWithheldFromEveryAnswerShape fails with it removed (proven 2026-10-20). Adversarial round 20 (2026-10-20, P2s, verdict pass): the single point turned a 2xx HTML page holding a token into a successful \"[withheld]\" answer, so the HTML check now reads the original answer and only its summary is withheld; the backstop also matches single-quoted and unquoted keys (a JavaScript inspect print). TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld fails with the HTML check on the withheld body, and the inspect case of TestWebhookTokenWithheldFromEveryAnswerShape fails with the double-quote-only pattern (both proven 2026-10-20). Codex round 17 (2026-10-20, P1): the backstop decoded JSON escapes only, so an entity-encoded &quot;token&quot; in an HTML title reached the summary; it now looks through the funnel's own decoder chain (anyDecodedView), so the two cannot drift. The entity cases of TestWebhookTokenWithheldFromEveryAnswerShape fail with JSON-only decoding (proven 2026-10-20). Adversarial round 21 (2026-10-20, P2s, verdict pass): the loose pattern withheld whole lists whose free text mentioned a token, the display could show a token the check missed (&nbsp;, a tag or U+3000 between key and value), and the backstop was slow on large answers. Now a JSON answer is checked with a strict JSON-key pattern and only non-JSON text with the loose one; both allow Unicode spaces; a 'token' prefilter keeps 5 MB near 0.3 s; the shown error text on a Webhooks path is checked again (funnelShown) with its own notice. TestWebhookBackstopKeepsFreeTextAnswers fails with the loose pattern on JSON, and the nbsp/tag cases of TestWebhookTokenWithheldFromEveryAnswerShape fail with the shown text unchecked (proven 2026-10-20). Codex round 18 (2026-10-20, P1): a value starting with a quote character under a duplicate key slipped the loose pattern; JSON answers already used the strict one, and non-JSON and shown text now use strict and loose together. The quote cases of TestWebhookTokenBackstopCatchesWhatTheWalkMisses fail with loose-only text checks (proven 2026-10-20). Codex round 21 (2026-10-20, P1s): a JSON answer whose string value quoted a token inspect-style, or a quoted value with punctuation, was missed. Each JSON string (key or value) is now checked on its own with both patterns and replaced by [withheld] alone (withholdTokenStrings), so records survive; the loose value runs to the matching quote. TestWebhookTokenInFreeTextIsWithheldFieldByField fails with the per-string walk off or the old value class (proven 2026-10-20). Codex round 22 (2026-10-20, P1): Node's util.inspect quotes a string holding both quote kinds with backticks; the loose pattern accepts back-quoted keys and values (proven 2026-10-20). Deliberate limit: an unquoted value in free text (token=abc, token: abc) is not treated as a token, so ordinary messages such as 'missing token: provide one' stay readable.",
+      "status": "active",
+      "spec_encode_followup": "Generator support for x-secret / writeOnly response fields that are blanked before print, cache and store.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenNeverLeavesTheClient(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if json.Unmarshal(withholdWebhookTokens(path, body), &pretty) == nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenWithheldFromDryRunPreview(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if err := refuseWithheldWebhookToken(method, path, bodyBytes); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWithheldPlaceholderIsNeverWritten(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "respBody = withholdWebhookTokens(path, sanitizeJSONResponse(respBody))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenWithheldFromErrorBodies(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenEchoedInErrorTextIsMasked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "if len(strings.TrimSpace(s)) >= 8 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenEchoedEncodedIsMasked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenWithheldFromEveryJSONValue(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenBackstopCatchesWhatTheWalkMisses(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "respBody = withholdWebhookTokens(path, respBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenWithheldFromEveryAnswerShape(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if summary, ok := summarizeHTMLDocument(rawAnswer); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "webhookWithheld := !bytes.Equal(rawAnswer, respBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "return anyDecodedView(string(text), func(view string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "func webhookTokenValueLeft(text []byte, pattern *regexp.Regexp) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "if webhookTokenValueLeft(out, webhookTokenStrict) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func (c *Client) funnelShown(path, text string, extra ...string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Body:       c.funnelShown(path, bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookBackstopKeepsFreeTextAnswers(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "return webhookTokenValueLeft(text, webhookTokenStrict) || webhookTokenValueLeft(text, webhookTokenLoose)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "if webhookTokenLeftInText(body) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "func withholdTokenStrings(v any) (any, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "if nv, c := withholdTokenStrings(v); c {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenInFreeTextIsWithheldFieldByField(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "|`([^`\\\\n]+)`?)\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "error-text-secret-funnel",
+      "summary": "one funnel for every response-to-error-text path (API errors, the Respond token mint failure, the 2xx 'expected JSON, API returned HTML' error, maskError for transport/redirect/read/decode/mint errors): before any cut or summary the whole answer is checked for every credential the client holds (credentialSecrets: partner API key, Respond access tokens) and the request's webhook tokens of 8+ characters, as written and through, until nothing changes (capped at 32 rounds),  dropping control characters, format (Cf) characters and invalid UTF-8 (as the display does), JSON-escape (UTF-16 surrogate pairs included), percent (either case) and HTML-entity decoding; on a match the whole text is replaced by a withheld notice whose wording the auth-error classifier does not match; the text about to be shown is checked again (funnelText); classification and the 403 transport-block markers still read the original body. a 429's request-id header is funnelled too; a successful answer that quotes back a funnel secret has each echoing JSON string (key or value) replaced by [withheld], or is withheld whole when the echo cannot be pinned to single strings. Known limits: base64, case-changed or partial (mangled) echoes and more than 32 nested encodings are not detected; values under 8 characters are skipped; a 2xx answer labelled binary is funnelled before it is base64-wrapped (an echo withholds it whole, its Content-Type is funnelled) and a Webhooks API answer is always read as JSON so its tokens are withheld; the Respond mint text is checked again as shown (funnelText)",
+      "why": "Codex rounds 9-10 and adversarial rounds 12-14 (2026-10-20) kept finding new shapes of the same leak: JSON-escaped echoes, echoes straddling the 4096-byte body cut or the 160-rune HTML-title cut, entity- or lower-hex-encoded echoes, echoes after trailing JSON, the 2xx HTML path. Masking in place (patching each encoder and cut) never converged, so the class is closed with a decoded whole-body check and a whole-text withhold, and an oracle: TestErrorTextNeverCarriesASecret drives 3 secret kinds x 13 encodings x 5 answer shapes x 7 cut-adjacent positions (2730 cases) through the real client and fails with the funnel off, with decoding off, with percent-decoding off, with the 2xx path unguarded, or with the mint path unguarded (all proven 2026-10-20). Codex round 11 (2026-10-20, P1) added the response-decoding error, whose unsupported Content-Encoding value is server text; maskError now funnels too and the read/decode errors go through it. TestSecretInAResponseHeaderErrorIsWithheld fails with the decode error unwrapped or the maskError check off (proven 2026-10-20). Adversarial round 15 (2026-10-20, P1s): transport errors (a refused redirect's Location) were masked without the request's webhook tokens, and the funnel read the raw body while the display drops control characters and invalid bytes, so a split echo came out joined. Both closed; the oracle now has 16 encodings including control-character, invalid-UTF-8 and entity splits, built with a run-time backslash so no fixture escape is decoded before compilation (the round-15 review found two fixtures had silently lost theirs), and checks the shown text through an independent normaliser. It fails with dropUnprintable removed; TestWebhookTokenInARedirectLocationIsWithheld fails with the transport mask lacking webhook tokens; TestWithheldNoticeIsNotAnAuthError pins the notice wording (all proven 2026-10-20). Codex round 12 (2026-10-20, P1s): a 429 X-Request-ID, a 2xx answer quoting the request's webhook token, a 5-deep percent encoding and JSON surrogate pairs. The oracle gained an astral-character token, UTF-16 JSON fixtures and a 5-deep encoding; it fails with surrogate decoding off or the round cap back at 4; TestSuccessfulAnswerNeverCarriesASecret fails with the success-path withhold off; TestRateLimitRequestIDIsFunnelled fails with the request id unfunnelled (all proven 2026-10-20). Adversarial round 16 (2026-10-20, P1): the binary Content-Type branch returned before every withhold. The decoders no longer convert parsed integers (hex.DecodeString), which also clears gosec G115 on this file. TestBinaryLabelledAnswerNeverCarriesASecret fails with the binary echo check, the Content-Type funnel or the Webhooks JSON rule removed; the oracle's soft-hyphen case fails with Cf not dropped (all proven 2026-10-20). The mint funnelText is a backstop the input check already covers. Codex round 14 (2026-10-20, P1): the response-read error still masked without the request's webhook tokens; every remaining call site in the request path now passes them (read, decode, transport, retry warning, dry-run params). Codex round 19 (2026-10-20, P1): a secret that itself holds decodable text (a literal %41 or &amp;) could be transformed by one decoder before another revealed the echo; each secret is also looked for in its fully decoded form (fullyDecoded). TestSecretHoldingDecodableTextIsStillCaught fails without it (proven 2026-10-20). Codex round 20 (2026-10-20, P1): jsonUnescape skipped the \\b \\f \\n \\r \\t escapes, so a token holding a tab survived a standard JSON echo; TestSecretWithAControlCharacterEchoedAsJSONIsCaught fails without them (proven 2026-10-20). The escape decoder also reads the JavaScript forms \\', \\xHH and \\u{H...}; the oracle's js-hex and js-codepoint cases fail without them (proven 2026-10-20). Codex round 23 (2026-10-20, P1): a token split from its key by an HTML tag and cut before its closing quote by the 160-rune title limit leaked; the decoder chain gained a tag-stripping view and the token patterns accept a value whose closing quote was cut off. Either closes the reproduced case; removing both reopens it (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func (c *Client) echoesCredential(body []byte, extra ...string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func (c *Client) credentialSecrets(extraCredentials ...string) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, value := range c.credentialSecrets(extraCredentials...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "display = []byte(echoWithheldText)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "bodyText := truncateBody(display)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestErrorTextNeverCarriesASecret(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if c.echoesCredential([]byte(msg), extraCredentials...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/respond_token.go",
+          "contains": "if masked := c.maskError(err, apiKey).Error(); masked != err.Error() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestSecretInAResponseHeaderErrorIsWithheld(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "var funnelDecoders = []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString, stripTags}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func (c *Client) funnelText(text string, extra ...string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.displayURL(path, authHeader), c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestWebhookTokenInARedirectLocationIsWithheld(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestWithheldNoticeIsNotAnAuthError(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "for round := 0; round < 32; round++ {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func (c *Client) withholdEchoedValues(body json.RawMessage, extra ...string) json.RawMessage {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return c.withholdEchoedValues(withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), append(requestWebhookTokens(path, bodyBytes), authHeader)...), resp.StatusCode, nil",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "RequestID: c.funnelText(requestID, append(requestWebhookTokens(path, bodyBytes), authHeader)...),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestSuccessfulAnswerNeverCarriesASecret(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestRateLimitRequestIDIsFunnelled(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "if d := utf16.DecodeRune(r, r2); d != unicode.ReplacementChar {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "isBinaryResponseContentType(resp.Header.Get(\"Content-Type\")) && !strings.Contains(path, \"/outgoingWebhookApi/\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "wrapBinaryResponse(c.funnelText(resp.Header.Get(\"Content-Type\"), append(requestWebhookTokens(path, bodyBytes), authHeader)...), respBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/respond_token.go",
+          "contains": "Body:       c.funnelText(truncateBody(c.respondMintDisplay(body, apiKey)), apiKey) + ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestBinaryLabelledAnswerNeverCarriesASecret(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "unreadableAnswer{fmt.Errorf(\"reading response: %w\", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "unreadableAnswer{fmt.Errorf(\"decoding response: %w\", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.funnelText(params[k], append(requestWebhookTokens(path, body), authHeader)...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func anyDecodedView(view string, match func(string) bool) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "if d := fullyDecoded(s); d != s && len(d) >= 8 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestSecretHoldingDecodableTextIsStillCaught(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "case 'b', 'f', 'n', 'r', 't':",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestSecretWithAControlCharacterEchoedAsJSONIsCaught(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "case 'x':",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func stripTags(s string) string {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-binary-page-not-an-enumeration",
+      "summary": "a sync page whose answer was labelled binary (and so base64-wrapped by the client) is treated like a non-JSON 200: warned as non_json_200_body, nothing stored, nothing pruned",
+      "why": "The base64 envelope is a valid JSON object with no items, so it fell into the single-object branch; for a resource whose single-object upsert accepted it (subscriptions, before Webhooks answers were always read as JSON) the walk was marked complete and a full sync pruned every stored row while reporting success (adversarial round 16, 2026-10-20, P2). TestSyncBinaryLabelledPageNeverPrunes (on customers, whose upsert rejects the envelope) guards the fix through its non_json_200_body assertion, which fails with the binary check removed (proven 2026-10-20); its no-prune check is a second line that only fires for a resource that accepts the envelope.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if _, _, binary := client.UnwrapBinaryResponse(data); len(items) == 0 && len(data) > 0 && (!isJSONResponse(data) || binary) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_binary_page_test.go",
+          "contains": "func TestSyncBinaryLabelledPageNeverPrunes(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "env-base-url-never-persisted",
+      "summary": "an env-sourced SAAS_ALERTS_BASE_URL is marked as an env override in config.Load and configForSave writes the file's own value back, so config.toml never captures the override",
+      "why": "The generated configForSave restored only the env-sourced API key, so `auth set-token` run with SAAS_ALERTS_BASE_URL set wrote that one-run URL into config.toml (reproduced 2026-10-20: base_url = the env value after set-token). After that, unsetting the variable had no effect and every later call sent the saved partner key to the old host. internal/config/env_base_url_test.go fails with the fix removed (proven 2026-10-20). Same generator defect bitdefender and threatdown carry.",
+      "status": "active",
+      "spec_encode_followup": "Generator defect: configForSave should restore every env-overridden field, not only credentials.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.markEnvOverride(\"BaseURL\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "out.BaseURL = c.fileConfig.BaseURL",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/env_base_url_test.go",
+          "contains": "func TestEnvBaseURLNeverPersisted(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tabular-printers-scrub-terminal",
+      "summary": "--csv, --plain and --quiet output drops terminal control characters (ESC, BEL, C1) from values",
+      "why": "Event fields come from monitored tenants and can be attacker-chosen (a malicious inbox rule or shared file name), and the generated printCSV/printPlain/printQuiet wrote them raw, so a value carrying an OSC 52 or CSI sequence could rewrite the terminal or the clipboard (mock receipt 2026-10-20: ESC and BEL reached --csv and --plain). scrubCell keeps tab/CR/LF for CSV quoting; quiet output uses cliutil.ScrubTerminal. Same fix as bitdefender. TestTabularPrintersScrubTerminal fails with the scrub removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cell = scrubCell(cell)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "s := scrubCell(formatTabularCell(v))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, scrubCell(strings.Join(keys, \"\\t\")))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return cliutil.ScrubTerminal(t)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tabular_scrub_test.go",
+          "contains": "func TestTabularPrintersScrubTerminal(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "output-escapes-c1-controls",
+      "summary": "stdout and stderr are wrapped in c1EscapeWriter, which rewrites UTF-8 C1 controls (U+0080-U+009F) as \\u00XX; isTerminal unwraps it",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant string in --json, --agent or the default pretty-JSON output could drive the terminal. The escape keeps JSON valid and lossless. Ported from bitdefender (adversarial review round 7, 2026-10-19). c1_escape.go is hand-written; root.go wires it in Execute and in the --deliver multiwriter, and helpers.go isTerminal unwraps it so TTY detection is unchanged.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.SetOut(io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func (c *c1EscapeWriter) Write(p []byte) (int, error) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "rule-triggers-list-all-follows-array-cursor",
+      "summary": "rule-triggers list --all follows Respond's [triggeredAt, id] pagination.cursor as repeated startAfter keys and stops on a literal pagination.hasNextPage false, instead of stopping after page 1",
+      "why": "The generic paginatedGet reads only scalar cursors, so --all fetched page 1, printed a truncated event on stderr and returned an un-flagged partial list on stdout with exit 0 (mock receipt 2026-10-20: 2 of 3 triggers). paginationCursorToken now accepts the two-element array (cursorValue owns the rule), the fetch-all GET re-expands it into repeated startAfter keys (replacing any --start-after on the path), and a literal hasNextPage:false ends the walk even though Respond also returns a cursor on the last page. TestRuleTriggersListAllFollowsArrayCursor fails with either change reverted (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "Array cursors and nested has-more flags in the generic paginatedGet (same deferral as sync-events-start-and-respond-array-cursor).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if pair := respondArrayCursor(raw); pair != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "reqPath, reqParams := respondCursorRequest(path, clean, cursorParam)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if nextAdvance != \"\" && respondEndOfPages(obj, cursorParam, hasMoreField) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_cursor.go",
+          "contains": "func respondCursorRequest(path string, params map[string]string, cursorParam string) (string, map[string]string) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_cursor_test.go",
+          "contains": "func TestRuleTriggersListAllFollowsArrayCursor(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "the re-vendored SKILL.md, guide.md and AGENTS.md carry the msp-skills corrections: SKILL.md description leads with 'Use when the user asks about', the H1 drops the press brand, the unpublished EU host is not presented as a known base URL, guide.md gives the Windows step for a pre-built binary, and AGENTS.md has no TODO marker; the key setup and install check carry PowerShell twins",
+      "why": "onboard.py --resume re-vendors SKILL.md, guide.md and AGENTS.md from the press source on every run, silently reverting these edits. The press research (cli-factory saas-alerts research) found only a release-note hint of a Germany instance and no published EU base URL, so 'EU-instance partners can point SAAS_ALERTS_BASE_URL at their host' overstated it. Re-apply after any re-vendor; the build-pane doc fixes live in ~/Documents/Dev/cli-factory/saas-alerts/handfixes/apply_doc_patch.py.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "description: \"Use when the user asks about SaaS Alerts across their customers"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "# SaaS Alerts CLI\n"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "SaaS Alerts publishes only the US API host"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "EU-instance partners can point"
+        },
+        {
+          "file": "guide.md",
+          "contains": "SaaS Alerts publishes only the US API host"
+        },
+        {
+          "file": "guide.md",
+          "contains": "run `Unblock-File <binary>.exe`"
+        },
+        {
+          "file": "AGENTS.md",
+          "not_contains": "TODO stubs"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "PowerShell: `$env:SAAS_ALERTS_API_KEY = \"<key>\"`"
+        },
+        {
+          "file": "guide.md",
+          "contains": "PowerShell: `$env:SAAS_ALERTS_API_KEY = \"<key>\"`"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "under Settings > API (click GET APIKEY; the key is shown only until you leave the page"
+        }
+      ]
+    },
+    {
+      "id": "unfinished-sync-is-not-synced",
+      "summary": "triage, cross-tenant, investigate and coverage report synced:false (with a 'the last <resource> sync did not finish' note, and the resource in unsynced_resources) when a checked resource's latest sync attempt did not finish, not only when it was never synced. Only events (the windowed resource) counts an unfinished attempt after a completed one; any resource that stored rows but never finished a sync is reported as unfinished, not as never synced",
+      "why": "In the default auto data source a stale store triggers a bounded, page-capped refresh: one page of the 100 newest events since the last sync. With more new events than that, the store missed every older one, yet triage said synced:true and the digest silently dropped critical alerts for whole customers (adversarial review 2026-10-20, P1; mock receipt: 3 of 4 criticals, synced:true). saasIncompleteResources reads sync_state.last_attempt_complete; a fully fetched refresh still marks the attempt complete (verified), so this does not false-RED a healthy store, and `sync --resources events` closes the gap (verified 180/180). TestSaasIncompleteSyncIsNotSynced fails with the check disabled (proven 2026-10-20). The never-synced remedy also moved from --since 7d to --since 24h because the events search stops at 10,000 rows per sync. Round 2 (2026-10-20): a head-of-list rule-triggers refresh after a full sync made investigate synced:false every 15 minutes, so list resources now count only a never-finished first sync (TestSaasListRefreshAfterFullSyncStaysSynced, TestSaasStartedButUnfinishedIsNotEmpty).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasIncompleteResources(db *store.Store, resources ...string) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, \"events\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cross_tenant.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, \"events\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, saasCoverageCheckedResources...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, saasInvestigateCheckedResources...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_incomplete_test.go",
+          "contains": "func TestSaasIncompleteSyncIsNotSynced(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasStartedResources(db *store.Store, unsynced, incomplete []string) (stillUnsynced, moreIncomplete []string) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "respond-supersession-scoped-to-org-and-accounts",
+      "summary": "a PENDING Respond trigger counts as superseded only by a newer trigger of the same rule for the same organization and accounts",
+      "why": "The Respond spec says only that a manual approval expires 'when the rule triggers again or 12 hours whichever is earlier', without the scope. Keying by rule id alone let one customer's firing mark another customer's live approval expired: rule-triggers queue hid it (expired_count only) and rule-triggers decide skipped it, so a compromised account could stay unblocked (adversarial review 2026-10-20, mock receipt). The narrow key can only err toward showing a trigger Respond already expired, whose approve the API refuses. Widen it only against a live tenant. TestRespondSupersessionNeverHidesAnotherCustomer fails with the rule-only key (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_respond_queue.go",
+          "contains": "return t.Rule.ID + \"\\x00\" + t.Organization.ID + \"\\x00\" + strings.Join(accounts, \",\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_queue.go",
+          "contains": "for _, s := range byRule[rqSupersessionKey(t)] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_supersede_test.go",
+          "contains": "func TestRespondSupersessionNeverHidesAnotherCustomer(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-hints-windows-twin",
+      "summary": "every press auth hint that prints `export SAAS_ALERTS_API_KEY=...` also prints the PowerShell form, and auth setup prints a PowerShell line; the hints name the dashboard button as GET APIKEY, the vendor help's wording",
+      "why": "Windows is the primary MSP platform and the generated hints (auth setup, auth status, doctor auth_hint, the HTML-instead-of-JSON and 401 hints, the placeholder-credential error) were POSIX-only (adversarial review 2026-10-20, P2). Same pattern as backup-radar's auth-hints-windows-twin.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "fmt.Fprintln(w, \"  PowerShell:  $env:SAAS_ALERTS_API_KEY = \\\"your-token-here\\\"\")",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"your-token-here\\\")",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"your-token-here\\\")",
+          "min_count": 5,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"<your-token-here>\\\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "events-window-coverage",
+      "summary": "a completed events sync records the earliest instant the store covers (saas_events_coverage); triage, cross-tenant, investigate and coverage report synced:false with a 'holds events only from' note when their window starts before it; coverage checks the larger of --silent and its fixed 7-day events_7d window, and remedies render a --since value sync accepts",
+      "why": "synced only said whether a sync ran and finished, never whether it covered the requested window, and incremental syncs only move forward, so after `sync --since 24h` a `triage --since 7d` returned synced:true over one day of a seven-day window (adversarial review round 2, 2026-10-20, P1; mock receipt 20 of 32 events, 7 of 11 criticals). Floor rules: no --since = full history; incremental keeps the floor; an explicit --since at or before the previous watermark extends it; one after the watermark leaves a hole, so the floor restarts. Verified e2e: the 7d gap is flagged, 12h is not, and `sync --resources events --since 7d` closes it. TestSaasWindowOlderThanCoverageIsNotSynced fails with the check disabled (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/saas_events_coverage.go",
+          "contains": "func (s *Store) SaveEventsCoverage(floor time.Time) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "stateErr = recordSaasEventsCoverage(db, sinceTS, lastSynced, full, latestOnly, watermark)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasEventsCoverageFloor(sinceTS string, lastSynced time.Time, full bool, prev time.Time, havePrev bool) time.Time {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "saasApplyWindowGap(db, now, since, &result.Synced, &result.Note, nil)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cross_tenant.go",
+          "contains": "saasApplyWindowGap(db, now, since, &result.Synced, &result.Note, nil)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "saasApplyWindowGap(db, now, since, &result.Synced, &result.Note, &result.UnsyncedResources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "saasApplyWindowGap(db, saasLocalNow().UTC(), max(silent, saasCoverageEventWindow), &result.Synced, &result.Note, &result.UnsyncedResources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_coverage_test.go",
+          "contains": "func TestSaasWindowOlderThanCoverageIsNotSynced(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasSyncSinceArg(d time.Duration) string {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unify-devices-search-after",
+      "summary": "Unify v2 device syncs (devices, devices-ignored, devices-mapped, devices-unmapped) page with pageSize 1000 and searchAfter = the previous response's meta.sort, sent as repeated searchAfter keys",
+      "why": "The generated sync sent only pageSize=100 with no cursor, so any partner with 100+ Unify devices stopped at page 1 with cursor_unavailable and investigate reported 'no synced devices' forever (adversarial review round 2, 2026-10-20, P1). Manage 1.2.0 documents pageSize max 1000 and searchAfter (string array) = previous meta.sort. The live envelope is unverified (the spec example is a bare array); a bare full page still ends as an unfinished sync, never as complete. Mock receipts: {data, meta.sort} envelope 2500/2500 in 4 requests; bare 700 complete; bare 1000 unfinished. TestUnifyDevicesSearchAfterRepeatedKeys fails with the syncGet expansion removed (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "Generator support for searchAfter-style array cursors taken from a response path.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorParam:    \"searchAfter\",",
+          "min_count": 4,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if unifyDeviceResource(resource) && params[\"searchAfter\"] != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "nextCursor = unifySortCursor(raw)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_incomplete_test.go",
+          "contains": "func TestUnifyDevicesSearchAfterRepeatedKeys(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "select-keeps-sync-state",
+      "summary": "--select on triage, cross-tenant, investigate and coverage (and their missing-store envelopes) always keeps synced and note (plus unsynced_resources for investigate and coverage); and synced:false's note is also written to stderr as 'warning: synced: false: ...', so --csv, --plain and --quiet (which print only rows) still say the result is partial",
+      "why": "An agent following the documented `coverage --select customers.customer_name,customers.flags --agent` lost the partial/unsynced signal from stdout (adversarial review round 2, 2026-10-20). The existing --select tests now assert the kept keys. Codex round 5 (2026-10-20, P1): `triage --since 7d --csv` over a 1-day store printed (no rows) with no warning. TestSaasTabularOutputKeepsTheWarning fails with the warning disabled (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasSelectKeepsSyncState(flags *rootFlags, fields ...string) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "saasSelectKeepsSyncState(flags, \"synced\", \"note\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "saasSelectKeepsSyncState(flags, \"synced\", \"note\", \"unsynced_resources\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "fmt.Fprintf(cmd.ErrOrStderr(), \"warning: synced: false: %s\\n\", note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_incomplete_test.go",
+          "contains": "func TestSaasTabularOutputKeepsTheWarning(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cross_tenant.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-wrong-base-not-reachable",
+      "summary": "doctor reports ERROR api and credentials verdicts when the partner profile probe returns 404, instead of 'reachable (HTTP 404 at /)'",
+      "why": "check_doctor_truth (a verify_all hard gate, issue #282) failed: a SAAS_ALERTS_BASE_URL that is not the SaaS Alerts API root made doctor report the API as healthy. Same fix as threatdown; check_doctor_truth --slug saas-alerts passes healthy, expired and wrong-base (2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "base_url is not the SaaS Alerts API root. Point SAAS_ALERTS_BASE_URL at https://us-central1-the-byway-248217.cloudfunctions.net or unset it, and check base_url in the file named by config_path.",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "ERROR not verified (HTTP 404 from %s)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "placeholder-error-names-env-var",
+      "summary": "the placeholder-credential error names the SAAS_ALERTS_API_KEY environment variable when that is where the placeholder came from, instead of a config.toml that does not exist; a placeholder saved with auth set-token is reported as in the saved credentials file",
+      "why": "Adversarial review round 2 (2026-10-20): `SAAS_ALERTS_API_KEY=your-token-here customers list` pointed the MSP at <home>/config/config.toml.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "location = \"the \" + strings.TrimPrefix(cfg.AuthSource, \"env:\") + \" environment variable\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "} else if cfg != nil && cfg.CredentialSource == \"credentials file\" {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "events-sync-restart-and-filtered",
+      "summary": "an events sync never resumes a saved offset (it restarts from the top); a sync of ANY resource narrowed by --param/--global-param/--resource-param (including a page-size override) stores its rows but is marked incomplete before reconcile (no prune, no watermark, no coverage floor), on the flat and the dependent path, and the summary counts it as warned; an explicit incremental events sync re-reads saasEventsLateAllowance (6h) before the watermark; parameters a resource requires do not count as narrowing; a filtered walk never saves a resume cursor; the late-event look-back anchors to the last explicit sync's watermark (saas_events_explicit_watermark), which the page-capped auto-refresh cannot move; a filtered walk never checkpoints a cursor at any save point (per page, integrity path, end of walk) and is reported even when --max-pages also stopped it; flat resources that need scoping params are never whole-table pruned",
+      "why": "Events page by offset over timeSort=desc, so a saved offset from an unfinished sync shifts as new events arrive; resuming it skipped them and the completed resume then advanced the watermark past them (adversarial review round 3, 2026-10-20, P1: 350 of 400 new events stored, synced:true). A filtered sync (Codex 2026-10-20, P1) saved the partner-wide watermark and coverage floor from one customer's events, so triage said synced:true and later incremental syncs never fetched the other customers; with --full it would also have pruned their local rows. TestSaasEventsSyncRestartsFromTop and TestSaasFilteredEventsSyncIsNotComplete fail with either guard disabled (proven 2026-10-20). Codex round 2 (2026-10-20, P1): the guard was events-only, so `sync --resources rule-triggers --full --resource-param rule-triggers:organizationIds[]=ORG_A` pruned other organizations' triggers, and `--param pageSize=100` made a full bare Unify page look terminal; it now covers every resource (TestSaasFilteredFullSyncNeverPrunes fails with the guard disabled, proven 2026-10-20). Adversarial round 4 (P1): events are filtered by event time and SaaS Alerts pulls some late (isLatent), so a sync starting at the watermark never fetched them; TestSaasIncrementalEventsSyncRereadsLateAllowance fails without the allowance (proven 2026-10-20). The page-capped auto-refresh keeps the plain watermark. Adversarial round 5 (2026-10-20, P1): counting required params (events-fileshare startDate/endDate, report organizationIds) made those resources impossible to complete, and an auto-refresh moving the watermark shifted the explicit look-back past late events. Codex round 3 (P1): a filtered --max-pages walk saved a cursor a later unfiltered sync resumed. TestSaasFilteredSyncDropsItsCursor and TestSaasLateAllowanceAnchorsToExplicitSync fail with their fix disabled (proven 2026-10-20). Adversarial round 6 and Codex round 4 (2026-10-20, P1, both): the per-page SaveSyncProgress still saved a filtered cursor when the next page failed, and treating required organizationIds as non-narrowing let --full whole-table prune other organizations' mailbox-rule rows. TestSaasInterruptedFilteredWalkSavesNoCursor, TestSaasScopedResourceNeverWholeTablePruned and TestSaasCappedFilteredSyncIsWarned each fail with their fix reverted (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "existingCursor := saasResumeCursor(resource, persistedCursor)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasEventsSyncRestartsFromTop(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasFilteredEventsSyncIsNotComplete(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasResumeCursor(resource, saved string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "filteredSync := saasSyncFiltered(userParams, resource, false)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if saasSyncFiltered(userParams, dep.Name, true) && outcome.complete {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf(\"query params changed what this sync fetched, so it is not a complete sync\"), Duration: time.Since(started)}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "effectiveSince = saasIncrementalSince(db, resource, lastSynced, latestOnly).UTC().Format(time.RFC3339)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasSyncFiltered(p *syncUserParams, resource string, isDependent bool) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasFilteredFullSyncNeverPrunes(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasIncrementalEventsSyncRereadsLateAllowance(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "db.SaveSyncProgress(resource, saasCheckpointCursor(userParams, resource, nextCursor), totalCount)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "for _, k := range syncResourceRequiredQueryParams(resource) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "if explicit, ok := db.EventsExplicitWatermark(); ok && explicit.Before(anchor) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/saas_events_coverage.go",
+          "contains": "func (s *Store) SaveEventsExplicitWatermark(at time.Time) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasFilteredSyncDropsItsCursor(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasLateAllowanceAnchorsToExplicitSync(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "db.SaveSyncProgress(resource, saasCheckpointCursor(userParams, resource, finalCursor), cachedCount)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "prune = saasPruneAllowed(resource, prune)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasCheckpointCursor(p *syncUserParams, resource, cursor string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasInterruptedFilteredWalkSavesNoCursor(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasScopedResourceNeverWholeTablePruned(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasCappedFilteredSyncIsWarned(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "return prune && len(syncResourceRequiredQueryParams(resource)) == 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "`{\"event\":\"reconcile_skipped\",\"resource\":\"%s\",\"reason\":\"scoped_resource\"}`",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "devices-list-all-follows-search-after",
+      "summary": "devices list/ignored/mapped/unmapped/involved/suggested/mapped-to --all page with searchAfter from meta.sort (repeated keys), and a full bare-array page is reported truncated, never complete; --all with no --page-size asks for the documented maximum (1000); all seven commands read live only (pp:data-source live), because their local copy filters by the wrong parent or ignores the account email; the devices freshness entries are removed from the auto-refresh map (and from the SKILL.md/guide.md Freshness lists), so a live-only read never runs a store refresh first",
+      "why": "The generated list commands used offset paging with no cursor, so --all fetched one page and printed complete (adversarial review round 3, 2026-10-20, P1; mock: 100 of 2500). Mock receipts after the fix: envelope 2500/2500 in 4 pages; bare 700 complete; bare 1000 truncated. TestDevicesListAllFollowsSearchAfter fails with searchAfter expansion removed (proven 2026-10-20). Adversarial round 4 (2026-10-20, P1): default --all sent no pageSize, so a bare page shorter than the assumed 100 read complete; and the auto local fallback returned 0 rows (list/ignored/mapped/unmapped) or every synced device as one account's (involved/suggested/mapped-to). Verified e2e: --all sends pageSize=1000; an unreachable API errors instead of answering from the store; --data-source local is refused.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/devices_list.go",
+          "contains": "nil, flagAll, \"searchAfter\", \"cursor\", \"pageSize\", 0, \"meta.sort\", \"\", \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_mapped-to.go",
+          "contains": "nil, flagAll, \"searchAfter\", \"cursor\", \"pageSize\", 0, \"meta.sort\", \"\", \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if cursorParam == \"searchAfter\" && unifyFullBarePage(clean[\"pageSize\"], len(items)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_cursor.go",
+          "contains": "if (cursorParam != \"startAfter\" && cursorParam != \"searchAfter\") ||",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_cursor_test.go",
+          "contains": "func TestDevicesListAllFollowsSearchAfter(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "clean[limitParam] = strconv.Itoa(unifyMaxPageSize)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_mapped-to.go",
+          "contains": "resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, \"live\", \"devices\", path,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_list.go",
+          "contains": "resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, \"live\", \"devices\", path,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_involved.go",
+          "contains": "\"pp:data-source\": \"live\", \"pp:endpoint\": \"devices.involved\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auto_refresh.go",
+          "not_contains": "\"saas-alerts-cli devices list\":"
+        }
+      ]
+    },
+    {
+      "id": "human-renderers-scrub-terminal",
+      "summary": "the human output of triage, cross-tenant, investigate, coverage, rule-triggers queue, decide, contain and subscriptions health goes through saasScrubWriter, which drops C0 controls (ESC, BEL...) except tab and newline",
+      "why": "Those renderers interpolate tenant strings (user, customer, rule and device names) and emit no styling, while the root c1EscapeWriter escapes only C1; a name carrying an OSC 52 or CSI sequence could rewrite the terminal or clipboard (Codex 2026-10-20, P1). TestSaasHumanRenderersScrubTerminal fails with the wrapper removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_human_scrub.go",
+          "contains": "func (s saasScrubWriter) Write(p []byte) (int, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "out := saasHumanWriter(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "out := saasHumanWriter(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "w := saasHumanWriter(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_human_scrub_test.go",
+          "contains": "func TestSaasHumanRenderersScrubTerminal(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "contain-cross-source-ambiguity",
+      "summary": "contain accepts a unique Microsoft 365 account from synced rule triggers only when synced users name no different account (or unreadable rows) for the same email",
+      "why": "The trigger resolver returned before the users resolver ran, so an email that is a trigger-backed account at one customer and a synced user at another resolved silently to the first and `contain --confirm` could block or reset the wrong person (Codex round 2, 2026-10-20, P1). Refusing is the safe direction for a lockout; --org-id/--account-id select explicitly. TestContainCrossSourceAmbiguityRefuses fails with the check disabled (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "ur, uok, _, uerr := containResolveFromUsers(ctx, db, email, orgID, accountID)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain_crosssource_test.go",
+          "contains": "func TestContainCrossSourceAmbiguityRefuses(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "sync first: saas-alerts-cli sync --resources rule-triggers,customers --db %s",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "subscriptions-keyed-by-channel-id",
+      "summary": "subscriptions and subscriptions-disabled are stored by channelId, not url",
+      "why": "The Webhooks schema identifies a subscription by channelId; several subscriptions can share one receiver url, and keying by url collapsed them into one local row (adversarial review round 4, 2026-10-20; mock: fetched 2, stored 1). Verified: two subscriptions store as ch-0001 and ch-0002.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"subscriptions\":                 \"channelId\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"subscriptions\":                 \"channelId\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\"subscriptions-disabled\":        \"channelId\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "users-sync-parent-integrity",
+      "summary": "the users dependent sync prunes by the injected parent_id ($.parent_id) and refuses a --global-param/--resource-param that overrides the customerId it sets for each customer",
+      "why": "The generated per-customer prune matched $.customer, which stored user rows do not carry, so a user removed upstream stayed forever and could make contain refuse or resolve a stale account (adversarial round 5 and Codex round 3, 2026-10-20). Overriding customerId fetched one customer's users and stamped copies under every other customer (Codex round 3, P1). TestSaasUsersFullSyncPrunesDeletedUsers and TestSaasParentKeyOverrideRefused fail with their fix reverted (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "GenericScopeJSONPath: \"$.parent_id\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if err := saasRefuseParentKeyOverride(dep, queryParams, parentRow, params); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasRefuseParentKeyOverride(dep dependentResourceDef, queryParams []dependentPathParamDef, parentRow, params map[string]string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasUsersFullSyncPrunesDeletedUsers(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasParentKeyOverrideRefused(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "workflow-archive-full-no-premature-watermark",
+      "summary": "workflow archive --full clears each resource with SaveSyncStateAt(resource, \"\", 0, time.Time{}) (a zero watermark, like sync --full) instead of SaveSyncState, which stamped last_synced_at=now and complete before anything was fetched",
+      "why": "If the archive's events walk then failed, a later page-capped auto-refresh started from that premature watermark, finished, and triage reported synced:true with events missing (adversarial review round 7, 2026-10-20, P2; the template is shared, so check other connectors). Verified e2e: a failed archive --full leaves events and customers at 0001-01-01 with last_attempt_complete=0.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "if err := s.SaveSyncStateAt(resource, \"\", 0, time.Time{}); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "if err := s.SaveSyncState(resource, \"\", 0); err != nil {"
+        }
+      ]
+    },
+    {
+      "id": "decide-truncated-plan-surfaced",
+      "summary": "rule-triggers decide warns on stderr and in its human output when the trigger list stopped at --max-pages (or another truncation), and a confirmed truncated run exits as a partial failure",
+      "why": "rtPlanDecisions recorded truncated/truncated_reason, but the handler emitted no warning and the human renderer omitted them, so `decide --decision reject --rule R --max-pages 1 --confirm` over 150 matching triggers decided 100 and exited 0 (Codex round 6, 2026-10-20, P1). rule-triggers queue already warned. TestRuleTriggersDecideTruncatedPlanIsSurfaced fails with both guards disabled (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "warning: the trigger list is incomplete (%s); matching triggers beyond it were not planned or decided",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if flagConfirm && result.Truncated {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideTruncatedPlanIsSurfaced(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "decide-ids-never-truncated",
+      "summary": "rule-triggers decide with --ids is never reported truncated and an undecodable page row does not fail it: every requested id is either found on a fetched page or read directly, so neither a --max-pages cap nor a bad row can hide one; when the list was cut, supersession_unchecked plus a stderr warning say a newer superseding trigger could not be ruled out",
+      "why": "decide-truncated-plan-surfaced made a page-capped plan warn and a confirmed one exit as partial, which also fired for an --ids selection whose ids were all resolved by direct reads (adversarial review round 9, 2026-10-20, P2 regression: a fully decided --ids run exited 6). TestRuleTriggersDecideIDsAreNeverTruncated fails with the reset removed (proven 2026-10-20). Adversarial round 10 (2026-10-20, P2s): clearing truncated alone hid that supersession is worked out from fetched pages only, and undecoded rows still exited 5/6 after a full --ids success. TestRuleTriggersDecideIDsAreNeverTruncated fails without the supersession_unchecked marker and TestRuleTriggersDecideIDsIgnoreUndecodedRows fails with the undecoded exit ungated (both proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "result.Truncated, result.TruncatedWhy = false, \"\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideIDsAreNeverTruncated(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "result.SupersessionUnchecked = live.TruncatedReason",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if result.Summary.Undecoded > 0 && len(opts.ids) == 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideIDsIgnoreUndecodedRows(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "decide-ids-never-dropped",
+      "summary": "a trigger requested with --ids that the --account selector excludes is reported in skipped (status_mismatch, naming its accounts), never dropped from the output",
+      "why": "The plan loop continued past a requested id that failed the --account match with no skip record, so a confirmed run exited 0 with planned:[] skipped:[] and no trace the named trigger was considered (adversarial round 10, 2026-10-20, P2). TestRuleTriggersDecideIDsAccountMismatchIsReported fails with the skip record removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if len(opts.ids) > 0 && rqContainsExact(opts.ids, t.ID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideIDsAccountMismatchIsReported(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "test-event-delivery-failure-surfaced",
+      "summary": "subscriptions test-event and the MCP saas-alerts_execute call of subscriptions.test-event read the sendTestEvent 200 body with the same rule as subscriptions health (anyOf boolean | string | IWhError[]): false, an error-looking or unrecognised string, or any delivery error makes the CLI run a partial failure (success:false, stderr warning, exit 6) and the MCP result an error (its answer bounded like any MCP result); true, an empty list or a recognised success string succeed; the answer is never written to the subscriptions mirror",
+      "why": "The generated command only ran the generic partial-failure detector, which does not recognise the documented IWhError list, so a failed webhook delivery printed success:true and exited 0 (Codex round 7, 2026-10-20, P1). TestSubscriptionsTestEventSurfacesDeliveryErrors fails with the check disabled (proven 2026-10-20). Adversarial round 11 (2026-10-20, P2s): an unrecognised success wording exited 6, and with --allow-partial-failure the delivery-error list was upserted into the local subscriptions table as fake channels. TestSubscriptionsTestEventSurfacesDeliveryErrors fails with the unknown-string warning removed or the store write restored (both proven 2026-10-20). Codex round 8 (2026-10-20, P1): the MCP execute tool returned the same delivery-error list as a successful result; both surfaces now share cli.TestEventFailure, and TestCodeOrchExecuteTestEventDeliveryErrorIsAnError fails with the MCP check disabled (proven 2026-10-20). Adversarial round 12 (2026-10-20, P1): briefly treating an unrecognised string as success let 'Test event couldn't be delivered' and 'Success: false' exit 0; unrecognised is a failure again, as in subscriptions health. TestSubscriptionsTestEventSurfacesDeliveryErrors and TestCodeOrchExecuteTestEventDeliveryErrorIsAnError fail with unknown answers passed as success (proven 2026-10-20). The failure reason names each channel once and at most 10, so a long delivery-error list cannot blow past the MCP result budget (adversarial round 13, 2026-10-20, P2); TestTestEventFailureReasonIsBounded fails with the de-duplication removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_test_event.go",
+          "contains": "func TestEventFailure(path string, data []byte) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_test_event.go",
+          "contains": "if ok, why, _ := shTestEventOutcome(data, nil); !ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_test-event.go",
+          "contains": "if why := TestEventFailure(path, data); why != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_test-event.go",
+          "not_contains": "writeMutationResponseToStore("
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if why := cli.TestEventFailure(path, data); why != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_test_event_outcome_test.go",
+          "contains": "func TestSubscriptionsTestEventSurfacesDeliveryErrors(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/saas_test_event_test.go",
+          "contains": "func TestCodeOrchExecuteTestEventDeliveryErrorIsAnError(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "if len(channels) > 10 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_test_event_outcome_test.go",
+          "contains": "func TestTestEventFailureReasonIsBounded(",
+          "code_only": true
+        }
+      ]
+    }
+  ]
+}

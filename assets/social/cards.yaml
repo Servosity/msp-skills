@@ -283,6 +283,10 @@ runzero:
   vendor: "runZero"
   example_command: "Which of our assets are most exposed?"
 
+saas-alerts:
+  vendor: "SaaS Alerts"
+  example_command: "Which Respond triggers expire next?"
+
 salesbuildr:
   vendor: "Salesbuildr"
   example_command: "Which sent quotes are aging, and how much is at risk?"

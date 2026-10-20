@@ -1,0 +1,21 @@
+{
+  "name": "saas-alerts",
+  "version": "0.1.0",
+  "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/saas-alerts",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "saas-alerts",
+    "saas alerts",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

@@ -1358,6 +1358,26 @@
       "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits."
     },
     {
+      "name": "saas-alerts",
+      "system": "SaaS Alerts SaaS security monitoring: alerts, Respond rule triggers and automated response, webhooks, and customer coverage across every Microsoft 365 and Google Workspace tenant",
+      "status": "beta",
+      "skill_path": "skills/saas-alerts",
+      "cli_binary": "saas-alerts-cli",
+      "mcp_binary": "saas-alerts-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "SaaS Alerts",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/saas-alerts/install.sh)",
+      "install_mcp_doc": "skills/saas-alerts/mcp-install.md",
+      "description": "All four SaaS Alerts APIs, plus cross-customer alert triage, the Respond approval queue and account containment.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage alerts across every customer tenant, clear the Respond approval queue, and contain a compromised account."
+    },
+    {
       "name": "salesbuildr",
       "system": "Salesbuildr MSP quoting and CPQ: quotes, opportunities, products, companies, pricing books",
       "status": "beta",
