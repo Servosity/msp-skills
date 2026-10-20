@@ -848,8 +848,13 @@ func mutationResponseHasID(resourceType string, data json.RawMessage) bool {
 // not cap at it, and pageSize 0 means the server default page, not zero rows.
 func localPageParams(params map[string]string, limitParam string, fetchAll bool, defaultPageSize int) map[string]string {
 	v, ok := params[limitParam]
-	if limitParam == "" || !ok {
+	if limitParam == "" || (!ok && fetchAll) {
 		return params
+	}
+	if !ok {
+		// No --page-size: a live read returns ESET's default page, so the
+		// local read does too.
+		v = "0"
 	}
 	out := make(map[string]string, len(params))
 	for k, x := range params {
@@ -907,6 +912,11 @@ func resolveLocal(ctx context.Context, flags *rootFlags, hintWriter io.Writer, r
 			fmt.Fprintf(warnWriter, "warning: %s\n", typedHint)
 		}
 		if !sawValid {
+			// Hand-fix local-empty-after-complete-sync: a resource whose last
+			// sync completed with zero rows is an empty list, not unsynced.
+			if st := esetMirrorCheck(db, storedType); len(st.Incomplete) == 0 {
+				return json.RawMessage("[]"), prov, nil
+			}
 			return nil, DataProvenance{}, fmt.Errorf("no local data for %q. Run 'eset-protect-cli sync' first", requestedType)
 		}
 		if len(rowSelecting) > 0 {

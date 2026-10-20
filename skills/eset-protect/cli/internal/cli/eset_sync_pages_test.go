@@ -184,3 +184,59 @@ func TestSyncTokenTypeOnEveryPageAndFullFinalPage(t *testing.T) {
 		t.Fatalf("a full final page with an empty token did not reconcile: %d devices left, want 100", n)
 	}
 }
+
+// TestSyncUnexpectedListShapeAndCappedFullPage (sync-unexpected-list-shape,
+// page-token-end-is-provable): a 200 body that is not a list page was stored
+// as a single object and completed the walk, so --full pruned every device;
+// and the --max-pages call site must also read an empty token on a full page
+// as the end.
+func TestSyncUnexpectedListShapeAndCappedFullPage(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	id := func(i int) string { return fmt.Sprintf("00000000-0000-0000-0000-%012d", i) }
+	body := `{"devices":[{"uuid":"` + id(1) + `"},{"uuid":"` + id(2) + `"}],"nextPageToken":""}`
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, body)
+	})
+	count := func() int {
+		t.Helper()
+		db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		var n int
+		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = 'devices'`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full")
+	body = `{"message":"upstream unavailable"}`
+	_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full")
+	if n := count(); n != 2 {
+		t.Fatalf("an unexpected 200 body let --full prune or store a row: %d devices", n)
+	}
+	// 101 mirrored; one full page of 100 with an empty token under --max-pages 1.
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 101; i++ {
+		if err := db.Upsert("devices", id(i), json.RawMessage(`{"uuid":"`+id(i)+`"}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = db.Close()
+	parts := make([]string, 0, 100)
+	for i := 1; i <= 100; i++ {
+		parts = append(parts, `{"uuid":"`+id(i)+`"}`)
+	}
+	body = `{"devices":[` + strings.Join(parts, ",") + `],"nextPageToken":""}`
+	_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full", "--max-pages", "1")
+	if n := count(); n != 100 {
+		t.Fatalf("a capped full final page with an empty token did not reconcile: %d devices, want 100", n)
+	}
+}

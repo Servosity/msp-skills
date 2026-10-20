@@ -64,6 +64,11 @@ func TestLocalReadPageSizeIsNotATotal(t *testing.T) {
 	if n := count("--page-size", "1"); n != 1 {
 		t.Fatalf("--page-size 1 without --all is one page, got %d", n)
 	}
+	// local-read-page-size-is-not-a-total: no --page-size is ESET's default
+	// page, as a live read returns.
+	if n := count(); n != 50 {
+		t.Fatalf("no --page-size returned %d of 60, want the default page of 50", n)
+	}
 }
 
 // TestLocalReadRefusesRecursiveGroupFilter (handfixes.json:
@@ -132,5 +137,26 @@ func TestLocalFilterProtoDefaults(t *testing.T) {
 	}
 	if got := names("--functionality-status", "DEVICE_FUNCTIONALITY_STATUS_UNSPECIFIED"); !strings.Contains(got, "DEFAULTED") || !strings.Contains(got, "MUTED") {
 		t.Fatalf("an UNSPECIFIED filter is no filter: %s", got)
+	}
+}
+
+// TestLocalEmptyAfterCompleteSync (handfixes.json: local-empty-after-complete-sync):
+// a resource whose last sync completed with zero rows read as "Run sync
+// first" instead of an empty list.
+func TestLocalEmptyAfterCompleteSync(t *testing.T) {
+	testenv.Isolate(t)
+	setDefaultDBScopeIdentity("", "", "")
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveSyncState("detections", "", 0); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	out, errOut, err := captureExecuteAll(t, "detections", "list", "--data-source", "local", "--all", "--json")
+	if err != nil {
+		t.Fatalf("an empty, completely synced resource failed: %v\n%s%s", err, out, errOut)
 	}
 }

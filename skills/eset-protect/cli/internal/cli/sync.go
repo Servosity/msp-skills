@@ -924,6 +924,19 @@ func syncResource(ctx context.Context, c interface {
 				outcome.complete = true
 				break
 			}
+			// Hand-fix sync-unexpected-list-shape: only a declared single-object
+			// resource may store the body as one row. For a list resource an
+			// unexpected 200 body ({"message":"upstream unavailable"}) is not an
+			// enumeration: completing here let --full prune every device.
+			if len(responsePathForResource(resource, path)) > 0 {
+				outcome.reason = "unexpected_list_shape"
+				if humanFriendly {
+					fmt.Fprintf(os.Stderr, "\n  %s: the response is not a list page; stopped without pruning.\n", resource)
+				} else {
+					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"unexpected_list_shape","message":"the response is not a list page; nothing was stored and the mirror is not pruned"}`+"\n", resource)
+				}
+				break
+			}
 			// Single object response - try to store as-is
 			if err := upsertSingleObject(db, resource, data); err != nil {
 				if !humanFriendly {
@@ -1024,7 +1037,9 @@ func syncResource(ctx context.Context, c interface {
 				}
 			}
 		}
-		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && fetchedThisPage >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(resource, path)...) {
+		// page-token-end-is-provable: for page_token an empty token on a full
+		// page is the end, so do not warn that data may be truncated.
+		if pageSize.cursorType != "page_token" && resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && fetchedThisPage >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(resource, path)...) {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
 		}
 

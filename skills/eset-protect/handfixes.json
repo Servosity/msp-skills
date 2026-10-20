@@ -5536,8 +5536,8 @@
     },
     {
       "id": "local-read-page-size-is-not-a-total",
-      "summary": "local list reads take the pagination intent: with --all the page-size param no longer caps the result, and --page-size 0 means ESET's default page instead of zero rows; --page-size 0 means ESET's default page of 50 when the generated caller passes no default",
-      "why": "parseLocalListQuery treats pageSize as a total-result limit, so `devices list --data-source local --all --page-size 1` silently returned one of the mirrored devices and `--page-size 0` returned an empty array, in explicit local reads and in the automatic outage fallback (Codex round 11 P1). localPageParams (data_source.go) rewrites the params passed to resolveLocal from the paginated resolver. TestLocalReadPageSizeIsNotATotal failed with the rewrite removed (`--all --page-size 1 returned 1 of 3`) and still checks a plain --page-size 1 returns one page. Codex round 18 (P2): generated callers pass defaultPageSize 0, so --page-size 0 removed the limit locally (100 rows instead of ESET's default 50); TestLocalReadPageSizeIsNotATotal now seeds 60 devices and failed with the old delete.",
+      "summary": "local list reads take the pagination intent: with --all the page-size param no longer caps the result, and --page-size 0 means ESET's default page instead of zero rows; --page-size 0 means ESET's default page of 50 when the generated caller passes no default; a read with no --page-size returns ESET's default page too (a live read does), and --all stays unlimited",
+      "why": "parseLocalListQuery treats pageSize as a total-result limit, so `devices list --data-source local --all --page-size 1` silently returned one of the mirrored devices and `--page-size 0` returned an empty array, in explicit local reads and in the automatic outage fallback (Codex round 11 P1). localPageParams (data_source.go) rewrites the params passed to resolveLocal from the paginated resolver. TestLocalReadPageSizeIsNotATotal failed with the rewrite removed (`--all --page-size 1 returned 1 of 3`) and still checks a plain --page-size 1 returns one page. Codex round 18 (P2): generated callers pass defaultPageSize 0, so --page-size 0 removed the limit locally (100 rows instead of ESET's default 50); TestLocalReadPageSizeIsNotATotal now seeds 60 devices and failed with the old delete. Codex round 22 (P2): generated callers drop an unset pageSize, so a plain local list returned every row while live returned 50; the no---page-size assertion failed with the absent-param default removed.",
       "status": "active",
       "asserts": [
         {
@@ -5553,6 +5553,11 @@
         {
           "file": "cli/internal/cli/data_source.go",
           "contains": "out[limitParam] = strconv.Itoa(esetDefaultPageSize)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "if limitParam == \"\" || (!ok && fetchAll) {",
           "code_only": true
         }
       ]
@@ -6010,8 +6015,8 @@
     },
     {
       "id": "page-token-end-is-provable",
-      "summary": "for page_token pagination, an empty or absent nextPageToken (after the type check) ends the walk as complete even when the last page is full",
-      "why": "The generated paginationEndUnprovable treated a full page with no cursor as possibly unfinished unless a has_more=false field said otherwise; ESET sends no such field, so whenever the last page was exactly pageSize long (100 devices) sync --full never reconciled, kept devices deleted in ESET and left the state incomplete (Codex round 21 P1). Both sync call sites now skip that check for page_token resources. TestSyncTokenTypeOnEveryPageAndFullFinalPage (101 mirrored, 100 returned with an empty token) failed with the check restored (`101 devices left, want 100`).",
+      "summary": "for page_token pagination, an empty or absent nextPageToken (after the type check) ends the walk as complete even when the last page is full; the 'full page without a usable next cursor' warning no longer fires for page_token resources",
+      "why": "The generated paginationEndUnprovable treated a full page with no cursor as possibly unfinished unless a has_more=false field said otherwise; ESET sends no such field, so whenever the last page was exactly pageSize long (100 devices) sync --full never reconciled, kept devices deleted in ESET and left the state incomplete (Codex round 21 P1). Both sync call sites now skip that check for page_token resources. TestSyncTokenTypeOnEveryPageAndFullFinalPage (101 mirrored, 100 returned with an empty token) failed with the check restored (`101 devices left, want 100`). Adversarial round 14: the truncation warning still fired in the same run that completed and pruned, and the --max-pages call site had no behavioral test; TestSyncUnexpectedListShapeAndCappedFullPage now covers it (failed with that call site restored).",
       "status": "active",
       "asserts": [
         {
@@ -6022,6 +6027,37 @@
         {
           "file": "cli/internal/cli/sync.go",
           "contains": "} else if pageSize.cursorType != \"page_token\" && paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if pageSize.cursorType != \"page_token\" && resourceSupportsPagination(resource) && nextCursor == \"\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-unexpected-list-shape",
+      "summary": "sync stores a response as a single row only for a declared single-object resource; for a list resource an unexpected 200 body is a warning that leaves the attempt incomplete, with nothing stored and no prune",
+      "why": "The generated fallback stored any non-list 200 body (`{\"message\":\"upstream unavailable\"}`) as one row and marked the walk complete; no device IDs reached seenIDs, so `sync --full` reconciled every device away and recorded a completed empty sync (Codex round 22 P1). TestSyncUnexpectedListShapeAndCappedFullPage failed with the guard disabled (`0 devices`).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "outcome.reason = \"unexpected_list_shape\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "local-empty-after-complete-sync",
+      "summary": "a local list read of a resource whose last sync completed with zero rows returns [] instead of 'Run sync first'",
+      "why": "The local reader treated 'no valid rows' as unsynced even after a complete sync of an empty collection, so `detections list --data-source local` (and the outage fallback) failed for a tenant with no detections (Codex round 22 P2). It now consults the sync state. TestLocalEmptyAfterCompleteSync failed with the check disabled.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "if st := esetMirrorCheck(db, storedType); len(st.Incomplete) == 0 {",
           "code_only": true
         }
       ]
