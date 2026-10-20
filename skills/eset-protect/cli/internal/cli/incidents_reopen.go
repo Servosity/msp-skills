@@ -94,7 +94,7 @@ func newIncidentsReopenCmd(flags *rootFlags) *cobra.Command {
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)
 				if partialFailure != nil {
-					fmt.Fprintf(os.Stderr, "warning: partial failure detected in %s response: %s\n", "incidents", partialFailure.Message)
+					fmt.Fprintf(esetStderr, "warning: partial failure detected in %s response: %s\n", "incidents", partialFailure.Message)
 					if len(partialFailure.ResourceNames) > 0 {
 						fmt.Fprintf(os.Stderr, "         succeeded: %d operation(s)\n", len(partialFailure.ResourceNames))
 					}
@@ -108,7 +108,7 @@ func newIncidentsReopenCmd(flags *rootFlags) *cobra.Command {
 				var items []map[string]any
 				if esetDecodeExact(data, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
+						fmt.Fprintf(esetStderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
 					} else {
 						if partialFailure != nil && !flags.allowPartialFailure {
 							return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "incidents", partialFailure.Message))
@@ -121,7 +121,7 @@ func newIncidentsReopenCmd(flags *rootFlags) *cobra.Command {
 					}
 					if esetDecodeExact(data, &wrapped) == nil && len(wrapped.Data) > 0 {
 						if err := printAutoTable(cmd.OutOrStdout(), wrapped.Data); err != nil {
-							fmt.Fprintf(os.Stderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
+							fmt.Fprintf(esetStderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
 						} else {
 							if partialFailure != nil && !flags.allowPartialFailure {
 								return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "incidents", partialFailure.Message))

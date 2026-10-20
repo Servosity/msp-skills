@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"regexp"
 	"sync"
 
@@ -41,25 +40,25 @@ func newLearnConfig() *entities.Config {
 	cfg := entities.NewConfig()
 	var tickerPatterns []*regexp.Regexp
 	if re, err := regexp.Compile(`^CVE-[0-9]{4}-[0-9]{4,}$`); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^CVE-[0-9]{4}-[0-9]{4,}$`, err)
+		fmt.Fprintf(esetStderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^CVE-[0-9]{4}-[0-9]{4,}$`, err)
 	} else {
 		cfg.RegisterTickerPattern(re)
 		tickerPatterns = append(tickerPatterns, re)
 	}
 	if re, err := regexp.Compile(`^cve-[0-9]{4}-[0-9]{4,}$`); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^cve-[0-9]{4}-[0-9]{4,}$`, err)
+		fmt.Fprintf(esetStderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^cve-[0-9]{4}-[0-9]{4,}$`, err)
 	} else {
 		cfg.RegisterTickerPattern(re)
 		tickerPatterns = append(tickerPatterns, re)
 	}
 	if re, err := regexp.Compile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, err)
+		fmt.Fprintf(esetStderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, err)
 	} else {
 		cfg.RegisterTickerPattern(re)
 		tickerPatterns = append(tickerPatterns, re)
 	}
 	if re, err := regexp.Compile(`^[0-9a-fA-F]{40}$`); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^[0-9a-fA-F]{40}$`, err)
+		fmt.Fprintf(esetStderr, "warning: eset-protect-cli: ticker pattern %q failed to compile: %v\n", `^[0-9a-fA-F]{40}$`, err)
 	} else {
 		cfg.RegisterTickerPattern(re)
 		tickerPatterns = append(tickerPatterns, re)
@@ -139,12 +138,12 @@ func runLearnInitOnce(ctx context.Context) {
 		dbPath := defaultDBPath("eset-protect-cli")
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: eset-protect-cli: learn init: open store: %v\n", err)
+			fmt.Fprintf(esetStderr, "warning: eset-protect-cli: learn init: open store: %v\n", err)
 			return
 		}
 		defer s.Close()
 		if err := initLearn(ctx, s.DB()); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: eset-protect-cli: learn init: %v\n", err)
+			fmt.Fprintf(esetStderr, "warning: eset-protect-cli: learn init: %v\n", err)
 		}
 	})
 }

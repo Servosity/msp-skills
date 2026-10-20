@@ -207,14 +207,18 @@ func TestDevicesProfilePatchesSummary(t *testing.T) {
 		t.Fatalf("order = %v", order)
 	}
 	osP, app, pkg, bare := s.Items[0], s.Items[1], s.Items[2], s.Items[3]
-	if osP.Kind != "os" || !osP.RestartRequired || osP.Version != "KB5044284" || osP.Category != "SECURITY_UPDATE" {
+	if osP.Kind != "os" || osP.RestartRequired != "YES" || osP.Version != "KB5044284" || osP.Category != "SECURITY_UPDATE" {
 		t.Fatalf("os patch = %+v", osP)
 	}
 	if app.Kind != "application" || app.Name != "Mozilla" || app.CatalogID != 5120 || len(app.FixedCVEs) != 3 || app.Severity != "MEDIUM" {
 		t.Fatalf("app patch = %+v", app)
 	}
-	if pkg.Name != "openssl" || pkg.RestartRequired {
+	if pkg.Name != "openssl" || pkg.RestartRequired != "NO" {
 		t.Fatalf("package patch = %+v", pkg)
+	}
+	// profile-restart-keeps-unknown: no restartRequired is unknown, not "no".
+	if bare.RestartRequired != "UNSPECIFIED" {
+		t.Fatalf("a patch with no restart requirement must read UNSPECIFIED, got %q", bare.RestartRequired)
 	}
 	if bare.Kind != "unknown" || bare.FixedCVEs == nil || bare.Category != "UNSPECIFIED" {
 		t.Fatalf("bare patch = %+v", bare)

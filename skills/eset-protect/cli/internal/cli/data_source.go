@@ -861,7 +861,8 @@ func localPageParams(params map[string]string, limitParam string, fetchAll bool,
 	case strings.TrimSpace(v) == "0" && defaultPageSize > 0:
 		out[limitParam] = strconv.Itoa(defaultPageSize)
 	case strings.TrimSpace(v) == "0":
-		delete(out, limitParam)
+		// ESET Connect documents an unspecified or 0 page size as 50.
+		out[limitParam] = strconv.Itoa(esetDefaultPageSize)
 	}
 	return out
 }
@@ -1424,8 +1425,9 @@ func loadLocalList(db *store.Store, storedType, requestedType, path string, para
 func scanLocalList(db *store.Store, resourceType string, parents []localPathParent, q localListQuery, preferTyped bool) ([]json.RawMessage, bool, []string, error) {
 	immediate, hasParent := localReadImmediateParent(parents)
 	present := map[string]bool{}
-	for key := range q.equality {
-		present[key] = false
+	for key, want := range q.equality {
+		// local-filter-proto-defaults: an *_UNSPECIFIED filter is no filter.
+		present[key] = strings.HasSuffix(want, "_UNSPECIFIED")
 	}
 	var items []json.RawMessage
 	skipped := 0
@@ -1459,7 +1461,16 @@ func scanLocalList(db *store.Store, resourceType string, parents []localPathPare
 				return true
 			}
 			for key, want := range q.equality {
+				// Hand-fix local-filter-proto-defaults: ESET's *_UNSPECIFIED
+				// enum filter means "no filter", and protobuf JSON omits a field
+				// holding its default, so an omitted field reads as false / 0.
+				if strings.HasSuffix(want, "_UNSPECIFIED") {
+					continue
+				}
 				got, ok := localObjectField(obj, key)
+				if !ok && (want == "false" || want == "0") {
+					continue
+				}
 				if !ok || !localFieldEquals(got, want) {
 					return true
 				}

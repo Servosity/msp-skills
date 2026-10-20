@@ -5541,8 +5541,8 @@
     },
     {
       "id": "local-read-page-size-is-not-a-total",
-      "summary": "local list reads take the pagination intent: with --all the page-size param no longer caps the result, and --page-size 0 means ESET's default page instead of zero rows",
-      "why": "parseLocalListQuery treats pageSize as a total-result limit, so `devices list --data-source local --all --page-size 1` silently returned one of the mirrored devices and `--page-size 0` returned an empty array, in explicit local reads and in the automatic outage fallback (Codex round 11 P1). localPageParams (data_source.go) rewrites the params passed to resolveLocal from the paginated resolver. TestLocalReadPageSizeIsNotATotal failed with the rewrite removed (`--all --page-size 1 returned 1 of 3`) and still checks a plain --page-size 1 returns one page.",
+      "summary": "local list reads take the pagination intent: with --all the page-size param no longer caps the result, and --page-size 0 means ESET's default page instead of zero rows; --page-size 0 means ESET's default page of 50 when the generated caller passes no default",
+      "why": "parseLocalListQuery treats pageSize as a total-result limit, so `devices list --data-source local --all --page-size 1` silently returned one of the mirrored devices and `--page-size 0` returned an empty array, in explicit local reads and in the automatic outage fallback (Codex round 11 P1). localPageParams (data_source.go) rewrites the params passed to resolveLocal from the paginated resolver. TestLocalReadPageSizeIsNotATotal failed with the rewrite removed (`--all --page-size 1 returned 1 of 3`) and still checks a plain --page-size 1 returns one page. Codex round 18 (P2): generated callers pass defaultPageSize 0, so --page-size 0 removed the limit locally (100 rows instead of ESET's default 50); TestLocalReadPageSizeIsNotATotal now seeds 60 devices and failed with the old delete.",
       "status": "active",
       "asserts": [
         {
@@ -5553,6 +5553,11 @@
         {
           "file": "cli/internal/cli/data_source.go",
           "contains": "func localPageParams(params map[string]string, limitParam string, fetchAll bool, defaultPageSize int) map[string]string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "out[limitParam] = strconv.Itoa(esetDefaultPageSize)",
           "code_only": true
         }
       ]
@@ -5667,6 +5672,284 @@
           "file": "cli/internal/cli/data_source.go",
           "contains": "case strings.HasSuffix(strings.ReplaceAll(canon, \"_\", \"\"), \"groupuuid\"):",
           "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "stderr-errors-escaped",
+      "summary": "the generated commands' error and warning lines (142 sites in 45 files that print an err / API message) write esetStderr, which Execute points at the terminal-escaping, secret-masking stderr writer; carriage-return progress lines keep writing os.Stderr directly",
+      "why": "import's failed-record warnings, and every other generated warning that echoes an API error, wrote straight to os.Stderr, so a 400 echoing a name with C1 or bidi controls reached the operator's terminal unescaped (Codex round 18 P1). Only lines that print an error value were moved, so `\\r` sync progress is not held back by line buffering. TestImportErrorsAreEscaped failed with the import.go line reverted to os.Stderr (`leaked bidi control`).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/eset_stderr.go",
+          "contains": "var esetStderr io.Writer = os.Stderr",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "esetStderr = errWriter",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "fmt.Fprintf(esetStderr, \"warning: failed to import record: %v\\n\", err)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detection-groups_resolve.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2_batch-get.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2_resolve.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-targets.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-triggers.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_move.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_rename.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_update-definition.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_disable.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_enable.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_update-definition.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables_block.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables_unblock.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_move.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_rename.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_basic-attributes-update_incidents-update-incident-basic-attributes.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_close.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-create-incident.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-delete-incident.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-update-incident-text.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_reopen.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/installers_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/installers_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ip-sets_update.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/learn_init.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/playbook_init.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_assign-policy.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_unassign-policy.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_update-ranking.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/roles_create.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/roles_delete.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/web-address-rules_domains_web-address-rules-update.go",
+          "contains": "(esetStderr,",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "local-filter-proto-defaults",
+      "summary": "local equality filters treat an *_UNSPECIFIED enum filter as no filter and let a row that omits the field match false / 0 (protobuf JSON omits defaults)",
+      "why": "With one muted device and one device whose isMuted was omitted, `devices list --is-muted=false --data-source local --all` (and the outage fallback) returned an empty successful result, and an UNSPECIFIED filter matched only rows that literally carried UNSPECIFIED (Codex round 18 P1). A filter key no row carries is still refused (unmatchedEqualityKeys) unless it is UNSPECIFIED. TestLocalFilterProtoDefaults failed with data_source.go at the previous commit.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "if !ok && (want == \"false\" || want == \"0\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "present[key] = strings.HasSuffix(want, \"_UNSPECIFIED\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-restart-keeps-unknown",
+      "summary": "devices profile reports restart_required as ESET's enum (YES, NO or UNSPECIFIED), as patches backlog does, instead of a bool that read every non-YES value as false",
+      "why": "The profile mapped restartRequired to `== RESTART_REQUIREMENT_YES`, so UNSPECIFIED (ESET: unknown whether a restart is required) or an omitted value appeared as restart_required:false, safe to install without scheduling a restart (Codex round 18 P1). The bare-patch assertion in the devices profile test failed with an omitted value mapped to NO.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/devices_profile.go",
+          "contains": "if r := shortEnum(core.RestartRequired, \"RESTART_REQUIREMENT_\"); r != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_profile.go",
+          "not_contains": "p.RestartRequired = core.RestartRequired == \"RESTART_REQUIREMENT_YES\""
         }
       ]
     }

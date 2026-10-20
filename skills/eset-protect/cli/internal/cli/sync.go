@@ -385,7 +385,7 @@ Resource scoping:
 			for res := range results {
 				if res.Err != nil {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
+						fmt.Fprintf(esetStderr, "  %s: error: %v\n", res.Resource, res.Err)
 					}
 					errCount++
 					failedResources = append(failedResources, res.Resource)
@@ -418,7 +418,7 @@ Resource scoping:
 			for _, res := range depResults {
 				if res.Err != nil {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
+						fmt.Fprintf(esetStderr, "  %s: error: %v\n", res.Resource, res.Err)
 					}
 					errCount++
 					failedResources = append(failedResources, res.Resource)
@@ -3010,7 +3010,7 @@ func syncOneParent(
 				outcome.reason = "fetch_error"
 				rep.failure = err
 				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: error for parent %s: %v\n", dep.Name, parentID, err)
+					fmt.Fprintf(esetStderr, "\n  %s: error for parent %s: %v\n", dep.Name, parentID, err)
 				} else {
 					// Non-warning failures were previously silent in JSON mode —
 					// operators only saw the missing rows. Emit a structured
@@ -3117,7 +3117,7 @@ func syncOneParent(
 			outcome.reason = "upsert_error"
 			rep.failure = fmt.Errorf("upserting batch for %s parent %s: %w", dep.Name, parentID, err)
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: upsert error for parent %s: %v\n", dep.Name, parentID, err)
+				fmt.Fprintf(esetStderr, "\n  %s: upsert error for parent %s: %v\n", dep.Name, parentID, err)
 			} else {
 				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, rep.failure))
 			}
@@ -4049,7 +4049,7 @@ func refreshLookupsFromSyncedStore(ctx context.Context, db *sql.DB, syncEvents i
 		},
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: lookup refresh skipped: %v\n", err)
+		fmt.Fprintf(esetStderr, "warning: lookup refresh skipped: %v\n", err)
 		return
 	}
 	if res.Inserted == 0 {

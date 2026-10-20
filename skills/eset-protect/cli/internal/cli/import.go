@@ -81,7 +81,7 @@ but do not stop the import.`,
 				// through float64 before the POST).
 				var body map[string]json.RawMessage
 				if err := json.Unmarshal([]byte(line), &body); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: skipping invalid JSON line: %v\n", err)
+					fmt.Fprintf(esetStderr, "warning: skipping invalid JSON line: %v\n", err)
 					failed++
 					continue
 				}
@@ -100,7 +100,7 @@ but do not stop the import.`,
 							continue
 						}
 					}
-					fmt.Fprintf(os.Stderr, "warning: failed to import record: %v\n", err)
+					fmt.Fprintf(esetStderr, "warning: failed to import record: %v\n", err)
 					continue
 				}
 				success++

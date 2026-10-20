@@ -192,7 +192,8 @@ func Execute() (retErr error) {
 	// Hand-fix dry-run-preview-escaped: the client's dry-run previews and
 	// retry notices go through the same escaping writer.
 	client.DiagnosticWriter = errWriter
-	defer func() { client.DiagnosticWriter = os.Stderr }()
+	esetStderr = errWriter // stderr-errors-escaped
+	defer func() { client.DiagnosticWriter, esetStderr = os.Stderr, os.Stderr }()
 	defer finalizePlatformInvocation(&flags, &retErr)
 
 	executedCmd, err := rootCmd.ExecuteC()
@@ -213,7 +214,7 @@ func Execute() (retErr error) {
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(esetStderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 		}
 	}
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {
@@ -242,7 +243,7 @@ func Execute() (retErr error) {
 	}
 	if err == nil && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(esetStderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 			return derr
 		}
 	}

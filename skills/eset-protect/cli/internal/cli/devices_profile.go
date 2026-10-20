@@ -114,7 +114,7 @@ type devicesProfilePatch struct {
 	CatalogID       int64    `json:"catalog_id"`
 	Category        string   `json:"category"`
 	Severity        string   `json:"severity"`
-	RestartRequired bool     `json:"restart_required"`
+	RestartRequired string   `json:"restart_required"` // YES, NO or UNSPECIFIED (hand-fix profile-restart-keeps-unknown)
 	FixedCVEs       []string `json:"fixed_cves"`
 }
 
@@ -494,6 +494,7 @@ func devicesProfilePatchesSummary(items []json.RawMessage, truncated bool, rej *
 		p.FixedCVEs = make([]string, 0)
 		p.Severity = "UNSPECIFIED"
 		p.Category = "UNSPECIFIED"
+		p.RestartRequired = "UNSPECIFIED"
 		if core != nil {
 			p.Vendor = core.DeveloperDisplayName
 			p.Version = core.ResultVersionName
@@ -502,7 +503,12 @@ func devicesProfilePatchesSummary(items []json.RawMessage, truncated bool, rej *
 				p.Category = c
 			}
 			p.Severity = reportVulnsSeverity(core.Severity)
-			p.RestartRequired = core.RestartRequired == "RESTART_REQUIREMENT_YES"
+			// Hand-fix profile-restart-keeps-unknown: ESET's UNSPECIFIED (or an
+			// omitted value) means unknown, not "no restart"; keep the enum,
+			// as patches backlog does.
+			if r := shortEnum(core.RestartRequired, "RESTART_REQUIREMENT_"); r != "" {
+				p.RestartRequired = r
+			}
 			if core.FixedCves != nil {
 				p.FixedCVEs = core.FixedCves
 			}
