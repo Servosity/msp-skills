@@ -1,0 +1,987 @@
+{
+  "slug": "td-synnex",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/fortinet/regen.sh.",
+  "handfixes": [
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "sid, err := windows.StringToSid(alias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if len(fields) != 6 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "upsert-test-fixture-resource-renamed",
+      "summary": "store/upsert_batch_test.go TestUpsertBatch_UnwrapsIDBearingEnvelopeItems stores its fixture rows under resource \"envelope_fixture_customers\" instead of \"customers\".",
+      "why": "The press template hard-codes resource \"customers\" with an `id` primary key. ION's real customers resource keys on `name` (accounts/{a}/customers/{c}), the only unique identifier ION returns, so the fixture rows landed under \"Ada\" and the test failed. Press retro candidate.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/upsert_batch_test.go",
+          "contains": "s.UpsertBatch(\"envelope_fixture_customers\", items)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/upsert_batch_test.go",
+          "contains": "s.Get(\"envelope_fixture_customers\", \"cust-1\")",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-no-dependent-fan-out",
+      "summary": "sync.go dependentResourceDefs() returns an empty list.",
+      "why": "The profiler emitted customers_orders ({accountId} filled from the customer's resource name, {customerId} from a field customers do not have) and customers_cart_items ({customerId} and {cartId} both from the customer row), so every sync made 2 failing calls per customer. Account-wide `orders` already syncs every order. Press retro candidate: a 2-placeholder child path treated as a direct child of the first segment's resource.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return []dependentResourceDef{}",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "resource-paths-account-scoped",
+      "summary": "resource_paths.go resourceReadPaths / resourceDetailPaths / resourceWritePaths / resourceReadConfigs are populated with /accounts/{accountId}/... paths.",
+      "why": "The generator's resourceEndpointForMethod skips any path containing \"{\", including the env-backed {accountId} that sync already resolves, so all four maps were emitted empty: tail, export and import had no resources and verify flagged resource-path:tail as critical. Entries mirror what the generator emits for the same resources without accountId in the path.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "\"subscriptions\": \"/accounts/{accountId}/subscriptions\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "\"customers\": \"/accounts/{accountId}/customers/{customerId}\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "\"customers\": \"/accounts/{accountId}/customers\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "\"subscriptions\": {responsePath: \"items\", paginationType: \"offset\", cursorParam: \"pagination.offset\", limitParam: \"pagination.limit\", pageSize: 100},",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tail-known-resources-derived",
+      "summary": "tail.go tailKnownResources() derives its list from resourceReadPaths instead of returning a hard-coded empty list.",
+      "why": "Emitted empty for the same {accountId} reason as resource-paths-account-scoped, so `tail --resource subscriptions` was refused.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "known := make([]string, 0, len(resourceReadPaths))",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-subscriptions-offset-pagination",
+      "summary": "sync.go resourceSupportsPagination() and determinePaginationDefaults() carry a \"subscriptions\" case using pagination.limit / pagination.offset.",
+      "why": "ION pages subscriptions with pagination.limit/pagination.offset; the press pagination detector only knows bare limit/offset names, so sync stopped after the first 100 subscriptions and reported success. Proven against the mock with 255 subscriptions (100 before, 255 after).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorParam: \"pagination.offset\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "limitParam:  \"pagination.limit\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "case \"subscriptions\":",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "resource-detail-path-last-placeholder",
+      "summary": "resource_paths.go resourceDetailPath() substitutes the LAST {placeholder}, not the first.",
+      "why": "Every detail path starts with the env-backed {accountId}; substituting the first placeholder put the item ID where the account ID belongs.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "start := strings.LastIndex(path, \"{\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "end := strings.LastIndex(path, \"}\")",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tail-drain-pages-and-redact",
+      "summary": "tail.go fetchAndEmit() sends page params, drains up to TD_SYNNEX_TAIL_MAX_PAGES pages per poll with a stderr warning at the cap, and passes every event through redactSecretsJSON (hand-written, ion_redact.go).",
+      "why": "The generated fetchAndEmit sent no query parameters (ION customers, products and orders lists reject a request without pageSize), read only the first page each poll, and printed order items verbatim although they can carry Microsoft tenant passwords as name/value attributes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "\"data\":      redactSecretsJSON(data),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "data, err := c.Get(ctx, path, resourcePageParams(config, cursor, page, 0))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "os.Getenv(\"TD_SYNNEX_TAIL_MAX_PAGES\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func redactSecretsJSON(data json.RawMessage) json.RawMessage {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "no-create-alias-on-non-create-post",
+      "summary": "customer-orders cancel-order, products disable, reports get and cloud-providers link-customer carry no \"create\" alias.",
+      "why": "The press assigns alias \"create\" to every POST, so `customer-orders create` ran cancel-order and `products create` disabled a product: a destructive action behind the most innocent verb. Press retro candidate: computeAlias ignores custom-method POSTs (\":cancel\", \":disable\").",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/customer_orders_cancel-order.go",
+          "not_contains": "Aliases: []string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/products_disable.go",
+          "not_contains": "Aliases: []string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/reports_get.go",
+          "not_contains": "Aliases: []string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/cloud_providers_link-customer.go",
+          "not_contains": "Aliases: []string{\"create\"}"
+        }
+      ]
+    },
+    {
+      "id": "ion-doc-and-help-text",
+      "summary": "root.go Short/Long and auth.go group Short use the ION display name and the real auth model (auth mint), not template text.",
+      "why": "The template text was wrong for this CLI: \"Td Synnex CLI\" (humanName, not x-display-name) and \"Manage optional authentication\" when every API call needs an ION token. fix_docs.py in the factory applies the same edits to the generated README/SKILL/AGENTS, which this repo re-authors on onboard.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Short: `TD SYNNEX StreamOne ION CLI",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Short:       \"Mint, check and store StreamOne ION OAuth tokens (API calls need one; local-store commands do not)\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "Manage optional authentication"
+        }
+      ]
+    },
+    {
+      "id": "ion-auth-hooks-wired",
+      "summary": "Hand-written auth_ion.go replaces the generated `auth set-token` and `auth logout` RunE and adds `auth mint` / `auth check`; ion_config.go and ion_account_default.go back them.",
+      "why": "The hand-written files survive a regen by construction, but they hook GENERATED commands by name: if a reprint renames `set-token` or `logout`, the override silently stops applying and the generated set-token returns, which saves an empty refresh token (ION refresh tokens are single-use, so that locks the user out). These asserts notice. Also guards the mint lock held across the single-use refresh-token exchange, the https-only token host, and that set-token keeps the stored refresh token. Codex review round 1 (2026-10-16, P1): auth logout --dry-run cleared both tokens and set-token --dry-run saved one; both now print the dry-run line and change nothing. Codex review round 2 (2026-10-16, P1): with credentials.toml at mode 0644 the loader soft-refuses its contents, and set-token then saved over it with an empty refresh token; set-token and auth mint now refuse with the chmod 600 remedy and leave the file untouched. Codex review rounds 3-4 (2026-10-19, P1): token fields in config.toml make config.Load skip credentials.toml, so set-token saved an empty refresh token over the stored one, then (after a direct-read fix) a spent refresh_token from config.toml over the rotated one, and read a 0644 credentials file the normal path refuses. refreshTokenToKeep now refuses a refresh_token in config.toml, and otherwise reads the stored token from the credentials file under VerifyCredsPerms; mint uses the same token (adversarial round 4, P2: mint reported 'no refresh token' or replayed a stale env token). TestAuthKeepsRefreshTokenShadowedByConfig fails under each of three mutations (no stored read, no config refresh_token refusal, no permission check). Codex round 4 (P1): OAuth error bodies were echoed from error_description; only the error code is printed now. Adversarial round 3 (P2): a plain-HTTP token URL now fails before the exchange with 'the token was not sent', not 'the refresh token may already be spent'. Adversarial round 5 (P2): the config refresh_token refusal now checks only the file Load read, skips agentcookie-managed configs (config.toml is the store there), and is skipped for a piped refresh token; auth check reports a refresh token stored in credentials.toml even when config.toml shadows it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Use:   \"set-token\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Use:     \"logout\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "setCmd.RunE = ionSetTokenRunE(flags)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "logoutCmd.RunE = ionLogoutRunE(flags)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "cliutil.WithFileLock(credsPath+\".mint\"",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "cfg.SaveTokens(cfg.ClientID, cfg.ClientSecret, token, keep, time.Time{})",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "if !strings.EqualFold(u.Scheme, \"https\") && !(strings.EqualFold(u.Scheme, \"http\") && isLoopbackHost(u.Hostname())) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/ion_config.go",
+          "contains": "func (c *Config) KeepFileEndpoint() {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/ion_config.go",
+          "contains": "func (c *Config) DropFileAccessToken() {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"auth logout (would clear the stored access and refresh tokens)\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"auth set-token (would save the access token and keep the stored refresh token)\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "if cfg.HasCredentialRefusals() {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "func refreshTokenToKeep(cfg *config.Config, credsPath string) (string, error) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_novel_test.go",
+          "contains": "func TestAuthKeepsRefreshTokenShadowedByConfig(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "if json.Unmarshal(out[\"error\"], &code) == nil && oauthErrorCodes[code] {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestOAuthErrorEchoesOnlyTheCode(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-drops-endpoint-writes",
+      "status": "active",
+      "summary": "TD_SYNNEX_MCP_READ_ONLY=1 removes every generated endpoint-mirror tool not annotated read-only (order create/cancel, cart checkout, customer create/update, product enable/disable, provisioning, report save/delete, ...) before the Cobra-tree mirror registers; the Cobra-tree mirror applies its own filter (subscriptions set and friends). It runs after cobratree.RegisterAll, so the local-store writers the mirror keeps in read-only mode (teach, teach_playbook, learnings_confirm, playbook_amend) are dropped too.",
+      "why": "Found during the msp-skills onboard (2026-10-16), same press 4.33.5 defect quotewerks fixed: the read-only kill switch is applied only by cobratree.RegisterAll, and this connector uses the endpoint-mirror MCP mode, so with TD_SYNNEX_MCP_READ_ONLY=1 the server still listed customer_orders_cancel-order and carts_checkout and an MCP tools/call sent both POSTs to a local ION mock. With the fix both tools are absent (tools/call returns 'tool not found') and the mock receives nothing. Read-style POSTs annotated read-only (reports_get-data, pricing_get-product) stay. TestReadOnlyEnvDropsEndpointWrites fails (18 write tools still registered) when the dropNonReadOnlyTools call is removed and passes with it; TestFullModeKeepsEndpointWrites pins the other direction. Codex review round 3 (2026-10-19, P1): the call ran before cobratree.RegisterAll, whose own filter keeps local-write tools, so read-only mode still offered teach, teach_playbook and learnings_confirm. TestReadOnlyEnvDropsEndpointWrites now also fails on any offered tool without readOnlyHint (it failed on playbook_amend and teach_playbook with the call in its old place).",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "dropNonReadOnlyTools(s)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints.go",
+          "contains": "func dropNonReadOnlyTools(s *server.MCPServer) []string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "func TestReadOnlyEnvDropsEndpointWrites(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "\"subscriptions_set\", \"teach\", \"teach_playbook\", \"learnings_confirm\")",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "ion-response-redaction-transport",
+      "status": "active",
+      "summary": "A client hook (ion_redact_transport.go) wraps every generated CLI and MCP client's HTTP transport so each ION response is redacted (secret-named fields, secret-named name/value attributes, credentials objects down to identity fields, JSON nested in strings, credential text in strings, azureCustomerInfo withheld) before the response cache, the synced store, printed output, --deliver sinks or MCP tool results see it. The OAuth token exchange (/oauth/token, /oauth/validateAccess) is exempt. The same transport refuses plain HTTP to any non-loopback host, so a bearer or refresh token never travels unencrypted (Codex review round 1, P1: TD_SYNNEX_BASE_URL=http://ion.tdsynnex.com/api/v3 sent the bearer in plaintext; only the OAuth path checked https). CSV text, as a body or inside a JSON string, has every cell under a secret-named header blanked (Codex round 1 P1: user,password columns passed). Text is judged as one unit and withheld whole when it holds any credential marker, never per line or per cell (Codex round 2 P1s: line-by-line judging leaked a blank-line-prefixed or one-column CSV and an XML element split across lines; round 3 P1s: the per-cell CSV path kept a password on the line after its label in prose with equal comma counts, and name,value CSV rows; 'Password Is x' and HTML/percent-encoded tags passed). Markers are looked for in the raw text and its HTML-, percent- and \\u-decoded forms; a header-line field is judged like a JSON key, other fields only when a secret word ends them, so an Azure 'Secret Renewal' meter row does not withhold a report. Names found in text are judged by the same isSecretKey rule as JSON keys; TestRedactorOracle crosses 13 secret spellings with 16 container shapes and encodings. Round 4 (Codex + adversarial P1): multi-word credential labels ('API Key: x', 'Temporary password for jdoe@x: x', '<b>Password</b>: x', 'Password&nbsp;: x', 'Password - x') and username-only URL userinfo leaked; a label rule (credential word, then only punctuation, markup, modifier words or a for/of phrase, then ':', '=', is/was/are, a dash or an arrow) and any-userinfo now catch them, while 'Keeper Password Manager: Business' and SKU IDs such as CFQ7TTC0LHPW:0001 survive (a short suffix pass/pwd/pw/pin counts in text only at a word boundary). TestRedactorLabelShapes leaks 20 shapes with the label rule removed. Round 5 (Codex + adversarial P1): words between the credential word and the separator ('Password changed to: x', 'API key (production): x'), unspaced dashes, CR-only tables, UTF-8 percent escapes and short bearer tokens leaked. Text is now judged by field kind: free text (notes, descriptions, report CSV) is withheld when a credential word or secret name is followed within 80 characters on the same line by a separator; name and ID fields (identityKey) keep the narrow label rule, so catalog names and part numbers such as ACRN:Tier9:PW:M survive. TestRedactorLabelShapes leaks 12 shapes with the free-text rule removed. Round 6 (Codex + adversarial P1): a digit before the separator ('PIN 1: x'), an unspaced hyphen ('Password-x'), prose with commas across lines, bare 'admin:x@host', and compound names in name fields ('initialPasswordValue=x') leaked, and customerOrganization was judged as free text. Only a digit:digit colon is excluded now, a table row is judged as one line, name fields count any 'secretName=x', and organization, company, address and similar keys are name fields. Round 7 (Codex + adversarial P1): NBSP, tabs or double spaces inside a label ('API&nbsp;key: x'), Unicode dash/colon/arrow look-alikes, five-level percent encoding, encoded attribute names (admin%50assword), PIN/OTP-first names (pinCode, 'PIN code') and colons inside a bare userinfo password leaked, and a customer GET redirected to /oauth/validateAccess skipped redaction. canonicalText folds look-alikes for text and key judging, decoding runs to a fixed point and fails closed at 64 layers, and only a request postIONForm marks (ionOAuthExchange context value) is exempt. TestRedactorLabelShapes leaks 12 shapes with canonicalText removed. Pre-empting the same class: canonicalText applies NFKC (fullwidth letters) and drops format characters (zero-width space, soft hyphen) first, and a separator at the start of the next line counts. Round 8 (Codex P1): encoded attribute-role keys (n%61me), PIN/OTP as a leading word ('PIN value', otpValue), non-ASCII tag names (<contraseña>) and userinfo after '=' leaked; normalizeKey decodes escaped names, secretFirstWord judges the raw name, tag/assignment/query names take any Unicode letter, and bare userinfo needs only a non-name character before it. Adversarial round 8 (P1, present since the first redaction commit): decodeJSON took 'a JSON value then text' as one value, so a quoted CSV header cut a report to its first cell and '\"Ma & Pa\" Hardware LLC' became '\"Ma & Pa\"'; only io.EOF after the value counts now (TestRedactorKeepsLeadingJSONTokens). Escape decoding uses hex.DecodeString and strconv.Unquote (no integer conversions). Round 9 (Codex + adversarial P1): table header cells with punctuation or non-ASCII letters ('Password (temp)', 'Contraseña'), a dash with a space before it but none after, sip:/tel: userinfo, and percent-encoded JSON in a name field leaked, while the all-caps PIN rule blanked PINNACLE BANK and '123 PINE ST' reports. Table cells are judged after cleanField, the address-scheme exemption drops the scheme and still judges the userinfo after it, encoded JSON is judged decoded (hasEncodedSecretJSON), and PIN/OTP must be followed by a separator or code/number/value/secret/digits. Round 10 (Codex + adversarial P1): hyphenated logins (svc-mail:pw@host) lost their user to the address-label strip, digit-led users (1234:pw@host.example) and long or title-prefixed table headers leaked, and Compass/Bypass/Chopin/Pinnock withheld whole reports. Address labels are exempt only as a whole user token (hasBareUserinfo judges the text after them), a dotted host admits digit-led users, header cells name a column at any length and a title line above the header is skipped, and the short pass/pw/pin suffix needs a word start or camelCase P in keys and text alike (secretSuffix removed). Round 11 (Codex + adversarial P1): the recursive address-label check was exponential (18 'Email:' contacts hung the CLI and MCP server) and is now one replace plus two scans; title lines with separators, short secret words anywhere in a header cell ('Pwd (temp)', 'Door PIN set by tech'), plurals and 'Clave' are caught (headerCandidates, headerCellIsSecret); a dash before a digit counts again unless a money amount follows; IPv6 hosts count; run-together names such as adminpass and rootpw count (secretJoined). TestRedactorAddressLabelsAreLinear times out on the round-10 code. Round 12 (Codex + adversarial P1, after 6-7 free-text P1s a round for four rounds): free text now uses hasCredentialMention, a mention of any credential word or secret name withholds the string, with no separator grammar to evade ('PIN -4711, changed', 'tenantAdminPassword-Hunter2!', a Contraseña data cell); name fields keep the narrow rule. textForms decodes linearly (an 8 KB note with a 62-level escape took 20 s), response headers are judged (a redirect Location with ?password= reached errors), and bare userinfo accepts Unicode user names.",
+      "why": "Found during the msp-skills onboard review (2026-10-16). The spec documents credentials in ordinary responses: Customer.user.password (customers create/get/list), order-item name/value attributes carrying Microsoft tenant passwords (orders sync), ProvisionResponse.userCredentials.password (cloud-providers provision-customer) and CustomerCloudProvider.azureCustomerInfo, a Partner Center JSON string holding tenant admin credentials (cloud-providers get-customer). Only tail and subscriptions set redacted, so sync wrote them to data.db and the MCP sql, list and get tools returned them. Receipt: a local mock serving a distinct sentinel in each shape; with the hook disabled the sentinels appear in data.db and in 9 CLI/MCP outputs, with it enabled in none (sync, list, get, tail, customers create, provision-customer, MCP customers_list / cloud_providers_get-customer / sql / customers_create). TestRedactingTransportJudgesEveryResponse fails when the registerClientHook call is removed. The asserts also pin the GENERATED seams the hook depends on: registerClientHook / ApplyClientHooks in root.go, the MCP client calling cli.ApplyClientHooks, and client.Client.HTTPClient; a reprint that drops any of them silently turns redaction off.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/ion_redact_transport.go",
+          "contains": "registerClientHook(func(c *client.Client) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport.go",
+          "contains": "hc.Transport = redactingTransport{base: base}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactingTransportJudgesEveryResponse(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "func ApplyClientHooks(c *client.Client) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err := ApplyClientHooks(c); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if err := cli.ApplyClientHooks(c); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "HTTPClient *http.Client",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport.go",
+          "contains": "!isLoopbackHost(req.URL.Hostname())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactingTransportRefusesPlainHTTPOffLoopback(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func textForms(s string) []string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactorOracle(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func fieldIsSecret(field string, header bool) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactorKeepsOrdinaryText(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "regexp.MustCompile(`(?i)\\b(?:` + textLabelWords + `)\\b` + textLabelGap + `(?:` + textNarrowSep + `)`)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactorLabelShapes(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func hasCredentialMention(s string) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "t[k] = redactValueKind(val, depth, identityKey(k) || (pairNarrow && isAttributeValueKey(normalizeKey(k))))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func canonicalText(s string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport.go",
+          "contains": "req.Context().Value(ionOAuthExchange{}) != nil && isIONTokenExchange(req.URL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_ion.go",
+          "contains": "context.WithValue(ctx, ionOAuthExchange{}, true)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "if _, err := dec.Token(); err != io.EOF {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactorKeepsLeadingJSONTokens(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func hasEncodedSecretJSON(s string, depth int) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func cleanField(field string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func hasBareUserinfo(s string) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactorAddressLabelsAreLinear(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact.go",
+          "contains": "func headerCandidates(s string) []string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactorDecodeDepthIsLinear(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport_test.go",
+          "contains": "func TestRedactingTransportJudgesHeaders(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport.go",
+          "contains": "if isSecretKey(k) || hasSecretText(v, false) {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "explicit-db-skips-default-refresh",
+      "status": "active",
+      "summary": "root.go skips the default-store auto-refresh when the command was given its own --db (explicitDBFlag, hand-written in ion_book.go). The post-run flag-correction learning pass (deriveFlagCorrections) also returns early for such a command, so it never opens the default store either. The learn and playbook seed hooks (runLearnInitOnce / runPlaybookInitOnce, which open the DEFAULT store) are also skipped for a command given --db.",
+      "why": "Adversarial review round 1 (2026-10-16, P1): the late 'explicit --db no longer resolves the default DB path' fix in openIONBook ran after the root PersistentPreRunE, whose autoRefreshIfStale resolved, created and filled the default store with a live ION refresh. So margin, subscriptions renewals, position export, orders stuck and customers show with --db made 2-3 API calls and created data-<hash>.db under the home, then reported the freshness check as not run. Receipt against a logging mock: with the fix 0 API calls and no default store for all six licence-book commands, with --db pointing at a real snapshot or a missing path; with the root.go condition reverted, 2 calls and a new default store. TestExplicitDBFlag pins the check. Codex review round 1 (2026-10-16, P1): after a corrected flag typo, deriveFlagCorrections opened learnDBPath(\"\") (the default store) even with --db. Codex + adversarial review round 3 (2026-10-19, P1/P2): search, teach, teach-lookup, teach-pattern, teach-playbook, learnings forget, playbook amend and workflow archive with --db still created, migrated and seeded the default data.db through those hooks. Receipt: search --db in a sandbox HOME creates only the named store; without --db the default data.db appears. Codex review round 4 (2026-10-19, P1): when flag parsing failed, --db was never parsed, so the post-run flag-correction pass still opened the default store; it now also checks the raw arguments (argsNameDB). Codex review round 5 (2026-10-19, P1): `--db ' '` counted as not explicit and refreshed the default store, and argsNameDB stopped at a '--' that was a flag value; explicitDBFlag now counts any set --db, openIONBook refuses a blank one, and argsNameDB scans every argument. Codex + adversarial round 6 (P1/P2): sync, search, analytics, learnings and recall accepted a blank --db and fell back to the default store; the root PersistentPreRunE now refuses a blank --db for every command.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "isRead && !explicitDBFlag(cmd) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_book.go",
+          "contains": "func explicitDBFlag(cmd *cobra.Command) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if (executed != nil && explicitDBFlag(executed)) || argsNameDB(os.Args[1:]) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "commandMayWriteStore(cmd) && !explicitDBFlag(cmd) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "argsNameDB(os.Args[1:]) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestArgsNameDB(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_book.go",
+          "contains": "return nil, func() {}, usageErr(fmt.Errorf(\"--db needs a file path\"))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if f := cmd.Flags().Lookup(\"db\"); f != nil && f.Changed && strings.TrimSpace(f.Value.String()) == \"\" {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-no-file-path-flags",
+      "status": "active",
+      "summary": "A hand-written novel hook (ion_mcp_file_flags.go) adds every non-bool flag named *-file, *-dir, *-path or db to the command's mcp:write-flags, so no MCP tool takes a filesystem path.",
+      "why": "Adversarial review round 1 (2026-10-16, P1): the generated teach (--playbook-file, --playbook-notes-file) and teach-playbook (--notes-file, --playbook-file) MCP tools read any file an agent named into the learning store, and recall, playbook_list and sql returned it, including credentials.toml with the ION access token and single-use refresh token, even under TD_SYNNEX_MCP_READ_ONLY=1. With the hook the flags are gone from the tool schema and a call naming one returns 'unknown MCP parameter'. TestPathFlagsNeverReachMCP fails (7 flags) when the hook body is removed. It depends on the generated mcp:write-flags contract in cobratree/classify.go.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/ion_mcp_file_flags.go",
+          "contains": "annotatePathFlags(root)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/classify.go",
+          "contains": "FlagWriteSinksAnnotation = \"mcp:write-flags\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestPathFlagsNeverReachMCP(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-fails-closed",
+      "status": "active",
+      "summary": "cliutil.IsMCPReadOnlyEnv treats any value except blank, 0, false, no or off (after dropping an unresolved MCPB placeholder) as on; the generated TestMCPReadOnlySwitch 'other values' subtest is updated to that contract.",
+      "why": "Adversarial review round 1 (2026-10-16, P2): the switch accepted only the exact string '1', and the .mcpb exposes it as a free-text field titled 'Read-only MCP mode', so an MSP typing 'true' or 'yes' kept every write tool (cancel-order, checkout, subscriptions set) while believing they were off. A reprint restores the exact-'1' check AND the old subtest; the asserts notice.",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "case \"\", \"0\", \"false\", \"no\", \"off\":",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "not_contains": "return os.Getenv(MCPReadOnlyEnvVar) == \"1\""
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout_test.go",
+          "contains": "left the read-only switch off",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-order-tools-destructive-hint",
+      "status": "active",
+      "summary": "tools.go calls markDestructiveTools (hand-written, read_only_endpoints.go) so cancel-order, create-order, carts checkout, products enable/disable, provision-customer, link-customer and programs batch-update-product carry destructiveHint=true.",
+      "why": "Adversarial review round 1 (2026-10-16, P2): the generated endpoint tools annotated order placement and cancellation as non-destructive, so MCP hosts confirmed them no louder than a read, contradicting the governance tiers. TestOrderToolsAreDestructive fails (7 tools) when the call is removed.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "markDestructiveTools(s)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "func TestOrderToolsAreDestructive(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "status": "active",
+      "summary": "doctor probes GET /accounts/{accountId}/customers?pageSize=1 (uncached) with the real token and reports valid / rejected (401) / scope-limited (403) / wrong base_url or account (404); without TD_SYNNEX_ACCOUNT_ID both the credentials and api rows say 'not verified' and name the variable; with no token it prints an ERROR naming auth mint.",
+      "why": "verify_all's check_doctor_truth (issue #282) failed: the generated doctor called any response to GET / reachable and printed 'present, not verified', identically for a working token, an expired one and a base_url aimed at a web page. Every ION API path is account-scoped, so there is no argument-free probe without the account ID. check_doctor_truth --slug td-synnex PASSes with the hook and fails with the generated branch.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, \"td-synnex-cli\", report)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"credentials\"] = doctorNotSignedInVerdict",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s`"
+        }
+      ]
+    },
+    {
+      "id": "auth-help-no-exported-access-token",
+      "status": "active",
+      "summary": "auth setup and auth status (generated auth.go) point at auth mint and TD_SYNNEX_ACCOUNT_ID instead of telling users to export TD_SYNNEX_ACCESS_TOKEN or pipe a token to set-token.",
+      "why": "Adversarial review round 2 (2026-10-16, P2): every 401 hint sends users to auth setup, which printed 'export TD_SYNNEX_ACCESS_TOKEN=\"your-token-here\"'. An exported 2-hour access token overrides the token auth mint stores, so once it expires every call in that shell 401s even though cron keeps minting.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "export TD_SYNNEX_ACCESS_TOKEN=\\\"your-token-here\\\""
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "td-synnex-cli auth mint --refresh-token-stdin\")",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-webhook-https-only",
+      "status": "active",
+      "summary": "ParseDeliverSink refuses a plain-http --deliver webhook URL unless the host is loopback. deliverWebhook's client refuses a redirect to plain http off loopback.",
+      "why": "Codex review round 5 (2026-10-19, P1): `auth mint --print-access-token --json --deliver webhook:http://example.com/receive` sent the minted access token over plaintext HTTP, outside the redacting transport's https guard. Any command's delivered output (customer data) had the same exposure. TestDeliverWebhookRefusesPlainHTTP pins both directions (example.com and 10.0.0.5 refused; https, 127.0.0.1 and localhost allowed). Codex round 6 (P1): an allowed URL answering 307 to http://leak.example re-posted the token in cleartext; TestDeliverWebhookRefusesRedirectToPlainHTTP pins it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "if u, err := neturl.Parse(target); err != nil || (u.Scheme == \"http\" && !isLoopbackHost(u.Hostname())) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestDeliverWebhookRefusesPlainHTTP(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "return fmt.Errorf(\"refusing webhook redirect to %s: plain http off loopback\", r.URL.Host)",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "trueup-company-name-any-script",
+      "status": "active",
+      "summary": "normalizeCompany (position_trueup.go, hand-written) keeps letters and digits of every script and NFKC-folds before joining distributor rows by name. Combining marks (\\p{M}) are kept too; file rows whose status is cancelled/canceled/deleted/inactive/expired/terminated/disabled/failed/stopped/error are rejected (suspended rows count, on both sides), and two columns mapped to one name are refused.",
+      "why": "Codex review round 9 (2026-10-19, P1): the name key stripped [^a-z0-9], so TD SYNNEX customer '北京 Inc' (5 seats) and Pax8 customer '東京 Inc' (7 seats) both normalized to 'inc' and true-up merged them into one 12-seat position, breaking the rule that true-up never merges different customers. TestNormalizeCompanyKeepsEveryScript pins both directions (distinct scripts and accented names stay apart; punctuation, legal suffixes and fullwidth spellings still match). Codex round 10 (P1): Devanagari names differing only in a vowel sign (किरण / कुरण Inc) still merged. Adversarial round 10 (P2): cancelled file rows were counted against active TD SYNNEX subscriptions, and seats+quantity mapped to one column was read in random order. Round 11 (Codex + adversarial P2): an exact duplicate CSV header silently used the last column and is now refused; status is judged by its first word ('Cancelled (refunded)' is cancelled, 'Pending cancellation' is active), and 'suspended' counts on both sides, matching ionSub.Inactive.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/position_trueup.go",
+          "contains": "var nonAlnum = regexp.MustCompile(`[^\\p{L}\\p{M}\\p{N}]+`)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestNormalizeCompanyKeepsEveryScript(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestPositionFileRefusesColumnCollisionAndSkipsInactive(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "monthly-money-trailing-cycle",
+      "status": "active",
+      "summary": "MonthlyMoney (ion_book.go, hand-written): annual and longer cycles use the subscription's own price and cost normalized to a month; only when ION sends neither are the billed rows of the trailing cycle summed. Monthly billing uses the newest billed month. A billed month missing its price or cost takes the subscription's price and cost together when ION sent both in the same currency, never one half of each (a billed month can be a proration); otherwise the half stays unknown (PriceKnown/CostKnown). The billing cycle alone sets the period: an unrecognized or blank cycle leaves both unknown, and the commitment term is never used in its place (adversarial rounds 14-15, Codex round 17).",
+      "why": "Adversarial review round 10 (2026-10-19, P1): for annual billing it used only the newest billed month divided by 12, so a later mid-term proration or a seat-reduction credit replaced the annual charge; a profitable annual Microsoft 365 E3 (10800/9000 a year) with a one-seat credit read as -36/-30 a month, flagged negative in margin, renewals, position export, customers show and true-up unit cost. With the window it reads 864/720. TestMonthlyMoneyPrefersRecentBillingMonthNormalizedByCycle pins the credit case. Adversarial round 11 (P1): the trailing window anchored on the newest billed row double-counted across a renewal (a monthly-to-annual switch read 1725/mo for a 900/mo subscription; a co-termed first term plus renewal read 1687.5; a prior-term proration was added to the renewal). Billed rows are lumpy across terms, so the subscription's own figures are the run-rate whenever ION sends them.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/ion_book.go",
+          "contains": "if !billedOK || (cycleMonths > 1 && (s.Price.Set || s.Cost.Set)) {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "subscriptions-set-same-customer",
+      "status": "active",
+      "summary": "subscriptions set (hand-written) refuses to order when the fetched subscription names a different customer than the order path, and never builds an order from a [redacted] ID.",
+      "why": "Adversarial review round 10 (2026-10-19, P2): a subscription returned under another customer's path would have its UPDATE order posted to the wrong customer's orders endpoint. Receipt: a stub serving customerId 102 under /customers/101 gets 'subscription B1 belongs to customer 102, not 101; nothing was ordered' and no POST. TestSubscriptionUpdateRefusesRedactedIDs pins the redacted-ID guard.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/subscriptions_set.go",
+          "contains": "if sub.CustomerID != \"\" && sub.CustomerID != args[1] {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_set.go",
+          "contains": "if strings.TrimSpace(v) == \"\" || strings.Contains(v, redacted) {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-body-redacted",
+      "status": "active",
+      "summary": "client.go dryRun prints a request body only through client.DryRunBodyFilter, a package-level hook the cli package sets to redactSecretsJSON at init (ion_redact_transport.go); while no filter is registered the body is withheld with its byte count. Generated dryRun printed the body verbatim.",
+      "why": "Codex review round 13 (2026-10-19, P1): `customer-orders create-order 10505 108536 --stdin --dry-run --json` with an orderItems attribute {name: adminPassword, value: SENTINEL} wrote the sentinel to stderr, which the MCP shellout relays as hints or error text. Receipt: the sentinel is absent from stderr with the hook and present with `enc.Encode(pretty)` restored (TestDryRunBodyGoesThroughTheRedactor fails on the reverted line; TestDryRunBodyFilterIsTheIONRedactor pins the registration).",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "var DryRunBodyFilter func(json.RawMessage) json.RawMessage",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "enc.Encode(DryRunBodyFilter(pretty))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if DryRunBodyFilter == nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_redact_transport.go",
+          "contains": "client.DryRunBodyFilter = redactSecretsJSON",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/dryrun_body_test.go",
+          "contains": "func TestDryRunBodyGoesThroughTheRedactor(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ion_guards_test.go",
+          "contains": "func TestDryRunBodyFilterIsTheIONRedactor(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-endpoint-writes-refuse-undeclared-args",
+      "status": "active",
+      "summary": "makeAPIHandler in tools.go refuses, before any request, a non-GET endpoint tool call that carries an argument the tool does not declare; GET tools keep the pass-through for API filters.",
+      "why": "Adversarial review round 14 (2026-10-19, P1): the generated handler forwarded every undeclared argument into the body (POST/PUT/PATCH) or the query string, so carts_delete, customer_orders_cancel-order, customer_orders_create-order and customers_update called with dry-run:true (which SKILL.md tells agents to use) deleted, cancelled, ordered and replaced. TestEndpointWriteRefusesUndeclaredArgument fails with the check removed and proves the declared delete and a GET filter still reach the server.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if !strings.EqualFold(method, \"GET\") {\n\t\t\t\treturn mcpToolError(fmt.Sprintf(\"unknown MCP parameter %q",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/undeclared_args_test.go",
+          "contains": "func TestEndpointWriteRefusesUndeclaredArgument(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-bool-only-for-bool-flags",
+      "status": "active",
+      "summary": "guardMirroredMCPCall in cobratree/shellout.go first calls boolForNonBoolFlag (hand-written, cobratree/bool_flags.go), which refuses a JSON true for any flag whose type is not bool or count.",
+      "why": "Adversarial review round 31 (2026-10-20, P2 with a real write): the generated shell-out passes true as a bare --flag, so a non-boolean flag took the next token, the accountId positional. subscriptions_set {seats:true, confirm:true} posted an UPDATE order for 10505 seats, and friendly-name:true renamed a subscription to the next flag. TestBoolForNonBoolFlag pins it; an MCP stdio call with seats:true returns 'takes a int, not true; nothing was sent'.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "if msg := boolForNonBoolFlag(cmd, req.GetArguments()); msg != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/bool_flags.go",
+          "contains": "func boolForNonBoolFlag(cmd *cobra.Command, args map[string]any) string {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "cart-quantity-decimal",
+      "status": "active",
+      "summary": "cart-items create and update read --quantity through decimalInt (hand-written, subscriptions_set.go): decimal only, type still int.",
+      "why": "Adversarial review round 31 (2026-10-20, P2): pflag's IntVar parses with base 0, so --quantity 012 posted 10 units and 0x0C posted 12, with no preview before the write. A decimal-only value makes 012 twelve and refuses 0x0C, 0b1100 and 1_2; the MCP schema type is unchanged.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/cart_items_create.go",
+          "contains": "cmd.Flags().Var(&decimalInt{v: &bodyQuantity}, \"quantity\", \"Quantity\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cart_items_update.go",
+          "contains": "cmd.Flags().Var(&decimalInt{v: &bodyQuantity}, \"quantity\", \"Quantity\")",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    }
+  ]
+}

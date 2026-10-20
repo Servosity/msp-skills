@@ -1879,6 +1879,29 @@
         "issue_url": null
       }
     },
+    "td-synnex": {
+      "system": "TD SYNNEX StreamOne ION cloud marketplace: customers, subscriptions, orders, renewals and per-customer margin",
+      "status": "beta",
+      "cli_binary": "td-synnex-cli",
+      "mcp_binary": "td-synnex-mcp",
+      "vendor": "TD SYNNEX",
+      "vendor_trademark_owner": "TD SYNNEX Corporation",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "TD SYNNEX StreamOne ION",
+      "tagline": "Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors.",
+      "has_video": true,
+      "cli_hash": "sha256:d851fb4645a08a7ffbbeb1569caf461cbfedc51e944b23fd593058247fff0865",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "threatdown": {
       "system": "ThreatDown OneView: endpoint protection, detections, isolation and response jobs across every managed customer site",
       "status": "beta",

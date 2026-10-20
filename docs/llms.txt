@@ -234,6 +234,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Tactical RMM (RMM) - ask "What's the overall health of my fleet right now?" - Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
+- TD SYNNEX StreamOne ION (Billing) - ask "Which subscriptions renew in the next 30 days with auto-renew switched off?" - Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/td-synnex/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/install.sh)
 - ThreatDown (Security) - ask "Which endpoints haven't checked in for 24 hours, across every site?" - Find stale endpoints, rank site health and isolate infected machines across every ThreatDown OneView site by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/threatdown/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatdown/install.sh)
