@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1286,5 +1287,43 @@ func TestFetchBatchOfEmptyRowsExitsZero(t *testing.T) {
 	}
 	if n := strings.Count(out, `"status": "EMPTY"`) + strings.Count(out, `"status":"EMPTY"`); n != 2 {
 		t.Fatalf("want an EMPTY outcome per row (2), got %d:\n%s", n, out)
+	}
+}
+
+// Round 7 runtime P2-4: fetch --batch with the wrong --account minted a
+// handoff token for that customer and listed its jobs before refusing. The
+// batch is now checked before anything reaches the portal.
+func TestFetchBatchForAnotherAccountTouchesNoPortal(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.taskEntities = []string{"a@contoso.com"}
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err != nil {
+		t.Fatalf("submit: %v\n%s", err, stderr)
+	}
+	key := ledgerKeys(t)[0]
+	var mu sync.Mutex
+	var paths []string
+	for _, srv := range []*httptest.Server{s.api, s.portal} {
+		h := srv.Config.Handler
+		srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			paths = append(paths, r.URL.Path)
+			mu.Unlock()
+			h.ServeHTTP(w, r)
+		})
+	}
+	for _, args := range [][]string{
+		{"download", "fetch", "--account", "acct-2", "--dest", t.TempDir(), "--year", "2022", "--batch", key},
+		{"download", "submit", "--account", "acct-2", "--batch", key, "--resume", "--yes"},
+	} {
+		if _, _, err := runDL(t, s, args...); err == nil || ExitCode(err) != 2 {
+			t.Fatalf("%s for another account: want exit 2, got %v", args[1], err)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(paths) != 0 {
+		t.Fatalf("a refused run reached the portal or the API: %v", paths)
 	}
 }

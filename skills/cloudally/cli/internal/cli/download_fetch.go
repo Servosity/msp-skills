@@ -481,23 +481,23 @@ are removed once they are an hour old.
 
 With --batch, only the jobs the batch confirmed as its own are downloaded, and
 only with the --account the batch was recorded for (another is refused, exit
-2); another export of the same snapshot is never taken in their place on a
-guess. A job that ended in failure (any status naming a failure: FAILED,
-CANCELLED, ABORTED, STOPPED, ERROR) is handed back to the batch that confirmed
-it, and that batch's resume creates it once more; when another batch has
-already created that archive again (--new-batch, say), the new job is
-downloaded in its place once the download guard shows it is confirmed for
-exactly that archive, and is NOT_READY until then. Under --batch every archive
-asked for ends with an outcome; without --batch, a failed job that was created
-again is skipped as history. A row another batch holds (a pilot run's mailbox,
-say) is collected through that batch: its confirmed job, matched by job id, is
-downloaded here. When that batch's job failed or its create was refused the
-row is FAILED; when its create never appeared on the portal, was never sent,
-or has gone unconfirmed for over an hour, or when that batch's ledger cannot
-be read, it is MISSING; it is NOT_READY only while that batch's create is
-under an hour old and unconfirmed, or its job is still being built. Each names
-that batch's resume command. The batch's own unconfirmed rows follow the same
-hour: NOT_READY while under an hour old, then MISSING.
+2, before the portal is contacted); another export of the same snapshot is
+never taken in their place on a guess. A job that ended in failure (any status
+naming a failure: FAILED, CANCELLED, ABORTED, STOPPED, ERROR) is handed back
+to the batch that confirmed it, and that batch's resume creates it once more;
+when another batch has already created that archive again (--new-batch, say),
+the new job is downloaded in its place once the download guard shows it is
+confirmed for exactly that archive, and is NOT_READY until then. Under --batch
+every archive asked for ends with an outcome; without --batch, a failed job
+that was created again is skipped as history. A row another batch holds (a
+pilot run's mailbox, say) is collected through that batch: its confirmed job,
+matched by job id, is downloaded here. When that batch's job failed or its
+create was refused the row is FAILED; when its create never appeared on the
+portal, was never sent, or has gone unconfirmed for over an hour, or when that
+batch's ledger cannot be read, it is MISSING; it is NOT_READY only while that
+batch's create is under an hour old and unconfirmed, or its job is still being
+built. Each names that batch's resume command. The batch's own unconfirmed
+rows follow the same hour: NOT_READY while under an hour old, then MISSING.
 
 The portal lists jobs 100 to a page. If the listing stops at its cap of 50
 pages while more may exist, an archive whose job is not among those read is
@@ -533,6 +533,21 @@ is complete.
 			}
 			if strings.TrimSpace(flagYear) == "" {
 				return usageErr(errors.New("--year <folder name> is required, for example 2022"))
+			}
+			// A batch is read, and checked against --account, before
+			// anything reaches the portal: a wrong --account would
+			// otherwise mint a handoff token for, and list the jobs of,
+			// another customer.
+			var batch *downloadBatch
+			if key := strings.TrimSpace(flagBatch); key != "" {
+				b, berr := loadBatch(key)
+				if berr != nil {
+					return usageErr(fmt.Errorf("--batch: %w", berr))
+				}
+				if err := checkBatchScope(cmd, scope, b); err != nil {
+					return err
+				}
+				batch = b
 			}
 			if restoreShortCircuit(flags) {
 				return writeWould(cmd.OutOrStdout(), flags, "download fetch",
@@ -603,14 +618,8 @@ is complete.
 			var batchRows []downloadRow
 			var batchLedger *downloadBatch
 			var held map[int]heldArchive
-			if key := strings.TrimSpace(flagBatch); key != "" {
-				b, berr := loadBatch(key)
-				if berr != nil {
-					return usageErr(fmt.Errorf("--batch: %w", berr))
-				}
-				if err := checkBatchScope(cmd, scope, b); err != nil {
-					return err
-				}
+			if b := batch; b != nil {
+				key := b.BatchKey
 				// Only a job the batch confirmed as its own is its archive.
 				// Another export of the same snapshot (a zip without
 				// legal-hold items, say) never stands in for it.
