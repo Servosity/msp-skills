@@ -1430,7 +1430,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		// saas-alerts hand-fix: webhook-subscription-token-withheld. One point for
 		// every status and shape (JSON, HTML, text, binary-labelled): a Webhooks
 		// answer's tokens are withheld before anything reads the body.
+		rawAnswer := respBody
 		respBody = withholdWebhookTokens(path, respBody)
+		webhookWithheld := !bytes.Equal(rawAnswer, respBody)
 
 		// Pace to the server-advertised budget when it ships rate-limit
 		// headers (every response, success or 429). This takes priority over
@@ -1465,8 +1467,10 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				return env, resp.StatusCode, nil
 			}
 			if !htmlResponse {
-				if summary, ok := summarizeHTMLDocument(respBody); ok {
-					if c.echoesCredential(respBody, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
+				// An HTML page is still an error when its token was withheld: the
+				// check reads the original, only the summary is withheld.
+				if summary, ok := summarizeHTMLDocument(rawAnswer); ok {
+					if webhookWithheld || c.echoesCredential(rawAnswer, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
 						summary = echoWithheldText
 					}
 					return nil, resp.StatusCode, unreadableAnswer{fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))}

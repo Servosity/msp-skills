@@ -27,9 +27,10 @@ const WebhookTokenWithheld = "[withheld]"
 // value carries a token. Every JSON value in the body is walked (an answer
 // may hold several, one per line); text that does not parse as JSON but holds
 // a "token" key is withheld whole, since its value cannot be found reliably.
-// webhookTokenValue finds a "token" key with a quoted string value (tokens are
-// strings); `"token" is required` or `"token": must be a string` are not one.
-var webhookTokenValue = regexp.MustCompile(`(?i)"token"\s*:\s*("[^"]*"?)`)
+// webhookTokenValue finds a token key (double-, single- or un-quoted, as JSON
+// or a JavaScript inspect print writes it) with a quoted string value (tokens
+// are strings); `"token" is required` or `"token": must be a string` are not one.
+var webhookTokenValue = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])["']?token["']?\s*:\s*(["'][^"'\n]*["']?)`)
 
 func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	if !strings.Contains(path, "/outgoingWebhookApi/") {
@@ -83,7 +84,7 @@ func webhookTokenValueLeft(text []byte) bool {
 	view := string(text)
 	for i := 0; i < 32; i++ {
 		for _, m := range webhookTokenValue.FindAllStringSubmatch(view, -1) {
-			if v := strings.TrimSpace(m[1]); v != `"`+WebhookTokenWithheld+`"` && v != `""` {
+			if v := strings.Trim(strings.TrimSpace(m[1]), `"'`); v != "" && v != WebhookTokenWithheld {
 				return true
 			}
 		}

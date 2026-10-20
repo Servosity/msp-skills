@@ -317,6 +317,7 @@ func TestWebhookTokenWithheldFromEveryAnswerShape(t *testing.T) {
 	}{
 		{200, "text/html", `<html><head><title>{"token":"test-secret-html"}</title></head><body>x</body></html>`},
 		{400, "text/plain", `bad subscription {"token":"test-secret-text"}`},
+		{400, "text/plain", `Error: bad subscription { channelId: 'ch-1', token: 'test-secret-inspect' }`},
 	} {
 		status, ctype, answer = tc.status, tc.ctype, tc.answer
 		data, err := c.Get(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", nil)
@@ -327,5 +328,20 @@ func TestWebhookTokenWithheldFromEveryAnswerShape(t *testing.T) {
 		if strings.Contains(got, "test-secret") {
 			t.Fatalf("%d %s leaked: %s", tc.status, tc.ctype, got)
 		}
+	}
+}
+
+// TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld: withholding a token
+// from a 2xx HTML page must not turn the page into a successful answer.
+func TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><head><title>Sign in</title><script>window.cfg={"token":"test-secret-csrf"}</script></head><body>x</body></html>`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key-0000", SaasAlertsApiKey: "test-key-0000"}, 5*time.Second, 0)
+	_, _, err := c.Patch(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions/ch-1", map[string]any{"enabled": true})
+	if err == nil || !IsAnswerUnreadable(err) || strings.Contains(err.Error(), "test-secret") {
+		t.Fatalf("a 2xx HTML page with a token must stay an unreadable-answer error, withheld: %v", err)
 	}
 }
