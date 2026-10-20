@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.3",
-  "name": "saas-alerts-pp-mcp",
+  "name": "saas-alerts-mcp",
   "display_name": "SaaS Alerts",
-  "version": "3.362.0",
+  "version": "0.1.0",
   "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
   "author": {
     "name": "Servosity Inc."
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/saas-alerts-pp-mcp",
+    "entry_point": "bin/saas-alerts-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/saas-alerts-pp-mcp",
+      "command": "${__dirname}/bin/saas-alerts-mcp",
       "args": [],
       "env": {
         "SAAS_ALERTS_API_KEY": "${user_config.saas_alerts_api_key}"
