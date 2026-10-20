@@ -857,3 +857,95 @@ func TestBatchRunsAreRefusedForAnotherAccount(t *testing.T) {
 		t.Fatalf("creates = %d, want 1", n)
 	}
 }
+
+// A --new-batch create that is cleanly refused (or never sent, or rolled
+// back) puts back the claim it superseded, exactly as it was, in the same
+// transaction. The old code left the original batch's CREATED claim
+// superseded and the new one REJECTED, so the archive was free and a later
+// plain run created it a second time. An UNKNOWN --new-batch create keeps
+// the archive held by its own claim.
+func TestRefusedNewBatchCreatePutsTheOriginalClaimBack(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		code int
+	}{{"refused 403", http.StatusForbidden}, {"unknown 502", http.StatusBadGateway}} {
+		t.Run(tc.name, func(t *testing.T) {
+			testenv.Isolate(t)
+			s := newDLStub(t)
+			quickReconcile(t, s)
+			s.taskEntities = []string{"a@contoso.com"}
+			if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err != nil {
+				t.Fatalf("original: %v\n%s", err, stderr)
+			}
+			original := ledgerKeys(t)[0]
+			state, batch, jobID, _, _ := guardClaimRow(t, testGuard(t), "O365MAIL")
+			if state != dgCreated || jobID == "" || batch != original {
+				t.Fatalf("the original should hold a confirmed claim: %s %s %s", state, batch, jobID)
+			}
+			s.mu.Lock()
+			s.createCode["a@contoso.com"] = tc.code
+			s.mu.Unlock()
+			_, _, _ = runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL", "--new-batch")...)
+			var newer string
+			for _, k := range ledgerKeys(t) {
+				if k != original {
+					newer = k
+				}
+			}
+			s.mu.Lock()
+			s.createCode["a@contoso.com"] = 0
+			s.mu.Unlock()
+			_, _, _ = runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL", "--entities", "a@contoso.com")...)
+			_, _, _ = runDL(t, s, "download", "submit", "--batch", original, "--resume", "--yes")
+			_, _, _ = runDL(t, s, "download", "submit", "--batch", newer, "--resume", "--yes")
+			if n := len(s.createdAccounts()); n != 2 {
+				t.Fatalf("creates = %d, want 2 (the original and the %s --new-batch attempt)", n, tc.name)
+			}
+			if tc.code == http.StatusForbidden {
+				var superseded int
+				var st, bk, job string
+				if err := testGuard(t).db.QueryRow(`SELECT state, batch_key, job_id, superseded FROM download_claims WHERE batch_key = ?`, original).Scan(&st, &bk, &job, &superseded); err != nil {
+					t.Fatal(err)
+				}
+				if st != state || bk != batch || job != jobID || superseded != 0 {
+					t.Fatalf("the original claim should be back exactly: %s %s %s superseded=%d, want %s %s %s", st, bk, job, superseded, state, batch, jobID)
+				}
+			}
+		})
+	}
+}
+
+// The same for a --new-batch create rolled back because its ledger could
+// not be saved: nothing was sent, and the original claim is back.
+func TestRolledBackNewBatchCreatePutsTheOriginalClaimBack(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.taskEntities = []string{"a@contoso.com"}
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err != nil {
+		t.Fatalf("original: %v\n%s", err, stderr)
+	}
+	original := ledgerKeys(t)[0]
+	nb := mustLoadBatch(t, original)
+	nb.BatchKey = "20261020-000000-acct-newbatch"
+	nb.Rows[0].Status, nb.Rows[0].JobID, nb.Rows[0].Label, nb.Rows[0].ConfirmedAt = dlPlanned, "", "", ""
+	path, _ := batchPath(nb.BatchKey)
+	if err := os.MkdirAll(filepath.Join(path, "blocker"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	g := testGuard(t)
+	if err := runDownloadBatch(context.Background(), quietCmd(), openStubSession(t, s), g, nb, pendingDownloadRows(nb, false, false), 1, false, true); err == nil {
+		t.Fatal("a create whose ledger cannot be saved must report it was not sent")
+	}
+	if n := len(s.createdAccounts()); n != 1 {
+		t.Fatalf("creates = %d, want 1: the rolled-back create was not sent", n)
+	}
+	var st string
+	var superseded int
+	if err := g.db.QueryRow(`SELECT state, superseded FROM download_claims WHERE batch_key = ?`, original).Scan(&st, &superseded); err != nil {
+		t.Fatal(err)
+	}
+	if st != dgCreated || superseded != 0 {
+		t.Fatalf("the original claim should be back: %s superseded=%d", st, superseded)
+	}
+}

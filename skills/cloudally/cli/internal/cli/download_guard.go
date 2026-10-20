@@ -356,9 +356,13 @@ type downloadOwner struct {
 //
 // reused is true when the claim was the batch's own UNKNOWN or accepted
 // one: an earlier create of this archive may exist, so nothing that
-// happens to this resend may release it (runDownloadBatch).
-func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner downloadOwner, retryUnknown, newBatch bool) (claimID int64, reused bool, err error) {
+// happens to this resend may release it (runDownloadBatch). superseded
+// lists the claims --new-batch superseded for this create; settle puts
+// them back if the create is refused or never sent.
+func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner downloadOwner, retryUnknown, newBatch bool) (claimID int64, reused bool, superseded []int64, err error) {
 	err = g.inTx(ctx, func(tx *sql.Tx) error {
+		// A busy retry runs this again from the start.
+		claimID, reused, superseded = 0, false, nil
 		now := isoUTC(time.Now())
 		live, err := g.liveClaims(ctx, tx, id, owner.batchKey)
 		if err != nil {
@@ -385,6 +389,7 @@ func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner do
 				if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET superseded = 1, superseded_by = ?, updated_at = ? WHERE id = ?`, owner.batchKey, now, c.ID); err != nil {
 					return err
 				}
+				superseded = append(superseded, c.ID)
 				generation = max(generation, c.Generation+1)
 			case c.BatchKey != owner.batchKey:
 				return errDownloadClaimed{claim: c}
@@ -424,13 +429,23 @@ func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner do
 		claimID, err = res.LastInsertId()
 		return err
 	})
-	return claimID, reused, err
+	if err != nil {
+		superseded = nil
+	}
+	return claimID, reused, superseded, err
 }
 
 // settle records what the create for a claim returned: accepted is
-// CREATED, refused before it ran is REJECTED (which frees the identity),
-// anything else stays UNKNOWN.
-func (g *downloadGuard) settle(ctx context.Context, claimID int64, rowStatus string, accepted bool) error {
+// CREATED, refused before it ran (or never sent) is REJECTED, anything else
+// stays UNKNOWN.
+//
+// A REJECTED --new-batch create puts back, in the same transaction, the
+// claims it superseded (restore), exactly as they were: their state, job
+// and batch were never changed, only the superseded mark. Otherwise the
+// archive the original batch holds would be free, and a later plain run
+// would create it a second time. An accepted or UNKNOWN create keeps the
+// identity held by its own claim, so nothing is put back.
+func (g *downloadGuard) settle(ctx context.Context, claimID int64, rowStatus string, accepted bool, restore []int64) error {
 	state := dgUnknown
 	switch {
 	case rowStatus == dlFailed:
@@ -439,13 +454,24 @@ func (g *downloadGuard) settle(ctx context.Context, claimID int64, rowStatus str
 		state = dgCreated
 	}
 	return g.inTx(ctx, func(tx *sql.Tx) error {
+		now := isoUTC(time.Now())
 		res, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ? AND owner_run = ?`,
-			state, isoUTC(time.Now()), claimID, g.run)
+			state, now, claimID, g.run)
 		if err != nil {
 			return err
 		}
 		if n, err := res.RowsAffected(); err != nil || n != 1 {
 			return fmt.Errorf("the download guard no longer holds claim %d for this run (%d rows); its answer was not recorded there", claimID, n)
+		}
+		if state != dgRejected {
+			return nil
+		}
+		for _, id := range restore {
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET superseded = 0, superseded_by = '', updated_at = ?
+				WHERE id = ? AND superseded = 1 AND superseded_by = (SELECT batch_key FROM download_claims WHERE id = ?)`,
+				now, id, claimID); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

@@ -305,7 +305,7 @@ func TestPinHoldAndSettleOnRecoveredClaims(t *testing.T) {
 	if state, _, _, _, _ := guardClaimRow(t, g, "O365CALENDAR"); state != dgUnknown {
 		t.Fatalf("held claim = %s", state)
 	}
-	if err := g.settle(ctx, 424242, dlRequested, true); err == nil {
+	if err := g.settle(ctx, 424242, dlRequested, true, nil); err == nil {
 		t.Fatal("settling a claim the guard does not hold must be an error")
 	}
 }

@@ -842,8 +842,9 @@ through the holding batch's confirmed jobs. A new batch is refused only while
 another batch's create of one of its archives is still unsettled (UNKNOWN or
 being sent), with that batch's resume command. The batch key is printed, and
 the ledger saved, before the first create. --new-batch is the only override:
-it creates every export of the run again. Two runs never work on one batch at
-once.
+it creates every export of the run again; a --new-batch create that is refused
+or never sent leaves the archive held by the earlier batch, as before. Two
+runs never work on one batch at once.
 
 An unfound row is EMPTY only when this run sent it and the portal accepted
 it, the portal's job count grew by exactly the creates this run had
@@ -1598,7 +1599,7 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 			id, label := rowIdentity(batch, r), r.Label
 			mu.Unlock()
 
-			claimID, reused, cerr := guard.claim(keep, id, downloadOwner{batchKey: batch.BatchKey, label: label, scope: batch.Scope}, retryUnknown, newBatch)
+			claimID, reused, superseded, cerr := guard.claim(keep, id, downloadOwner{batchKey: batch.BatchKey, label: label, scope: batch.Scope}, retryUnknown, newBatch)
 			mu.Lock()
 			if cerr != nil {
 				var held errDownloadClaimed
@@ -1636,7 +1637,7 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 					r.Status = dlUnknown
 					r.Detail = "a resend was not sent (the ledger could not be saved: " + err.Error() + "); an earlier create of this archive may exist, so it stays UNKNOWN"
 				}
-				_ = guard.settle(keep, claimID, rollback, false)
+				_ = guard.settle(keep, claimID, rollback, false, superseded)
 				notSent++
 				if saveErr == nil {
 					saveErr = err
@@ -1673,7 +1674,7 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 			}
 			// If this fails the claim stays IN_FLIGHT until this run ends,
 			// then reads as UNKNOWN: safe, never a duplicate.
-			if serr := guard.settle(keep, claimID, r.Status, err == nil); serr != nil && saveErr == nil {
+			if serr := guard.settle(keep, claimID, r.Status, err == nil, superseded); serr != nil && saveErr == nil {
 				saveErr = serr
 			}
 			// A failed save here leaves the row REQUESTED on disk, which a
