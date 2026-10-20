@@ -191,6 +191,11 @@ func TestLocalDefaultFilterRespectsPageSize(t *testing.T) {
 	if err := db.SaveSyncState("devices", "", 3); err != nil {
 		t.Fatal(err)
 	}
+	// The scan reads newest first; make the muted row the oldest so the
+	// unmuted rows (no isMuted field) are scanned before it, every run.
+	if _, err := db.DB().Exec(`UPDATE resources SET updated_at = '2000-01-01T00:00:00Z' WHERE id = '00000000-0000-0000-0000-000000000003'`); err != nil {
+		t.Fatal(err)
+	}
 	_ = db.Close()
 	out, errOut, err := captureExecuteAll(t, "devices", "list", "--data-source", "local", "--is-muted=false", "--page-size", "1", "--json")
 	if err != nil {

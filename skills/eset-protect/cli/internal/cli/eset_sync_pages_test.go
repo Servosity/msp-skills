@@ -247,3 +247,34 @@ func TestSyncUnexpectedListShapeAndCappedFullPage(t *testing.T) {
 		t.Fatalf("a capped full final page with an empty token did not reconcile: %d devices, want 100", n)
 	}
 }
+
+// TestListCommandsAcceptMetadataOnlyPages (handfixes.json:
+// list-metadata-only-pages): the generated list pager required the list key
+// on every page, so `devices list` on an empty tenant answering `{}` failed
+// with "response_path not found", and `--all` stopped at a token-only page.
+// An error envelope must still fail.
+func TestListCommandsAcceptMetadataOnlyPages(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	pages := map[string]string{"": `{}`}
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, pages[r.URL.Query().Get("pageToken")])
+	})
+	if out, errOut, err := captureExecuteAll(t, "devices", "list", "--data-source", "live", "--no-cache", "--json"); err != nil {
+		t.Fatalf("an empty page {} failed: %v\n%s%s", err, out, errOut)
+	}
+	pages = map[string]string{
+		"":  `{"devices":[{"uuid":"00000000-0000-0000-0000-00000000000a","displayName":"PAGE-A"}],"nextPageToken":"B"}`,
+		"B": `{"nextPageToken":"C"}`,
+		"C": `{"devices":[{"uuid":"00000000-0000-0000-0000-00000000000d","displayName":"PAGE-D"}],"nextPageToken":""}`,
+	}
+	out, errOut, err := captureExecuteAll(t, "devices", "list", "--data-source", "live", "--no-cache", "--all", "--json")
+	if err != nil || !strings.Contains(string(out), "PAGE-A") || !strings.Contains(string(out), "PAGE-D") {
+		t.Fatalf("--all did not walk past a token-only page: %v\n%s%s", err, out, errOut)
+	}
+	pages = map[string]string{"": `{"code":14,"message":"upstream unavailable","details":[]}`}
+	if _, _, err := captureExecuteAll(t, "devices", "list", "--data-source", "live", "--no-cache", "--json"); err == nil {
+		t.Fatal("an error envelope was accepted as a list page")
+	}
+}

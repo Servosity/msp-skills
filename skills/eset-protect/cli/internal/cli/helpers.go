@@ -1204,7 +1204,23 @@ func (c responsePathPaginatedClient) GetWithHeaders(ctx context.Context, path st
 	}
 	selected, ok := responsePayloadAtPath(data, c.responsePath)
 	if !ok {
-		return nil, fmt.Errorf("response_path %q not found in response", c.responsePath)
+		// Hand-fix list-metadata-only-pages: protobuf JSON can omit an empty
+		// repeated field, so `{}` or `{"nextPageToken":"B"}` is an empty page.
+		// Supply the empty list and keep the token so --all walks on; any
+		// other shape (an error envelope) still fails.
+		meta, _, tokenOK := esetMetadataOnlyPage(data)
+		if !meta || !tokenOK || strings.Contains(c.responsePath, ".") {
+			return nil, fmt.Errorf("response_path %q not found in response", c.responsePath)
+		}
+		var root map[string]json.RawMessage
+		if err := json.Unmarshal(data, &root); err != nil {
+			return nil, fmt.Errorf("response_path %q not found in response", c.responsePath)
+		}
+		root[c.responsePath] = json.RawMessage("[]")
+		if data, err = json.Marshal(root); err != nil {
+			return nil, err
+		}
+		selected = json.RawMessage("[]")
 	}
 	if !isJSONArray(selected) {
 		return nil, fmt.Errorf("response_path %q must resolve to an array", c.responsePath)

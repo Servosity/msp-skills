@@ -425,7 +425,7 @@ func patchesBacklogPatchName(p patchesBacklogDevicePatch, scope exposureScope) s
 }
 
 // patchesBacklogRestart folds per-device restart requirements: YES wins,
-// then NO, else UNSPECIFIED ("" when unknown, e.g. unresolved rows).
+// then any unknown (UNSPECIFIED), else NO ("" when unknown, e.g. unresolved rows).
 func patchesBacklogRestart(seen map[string]bool) string {
 	// Hand-fix profile-restart-keeps-unknown (patches backlog twin): any YES
 	// wins; any unknown (UNSPECIFIED or omitted) makes the row UNSPECIFIED;

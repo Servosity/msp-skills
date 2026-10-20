@@ -5931,7 +5931,7 @@
     {
       "id": "local-filter-proto-defaults",
       "summary": "local equality filters treat an *_UNSPECIFIED enum filter as no filter and let a row that omits the field match false / 0 (protobuf JSON omits defaults)",
-      "why": "With one muted device and one device whose isMuted was omitted, `devices list --is-muted=false --data-source local --all` (and the outage fallback) returned an empty successful result, and an UNSPECIFIED filter matched only rows that literally carried UNSPECIFIED (Codex round 18 P1). A filter key no row carries is still refused (unmatchedEqualityKeys) unless it is UNSPECIFIED. TestLocalFilterProtoDefaults failed with data_source.go at the previous commit. Codex round 23 (P2): the scanner kept collecting rows past a full page while it looked for a row carrying the filtered field; scanLocalList now trims to the page limit (TestLocalDefaultFilterRespectsPageSize failed without the trim).",
+      "why": "With one muted device and one device whose isMuted was omitted, `devices list --is-muted=false --data-source local --all` (and the outage fallback) returned an empty successful result, and an UNSPECIFIED filter matched only rows that literally carried UNSPECIFIED (Codex round 18 P1). A filter key no row carries is still refused (unmatchedEqualityKeys) unless it is UNSPECIFIED. TestLocalFilterProtoDefaults failed with data_source.go at the previous commit. Codex round 23 (P2): the scanner kept collecting rows past a full page while it looked for a row carrying the filtered field; scanLocalList now trims to the page limit (TestLocalDefaultFilterRespectsPageSize failed without the trim). Adversarial round 16: the trim test seeded rows from a map, so it failed with the trim reverted only some of the time; it now ages the muted row so it always scans last (5/5 failures with the trim reverted).",
       "status": "active",
       "asserts": [
         {
@@ -6083,6 +6083,24 @@
         {
           "file": "cli/internal/cli/data_source.go",
           "contains": "if st := esetMirrorCheck(db, storedType); len(st.Incomplete) == 0 {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "list-metadata-only-pages",
+      "summary": "the generated list pager (responsePathPaginatedClient) treats a page with no list key and only paging metadata as an empty page, supplying [] and keeping its nextPageToken, so `<resource> list` on an empty tenant returns [] and --all walks past a token-only page; an error envelope still fails",
+      "why": "responsePathPaginatedClient required the list key on every page, so `detections list` / `devices list` answering `{}` (protobuf JSON can omit an empty repeated field) failed with `response_path \"devices\" not found`, and `--all` stopped at `{\"nextPageToken\":\"B\"}` (Codex round 24 P2, adversarial round 16 P2). TestListCommandsAcceptMetadataOnlyPages failed with helpers.go reverted and checks an rpcStatus envelope is still rejected.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "meta, _, tokenOK := esetMetadataOnlyPage(data)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "root[c.responsePath] = json.RawMessage(\"[]\")",
           "code_only": true
         }
       ]
