@@ -79,7 +79,7 @@
   "backup-radar": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "backup-radar-v0.1.0",
     "current_hash": "sha256:19136d9d0a16b091be558621218b7e25a5eea90563ac2fc3a1a0c965e4a3b852",
     "released_hash": null
   },
