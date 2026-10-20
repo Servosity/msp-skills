@@ -31,14 +31,14 @@ howto:
   - name: "Authenticate"
     text: "Enter your ImmyBot credentials once, then run immybot-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a ImmyBot question in plain language; it runs immybot-cli for you."
+    text: "Ask your AI agent an ImmyBot question in plain language; it runs immybot-cli for you."
 ---
 
 # The ImmyBot MCP Server - free, local, built for MSPs
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by ImmyBot, LLC..
+> Not affiliated with, endorsed by, or sponsored by ImmyBot, LLC.
 
 **✓ Live-verified by @geekbrownbear (MSP)** against a production tenant · 2026-08-22 · [receipt →](https://github.com/Servosity/msp-skills/pull/276).
 

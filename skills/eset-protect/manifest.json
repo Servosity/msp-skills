@@ -1,0 +1,111 @@
+{
+  "manifest_version": "0.3",
+  "name": "eset-protect-mcp",
+  "display_name": "ESET PROTECT",
+  "version": "0.1.0",
+  "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/eset-protect-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/eset-protect-mcp",
+      "args": [],
+      "env": {
+        "ESET_PROTECT_USERNAME": "${user_config.eset_protect_username}",
+        "ESET_PROTECT_PASSWORD": "${user_config.eset_protect_password}",
+        "ESET_PROTECT_REGION": "${user_config.eset_protect_region}",
+        "ESET_PROTECT_TOKEN": "${user_config.eset_protect_token}",
+        "ESET_PROTECT_BASE_URL": "${user_config.eset_protect_base_url}",
+        "ESET_PROTECT_USER_AGENT": "${user_config.eset_protect_user_agent}",
+        "ESET_PROTECT_MCP_READ_ONLY": "${user_config.eset_protect_mcp_read_only}",
+        "ESET_PROTECT_MCP_HTTP_TOKEN": "${user_config.eset_protect_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "eset_protect_username": {
+      "type": "string",
+      "title": "ESET Connect API user (email)",
+      "description": "Sets ESET_PROTECT_USERNAME, the email of a dedicated API user with ESET Connect access (create it in ESET PROTECT Hub, ESET Business Account or ESET MSP Administrator 2).",
+      "sensitive": false,
+      "required": true
+    },
+    "eset_protect_password": {
+      "type": "string",
+      "title": "ESET Connect API user password",
+      "description": "Sets ESET_PROTECT_PASSWORD. The server exchanges the email and password for a one-hour bearer token and renews it; the password is only sent to the ESET Connect token endpoint.",
+      "sensitive": true,
+      "required": true
+    },
+    "eset_protect_region": {
+      "type": "string",
+      "title": "ESET data center",
+      "description": "Sets ESET_PROTECT_REGION, the tenant's data center: eu, de, us, ca or jpn (default eu).",
+      "sensitive": false,
+      "required": false,
+      "default": "eu"
+    },
+    "eset_protect_token": {
+      "type": "string",
+      "title": "Pre-minted bearer token",
+      "description": "Leave blank. A bearer token minted elsewhere (it expires after one hour); when set it is used instead of the email and password.",
+      "sensitive": true,
+      "required": false
+    },
+    "eset_protect_base_url": {
+      "type": "string",
+      "title": "Base URL override",
+      "description": "Leave blank: every call goes to the regional ESET Connect hosts. Set only to route all calls through a proxy or test server; the bearer token is sent to that host.",
+      "sensitive": false,
+      "required": false
+    },
+    "eset_protect_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends. Leave blank to use the CLI's own.",
+      "sensitive": false,
+      "required": false
+    },
+    "eset_protect_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server",
+      "description": "Set to exactly 1 so the MCP server exposes only read tools and eset-protect_execute refuses every non-GET endpoint (including the few POST reads). Leave blank for full access.",
+      "sensitive": false,
+      "required": false
+    },
+    "eset_protect_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Not enforced by this connector: there are no tenant-gated client profiles, so a value here does not limit which customers a call can reach. Leave blank. To limit what an agent can do, give the API user a narrower ESET role or turn on the read-only MCP server.",
+      "sensitive": false,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T14:06:40.06623Z",
+    "spec_checksum": "sha256:865f4d07c17c7a712c2eac0b7ddeabec40825001fa68c6a0327c59946e9ccf31",
+    "spec_format": "internal"
+  }
+}

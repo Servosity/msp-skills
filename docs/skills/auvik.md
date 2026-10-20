@@ -29,14 +29,14 @@ howto:
   - name: "Authenticate"
     text: "Enter your Auvik credentials once, then run auvik-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Auvik question in plain language; it runs auvik-cli for you."
+    text: "Ask your AI agent an Auvik question in plain language; it runs auvik-cli for you."
 ---
 
 # The Auvik MCP Server - free, local, built for MSPs
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Auvik Networks Inc..
+> Not affiliated with, endorsed by, or sponsored by Auvik Networks Inc.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 

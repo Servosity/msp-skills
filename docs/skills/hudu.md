@@ -34,7 +34,7 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Hudu Technologies, Inc..
+> Not affiliated with, endorsed by, or sponsored by Hudu Technologies, Inc.
 
 **✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-07-17 · [receipt →](https://github.com/Servosity/msp-skills/issues/183).
 

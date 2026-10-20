@@ -33,7 +33,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your Axcient x360Recover credentials once, then run axcient-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Axcient x360Recover question in plain language; it runs axcient-cli for you."
+    text: "Ask your AI agent an Axcient x360Recover question in plain language; it runs axcient-cli for you."
 ---
 
 # The Axcient x360Recover MCP Server - free, local, built for MSPs

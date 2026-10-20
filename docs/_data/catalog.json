@@ -1,5 +1,5 @@
 {
-  "count": 83,
+  "count": 84,
   "connectors": [
     {
       "slug": "abnormal",
@@ -330,6 +330,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/domotz/"
+    },
+    {
+      "slug": "eset-protect",
+      "display_name": "ESET PROTECT",
+      "tagline": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/eset-protect/"
     },
     {
       "slug": "fortinet",

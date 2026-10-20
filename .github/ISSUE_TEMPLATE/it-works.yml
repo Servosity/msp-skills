@@ -52,6 +52,7 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
+        - eset-protect
         - fortinet
         - google-workspace
         - gradient

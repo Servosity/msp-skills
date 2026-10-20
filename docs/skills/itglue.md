@@ -33,7 +33,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your IT Glue credentials once, then run itglue-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a IT Glue question in plain language; it runs itglue-cli for you."
+    text: "Ask your AI agent an IT Glue question in plain language; it runs itglue-cli for you."
 ---
 
 # The IT Glue MCP Server - free, local, built for MSPs

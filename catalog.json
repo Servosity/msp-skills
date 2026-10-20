@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-19",
+  "generated_at": "2026-10-20",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -639,6 +639,26 @@
       "verification": "awaiting",
       "category": "Network Monitoring",
       "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal."
+    },
+    {
+      "name": "eset-protect",
+      "system": "ESET PROTECT cloud console via the ESET Connect API",
+      "status": "beta",
+      "skill_path": "skills/eset-protect",
+      "cli_binary": "eset-protect-cli",
+      "mcp_binary": "eset-protect-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "ESET",
+      "vendor_trademark_owner": "ESET, spol. s r.o.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/install.sh)",
+      "install_mcp_doc": "skills/eset-protect/mcp-install.md",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Devices, detections, incidents and response actions across every ESET PROTECT client."
     },
     {
       "name": "fortinet",

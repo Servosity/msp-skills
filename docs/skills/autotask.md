@@ -35,7 +35,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your Autotask PSA credentials once, then run autotask-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Autotask PSA question in plain language; it runs autotask-cli for you."
+    text: "Ask your AI agent an Autotask PSA question in plain language; it runs autotask-cli for you."
 ---
 
 # The Autotask PSA MCP Server - free, local, built for MSPs

@@ -29,7 +29,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your Action1 credentials once, then run action1-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Action1 question in plain language; it runs action1-cli for you."
+    text: "Ask your AI agent an Action1 question in plain language; it runs action1-cli for you."
 ---
 
 # The Action1 MCP Server - free, local, built for MSPs

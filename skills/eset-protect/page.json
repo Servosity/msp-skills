@@ -1,0 +1,137 @@
+{
+  "outcome_intro": "Ask your AI which customers have ESET devices that need attention, which machines stopped checking in, who is exposed to a new CVE, and what the morning detection queue looks like, across every customer at once. The CLI syncs your ESET PROTECT tree into a local SQLite mirror, rolls it up per customer, and shows the exact scan, isolate or release task before it is sent.",
+  "instead_of_say": [
+    {
+      "instead": "Reading the Managed Customers page, then drilling into each customer to find the devices that need attention, are muted or stopped checking in",
+      "say": "Which of my customers have ESET devices that need attention or stopped checking in?",
+      "cli": "eset-protect-cli fleet health"
+    },
+    {
+      "instead": "Searching the vulnerability view for a new CVE, then working out which customer each affected device belongs to",
+      "say": "Which customers and devices are exposed to CVE-2024-3400, and is there a patch?",
+      "cli": "eset-protect-cli exposure --cve CVE-2024-3400"
+    },
+    {
+      "instead": "Pulling one customer's device, detection, incident and patch numbers into a QBR deck by hand",
+      "say": "Build Acme Dental's quarterly security summary from ESET.",
+      "cli": "eset-protect-cli report customer \"Acme Dental\" --since 90d"
+    }
+  ],
+  "pain_points": [
+    "The ESET Connect API returns devices, detections and incidents by device group, with no field that names the customer, so every per-customer answer an AI agent gives means walking the group tree first.",
+    "ESET PROTECT's Managed Customers page shows per-customer device and detection counts; turning that into a worst-first list of stale and muted devices, a CVE exposure list or a QBR page is still manual work.",
+    "Detections are split across API versions (v1 for ESET PROTECT and ESET Inspect, the v2 list for ESET Cloud Office Security) and incidents live in another service, so the API has no single morning queue.",
+    "The API mints one-hour tokens with a password grant and answers slow requests with 202 and a response id to poll, which breaks simple scripts and some SIEM integrations."
+  ],
+  "outcomes": [
+    {
+      "question": "Which customers have devices that need attention, are muted or stopped checking in?",
+      "command": "eset-protect-cli fleet health"
+    },
+    {
+      "question": "What should my techs work first this morning, detections and open incidents together?",
+      "command": "eset-protect-cli triage --since 24h --min-severity medium"
+    },
+    {
+      "question": "Which customers and devices are exposed to this CVE, and is a patch available?",
+      "command": "eset-protect-cli exposure --cve CVE-2024-3400"
+    },
+    {
+      "question": "Give me one customer's quarter: device health, detections, incidents, top CVEs and patches",
+      "command": "eset-protect-cli report customer \"Acme Dental\" --since 90d"
+    },
+    {
+      "question": "Which devices have not checked in for two weeks, most stale first?",
+      "command": "eset-protect-cli fleet stale --days 14"
+    },
+    {
+      "question": "Which security patches are still missing, ranked by the devices and CVE risk they fix?",
+      "command": "eset-protect-cli patches backlog --security-only"
+    },
+    {
+      "question": "Is the same file hash showing up at more than one customer this week?",
+      "command": "eset-protect-cli detections spread --since 7d --min-customers 2"
+    },
+    {
+      "question": "Isolate this machine from the network (show me the exact task first)",
+      "command": "eset-protect-cli respond isolate \"FRONTDESK-01\""
+    }
+  ],
+  "different_vs_wrappers": "MCP servers such as [maciekaz/ESET-MCP](https://github.com/maciekaz/ESET-MCP) and [Fenrindale/eset-protect-mcp](https://github.com/Fenrindale/eset-protect-mcp) expose the ESET Connect endpoints as tools and answer each question with live calls. This connector also covers the endpoints, and adds a local SQLite mirror of your ESET PROTECT tree, so per-customer rollups such as fleet health, the triage queue and the QBR one-pager are joins over synced devices, groups, detections and incidents, attributed to the customer each device belongs to.",
+  "different_vs_vendor": "ESET's own [ESET LiveAI](https://www.eset.com/us/business/solutions/liveai/) (formerly AI Advisor) is a generative AI assistant inside ESET PROTECT and ESET Inspect, in the ESET PROTECT Premium and Ultimate tiers. This skill complements it: it answers across-every-customer questions in whichever AI agent you already use, through the ESET Connect API, and it does not replace the ESET PROTECT console.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http and put it behind an HTTPS endpoint you control; no bridge package is needed. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my ESET data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What ESET account do I need?",
+      "a": "A dedicated ESET Connect API user. A Superuser or Root creates it in ESET PROTECT Hub, ESET Business Account or ESET MSP Administrator 2 and turns on the Integrations toggle; the Superuser or Root account itself cannot be given API access. The new user accepts the invitation email and finishes account setup, and a Hub user must also sign in to ESET PROTECT Hub once. Set ESET_PROTECT_USERNAME and ESET_PROTECT_PASSWORD; the CLI exchanges them for a one-hour token."
+    },
+    {
+      "q": "Which region should I set?",
+      "a": "Set ESET_PROTECT_REGION to the region of your ESET PROTECT console: eu (the default), de, us, ca or jpn. The jpn region has no quarantine or Cloud Office user API, and no v2 detection list."
+    },
+    {
+      "q": "Will this hit ESET Connect rate limits?",
+      "a": "ESET Connect allows 10 calls per second for each set of credentials, account and source IP, and answers 429 above that; under its Fair Use Policy a very large burst is slowed to 2 requests per second and the rest is rejected with 50x. The CLI slows down and retries when it sees a 429; set --rate-limit 8 to stay under the limit from the start and keep sync --concurrency low. Slow requests answered with 202 and a response id are polled until --timeout runs out (60 seconds by default). ESET answers 504 to a query that is not ready within 120 seconds, so pass --timeout 3m for large queries and narrow the query if ESET still answers 504."
+    },
+    {
+      "q": "Can the AI isolate a machine or change a policy by itself?",
+      "a": "The respond commands only print the task unless you add --yes, and over MCP they only preview. Other write commands run when invoked unless you pass --dry-run, and the generic eset-protect_execute MCP tool can call any ESET Connect endpoint. For a read-only agent, set ESET_PROTECT_MCP_READ_ONLY=1 in the MCP server's environment: no tool that changes ESET is offered and installer and enrollment links are refused. Keep your AI app's approval prompt on."
+    },
+    {
+      "q": "Does it work with on-premises ESET PROTECT?",
+      "a": "No. It signs in through the ESET Connect cloud API, so it works with ESET PROTECT (cloud). An on-premises ESET PROTECT server uses a different API and sign-in, which this connector does not support."
+    },
+    {
+      "q": "Does it replace the ESET PROTECT console?",
+      "a": "No. The console stays the place for policy editing, investigations in ESET Inspect and day-to-day administration. This skill answers the across-every-customer questions and runs previewed actions from your AI agent."
+    }
+  ],
+  "governance_summary": "The skill signs in as the ESET Connect API user you create, so that user's access rights are the real boundary. Reads, reports and the local mirror are safe to allow. Response actions (scan, isolate, release), policy and EDR rule changes, quarantine restores and deletes reach real customer machines and need a human to approve the exact request.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet health, triage, exposure, report customer, patches backlog, devices list, incidents list, detections list",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Endpoint response",
+      "examples": "respond scan, respond isolate, respond release (preview unless --yes), device-tasks create, device-tasks update-targets",
+      "policy": "Human-in-the-loop, explicit confirmation"
+    },
+    {
+      "tier": "Protection and policy config",
+      "examples": "executables block, edr-rules create, edr-rule-exclusions create, policy-assignments assign-policy, devices move",
+      "policy": "Preview with --dry-run, then a human-approved write"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "incidents close, incidents reopen, detection-groups resolve, devices rename, groups create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential and access",
+      "examples": "installers list, gpo-sccm-files-generate, mobile-devices-batch-get-enrollment-links, roles create, role-assignments-assign-role",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive / high-risk",
+      "examples": "groups delete, policies delete, edr-rules delete, quarantined-objects-restore, quarantined-objects-purge, import",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

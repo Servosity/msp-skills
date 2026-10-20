@@ -35,7 +35,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your Acronis Cyber Protect Cloud credentials once, then run acronis-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Acronis Cyber Protect Cloud question in plain language; it runs acronis-cli for you."
+    text: "Ask your AI agent an Acronis Cyber Protect Cloud question in plain language; it runs acronis-cli for you."
 ---
 
 # The Acronis Cyber Protect Cloud MCP Server - free, local, built for MSPs

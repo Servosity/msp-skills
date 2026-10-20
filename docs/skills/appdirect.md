@@ -29,7 +29,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your AppDirect credentials once, then run appdirect-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a AppDirect question in plain language; it runs appdirect-cli for you."
+    text: "Ask your AI agent an AppDirect question in plain language; it runs appdirect-cli for you."
 ---
 
 # The AppDirect MCP Server - free, local, built for MSPs

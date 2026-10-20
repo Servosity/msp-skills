@@ -2094,6 +2094,29 @@
         "verified_by": "Servosity (maintainer)",
         "issue_url": null
       }
+    },
+    "eset-protect": {
+      "system": "ESET PROTECT cloud console via the ESET Connect API",
+      "status": "beta",
+      "cli_binary": "eset-protect-cli",
+      "mcp_binary": "eset-protect-mcp",
+      "vendor": "ESET",
+      "vendor_trademark_owner": "ESET, spol. s r.o.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "ESET PROTECT",
+      "tagline": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
+      "has_video": true,
+      "cli_hash": "sha256:a097cf57f1a44d9731e7837ecc73f7a06b8e719cfdba422b20f59246ddf57378",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

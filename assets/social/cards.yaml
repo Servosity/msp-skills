@@ -132,6 +132,10 @@ domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
 
+eset-protect:
+  vendor: "ESET PROTECT"
+  example_command: "Which ESET customers need attention?"
+
 fortinet:
   vendor: "Fortinet"
   example_command: "Which client FortiGates expose SSL-VPN?"

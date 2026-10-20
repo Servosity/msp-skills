@@ -1,0 +1,89 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/eset-protect-mcp",
+  "title": "ESET MCP",
+  "description": "Every ESET Connect endpoint, plus per-customer health, exposure and QBR reports from a local mirror",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/eset-protect/eset-protect-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/eset-protect"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/eset-protect-v0.1.0/eset-protect-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ESET_PROTECT_USERNAME",
+          "description": "Email of the dedicated ESET Connect API user.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "ESET_PROTECT_PASSWORD",
+          "description": "Password of the ESET Connect API user; exchanged for a one-hour bearer token.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ESET_PROTECT_REGION",
+          "description": "Optional: tenant data center, eu, de, us, ca or jpn (default eu).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "eu"
+        },
+        {
+          "name": "ESET_PROTECT_TOKEN",
+          "description": "Optional: pre-minted bearer token; used instead of the email and password. Leave unset.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ESET_PROTECT_BASE_URL",
+          "description": "Optional: route every call through this proxy or test server. Leave unset.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ESET_PROTECT_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ESET_PROTECT_MCP_READ_ONLY",
+          "description": "Optional: set to 1 so the MCP server runs read tools and GET endpoints only.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ESET_PROTECT_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by stdio.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit access.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

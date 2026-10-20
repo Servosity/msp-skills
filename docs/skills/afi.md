@@ -31,7 +31,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your Afi credentials once, then run afi-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Afi question in plain language; it runs afi-cli for you."
+    text: "Ask your AI agent an Afi question in plain language; it runs afi-cli for you."
 ---
 
 # The Afi MCP Server - free, local, built for MSPs

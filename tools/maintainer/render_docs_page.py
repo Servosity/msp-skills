@@ -51,7 +51,7 @@ def banner(vendor: str, owner: str, first_party: bool) -> str:
     return (
         "> Independent, open source, inspectable. Every line of code is on GitHub\n"
         "> under Apache-2.0 - built for the MSP community, vendor-neutral by design.\n"
-        f"> Not affiliated with, endorsed by, or sponsored by {owner}."
+        f"> Not affiliated with, endorsed by, or sponsored by {owner.rstrip('.')}."
     )
 
 
@@ -253,7 +253,7 @@ def render_page(slug: str) -> Path:
         f'  - name: "Authenticate"\n'
         f'    text: "Enter your {display} credentials once, then run {cli_bin} doctor to check the install."\n'
         f'  - name: "Ask your first question"\n'
-        f'    text: "Ask your AI agent a {display} question in plain language; it runs {cli_bin} for you."\n'
+        f'    text: "Ask your AI agent {"an" if display[:1].upper() in "AEIO" else "a"} {display} question in plain language; it runs {cli_bin} for you."\n'
     )
 
     insteads = "\n".join(

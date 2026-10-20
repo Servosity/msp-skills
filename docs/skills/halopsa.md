@@ -38,7 +38,7 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Halo Service Solutions Ltd..
+> Not affiliated with, endorsed by, or sponsored by Halo Service Solutions Ltd.
 
 **✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05.
 

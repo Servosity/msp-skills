@@ -33,7 +33,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your AWS credentials once, then run aws-billing-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a AWS question in plain language; it runs aws-billing-cli for you."
+    text: "Ask your AI agent an AWS question in plain language; it runs aws-billing-cli for you."
 ---
 
 # The AWS MCP Server - free, local, built for MSPs

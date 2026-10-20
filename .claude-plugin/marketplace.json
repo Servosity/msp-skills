@@ -1340,6 +1340,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "eset-protect",
+      "source": "./skills/eset-protect",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "eset-protect",
+        "eset",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

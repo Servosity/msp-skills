@@ -31,7 +31,7 @@ howto:
   - name: "Authenticate"
     text: "Enter your Atera credentials once, then run atera-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a Atera question in plain language; it runs atera-cli for you."
+    text: "Ask your AI agent an Atera question in plain language; it runs atera-cli for you."
 ---
 
 # The Atera MCP Server - free, local, built for MSPs
