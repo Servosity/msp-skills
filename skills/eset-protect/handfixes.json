@@ -1619,7 +1619,7 @@
     {
       "id": "credential-tier-never-persisted",
       "summary": "no Credential-tier value ESET returns (installer downloadUrl from installers list/get/create, the GPO/SCCM file, a mobile enrollment link uri, deviceToken) is ever written to disk: every SQLite row write (resources, its FTS index and the typed tables, via sync, write-through from live reads and mutation responses) stores it as \"[redacted]\", and the HTTP response cache never writes (and deletes on read) a body that carries one; live CLI and MCP output keeps the real value",
-      "why": "Adversarial round 2 (P1): the round-1 fix only took installers out of the default sync. A plain `installers list` / `installers get` (default --data-source auto) wrote each downloadUrl into data-<hash>.db (resources, type installers) and cache/http/resources/https/*.json, `installers create` wrote it through writeMutationResponseToStore, and no later sync pruned it, so the governance claim was false and one human `installers list` locked the read-only MCP agent out of sql and search. One rule at the two disk funnels: cliutil.RedactForPersistence (key match at any depth, case-insensitive, through \\u escapes, a non-JSON body rewritten or replaced whole) is applied in store.mergeIncomingResourceData (incoming and merged, so the typed tables get the redacted row) and store.upsertGenericResourceTx (resources and FTS); client.writeCacheWithHeaders skips any body for which HoldsPersistCredential is true (a redacted cache copy would be served back as live output) and readCacheWithHeaders deletes such an entry. Measured on the built binaries with /tmp/eset-r3/credprobe.sh (mock serving sentinels for every Credential-tier response): before, INSTALLER-URL-SENTINEL-R3 was at rest in cache/http and data-<hash>.db after installers list/get/create and sync --resources installers; after, 0 hits under --home across installers list (json, plain), get, create, sync --resources installers, default sync, export installers, gpo-sccm-files-generate, mobile-devices-batch-get-enrollment-links, both quarantine downloads and MCP execute/sync/export/analytics/sql/search, while every live output still carried the value. Reverts: TestStoreNeverPersistsCredentialTierValues failed with the merge funnel removed (`comments: 0 rows carry the [redacted] marker`, `an installer download link reached the database files: [data.db]`), TestStoreGenericInsertRedactsOnItsOwn with the generic-insert line removed, TestStoreMergeNeverRestoresALink with only the merged-output redaction removed (`the typed comments row carried the old link forward`), TestResponseCacheNeverHoldsCredentialTierBodies with the cache write guard removed (`reached the response cache`) and with the read guard removed (`a cached body holding an installer link was served`), TestCredentialTierNeverPersisted (whole CLI, one temp --home) with each funnel removed (`[installers list --json] wrote a Credential-tier value to disk ... cache/http/resources/https/... data/data-<hash>.db`). TestCodeOrchExecuteNeverPersistsInstallerLinks is the MCP twin (MCP clients run with NoCache, so it guards the property rather than a funnel line). Round 3: the funnel is cliutil.PersistForm(scope, body) / HoldsPersistCredential(scope, body); it fails closed (credential-redaction-fails-closed: a row that is not one JSON value is refused with ErrNotPersistable and no row is stored, a cache body is not written) and redacts by schema (credential-redaction-scoped-by-schema). The store's typed-table proof rows now carry the sentinel as a nested deviceToken, the key every scope redacts.",
+      "why": "Adversarial round 2 (P1): the round-1 fix only took installers out of the default sync. A plain `installers list` / `installers get` (default --data-source auto) wrote each downloadUrl into data-<hash>.db (resources, type installers) and cache/http/resources/https/*.json, `installers create` wrote it through writeMutationResponseToStore, and no later sync pruned it, so the governance claim was false and one human `installers list` locked the read-only MCP agent out of sql and search. One rule at the two disk funnels: cliutil.RedactForPersistence (key match at any depth, case-insensitive, through \\u escapes, a non-JSON body rewritten or replaced whole) is applied in store.mergeIncomingResourceData (incoming and merged, so the typed tables get the redacted row) and store.upsertGenericResourceTx (resources and FTS); client.writeCacheWithHeaders skips any body for which HoldsPersistCredential is true (a redacted cache copy would be served back as live output) and readCacheWithHeaders deletes such an entry. Measured on the built binaries with /tmp/eset-r3/credprobe.sh (mock serving sentinels for every Credential-tier response): before, INSTALLER-URL-SENTINEL-R3 was at rest in cache/http and data-<hash>.db after installers list/get/create and sync --resources installers; after, 0 hits under --home across installers list (json, plain), get, create, sync --resources installers, default sync, export installers, gpo-sccm-files-generate, mobile-devices-batch-get-enrollment-links, both quarantine downloads and MCP execute/sync/export/analytics/sql/search, while every live output still carried the value. Reverts: TestStoreNeverPersistsCredentialTierValues failed with the merge funnel removed (`comments: 0 rows carry the [redacted] marker`, `an installer download link reached the database files: [data.db]`), TestStoreGenericInsertRedactsOnItsOwn with the generic-insert line removed, TestStoreMergeNeverRestoresALink with only the merged-output redaction removed (`the typed comments row carried the old link forward`), TestResponseCacheNeverHoldsCredentialTierBodies with the cache write guard removed (`reached the response cache`) and with the read guard removed (`a cached body holding an installer link was served`), TestCredentialTierNeverPersisted (whole CLI, one temp --home) with each funnel removed (`[installers list --json] wrote a Credential-tier value to disk ... cache/http/resources/https/... data/data-<hash>.db`). TestCodeOrchExecuteNeverPersistsInstallerLinks is the MCP twin (MCP clients run with NoCache, so it guards the property rather than a funnel line). Round 3: the funnel is cliutil.PersistForm(scope, body) / HoldsPersistCredential(scope, body); it fails closed (credential-redaction-fails-closed: a row that is not one JSON value is refused with ErrNotPersistable and no row is stored, a cache body is not written) and redacts by schema (credential-redaction-scoped-by-schema). The store's typed-table proof rows now carry the sentinel as a nested deviceToken, the key every scope redacts. The merge-path redaction assert was retired with sync-rows-replace-wholesale (no merge remains); the incoming row is redacted before it is written.",
       "status": "active",
       "asserts": [
         {
@@ -1640,11 +1640,6 @@
         {
           "file": "cli/internal/store/store.go",
           "contains": "safe, ok := cliutil.PersistForm(resourceType, incoming)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "out, ok := cliutil.PersistForm(resourceType, merged)",
           "code_only": true
         },
         {
@@ -5304,7 +5299,7 @@
     },
     {
       "id": "explicit-empty-replaces",
-      "summary": "the store's keep-richer merge lets a PRESENT empty array, object or string replace the stored value; only an omitted key keeps it",
+      "summary": "the store's keep-richer merge lets a PRESENT empty array, object or string replace the stored value; only an omitted key keeps it (superseded for the store's write path by sync-rows-replace-wholesale; the merge function keeps the rule for any future caller)",
       "why": "The generated merge kept a device's old activeProducts/deployedComponents when a re-sync (including sync --full) returned activeProducts: [], so fleet health and fleet gaps still counted a newly unprotected device as protected (Codex round 3 P1). ESET Connect (gRPC-gateway) emits unpopulated fields, so present-and-empty is authoritative. TestExplicitEmptyReplacesMirroredValue failed with store.go reverted (`an explicit empty activeProducts kept the old products`) and also checks an omitted key still keeps the stored value.",
       "status": "active",
       "asserts": [
@@ -5939,7 +5934,7 @@
     {
       "id": "profile-restart-keeps-unknown",
       "summary": "devices profile reports restart_required as ESET's enum (YES, NO or UNSPECIFIED), as patches backlog does, instead of a bool that read every non-YES value as false",
-      "why": "The profile mapped restartRequired to `== RESTART_REQUIREMENT_YES`, so UNSPECIFIED (ESET: unknown whether a restart is required) or an omitted value appeared as restart_required:false, safe to install without scheduling a restart (Codex round 18 P1). The bare-patch assertion in the devices profile test failed with an omitted value mapped to NO.",
+      "why": "The profile mapped restartRequired to `== RESTART_REQUIREMENT_YES`, so UNSPECIFIED (ESET: unknown whether a restart is required) or an omitted value appeared as restart_required:false, safe to install without scheduling a restart (Codex round 18 P1). The bare-patch assertion in the devices profile test failed with an omitted value mapped to NO. Adversarial round 11: the app patch fixture now carries RESTART_REQUIREMENT_UNSPECIFIED so the kind branch is covered, not only the bare row.",
       "status": "active",
       "asserts": [
         {
@@ -5950,6 +5945,46 @@
         {
           "file": "cli/internal/cli/devices_profile.go",
           "not_contains": "p.RestartRequired = core.RestartRequired == \"RESTART_REQUIREMENT_YES\""
+        }
+      ]
+    },
+    {
+      "id": "sync-metadata-only-pages",
+      "summary": "sync treats a list page with no list field and only paging metadata as an empty page: its nextPageToken continues the walk, and without one it is the natural end; it is never stored as a resource row",
+      "why": "Protobuf JSON can omit an empty repeated field. The generated fallback stored `{}` (or `{\"nextPageToken\":\"B\"}`) as a bogus resource row with no UUID, lost the continuation token and marked the walk complete, so `sync --full` could prune mirrored devices on pages it never read (Codex round 19 P1). TestSyncMetadataOnlyPages (A, then a token-only page, then D) failed with the handling disabled (`a device after a metadata-only page was pruned`) and checks no metadata row is stored and a device ESET no longer returns is still pruned.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if meta, token := esetMetadataOnlyPage(data); meta {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/eset_sync_pages.go",
+          "contains": "func esetMetadataOnlyPage(data json.RawMessage) (bool, string) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-rows-replace-wholesale",
+      "summary": "the store's upsert replaces a stored row with the incoming one (still redacted by PersistForm) instead of the generated keep-richer merge",
+      "why": "Every ESET list and get returns the full object (the same v1 message), and protobuf JSON may omit a field holding its default, so the keep-richer merge copied omitted fields from the previous row: a device that went from isMuted:true to an omitted isMuted stayed muted in the mirror, even after --full, and fleet stale excluded it (Codex round 19 P1). The generated TestUpsert_PreservesRicherCachedDetail encoded the old behavior and is now TestUpsert_ReplacesStoredRow; TestStoreMergeNeverRestoresALink and TestExplicitEmptyReplacesMirroredValue assert the replacement too.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\tif err != nil || existing == \"\" {\n\t\treturn incoming, nil\n\t}\n\t// Hand-fix sync-rows-replace-wholesale",
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "\tmerged, ok := mergeKeepRicherJSON(resourceType, json.RawMessage(existing), incoming)"
+        },
+        {
+          "file": "cli/internal/store/upsert_batch_test.go",
+          "contains": "func TestUpsert_ReplacesStoredRow(t *testing.T) {",
+          "code_only": true
         }
       ]
     }

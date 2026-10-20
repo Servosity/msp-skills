@@ -116,8 +116,10 @@ func TestStoreMergeNeverRestoresALink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(got), storeLinkSentinel) || !strings.Contains(string(got), "activatedProducts") {
-		t.Fatalf("the merged row must keep the richer fields and drop the old link: %s", got)
+	// sync-rows-replace-wholesale: the incoming row replaces the stored one,
+	// so neither the old link nor the old fields come back.
+	if strings.Contains(string(got), storeLinkSentinel) || strings.Contains(string(got), "activatedProducts") {
+		t.Fatalf("the replaced row must not restore the old link or fields: %s", got)
 	}
 	// A typed table receives the merged row directly, so the merge itself
 	// must hand it over redacted.

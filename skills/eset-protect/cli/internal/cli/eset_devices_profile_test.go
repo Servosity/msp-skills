@@ -42,7 +42,7 @@ var devicesProfileTestPatches = []json.RawMessage{
 	json.RawMessage(`{"uuid":"patch-pkg","deviceUuid":"d","packagePatch":{"package":{"name":"openssl"},"resultVersionName":"3.0.2-0ubuntu1.15",
 	  "category":"PATCH_CATEGORY_REGULAR_UPDATE","severity":"SEVERITY_LEVEL_HIGH","restartRequired":"RESTART_REQUIREMENT_NO","fixedCves":["CVE-2023-0286"]}}`),
 	json.RawMessage(`{"uuid":"patch-app","deviceUuid":"d","applicationPatch":{"catalogId":"5120","developerDisplayName":"Mozilla","resultVersionName":"131.0.3",
-	  "category":"PATCH_CATEGORY_SECURITY_UPDATE","severity":"SEVERITY_LEVEL_MEDIUM","restartRequired":"RESTART_REQUIREMENT_NO",
+	  "category":"PATCH_CATEGORY_SECURITY_UPDATE","severity":"SEVERITY_LEVEL_MEDIUM","restartRequired":"RESTART_REQUIREMENT_UNSPECIFIED",
 	  "fixedCves":["CVE-2024-3400","CVE-2024-9680","CVE-2024-9392"]}}`),
 	json.RawMessage(`{"uuid":"patch-os","deviceUuid":"d","osPatch":{"osFamilyId":"1","developerDisplayName":"Microsoft","resultVersionName":"KB5044284",
 	  "category":"PATCH_CATEGORY_SECURITY_UPDATE","severity":"SEVERITY_LEVEL_HIGH","restartRequired":"RESTART_REQUIREMENT_YES","fixedCves":["CVE-2025-21333"]}}`),
@@ -210,7 +210,7 @@ func TestDevicesProfilePatchesSummary(t *testing.T) {
 	if osP.Kind != "os" || osP.RestartRequired != "YES" || osP.Version != "KB5044284" || osP.Category != "SECURITY_UPDATE" {
 		t.Fatalf("os patch = %+v", osP)
 	}
-	if app.Kind != "application" || app.Name != "Mozilla" || app.CatalogID != 5120 || len(app.FixedCVEs) != 3 || app.Severity != "MEDIUM" {
+	if app.Kind != "application" || app.Name != "Mozilla" || app.CatalogID != 5120 || len(app.FixedCVEs) != 3 || app.Severity != "MEDIUM" || app.RestartRequired != "UNSPECIFIED" {
 		t.Fatalf("app patch = %+v", app)
 	}
 	if pkg.Name != "openssl" || pkg.RestartRequired != "NO" {

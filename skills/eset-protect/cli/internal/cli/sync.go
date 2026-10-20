@@ -809,6 +809,22 @@ func syncResource(ctx context.Context, c interface {
 		// Try to extract items from the response.
 		// Strategy: try array first, then common wrapper keys.
 		items, nextCursor, hasMore := extractPageItemsWithPagination(data, pageSize.cursorParam, pageSize.nextCursorPath, responsePathForResource(resource, path)...)
+		// Hand-fix sync-metadata-only-pages: a page with no list field and only
+		// paging metadata is an empty page, never a resource row. Its token
+		// continues the walk; without one it is the natural end. The generated
+		// fallback stored `{}` as a row and, losing the token, ended the walk
+		// early and let --full prune devices on pages it never read.
+		if len(items) == 0 {
+			if meta, token := esetMetadataOnlyPage(data); meta {
+				if token == "" {
+					outcome.complete = true
+					break
+				}
+				if nextCursor == "" {
+					nextCursor, hasMore = token, true
+				}
+			}
+		}
 		if responseDeclaresFailure(data) {
 			err := fmt.Errorf("%s response declared failure", resource)
 			if !humanFriendly {

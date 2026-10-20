@@ -437,7 +437,7 @@ func TestResolveStorageID_KeepsEntityIDsAndRefusesUnusable(t *testing.T) {
 	}
 }
 
-func TestUpsert_PreservesRicherCachedDetail(t *testing.T) {
+func TestUpsert_ReplacesStoredRow(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 	s, err := Open(dbPath)
 	if err != nil {
@@ -470,13 +470,11 @@ func TestUpsert_PreservesRicherCachedDetail(t *testing.T) {
 	if obj["name"] != "Invoice list" {
 		t.Fatalf("name = %v, want refreshed list value", obj["name"])
 	}
-	rows, ok := obj["rows"].([]any)
-	if !ok || len(rows) != 1 {
-		t.Fatalf("rows not preserved, stored %s", got)
-	}
-	row, _ := rows[0].(map[string]any)
-	if fmt.Sprint(row["vat"]) != "21" {
-		t.Fatalf("rich vat field lost, stored %s", got)
+	// Hand-fix sync-rows-replace-wholesale: ESET list and get return the same
+	// full object and protobuf JSON may omit defaults, so the incoming row
+	// replaces the stored one instead of keeping "richer" stale fields.
+	if _, ok := obj["rows"]; ok {
+		t.Fatalf("the list upsert kept the stale detail rows: %s", got)
 	}
 
 	if stored, extractFailures, err := s.UpsertBatch("others", []json.RawMessage{

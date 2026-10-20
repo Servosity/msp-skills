@@ -1420,15 +1420,12 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 	if err != nil || existing == "" {
 		return incoming, nil
 	}
-	merged, ok := mergeKeepRicherJSON(resourceType, json.RawMessage(existing), incoming)
-	if !ok {
-		return incoming, nil
-	}
-	out, ok := cliutil.PersistForm(resourceType, merged)
-	if !ok {
-		return incoming, nil
-	}
-	return json.RawMessage(out), nil
+	// Hand-fix sync-rows-replace-wholesale: every ESET list and get returns
+	// the full object (the same v1 message), and protobuf JSON may omit a
+	// field holding its default, so merging kept stale values forever (a
+	// device unmuted by omission stayed muted). The incoming row replaces the
+	// stored one.
+	return incoming, nil
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {

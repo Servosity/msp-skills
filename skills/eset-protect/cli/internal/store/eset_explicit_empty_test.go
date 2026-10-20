@@ -46,7 +46,9 @@ func TestExplicitEmptyReplacesMirroredValue(t *testing.T) {
 	if got["note"] != "" {
 		t.Fatalf("an explicit empty string kept the old value: %v", got["note"])
 	}
-	if c, _ := got["deployedComponents"].([]any); len(c) != 1 {
-		t.Fatalf("an omitted key must keep the stored value: %v", got["deployedComponents"])
+	// sync-rows-replace-wholesale: protobuf JSON may omit a default-valued
+	// field, so an omitted key does not keep the stored value either.
+	if _, ok := got["deployedComponents"]; ok {
+		t.Fatalf("an omitted key kept the stored value: %v", got["deployedComponents"])
 	}
 }
