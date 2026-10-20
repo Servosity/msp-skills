@@ -655,6 +655,13 @@ func syncResource(ctx context.Context, c interface {
 				params[sortParam] = sortValue
 			}
 		}
+		// HAND-FIX(sync-policies-include-global): built-in list defaults that
+		// widen the listing to what the novel commands need. They are not user
+		// narrowing (syncParamsScope only sees user params), so a walk with
+		// them still counts as complete.
+		for k, v := range syncResourceDefaultQueryParams(resource) {
+			params[k] = v
+		}
 		// Apply user-supplied --param / --resource-param overrides last so they
 		// win over spec-derived defaults (e.g. forcing mine=true on a list
 		// endpoint whose OpenAPI spec marks the filter optional).
@@ -1145,6 +1152,19 @@ func syncResource(ctx context.Context, c interface {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
 	}
 
+	// HAND-FIX(sync-resumed-walk-warns): a walk resumed from a saved cursor
+	// (after an interrupt or a --max-pages cap) reached the end of the listing
+	// but saw only the pages after the cursor, so the collection is still
+	// incomplete. Say so and how to finish it, instead of "(done)" and
+	// sync_complete.
+	if outcome.reason == "resumed_from_cursor" {
+		msg := fmt.Sprintf("walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources %s' to complete it", resource)
+		if !humanFriendly {
+			fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", 0, "resumed_from_cursor", msg))
+		}
+		return syncResult{Resource: resource, Count: cachedCount, Warn: errors.New(msg), Duration: time.Since(started)}
+	}
+
 	if !humanFriendly && reconcileErr == nil {
 		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, cachedCount, time.Since(started).Milliseconds())
 	}
@@ -1176,6 +1196,20 @@ func syncResourceWalksAfterClear(resource, sinceTS string, userParams *syncUserP
 	}
 	missing := unfilledRequiredSyncQueryParams(resource, userParams, syncConditionalQueryParams(resource, effectiveSince, syncResourceSortValue(resource)))
 	return len(missing) == 0
+}
+
+// syncResourceDefaultQueryParams returns built-in query params a resource's
+// sync list request always sends. policies: /v1/policies/all omits the
+// global (MSP-shared) policies unless include_global_policies=true, and
+// lists where must see their allow/block lists (why-blocked asks for them
+// live the same way).
+// HAND-FIX(sync-policies-include-global)
+func syncResourceDefaultQueryParams(resource string) map[string]string {
+	switch resource {
+	case "policies":
+		return map[string]string{"include_global_policies": "true"}
+	}
+	return nil
 }
 
 // syncParamsScope reports whether any user --param, --global-param or

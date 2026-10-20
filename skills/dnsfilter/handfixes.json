@@ -2528,6 +2528,57 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "sync-policies-include-global",
+      "summary": "the policies sync list request (/v1/policies/all) always sends include_global_policies=true as a built-in default, so global (MSP-shared) policies reach the mirror; the default is not a user narrowing param, so the walk still counts as complete",
+      "why": "The generated sync walked /v1/policies/all without include_global_policies, and the API omits global policies unless it is true (why-blocked asks for them live with it, dnsfilter_common.go). Global policies therefore never reached the mirror, and `lists where <domain>` returned a clean result while a global policy's allow or block list held the domain. syncResourceDefaultQueryParams adds include_global_policies=true to the policies list request before user params apply (a user can still override it, which then counts as narrowing); syncParamsScope only probes user params, so sync-complete-means-whole-fleet still marks the walk complete. Stored rows keep is_global_policy, whitelist_domains and blacklist_domains, which lists where reads. Receipt: HEAD sent /v1/policies/all?page[size]=100 and lists where blocked.example returned results []; fixed sends include_global_policies=true and finds policy 90 (is_global true). Proven: removing the default or its injection fails TestSyncPoliciesIncludeGlobal (entry not found); counting the default as narrowing fails it too (policies complete=0).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return map[string]string{\"include_global_policies\": \"true\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "for k, v := range syncResourceDefaultQueryParams(resource) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncPoliciesIncludeGlobal(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-resumed-walk-warns",
+      "summary": "a sync walk resumed from a saved cursor (after an interrupt or a --max-pages cap) that reaches the end of the listing reports a sync_warning (reason resumed_from_cursor) and a human warning line naming `dnsfilter-cli sync --full --resources <name>`, instead of \"(done)\" and sync_complete",
+      "why": "After sync-complete-means-whole-fleet, a walk resumed from a saved cursor records the collection incomplete (it saw only the pages after the cursor), but the run still printed `<name>: N synced (done)` and emitted sync_complete with no hint, so an operator or agent read a complete collection. The resumed walk now returns a warning result with the remedy: JSON mode emits {\"event\":\"sync_warning\",\"reason\":\"resumed_from_cursor\",...} and no sync_complete for that resource, human mode prints `<name>: warning: walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources <name>' to complete it`. As for every all-warned run, a sync whose only resource warned exits non-zero (\"completed with warnings but no successful syncs\"). Proven: removing the branch fails TestSyncResumedWalkIsIncomplete (no warning, sync_complete emitted).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if outcome.reason == \"resumed_from_cursor\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "fmt.Fprintln(syncEvents, syncWarningJSON(resource, \"\", 0, \"resumed_from_cursor\", msg))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "msg := fmt.Sprintf(\"walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources %s' to complete it\", resource)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncResumedWalkIsIncomplete(t *testing.T) {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

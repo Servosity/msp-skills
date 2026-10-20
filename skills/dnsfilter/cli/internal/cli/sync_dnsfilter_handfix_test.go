@@ -644,10 +644,72 @@ func TestSyncResumedWalkIsIncomplete(t *testing.T) {
 		t.Fatal(err)
 	}
 	db.Close()
-	syncHFRunOK(t, "sync", "--resources", "user-agents", "--db", dbPath)
+	// The resumed walk warns (an all-warned run exits non-zero) instead of
+	// reporting the collection done.
+	out, _ := syncHFRun("sync", "--resources", "user-agents", "--db", dbPath)
 	syncHFWantComplete(t, dbPath, "user-agents", 0, "walk resumed from page 2")
-	syncHFRunOK(t, "sync", "--resources", "user-agents", "--db", dbPath)
+	if !strings.Contains(out, `"reason":"resumed_from_cursor"`) || !strings.Contains(out, "sync --full --resources user-agents") {
+		t.Fatalf("a resumed walk did not warn with the --full remedy:\n%s", out)
+	}
+	if strings.Contains(out, `{"event":"sync_complete","resource":"user-agents"`) || !strings.Contains(out, `"warned":1`) {
+		t.Fatalf("a resumed walk still reported the collection done:\n%s", out)
+	}
+	out = func() string {
+		o, err := syncHFRun("sync", "--resources", "user-agents", "--db", dbPath)
+		if err != nil {
+			t.Fatalf("next plain sync: %v\n%s", err, o)
+		}
+		return o
+	}()
 	syncHFWantComplete(t, dbPath, "user-agents", 1, "next plain sync")
+	if strings.Contains(out, "resumed_from_cursor") {
+		t.Fatalf("a walk from the top still warned as resumed:\n%s", out)
+	}
+}
+
+// A plain sync stores the global (MSP-shared) policies: the policies list
+// request always carries include_global_policies=true, which is a built-in
+// default and not a narrowing param, so the collection is complete and
+// lists where finds a global policy's entry.
+func TestSyncPoliciesIncludeGlobal(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if p := q.Get("page[number]"); p != "" && p != "1" {
+			fmt.Fprint(w, `{"data":[]}`)
+			return
+		}
+		switch r.URL.Path {
+		case "/v1/organizations/all":
+			fmt.Fprint(w, `{"data":[{"id":"1","type":"organizations","attributes":{"name":"Org One"}}]}`)
+		case "/v1/policies/all":
+			own := `{"id":"10","type":"policies","attributes":{"name":"Std","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_domains":[]}}`
+			global := `{"id":"90","type":"policies","attributes":{"name":"MSP Global","is_global_policy":true,"whitelist_domains":[],"blacklist_domains":["blocked.example"]}}`
+			if q.Get("include_global_policies") == "true" {
+				fmt.Fprint(w, `{"data":[`+own+`,`+global+`]}`)
+				return
+			}
+			fmt.Fprint(w, `{"data":[`+own+`]}`)
+		default:
+			fmt.Fprint(w, `{"data":[]}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	syncHFRunOK(t, "sync", "--resources", "organizations,networks,policies,scheduled-policies,user-agents", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "policies", 1, "plain sync with the built-in include_global_policies default")
+	out, err := syncHFRun("lists", "where", "blocked.example", "--db", dbPath)
+	if err != nil {
+		t.Fatalf("lists where: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `"policy_id": "90"`) || !strings.Contains(out, `"is_global": true`) {
+		t.Fatalf("lists where did not find the global policy's block-list entry:\n%s", out)
+	}
+	if strings.Contains(out, "incomplete_collections") {
+		t.Fatalf("lists where reported an incomplete mirror after a full plain sync:\n%s", out)
+	}
 }
 
 // Dependents of a narrowed parent walk cover only the parents it stored, and
