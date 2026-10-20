@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/synology-mcp",
+  "title": "Synology MCP",
+  "description": "Every client NAS's Active Backup for Business jobs and storage health, mirrored into one local",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/synology/synology-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/synology"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/synology-v0.1.0/synology-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SYNOLOGY_BASE_URL",
+          "description": "Set the SYNOLOGY_BASE_URL credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_ACCOUNT",
+          "description": "Set the SYNOLOGY_ACCOUNT credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_PASSWORD",
+          "description": "Set the SYNOLOGY_PASSWORD credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_DEVICE_ID",
+          "description": "Set the SYNOLOGY_DEVICE_ID credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_OTP_CODE",
+          "description": "Set the SYNOLOGY_OTP_CODE credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_TLS_FINGERPRINT",
+          "description": "Set the SYNOLOGY_TLS_FINGERPRINT credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_SKIP_TLS_VERIFY",
+          "description": "Set the SYNOLOGY_SKIP_TLS_VERIFY credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_MCP_READ_ONLY",
+          "description": "Set the SYNOLOGY_MCP_READ_ONLY credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_MCP_HTTP_TOKEN",
+          "description": "Set the SYNOLOGY_MCP_HTTP_TOKEN credential for the Synology MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

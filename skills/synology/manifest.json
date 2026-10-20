@@ -1,0 +1,111 @@
+{
+  "manifest_version": "0.3",
+  "name": "synology-mcp",
+  "display_name": "Synology DSM + Active Backup for Business",
+  "version": "0.1.0",
+  "description": "Every client NAS's Active Backup for Business jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/synology-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/synology-mcp",
+      "args": [],
+      "env": {
+        "SYNOLOGY_BASE_URL": "${user_config.synology_base_url}",
+        "SYNOLOGY_ACCOUNT": "${user_config.synology_account}",
+        "SYNOLOGY_PASSWORD": "${user_config.synology_password}",
+        "SYNOLOGY_DEVICE_ID": "${user_config.synology_device_id}",
+        "SYNOLOGY_OTP_CODE": "${user_config.synology_otp_code}",
+        "SYNOLOGY_TLS_FINGERPRINT": "${user_config.synology_tls_fingerprint}",
+        "SYNOLOGY_SKIP_TLS_VERIFY": "${user_config.synology_skip_tls_verify}",
+        "SYNOLOGY_MCP_READ_ONLY": "${user_config.synology_mcp_read_only}",
+        "SYNOLOGY_MCP_HTTP_TOKEN": "${user_config.synology_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "synology_base_url": {
+      "type": "string",
+      "title": "SYNOLOGY_BASE_URL",
+      "description": "DSM address of the NAS, scheme and port included, for example https://nas.acme.example:5001 (HTTPS port 5001 by default).",
+      "required": true
+    },
+    "synology_account": {
+      "type": "string",
+      "title": "SYNOLOGY_ACCOUNT",
+      "description": "DSM account name used for the SYNO.API.Auth login. A dedicated read-mostly admin account is recommended; Active Backup for Business status calls need administrator rights.",
+      "required": true
+    },
+    "synology_password": {
+      "type": "string",
+      "title": "SYNOLOGY_PASSWORD",
+      "description": "DSM account password; sent in the login request body, never written to disk by the CLI.",
+      "sensitive": true,
+      "required": true
+    },
+    "synology_device_id": {
+      "type": "string",
+      "title": "SYNOLOGY_DEVICE_ID (optional)",
+      "description": "Trusted-device token (did) from an earlier two-factor login, used instead of a one-time code. Leave blank if the account has no two-factor authentication.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "synology_otp_code": {
+      "type": "string",
+      "title": "SYNOLOGY_OTP_CODE (optional)",
+      "description": "Six-digit one-time code for the first login of a two-factor account. It expires in seconds, so prefer running auth login once in a terminal and leaving this blank.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "synology_tls_fingerprint": {
+      "type": "string",
+      "title": "SYNOLOGY_TLS_FINGERPRINT (optional)",
+      "description": "SHA-256 fingerprint of the NAS certificate to pin (DSM ships a self-signed certificate). Leave blank when the NAS has a publicly trusted certificate.",
+      "required": false,
+      "default": ""
+    },
+    "synology_skip_tls_verify": {
+      "type": "string",
+      "title": "SYNOLOGY_SKIP_TLS_VERIFY (optional)",
+      "description": "Set to 1 to skip certificate verification. Prefer SYNOLOGY_TLS_FINGERPRINT; leave blank otherwise.",
+      "required": false,
+      "default": ""
+    },
+    "synology_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server (optional)",
+      "description": "Set to 1 to drop the MCP tools that start or cancel backups or change local state. Leave blank for the full tool set.",
+      "required": false,
+      "default": ""
+    },
+    "synology_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token (optional)",
+      "description": "Required only when running the MCP server with --transport http; the server refuses to start without it. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T22:34:38.945673Z",
+    "spec_checksum": "sha256:9dae59bfe9e0be1a61a4760cf850a6e0ca6ad9a1802f488d315c10dbbb1c9f02",
+    "spec_format": "internal"
+  }
+}

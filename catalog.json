@@ -1538,6 +1538,26 @@
       "tagline": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask."
     },
     {
+      "name": "synology",
+      "system": "Synology DSM NAS units and Active Backup for Business (ABB): backup tasks, job results, storage pools, volumes and disk SMART health",
+      "status": "beta",
+      "skill_path": "skills/synology",
+      "cli_binary": "synology-cli",
+      "mcp_binary": "synology-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Synology",
+      "vendor_trademark_owner": "Synology Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/install.sh)",
+      "install_mcp_doc": "skills/synology/mcp-install.md",
+      "description": "Every client NAS's Active Backup for Business jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt."
+    },
+    {
       "name": "tactical-rmm",
       "system": "Self-hosted Tactical RMM: agent triage, patch posture, fleet-wide queries, and cohort script execution",
       "status": "beta",

@@ -816,6 +816,17 @@
       "url": "/skills/syncro/"
     },
     {
+      "slug": "synology",
+      "display_name": "Synology",
+      "tagline": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/synology/"
+    },
+    {
       "slug": "tactical-rmm",
       "display_name": "Tactical RMM",
       "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
