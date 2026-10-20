@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -568,12 +569,9 @@ func ledgerDataDir() string {
 // read fails the run closed: nothing is sent while a ledger that may hold
 // sent restores is unreadable.
 func (g *restoreGuard) seedFromLedgers(ctx context.Context, dir string) error {
-	paths, err := filepath.Glob(filepath.Join(dir, "data-*.db"))
+	paths, err := listLedgerStores(dir)
 	if err != nil {
-		return fmt.Errorf("listing ledgers in %s: %w", dir, err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "data.db")); err == nil {
-		paths = append(paths, filepath.Join(dir, "data.db"))
+		return err
 	}
 	for _, path := range paths {
 		if abs, err := filepath.Abs(path); err == nil {
@@ -588,7 +586,7 @@ func (g *restoreGuard) seedFromLedgers(ctx context.Context, dir string) error {
 		}
 		rows, err := readSentLedgerRows(ctx, path)
 		if err != nil {
-			return fmt.Errorf("the restore ledger %s cannot be read, so the restores it records cannot be checked (%w); nothing was sent. Fix or move that file, then run again", path, err)
+			return fmt.Errorf("the restore ledger %s cannot be read, so the restores it records cannot be checked (%w); this run sent nothing. Fix or move that file, then run again", path, err)
 		}
 		if err := g.inTx(ctx, func(tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM seeded_stores WHERE path = ?`, path).Scan(&seen); err != nil || seen > 0 {
@@ -620,10 +618,32 @@ func (g *restoreGuard) seedFromLedgers(ctx context.Context, dir string) error {
 			_, err := tx.ExecContext(ctx, `INSERT INTO seeded_stores (path, imported, seeded_at) VALUES (?, ?, ?)`, path, imported, now)
 			return err
 		}); err != nil {
-			return fmt.Errorf("seeding the restore guard %s from %s: %w; nothing was sent", g.path, path, err)
+			return fmt.Errorf("seeding the restore guard %s from %s: %w; this run sent nothing", g.path, path, err)
 		}
 	}
 	return nil
+}
+
+// listLedgerStores returns every ledger store file in dir (data.db and
+// data-*.db). Only a directory that does not exist is empty; any other
+// failure to list it is an error, because a directory that cannot be read
+// would otherwise look empty and hide every restore its stores recorded.
+func listLedgerStores(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("the ledger directory %s cannot be listed, so the restores its stores record cannot be checked (%w); this run sent nothing. Fix its permissions, then run again", dir, err)
+	}
+	var paths []string
+	for _, e := range entries {
+		name := e.Name()
+		if name == "data.db" || (strings.HasPrefix(name, "data-") && strings.HasSuffix(name, ".db")) {
+			paths = append(paths, filepath.Join(dir, name))
+		}
+	}
+	return paths, nil
 }
 
 // readSentLedgerRows reads one store's restore rows that were sent, through

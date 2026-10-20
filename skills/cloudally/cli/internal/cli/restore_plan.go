@@ -408,6 +408,9 @@ A mailbox with no successful backup at or before the date stays in the plan
 as a NO_BACKUP row with no date, and 'restore submit' excludes it. Nothing
 is ever silently resolved to a different backup. ARCHIVED and ON_PREMISE
 entities stay listed with their own status.
+
+--timeout bounds each API and portal call, not the plan, so a task with
+hundreds of mailboxes resolves in full.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli restore plan --task 64b0e9 --date 2026-10-01
@@ -459,8 +462,11 @@ entities stay listed with their own status.
 			if err != nil {
 				return err
 			}
-			ctx, cancel := boundCtx(cmd.Context(), flags)
-			defer cancel()
+			// No overall deadline: --timeout bounds each API and portal
+			// call (the clients apply it per request), so resolving a large
+			// task's mailboxes against the backup calendar is not cut off
+			// part way.
+			ctx := cmd.Context()
 			task, err := fetchTaskWithEntities(ctx, c, taskPath)
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)

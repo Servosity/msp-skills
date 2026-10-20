@@ -151,7 +151,7 @@ func TestRestoreGuardSeedFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _, err = runAuthCmd(t, "", submitArgs("--date", "2026-10-01")...)
-	if err == nil || !strings.Contains(err.Error(), bad) || !strings.Contains(err.Error(), "nothing was sent") {
+	if err == nil || !strings.Contains(err.Error(), bad) || !strings.Contains(err.Error(), "this run sent nothing") {
 		t.Fatalf("want a fail-closed error naming %s, got %v", bad, err)
 	}
 	if api.posts.Load() != 0 {

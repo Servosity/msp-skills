@@ -163,11 +163,21 @@ func jobTerminal(j restoreJob) bool {
 	return !restoreTaskRunning(j.Status)
 }
 
+// restoreTaskFailed reports a row whose submission or RESTORE task ended
+// badly: FAILED and FAILED_REDIRECT, and any task status that names a
+// failure, an error, or a cancellation. The task status vocabulary is not
+// documented, so a finished task only counts as a success when its status
+// says none of those.
+func restoreTaskFailed(status string) bool {
+	s := strings.ToUpper(status)
+	return strings.Contains(s, "FAIL") || strings.Contains(s, "ERROR") || strings.Contains(s, "CANCEL")
+}
+
 func tallyJobs(jobs []restoreJob) watchTally {
 	var t watchTally
 	for _, j := range jobs {
 		switch {
-		case j.Status == jobFailed || j.Status == jobFailedRedirect:
+		case restoreTaskFailed(j.Status):
 			t.Failed++
 		case j.Status == jobUnmatched:
 			t.Unmatched++
@@ -212,11 +222,14 @@ Use this command to follow the restores of one submitted batch to completion. Do
 it to list raw RESTORE tasks; use 'tasks list --type RESTORE' instead. Do NOT use it for
 past batches offline; use 'restore history' instead.
 
-Exits 0 only when every row of the batch was submitted and its RESTORE task finished.
-It exits non-zero when a restore failed, when a row is still UNKNOWN (watch keeps
-polling those until --max-wait), and when a row was never submitted (still PLANNED:
-the batch is incomplete; continue it with 'restore submit ... --resume'). --timeout
-bounds each status request; --max-wait bounds the whole watch.
+Exits 0 only when every row of the batch was submitted and its RESTORE task finished
+without a failure, error, or cancellation. Exits 5 when a restore failed, when a row is
+still UNKNOWN (watch keeps polling those until --max-wait), when a row was never
+submitted (still PLANNED: the batch is incomplete; continue it with 'restore submit ...
+--resume'), and when a restore was accepted but no RESTORE task was ever seen for it
+(UNMATCHED). Exits 8 when restores are still running: with --once, after --max-wait,
+or on Ctrl-C; run watch again later. --timeout bounds each status request; --max-wait
+bounds the whole watch.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli restore watch --batch 20261015-120000-ab12
@@ -278,6 +291,9 @@ bounds each status request; --max-wait bounds the whole watch.
 			deadline := time.Now().Add(flagMaxWait)
 			human := wantsHumanTable(cmd.OutOrStdout(), flags)
 			out := watchOutput{BatchID: batch.BatchID}
+			// finished is true once no row needs another poll; stopped names
+			// why watch stopped before that (--once, --max-wait, Ctrl-C).
+			finished, stopped := false, ""
 			for {
 				out.Polls++
 				jobs, err := ledgerListJobs(sqlDB, batch.BatchID, "")
@@ -314,7 +330,7 @@ bounds each status request; --max-wait bounds the whole watch.
 				}
 				_ = ledgerTouchBatch(sqlDB, batch.BatchID, time.Now())
 				out.Rows, out.Tally = jobs, tallyJobs(jobs)
-				finished := true
+				finished = true
 				for _, j := range jobs {
 					if !jobTerminal(j) {
 						finished = false
@@ -329,19 +345,24 @@ bounds each status request; --max-wait bounds the whole watch.
 						return err
 					}
 				}
-				if finished || flagOnce {
+				if finished {
+					break
+				}
+				if flagOnce {
+					stopped = "--once"
 					break
 				}
 				if flagMaxWait > 0 && time.Now().After(deadline) {
-					if !human {
-						_ = printJSONFiltered(cmd.OutOrStdout(), out, flags)
-					}
-					return apiErr(fmt.Errorf("gave up after --max-wait %s with %d restore(s) still running, %d still unconfirmed (UNKNOWN), and %d never submitted in batch %s", flagMaxWait, out.Tally.Running+out.Tally.Pending, out.Tally.Unknown, out.Tally.Unsent, batch.BatchID))
+					stopped = "--max-wait " + flagMaxWait.String()
+					break
 				}
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					stopped = "interrupted: " + ctx.Err().Error()
 				case <-time.After(flagInterval):
+				}
+				if stopped != "" {
+					break
 				}
 			}
 			if out.Tally.Unmatched > 0 {
@@ -359,7 +380,7 @@ bounds each status request; --max-wait bounds the whole watch.
 			if out.Tally.Failed > 0 {
 				var afterAccept []string
 				for _, j := range out.Rows {
-					if (j.Status == jobFailed || j.Status == jobFailedRedirect) && jobEverAccepted(j) {
+					if restoreTaskFailed(j.Status) && jobEverAccepted(j) {
 						afterAccept = append(afterAccept, j.Entity)
 					}
 				}
@@ -376,8 +397,15 @@ bounds each status request; --max-wait bounds the whole watch.
 			if out.Tally.Unsent > 0 {
 				problems = append(problems, fmt.Sprintf("batch %s is incomplete: %d restore(s) were never submitted (still PLANNED); send them by re-running the 'restore submit' command that created the batch with --resume --yes added", batch.BatchID, out.Tally.Unsent))
 			}
+			if out.Tally.Unmatched > 0 {
+				problems = append(problems, fmt.Sprintf("%d restore(s) in batch %s were accepted by CloudAlly but no RESTORE task was seen for them after %d poll(s); do not send them again: look for them with 'cloudally-cli tasks list --type RESTORE' and check the mailboxes", out.Tally.Unmatched, batch.BatchID, out.Polls))
+			}
 			if len(problems) > 0 {
 				return apiErr(errors.New(strings.Join(problems, "; ")))
+			}
+			if !finished {
+				return &cliError{code: ExitJobPending, err: fmt.Errorf("%d restore(s) in batch %s are still running (%d running, %d submitted with no task seen yet); watch stopped (%s) before they finished. Check again later with: cloudally-cli restore watch --batch %s",
+					out.Tally.Running+out.Tally.Pending, batch.BatchID, out.Tally.Running, out.Tally.Pending, stopped, batch.BatchID)}
 			}
 			return nil
 		},

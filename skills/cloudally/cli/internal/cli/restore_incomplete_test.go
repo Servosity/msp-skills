@@ -73,7 +73,7 @@ func TestRestoreInterruptedSubmitIsIncomplete(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	stdout, _, err := runAuthCmdCtx(t, ctx, args...)
-	if err == nil || ExitCode(err) != 5 || !strings.Contains(err.Error(), "1 never sent (still PLANNED)") {
+	if err == nil || ExitCode(err) != 5 || !strings.Contains(err.Error(), "1 never sent (still PLANNED)") || !strings.Contains(err.Error(), "1 accepted (those are restoring and are never sent again)") {
 		t.Fatalf("interrupted submit: want exit 5 naming the unsent row, got %v", err)
 	}
 	if api.posts.Load() != 1 {

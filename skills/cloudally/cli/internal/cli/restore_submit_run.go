@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"cloudally-pp-cli/internal/cadate"
 	"cloudally-pp-cli/internal/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -55,7 +56,7 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 	sqlDB := db.DB()
 	guard, err := openRestoreGuard(ctx)
 	if err != nil {
-		return fmt.Errorf("opening the restore guard: %w; nothing was sent", err)
+		return fmt.Errorf("opening the restore guard: %w; this run sent nothing", err)
 	}
 	defer guard.Close()
 	if err := guard.seedFromLedgers(ctx, ledgerDataDir()); err != nil {
@@ -100,7 +101,7 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 			req.opts, req.source = opts, source
 			batch, resumed = existing, true
 		} else {
-			return usageErr(errors.New("--resume found no earlier batch with the same scope, account, task, entities, and dates in this login's ledger; nothing was sent. Each login (partner, or one company after auth use-account) keeps its own ledger, so run `restore history` under the login that started the batch. Dropping --resume starts a new batch, which the restore guard refuses for any restore already sent from this state directory"))
+			return usageErr(errors.New("--resume found no earlier batch with the same scope, account, task, entities, and dates in this login's ledger; this run sent nothing. Each login (partner, or one company after auth use-account) keeps its own ledger, so run `restore history` under the login that started the batch. Dropping --resume starts a new batch, which the restore guard refuses for any restore already sent from this state directory"))
 		}
 	} else if !req.newBatch {
 		prior, n, err := ledgerAcceptedRowsByKey(sqlDB, key, legacyKey)
@@ -108,7 +109,7 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 			return fmt.Errorf("reading ledger: %w", err)
 		}
 		if n > 0 {
-			return usageErr(fmt.Errorf("batch %s already has %d restore(s) for this same scope, account, task, entities, and dates that the API accepted or may have accepted; nothing was sent. Continue that batch with: %s. --new-batch would instead send all of this run's restores again, those %d included",
+			return usageErr(fmt.Errorf("batch %s already has %d restore(s) for this same scope, account, task, entities, and dates that the API accepted or may have accepted; this run sent nothing. Continue that batch with: %s. --new-batch would instead send all of this run's restores again, those %d included",
 				prior, n, termSafe(submitRerunCommand(cmd, "--resume", "--yes")), n))
 		}
 	}
@@ -318,10 +319,10 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 	case len(unrecorded) > 0:
 		return apiErr(fmt.Errorf("%d restore(s) were accepted but the ledger still shows them SUBMITTING in batch %s (%s); the next run treats them as UNKNOWN and will not send them again", len(unrecorded), batch.BatchID, termSafe(strings.Join(unrecorded, ", "))))
 	case authFailed:
-		return authErr(fmt.Errorf("restore submission rejected with 401/403; %d row(s) left PLANNED in batch %s; fix the login, then send them with: %s", unsent, batch.BatchID, termSafe(submitRerunCommand(cmd, "--resume", "--yes"))))
+		return authErr(fmt.Errorf("restore submission rejected with 401/403 in batch %s: %d restore(s) of the batch were already accepted and are not sent again; %d row(s) left PLANNED; fix the login, then send those with: %s", batch.BatchID, out.Counts[jobSubmitted], unsent, termSafe(submitRerunCommand(cmd, "--resume", "--yes"))))
 	case out.NotSent > 0 || unsettled > 0 || unsent > 0:
-		return apiErr(fmt.Errorf("batch %s is not fully submitted%s: %d failed, %d unknown, %d never sent (still PLANNED), %d refused this run (counts: %s)%s", batch.BatchID, interrupted,
-			out.Counts[jobFailed]+out.Counts[jobFailedRedirect], out.Counts[jobUnknown]+out.Counts[jobSubmitting], unsent, out.NotSent, formatCounts(out.Counts), resumeHint))
+		return apiErr(fmt.Errorf("batch %s is not fully submitted%s: %d accepted (those are restoring and are never sent again), %d failed, %d unknown (may have been accepted), %d never sent (still PLANNED), %d refused this run (counts: %s)%s", batch.BatchID, interrupted,
+			out.Counts[jobSubmitted], out.Counts[jobFailed]+out.Counts[jobFailedRedirect], out.Counts[jobUnknown]+out.Counts[jobSubmitting], unsent, out.NotSent, formatCounts(out.Counts), resumeHint))
 	}
 	return nil
 }
@@ -357,7 +358,7 @@ func countSubmitOutcomes(rows []restoreJob) map[string]int {
 func resumeSettings(cmd *cobra.Command, b *restoreBatch, rows []restoreJob, req submitRequest) (submitOptions, string, error) {
 	recorded, ok := submitOptionsFromMap(b.Options)
 	if !ok {
-		return submitOptions{}, "", usageErr(fmt.Errorf("batch %s has no complete record of its restore options (target account, restore option, include flags), so where its remaining restores would go cannot be confirmed; nothing was sent. Check 'restore history --batch %s'. %s",
+		return submitOptions{}, "", usageErr(fmt.Errorf("batch %s has no complete record of its restore options (target account, restore option, include flags), so where its remaining restores would go cannot be confirmed; this run sent nothing. Check 'restore history --batch %s'. %s",
 			b.BatchID, b.BatchID, termSafe(neverSentAdvice(cmd, rows))))
 	}
 	var conflicts []string
@@ -371,13 +372,13 @@ func resumeSettings(cmd *cobra.Command, b *restoreBatch, rows []restoreJob, req 
 	differs(flagNameIncludeDeleted, recorded.includeDeleted, req.opts.includeDeleted)
 	differs(flagNameIncludeLegalHold, recorded.includeLegalHold, req.opts.includeLegalHold)
 	if len(conflicts) > 0 {
-		return submitOptions{}, "", usageErr(fmt.Errorf("batch %s sends its restores with different options than this run: %s; nothing was sent. Drop the flag(s) to resume with the recorded values. %s",
+		return submitOptions{}, "", usageErr(fmt.Errorf("batch %s sends its restores with different options than this run: %s; this run sent nothing. Drop the flag(s) to resume with the recorded values. %s",
 			b.BatchID, termSafe(strings.Join(conflicts, ", ")), termSafe(neverSentAdvice(cmd, rows))))
 	}
 	source := req.source
 	if recordedSource := strings.TrimSpace(b.Source); recordedSource != "" {
 		if source != "" && !strings.EqualFold(recordedSource, source) {
-			return submitOptions{}, "", usageErr(fmt.Errorf("batch %s was recorded for source %s but task %s now reports source %s; refusing to resume it; nothing was sent",
+			return submitOptions{}, "", usageErr(fmt.Errorf("batch %s was recorded for source %s but task %s now reports source %s; refusing to resume it; this run sent nothing",
 				b.BatchID, termSafe(recordedSource), termSafe(req.taskID), termSafe(source)))
 		}
 		source = recordedSource
@@ -435,12 +436,12 @@ func guardPreflight(ctx context.Context, cmd *cobra.Command, g *restoreGuard, re
 	}
 	held, err := g.conflicts(ctx, ids, owner, req.retryUnknown, req.newBatch)
 	if err != nil {
-		return fmt.Errorf("reading the restore guard %s: %w; nothing was sent", g.path, err)
+		return fmt.Errorf("reading the restore guard %s: %w; this run sent nothing", g.path, err)
 	}
 	if req.newBatch {
 		again, err := g.conflicts(ctx, ids, owner, req.retryUnknown, false)
 		if err != nil {
-			return fmt.Errorf("reading the restore guard %s: %w; nothing was sent", g.path, err)
+			return fmt.Errorf("reading the restore guard %s: %w; this run sent nothing", g.path, err)
 		}
 		if n := len(again) - len(held); n > 0 {
 			termf(cmd.ErrOrStderr(), "warning: --new-batch sends %d restore(s) again that were already sent from this state directory (%s)\n", n, describeClaims(again, held))
@@ -477,8 +478,86 @@ func guardPreflight(ctx context.Context, cmd *cobra.Command, g *restoreGuard, re
 	if req.newBatch {
 		newBatch = " A send that is in flight right now is refused even with --new-batch; wait for it to finish."
 	}
-	return usageErr(fmt.Errorf("%d of the %d restore(s) this run would send were already sent from this state directory, under this or another login or token: %s. Nothing was sent; sending them again would restore those mailboxes twice. Look the batches up with 'restore history --batch <id>' under the login named. %s%s (restore guard: %s)",
-		len(held), len(rows), termSafe(describeClaims(held, nil)), termSafe(advice), newBatch, g.path))
+	return usageErr(fmt.Errorf("%d of the %d restore(s) this run would send were already sent from this state directory, under this or another login or token: %s. This run sent nothing. %s Look the batches up with 'restore history --batch <id>' under the login named. %s%s (restore guard: %s)",
+		len(held), len(rows), termSafe(describeClaims(held, nil)), termSafe(twiceOrNearby(cmd, rows, ids, held, req.newBatch)), termSafe(advice), newBatch, g.path))
+}
+
+// twiceOrNearby says what resending the held restores would mean. An exact
+// match is the same backup and would restore the mailbox twice. A match
+// only within sameBackupWindow may be the same backup reported at a
+// slightly different time, or a separate on-demand backup taken minutes
+// later; the CLI cannot tell, so it names both times and how a person who
+// has checked sends the other backup on purpose.
+func twiceOrNearby(cmd *cobra.Command, rows []planRow, ids []restoreIdentity, held map[restoreIdentity]guardClaim, newBatch bool) string {
+	exact := 0
+	var examples []string
+	nearOnly := map[string]bool{}
+	exactEntity := map[string]bool{}
+	var nearEntities []string
+	for i, id := range ids {
+		c, ok := held[id]
+		if !ok {
+			continue
+		}
+		if c.Resolved == id.Resolved {
+			exact++
+			exactEntity[id.Entity] = true
+			continue
+		}
+		if len(examples) < 5 {
+			examples = append(examples, fmt.Sprintf("%s backup %s is %s from %s, sent in batch %s",
+				rows[i].Entity, compactText(id.Resolved), backupGap(id.Resolved, c.Resolved), compactText(c.Resolved), c.BatchID))
+		}
+		if !nearOnly[id.Entity] {
+			nearOnly[id.Entity] = true
+			nearEntities = append(nearEntities, rows[i].Entity)
+		}
+	}
+	var b strings.Builder
+	if exact > 0 {
+		fmt.Fprintf(&b, "%d of them are the same backup already sent; sending them again would restore those mailboxes twice.", exact)
+	}
+	near := len(held) - exact
+	if near == 0 {
+		return b.String()
+	}
+	if b.Len() > 0 {
+		b.WriteString(" ")
+	}
+	fmt.Fprintf(&b, "%d of them are a backup taken within %d minutes of one already sent (%s). The CLI cannot tell whether that is the same backup reported at a slightly different time or a separate backup taken minutes later, so it refuses rather than risk restoring twice.",
+		near, int(sameBackupWindow.Minutes()), strings.Join(examples, "; "))
+	var only []string
+	for _, e := range nearEntities {
+		if !exactEntity[strings.ToLower(strings.TrimSpace(e))] {
+			only = append(only, e)
+		}
+	}
+	if len(only) > 0 && !newBatch {
+		fmt.Fprintf(&b, " If you have checked and it is a different backup, send it on purpose with: %s.", submitRerunCommandEntities(cmd, only, "--new-batch", "--yes"))
+	}
+	return b.String()
+}
+
+// compactText renders a yyyyMMddHHmmss backup time as RFC3339 UTC.
+func compactText(raw int64) string {
+	if t, err := cadate.ParseCompact(raw); err == nil {
+		return isoUTC(t)
+	}
+	return fmt.Sprint(raw)
+}
+
+// backupGap renders how far apart two backup times are.
+func backupGap(a, b int64) string {
+	ta, errA := cadate.ParseCompact(a)
+	tb, errB := cadate.ParseCompact(b)
+	if errA != nil || errB != nil {
+		return "close"
+	}
+	d := ta.Sub(tb)
+	if d < 0 {
+		d = -d
+	}
+	return d.String()
 }
 
 // describeClaims summarises claims by state and by batch, leaving out the
