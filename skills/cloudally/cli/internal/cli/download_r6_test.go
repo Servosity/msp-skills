@@ -1172,3 +1172,38 @@ func TestAnEmptyPlanSaysNothingToCreate(t *testing.T) {
 		t.Fatalf("want exit 0 and a nothing-to-create notice, got %v\n%s", err, stderr)
 	}
 }
+
+// Round 7 runtime P1: --resume --no-reconcile skipped the look before
+// sending, so a MISSING row whose job had since appeared was created a
+// second time. Every resume looks first; --no-reconcile skips only the
+// wait after sending.
+func TestResumeWithNoReconcileStillLooksBeforeSending(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.mu.Lock()
+	s.listCreated = false // accepted, not listed yet: MISSING
+	s.taskEntities = []string{"a@contoso.com"}
+	s.mu.Unlock()
+	_, _, _ = runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...)
+	key := ledgerKeys(t)[0]
+	row := mustLoadBatch(t, key).Rows[0]
+	if row.Status != dlMissing {
+		t.Fatalf("want MISSING, got %+v", row)
+	}
+	// The job turns up on the portal later.
+	s.mu.Lock()
+	s.jobs = append(s.jobs, dlJob{JobID: "job-late", Account: "a@contoso.com", SubSource: "O365MAIL", Status: "INPROCESS",
+		Snapshot: row.SnapshotRaw, Label: row.Label, Created: compactNow()})
+	s.mu.Unlock()
+	_, stderr, err := runDL(t, s, "download", "submit", "--batch", key, "--resume", "--no-reconcile", "--yes")
+	if n := len(s.createdAccounts()); n != 1 {
+		t.Fatalf("creates = %d, want 1: the MISSING row's job is on the portal now", n)
+	}
+	if err != nil {
+		t.Fatalf("resume: %v\n%s", err, stderr)
+	}
+	if r := mustLoadBatch(t, key).Rows[0]; r.Status != dlCreated || r.JobID != "job-late" {
+		t.Fatalf("the row should be CREATED with its job, got %+v", r)
+	}
+}

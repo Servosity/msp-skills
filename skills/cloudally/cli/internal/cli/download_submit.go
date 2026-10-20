@@ -1192,9 +1192,9 @@ prints the ledger's rows).
 		"Skip mailboxes holding less than this, for example 10MB. Mailboxes reporting 0 bytes or Not Accessible are always skipped, since they can only produce empty archives")
 	cmd.Flags().StringVar(&flagBatch, "batch", "", "Batch key to resume")
 	cmd.Flags().BoolVar(&flagResume, "resume", false, "Continue the batch: send rows that never appeared on the portal (MISSING, including a row accepted over an hour ago and still unlisted), were refused (FAILED), or whose confirmed job failed (JOB_FAILED, created once more); UNKNOWN rows are held unless --retry-unknown")
-	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows that are still not on the portal; the portal is always checked first, even with --no-reconcile")
+	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows that are still not on the portal; the portal is always checked first")
 	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Start a new batch even though other batches already hold its archives; every export of the run is created again. The only override of the download guard")
-	cmd.Flags().BoolVar(&flagNoReconcile, "no-reconcile", false, "Skip the reconcile pass; rows stay REQUESTED and unverified")
+	cmd.Flags().BoolVar(&flagNoReconcile, "no-reconcile", false, "Skip the wait and the reconcile after sending; the rows sent stay REQUESTED and unverified. A --resume still checks the portal before sending anything")
 	cmd.Flags().StringVar(&flagPlanOut, "plan-out", "", "Write the batch plan JSON to this path")
 	cmd.Flags().StringVar(&flagPortalURL, "portal-url", portal.DefaultBaseURL, portalURLFlagHelp)
 	cmd.Flags().IntVar(&flagLookback, "lookback-months", portal.DefaultMaxLookbackMonths, "Unused for --on-date; kept so flags match 'restore plan'")
@@ -1223,13 +1223,13 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 	// Before anything is sent, a resume lists the portal: rows whose job is
 	// there are confirmed and never sent again, rows it cannot tell apart
 	// are held, and a confirmed job that failed is created once more.
-	// --retry-unknown always looks first, even with --no-reconcile, and
-	// sends nothing UNKNOWN when the portal cannot be read.
-	// A MISSING row is sent again only after a listing read to its end has
-	// not shown its job: one cut at its page cap, or one that failed,
-	// proves nothing, so then MISSING and UNKNOWN rows are both held.
+	// Every resume looks, --no-reconcile included (it skips only the wait
+	// after sending): a MISSING row is sent again only after a listing read
+	// to its end has not shown its job. One cut at its page cap, or one
+	// that failed, proves nothing, so then MISSING and UNKNOWN rows are
+	// both held.
 	holdMissing := false
-	if r.resume && (!r.noReconcile || retry) {
+	if r.resume {
 		res, rerr := reconcileBeforeResend(ctx, r.sess, r.guard, batch)
 		if rerr != nil {
 			tenantf(stderr, "warning: could not list the portal before re-sending (%v); UNKNOWN and MISSING rows stay held\n", rerr)
