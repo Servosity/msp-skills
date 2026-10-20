@@ -27,9 +27,10 @@ const WebhookTokenWithheld = "[withheld]"
 // value carries a token. Every JSON value in the body is walked (an answer
 // may hold several, one per line); text that does not parse as JSON but holds
 // a "token" key is withheld whole, since its value cannot be found reliably.
-// webhookTokenKey finds a "token" key with a value in text that is not JSON;
-// a bare mention such as `"token" is required` is not one.
-var webhookTokenKey = regexp.MustCompile(`(?i)"token"\s*:`)
+// webhookTokenValue finds a "token" key and the start of its value (a quoted
+// string up to its closing quote, or the next bare word); a bare mention such
+// as `"token" is required` has no colon and is not one.
+var webhookTokenValue = regexp.MustCompile(`(?i)"token"\s*:\s*("[^"]*"?|[^\s,}\]]+)`)
 
 func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	if !strings.Contains(path, "/outgoingWebhookApi/") {
@@ -48,7 +49,7 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 			break
 		}
 		if err != nil {
-			if webhookTokenKey.Match(body) {
+			if webhookTokenValueLeft(body) {
 				whole, _ := json.Marshal(WebhookTokenWithheld)
 				return whole
 			}
@@ -61,10 +62,29 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 			return body
 		}
 	}
+	out := json.RawMessage(bytes.TrimRight(buf.Bytes(), "\n"))
 	if !changed {
-		return body
+		out = body
 	}
-	return json.RawMessage(bytes.TrimRight(buf.Bytes(), "\n"))
+	// Backstop on what would leave: a value the walk could not see (a
+	// duplicate key whose last copy is null, an escaped key name) still
+	// withholds the whole answer.
+	if webhookTokenValueLeft(out) {
+		whole, _ := json.Marshal(WebhookTokenWithheld)
+		return whole
+	}
+	return out
+}
+
+// webhookTokenValueLeft reports whether text, with JSON escapes decoded,
+// still holds a "token" key with a value other than the placeholder.
+func webhookTokenValueLeft(text []byte) bool {
+	for _, m := range webhookTokenValue.FindAllStringSubmatch(jsonUnescape(string(text)), -1) {
+		if v := strings.TrimSpace(m[1]); v != "" && v != "null" && v != `"`+WebhookTokenWithheld+`"` && v != `""` {
+			return true
+		}
+	}
+	return false
 }
 
 // withholdTokenKeys walks v and replaces the value of every object key named

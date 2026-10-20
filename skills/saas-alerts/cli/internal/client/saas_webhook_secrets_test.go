@@ -271,3 +271,25 @@ func TestWebhookTokenWithheldFromEveryJSONValue(t *testing.T) {
 		t.Fatalf("plain text without a token key changed: %s", out)
 	}
 }
+
+// TestWebhookTokenBackstopCatchesWhatTheWalkMisses: a duplicate key whose last
+// copy is null, or an escaped key name in text that is not JSON, still
+// withholds the whole answer.
+func TestWebhookTokenBackstopCatchesWhatTheWalkMisses(t *testing.T) {
+	const path = "/outgoingWebhookApi/api/v1/subscriptions"
+	bs := string(rune(92))
+	for _, body := range []string{
+		`{"token":"test-secret-dup","token":null}`,
+		`{"items":[{"id":1,"` + bs + `u0074oken":"test-secret-escaped"`,
+		`{"id":1,"Token": "test-secret-cased"} trailing`,
+	} {
+		if out := string(withholdWebhookTokens(path, []byte(body))); strings.Contains(out, "test-secret") {
+			t.Fatalf("%s leaked: %s", body, out)
+		}
+	}
+	for _, body := range []string{`[{"channelId":"ch-1","token":null}]`, `[{"channelId":"ch-1"}]`} {
+		if out := string(withholdWebhookTokens(path, []byte(body))); out != body {
+			t.Fatalf("%s changed: %s", body, out)
+		}
+	}
+}
