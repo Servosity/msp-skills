@@ -1,0 +1,21 @@
+{
+  "name": "backup-radar",
+  "version": "0.1.0",
+  "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/backup-radar",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "backup-radar",
+    "backup radar",
+    "backup-dr",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

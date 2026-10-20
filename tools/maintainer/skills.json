@@ -273,6 +273,29 @@
         "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575"
       }
     },
+    "backup-radar": {
+      "system": "Backup Radar (ScalePad) backup monitoring: v3 client health, devices, ingest and retire plus the read-only v2 backups, results, inactive and retired APIs, mirrored into a local store",
+      "status": "beta",
+      "cli_binary": "backup-radar-cli",
+      "mcp_binary": "backup-radar-mcp",
+      "vendor": "Backup Radar",
+      "vendor_trademark_owner": "ScalePad Software Inc",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Backup Radar",
+      "tagline": "Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask.",
+      "has_video": true,
+      "cli_hash": "sha256:25933406e13e90b71c1c2fe886ffb2d2f212c32d9f72871924d7679cad684be0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "betterstack": {
       "system": "Better Stack Uptime monitoring, incident management, on-call scheduling, and status pages",
       "status": "beta",

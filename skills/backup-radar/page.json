@@ -1,0 +1,113 @@
+{
+  "outcome_intro": "Ask which backups are failing, silent or unwatched across every client and get one ranked answer. Backup Radar already collects every backup result; this skill syncs its v3 and v2 APIs into a local SQLite mirror so your AI can rank today's failures, list the backups nobody acts on, score client compliance for a QBR and plan retirements without paging the portal.",
+  "instead_of_say": [
+    {
+      "instead": "Opening the Backup Radar dashboard every morning, filtering to failures and no-results, then cross-checking the ticket queue to see which ones already have a ticket",
+      "say": "Which backups are failing or silent today, and which of those have no ticket yet?",
+      "cli": "backup-radar-cli check --include-at-risk --agent"
+    },
+    {
+      "instead": "Exporting the inactive list, the unmapped-device report and each policy's warning setting, then reconciling them in a spreadsheet to find backups nobody owns",
+      "say": "Which backups is nobody watching?",
+      "cli": "backup-radar-cli unwatched --reason inactive,unmapped,ticketless --agent"
+    },
+    {
+      "instead": "Building the QBR backup slide by hand from three months of client health screenshots",
+      "say": "What was Acme Dental's backup compliance rate last quarter, and which devices dragged it down?",
+      "cli": "backup-radar-cli scorecard \"Acme Dental\" --days 90 --agent"
+    }
+  ],
+  "pain_points": [
+    "A backup that never reports sends no failure email. ScalePad's Gflex partner story describes backups that went unnoticed for weeks or months before no-result monitoring, and a technician spending about four hours a day sorting backup mail to find them.",
+    "Backup Radar catches the no-result, but someone still opens the portal every morning to decide what is new versus ongoing and which failures already have a ticket. River Run only acts on failures that persist past a day, because a job that fails once usually self-corrects by the next run.",
+    "Decommissioned devices keep generating no-result noise until someone retires them, and nobody wants to retire the wrong backup from a name-only filter."
+  ],
+  "outcomes": [
+    {
+      "question": "Which backups are failing or silent today, new or ongoing, and how many tickets are open on each?",
+      "command": "backup-radar-cli check --agent"
+    },
+    {
+      "question": "Which backups is nobody watching: inactive, unmapped to ScalePad, failing with no ticket, no PSA company, or warnings counted as success?",
+      "command": "backup-radar-cli unwatched --agent"
+    },
+    {
+      "question": "What is one client's backup compliance rate over 90 days, with the weekly trend and the five worst devices?",
+      "command": "backup-radar-cli scorecard \"Acme Dental\" --days 90 --agent"
+    },
+    {
+      "question": "Rank every client by backup compliance, worst first",
+      "command": "backup-radar-cli scorecard --days 90 --agent"
+    },
+    {
+      "question": "What happened to one device's backups day by day this month, with tickets, tags and notes?",
+      "command": "backup-radar-cli timeline \"DC01\" --days 30 --agent"
+    },
+    {
+      "question": "Which backups have had no result in 45 days and could be retired, with a dry-run retire body for each one it can pin?",
+      "command": "backup-radar-cli stale --days 45 --agent"
+    },
+    {
+      "question": "Does the backup vendor protect devices that Backup Radar does not monitor, or the reverse?",
+      "command": "backup-radar-cli coverage diff --devices vendor-devices.json --agent"
+    },
+    {
+      "question": "Push results from a backup tool Backup Radar cannot parse, validated and batched under the 10,000-result limit",
+      "command": "backup-radar-cli push --from results.csv --dry-run"
+    }
+  ],
+  "different_vs_wrappers": "Most Backup Radar MCP servers proxy each question into one live API call, so \"which backups is nobody watching\" means paging the v2 backups list, the inactive list, the v3 device list and each policy's warning flag separately and joining them yourself. This skill syncs both API generations into one local SQLite mirror and answers across them in one command: check joins the latest v3 SLA day with v2 status and ticket counts, unwatched reports five blind-spot reasons in one pass, and scorecard scores up to a year of client health offline.",
+  "different_vs_vendor": "Backup Radar's portal and email digests already flag failures and no-results. This skill adds the cross-cutting answers the portal does not give in one view - new versus ongoing with days in status, blind spots by reason, compliance trends per client, retire candidates with a prepared dry-run body - and lets any MCP agent ask for them. It complements Backup Radar's monitoring and ticketing; it does not replace them.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS: set BACKUP_RADAR_MCP_HTTP_TOKEN, run backup-radar-mcp --transport http, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. ChatGPT connectors sign in with OAuth or not at all and cannot send that bearer token, so ChatGPT also needs an OAuth-capable gateway in front of the endpoint that adds it. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Backup Radar data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need both a ScalePad API key and a Backup Radar API v2 key?",
+      "a": "No. The ScalePad API key (BACKUP_RADAR_API_KEY, v3) powers health, devices, backups ingest, backups retire and push. The Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY) powers backups list, get, results, filters, inactive, retired and overview. Either key alone runs its own commands; check, unwatched, stale and timeline use whichever data you synced and list what they skipped."
+    },
+    {
+      "q": "Will this hit my Backup Radar or ScalePad API rate limits?",
+      "a": "The analysis commands read the local mirror, so the daily API cost is one sync: v3 client health with a year of history, v3 devices with 90 days, and the v2 backups lists with 31 days. The client sends at most 2 requests per second by default (--rate-limit)."
+    },
+    {
+      "q": "Can an AI agent retire backups by mistake?",
+      "a": "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own --dry-run preview. stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
+    },
+    {
+      "q": "Does it work for EU ScalePad tenants?",
+      "a": "Yes. Set BACKUP_RADAR_BASE_URL to https://eu.api.scalepad.com/backup-radar/v3 (the default is the US host). The Backup Radar API v2 has a single host, https://api.backupradar.com."
+    }
+  ],
+  "governance_summary": "The skill reads client health, devices and backup lists with whichever keys you give it and mirrors them locally. Four commands write to Backup Radar: backups ingest, push and import post backup results, and backups retire removes backups from monitoring and can close PSA tickets. Keep agents on read commands plus --dry-run previews, and let a human run the retire.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "check, unwatched, scorecard, timeline, stale, coverage diff, health list, devices, backups list, backups overview, sync, search, analytics",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "backups ingest, push, import (post backup results into Backup Radar)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / credential",
+      "examples": "backups retire (removes backups from monitoring; --close-psa-tickets closes their tickets), auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

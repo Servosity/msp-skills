@@ -1308,6 +1308,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "backup-radar",
+      "source": "./skills/backup-radar",
+      "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "backup-radar",
+        "backup radar",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

@@ -1,0 +1,95 @@
+{
+  "manifest_version": "0.3",
+  "name": "backup-radar-mcp",
+  "display_name": "Backup Radar",
+  "version": "0.1.0",
+  "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/backup-radar-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/backup-radar-mcp",
+      "args": [],
+      "env": {
+        "BACKUP_RADAR_API_KEY": "${user_config.backup_radar_api_key}",
+        "BACKUP_RADAR_V2_API_KEY": "${user_config.backup_radar_v2_api_key}",
+        "BACKUP_RADAR_BASE_URL": "${user_config.backup_radar_base_url}",
+        "BACKUP_RADAR_MCP_READ_ONLY": "${user_config.backup_radar_mcp_read_only}",
+        "BACKUP_RADAR_MCP_HTTP_TOKEN": "${user_config.backup_radar_mcp_http_token}",
+        "BACKUP_RADAR_USER_AGENT": "${user_config.backup_radar_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "backup_radar_api_key": {
+      "type": "string",
+      "title": "ScalePad API key (v3)",
+      "description": "Optional. ScalePad API key for the v3 commands (health, devices, backups ingest, backups retire, push) and the check, unwatched, scorecard, timeline and stale answers that depend on them. Create one in ScalePad: API tab, New API key (requires an active Administrator user). https://developer.scalepad.com/docs/getting-started",
+      "sensitive": true,
+      "required": false
+    },
+    "backup_radar_v2_api_key": {
+      "type": "string",
+      "title": "Backup Radar API v2 key",
+      "description": "Optional. Backup Radar API key for the read-only v2 commands (backups list, get, results, filters, inactive, retired, overview). Set it if you use the Backup Radar API v2; either key alone powers its own commands.",
+      "sensitive": true,
+      "required": false
+    },
+    "backup_radar_base_url": {
+      "type": "string",
+      "title": "ScalePad v3 base URL",
+      "description": "Optional. The ScalePad Backup Radar v3 API root. Leave blank for the US default https://api.scalepad.com/backup-radar/v3; set https://eu.api.scalepad.com/backup-radar/v3 for EU data residency. The v2 API always uses https://api.backupradar.com.",
+      "sensitive": false,
+      "required": false,
+      "default": "https://api.scalepad.com/backup-radar/v3"
+    },
+    "backup_radar_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to 1, true or yes to hide the backups_ingest and backups_retire tools and the sync, export, learnings_forget, learnings_reject and workflow_archive mirrors. Read tools still write local state: the response cache and learning entries.",
+      "sensitive": false,
+      "required": false
+    },
+    "backup_radar_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+      "sensitive": true,
+      "required": false
+    },
+    "backup_radar_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to ScalePad and Backup Radar. Leave blank to use the built-in one.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T12:48:43.291447Z",
+    "spec_checksum": "sha256:bec28d25371b5746d327d76c9065d4e4cd2cea3b9d33a83db48b37c249235d68",
+    "spec_format": "openapi3"
+  }
+}

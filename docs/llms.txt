@@ -39,6 +39,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Axcient x360Recover (Backup/DR) - ask "Whose backups failed or went stale across every client last night?" - Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.
   Verification: Live-verified by @Xenith-B (MSP) (2026-06-25). Page: https://msp-skills.compoundingteams.com/skills/axcient/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
+- Backup Radar (Backup/DR) - ask "Which backups are failing or silent today, new or ongoing, and how many tickets are open on each?" - Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/backup-radar/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/install.sh)
 - Better Stack (Monitoring) - ask "What's down right now and is anyone actually paged?" - Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/betterstack/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)

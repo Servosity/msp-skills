@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-16",
+  "generated_at": "2026-10-19",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -240,6 +240,26 @@
       "verification": "live-verified",
       "category": "Backup/DR",
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking."
+    },
+    {
+      "name": "backup-radar",
+      "system": "Backup Radar (ScalePad) backup monitoring: v3 client health, devices, ingest and retire plus the read-only v2 backups, results, inactive and retired APIs, mirrored into a local store",
+      "status": "beta",
+      "skill_path": "skills/backup-radar",
+      "cli_binary": "backup-radar-cli",
+      "mcp_binary": "backup-radar-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Backup Radar",
+      "vendor_trademark_owner": "ScalePad Software Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/install.sh)",
+      "install_mcp_doc": "skills/backup-radar/mcp-install.md",
+      "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask."
     },
     {
       "name": "betterstack",

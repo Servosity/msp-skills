@@ -52,6 +52,13 @@ axcient:
   vendor: "Axcient"
   example_command: "Which backups went stale overnight?"
 
+backup-radar:
+  vendor: "Backup Radar"
+  example_command: "Which backups is nobody watching?"
+  response_lines:
+    - "14 inactive, 6 unmapped, 9 no ticket"
+    - "29 blind spots across 11 clients"
+
 betterstack:
   vendor: "Better Stack"
   example_command: "Which monitors would page nobody if they failed?"
