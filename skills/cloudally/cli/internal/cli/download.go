@@ -35,9 +35,26 @@ var exportFinishedStatuses = map[string]bool{
 	"CANCELED":                    true,
 }
 
-// exportJobFinished reports whether an export job has stopped moving.
+// exportFailureWords mark a status as a terminal failure even when it is
+// not one of the names above (ABORTED, STOPPED, ERROR, EXPORT_FAILED, ...).
+// Without them an unlisted failure counted as still running: download
+// watch polled forever, and fetch kept the job NOT_READY.
+var exportFailureWords = []string{"FAIL", "ERROR", "CANCEL", "ABORT", "STOP"}
+
+// exportJobFinished reports whether an export job has stopped moving. A
+// status that is neither listed nor carries a failure word is treated as
+// still running.
 func exportJobFinished(status string) bool {
-	return exportFinishedStatuses[strings.ToUpper(strings.TrimSpace(status))]
+	s := strings.ToUpper(strings.TrimSpace(status))
+	if exportFinishedStatuses[s] {
+		return true
+	}
+	for _, w := range exportFailureWords {
+		if strings.Contains(s, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // exportJobReady reports whether an export job's archive can be downloaded.
@@ -411,6 +428,28 @@ func printDownloadLink(cmd *cobra.Command, flags *rootFlags, out downloadLinkOut
 	return nil
 }
 
+// watchInterruptedErr is what download watch returns when its context is
+// cancelled (Ctrl-C, SIGTERM, a closed terminal). Watching changes nothing,
+// so it exits like --once on a job that is not ready yet (ExitJobPending)
+// and names the command that picks the watch up again.
+func watchInterruptedErr(cmd *cobra.Command, scope restoreScope, job string) error {
+	again := []string{"cloudally-cli", "download", "watch", "--account", shellQuote(scope.account)}
+	if scope.reseller {
+		again = append(again, "--reseller")
+	}
+	again = append(again, "--job", shellQuote(job))
+	for _, name := range []string{"interval", "portal-url"} {
+		if f := cmd.Flags().Lookup(name); f != nil && f.Changed {
+			again = append(again, "--"+name, shellQuote(f.Value.String()))
+		}
+	}
+	if f := cmd.Flags().Lookup("once"); f != nil && f.Changed && f.Value.String() == "true" {
+		again = append(again, "--once")
+	}
+	return &cliError{code: ExitJobPending, err: fmt.Errorf("interrupted while watching export job %s; nothing was changed. Run this to watch it again: %s",
+		tenantText(job), tenantText(strings.Join(again, " ")))}
+}
+
 // newDownloadWatchCmd follows an export job to a terminal state.
 func newDownloadWatchCmd(flags *rootFlags) *cobra.Command {
 	var scope restoreScope
@@ -463,6 +502,9 @@ export can take hours to build.
 			for {
 				job, found, ferr := findExportJob(ctx, c, scope, flagPortalURL, flagJob)
 				if ferr != nil {
+					if ctx.Err() != nil {
+						return watchInterruptedErr(cmd, scope, flagJob)
+					}
 					return ferr
 				}
 				if !found {
@@ -494,7 +536,7 @@ export can take hours to build.
 				}
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					return watchInterruptedErr(cmd, scope, flagJob)
 				case <-time.After(flagInterval):
 				}
 			}
