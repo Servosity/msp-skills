@@ -72,7 +72,9 @@ second factor. `synology-cli auth logout` forgets the whole session file (every
 account's session id, SynoToken, cookies and trusted-device token) of the NAS in
 `SYNOLOGY_BASE_URL`, of a registered NAS with `--nas <name>`, or of every NAS
 with `--all`, and lists each file it removed; with no NAS named it refuses and
-changes nothing. It works locally and does not contact the NAS. `fleet remove`
+changes nothing. It removes only files it can prove it wrote (its own session
+file name and record format); anything else named like a session cache, for
+example in a shared config folder, is listed as skipped and kept. It works locally and does not contact the NAS. `fleet remove`
 does not touch a NAS's session file, so run `synology-cli auth logout --nas
 <name>` before you retire a fleet NAS.
 `synology-cli session logout` invalidates the session id on the NAS itself. To

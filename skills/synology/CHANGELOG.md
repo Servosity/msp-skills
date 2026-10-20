@@ -44,6 +44,10 @@ All notable changes to this skill are documented here. Format follows
   on a registered NAS changes only the fields you pass and lists them.
 - `auth logout` forgets the whole session file of the NAS it names (or every
   NAS with `--all`), lists what it removed, and refuses when no NAS is named.
+- `auth logout --all` removes only session files the CLI wrote, and lists
+  any other file it kept.
 - Fleet and abb reports print one complete card per row in a terminal.
+- A missing required argument (`abb triage <task>`, `abb device <host-name>`)
+  is a usage error (exit 2) on the CLI and over MCP.
 - Reports never show an unknown as zero: rows about a NAS that did not sync
   carry null counts, and unknown durations are null with a note.
