@@ -1470,10 +1470,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				// An HTML page is still an error when its token was withheld: the
 				// check reads the original, only the summary is withheld.
 				if summary, ok := summarizeHTMLDocument(rawAnswer); ok {
-					if webhookWithheld || c.echoesCredential(rawAnswer, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
+					if webhookWithheld {
+						summary = webhookWithheldText
+					} else if c.echoesCredential(rawAnswer, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
 						summary = echoWithheldText
 					}
-					return nil, resp.StatusCode, unreadableAnswer{fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))}
+					return nil, resp.StatusCode, unreadableAnswer{fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelShown(path, summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))}
 				}
 			}
 			return c.withholdEchoedValues(withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), append(requestWebhookTokens(path, bodyBytes), authHeader)...), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens and echoed secrets never leave the client
@@ -1498,7 +1500,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			Method:     method,
 			Path:       c.displayURL(path, authHeader),
 			StatusCode: resp.StatusCode,
-			Body:       c.funnelText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: error-text-secret-funnel (the shown text is checked too)
+			Body:       c.funnelShown(path, bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: error-text-secret-funnel (the shown text is checked too)
 		}
 
 		// Rate limited: classify before provider decoding. The server-driven

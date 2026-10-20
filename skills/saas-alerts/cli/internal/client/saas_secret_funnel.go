@@ -23,6 +23,9 @@ import (
 // withheld 400 still classifies as the API error it was.
 const echoWithheldText = "[response text withheld: it repeated a secret value this CLI sent]"
 
+// webhookWithheldText replaces shown text that carries a webhook delivery token.
+const webhookWithheldText = "[response text withheld: it held a webhook delivery value]"
+
 // funnelSecrets lists the values the funnel looks for: every credential this
 // client holds (credentialSecrets: the partner key, Respond access tokens) and
 // extra (the request's webhook tokens). Values under 8 characters are skipped;
@@ -210,6 +213,17 @@ func (c *Client) funnelText(text string, extra ...string) string {
 	text = c.maskCredentialText(text, extra...)
 	if c.echoesCredential([]byte(text), extra...) {
 		return echoWithheldText
+	}
+	return text
+}
+
+// funnelShown is funnelText for an answer's shown text on path: on a Webhooks
+// path the text as shown (after HTML tags, entities and whitespace were folded
+// for display) is checked for a token too.
+func (c *Client) funnelShown(path, text string, extra ...string) string {
+	text = c.funnelText(text, extra...)
+	if strings.Contains(path, "/outgoingWebhookApi/") && webhookTokenValueLeft([]byte(text), webhookTokenLoose) {
+		return webhookWithheldText
 	}
 	return text
 }

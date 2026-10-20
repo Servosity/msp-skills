@@ -27,10 +27,19 @@ const WebhookTokenWithheld = "[withheld]"
 // value carries a token. Every JSON value in the body is walked (an answer
 // may hold several, one per line); text that does not parse as JSON but holds
 // a "token" key is withheld whole, since its value cannot be found reliably.
-// webhookTokenValue finds a token key (double-, single- or un-quoted, as JSON
-// or a JavaScript inspect print writes it) with a quoted string value (tokens
-// are strings); `"token" is required` or `"token": must be a string` are not one.
-var webhookTokenValue = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])["']?token["']?\s*:\s*(["'][^"'\n]*["']?)`)
+// webhookTokenStrict finds a JSON-shaped "token" key with a non-empty string
+// value; it is the backstop for answers that parsed as JSON, where free text
+// such as `missing token:` or `Refresh token: 'revoked'` must not match.
+var webhookTokenStrict = regexp.MustCompile(`(?i)"token"[\s\p{Z}]*:[\s\p{Z}]*"([^"\n]+)"`)
+
+// webhookTokenLoose also accepts single-quoted or unquoted keys and values (a
+// JavaScript inspect print); it is used only on text that is not JSON. The
+// value must close and hold no JSON punctuation, so it cannot run across a
+// string boundary.
+var webhookTokenLoose = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])["']?token["']?[\s\p{Z}]*:[\s\p{Z}]*["']([^"'\n,{}\[\]]+)["']`)
+
+// webhookTokenWord is a cheap prefilter: a view without "token" cannot match.
+var webhookTokenWord = regexp.MustCompile(`(?i)token`)
 
 func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	if !strings.Contains(path, "/outgoingWebhookApi/") {
@@ -49,7 +58,7 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 			break
 		}
 		if err != nil {
-			if webhookTokenValueLeft(body) {
+			if webhookTokenValueLeft(body, webhookTokenLoose) {
 				whole, _ := json.Marshal(WebhookTokenWithheld)
 				return whole
 			}
@@ -69,21 +78,24 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	// Backstop on what would leave: a value the walk could not see (a
 	// duplicate key whose last copy is null, an escaped key name) still
 	// withholds the whole answer.
-	if webhookTokenValueLeft(out) {
+	if webhookTokenValueLeft(out, webhookTokenStrict) {
 		whole, _ := json.Marshal(WebhookTokenWithheld)
 		return whole
 	}
 	return out
 }
 
-// webhookTokenValueLeft reports whether text, with JSON escapes decoded,
-// still holds a "token" key with a value other than the placeholder.
-func webhookTokenValueLeft(text []byte) bool {
-	// The same decodings as the secret funnel (escapes, percent, HTML
-	// entities, unprintable characters), so the two cannot drift apart.
+// webhookTokenValueLeft reports whether text, in any view the secret funnel's
+// decoders produce (escapes, percent, HTML entities, unprintable characters,
+// so the two cannot drift apart), still holds a token key with a value other
+// than the placeholder.
+func webhookTokenValueLeft(text []byte, pattern *regexp.Regexp) bool {
 	return anyDecodedView(string(text), func(view string) bool {
-		for _, m := range webhookTokenValue.FindAllStringSubmatch(view, -1) {
-			if v := strings.Trim(strings.TrimSpace(m[1]), `"'`); v != "" && v != WebhookTokenWithheld {
+		if !webhookTokenWord.MatchString(view) {
+			return false
+		}
+		for _, m := range pattern.FindAllStringSubmatch(view, -1) {
+			if v := strings.TrimSpace(m[1]); v != "" && v != WebhookTokenWithheld {
 				return true
 			}
 		}

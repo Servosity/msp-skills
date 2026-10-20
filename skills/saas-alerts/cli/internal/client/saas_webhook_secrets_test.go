@@ -319,6 +319,9 @@ func TestWebhookTokenWithheldFromEveryAnswerShape(t *testing.T) {
 		{400, "text/plain", `bad subscription {"token":"test-secret-text"}`},
 		{400, "text/plain", `Error: bad subscription { channelId: 'ch-1', token: 'test-secret-inspect' }`},
 		{200, "text/html", `<html><head><title>&quot;token&quot;:&quot;test-secret-entity&quot;</title></head><body>x</body></html>`},
+		{200, "text/html", `<html><head><title>"token":&nbsp;"test-secret-nbsp"</title></head><body>x</body></html>`},
+		{400, "text/html", `<html><head><title>"token":<b>"test-secret-tag"</b></title></head><body>x</body></html>`},
+		{400, "text/plain", "bad {\"token\":" + string(rune(0xA0)) + "\"test-secret-nbsp-text\"}"},
 		{400, "text/html", `<html><head><title>&quot;token&quot;:&quot;test-secret-entity&quot;</title></head><body>x</body></html>`},
 	} {
 		status, ctype, answer = tc.status, tc.ctype, tc.answer
@@ -343,7 +346,22 @@ func TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld(t *testing.T) {
 	defer srv.Close()
 	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key-0000", SaasAlertsApiKey: "test-key-0000"}, 5*time.Second, 0)
 	_, _, err := c.Patch(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions/ch-1", map[string]any{"enabled": true})
-	if err == nil || !IsAnswerUnreadable(err) || strings.Contains(err.Error(), "test-secret") {
+	if err == nil || !IsAnswerUnreadable(err) || strings.Contains(err.Error(), "test-secret") || !strings.Contains(err.Error(), webhookWithheldText) {
 		t.Fatalf("a 2xx HTML page with a token must stay an unreadable-answer error, withheld: %v", err)
+	}
+}
+
+// TestWebhookBackstopKeepsFreeTextAnswers: on a JSON answer only a JSON-shaped
+// token key counts, so free text that mentions a token keeps the list intact.
+func TestWebhookBackstopKeepsFreeTextAnswers(t *testing.T) {
+	const path = "/outgoingWebhookApi/api/v1/queue"
+	bs := string(rune(92))
+	for _, body := range []string{
+		`[{"channelId":"ch-1","failedAttempts":[{"message":"401 Unauthorized: missing token:"}],"url":"https://h/x?token=abc"}]`,
+		`[{"jointDesc":"Refresh token: 'revoked' for user"},{"jointDesc":"OAuth token: ` + bs + `"Outlook Mobile` + bs + `" granted"}]`,
+	} {
+		if out := string(withholdWebhookTokens(path, []byte(body))); out != body {
+			t.Fatalf("free text was withheld:\n in: %s\nout: %s", body, out)
+		}
 	}
 }

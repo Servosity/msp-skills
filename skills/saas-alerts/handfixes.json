@@ -335,7 +335,7 @@
     {
       "id": "webhook-subscription-token-withheld",
       "summary": "every Webhooks API (/outgoingWebhookApi/) response has its subscription `token` replaced with [withheld] in the client's JSON success path, before print, response cache, sync, tail and MCP; the --dry-run request preview of a Webhooks API write withholds the token too; a Webhooks API write whose token is the [withheld] placeholder is refused (dry-run included); applied at one point right after the body is read and decoded, for every status and shape (JSON, HTML, text, binary-labelled)",
-      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20). Echoes in error text are now handled for every credential by error-text-secret-funnel. Every JSON value of an answer is walked (an answer holding several values kept a later record's token, adversarial round 17, 2026-10-20, P2), and text that does not parse but holds a \"token\" key is withheld whole. TestWebhookTokenWithheldFromEveryJSONValue fails with the single-value version (proven 2026-10-20). Only a real \"token\": key triggers the whole-text withhold, so a validation message such as `\"token\" is required` stays readable (adversarial round 18, 2026-10-20, P2; proven). A decoded backstop then scans what would leave: any \"token\" key still holding a value (a duplicate key whose last copy is null, an escaped key name, a key in text that is not JSON) withholds the whole answer (Codex round 15, 2026-10-20, P1s). TestWebhookTokenBackstopCatchesWhatTheWalkMisses fails with either backstop removed (proven 2026-10-20). The backstop decodes escapes to a fixed point (a twice-escaped embedded token leaked) and matches only quoted string values, so free text such as `\"token\": must be a string` is not withheld (adversarial round 19, 2026-10-20, P2s; proven). Codex round 16 (2026-10-20, P1): a 2xx HTML page on a Webhooks path reached the 'expected JSON' error before any withholding; the single point after the read closes every shape. TestWebhookTokenWithheldFromEveryAnswerShape fails with it removed (proven 2026-10-20). Adversarial round 20 (2026-10-20, P2s, verdict pass): the single point turned a 2xx HTML page holding a token into a successful \"[withheld]\" answer, so the HTML check now reads the original answer and only its summary is withheld; the backstop also matches single-quoted and unquoted keys (a JavaScript inspect print). TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld fails with the HTML check on the withheld body, and the inspect case of TestWebhookTokenWithheldFromEveryAnswerShape fails with the double-quote-only pattern (both proven 2026-10-20). Codex round 17 (2026-10-20, P1): the backstop decoded JSON escapes only, so an entity-encoded &quot;token&quot; in an HTML title reached the summary; it now looks through the funnel's own decoder chain (anyDecodedView), so the two cannot drift. The entity cases of TestWebhookTokenWithheldFromEveryAnswerShape fail with JSON-only decoding (proven 2026-10-20).",
+      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20). Echoes in error text are now handled for every credential by error-text-secret-funnel. Every JSON value of an answer is walked (an answer holding several values kept a later record's token, adversarial round 17, 2026-10-20, P2), and text that does not parse but holds a \"token\" key is withheld whole. TestWebhookTokenWithheldFromEveryJSONValue fails with the single-value version (proven 2026-10-20). Only a real \"token\": key triggers the whole-text withhold, so a validation message such as `\"token\" is required` stays readable (adversarial round 18, 2026-10-20, P2; proven). A decoded backstop then scans what would leave: any \"token\" key still holding a value (a duplicate key whose last copy is null, an escaped key name, a key in text that is not JSON) withholds the whole answer (Codex round 15, 2026-10-20, P1s). TestWebhookTokenBackstopCatchesWhatTheWalkMisses fails with either backstop removed (proven 2026-10-20). The backstop decodes escapes to a fixed point (a twice-escaped embedded token leaked) and matches only quoted string values, so free text such as `\"token\": must be a string` is not withheld (adversarial round 19, 2026-10-20, P2s; proven). Codex round 16 (2026-10-20, P1): a 2xx HTML page on a Webhooks path reached the 'expected JSON' error before any withholding; the single point after the read closes every shape. TestWebhookTokenWithheldFromEveryAnswerShape fails with it removed (proven 2026-10-20). Adversarial round 20 (2026-10-20, P2s, verdict pass): the single point turned a 2xx HTML page holding a token into a successful \"[withheld]\" answer, so the HTML check now reads the original answer and only its summary is withheld; the backstop also matches single-quoted and unquoted keys (a JavaScript inspect print). TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld fails with the HTML check on the withheld body, and the inspect case of TestWebhookTokenWithheldFromEveryAnswerShape fails with the double-quote-only pattern (both proven 2026-10-20). Codex round 17 (2026-10-20, P1): the backstop decoded JSON escapes only, so an entity-encoded &quot;token&quot; in an HTML title reached the summary; it now looks through the funnel's own decoder chain (anyDecodedView), so the two cannot drift. The entity cases of TestWebhookTokenWithheldFromEveryAnswerShape fail with JSON-only decoding (proven 2026-10-20). Adversarial round 21 (2026-10-20, P2s, verdict pass): the loose pattern withheld whole lists whose free text mentioned a token, the display could show a token the check missed (&nbsp;, a tag or U+3000 between key and value), and the backstop was slow on large answers. Now a JSON answer is checked with a strict JSON-key pattern and only non-JSON text with the loose one; both allow Unicode spaces; a 'token' prefilter keeps 5 MB near 0.3 s; the shown error text on a Webhooks path is checked again (funnelShown) with its own notice. TestWebhookBackstopKeepsFreeTextAnswers fails with the loose pattern on JSON, and the nbsp/tag cases of TestWebhookTokenWithheldFromEveryAnswerShape fail with the shown text unchecked (proven 2026-10-20).",
       "status": "active",
       "spec_encode_followup": "Generator support for x-secret / writeOnly response fields that are blanked before print, cache and store.",
       "asserts": [
@@ -405,21 +405,6 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "func webhookTokenValueLeft(text []byte) bool {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "if webhookTokenValueLeft(out) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "if webhookTokenValueLeft(body) {",
-          "code_only": true
-        },
-        {
           "file": "cli/internal/client/saas_webhook_secrets_test.go",
           "contains": "func TestWebhookTokenBackstopCatchesWhatTheWalkMisses(",
           "code_only": true
@@ -445,11 +430,6 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "var webhookTokenValue = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])[\"']?token[\"']?",
-          "code_only": true
-        },
-        {
           "file": "cli/internal/client/saas_webhook_secrets_test.go",
           "contains": "func TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld(",
           "code_only": true
@@ -457,6 +437,36 @@
         {
           "file": "cli/internal/client/saas_webhook_secrets.go",
           "contains": "return anyDecodedView(string(text), func(view string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "func webhookTokenValueLeft(text []byte, pattern *regexp.Regexp) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "if webhookTokenValueLeft(out, webhookTokenStrict) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "if webhookTokenValueLeft(body, webhookTokenLoose) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func (c *Client) funnelShown(path, text string, extra ...string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Body:       c.funnelShown(path, bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookBackstopKeepsFreeTextAnswers(",
           "code_only": true
         }
       ]
@@ -520,11 +530,6 @@
         {
           "file": "cli/internal/client/saas_secret_funnel.go",
           "contains": "func (c *Client) funnelText(text string, extra ...string) string {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "Body:       c.funnelText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...),",
           "code_only": true
         },
         {
