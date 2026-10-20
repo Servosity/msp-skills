@@ -186,7 +186,7 @@
         },
         {
           "file": "cli/internal/cli/root.go",
-          "contains": "rootCmd.SetErr(newTerminalWriter(os.Stderr))",
+          "contains": "errWriter := newTerminalWriter(os.Stderr)\n\trootCmd.SetErr(errWriter)",
           "code_only": true
         },
         {
@@ -5584,6 +5584,46 @@
         {
           "file": "cli/internal/cli/search.go",
           "not_contains": "/v2/detection-groups:search\", map[string]any{"
+        }
+      ]
+    },
+    {
+      "id": "dry-run-preview-escaped",
+      "summary": "the client's dry-run request previews and retry/rate-limit notices go through client.DiagnosticWriter, which Execute points at the CLI's terminal-escaping, secret-masking stderr writer",
+      "why": "client.dryRun encoded the request preview straight to os.Stderr, and encoding/json leaves C1 controls raw, so a display name carrying U+009D/U+009C (or a bidi override) copied into a previewed write reached the approval preview unescaped (Codex round 15 P1, reproduced with devices rename --dry-run). TestDryRunPreviewIsEscaped failed with client.go and root.go reverted (`the dry-run preview leaked C1 to stderr`).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "var DiagnosticWriter io.Writer = os.Stderr",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "enc := json.NewEncoder(DiagnosticWriter)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "client.DiagnosticWriter = errWriter",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "login-proves-the-password",
+      "summary": "an explicit `auth login` clears the cached refresh token before minting, so it uses the password grant and a wrong ESET_PROTECT_PASSWORD fails; automatic renewal and the 401 re-mint still prefer the refresh grant",
+      "why": "auth login called esetEnsureToken with force=true, which skipped the cached access token but still tried the cached refresh grant first, so after one good login a wrong password still produced exit 0 and a verified login, masking broken credential configuration (Codex round 15 P2). TestAuthLoginProvesThePassword failed with eset_auth.go reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/eset_auth.go",
+          "contains": "\t\t\tcfg.RefreshToken = \"\"\n\t\t\tctx, cancel := context.WithTimeout(cmd.Context(), flags.timeout)",
+          "code_only": true
         }
       ]
     }

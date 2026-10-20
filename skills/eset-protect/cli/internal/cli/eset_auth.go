@@ -652,6 +652,11 @@ func newEsetAuthLoginCmd(flags *rootFlags) *cobra.Command {
 				return authErr(fmt.Errorf("set ESET_PROTECT_USERNAME and ESET_PROTECT_PASSWORD to the ESET Connect API user's email and password (create one in ESET PROTECT Hub, ESET Business Account or ESET MSP Administrator 2 with the Integrations toggle on: %s)", EsetAPIUserURL))
 			}
 			cfg.EsetProtectToken = ""
+			// Hand-fix login-proves-the-password: an explicit login uses the
+			// password grant, so a wrong ESET_PROTECT_PASSWORD fails here
+			// instead of being masked by the cached refresh token (automatic
+			// renewal still prefers the refresh grant).
+			cfg.RefreshToken = ""
 			ctx, cancel := context.WithTimeout(cmd.Context(), flags.timeout)
 			defer cancel()
 			if err := esetEnsureToken(ctx, cfg, true, true); err != nil {

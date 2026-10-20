@@ -1141,7 +1141,7 @@ func (c *Client) waitForRateLimitRefill(ctx context.Context, wait time.Duration)
 	if wait <= 0 {
 		wait = time.Second
 	}
-	fmt.Fprintf(os.Stderr, "rate-limit budget empty, waiting %s for refill\n", wait)
+	fmt.Fprintf(DiagnosticWriter, "rate-limit budget empty, waiting %s for refill\n", wait)
 	if err := sleepContext(ctx, wait); err != nil {
 		return fmt.Errorf("timed out waiting %s for rate-limit budget to refill: %w", wait, err)
 	}
@@ -1431,7 +1431,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
 				}
-				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
+				fmt.Fprintf(DiagnosticWriter, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
 				if serr := sleepContext(opCtx, wait); serr != nil {
 					return nil, 0, serr
 				}
@@ -1554,7 +1554,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if c.platformSession != nil {
 					c.platformSession.RecordRateLimitRetry(wait)
 				}
-				fmt.Fprintf(os.Stderr, "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
+				fmt.Fprintf(DiagnosticWriter, "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
 				if err := sleepContext(opCtx, wait); err != nil {
 					return nil, 0, err
 				}
@@ -1596,7 +1596,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if !retryWithinBudget(wait) {
 				return nil, resp.StatusCode, apiErr
 			}
-			fmt.Fprintf(os.Stderr, "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
+			fmt.Fprintf(DiagnosticWriter, "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
 			if err := sleepContext(opCtx, wait); err != nil {
 				return nil, 0, err
 			}
@@ -1627,11 +1627,18 @@ func safeEndpointClass(method, path string) string {
 	return strings.ToUpper(method) + " /" + strings.Join(segments, "/")
 }
 
+// DiagnosticWriter receives the client's human diagnostics: dry-run request
+// previews and retry/rate-limit notices. The CLI points it at its
+// terminal-escaping, secret-masking stderr writer (handfixes.json:
+// dry-run-preview-escaped), so tenant text copied into a previewed request
+// body cannot inject terminal controls into the approval preview.
+var DiagnosticWriter io.Writer = os.Stderr
+
 // dryRun prints the outgoing request exactly as the live path would send it,
 // using the auth material already resolved in `do()`. Never triggers a network
 // call — the caller is responsible for passing cached auth material only.
 func (c *Client) dryRun(method, targetURL, path string, params map[string]string, body []byte, headerOverrides map[string]string, authHeader string) (json.RawMessage, int, error) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", method, c.displayURL(targetURL, authHeader))
+	fmt.Fprintf(DiagnosticWriter, "%s %s\n", method, c.displayURL(targetURL, authHeader))
 	queryPrinted := false
 	if params != nil {
 		keys := make([]string, 0, len(params))
@@ -1646,7 +1653,7 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			fmt.Fprintf(DiagnosticWriter, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
 			queryPrinted = true
 		}
 	}
@@ -1654,16 +1661,16 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	if body != nil {
 		var pretty json.RawMessage
 		if json.Unmarshal(body, &pretty) == nil {
-			enc := json.NewEncoder(os.Stderr)
+			enc := json.NewEncoder(DiagnosticWriter)
 			enc.SetIndent("  ", "  ")
-			fmt.Fprintf(os.Stderr, "  Body:\n")
+			fmt.Fprintf(DiagnosticWriter, "  Body:\n")
 			enc.Encode(pretty)
 		}
 	}
 	if authHeader != "" {
-		fmt.Fprintf(os.Stderr, "  %s: %s\n", "Authorization", maskToken(authHeader))
+		fmt.Fprintf(DiagnosticWriter, "  %s: %s\n", "Authorization", maskToken(authHeader))
 	}
-	fmt.Fprintf(os.Stderr, "\n(dry run - no request sent)\n")
+	fmt.Fprintf(DiagnosticWriter, "\n(dry run - no request sent)\n")
 	return json.RawMessage(`{"dry_run": true}`), 0, nil
 }
 

@@ -187,7 +187,12 @@ func Execute() (retErr error) {
 	// Tenant strings reach stdout/stderr inside JSON, where encoding/json
 	// leaves C1 controls raw (handfixes.json: output-escapes-c1-controls).
 	rootCmd.SetOut(newTerminalWriter(os.Stdout))
-	rootCmd.SetErr(newTerminalWriter(os.Stderr))
+	errWriter := newTerminalWriter(os.Stderr)
+	rootCmd.SetErr(errWriter)
+	// Hand-fix dry-run-preview-escaped: the client's dry-run previews and
+	// retry notices go through the same escaping writer.
+	client.DiagnosticWriter = errWriter
+	defer func() { client.DiagnosticWriter = os.Stderr }()
 	defer finalizePlatformInvocation(&flags, &retErr)
 
 	executedCmd, err := rootCmd.ExecuteC()
