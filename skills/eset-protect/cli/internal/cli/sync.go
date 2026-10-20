@@ -2833,12 +2833,16 @@ func urlIDFieldName(field string) bool {
 	}
 }
 
+// Hand-fix dependent-reconcile-scope-parent-id: syncOneParent stamps every
+// child row with parent_id (and <parent>_id); the generated "$.device-group" /
+// "$.device-task" scopes named fields no row carries, so per-parent pruning
+// never found a deletion candidate.
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
-		{Name: "device_groups_devices", ParentTable: "device-groups", ParentIDParam: "groupUuid", PathTemplate: "/v1/device_groups/{groupUuid}/devices", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.device-group", PathParams: []dependentPathParamDef{
+		{Name: "device_groups_devices", ParentTable: "device-groups", ParentIDParam: "groupUuid", PathTemplate: "/v1/device_groups/{groupUuid}/devices", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.parent_id", PathParams: []dependentPathParamDef{
 			{Param: "groupUuid", Field: "uuid"},
 		}},
-		{Name: "runs", ParentTable: "device-tasks", ParentIDParam: "taskUuid", PathTemplate: "https://{region}.automation.eset.systems/v1/device_tasks/{taskUuid}/runs", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.device-task", PathParams: []dependentPathParamDef{
+		{Name: "runs", ParentTable: "device-tasks", ParentIDParam: "taskUuid", PathTemplate: "https://{region}.automation.eset.systems/v1/device_tasks/{taskUuid}/runs", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.parent_id", PathParams: []dependentPathParamDef{
 			{Param: "taskUuid", Field: "uuid"},
 		}},
 	}

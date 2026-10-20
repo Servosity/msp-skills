@@ -5469,6 +5469,27 @@
           "not_contains": "if err := s.SaveSyncState(resource, \"\", 0); err != nil {"
         }
       ]
+    },
+    {
+      "id": "dependent-reconcile-scope-parent-id",
+      "summary": "the per-parent reconcile of the dependent resources (device_groups_devices, runs) scopes by $.parent_id, the field syncOneParent stamps on every child row",
+      "why": "Press 4.33.5 emitted GenericScopeJSONPath \"$.device-group\" / \"$.device-task\", fields no row carries (sync writes parent_id and device_groups_id / device_tasks_id), so ReconcilePartition never found a deletion candidate and a device removed from a group stayed in device_groups_devices after every --full sync (Codex round 8 P1). TestDependentFullSyncPrunesRemovedChildren syncs a group with two members, then with one, and checks the departed member is pruned and the remaining one kept; it failed with the generated scope restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "GenericScopeJSONPath: \"$.device-group\""
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "GenericScopeJSONPath: \"$.device-task\""
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "ReconcileMode: \"per_parent\", GenericScopeJSONPath: \"$.parent_id\"",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

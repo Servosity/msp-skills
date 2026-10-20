@@ -187,3 +187,60 @@ func TestArchiveFullResetIsNotComplete(t *testing.T) {
 		t.Fatalf("resources the archive never fetched read as complete: %+v", st)
 	}
 }
+
+// TestDependentFullSyncPrunesRemovedChildren (handfixes.json:
+// dependent-reconcile-scope-parent-id): child rows carry parent_id, but the
+// per-parent reconcile scoped by "$.device-group", a field no row has, so a
+// device removed from a group stayed in device_groups_devices forever.
+func TestDependentFullSyncPrunesRemovedChildren(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	const group, d1, d2 = "00000000-0000-0000-0000-0000000000c1", "00000000-0000-0000-0000-0000000000d1", "00000000-0000-0000-0000-0000000000d2"
+	var mu sync.Mutex
+	members := []string{d1, d2}
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/device_groups/"+group+"/devices" {
+			mu.Lock()
+			rows := make([]string, 0, len(members))
+			for _, m := range members {
+				rows = append(rows, `{"uuid":"`+m+`","displayName":"PC"}`)
+			}
+			mu.Unlock()
+			_, _ = io.WriteString(w, `{"devices":[`+strings.Join(rows, ",")+`],"nextPageToken":""}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"deviceGroups":[{"uuid":"`+group+`","displayName":"Acme"}],"nextPageToken":""}`)
+	})
+	syncRun := func() {
+		t.Helper()
+		if _, errOut, err := captureExecuteAll(t, "sync", "--resources", "device-groups", "--full"); err != nil {
+			t.Fatalf("sync: %v\n%s", err, errOut)
+		}
+	}
+	syncRun()
+	mu.Lock()
+	members = []string{d1}
+	mu.Unlock()
+	syncRun()
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	// Dependent rows are keyed child+parent; find them by the child's uuid.
+	has := func(uuid string) bool {
+		var n int
+		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = 'device_groups_devices' AND json_extract(data, '$.uuid') = ?`, uuid).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n > 0
+	}
+	if !has(d1) {
+		t.Fatal("the device still in the group was pruned")
+	}
+	if has(d2) {
+		t.Fatal("a --full sync kept a device that left the group")
+	}
+}
