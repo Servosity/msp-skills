@@ -185,6 +185,24 @@ func rerunIdentity(scope, account, task, onDate, format string, entities, subSou
 	}, "|")
 }
 
+// sameRerunZone completes rerunIdentity with the time zone the date is
+// read in: --on-date 2022-12-31 with --utc-offset -5 is a different day,
+// so a different command, from the same date in UTC. It is compared here
+// rather than folded into the stored key, so ledgers written before it
+// counted still match. Every build has recorded the zone; an empty one
+// is read as UTC, which is what offsetLabel writes for no offset. --latest
+// takes each mailbox's newest backup whatever the zone, so the zone does
+// not tell two --latest runs apart.
+func sameRerunZone(a, b *downloadBatch) bool {
+	zone := func(z string) string {
+		if z = strings.TrimSpace(z); z == "" {
+			return "UTC"
+		}
+		return z
+	}
+	return a.OnDate == latestLabel || zone(a.Timezone) == zone(b.Timezone)
+}
+
 // ownedRows counts the rows of a batch that exist, may exist, or are about
 // to be sent. A refused create (FAILED), an archive another batch holds
 // (SKIPPED) and a job that failed (JOB_FAILED) are not the batch's.
@@ -249,7 +267,7 @@ func findRerunBatch(nb *downloadBatch) (*downloadBatch, int, error) {
 			return nil, 0, fmt.Errorf("batch ledger %s cannot be read (%v), so it cannot be checked for archives this run would create again; nothing was sent. Move it out of %s if it is not needed", filepath.Join(dir, e.Name()), err, dir)
 		}
 		n := 0
-		if b.RerunKey != "" && b.RerunKey == nb.RerunKey {
+		if b.RerunKey != "" && b.RerunKey == nb.RerunKey && sameRerunZone(b, nb) {
 			n = ownedRows(b)
 		}
 		if n > 0 && (best == nil || b.CreatedAt > best.CreatedAt) {

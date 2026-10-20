@@ -622,3 +622,33 @@ func TestFetchBatchHeldRowWithAnUnreadableHolderIsMissing(t *testing.T) {
 		t.Fatalf("the MISSING row should say why:\n%s", out)
 	}
 }
+
+// Docs review 3: the re-run guard left out the time zone, so a corrected
+// run with --utc-offset -5 was refused as "this same command" and told to
+// continue the UTC-day batch, which holds the wrong day.
+func TestRerunGuardTellsTimeZonesApart(t *testing.T) {
+	testenv.Isolate(t)
+	mk := func(batchKey, onDate, zone string) *downloadBatch {
+		key := rerunIdentity("account", "acct-1", "task-1", onDate, "zip", nil, nil, false, false)
+		return &downloadBatch{BatchKey: batchKey, AccountID: "acct-1", TaskID: "task-1", OnDate: onDate, Timezone: zone,
+			Format: "zip", RerunKey: key, CreatedAt: isoUTC(time.Now()),
+			Rows: []downloadRow{{Entity: "a@contoso.com", SubSource: "O365MAIL", Status: dlCreated, JobID: "job-1"}}}
+	}
+	if err := saveBatch(mk("20261020-000000-utc", "2022-12-31", "UTC")); err != nil {
+		t.Fatal(err)
+	}
+	if err := claimNewBatch(mk("20261020-000001-east", "2022-12-31", "UTC-5"), false); err != nil {
+		t.Fatalf("the same date in UTC-5 is a different command: %v", err)
+	}
+	if err := claimNewBatch(mk("20261020-000002-again", "2022-12-31", ""), false); err == nil || !strings.Contains(err.Error(), "20261020-000000-utc is this same command") {
+		t.Fatalf("the same date in UTC (an empty zone reads as UTC) must still be refused, got %v", err)
+	}
+	// --latest picks each mailbox's newest backup whatever the zone.
+	if err := saveBatch(mk("20261020-000003-latest", latestLabel, "UTC")); err != nil {
+		t.Fatal(err)
+	}
+	b := mk("20261020-000004-latest", latestLabel, "UTC+2")
+	if err := claimNewBatch(b, false); err == nil {
+		t.Fatal("two --latest runs differing only in --utc-offset are the same command")
+	}
+}
