@@ -635,6 +635,20 @@ func TestR17ExportPoliciesIncludesGlobal(t *testing.T) {
 	}
 }
 
+// tail policies lists /v1/policies/all with include_global_policies=true too.
+func TestR17TailPoliciesIncludesGlobal(t *testing.T) {
+	s := &exportServer{ok: true}
+	run := r17Runner(t, s.handler(t))
+	if _, errOut, err := run("tail", "policies", "--follow=false"); err != nil {
+		t.Fatalf("tail: %v\n%s", err, errOut)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.global) == 0 || s.global[0] != "true" {
+		t.Fatalf("tail sent include_global_policies=%q, want true", s.global)
+	}
+}
+
 // ---- siblings of the round-17 findings (same absent-is-unknown class) ----
 
 // planAllowTargets read an absent or null whitelist_domains as [] and planned

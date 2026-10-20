@@ -739,12 +739,12 @@
         },
         {
           "file": "cli/internal/mcp/result_safety.go",
-          "contains": "s.Use(resultSafetyMiddleware)",
+          "contains": "return resultSafetyMiddleware(s, next)",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/result_safety.go",
-          "contains": "return escapeTerminalControls(redact.Final(s))",
+          "contains": "return escapeTerminalControls(filterCredentials(s, readOnlyHinted))",
           "code_only": true
         },
         {
@@ -754,7 +754,7 @@
         },
         {
           "file": "cli/internal/mcp/result_safety.go",
-          "contains": "return mcplib.NewToolResultError(safeResultText(err.Error())), nil",
+          "contains": "return mcplib.NewToolResultError(safeResultText(err.Error(), readOnlyHinted)), nil",
           "code_only": true
         },
         {
@@ -1247,7 +1247,7 @@
     {
       "id": "doctor-verdict-tracks-reality",
       "summary": "doctor's api row is ERROR when the probe path 404s (base_url is not the DNSFilter API root), WARN when it serves a web page or a 5xx, and names the probe path instead of '/'; the remedy names base_url and DNSFILTER_BASE_URL for both shells",
-      "why": "check_doctor_truth.py --slug dnsfilter failed the wrong-base state: a base_url aimed at a web UI (app shell at /, 404 everywhere else) reported 'reachable (HTTP 404 at /)', a health claim for a broken install, mislabelled with '/' when the probe was /v1/current_user. The credential probe was already correct. After the fix check_doctor_truth passes; TestDoctorAPIVerdictTracksReality covers wrong-base, web page and healthy states.",
+      "why": "check_doctor_truth.py --slug dnsfilter failed the wrong-base state: a base_url aimed at a web UI (app shell at /, 404 everywhere else) reported 'reachable (HTTP 404 at /)', a health claim for a broken install, mislabelled with '/' when the probe was /v1/current_user. The credential probe was already correct. After the fix check_doctor_truth passes; TestDoctorAPIVerdictTracksReality covers wrong-base, web page and healthy states. Codex round 17 (P1, 2026-10-20): a /v1/current_user that redirected to another host answering 200 {} made doctor report api reachable and credentials valid (the key was not even sent there); both probes now record the URL the answer came from (client.WithResponseURLRecorder) and a redirected-away answer is a WARN. Every 403 read as 'credentials are valid but lack permission' and was not on the --fail-on warn gate; a 403 is now WARN scope-limited (the gate also matches 'scope-limited'), and a 403 whose body says the request was not authenticated is reported invalid. A 5xx told the operator to set auth.verify_path, which does not exist; 404, 5xx and other statuses now get real remedies. TestDoctorRedirectedProbeIsNotProof and TestDoctorForbiddenAndServerErrorVerdicts fail against each revert.",
       "status": "active",
       "asserts": [
         {
@@ -1276,6 +1276,54 @@
         {
           "file": "cli/internal/cli/doctor_verdict_test.go",
           "contains": "func TestDoctorAPIVerdictTracksReality(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if dst, ok := ctx.Value(responseURLKey{}).(*url.URL); ok && dst != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "case reachRedirected && (reachErr == nil || errors.As(reachErr, &reachAPIErr)):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "case authRedirected && (authErr == nil || errors.As(authErr, &authAPIErr)):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "case authAPIErr.StatusCode == 403 && doctorForbiddenAuthFailure.MatchString(authAPIErr.Body):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "fmt.Sprintf(\"WARN scope-limited (HTTP %d at %s)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if strings.HasPrefix(low, \"warn\") || strings.Contains(low, \"scope-limited\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "auth.verify_path"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "credentials are valid but lack permission"
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r17_test.go",
+          "contains": "func TestDoctorRedirectedProbeIsNotProof(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r17_test.go",
+          "contains": "func TestDoctorForbiddenAndServerErrorVerdicts(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -1785,7 +1833,7 @@
     {
       "id": "response-cache-never-holds-secrets",
       "summary": "the on-disk HTTP response cache stores only JSON objects/arrays with no secret-named key from paths that are not credential reads (api_keys, uninstall_pin, secret_key, redirect_link path segments); a refused write removes any copy an older build left, and credential paths are never served from cache",
-      "why": "secrets-never-persisted closed the SQLite mirror, but writeCacheWithHeaders wrote raw GET bodies to <cache>/http/resources/<tag>/ and the 5-minute TTL only gates reads, so the files stayed on disk. The first guard skipped bodies store.ScrubPersistedSecrets would change, but GET /v1/user_agents/uninstall_pin returns a bare JSON string, which has no key to match: adversarial round 1 (P1) found the roaming client uninstall PIN in <home>/cache/http/resources/user_agents/<hash>.json after `user-agents uninstall-pin --organization-id 10 --json`. The rule is now shape plus path: only an object or array whose scrub is a no-op is cached, and never from a credential read (API keys, the uninstall PIN, network secret keys, the PSA redirect link with its one-time code). Proved with the built binary: the HEAD build left 1 cache file holding the PIN, the fixed build leaves 0 cache files. TestResponseCacheNeverHoldsSecrets covers a bare-string PIN, an object PIN, a key list with no secret-named key, the redirect link, a network secret key, a scalar body on an ordinary path, and a leftover PIN file (not served, then removed); each of the four guards fails it when reverted.",
+      "why": "secrets-never-persisted closed the SQLite mirror, but writeCacheWithHeaders wrote raw GET bodies to <cache>/http/resources/<tag>/ and the 5-minute TTL only gates reads, so the files stayed on disk. The first guard skipped bodies store.ScrubPersistedSecrets would change, but GET /v1/user_agents/uninstall_pin returns a bare JSON string, which has no key to match: adversarial round 1 (P1) found the roaming client uninstall PIN in <home>/cache/http/resources/user_agents/<hash>.json after `user-agents uninstall-pin --organization-id 10 --json`. The rule is now shape plus path: only an object or array whose scrub is a no-op is cached, and never from a credential read (API keys, the uninstall PIN, network secret keys, the PSA redirect link with its one-time code). Proved with the built binary: the HEAD build left 1 cache file holding the PIN, the fixed build leaves 0 cache files. TestResponseCacheNeverHoldsSecrets covers a bare-string PIN, an object PIN, a key list with no secret-named key, the redirect link, a network secret key, a scalar body on an ordinary path, and a leftover PIN file (not served, then removed); each of the four guards fails it when reverted. Codex round 17 (P1, 2026-10-20): a fresh cache hit was returned without re-checking cacheability, so under DNSFILTER_MCP_READ_ONLY a non-JSON body (or a binary envelope, or a secret-named key) that an older build or another installed version left in the shared cache skipped the read-only refusal. A hit is now held to responseCacheable and removed when it fails, so the request takes the network path, which refuses the body. The current writer already refused non-JSON bodies (ScrubPersistedSecrets withholds invalid JSON), so no write-side change was needed. TestCacheHitNeverSkipsReadOnlyRefusal fails without the hit check.",
       "status": "active",
       "asserts": [
         {
@@ -1826,6 +1874,16 @@
         {
           "file": "cli/internal/client/response_cache_secrets_test.go",
           "contains": "pin := json.RawMessage(`\"SENTINEL-CACHE-PIN-4821\"`)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if !responseCacheable(path, data) {\n\t\t_ = os.Remove(cacheFile)\n\t\treturn nil, false\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r17_test.go",
+          "contains": "func TestCacheHitNeverSkipsReadOnlyRefusal(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -2126,12 +2184,12 @@
     {
       "id": "doctor-probes-bypass-response-cache",
       "summary": "both doctor probes (reachability and credentials) use the no-cache GET, so a verdict is never answered from the 5-minute response cache",
-      "why": "Adversarial round 1 (P2): the reachability probe used c.GetWithHeaders, which reads the response cache, so after one healthy run doctor kept printing 'OK API: reachable' for 5 minutes while the host refused connections or 404'd. Proved with the built binary: after the mock was killed the HEAD build said api=reachable, the fixed build says api=unreachable and credentials=skipped. TestDoctorProbesBypassResponseCache (healthy run, then the host 404s, then it goes away, same home) fails when reverted.",
+      "why": "Adversarial round 1 (P2): the reachability probe used c.GetWithHeaders, which reads the response cache, so after one healthy run doctor kept printing 'OK API: reachable' for 5 minutes while the host refused connections or 404'd. Proved with the built binary: after the mock was killed the HEAD build said api=reachable, the fixed build says api=unreachable and credentials=skipped. TestDoctorProbesBypassResponseCache (healthy run, then the host 404s, then it goes away, same home) fails when reverted. Codex round 17 (P1, 2026-10-20): both probes now pass a context carrying the response-URL recorder (doctor-verdict-tracks-reality); they still use the no-cache GET.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/doctor.go",
-          "contains": "reachBody, reachErr := c.GetWithHeadersNoCache(cmd.Context(), healthPath, nil, map[string]string{client.HTMLResponseHeader: \"true\"})",
+          "contains": "reachBody, reachErr := c.GetWithHeadersNoCache(reachCtx, healthPath, nil, map[string]string{client.HTMLResponseHeader: \"true\"})",
           "code_only": true
         },
         {
@@ -2141,6 +2199,11 @@
         {
           "file": "cli/internal/cli/doctor_verdict_test.go",
           "contains": "func TestDoctorProbesBypassResponseCache(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "_, authErr := c.GetWithHeadersNoCache(authCtx, verifyPath, authParams, authHeaders)",
           "code_only": true
         }
       ]
@@ -2907,37 +2970,37 @@
       "asserts": [
         {
           "file": "cli/internal/mcp/cobratree/shellout.go",
-          "contains": "} else if detail := failedStdoutDetail(redactChildOutput(stdoutText)); detail != \"\" {",
+          "contains": "} else if detail := failedStdoutDetail(redactChildOutput(stdoutText, forced)); detail != \"\" {",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/shellout.go",
-          "contains": "StderrHints: stderrHintLines(redactChildOutput(stderrRaw)),",
+          "contains": "StderrHints: stderrHintLines(redactChildOutput(stderrRaw, forced)),",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/shellout.go",
-          "contains": "func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string) error {",
+          "contains": "func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string, forced bool) error {",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/child_output.go",
-          "contains": "func redactChildOutput(s string) string {",
+          "contains": "func redactChildOutput(s string, forced bool) string {",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/child_output.go",
-          "contains": "lines := strings.Split(redact.Raw(s), \"\\n\")",
+          "contains": "raw, final := redact.Raw, redact.Final",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/child_output.go",
-          "contains": "if strings.TrimSpace(line) != \"\" && redact.Final(line) == redact.WithheldBlockMessage {",
+          "contains": "if block := final(line); redact.IsWithheldBlock(block) {",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/child_output.go",
-          "contains": "if redact.Final(out) == redact.WithheldBlockMessage {",
+          "contains": "if block := final(out); redact.IsWithheldBlock(block) {",
           "code_only": true
         },
         {
@@ -3732,7 +3795,7 @@
     {
       "id": "read-commands-open-store-read-only",
       "summary": "search and analytics (both read-only) open the mirror with store.OpenReadOnlyContext, never the migrating opener, and search carries mcp:read-only so the root learn/playbook seed (which opens the default mirror with the migrating opener) never runs for it",
-      "why": "Codex round 13 (P2, 2026-10-20): analytics opened the mirror through store.OpenWithContext, which creates the file, runs migrations and stamps the schema version, so a read tool upgraded an older mirror (locking out the older binary) and failed on a read-only one; search had the same opener. TestReadCommandsNeverCreateTheMirror fails against the migrating opener (both commands created data.db). Codex round 14 / adversarial round 15 (P2): search still created and migrated the DEFAULT mirror through the root PersistentPreRunE learn seed, because it lacked mcp:read-only; the test checked only the --db path. search now carries mcp:read-only, and the test also asserts the default path stays absent.",
+      "why": "Codex round 13 (P2, 2026-10-20): analytics opened the mirror through store.OpenWithContext, which creates the file, runs migrations and stamps the schema version, so a read tool upgraded an older mirror (locking out the older binary) and failed on a read-only one; search had the same opener. TestReadCommandsNeverCreateTheMirror fails against the migrating opener (both commands created data.db). Codex round 14 / adversarial round 15 (P2): search still created and migrated the DEFAULT mirror through the root PersistentPreRunE learn seed, because it lacked mcp:read-only; the test checked only the --db path. search now carries mcp:read-only, and the test also asserts the default path stays absent. Codex round 17 (P2, 2026-10-20): the post-run flag-correction pass (deriveFlagCorrections) opened the default mirror with store.Open after a read-only command (search, analytics, any GET, doctor), so it could create or migrate data.db; it is now gated like the pre-run learn seed (shouldSkipLearnHook + commandMayWriteStore) and the unread journal lines wait for the next write-capable command. TestDeriveFlagCorrectionsSkipsReadOnlyCommands fails without the gate and also proves the pass still runs after a POST command.",
       "asserts": [
         {
           "file": "cli/internal/cli/analytics.go",
@@ -3752,6 +3815,16 @@
         {
           "file": "cli/internal/cli/search.go",
           "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\", \"mcp:read-only\": \"true\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if executed == nil || shouldSkipLearnHook(executed.CommandPath()) || !commandMayWriteStore(executed) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r17_test.go",
+          "contains": "func TestDeriveFlagCorrectionsSkipsReadOnlyCommands(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -3798,7 +3871,7 @@
     {
       "id": "credentials-file-follows-config",
       "summary": "An explicit config (--config or DNSFILTER_CONFIG) keeps its credentials in its sibling data/credentials.toml for load, save (auth set-token) and logout; logout also removes the file the credentials were actually loaded from, never an unrelated default file",
-      "why": "Codex round 16 (P1, 2026-10-20): Load read an explicit config's sibling credentials first, but SaveCredentials and RemoveCredentials always used the default data directory, so `--config X auth logout` printed 'Credentials cleared' while the tenant credential stayed usable and an unrelated default credential was deleted (and `--config X auth set-token` was silently shadowed by an existing sibling). Config.CredentialsFilePath is now the one path for save and logout. TestExplicitConfigCredentialsFollowTheConfig fails with either the save path or the logout path reverted.",
+      "why": "Codex round 16 (P1, 2026-10-20): Load read an explicit config's sibling credentials first, but SaveCredentials and RemoveCredentials always used the default data directory, so `--config X auth logout` printed 'Credentials cleared' while the tenant credential stayed usable and an unrelated default credential was deleted (and `--config X auth set-token` was silently shadowed by an existing sibling). Config.CredentialsFilePath is now the one path for save and logout. TestExplicitConfigCredentialsFollowTheConfig fails with either the save path or the logout path reverted. Codex round 17 (P1, 2026-10-20): CredentialsFilePathForConfig follows a symlinked config to its target's directory, but save() atomically replaced the link with a regular file, so after one `auth set-token` every load looked in the link's directory and silently fell back to the default credentials (and logout deleted the default and left the tenant token). save() now writes through a symlinked config (configWritePath), so load, save and logout keep one location. TestSymlinkedConfigCredentialsStayPutAfterSave fails with save() writing c.Path (it skips where os.Symlink is unavailable, e.g. Windows without developer mode).",
       "asserts": [
         {
           "file": "cli/internal/config/config.go",
@@ -3829,6 +3902,21 @@
           "file": "cli/internal/config/credentials_path_test.go",
           "contains": "func TestExplicitConfigCredentialsFollowTheConfig(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err := write(configWritePath(c.Path), data); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "func configWritePath(path string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/credentials_r17_test.go",
+          "contains": "func TestSymlinkedConfigCredentialsStayPutAfterSave(t *testing.T) {",
+          "code_only": true
         }
       ]
     },
@@ -3845,6 +3933,949 @@
         {
           "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
           "contains": "func TestSyncFullKeepsASingletonResponse(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-hinted-tools-filter-credentials",
+      "summary": "every result and error of an MCP tool advertised readOnlyHint=true passes the read-only switch's credential filter in every mode: the result funnel (result_safety.go) reads the tool's annotation from the registry at call time and, with DNSFILTER_MCP_READ_ONLY unset, applies redact.FinalAlways (Final without the Enabled() gate; a whole withheld block reads WithheldHintedBlockMessage, which does not claim the switch is set) and marks the call's context (redact.WithForced), so the shell-out layer every Cobra-tree mirror and the recipe intent use (cobratree.RunCLICommand) redacts the captured stdout and stderr whole before it selects stderr hint lines or tails a failed command's stdout (redactChildOutput) and before it budgets or previews them (bound.TextAlways); Enabled() keeps its meaning, and tools not advertised read-only (dnsfilter_execute and tail in default mode) keep returning credentials by design",
+      "why": "Codex round 17 (P1, 2026-10-20): redact.Raw/Final are no-ops while DNSFILTER_MCP_READ_ONLY is unset, so in default mode why_blocked {\"fqdn\":\"example.com\",\"org\":\"1\"}, advertised readOnlyHint=true and so auto-approved by MCP hosts, returned the companion CLI's stderr verbatim: HTTP 422 {\"error\":\"request failed\",\"secret_key\":\"SENTINEL-NETWORK-KEY\"} from /v1/organizations/1 (reproduced over stdio with the real dnsfilter-mcp and dnsfilter-cli at deb7d1a2f; after the fix the field reads [withheld: credential] and dnsfilter_execute still returns the key). The same held for a successful result carrying a secret field, a stderr hint line (Uninstall PIN: X), a failed command's stdout tail, the recipe intent, sql/search over a store written before secrets-never-persisted, and error texts built by tools.go (sql) and code_orch.go (dnsfilter_get). The funnel's FinalAlways covers whole texts; the context mark is needed because failedStdoutDetail's 20-line tail can separate a value from its key; bound.TextAlways keeps an oversized preview's non-secret data instead of withholding it whole. TestReadOnlyHintedToolsWithholdCredentialsInDefaultMode, TestReadOnlyHintedInProcessToolsWithholdCredentialsInDefaultMode, TestReadOnlyHintedOversizedMirrorOutputMatchesTheSwitch, TestReadOnlyHintedWithheldMessageNamesTheMode, TestRunCLICommandRedactsChildOutputForReadOnlyHintedCalls and TestAlwaysEntryPointsIgnoreTheSwitch fail without it; TestDestructiveHintedCredentialToolsUnchangedInDefaultMode is the by-design control.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "readOnlyHinted := toolAdvertisedReadOnly(s, req.Params.Name)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "ctx = redact.WithForced(ctx)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "hint := entry.Tool.Annotations.ReadOnlyHint",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "if readOnlyHinted && !redact.Enabled() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "return redact.FinalAlways(s)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "if res.StructuredContent != nil && (redact.Enabled() || readOnlyHinted) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "forced := redact.Forced(ctx)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "boundText := boundTextFor(result.forced)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "return fmt.Errorf(\"cli %s: %w (%s: %s)\", binPath, runErr, label, boundTextFor(forced)(msg))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "out, err := RunCLICommand(ctx, lookupPath, finalArgs)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "out, err := cobratree.RunCLICommand(ctx, recipeCLIPath, args)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/child_output.go",
+          "contains": "raw, final = redact.RawAlways, redact.FinalAlways",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/child_output.go",
+          "contains": "return bound.TextAlways",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/bound/bound.go",
+          "contains": "return textWithinBudget(out, redact.RawAlways(out))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "return final(text, WithheldHintedBlockMessage)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "return context.WithValue(ctx, forcedKey{}, true)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_hinted_credentials_r17_test.go",
+          "contains": "func TestReadOnlyHintedToolsWithholdCredentialsInDefaultMode(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_hinted_credentials_r17_test.go",
+          "contains": "func TestReadOnlyHintedOversizedMirrorOutputMatchesTheSwitch(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_hinted_credentials_r17_test.go",
+          "contains": "func TestReadOnlyHintedInProcessToolsWithholdCredentialsInDefaultMode(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_hinted_credentials_r17_test.go",
+          "contains": "func TestDestructiveHintedCredentialToolsUnchangedInDefaultMode(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/error_redaction_r17_test.go",
+          "contains": "func TestRunCLICommandRedactsChildOutputForReadOnlyHintedCalls(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/forced_r17_test.go",
+          "contains": "func TestAlwaysEntryPointsIgnoreTheSwitch(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "novel-presence-aware-attributes",
+      "summary": "jaRes gains boolKnown/strsKnown/strKnown, presence-aware variants of boolean()/strs()/str() that report ok=false for an absent, null, mistyped or partly unreadable attribute; every novel verdict that rules something out reads them",
+      "why": "Codex round 17 (P1, 2026-10-20): boolean() turned an unknown attribute into false and strs() turned it into [], so policy evaluation, policy-audit, lists where and allow planned or certified on data they never read. TestR17EvaluatePolicyUnknownAttributes, TestR17PolicyAuditUnknownAttributesNotClean and TestR17ListsWhereUnreadablePolicyListsNotAllClear fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func (r jaRes) boolKnown(k string) (bool, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func (r jaRes) strsKnown(k string) ([]string, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func (r jaRes) strKnown(k string) (string, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func joinNotes(notes ...string) string {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fetch-pages-null-collection-unknown",
+      "summary": "fetchAllPages decodes each page with decodeJAList, which refuses a page whose collection is null, missing or an object instead of reading it as an exhausted empty list",
+      "why": "Codex round 17 (P1, 2026-10-20): {\"data\":null} on page 1 (or any later page) ended the walk as a clean empty list, so unblocks triage printed \"No pending unblock requests.\". TestR17FetchPagesNullCollectionIsNotEmpty fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func decodeJAList(raw json.RawMessage) ([]jaRes, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "batch, err := decodeJAList(raw)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17FetchPagesNullCollectionIsNotEmpty(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "evaluate-policy-unknown-attributes",
+      "summary": "evaluateLists returns unknown (rule policy_attribute_unavailable) once the precedence chain reaches an absent, null or unreadable whitelist_domains, allow_list_only, blacklist_domains, allow_unknown_domains or blacklist_categories; a match in the readable part of a list still decides",
+      "why": "Codex round 17 (P1, 2026-10-20): allow_list_only:null, blacklist_domains:null and blacklist_categories:null reached allowed/no_matching_rule, so why-blocked said allowed and allow treated the policy as not blocking. TestR17EvaluatePolicyUnknownAttributes fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "return verdict{\"unknown\", \"policy_attribute_unavailable\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "listOnly, listOnlyKnown := policy.boolKnown(\"allow_list_only\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "blockList, blockKnown := policy.strsKnown(\"blacklist_domains\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if !catsKnown && len(cats) > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17EvaluatePolicyUnknownAttributes(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "why-blocked-aggregate-unknown",
+      "summary": "why-blocked's top-level verdict is decision blocked / not_blocked / unknown with blocked true / false / null; not_blocked needs every deployment allowed, a complete query-log scan with no hit and no gap in the site set (capped site scan, sites with no organization link); the human output prints an overall line",
+      "why": "Codex round 17 (P1, 2026-10-20): blocked was a bool that stayed false when every deployment's decision was unknown (unreadable scheduled policy) and the query log returned an error, an all-clear on no evidence. TestR17WhyBlockedAggregateUnknown and TestR17WhyBlockedUnlinkedSiteIsAGap fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "Blocked *bool `json:\"blocked\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "func whyBlockedDecision(rows []whyBlockedDeployment, hits int, logComplete bool, gaps []string) (decision, why string) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "view.Decision, why = whyBlockedDecision(view.Deployments, hitCount, logComplete, bc.Gaps)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "fmt.Fprintf(w, \"overall: %s\\n\", strings.ToUpper(strings.ReplaceAll(view.Decision, \"_\", \" \")))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "bc.Gaps = append(bc.Gaps, \"sites without an organization link\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17WhyBlockedAggregateUnknown(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17WhyBlockedUnlinkedSiteIsAGap(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "lookup-categories-own-record-required",
+      "summary": "lookupCategories reports categories known only when the requested domain has a usable lookup record of its own (host, else name) and no returned record is unusable",
+      "why": "Codex round 17 (P1, 2026-10-20): one usable record for a parent domain (categories []) certified the lookup while the requested domain's own record had categories.data null, so allow --confirm wrote without --force. TestR17LookupCategoriesNeedsOwnRecord fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "known := ownRecord && allUsable",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if lookupRecordHost(l) == fqdn {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func lookupRecordHost(l jaRes) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17LookupCategoriesNeedsOwnRecord(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "allow-assignment-targets-blocking-policies",
+      "summary": "allow's assignment fallback (no query-log hit) evaluates each assigned policy: only one that blocks the domain is a write candidate; one that allows it is a noop and one whose verdict is unknown gets action review and is never written",
+      "why": "Codex round 17 (P1, 2026-10-20): with an empty query log, allow added the domain to every editable non-global policy assigned to the org, including policies that already allow it. TestR17AllowAssignmentTargetsOnlyBlockingPolicies fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "func planAssignmentTargets(bc *blockContext, includeGlobal bool) []allowTarget {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "view.Targets = planAssignmentTargets(bc, flagIncludeGlobal)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "v := evaluatePolicy(bc.FQDN, p, bc.Categories, bc.CategoriesKnown)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "t.Action, t.Reason = \"review\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17AllowAssignmentTargetsOnlyBlockingPolicies(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "allow-plan-skips-unreadable-allow-list",
+      "summary": "planAllowTargets skips a policy whose whitelist_domains is absent, null or unreadable instead of planning \"add: domain not on this policy's allow list\" (the read-back that proves the write needs the list too)",
+      "why": "Codex round 17 sibling (2026-10-20): the same strs() shape read an unreadable allow list as [] and planned a write on an absence claim. TestR17PlanAllowSkipsUnreadableAllowList fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "allowList, allowKnown := p.strsKnown(\"whitelist_domains\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "case !allowKnown:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17PlanAllowSkipsUnreadableAllowList(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "policy-audit-unknown-attributes",
+      "summary": "policy-audit reads every policy attribute presence-aware; an absent, null or unreadable list or flag produces a policy_attributes_unknown finding (baseline_attributes_unknown for --baseline) plus a not-an-all-clear note, and the checks that read it are not counted as passed",
+      "why": "Codex round 17 (P1, 2026-10-20): whitelist_domains null and allow_unknown_domains null produced a clean audit with no note. TestR17PolicyAuditUnknownAttributesNotClean and TestR17PolicyAuditBaselineUnknownFlags fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "add(\"policy_attributes_unknown\", \"medium\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "Kind: \"baseline_attributes_unknown\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "if n := countFindings(view.Findings, \"policy_attributes_unknown\", \"baseline_attributes_unknown\"); n > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "listOnly, listOnlyKnown := p.boolKnown(\"allow_list_only\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "if pKnown && bKnown && pv != bv {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17PolicyAuditUnknownAttributesNotClean(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17PolicyAuditBaselineUnknownFlags(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "policy-audit-lookup-coverage-by-membership",
+      "summary": "policy-audit counts allow-list lookup coverage per requested domain (its own usable record, no unusable one, no hostless record in its batch) instead of comparing the number of records to the number of domains",
+      "why": "Codex round 17 (P1, 2026-10-20): len(domains)==len(domainCats) let a record for a host nobody asked about stand in for a requested domain that returned nothing, so the unchecked-domain note never fired. TestR17PolicyAuditLookupCoverageByMembership fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "if _, ok := domainCats[d]; ok && !unusable[d] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "host := lookupRecordHost(l)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "not_contains": "len(domains) - len(domainCats)"
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17PolicyAuditLookupCoverageByMembership(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "policy-audit-keeps-idless-policies",
+      "summary": "policy-audit's global-policy de-duplication only collapses repeats of a real id; policies without an id are each audited",
+      "why": "Codex round 17 sibling (2026-10-20): seen[\"\"] collapsed every id-less policy into the first one, silently dropping the rest from the audit. TestR17PolicyAuditKeepsIdlessPolicies fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "if p.ID == \"\" || !seen[p.ID] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17PolicyAuditKeepsIdlessPolicies(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "lists-where-unreadable-policy-lists",
+      "summary": "lists where withholds its all-clear when a synced policy's whitelist_domains or blacklist_domains is absent, null or unreadable (meta.unreadable_policies) or when a roaming client inherits from a site the mirror lacks (meta.unplaced_roaming_clients)",
+      "why": "Codex round 17 (P1, 2026-10-20): collection completeness was taken as proof each policy's lists were readable, so a policy with null or omitted lists counted toward \"No synced policy lists <domain> or a parent domain.\". TestR17ListsWhereUnreadablePolicyListsNotAllClear and TestR17ListsWhereUnplacedClientNotAllClear fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "func unreadablePolicyLists(policies []jaRes) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "func unplacedRoamingClients(agents, networks []jaRes) int {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "withheld = withheld || len(unreadable) > 0 || unplaced > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "res.Meta.Note, res.Meta.UnreadablePolicies, res.Meta.UnplacedRoamingClients = joinNotes(extraNote, res.Meta.Note), unreadable, unplaced",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "UnreadablePolicies []string `json:\"unreadable_policies,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17ListsWhereUnreadablePolicyListsNotAllClear(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17ListsWhereUnplacedClientNotAllClear(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unblocks-triage-coverage-identity",
+      "summary": "unblocks triage stores a request's already_covered only when /v2/unblock_requests/<id> answers with exactly one record whose id is that request's",
+      "why": "Codex round 17 (P1, 2026-10-20): coverage read from /v2/unblock_requests/A was stored under A without checking the returned record's id, so a response for B marked A covered (resolve-already-allowed). TestR17UnblocksCoverageMustBeTheRequestedRecord fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "if list, derr := decodeJA(raw); derr == nil && len(list) == 1 && list[0].ID == r.ID {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17UnblocksCoverageMustBeTheRequestedRecord(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unblocks-triage-unknown-threat-and-coverage",
+      "summary": "unblocks triage counts a missing or non-boolean category.is_threat as threat_unknown (hint review, threat=unknown in the table) and a non-boolean already_covered.covered as coverage_unchecked",
+      "why": "Codex round 17 sibling (2026-10-20): the same boolean() shape read an unknown threat status as not-a-threat, so a fully covered group of possibly malicious requests got resolve-already-allowed. TestR17TriageUnknownThreatAndCoverage fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "ThreatUnknown  int      `json:\"threat_unknown\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "case g.ThreatUnknown > 0:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "case !checked || !covKnown:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17TriageUnknownThreatAndCoverage(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "schedule-slots-validated-raw",
+      "summary": "scheduleSlotIDs validates a scheduled policy's raw policy_ids (exactly 672 entries, each a non-empty string or non-negative whole number) before any filtering, so slot positions never shift; scheduledPolicyNow uses it",
+      "why": "Codex round 17 (P1, 2026-10-20): strs() dropped invalid slots before the length check, so a 673-entry policy_ids with a leading null passed as 672 and every later slot was read one position early. TestR17ScheduledPolicyRawSlotsValidated fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func scheduleSlotIDs(sp jaRes) ([]string, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "slots, valid := scheduleSlotIDs(*sp)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if !isList || len(raw) != 672 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17ScheduledPolicyRawSlotsValidated(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "why-blocked-schedule-identity",
+      "summary": "why-blocked/allow accept a scheduled-policy show response only when it is one record whose id is absent (the spec's flat ScheduledPolicy has none) or equals the requested schedule",
+      "why": "Codex round 17 sibling (2026-10-20): the same identity class as the unblock coverage read; a response naming another schedule was used as this one's slots. TestR17WhyBlockedScheduleMustBeTheRequestedOne fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "} else if list, _ := decodeJA(raw); len(list) == 1 && (list[0].ID == \"\" || list[0].ID == d.ScheduledPolicyID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17WhyBlockedScheduleMustBeTheRequestedOne(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agents-org-membership-unknown",
+      "summary": "agents stale and agents drift apply --org through orgMembership: a client whose site is missing from the mirror, names no organization, or whose org name is unreadable is reported (stale reason membership_unknown, drift membership_unknown count) under (org membership unknown) instead of being filtered away",
+      "why": "Codex round 17 (P1, 2026-10-20): --org silently dropped clients whose org membership could not be resolved (e.g. a client referencing a missing site), which could produce an all-clear for the org. TestR17StaleOrgMembershipUnknownReported and TestR17DriftOrgMembershipUnknownReported fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func orgMembership(a jaRes, netOrg map[string]string, orgByID map[string]jaRes, filter string) (orgID string, match, known bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "orgID, org, reason, bucket = \"\", jaRes{}, \"membership_unknown\", \"never\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "orgID, match, known := orgMembership(a, netOrg, orgByID, orgFilter)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "orgID, match, known := orgMembership(a, netOrg, orgByID, o.Org)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "row.MembershipUnknown++",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17StaleOrgMembershipUnknownReported(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17DriftOrgMembershipUnknownReported(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agents-drift-incomparable-version-unknown",
+      "summary": "agents drift counts a client version compareSemver cannot order (isComparableVersion false, e.g. 999unknown) as version_unknown, treats an in-channel release with such a version as making that type's latest unknown, and rejects such a --bad-version",
+      "why": "Codex round 17 (P2, 2026-10-20): compareCore reads leading digits only, so \"999unknown\" compared as 999 and read as current/ahead. TestR17DriftIncomparableVersionIsUnknown and TestR17DriftRejectsIncomparableBadVersion fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func isComparableVersion(v string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "if ver == \"\" || !isComparableVersion(ver) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "if inChannel && t != \"\" && !isComparableVersion(r.str(\"agent_version\")) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "if badVersion != \"\" && !isComparableVersion(badVersion) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17DriftIncomparableVersionIsUnknown(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17DriftRejectsIncomparableBadVersion(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "lists-where-schedule-every-slot-resolved",
+      "summary": "lists where resolves a scheduled policy's slot policies only when its raw policy_ids is 672 usable ids with no 0; otherwise the schedule is in unresolved_schedules",
+      "why": "Codex round 17 (P2, 2026-10-20): a schedule with one usable id and 671 nulls was treated as resolved, so its deployments' impact counts read as complete. TestR17ListsWhereScheduleNeedsEverySlot fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "if slots, valid := scheduleSlotIDs(sp); valid && !slices.Contains(slots, \"0\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17ListsWhereScheduleNeedsEverySlot(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-output-atomic-replace",
+      "summary": "export --output writes to a private os.CreateTemp file in the destination directory, closes it, and renames it over the destination only on success; any failure closes and removes the temp file and leaves an existing file untouched",
+      "why": "Codex round 17 (P1, 2026-10-20): openExportOutput truncated an existing --output file before the first request succeeded, so a failed export destroyed the previous backup. TestR17ExportFailureKeepsPreviousOutput fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "f, err := os.CreateTemp(dir, \".\"+filepath.Base(path)+\".tmp-*\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "func (o *exportOutput) commit() error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if err := os.Rename(tmp, o.path); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "func (o *exportOutput) abort() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "not_contains": "os.O_TRUNC"
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17ExportFailureKeepsPreviousOutput(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-policies-include-global",
+      "summary": "export policies sends include_global_policies=true on every /v1/policies/all list request, as sync and policy-audit do",
+      "why": "Codex round 17 (P1, 2026-10-20): /v1/policies/all omits global (MSP-shared) policies unless include_global_policies=true, and export never sent it, so global policies were silently left out of the backup. TestR17ExportPoliciesIncludesGlobal fails without it. tail policies had the same omission (fetchAndEmit sent no params); it now sends withExportListDefaults too. TestR17TailPoliciesIncludesGlobal fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "params = withExportListDefaults(resource, params)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "params[\"include_global_policies\"] = \"true\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17ExportPoliciesIncludesGlobal(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "params := withExportListDefaults(resource, nil)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "data, err := c.Get(ctx, path, params)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
+          "contains": "func TestR17TailPoliciesIncludesGlobal(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "explicit-config-logout-never-falls-back",
+      "summary": "`--config X auth logout` leaves a logout record (logged_out = true, no credential) as X's sibling credentials file and Load never falls back from that record to the default credentials file; logout reloads the config and names whatever still authenticates instead of printing 'Credentials cleared'; doctor probes and names, by path, the credentials files this config actually reads (credentials_file, credentials_locations)",
+      "why": "Codex round 17 (P1, 2026-10-20): with default credentials A and an explicit config's sibling B, `--config X auth logout` deleted B and reported 'Credentials cleared', and the next `--config X` run silently fell back to A (another tenant's key). Adversarial round 18 (P2): doctor probed only the default credentials file, so under --config its location list and consolidation warning named the wrong file and omitted the sibling, and logout claimed 'Credentials cleared' while the config authenticated through the fallback. An empty sibling still falls back (generated TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingEmpty is unchanged); a refusal is no longer reported for a file that holds no credential, so a logout record in a directory with an inherited broad ACL does not print 'credential present but refused'. TestExplicitConfigLogoutNeverFallsBack fails without the record or with Load ignoring it; TestLogoutUnderExplicitConfigTellsTheTruth fails without the reload; TestDoctorReportsTheCredentialsFileInUse fails with doctor probing only the default file.",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "func WriteCredentialsLogoutMarker(path string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "status.LoggedOut = credentialsFileLoggedOut(path)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "status.LoggedOut = credentialsDataLoggedOut(data)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "if refusal.CredentialsPresent {\n\t\t\tReportCredentialRefusal(refusal)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if (!ok || creds == nil || !creds.HasValues()) && !credentialsRefused && !siblingLoggedOut {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err := cliutil.WriteCredentialsLogoutMarker(path); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "func (c *Config) CredentialsFilesInScope() []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "for _, path := range cfg.CredentialsFilesInScope() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"credentials_file\"] = inUse",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "credsPresent, err := cliutil.CredentialsFileHasValues()"
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if after, loadErr := config.Load(flags.configPath); loadErr != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "out := map[string]any{\"cleared\": true, \"credentials_still_in_effect\": stillFrom != \"\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/credentials_r17_test.go",
+          "contains": "func TestExplicitConfigLogoutNeverFallsBack(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_r17_test.go",
+          "contains": "func TestCredentialsLogoutMarker(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r17_test.go",
+          "contains": "func TestLogoutUnderExplicitConfigTellsTheTruth(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r17_test.go",
+          "contains": "func TestDoctorReportsTheCredentialsFileInUse(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "save-never-leaves-an-unverified-secret",
+      "summary": "a credentials write checks the still-empty temporary file with the private-file guard before the secret is written into it and checks the published file again; on a refusal the previous file is untouched or the written file is removed, the config wrapper restores the previous credentials only when the file on disk no longer matches its snapshot (the restore is verified too), the agentcookie-managed config.toml (which carries the key) gets the same pre-write check, and the --json refusal envelope says saved=false",
+      "why": "Codex round 17 (P1, 2026-10-20): on Windows AtomicWritePrivateFile's Chmod cannot restrict an inherited DACL (a data dir with an inheritable BUILTIN\\Users:R ACE), so `auth set-token` published the token, VerifyCredsPerms refused it afterwards, the readable file stayed on disk, and the config wrapper returned without restoring its snapshot. No Windows ACL-restricting helper exists in production cliutil (only testenv's lockSandbox), so a refused save fails cleanly instead of being repaired. The guard is a package func var (cliutil.SavedCredentialsPermsCheck) so the rollback is tested on every OS. TestSaveCredentialsNeverLeavesAnUnverifiedSecret fails without the pre-write check or the remove; TestSaveCredentialRestoresPreviousOnPermissionRefusal fails without the snapshot restore; TestAgentcookieConfigSaveIsVerified fails with the plain writer; TestSaveCredentialsVerifiesWrittenFile (Windows, real icacls) now asserts the token is nowhere on disk.",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "func atomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileMode, verify func(tmpPath string) error) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "if err := verify(tmpPath); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "return atomicWritePrivateFile(path, data, 0o600, 0o700, verifyTmp)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "return WriteVerifiedCredentialsFile(path, data)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if !credentialsFileMatchesSnapshot(snap) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err := cliutil.WriteVerifiedCredentialsFile(snap.path, snap.data); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "write = cliutil.AtomicWriteSecretFile",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "\"saved\":                false,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "\"saved\":                true,"
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_r17_test.go",
+          "contains": "func TestSaveCredentialsNeverLeavesAnUnverifiedSecret(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/credentials_r17_test.go",
+          "contains": "func TestSaveCredentialRestoresPreviousOnPermissionRefusal(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/credentials_r17_test.go",
+          "contains": "func TestAgentcookieConfigSaveIsVerified(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "config-headers-never-replace-auth",
+      "summary": "an Authorization entry under the config file's [headers] is never sent (a one-time stderr warning names the file), so it cannot replace the key auth set-token saved or keep a logged-out config authenticated; the value of every credential-named config header (cliutil.IsCredentialHeaderName: Authorization, Cookie, anything naming auth, key, token, secret, password, session, signature, credential) is masked in client errors",
+      "why": "Codex round 17 (P1, 2026-10-20): Config.Headers were applied after the generated Authorization header, so `[headers] Authorization = ...` overrode it: set-token appeared to succeed while requests sent the old key, logout left requests authenticated, and the value escaped credential masking. TestConfigHeadersNeverReplaceTheAuthHeader fails with the header sent or with the header masks removed. Not done: a credential-named custom header in a config.toml whose permissions fail the guard is still sent (no refusal like the credential fields get); DNSFilter itself authenticates only through Authorization.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if strings.EqualFold(strings.TrimSpace(k), \"Authorization\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "warnConfigAuthorizationHeader(c.Config.Path)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if cliutil.IsCredentialHeaderName(name) {\n\t\t\t\taddCredential(value)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "func IsCredentialHeaderName(name string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r17_test.go",
+          "contains": "func TestConfigHeadersNeverReplaceTheAuthHeader(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "redirect-strips-every-custom-credential",
+      "summary": "a redirect hop that leaves the configured API host carries none of the config file's [headers] and no credential-named header (Proxy-Authorization, Cookie, X-Api-Key, ...), not only Authorization; a same-host hop keeps them",
+      "why": "Codex round 17 (P1, 2026-10-20): CheckRedirect stripped only Authorization on a cross-host hop, and Go copies every header of the first request onto each hop, so a custom header such as X-Api-Key reached the other host. TestRedirectOffOriginStripsEveryCustomCredential fails without stripOffOriginHeaders.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "stripOffOriginHeaders(req.Header, c.Config)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func stripOffOriginHeaders(h http.Header, cfg *config.Config) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r17_test.go",
+          "contains": "func TestRedirectOffOriginStripsEveryCustomCredential(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "response-text-in-errors-is-masked",
+      "summary": "every response-derived string a client error carries is masked like an HTTP error body: the 2xx HTML title summary, the read and Content-Encoding decoding errors, and the 429 request ID",
+      "why": "Codex round 17 (P1, 2026-10-20): outside the read-only switch a 2xx HTML body's title summary was put in the error without maskCredentialText, so a page echoing the configured API key printed it; the decoding error quotes the response's Content-Encoding value. TestResponseTextInErrorsIsMasked fails with either the summary or the decoding error unmasked.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.displayURL(path, authHeader), c.maskCredentialText(summary, authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, 0, fmt.Errorf(\"decoding response: %w\", c.maskError(err, authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "requestID = c.maskCredentialText(requestID, authHeader)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r17_test.go",
+          "contains": "func TestResponseTextInErrorsIsMasked(t *testing.T) {",
           "code_only": true
         }
       ]

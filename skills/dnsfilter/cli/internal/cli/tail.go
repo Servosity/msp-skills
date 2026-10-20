@@ -90,6 +90,9 @@ native streaming instead of polling.`,
 				return usageErr(err)
 			}
 			readConfig := resourceReadConfigFor(resource)
+			// HAND-FIX(export-policies-include-global): /v1/policies/all omits
+			// global policies unless asked, as for export, sync and policy-audit.
+			params := withExportListDefaults(resource, nil)
 
 			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
@@ -101,7 +104,7 @@ native streaming instead of polling.`,
 			}
 
 			// Initial fetch
-			if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
+			if err := fetchAndEmit(cmd.Context(), c, path, params, readConfig, enc); err != nil {
 				if !follow {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
@@ -120,7 +123,7 @@ native streaming instead of polling.`,
 					fmt.Fprintln(stderrW(), "\nShutting down gracefully...")
 					return nil
 				case <-ticker.C:
-					if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
+					if err := fetchAndEmit(cmd.Context(), c, path, params, readConfig, enc); err != nil {
 						fmt.Fprintf(stderrW(), "warning: poll failed: %v\n", err)
 					}
 				}
@@ -171,8 +174,8 @@ func tailKnownResources() []string {
 
 func fetchAndEmit(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
-}, path string, config resourceReadConfig, enc *json.Encoder) error {
-	data, err := c.Get(ctx, path, nil)
+}, path string, params map[string]string, config resourceReadConfig, enc *json.Encoder) error {
+	data, err := c.Get(ctx, path, params)
 	if err != nil {
 		return err
 	}
