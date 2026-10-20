@@ -188,59 +188,34 @@ func TestArchiveFullResetIsNotComplete(t *testing.T) {
 	}
 }
 
-// TestDependentFullSyncPrunesRemovedChildren (handfixes.json:
-// dependent-reconcile-scope-parent-id): child rows carry parent_id, but the
-// per-parent reconcile scoped by "$.device-group", a field no row has, so a
-// device removed from a group stayed in device_groups_devices forever.
-func TestDependentFullSyncPrunesRemovedChildren(t *testing.T) {
+// TestDependentsAreNotMirrored (handfixes.json: dependents-not-mirrored): a
+// device-groups sync used to fan out one members request per group into
+// device_groups_devices, a table nothing reads whose generic reconcile could
+// not cascade deleted parents or prove parent coverage.
+func TestDependentsAreNotMirrored(t *testing.T) {
 	testenv.Isolate(t)
 	respondClearHarness(t)
 	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
-	const group, d1, d2 = "00000000-0000-0000-0000-0000000000c1", "00000000-0000-0000-0000-0000000000d1", "00000000-0000-0000-0000-0000000000d2"
 	var mu sync.Mutex
-	members := []string{d1, d2}
+	var paths []string
 	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/v1/device_groups/"+group+"/devices" {
-			mu.Lock()
-			rows := make([]string, 0, len(members))
-			for _, m := range members {
-				rows = append(rows, `{"uuid":"`+m+`","displayName":"PC"}`)
-			}
-			mu.Unlock()
-			_, _ = io.WriteString(w, `{"devices":[`+strings.Join(rows, ",")+`],"nextPageToken":""}`)
-			return
-		}
-		_, _ = io.WriteString(w, `{"deviceGroups":[{"uuid":"`+group+`","displayName":"Acme"}],"nextPageToken":""}`)
+		_, _ = io.WriteString(w, `{"deviceGroups":[{"uuid":"00000000-0000-0000-0000-0000000000c1","displayName":"Acme"}],"nextPageToken":""}`)
 	})
-	syncRun := func() {
-		t.Helper()
-		if _, errOut, err := captureExecuteAll(t, "sync", "--resources", "device-groups", "--full"); err != nil {
-			t.Fatalf("sync: %v\n%s", err, errOut)
-		}
+	if _, errOut, err := captureExecuteAll(t, "sync", "--resources", "device-groups,device-tasks", "--full"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, errOut)
 	}
-	syncRun()
 	mu.Lock()
-	members = []string{d1}
-	mu.Unlock()
-	syncRun()
-	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	// Dependent rows are keyed child+parent; find them by the child's uuid.
-	has := func(uuid string) bool {
-		var n int
-		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = 'device_groups_devices' AND json_extract(data, '$.uuid') = ?`, uuid).Scan(&n); err != nil {
-			t.Fatal(err)
+	defer mu.Unlock()
+	for _, p := range paths {
+		if strings.HasSuffix(p, "/devices") || strings.HasSuffix(p, "/runs") {
+			t.Fatalf("sync fanned out to a dependent endpoint: %v", paths)
 		}
-		return n > 0
 	}
-	if !has(d1) {
-		t.Fatal("the device still in the group was pruned")
-	}
-	if has(d2) {
-		t.Fatal("a --full sync kept a device that left the group")
+	if len(dependentResourceDefs()) != 0 {
+		t.Fatal("dependent resources are mirrored again")
 	}
 }

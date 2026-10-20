@@ -5471,23 +5471,19 @@
       ]
     },
     {
-      "id": "dependent-reconcile-scope-parent-id",
-      "summary": "the per-parent reconcile of the dependent resources (device_groups_devices, runs) scopes by $.parent_id, the field syncOneParent stamps on every child row",
-      "why": "Press 4.33.5 emitted GenericScopeJSONPath \"$.device-group\" / \"$.device-task\", fields no row carries (sync writes parent_id and device_groups_id / device_tasks_id), so ReconcilePartition never found a deletion candidate and a device removed from a group stayed in device_groups_devices after every --full sync (Codex round 8 P1). TestDependentFullSyncPrunesRemovedChildren syncs a group with two members, then with one, and checks the departed member is pruned and the remaining one kept; it failed with the generated scope restored.",
+      "id": "dependents-not-mirrored",
+      "summary": "sync mirrors no parent-keyed dependents: dependentResourceDefs returns nil, so device_groups_devices (members of every device group) and runs (runs of every device task) are read live only",
+      "why": "Codex rounds 8 and 9 found three defects in the generated per-parent fan-out: its reconcile scope named fields no child row carries (\"$.device-group\" / \"$.device-task\"), a deleted parent's children were never cascaded, and the dependent table was stamped complete without proving the parent table's coverage (a --max-pages-capped device-groups sync left an undercounted child table with no hint). Nothing in this connector reads those tables: customer attribution uses devices.parentGroupUuid and respond reads task runs live; the fan-out also cost one request per group and per task on every sync. `device-groups devices groups-list-member` and `device-tasks runs` still read them live. TestDependentsAreNotMirrored failed with sync.go reverted (the sync fanned out to /v1/device_groups/<id>/devices and /v1/device_tasks/<id>/runs).",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
-          "not_contains": "GenericScopeJSONPath: \"$.device-group\""
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "GenericScopeJSONPath: \"$.device-task\""
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "ReconcileMode: \"per_parent\", GenericScopeJSONPath: \"$.parent_id\"",
+          "contains": "func dependentResourceDefs() []dependentResourceDef {\n\treturn nil\n}",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "GenericScopeJSONPath: \"$.device-group\""
         }
       ]
     }

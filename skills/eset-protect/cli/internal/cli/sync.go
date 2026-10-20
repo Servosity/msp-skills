@@ -2833,19 +2833,17 @@ func urlIDFieldName(field string) bool {
 	}
 }
 
-// Hand-fix dependent-reconcile-scope-parent-id: syncOneParent stamps every
-// child row with parent_id (and <parent>_id); the generated "$.device-group" /
-// "$.device-task" scopes named fields no row carries, so per-parent pruning
-// never found a deletion candidate.
+// Hand-fix dependents-not-mirrored: the generated per-parent fan-out
+// (device_groups_devices under every device group, runs under every device
+// task) is not mirrored. No command reads those tables; device membership is
+// devices.parentGroupUuid, and respond reads task runs live. The fan-out cost
+// one request per group and per task on every sync, and its generic
+// reconcile could neither cascade a deleted parent's children nor prove
+// parent coverage before stamping the child table complete (Codex rounds
+// 8-9). `device-groups devices groups-list-member` and `device-tasks runs`
+// still read them live.
 func dependentResourceDefs() []dependentResourceDef {
-	return []dependentResourceDef{
-		{Name: "device_groups_devices", ParentTable: "device-groups", ParentIDParam: "groupUuid", PathTemplate: "/v1/device_groups/{groupUuid}/devices", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.parent_id", PathParams: []dependentPathParamDef{
-			{Param: "groupUuid", Field: "uuid"},
-		}},
-		{Name: "runs", ParentTable: "device-tasks", ParentIDParam: "taskUuid", PathTemplate: "https://{region}.automation.eset.systems/v1/device_tasks/{taskUuid}/runs", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.parent_id", PathParams: []dependentPathParamDef{
-			{Param: "taskUuid", Field: "uuid"},
-		}},
-	}
+	return nil
 }
 
 // syncDependentResources iterates parent tables and syncs child resources per parent ID.
