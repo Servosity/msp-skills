@@ -80,7 +80,7 @@ large datasets as it has no memory pressure.`,
 
 			var writer *bufio.Writer
 			var outFile *os.File
-			if outputFile != "" {
+			if outputFile != "" && !dryRunOK(flags) { // HAND-FIX(dry-run-guards-local-mutations): --dry-run changes nothing locally either
 				f, err := openExportOutput(outputFile)
 				if err != nil {
 					return err
@@ -93,7 +93,7 @@ large datasets as it has no memory pressure.`,
 					}
 				}()
 			} else {
-				writer = bufio.NewWriter(os.Stdout)
+				writer = bufio.NewWriter(cmd.OutOrStdout()) // HAND-FIX(export-writes-through-cmd-out): --deliver captures it
 			}
 			finishExport := func() error {
 				if err := writer.Flush(); err != nil {
@@ -195,8 +195,8 @@ large datasets as it has no memory pressure.`,
 			if err := finishExport(); err != nil {
 				return err
 			}
-			if outputFile != "" {
-				fmt.Fprintf(os.Stderr, "Exported %d records to %s\n", count, outputFile)
+			if outputFile != "" && !dryRunOK(flags) {
+				fmt.Fprintf(stderrW(), "Exported %d records to %s\n", count, outputFile)
 			}
 			return nil
 		},

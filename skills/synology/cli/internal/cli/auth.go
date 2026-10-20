@@ -44,7 +44,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 		Example: "  synology-cli auth setup\n  synology-cli auth setup --launch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
-			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
+			printDSMSetup(w) // HAND-FIX(auth-setup-windows-twin)
 			if !launch {
 				return nil
 			}
@@ -68,7 +68,7 @@ SYNOLOGY_PASSWORD and caches the session. For a two-factor account, run it once
 with SYNOLOGY_OTP_CODE set to a fresh code: DSM returns a trusted-device token,
 which is kept with the cached session (0600) and sent on later logins, so the
 code is not needed again. SYNOLOGY_DEVICE_ID overrides the kept token.`, "\n"),
-		Example: "  SYNOLOGY_OTP_CODE=123456 synology-cli auth login",
+		Example: "  SYNOLOGY_OTP_CODE=123456 synology-cli auth login\n  $env:SYNOLOGY_OTP_CODE = \"123456\"; synology-cli auth login   # PowerShell",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
 			if dryRunOK(flags) {
@@ -120,8 +120,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			w := cmd.OutOrStdout()
-			header := cfg.AuthHeader()
-			authed := header != ""
+			// HAND-FIX(auth-setup-windows-twin): a DSM login is an account and a
+			// password (or a raw session id in auth_header), not a token.
+			authed, missing := dsmCredentialState(cfg)
 			refusals := cfg.CredentialRefusalSummaries()
 			credentialRefused := len(refusals) > 0
 			// JSON envelope: {authenticated, verified, source, config}. When not
@@ -137,6 +138,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				if credentialRefused {
 					out["credential_refused"] = true
 					out["credential_refusals"] = refusals
+				}
+				if len(missing) > 0 && !authed {
+					out["missing"] = missing
 				}
 				if printErr := printJSONFiltered(w, out, flags); printErr != nil {
 					return printErr
@@ -159,7 +163,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
-				fmt.Fprintln(w, "Set your token:")
+				printDSMSetup(w)
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

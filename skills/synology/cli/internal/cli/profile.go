@@ -118,14 +118,32 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 	reserved := map[string]bool{
 		"profile": true, "client-profile": true, "config": true, "home": true, "help": true,
 	}
+	lookup := func(name string) *pflag.Flag {
+		if f := cmd.Flags().Lookup(name); f != nil {
+			return f
+		}
+		return cmd.InheritedFlags().Lookup(name)
+	}
+	// HAND-FIX(profile-output-mode-groups): output modes and projections are
+	// mutually exclusive groups, so a typed member of a group wins over every
+	// profile value in that group, not only the same-named one (a typed --csv
+	// used to lose to a profile's --json).
+	typedGroup := map[string]bool{}
+	for _, group := range [][]string{{"json", "csv", "plain", "quiet", "agent"}, {"compact", "select"}} {
+		for _, n := range group {
+			if f := lookup(n); f != nil && f.Changed {
+				for _, m := range group {
+					typedGroup[m] = true
+				}
+				break
+			}
+		}
+	}
 	for name, value := range profile.Values {
-		if reserved[name] || credentialLikeRunProfileFlag(name) {
+		if reserved[name] || typedGroup[name] || credentialLikeRunProfileFlag(name) {
 			continue
 		}
-		flag := cmd.Flags().Lookup(name)
-		if flag == nil {
-			flag = cmd.InheritedFlags().Lookup(name)
-		}
+		flag := lookup(name)
 		if flag == nil {
 			continue
 		}
@@ -135,6 +153,11 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 		if err := flag.Value.Set(value); err != nil {
 			return fmt.Errorf("applying profile value %s=%q: %w", name, value, err)
 		}
+		// HAND-FIX(profile-values-count-as-typed): commands gate on Changed()
+		// (the required-input check, hasChangedLocalFlags, --agent's defaults,
+		// JSON validation of --task-ids), so a profile value must count as
+		// typed or it is silently ignored, or sent unvalidated.
+		flag.Changed = true
 	}
 	return nil
 }
@@ -244,7 +267,11 @@ captured: they control profile/config resolution and would never apply).`,
 				return err
 			}
 			if flags.asJSON {
-				return printJSONFiltered(cmd.OutOrStdout(), s.Profiles[name], flags)
+				// HAND-FIX(deliver-on-failure): --select/--compact are being recorded,
+				// not applied, so they do not project the confirmation.
+				unprojected := *flags
+				unprojected.selectFields, unprojected.compact = "", false
+				return printJSONFiltered(cmd.OutOrStdout(), s.Profiles[name], &unprojected)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "saved profile %q with %d values\n", name, len(values))
 			return nil
@@ -372,6 +399,9 @@ func newProfileDeleteCmd(flags *rootFlags) *cobra.Command {
 			}
 			if _, ok := s.Profiles[name]; !ok {
 				return fmt.Errorf("profile %q not found", name)
+			}
+			if dryRunOK(flags) { // HAND-FIX(dry-run-guards-local-mutations): --dry-run changes nothing locally either
+				return writeDryRun(cmd.OutOrStdout(), flags, "profile delete")
 			}
 			if !flags.yes {
 				fmt.Fprintf(cmd.ErrOrStderr(), "refusing to delete %q without --yes\n", name)

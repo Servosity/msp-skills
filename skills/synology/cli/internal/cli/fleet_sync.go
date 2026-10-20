@@ -189,7 +189,7 @@ func syncOneNAS(ctx context.Context, flags *rootFlags, db *sql.DB, writeMu *sync
 		return row
 	}
 	if !n.Credentials().Complete() {
-		return finish(nil, fleet.SystemInfo{}, fmt.Errorf("credentials not set: export %s_ACCOUNT and %s_PASSWORD", n.EnvPrefix, n.EnvPrefix))
+		return finish(nil, fleet.SystemInfo{}, fmt.Errorf("credentials not set: set %[1]s_ACCOUNT and %[1]s_PASSWORD (macOS/Linux: export %[1]s_ACCOUNT=<account>; PowerShell: $env:%[1]s_ACCOUNT = \"<account>\")", n.EnvPrefix))
 	}
 	c, err := dsmClient(flags, n)
 	if err != nil {

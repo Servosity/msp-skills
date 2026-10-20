@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"synology-pp-cli/internal/client"
 	"synology-pp-cli/internal/cliutil"
 	"synology-pp-cli/internal/config"
 	"synology-pp-cli/internal/store"
@@ -275,6 +274,13 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				if cfg != nil {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
+						// HAND-FIX(doctor-verdict-tracks-reality): a DSM login is an
+						// account and a password, not an auth_header.
+						if ok, _ := dsmCredentialState(cfg); ok {
+							configured, authSource = true, cfg.AuthSource
+						}
+					}
+					if !configured {
 						report["auth"] = "not configured"
 						report["auth_hint"] = "Run 'synology-cli auth setup' for credential setup steps."
 					} else {
@@ -336,70 +342,10 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			// or otherwise bot-detected sites. By going through
 			// flags.newClient(), the doctor's
 			// reachability verdict matches what real commands experience.
-			if cfg != nil && doctorBaseURLIsPlaceholder(cfg.BaseURL) {
-				report["api"] = "not configured (base_url is a placeholder)"
-				if _, set := report["credentials"]; !set {
-					report["credentials"] = "skipped (base_url is a placeholder)"
-				}
-			} else if cfg != nil && cfg.BaseURL != "" {
-				c, clientErr := flags.newClient()
-				if clientErr != nil {
-					report["api"] = fmt.Sprintf("client init error: %s", clientErr)
-				} else {
-					// Step 1: Basic reachability via the configured transport.
-					// Health paths have no response_format field, so opt this
-					// probe into HTML: a 200 HTML homepage is reachable, and
-					// a Cloudflare challenge page can still be classified.
-					reachBody, reachErr := c.GetWithHeaders(cmd.Context(), "/", nil, map[string]string{client.HTMLResponseHeader: "true"})
-					var reachAPIErr *client.APIError
-					switch {
-					case reachErr == nil:
-						// 2xx response — clearly reachable. Still inspect the
-						// body for a known interstitial; some bot walls return
-						// 200 with a JS challenge page.
-						if vendor := looksLikeDoctorInterstitial(reachBody); vendor != "" {
-							report["api"] = fmt.Sprintf("blocked by %s interstitial — the configured transport reached the wall. Try a different network, wait for the IP-level rate limit to clear, or check that the browser-chrome transport is bound correctly.", vendor)
-						} else if doctorBodyLooksLikeHTML(reachBody) {
-							report["api"] = "reachable (HTML body at /)"
-						} else {
-							report["api"] = "reachable"
-						}
-					case errors.As(reachErr, &reachAPIErr):
-						// Non-2xx from the server. The network reached, the
-						// server responded — that's "reachable" for our
-						// purposes. Inspect the response body for a known
-						// interstitial first; otherwise note the status.
-						status := reachAPIErr.StatusCode
-						if vendor := looksLikeDoctorInterstitial([]byte(reachAPIErr.Body)); vendor != "" {
-							report["api"] = fmt.Sprintf("blocked by %s interstitial (HTTP %d) — the configured transport reached the wall.", vendor, status)
-						} else {
-							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
-						}
-					default:
-						// Network-level failure: DNS, connection refused, TLS,
-						// transport init, etc. The transport itself didn't
-						// connect.
-						report["api"] = fmt.Sprintf("unreachable: %s", reachErr)
-					}
-
-					// Step 2: Validate credentials with an authenticated probe.
-					authHeader := cfg.AuthHeader()
-					if authHeader == "" {
-						// No auth configured — skip credential validation
-					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
-						report["credentials"] = "skipped (API unreachable)"
-					} else {
-						suggestion := suggestReadCommand(cmd.Root())
-						if suggestion != "" {
-							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "synology-cli", suggestion)
-						} else {
-							report["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."
-						}
-					}
-				}
-			} else if cfg != nil && cfg.BaseURL == "" {
-				report["api"] = "not configured (set base_url in config file)"
-			}
+			// HAND-FIX(doctor-verdict-tracks-reality): DSM-aware probes replace the
+			// generated GET / reachability check and the "present, not verified"
+			// credential row (doctor_verdict.go).
+			doctorDSMVerdict(cmd.Context(), flags, cfg, report)
 			// Cache health: only reported when this CLI has generated sync.
 			// Surfaces rows + last_synced_at per resource, schema version,
 			// and a fresh/stale/unknown verdict so agents can introspect

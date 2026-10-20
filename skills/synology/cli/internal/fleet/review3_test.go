@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -463,7 +464,7 @@ func TestCodexRound5(t *testing.T) {
 }
 
 func TestConcurrentRegistryWritesKeepEveryNAS(t *testing.T) {
-	path := t.TempDir() + "/fleet.json"
+	path := filepath.Join(t.TempDir(), "fleet.json")
 	done := make(chan error, 20)
 	for i := 0; i < 20; i++ {
 		go func(i int) {

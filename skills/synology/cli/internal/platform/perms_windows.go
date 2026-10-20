@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"synology-pp-cli/internal/cliutil"
+	"synology-pp-cli/internal/termio"
 )
 
 // verifyPrivatePerms reports an unsafe owner or DACL on stderr and allows the
@@ -26,7 +27,7 @@ import (
 // NTFS. label names the artifact in the warning.
 func verifyPrivatePerms(path string, _ os.FileInfo, label string) error {
 	if err := cliutil.VerifyCredsPerms(path); err != nil {
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(termio.Stderr(),
 			"warning: %s %s has permissive access (%v); on Windows this is advisory\n",
 			label, path, err)
 	}

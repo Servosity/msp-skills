@@ -2119,18 +2119,27 @@ func TestMCPReadOnlySwitch(t *testing.T) {
 	})
 
 	t.Run("other values", func(t *testing.T) {
-		for _, value := range []string{"", "true", "yes", "0", "TRUE"} {
+		// HAND-FIX(mcp-read-only-fails-closed): only blank and the off-values
+		// leave the switch off; "true", "yes", "TRUE" and any other value turn it
+		// on, so a natural input cannot leave the write tools in place.
+		for _, value := range []string{"", "0", "false", "no", "off", " OFF ", "${user_config.synology_mcp_read_only}"} {
 			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
 			if cliutil.IsMCPReadOnlyEnv() {
 				t.Fatalf("value %q enabled the read-only switch", value)
+			}
+		}
+		for _, value := range []string{"1", "true", "yes", "TRUE", "on", "enabled"} {
+			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
+			if !cliutil.IsMCPReadOnlyEnv() {
+				t.Fatalf("value %q left the read-only switch off", value)
 			}
 		}
 		t.Setenv(cliutil.MCPReadOnlyEnvVar, "true")
 		root := mcpReadOnlyFixtureRoot()
 		s := server.NewMCPServer("test", "0.0.0")
 		RegisterAll(s, root, func() (string, error) { return "missing-binary", nil })
-		if s.ListTools()["purge"] == nil {
-			t.Fatal(`"true" skipped mutating tools`)
+		if s.ListTools()["purge"] != nil {
+			t.Fatal(`"true" did not skip mutating tools`)
 		}
 	})
 

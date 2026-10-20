@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"synology-pp-cli/internal/termio"
 )
 
 const credentialsFileName = "credentials.toml"
@@ -274,7 +276,7 @@ func warnCredentialsIssue(path, action string, err error) {
 		return
 	}
 	credentialsWarned[key] = struct{}{}
-	fmt.Fprintf(os.Stderr, "warning: credentials %s failed for %s: %v\n", action, path, err)
+	fmt.Fprintf(termio.Stderr(), "warning: credentials %s failed for %s: %v\n", action, path, err)
 }
 
 func ReportCredentialRefusal(refusal CredentialRefusal) {
@@ -285,7 +287,7 @@ func ReportCredentialRefusal(refusal CredentialRefusal) {
 		return
 	}
 	credentialsWarned[key] = struct{}{}
-	fmt.Fprintf(os.Stderr, "error: %s\n", refusal.Error())
+	fmt.Fprintf(termio.Stderr(), "error: %s\n", refusal.Error())
 }
 
 func SaveCredentials(creds *Credentials) error {

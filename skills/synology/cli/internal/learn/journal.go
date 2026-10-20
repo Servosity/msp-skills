@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"synology-pp-cli/internal/cliutil"
+	"synology-pp-cli/internal/termio"
 )
 
 // The invocation journal records one entry per CLI invocation in dated
@@ -239,7 +240,7 @@ func JournalInvocation(entry JournalEntry) {
 	}
 	if err := AppendJournalEntry(entry); err != nil {
 		journalWarnOnce.Do(func() {
-			fmt.Fprintf(os.Stderr, "warning: learn journal write skipped: %v\n", err)
+			fmt.Fprintf(termio.Stderr(), "warning: learn journal write skipped: %v\n", err)
 		})
 	}
 }

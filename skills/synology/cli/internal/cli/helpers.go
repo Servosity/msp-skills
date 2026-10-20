@@ -79,6 +79,9 @@ func colorEnabled() bool {
 }
 
 func isTerminal(w io.Writer) bool {
+	if u, ok := w.(interface{ Unwrap() io.Writer }); ok {
+		w = u.Unwrap() // HAND-FIX(output-escapes-c1-controls): the escaping writer around stdout/stderr
+	}
 	if f, ok := w.(*os.File); ok {
 		fi, err := f.Stat()
 		if err != nil {
@@ -843,9 +846,9 @@ func paginatedGet(ctx context.Context, c interface {
 	for {
 		page++
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "fetching page %d...\n", page)
+			fmt.Fprintf(stderrW(), "fetching page %d...\n", page)
 		} else {
-			fmt.Fprintf(os.Stderr, `{"event":"page_fetch","page":%d}`+"\n", page)
+			fmt.Fprintf(stderrW(), `{"event":"page_fetch","page":%d}`+"\n", page)
 		}
 
 		data, err := c.GetWithHeaders(ctx, path, clean, headers)
@@ -957,9 +960,9 @@ func paginatedGet(ctx context.Context, c interface {
 					if _, seen := seenCursorTokens[nextAdvance]; seen {
 						platform.MarkContextTruncated(ctx, platform.TruncationReason{Kind: "pagination_cursor_repeated", Configured: "unique_cursor", Observed: "repeated_cursor", MoreAvailable: true})
 						if humanFriendly {
-							fmt.Fprintf(os.Stderr, "warning: --all received the same pagination cursor twice; returning fetched pages only.\n")
+							fmt.Fprintf(stderrW(), "warning: --all received the same pagination cursor twice; returning fetched pages only.\n")
 						} else {
-							fmt.Fprintf(os.Stderr, `{"event":"truncated","reason":"pagination_cursor_repeated","next_cursor_path":%q,"message":"--all received the same pagination cursor twice; returning fetched pages only"}`+"\n", cursorLookupPath)
+							fmt.Fprintf(stderrW(), `{"event":"truncated","reason":"pagination_cursor_repeated","next_cursor_path":%q,"message":"--all received the same pagination cursor twice; returning fetched pages only"}`+"\n", cursorLookupPath)
 						}
 						break
 					}
@@ -1040,9 +1043,9 @@ func paginatedGet(ctx context.Context, c interface {
 	}
 	if !omitCompleteEvent {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "fetched %d items across %d pages\n", len(allItems), page)
+			fmt.Fprintf(stderrW(), "fetched %d items across %d pages\n", len(allItems), page)
 		} else {
-			fmt.Fprintf(os.Stderr, `{"event":"complete","total":%d,"pages":%d}`+"\n", len(allItems), page)
+			fmt.Fprintf(stderrW(), `{"event":"complete","total":%d,"pages":%d}`+"\n", len(allItems), page)
 		}
 	}
 	var result []byte
@@ -1231,43 +1234,43 @@ func emitTruncationWarning(ctx context.Context, data json.RawMessage, nextCursor
 	// still need a returned cursor to advance safely.
 	if nextCursor != "" || ((paginationType == "page" || paginationType == "offset") && hasMore) {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "warning: results truncated; more pages available. Re-run with --all to fetch every page.\n")
+			fmt.Fprintf(stderrW(), "warning: results truncated; more pages available. Re-run with --all to fetch every page.\n")
 		} else {
-			fmt.Fprintf(os.Stderr, `{"event":"truncated","hint":"pass --all to fetch every page"}`+"\n")
+			fmt.Fprintf(stderrW(), `{"event":"truncated","hint":"pass --all to fetch every page"}`+"\n")
 		}
 		return
 	}
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "warning: results truncated; more pages available.\n")
+		fmt.Fprintf(stderrW(), "warning: results truncated; more pages available.\n")
 	} else {
-		fmt.Fprintf(os.Stderr, `{"event":"truncated"}`+"\n")
+		fmt.Fprintf(stderrW(), `{"event":"truncated"}`+"\n")
 	}
 }
 
 func emitMissingPaginationSignalWarning(ctx context.Context) {
 	platform.MarkContextTruncated(ctx, platform.TruncationReason{Kind: "pagination_signal_missing", Configured: "all_pages", Observed: 1, MoreAvailable: true})
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "warning: --all requested, but this endpoint does not declare a next cursor or has-more field; returning page 1 only.\n")
+		fmt.Fprintf(stderrW(), "warning: --all requested, but this endpoint does not declare a next cursor or has-more field; returning page 1 only.\n")
 	} else {
-		fmt.Fprintf(os.Stderr, `{"event":"truncated","reason":"pagination_signal_missing","message":"--all requested but this endpoint does not declare a next cursor or has-more field; returning page 1 only"}`+"\n")
+		fmt.Fprintf(stderrW(), `{"event":"truncated","reason":"pagination_signal_missing","message":"--all requested but this endpoint does not declare a next cursor or has-more field; returning page 1 only"}`+"\n")
 	}
 }
 
 func emitPaginatedGetMaxPagesWarning(ctx context.Context) {
 	platform.MarkContextTruncated(ctx, platform.TruncationReason{Kind: "max_pages", Configured: paginatedGetMaxPages, Observed: paginatedGetMaxPages, MoreAvailable: true})
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "warning: --all reached the %d-page safety limit; returning fetched pages only.\n", paginatedGetMaxPages)
+		fmt.Fprintf(stderrW(), "warning: --all reached the %d-page safety limit; returning fetched pages only.\n", paginatedGetMaxPages)
 	} else {
-		fmt.Fprintf(os.Stderr, `{"event":"truncated","reason":"max_pages_cap_hit","message":"--all reached the %d-page safety limit; returning fetched pages only"}`+"\n", paginatedGetMaxPages)
+		fmt.Fprintf(stderrW(), `{"event":"truncated","reason":"max_pages_cap_hit","message":"--all reached the %d-page safety limit; returning fetched pages only"}`+"\n", paginatedGetMaxPages)
 	}
 }
 
 func emitPaginatedGetRepeatedPageWarning(ctx context.Context) {
 	platform.MarkContextTruncated(ctx, platform.TruncationReason{Kind: "pagination_page_repeated", Configured: "unique_page", Observed: "repeated_page", MoreAvailable: true})
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "warning: --all received the same page twice; returning fetched pages only.\n")
+		fmt.Fprintf(stderrW(), "warning: --all received the same page twice; returning fetched pages only.\n")
 	} else {
-		fmt.Fprintf(os.Stderr, `{"event":"truncated","reason":"pagination_page_repeated","message":"--all received the same page twice; returning fetched pages only"}`+"\n")
+		fmt.Fprintf(stderrW(), `{"event":"truncated","reason":"pagination_page_repeated","message":"--all received the same page twice; returning fetched pages only"}`+"\n")
 	}
 }
 
@@ -1286,11 +1289,11 @@ func paginatedItemsEqual(previous, current []json.RawMessage) bool {
 func emitMissingPaginationCursorWarning(ctx context.Context, nextCursorPath string) {
 	platform.MarkContextTruncated(ctx, platform.TruncationReason{Kind: "pagination_cursor_missing", Configured: nextCursorPath, Observed: "missing", MoreAvailable: true})
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "warning: --all requested, but the response indicated more pages without a usable next cursor; returning fetched pages only.\n")
+		fmt.Fprintf(stderrW(), "warning: --all requested, but the response indicated more pages without a usable next cursor; returning fetched pages only.\n")
 	} else if nextCursorPath != "" {
-		fmt.Fprintf(os.Stderr, `{"event":"truncated","reason":"pagination_cursor_missing","next_cursor_path":%q,"message":"--all requested but the response indicated more pages without a usable next cursor; returning fetched pages only"}`+"\n", nextCursorPath)
+		fmt.Fprintf(stderrW(), `{"event":"truncated","reason":"pagination_cursor_missing","next_cursor_path":%q,"message":"--all requested but the response indicated more pages without a usable next cursor; returning fetched pages only"}`+"\n", nextCursorPath)
 	} else {
-		fmt.Fprintf(os.Stderr, `{"event":"truncated","reason":"pagination_cursor_missing","message":"--all requested but the response indicated more pages without a usable next cursor; returning fetched pages only"}`+"\n")
+		fmt.Fprintf(stderrW(), `{"event":"truncated","reason":"pagination_cursor_missing","message":"--all requested but the response indicated more pages without a usable next cursor; returning fetched pages only"}`+"\n")
 	}
 }
 
@@ -1802,7 +1805,7 @@ func emitPlatformOutputMetadata(w io.Writer, flags *rootFlags) error {
 		return nil
 	}
 	if w == nil {
-		w = os.Stderr
+		w = stderrW()
 	}
 	event := map[string]any{
 		"event": "output_metadata",
@@ -2154,7 +2157,7 @@ func filterFieldsChecked(data json.RawMessage, fields string) (json.RawMessage, 
 				valid = "none"
 			}
 		}
-		fmt.Fprintf(os.Stderr, "warning: --select %q matched no fields; valid fields: %s\n", requestedPaths[i], valid)
+		fmt.Fprintf(stderrW(), "warning: --select %q matched no fields; valid fields: %s\n", requestedPaths[i], valid)
 		unmatched = append(unmatched, requestedPaths[i])
 	}
 	out := filtered
@@ -2962,6 +2965,7 @@ func writeCSVRows(w io.Writer, items []map[string]any) error {
 func writeCSVRow(w io.Writer, cells []string) {
 	escaped := make([]string, len(cells))
 	for i, cell := range cells {
+		cell = scrubCell(cell) // HAND-FIX(tabular-printers-scrub-terminal)
 		if strings.ContainsAny(cell, ",\"\r\n") {
 			escaped[i] = `"` + strings.ReplaceAll(cell, `"`, `""`) + `"`
 		} else {
@@ -3014,7 +3018,7 @@ func printPlain(w io.Writer, data json.RawMessage, documentedFields ...map[strin
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Fprintln(w, strings.Join(keys, "\t"))
+	fmt.Fprintln(w, scrubCell(strings.Join(keys, "\t"))) // HAND-FIX(tabular-printers-scrub-terminal)
 	for _, item := range items {
 		var vals []string
 		for _, k := range keys {
@@ -3047,7 +3051,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 			if v == nil {
 				continue
 			}
-			fmt.Fprintln(w, fmt.Sprint(v))
+			fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v))) // HAND-FIX(tabular-printers-scrub-terminal)
 		}
 		return nil
 	}
@@ -3062,7 +3066,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 	if trimmed == "" || trimmed == "null" {
 		return nil
 	}
-	fmt.Fprintln(w, trimmed)
+	fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed)) // HAND-FIX(tabular-printers-scrub-terminal)
 	return nil
 }
 
@@ -3101,7 +3105,7 @@ func quietScalar(v any) string {
 	}
 	switch t := v.(type) {
 	case string:
-		return t
+		return cliutil.ScrubTerminal(t) // HAND-FIX(tabular-printers-scrub-terminal): one value per line, tenant text
 	case bool:
 		return strconv.FormatBool(t)
 	case float64:
@@ -3158,12 +3162,29 @@ func objectEnvelopeRows(obj map[string]any) ([]map[string]any, bool) {
 }
 
 func plainCellValue(v any) string {
-	s := formatTabularCell(v)
+	s := scrubCell(formatTabularCell(v)) // HAND-FIX(tabular-printers-scrub-terminal)
 	s = strings.ReplaceAll(s, "\t", " ")
 	s = strings.ReplaceAll(s, "\r\n", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
 	return s
+}
+
+// scrubCell drops terminal control characters (C0 except tab/CR/LF, DEL and
+// C1) from a CSV or plain cell. Task, host and share names come from the NAS,
+// and a name carrying an ESC, OSC or CSI sequence could rewrite the terminal
+// or the clipboard. Tab, CR and LF are kept because CSV quoting handles them
+// and plain output replaces them. HAND-FIX(tabular-printers-scrub-terminal).
+func scrubCell(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\n' || r == '\r' {
+			return r
+		}
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // --csv/--plain cells must round-trip. fmt's %v of map[string]any and []any
@@ -3251,7 +3272,7 @@ func printOutput(w io.Writer, data json.RawMessage, asJSON bool) error {
 		}
 		// Agent-friendly: show count and suggest narrowing when results are large
 		if len(items) >= 25 {
-			fmt.Fprintf(os.Stderr, "\nShowing %d results. To narrow: add --limit, --json --select, or filter flags.\n", len(items))
+			fmt.Fprintf(stderrW(), "\nShowing %d results. To narrow: add --limit, --json --select, or filter flags.\n", len(items))
 		}
 		return nil
 	}
@@ -4185,7 +4206,7 @@ func claimLegacyUnscopedDB(dir, unscoped, scopeHash, label string) (owned, decid
 	}
 	cleanupTemp = false
 	_ = os.Remove(tempName)
-	fmt.Fprintf(os.Stderr, "note: existing data.db is now used only for %s; other credentials use their own store file\n", label)
+	fmt.Fprintf(stderrW(), "note: existing data.db is now used only for %s; other credentials use their own store file\n", label)
 	return true, true
 }
 

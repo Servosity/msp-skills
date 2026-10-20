@@ -32,6 +32,11 @@ func RegisterIntents(s *server.MCPServer) {
 	{
 		opts := []mcplib.ToolOption{
 			mcplib.WithDescription("Newest failed run, its detail lines and the ABB log from that window, errors first."),
+			// HAND-FIX(mcp-read-only-drops-endpoint-writes): this recipe runs
+			// `abb triage --agent`, which the Cobra tree annotates mcp:read-only
+			// (live GETs only), so it stays in read-only mode.
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		}
 		opts = append(opts, mcplib.WithString("value", mcplib.Required(), mcplib.Description("Override the recipe's positional value value.")))
@@ -42,7 +47,7 @@ func RegisterIntents(s *server.MCPServer) {
 // handleWhyDidATaskFail runs the why_did_a_task_fail recipe intent: Newest failed run, its detail lines and the ABB log from that window, errors first.
 func handleWhyDidATaskFail(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	if recipeCLIPathErr != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v", recipeCLIPathErr)), nil
+		return mcpResultError(fmt.Sprintf("companion CLI binary not found: %v", recipeCLIPathErr)), nil
 	}
 
 	input := req.GetArguments()
@@ -51,17 +56,17 @@ func handleWhyDidATaskFail(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	args = append(args, "triage")
 	var missingValue bool
 	if err := rejectFlagLikeRecipeValue("value", input["value"]); err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+		return mcpResultError(err.Error()), nil
 	}
 	args, missingValue = appendRecipePositional(args, input["value"], true)
 	if missingValue {
-		return mcplib.NewToolResultError("value is required"), nil
+		return mcpResultError("value is required"), nil
 	}
 	args = append(args, "--agent")
 
 	out, err := cobratree.RunCLICommand(ctx, recipeCLIPath, args)
 	if err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+		return mcpResultError(err.Error()), nil
 	}
 	return cobratree.ToolResultFromCLICommand(out), nil
 }

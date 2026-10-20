@@ -365,7 +365,7 @@ func RegisterTools(s *server.MCPServer) {
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
 		mcplib.NewTool("search",
-			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
+			mcplib.WithDescription("Full-text search across all synced data in the local sync store that synology-cli sync fills: shared folders, groups, the DSM system log, packages and users. ABB jobs and storage health are not in it; they live in the fleet mirror (fleet_status, abb_failures, abb_stale, abb_device, fleet_health)."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
 			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -376,8 +376,8 @@ func RegisterTools(s *server.MCPServer) {
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
 		mcplib.NewTool("sql",
-			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='abb'.")),
+			mcplib.WithDescription("Run read-only SQL against local database: the sync store that synology-cli sync fills (shared folders, groups, the DSM system log, packages and users). ABB jobs and storage health are not in this store; use the fleet report tools."),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data) with resource_type folder, group, log, package or user; read fields with json_extract, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='user'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -398,6 +398,11 @@ func RegisterTools(s *server.MCPServer) {
 	// Runtime Cobra-tree mirror — exposes every user-facing command that is
 	// not already covered by a typed endpoint or framework MCP tool.
 	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.SiblingCLIPath)
+	// HAND-FIX(mcp-read-only-drops-endpoint-writes): the read-only switch
+	// covers every tool, not only the Cobra-tree mirror.
+	if cliutil.IsMCPReadOnlyEnv() {
+		dropNonReadOnlyTools(s)
+	}
 }
 
 type mcpParamBinding struct {
@@ -460,6 +465,11 @@ func mcpPathValue(v any) string {
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
 func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse bool, headerOverrides map[string]string, pageConfig mcpPageConfig, bindings []mcpParamBinding, positionalParams []string) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+		// HAND-FIX(mcp-read-only-drops-endpoint-writes): call-time backstop for a
+		// write tool registered before the switch was read.
+		if !readOnly && cliutil.IsMCPReadOnlyEnv() {
+			return mcpToolError(fmt.Sprintf("refusing a DSM write while %s is on", cliutil.MCPReadOnlyEnvVar)), nil
+		}
 		c, platformSession, err := newMCPClient(ctx)
 		if err != nil {
 			return mcpToolError(err.Error()), nil
@@ -562,6 +572,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
+		// HAND-FIX(mcp-writes-refuse-unknown-args): an undeclared argument on a
+		// write, or one that would rewrite api=/method= on a read, is refused
+		// before any request is sent.
+		declaredArgs := make(map[string]bool, len(knownArgs)+len(pathParams))
+		for k := range knownArgs {
+			declaredArgs[k] = true
+		}
+		for k := range pathParams {
+			declaredArgs[k] = true
+		}
+		if err := undeclaredEndpointArgError(args, declaredArgs, pathTemplate, readOnly); err != nil {
+			return mcpToolError(err.Error()), nil
+		}
 		for k, v := range args {
 			if pathParams[k] || knownArgs[k] {
 				continue
@@ -718,7 +741,7 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			if platformSession != nil {
 				result = bound.WithMetadata(result, platformSession.OutputMetadata())
 			}
-			return mcplib.NewToolResultText(result), nil
+			return mcpResultText(result), nil
 		}
 		if pageConfig.CursorParam != "" || pageConfig.NextCursorPath != "" || pageConfig.ExternalContinuation {
 			return mcpToolPageResultTextWithPlatform(method, data, pageConfig, mcpCursor, requestCursor, readOnly, platformSession), nil
@@ -735,7 +758,7 @@ func mcpToolTextWithPlatform(result string, platformSession *platform.Session) *
 	if platformSession != nil {
 		result = bound.WithMetadata(result, platformSession.OutputMetadata())
 	}
-	return mcplib.NewToolResultText(result)
+	return mcpResultText(result)
 }
 
 func mcpToolResultTextWithPlatform(method string, data json.RawMessage, readOnly bool, platformSession *platform.Session) *mcplib.CallToolResult {
@@ -746,7 +769,7 @@ func mcpToolResultTextWithPlatform(method string, data json.RawMessage, readOnly
 // mcpToolError keeps provider-controlled typed endpoint errors within the MCP
 // text-result budget just like successful endpoint results.
 func mcpToolError(message string) *mcplib.CallToolResult {
-	return mcplib.NewToolResultError(bound.Text(message))
+	return mcpResultError(bound.Text(message))
 }
 
 func mcpToolPageResultText(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string) *mcplib.CallToolResult {
@@ -766,7 +789,7 @@ func mcpToolPageResultTextWithPlatform(method string, data json.RawMessage, page
 	if platformSession != nil {
 		result = bound.WithMetadata(result, platformSession.OutputMetadata())
 	}
-	return mcplib.NewToolResultText(result)
+	return mcpResultText(result)
 }
 
 func newMCPClient(ctx context.Context) (*client.Client, *platform.Session, error) {
@@ -821,13 +844,13 @@ const (
 func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
+			return nil, mcpResultError(mcpMissingStoreMessage(path))
 		}
-		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
+		return nil, mcpResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
 	}
 	db, err := store.OpenReadOnly(path)
 	if err != nil {
-		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run synology-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
+		return nil, mcpResultError(fmt.Sprintf("opening local data store %s: %v. Run synology-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
 	}
 	return db, nil
 }
@@ -882,7 +905,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	args := req.GetArguments()
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
-		return mcplib.NewToolResultError("query is required"), nil
+		return mcpResultError("query is required"), nil
 	}
 
 	limit := 25
@@ -892,7 +915,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 
 	path, err := mcpDBPath()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
 	db, toolErr := openMCPReadOnlyStore(path)
 	if toolErr != nil {
@@ -902,11 +925,11 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 
 	results, err := db.Search(query, limit)
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 	storeStatus, err := mcpStoreStatus(db)
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
 	return toolResultJSON(mcpSearchEnvelope(results, storeStatus))
@@ -1091,16 +1114,16 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	args := req.GetArguments()
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
-		return mcplib.NewToolResultError("query is required"), nil
+		return mcpResultError("query is required"), nil
 	}
 
 	if err := validateReadOnlyQuery(query); err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+		return mcpResultError(err.Error()), nil
 	}
 
 	path, err := mcpDBPath()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
 	db, toolErr := openMCPReadOnlyStore(path)
 	if toolErr != nil {
@@ -1113,23 +1136,23 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 
 	conn, err := db.DB().Conn(queryCtx)
 	if err != nil {
-		return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
+		return mcpResultError(mcpSQLQueryError(queryCtx, err)), nil
 	}
 	defer conn.Close()
 
 	if _, err := sqlite.Limit(conn, sqlite3.SQLITE_LIMIT_LENGTH, mcpSQLMaxValueBytes); err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("setting SQL value length cap: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("setting SQL value length cap: %v", err)), nil
 	}
 
 	rows, err := conn.QueryContext(queryCtx, query)
 	if err != nil {
-		return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
+		return mcpResultError(mcpSQLQueryError(queryCtx, err)), nil
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("reading columns: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("reading columns: %v", err)), nil
 	}
 	scan := bound.NewSQLScanState(cols)
 	for rows.Next() {
@@ -1140,9 +1163,9 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		}
 		if err := rows.Scan(ptrs...); err != nil {
 			if mcpSQLValueTooBig(err) {
-				return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
+				return mcpResultError(mcpSQLQueryError(queryCtx, err)), nil
 			}
-			return mcplib.NewToolResultError(fmt.Sprintf("scanning row: %v", err)), nil
+			return mcpResultError(fmt.Sprintf("scanning row: %v", err)), nil
 		}
 		row := make(map[string]any)
 		for i, col := range cols {
@@ -1155,11 +1178,11 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	// rows.Next() stops on a mid-iteration error without failing the loop, so
 	// skipping rows.Err() would return a truncated result set as success.
 	if err := rows.Err(); err != nil {
-		return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
+		return mcpResultError(mcpSQLQueryError(queryCtx, err)), nil
 	}
 	storeStatus, err := mcpStoreStatus(db)
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
 	return toolResultJSON(mcpSQLEnvelope(scan.Rows, cols, storeStatus, scan.Truncated))
@@ -1204,7 +1227,7 @@ func mcpSQLQueryError(queryCtx context.Context, err error) string {
 	}
 	msg := err.Error()
 	if strings.Contains(strings.ToLower(msg), "no such table") {
-		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type, for example resource_type='abb', and read JSON fields with json_extract(data,'$.field').", err)
+		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type (folder, group, log, package or user), for example resource_type='user', and read JSON fields with json_extract(data,'$.field'). ABB jobs and storage health are in the fleet mirror, not this store: use the fleet_status, abb_failures, abb_stale, abb_device and fleet_health tools.", err)
 	}
 	return fmt.Sprintf("query failed: %v", err)
 }
@@ -1219,9 +1242,9 @@ func mcpSQLValueTooBig(err error) bool {
 func toolResultJSON(v any) (*mcplib.CallToolResult, error) {
 	text, err := bound.JSON(v)
 	if err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("encoding result: %v", err)), nil
+		return mcpResultError(fmt.Sprintf("encoding result: %v", err)), nil
 	}
-	return mcplib.NewToolResultText(text), nil
+	return mcpResultText(text), nil
 }
 func registeredCommandMirrorCapabilities(s *server.MCPServer, capabilities []map[string]string) []map[string]string {
 	registered := make([]map[string]string, 0, len(capabilities))
@@ -1264,11 +1287,13 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 	ctx := map[string]any{
 		"api":         "synology",
 		"description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
-		"archetype":   "developer-platform",
+		"archetype":   "infrastructure",
 		"tool_count":  len(s.ListTools()),
 		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion synology-cli binary.",
+		// HAND-FIX(mcp-context-describes-dsm): the generated text described a
+		// cursor-paged CRM API with a full sync and search over every resource.
+		"tool_surface": "Endpoint tools call one NAS (SYNOLOGY_BASE_URL) live. Every DSM operation is an HTTP GET on /webapi/entry.cgi (query.cgi for session_apis) selected by its api= and method= parameters; the CLI logs in with SYNOLOGY_ACCOUNT and SYNOLOGY_PASSWORD and keeps the session. abb_backup and abb_cancel start or cancel backups and session_logout ends the session: they refuse any argument the tool does not declare. Read tools refuse an argument that would override api, method or version. The fleet tools (fleet_status, fleet_health, abb_failures, abb_stale, abb_device, abb_trend) shell out to synology-cli and read the local fleet mirror that fleet_sync fills by logging in to every NAS registered with fleet_add; they return an error result that still carries the report rows when they found something (exit 6). why_did_a_task_fail (abb triage) is a live read of one NAS.",
 		// learn_protocol is generated from the single shared source of
 		// truth (the exported constant internal/learn.RecallFirstProtocol)
 		// also consumed by the CLI agent-context command, so the MCP and
@@ -1289,30 +1314,30 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 					"kind":        "auth_flow_input",
 					"required":    true,
 					"sensitive":   true,
-					"description": "Set during initial auth setup.",
+					"description": "DSM account password; sent only in the SYNO.API.Auth login request.",
 				},
 				{
 					"name":        "SYNOLOGY_DEVICE_ID",
 					"kind":        "auth_flow_input",
 					"required":    false,
 					"sensitive":   true,
-					"description": "Set during initial auth setup.",
+					"description": "Trusted-device token from an earlier two-factor login; used instead of a one-time code.",
 				},
 				{
 					"name":        "SYNOLOGY_OTP_CODE",
 					"kind":        "auth_flow_input",
 					"required":    false,
 					"sensitive":   true,
-					"description": "Set during initial auth setup.",
+					"description": "One-time code for the first login of a two-factor account; DSM then issues a trusted-device token the CLI keeps.",
 				},
 			},
+			"base_url": "SYNOLOGY_BASE_URL is required: the NAS address with scheme and port, for example https://<nas>:5001 (the shipped https://nas.example.com:5001 is a placeholder). Self-signed certificates: SYNOLOGY_TLS_FINGERPRINT pins one.",
 		},
 		"resources": []map[string]any{
 			{
 				"name":        "abb",
 				"description": "Active Backup for Business tasks, job results, logs and storage",
 				"endpoints":   []string{"backup", "cancel", "hypervisors", "logs", "result_detail", "results", "settings", "storage", "tasks", "transfers"},
-				"searchable":  true,
 				"writable":    true,
 			},
 			{
@@ -1358,13 +1383,11 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"name":        "storage",
 				"description": "Volumes, storage pools, disks and SMART data",
 				"endpoints":   []string{"disks", "overview", "pools", "smart", "smart_schedule", "volumes"},
-				"searchable":  true,
 			},
 			{
 				"name":        "system",
 				"description": "DSM system identity, health and load",
 				"endpoints":   []string{"dsm", "get", "health_check", "network", "ups", "utilization"},
-				"searchable":  true,
 			},
 			{
 				"name":        "user",
@@ -1375,11 +1398,10 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass offset parameter for subsequent pages.",
-			"Control page size with the limit parameter (default 100).",
-			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
-			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
-			"Prefer sql/search over repeated API calls when the data is already synced.",
+			"DSM lists page with offset and limit (abb_logs, abb_results, group_list, user_list; log_list uses start and limit). abb_logs and abb_results default to limit 200 and abb_result_detail to 500; a list that returns exactly limit rows may have more, so request the next offset. abb_tasks, the storage tools and the system tools return everything in one call.",
+			"filter parameters take a JSON object, for example {'status':4} on abb_results for failed runs or {'task_id':5} on abb_tasks.",
+			"For fleet questions (which backups failed, which devices are stale, which NAS has a degraded volume), run fleet_sync first, then fleet_status, abb_failures, abb_stale or fleet_health. A NAS whose last good sync is older than the max-sync-age argument (26h by default) reads as not synced, never as OK.",
+			"The sql and search tools read only the generic sync store (synology-cli sync): shared folders, groups, the DSM system log, packages and users. They never contain ABB jobs or storage health.",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
@@ -1402,7 +1424,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"topic": "Failed-task triage", "insight": "Chains three separate ABB calls (result history, result detail, activity log) into one timeline."},
 			{"topic": "Device lookup", "insight": "Requires a host-name lookup across every NAS in the local mirror."},
 			{"topic": "Backup trend", "insight": "Success rate and duration baselines only exist across synced job history."},
-			{"topic": "Resource discovery", "insight": "Use list commands to discover available resources before attempting operations. Developer platform APIs often have nested resource hierarchies."},
+			{"topic": "Two-factor accounts", "insight": "Run synology-cli auth login once with SYNOLOGY_OTP_CODE set; DSM issues a trusted-device token the CLI keeps, so later logins (and MCP calls) need no code."},
 		},
 	}
 	return toolResultJSON(ctx)

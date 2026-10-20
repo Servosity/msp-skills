@@ -13,9 +13,10 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"strings"
 	"time"
+
+	"synology-pp-cli/internal/cliutil"
 )
 
 // Most client NAS units present DSM's self-signed certificate. Two opt-ins:
@@ -79,10 +80,13 @@ func RefuseAllTLS(err error) *tls.Config {
 	}
 }
 
-// EnvTLS reads SYNOLOGY_TLS_FINGERPRINT and SYNOLOGY_SKIP_TLS_VERIFY.
+// EnvTLS reads SYNOLOGY_TLS_FINGERPRINT and SYNOLOGY_SKIP_TLS_VERIFY through
+// cliutil.EnvOverride, so an unresolved ${user_config...} placeholder that an
+// MCPB host left for a skipped optional prompt reads as unset instead of a pin
+// that refuses every certificate. HAND-FIX(mcp-http-token-placeholder).
 func EnvTLS() (pin string, skip bool) {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("SYNOLOGY_SKIP_TLS_VERIFY")))
-	return os.Getenv("SYNOLOGY_TLS_FINGERPRINT"), v == "1" || v == "true" || v == "yes" || v == "on"
+	v := strings.ToLower(strings.TrimSpace(cliutil.EnvOverride("SYNOLOGY_SKIP_TLS_VERIFY")))
+	return strings.TrimSpace(cliutil.EnvOverride("SYNOLOGY_TLS_FINGERPRINT")), v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 // FetchFingerprint connects to baseURL's host without verifying the chain and

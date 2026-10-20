@@ -16,7 +16,9 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	"synology-pp-cli/internal/cli"
+	"synology-pp-cli/internal/cliutil"
 	mcptools "synology-pp-cli/internal/mcp"
+	"synology-pp-cli/internal/termio"
 )
 
 // Transport selection order: --transport flag, then PP_MCP_TRANSPORT env,
@@ -46,7 +48,7 @@ func main() {
 	// shell-out child, so usage events record surface=mcp.
 	_ = os.Setenv("SYNOLOGY_LEARN_SURFACE", "mcp")
 	if err := cli.BindMCPServerProfile(); err != nil {
-		fmt.Fprintf(os.Stderr, "MCP client-profile bind failed: %v\n", err)
+		fmt.Fprintf(termio.Stderr(), "MCP client-profile bind failed: %v\n", err)
 		os.Exit(1)
 	}
 	s := server.NewMCPServer(
@@ -66,22 +68,22 @@ func main() {
 	switch strings.ToLower(*transport) {
 	case "stdio":
 		if err := server.ServeStdio(s); err != nil {
-			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+			fmt.Fprintf(termio.Stderr(), "MCP server error: %v\n", err)
 			os.Exit(1)
 		}
 	case "http":
 		token, err := requireHTTPCallerToken()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+			fmt.Fprintf(termio.Stderr(), "MCP server error: %v\n", err)
 			os.Exit(1)
 		}
 		bindAddr, loopback := classifyHTTPBind(*addr)
 		if err := requireTLSForNonLoopback(*addr, loopback, *tlsCert, *tlsKey); err != nil {
-			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+			fmt.Fprintf(termio.Stderr(), "MCP server error: %v\n", err)
 			os.Exit(1)
 		}
 		if (*tlsCert != "") != (*tlsKey != "") {
-			fmt.Fprintf(os.Stderr, "MCP server error: both --tls-cert and --tls-key are required for TLS\n")
+			fmt.Fprintf(termio.Stderr(), "MCP server error: both --tls-cert and --tls-key are required for TLS\n")
 			os.Exit(1)
 		}
 		inner := server.NewStreamableHTTPServer(s)
@@ -90,18 +92,18 @@ func main() {
 			Handler:           requireBearerAuth(token, inner),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
-		fmt.Fprintf(os.Stderr, "synology-mcp serving MCP over streamable HTTP at %s (Authorization: Bearer $%s)\n", bindAddr, httpTokenEnvVar)
+		fmt.Fprintf(termio.Stderr(), "synology-mcp serving MCP over streamable HTTP at %s (Authorization: Bearer $%s)\n", bindAddr, httpTokenEnvVar)
 		if *tlsCert != "" {
 			err = httpSrv.ListenAndServeTLS(*tlsCert, *tlsKey)
 		} else {
 			err = httpSrv.ListenAndServe()
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+			fmt.Fprintf(termio.Stderr(), "MCP server error: %v\n", err)
 			os.Exit(1)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown --transport %q (supported: stdio, http)\n", *transport)
+		fmt.Fprintf(termio.Stderr(), "unknown --transport %q (supported: stdio, http)\n", *transport)
 		os.Exit(2)
 	}
 }
@@ -118,7 +120,11 @@ func defaultTransport() string {
 }
 
 func requireHTTPCallerToken() (string, error) {
-	token := strings.TrimSpace(os.Getenv(httpTokenEnvVar))
+	// HAND-FIX(mcp-http-token-placeholder): read through EnvOverride, so an
+	// unresolved ${user_config.synology_mcp_http_token} placeholder (a host
+	// that skipped the optional prompt) is refused instead of becoming the
+	// bearer secret; that text is public in manifest.json.
+	token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))
 	if token == "" {
 		return "", fmt.Errorf("%s must be set to a non-empty bearer token before starting --transport http", httpTokenEnvVar)
 	}

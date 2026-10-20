@@ -138,14 +138,24 @@ func IsDogfoodEnv() bool {
 }
 
 // MCPReadOnlyEnvVar is the operator kill switch for this CLI's MCP server.
-// The value must be exactly "1", matching the other harness switches.
-// "true" and "yes" do not enable it.
 const MCPReadOnlyEnvVar = "SYNOLOGY_MCP_READ_ONLY"
 
 // IsMCPReadOnlyEnv reports whether the MCP server should expose only
-// read-only mirrored commands and refuse non-GET execute calls.
+// read-only tools and refuse every write.
+//
+// HAND-FIX(mcp-read-only-fails-closed): the switch fails closed. Only blank,
+// 0, false, no and off (case-insensitive, trimmed) leave it off; any other
+// value turns it on. The generated check accepted exactly "1", and the .mcpb
+// bundle exposes the switch as a free-text field, so an MSP who typed "true"
+// or "yes" kept abb_backup, abb_cancel and every local writer while believing
+// they were off. An unresolved ${user_config...} placeholder (a host that
+// skipped the optional prompt) counts as blank.
 func IsMCPReadOnlyEnv() bool {
-	return os.Getenv(MCPReadOnlyEnvVar) == "1"
+	switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
 }
 
 // EnvOverride returns the named environment variable, treating an

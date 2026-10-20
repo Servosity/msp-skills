@@ -20,7 +20,7 @@ import (
 )
 
 func boundedToolResultError(message string) *mcplib.CallToolResult {
-	return mcplib.NewToolResultError(bound.Text(message))
+	return escapedToolResultError(bound.Text(message)) // HAND-FIX(mcp-tool-results-escape-controls)
 }
 
 const shelloutCaptureLimit = bound.MaxBytes + 1
@@ -366,9 +366,9 @@ type CLICommandResult struct {
 // filtered CLI hints in a separate block for clients that display auxiliary
 // content.
 func ToolResultFromCLICommand(result CLICommandResult) *mcplib.CallToolResult {
-	toolResult := mcplib.NewToolResultText(bound.Text(result.Stdout))
+	toolResult := escapedToolResultText(bound.Text(result.Stdout)) // HAND-FIX(mcp-tool-results-escape-controls)
 	if len(result.StderrHints) > 0 {
-		toolResult.Content = append(toolResult.Content, mcplib.NewTextContent(bound.Text(strings.Join(result.StderrHints, "\n"))))
+		toolResult.Content = append(toolResult.Content, escapedTextContent(bound.Text(strings.Join(result.StderrHints, "\n"))))
 	}
 	return toolResult
 }
@@ -398,6 +398,13 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 			label := "stderr"
 			if stderrText == "" {
 				label = "output"
+			}
+			// HAND-FIX(mcp-findings-keep-report): fleet status, fleet health and
+			// the abb reports exit 6 exactly when they found something, with the
+			// rows on stdout and only the count on stderr. Quoting stderr alone
+			// handed an agent "1 row(s) need attention" without the rows.
+			if out := strings.TrimSpace(stdoutText); stderrText != "" && out != "" {
+				return result, fmt.Errorf("cli %s: %w (%s: %s)\noutput: %s", binPath, err, label, stderrText, bound.Text(out))
 			}
 			return result, fmt.Errorf("cli %s: %w (%s: %s)", binPath, err, label, bound.Text(msg))
 		}

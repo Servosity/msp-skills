@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"sync"
 
 	"synology-pp-cli/internal/learn/entities"
@@ -66,12 +65,12 @@ func runLearnInitOnce(ctx context.Context) {
 		dbPath := defaultDBPath("synology-cli")
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: synology-cli: learn init: open store: %v\n", err)
+			fmt.Fprintf(stderrW(), "warning: synology-cli: learn init: open store: %v\n", err)
 			return
 		}
 		defer s.Close()
 		if err := initLearn(ctx, s.DB()); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: synology-cli: learn init: %v\n", err)
+			fmt.Fprintf(stderrW(), "warning: synology-cli: learn init: %v\n", err)
 		}
 	})
 }

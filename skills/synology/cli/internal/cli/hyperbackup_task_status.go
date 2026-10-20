@@ -7,7 +7,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -102,7 +101,7 @@ func newHyperbackupTaskStatusCmd(flags *rootFlags) *cobra.Command {
 						return err
 					}
 					if len(items) >= 25 {
-						fmt.Fprintf(os.Stderr, "\nShowing %d results. To narrow: add --limit, --json --select, or filter flags.\n", len(items))
+						fmt.Fprintf(stderrW(), "\nShowing %d results. To narrow: add --limit, --json --select, or filter flags.\n", len(items))
 					}
 					return nil
 				}

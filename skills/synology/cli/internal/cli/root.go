@@ -171,6 +171,13 @@ func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
 	defer finalizePlatformInvocation(&flags, &retErr)
+	// HAND-FIX(output-escapes-c1-controls): tenant strings reach --json,
+	// --agent and pretty-JSON output raw, and encoding/json leaves UTF-8 C1
+	// controls (CSI, OSC, ST) unescaped; the escaping writers rewrite them as
+	// \u00XX so a task or host name cannot drive the terminal. isTerminal
+	// unwraps them.
+	rootCmd.SetOut(stdoutW())
+	rootCmd.SetErr(stderrW())
 
 	executedCmd, err := rootCmd.ExecuteC()
 	var journalFailedFlag, journalSuggestedFlag string
@@ -183,14 +190,14 @@ func Execute() (retErr error) {
 	if errors.Is(err, pflag.ErrHelp) {
 		return nil
 	}
-	envelopeWriter := io.Writer(os.Stdout)
+	envelopeWriter := stdoutW()
 	if flags.deliverBuf != nil {
-		envelopeWriter = io.MultiWriter(os.Stdout, flags.deliverBuf)
+		envelopeWriter = io.MultiWriter(stdoutW(), flags.deliverBuf)
 	}
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(stderrW(), "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 		}
 	}
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {
@@ -211,15 +218,26 @@ func Execute() (retErr error) {
 				// would never reach stderr now that main.go no longer prints
 				// err. Emit the hint explicitly so the suggestion still
 				// shows up under Cobra's error line.
-				fmt.Fprintf(os.Stderr, "hint: did you mean --%s?\n", suggestion)
+				fmt.Fprintf(stderrW(), "hint: did you mean --%s?\n", suggestion)
 				err = fmt.Errorf("%w\nhint: did you mean --%s?", err, suggestion)
 				journalSuggestedFlag = "--" + suggestion
 			}
 		}
 	}
+	// HAND-FIX(deliver-on-failure): a failed run still delivers what it
+	// printed. fleet status, fleet health and the abb reports exit 6 exactly
+	// when they found something, which is when a scheduled --deliver matters
+	// most; without this the sink silently kept the previous run's report.
+	if err != nil && !envelopeWritten && flags.deliverBuf != nil {
+		if flags.deliverBuf.Len() == 0 {
+			fmt.Fprintf(stderrW(), "warning: --deliver: the command failed before printing output; %s:%s was not updated\n", flags.deliverSink.Scheme, flags.deliverSink.Target)
+		} else if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
+			fmt.Fprintf(stderrW(), "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+		}
+	}
 	if err == nil && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(stderrW(), "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 			return derr
 		}
 	}
@@ -362,17 +380,8 @@ See README.md or the bundled SKILL.md for recipes.`,
 			return err
 		}
 		configureDefaultDBScope(flags.configPath)
-		if flags.deliverSpec != "" {
-			sink, err := ParseDeliverSink(flags.deliverSpec)
-			if err != nil {
-				return err
-			}
-			flags.deliverSink = sink
-			if sink.Scheme != "stdout" && sink.Scheme != "" {
-				flags.deliverBuf = &bytes.Buffer{}
-				cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))
-			}
-		}
+		// HAND-FIX(deliver-after-profile): apply a saved profile first, so a
+		// --deliver it restores is wired below like a typed one.
 		if flags.runProfileName != "" {
 			profile, err := GetProfile(flags.runProfileName)
 			if err != nil {
@@ -389,6 +398,30 @@ See README.md or the bundled SKILL.md for recipes.`,
 				return err
 			}
 			appliedProfile = profile
+		}
+		if flags.deliverSpec != "" {
+			// HAND-FIX(export-writes-through-cmd-out): Cobra's completion command
+			// captures its writer before this runs, so a delivered file would be empty.
+			if strings.Contains(" "+cmd.CommandPath()+" ", " completion ") {
+				return usageErr(fmt.Errorf("--deliver does not apply to completion scripts; redirect stdout instead (for example: %s completion powershell > %s.ps1)", cmd.Root().Name(), cmd.Root().Name()))
+			}
+			sink, err := ParseDeliverSink(flags.deliverSpec)
+			if err != nil {
+				return err
+			}
+			// HAND-FIX(deliver-on-failure): profile save validates --deliver but
+			// records it rather than performing it.
+			if !isProfileSave(cmd) {
+				flags.deliverSink = sink
+			}
+			if sink.Scheme != "stdout" && sink.Scheme != "" && !isProfileSave(cmd) {
+				flags.deliverBuf = &bytes.Buffer{}
+				w := io.MultiWriter(stdoutW(), flags.deliverBuf)
+				cmd.SetOut(w)
+				// HAND-FIX(export-writes-through-cmd-out): help prints through the
+				// target command, which inherits root's writer, so root tees too.
+				cmd.Root().SetOut(w)
+			}
 		}
 		// A saved profile can set dry-run after flag parse. Suppression has to
 		// see that value before any store path is resolved.
@@ -769,9 +802,10 @@ func commandTreeHasFlag(cmd *cobra.Command, name string) bool {
 	return false
 }
 
-// ApplyProfileToFlags overlays values without setting Flag.Changed, so a
-// profile-supplied timeout must count here or binary transfers would drop
-// the whole-call bound.
+// A profile-supplied timeout must count here or binary transfers would drop
+// the whole-call bound. ApplyProfileToFlags marks applied values Changed
+// (HAND-FIX(profile-values-count-as-typed)); the profile lookup below stays as
+// a backstop.
 func timeoutExplicitFrom(cmd *cobra.Command, profile *Profile) bool {
 	if cmd != nil && cmd.Flags().Changed("timeout") {
 		return true
@@ -840,4 +874,10 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 		fmt.Fprintln(tw, line)
 	}
 	return tw.Flush()
+}
+
+// isProfileSave reports whether cmd is `profile save`, which records flags
+// such as --deliver rather than acting on them. HAND-FIX(deliver-on-failure).
+func isProfileSave(cmd *cobra.Command) bool {
+	return cmd.Name() == "save" && cmd.Parent() != nil && cmd.Parent().Name() == "profile"
 }

@@ -33,6 +33,7 @@ import (
 	"synology-pp-cli/internal/config"
 	"synology-pp-cli/internal/dsm"
 	"synology-pp-cli/internal/platform"
+	"synology-pp-cli/internal/termio"
 	"time"
 	"unicode"
 )
@@ -248,7 +249,7 @@ func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
 			tlsCfg = tr.TLSClientConfig.Clone()
 		}
 		if err := dsm.ApplyTLS(tlsCfg, pin, skip); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
+			fmt.Fprintln(termio.Stderr(), "error:", err)
 			tlsCfg = dsm.RefuseAllTLS(err) // a mistyped pin refuses TLS; it never falls back to plain verification
 		}
 		tr.TLSClientConfig = tlsCfg
@@ -852,6 +853,12 @@ func (c *Client) writeCacheWithHeaders(path string, params map[string]string, he
 	ensureCachePerms(resourceDir, cacheFile)
 	// Drop the leftover inode so an already-open 0644 FD keeps the old body.
 	_ = os.Remove(cacheFile)
+	// HAND-FIX(secret-fields-never-persisted): a DSM answer that carries a
+	// credential-named value is never cached (a redacted copy would be served
+	// as the live answer on the next hit, so it is not written at all).
+	if !bytes.Equal(cliutil.RedactSecretFields(data), data) {
+		return
+	}
 	_ = os.WriteFile(cacheFile, []byte(data), 0o600)
 	ensureCachePerms(resourceDir, cacheFile)
 	if c.platformSession != nil {
@@ -1125,7 +1132,7 @@ func (c *Client) waitForRateLimitRefill(ctx context.Context, wait time.Duration)
 	if wait <= 0 {
 		wait = time.Second
 	}
-	fmt.Fprintf(os.Stderr, "rate-limit budget empty, waiting %s for refill\n", wait)
+	fmt.Fprintf(termio.Stderr(), "rate-limit budget empty, waiting %s for refill\n", wait)
 	if err := sleepContext(ctx, wait); err != nil {
 		return fmt.Errorf("timed out waiting %s for rate-limit budget to refill: %w", wait, err)
 	}
@@ -1459,7 +1466,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
 				}
-				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
+				fmt.Fprintf(termio.Stderr(), "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
 				if serr := sleepContext(opCtx, wait); serr != nil {
 					return nil, 0, serr
 				}
@@ -1583,7 +1590,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if c.platformSession != nil {
 					c.platformSession.RecordRateLimitRetry(wait)
 				}
-				fmt.Fprintf(os.Stderr, "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
+				fmt.Fprintf(termio.Stderr(), "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
 				if err := sleepContext(opCtx, wait); err != nil {
 					return nil, 0, err
 				}
@@ -1638,7 +1645,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if !retryWithinBudget(wait) {
 				return nil, resp.StatusCode, apiErr
 			}
-			fmt.Fprintf(os.Stderr, "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
+			fmt.Fprintf(termio.Stderr(), "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
 			if err := sleepContext(opCtx, wait); err != nil {
 				return nil, 0, err
 			}
@@ -1673,7 +1680,7 @@ func safeEndpointClass(method, path string) string {
 // using the auth material already resolved in `do()`. Never triggers a network
 // call — the caller is responsible for passing cached auth material only.
 func (c *Client) dryRun(method, targetURL, path string, params map[string]string, body []byte, headerOverrides map[string]string, authHeader string) (json.RawMessage, int, error) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", method, c.displayURL(targetURL, authHeader))
+	fmt.Fprintf(termio.Stderr(), "%s %s\n", method, c.displayURL(targetURL, authHeader))
 	queryPrinted := false
 	if params != nil {
 		keys := make([]string, 0, len(params))
@@ -1688,7 +1695,7 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			fmt.Fprintf(termio.Stderr(), "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
 			queryPrinted = true
 		}
 	}
@@ -1699,20 +1706,20 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 		if queryPrinted {
 			sep = "&"
 		}
-		fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, "_sid", maskToken(authHeader))
+		fmt.Fprintf(termio.Stderr(), "  %s%s=%s\n", sep, "_sid", maskToken(authHeader))
 		queryPrinted = true
 	}
 	_ = queryPrinted
 	if body != nil {
 		var pretty json.RawMessage
 		if json.Unmarshal(body, &pretty) == nil {
-			enc := json.NewEncoder(os.Stderr)
+			enc := json.NewEncoder(termio.Stderr())
 			enc.SetIndent("  ", "  ")
-			fmt.Fprintf(os.Stderr, "  Body:\n")
+			fmt.Fprintf(termio.Stderr(), "  Body:\n")
 			enc.Encode(pretty)
 		}
 	}
-	fmt.Fprintf(os.Stderr, "\n(dry run - no request sent)\n")
+	fmt.Fprintf(termio.Stderr(), "\n(dry run - no request sent)\n")
 	return json.RawMessage(`{"dry_run": true}`), 0, nil
 }
 

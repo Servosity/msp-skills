@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"synology-pp-cli/internal/termio"
 )
 
 const appName = "synology-cli"
@@ -354,7 +356,7 @@ func warnSkippedPathOverride(name, raw string) {
 		return
 	}
 	pathWarned[key] = struct{}{}
-	fmt.Fprintf(os.Stderr, "warning: ignoring %s=%q: path must be absolute\n", name, raw)
+	fmt.Fprintf(termio.Stderr(), "warning: ignoring %s=%q: path must be absolute\n", name, raw)
 }
 
 func defaultBase(kind PathKind) (string, error) {

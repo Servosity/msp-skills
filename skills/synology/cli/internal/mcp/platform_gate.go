@@ -36,7 +36,7 @@ func requireFreshTenantGate(s *server.MCPServer, next server.ToolHandlerFunc) se
 		}
 		session, err := verifyFreshMCPInvocation(ctx)
 		if err != nil {
-			return mcplib.NewToolResultError(err.Error()), nil
+			return mcpResultError(err.Error()), nil
 		}
 		if session == nil {
 			return next(ctx, request)

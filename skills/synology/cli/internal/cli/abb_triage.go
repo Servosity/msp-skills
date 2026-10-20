@@ -93,7 +93,7 @@ text.`, "\n"),
 			if err != nil {
 				return redactErr(c, classifyDSMErr(err))
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), rep, flags)
+			return printReportJSON(cmd.OutOrStdout(), rep, flags) // agent-compaction-keeps-report-fields
 		},
 	}
 	cmd.Flags().StringVar(&nasName, "nas", "", "Registered NAS to query (optional when only one NAS is configured)")

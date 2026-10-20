@@ -399,7 +399,7 @@ func TestTriageTrimmedNumbersAndZeroStart(t *testing.T) {
 
 func TestMalformedConfigIsNotAnEmptyFleet(t *testing.T) {
 	testenv.Isolate(t)
-	cfg := t.TempDir() + "/config.json"
+	cfg := filepath.Join(t.TempDir(), "config.json")
 	if err := os.WriteFile(cfg, []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}

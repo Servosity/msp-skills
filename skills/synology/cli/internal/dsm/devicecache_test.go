@@ -72,7 +72,7 @@ func TestClientReportsNewDeviceID(t *testing.T) {
 func TestDeviceCacheSurvivesNullAndPerAccount(t *testing.T) {
 	dir := t.TempDir()
 	base := "https://nas:5001"
-	if err := os.WriteFile(filepath.Join(dir, "session-nas_5001.json"), []byte("null"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, SessionFileName(base)), []byte("null"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := SaveDeviceID(dir, base, "alice", "did-a"); err != nil {

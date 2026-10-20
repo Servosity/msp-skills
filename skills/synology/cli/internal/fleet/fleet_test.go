@@ -449,9 +449,11 @@ func TestPathsTraceToSpec(t *testing.T) {
 	if spec == nil {
 		t.Skip("spec.yaml not shipped next to this module")
 	}
+	// A Windows checkout with core.autocrlf=true ends every line in CRLF.
+	text := strings.ReplaceAll(string(spec), "\r\n", "\n")
 	for _, p := range []string{PathAPIInfo, PathSystemInfo, PathABBTasks, PathABBResults, PathABBResultDetail,
 		PathABBLogs, PathABBTransfers, PathStorage, PathHyperBackupTasks} {
-		if !strings.Contains(string(spec), "path: "+p+"\n") {
+		if !strings.Contains(text, "path: "+p+"\n") {
 			t.Errorf("path %s is not declared in spec.yaml", p)
 		}
 	}

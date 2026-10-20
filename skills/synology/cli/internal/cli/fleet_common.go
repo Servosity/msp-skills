@@ -218,7 +218,7 @@ func openFleetRead(ctx context.Context, path string, haveNAS bool) (*sql.DB, fun
 func printFleetRows(cmd *cobra.Command, flags *rootFlags, rows any, empty string) error {
 	w := cmd.OutOrStdout()
 	if !wantsHumanTable(w, flags) {
-		return printJSONFiltered(w, rows, flags)
+		return printReportJSON(w, rows, flags) // agent-compaction-keeps-report-fields
 	}
 	data, err := json.Marshal(rows)
 	if err != nil {

@@ -12,7 +12,8 @@
         {
           "file": "cli/internal/client/session.go",
           "contains": "HAND-FIX(dsm-login)",
-          "min_count": 17
+          "min_count": 17,
+          "code_only": false
         },
         {
           "file": "cli/internal/client/session.go",
@@ -133,7 +134,8 @@
         {
           "file": "cli/internal/client/client.go",
           "contains": "HAND-FIX(dsm-envelope)",
-          "min_count": 1
+          "min_count": 1,
+          "code_only": false
         },
         {
           "file": "cli/internal/client/client.go",
@@ -196,7 +198,8 @@
         {
           "file": "cli/internal/cli/auth.go",
           "contains": "HAND-FIX(dsm-auth-login)",
-          "min_count": 1
+          "min_count": 1,
+          "code_only": false
         },
         {
           "file": "cli/internal/cli/auth.go",
@@ -223,7 +226,8 @@
         {
           "file": "cli/internal/cliutil/credentials_test.go",
           "contains": "HAND-FIX(session-auth-tests)",
-          "min_count": 3
+          "min_count": 3,
+          "code_only": false
         }
       ]
     },
@@ -237,17 +241,38 @@
         {
           "file": "cli/internal/cli/abb_backup.go",
           "contains": "HAND-FIX(dsm-dry-run)",
-          "min_count": 1
+          "min_count": 1,
+          "code_only": false
         },
         {
           "file": "cli/internal/cli/abb_cancel.go",
           "contains": "HAND-FIX(dsm-dry-run)",
-          "min_count": 1
+          "min_count": 1,
+          "code_only": false
         },
         {
           "file": "cli/internal/cli/session_logout.go",
           "contains": "HAND-FIX(dsm-dry-run)",
-          "min_count": 1
+          "min_count": 1,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/cli/abb_backup.go",
+          "contains": "return dsmDryRun(cmd, flags, \"abb backup\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/abb_cancel.go",
+          "contains": "return dsmDryRun(cmd, flags, \"abb cancel\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/session_logout.go",
+          "contains": "return dsmDryRun(cmd, flags, \"session logout\")",
+          "min_count": 1,
+          "code_only": true
         }
       ]
     },
@@ -260,7 +285,8 @@
         {
           "file": "cli/internal/cli/auth.go",
           "contains": "HAND-FIX(dsm-auth-logout)",
-          "min_count": 2
+          "min_count": 2,
+          "code_only": false
         },
         {
           "file": "cli/internal/cli/auth.go",
@@ -399,6 +425,1161 @@
         {
           "file": "cli/internal/mcp/recipe_intents_test.go",
           "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tabular-printers-scrub-terminal",
+      "summary": "--csv, --plain and --quiet output drops terminal control characters (C0 except tab/CR/LF, DEL, C1) from NAS-sourced values",
+      "why": "Task, host and share names come from the NAS, and the generated printCSV/printPlain/printQuiet/quietScalar wrote them raw, so a name carrying ESC ] 52 ; c ; ... BEL (OSC 52, the clipboard) or ESC [ 2 J reached the terminal. Measured on the shipped tree against a stub NAS: `abb tasks --csv`, `--plain` and `group list --quiet` printed raw ESC, BEL and U+009D. Ported from bitdefender/backup-radar (same press 4.33.5 template). The hand-written fleet and abb report tables already go through printAutoTable/formatCellValue, which scrub. TestTabularPrintersScrubTerminalControls fails with the scrub removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cell = scrubCell(cell)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "s := scrubCell(formatTabularCell(v))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, scrubCell(strings.Join(keys, \"\\t\")))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return cliutil.ScrubTerminal(t)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "func scrubCell(s string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tabular_scrub_test.go",
+          "contains": "func TestTabularPrintersScrubTerminalControls(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "output-escapes-c1-controls",
+      "summary": "every terminal write in every package goes through the shared escaping writers in internal/termio (stdoutW()/stderrW() in internal/cli, termio.Stderr() in client, store, config, cliutil, learn, platform and the MCP main): UTF-8 C1, lone 8-bit C1, raw C0/DEL (except tab, newline, CR before newline) become \\u00XX; only the CLI's own SGR colors pass; isTerminal unwraps the writer; sync progress redraws through termio.Progress",
+      "why": "encoding/json escapes C0 but writes U+0080-U+009F raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST): `abb tasks --json` against a stub NAS printed a task name's U+009D...U+009C raw; and 150 generated fmt.Fprintf(os.Stderr, ...) sites (dry-run request bodies, retry notes, warnings) bypassed any writer. Ported from backup-radar (termio converged there over 4 Codex rounds). TestExecuteEscapesControlsOnStdoutAndStderr runs the real Execute() and fails with the SetOut/SetErr wiring removed; TestNoDirectTerminalWrites walks the module and fails on any new direct stream write; TestIsTerminalUnwrapsEscapingWriter pins the unwrap.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetOut(stdoutW())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetErr(stderrW())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "envelopeWriter := stdoutW()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "w := io.MultiWriter(stdoutW(), flags.deliverBuf)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func stdoutW() io.Writer { return termio.Stdout() }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func stderrW() io.Writer { return termio.Stderr() }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "func (c *Writer) Write(p []byte) (int, error) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "func EscapeString(s string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "if allowedSGR[string(p[:i+1])] {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "termio.Progress(\"  %s: %d synced\", resource",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "json.NewEncoder(termio.Stderr())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/cmd/synology-mcp/main.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/termio/termio_test.go",
+          "contains": "func TestC1EscapeWriterKeepsJSONValidAndTerminalSafe(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape_test.go",
+          "contains": "func TestExecuteEscapesControlsOnStdoutAndStderr(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape_test.go",
+          "contains": "func TestNoDirectTerminalWrites(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/abb_hypervisors.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_logs.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_result_detail.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_results.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_settings.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_storage.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_tasks.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/abb_transfers.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/group_list.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/group_members.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/hyperbackup_task_status.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/hyperbackup_tasks.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/learn_init.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/playbook_init.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/promoted_folder.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/promoted_log.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/promoted_package.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/promoted_user.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/session_apis.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/storage_disks.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/storage_overview.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/storage_pools.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/storage_smart.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/storage_smart_schedule.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/storage_volumes.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/system_dsm.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/system_get.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/system_health_check.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/system_network.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/system_ups.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/system_utilization.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "not_contains": "(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/platform/perms_windows.go",
+          "not_contains": "(os.Stderr,"
+        }
+      ]
+    },
+    {
+      "id": "mcp-tool-results-escape-controls",
+      "summary": "every MCP tool result and error text (typed endpoint tools, the why_did_a_task_fail intent and the Cobra-mirror tools) is built through an escaping constructor (mcpResultText/mcpResultError, escapedToolResultText/Error/escapedTextContent) that rewrites C0, DEL and C1 controls as \\u00XX",
+      "why": "The typed endpoint tools returned DSM JSON verbatim and mcp-go encodes the frame with encoding/json, so a task name carrying U+009D...U+009C (OSC 52) reached content[].text and the stdio frame raw; measured on the shipped binary: abb_tasks and why_did_a_task_fail answered with raw C1 on the wire. Ported from backup-radar. TestEndpointResultEscapesTaskName (fake NAS) fails with the escape removed; TestToolHandlersUseEscapingConstructors fails if any handler calls mcplib.NewToolResultText/Error or NewTextContent directly.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/result_escape.go",
+          "contains": "func escapeTerminalControls(s string) string { return termio.EscapeString(s) }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_escape.go",
+          "contains": "return mcplib.NewToolResultText(escapeTerminalControls(s))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/result_escape.go",
+          "contains": "return mcplib.NewToolResultText(termio.EscapeString(s))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "return escapedToolResultError(bound.Text(message))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "toolResult := escapedToolResultText(bound.Text(result.Stdout))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "mcplib.NewToolResultText("
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "mcplib.NewToolResultError("
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "not_contains": "mcplib.NewToolResultError("
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "not_contains": "mcplib.NewTextContent("
+        },
+        {
+          "file": "cli/internal/mcp/result_escape_test.go",
+          "contains": "func TestToolHandlersUseEscapingConstructors(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_escape_test.go",
+          "contains": "func TestEndpointResultEscapesTaskName(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/platform_gate.go",
+          "not_contains": "mcplib.NewToolResultError("
+        }
+      ]
+    },
+    {
+      "id": "mcp-findings-keep-report",
+      "summary": "when a shelled-out command exits non-zero with output on both streams, the MCP error result carries its stdout as well as stderr, so fleet status, fleet health and the abb reports (exit 6 with findings) hand an agent the rows, not only the count",
+      "why": "The report commands exit 6 exactly when they found something; RunCLICommand quoted stderr alone, so the abb_failures MCP tool answered `Error: 1 row(s) need attention` with the rows dropped (measured on the shipped binary against a stub NAS). Same shape as quotewerks mcp-partial-failure-keeps-receipt. TestShellOutFindingsKeepRows (a helper process that prints rows and exits 6) fails without the branch.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "if out := strings.TrimSpace(stdoutText); stderrText != \"\" && out != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/findings_report_test.go",
+          "contains": "func TestShellOutFindingsKeepRows(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-context-describes-dsm",
+      "summary": "the MCP context tool, the search/sql tool descriptions and the sql no-such-table hint describe DSM truthfully: GET operations selected by api=/method=, offset/limit paging with the real defaults, the fleet mirror filled by fleet_sync, sql/search covering only the generic sync store (folder, group, log, package, user), archetype infrastructure, no developer-platform playbook, real auth env descriptions",
+      "why": "The generated context tool (`call this first`) told agents lists page with a cursor (default 100), marked abb, storage and system searchable although sync never stores them, pointed the sql tool and its no-such-table hint at resource_type='abb' rows that never exist, described SYNOLOGY_PASSWORD/DEVICE_ID/OTP_CODE as `Set during initial auth setup.` and shipped a developer-platform archetype and playbook. Same class bitdefender and backup-radar fixed. TestMCPContextDescribesDSM fails with the old archetype or the cursor tip restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"archetype\":   \"infrastructure\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"DSM lists page with offset and limit",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"The sql and search tools read only the generic sync store",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Pagination uses cursor-based paging"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "resource_type='abb'"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Developer platform APIs often have nested resource hierarchies"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "\"description\": \"Set during initial auth setup.\""
+        },
+        {
+          "file": "cli/internal/mcp/context_truth_test.go",
+          "contains": "func TestMCPContextDescribesDSM(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agent-compaction-keeps-report-fields",
+      "summary": "the fleet and abb reports (fleet sync/status/health/list, abb failures/stale/device/trend via printFleetRows, and abb triage) keep every field their row types declare under --agent/--compact (printReportJSON: printJSONFilteredKeep with the reflected JSON field names)",
+      "why": "--agent compaction keeps a row key only when it is on the gravity allow-list or present on 80% of rows, and the report rows mark their reconciliation fields omitempty. Measured on the shipped binary with five registered NAS units, one unreachable: `fleet sync --agent` printed n5 as ok:false with its error dropped and `fleet status --agent` dropped sync_error; abb triage lost error_code and params on the failing timeline step. TestAgentCompactionKeepsReportFields fails with the keep set removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/report_keep.go",
+          "contains": "return printJSONFilteredKeep(w, v, flags, reportKeepFields(v)...)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_common.go",
+          "contains": "return printReportJSON(w, rows, flags)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/abb_triage.go",
+          "contains": "return printReportJSON(cmd.OutOrStdout(), rep, flags)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report_keep_test.go",
+          "contains": "func TestAgentCompactionKeepsReportFields(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-values-count-as-typed",
+      "summary": "ApplyProfileToFlags marks every flag it applies as Changed, so a profile value behaves like a typed one",
+      "why": "Commands gate on Changed(): abb backup/cancel run their required-input check and --task-ids JSON validation only when the flag changed, hasChangedLocalFlags decides whether a bare call prints help, --agent fills json/compact/no-input only where they are unchanged. A profile value applied without Changed was ignored (help printed, nothing ran) or sent unvalidated. The backup-radar safety case (a saved --dry-run running live) is not reachable here because the DSM write commands read flags.dryRun directly, but the class is the same template code. TestApplyProfileMarksFlagsChanged fails without the line.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "\t\tflag.Changed = true\n\t}\n\treturn nil\n}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestApplyProfileMarksFlagsChanged(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-output-mode-groups",
+      "summary": "a typed output-mode flag (json/csv/plain/quiet/agent) or projection (compact/select) wins over every profile value in its group",
+      "why": "ApplyProfileToFlags overlaid by flag name only, so a typed --csv or --plain lost to a profile's --json: measured on the shipped binary, `profile save pj --json` then `group list --profile pj --csv` printed JSON. TestApplyProfileTypedOutputModeWins fails without the group rule.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "for _, group := range [][]string{{\"json\", \"csv\", \"plain\", \"quiet\", \"agent\"}, {\"compact\", \"select\"}} {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestApplyProfileTypedOutputModeWins(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-writes-refuse-unknown-args",
+      "summary": "the typed MCP write tools (abb_backup, abb_cancel, session_logout) refuse any argument outside their schema, and every typed read tool refuses an argument that would override its fixed DSM query (api, method, version, _sid, SynoToken, or any key its path fixes), before any request",
+      "why": "makeAPIHandler forwarded undeclared arguments as query parameters and the client merges them into the path's own query with Set. Every DSM operation is a GET on one CGI path selected by api=/method=, so with SYNOLOGY_MCP_READ_ONLY=1 the read-only abb_tasks tool called with {\"method\":\"backup\"} started a backup and abb_settings with {\"api\":\"SYNO.ActiveBackup.Task\",\"method\":\"cancel\"} cancelled one, and abb_backup with the CLI spelling dry-run:true ran live (all three measured on the shipped binary against a stub NAS). TestEndpointWriteRefusesUndeclaredArgument and TestReadToolRefusesOperationOverride fail with the check removed and prove declared calls and a harmless extra filter still reach the NAS.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if err := undeclaredEndpointArgError(args, declaredArgs, pathTemplate, readOnly); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/endpoint_args_guard.go",
+          "contains": "func undeclaredEndpointArgError(args map[string]any, declared map[string]bool, pathTemplate string, readOnly bool) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/endpoint_args_guard.go",
+          "contains": "var dsmReservedQueryKeys = []string{\"api\", \"method\", \"version\", \"_sid\", \"synotoken\"}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "governance.md",
+          "contains": "refuse any argument outside their schema",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/endpoint_args_guard_test.go",
+          "contains": "func TestEndpointWriteRefusesUndeclaredArgument(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/endpoint_args_guard_test.go",
+          "contains": "func TestReadToolRefusesOperationOverride(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-drops-endpoint-writes",
+      "summary": "SYNOLOGY_MCP_READ_ONLY removes every tool not annotated read-only after all tools register (abb_backup, abb_cancel, session_logout and the local writers teach, teach_playbook, learnings_confirm, playbook_amend that the Cobra mirror keeps); a write tool registered before the switch refuses at call time; the why_did_a_task_fail intent (abb triage, mcp:read-only in the Cobra tree) is annotated read-only so it stays",
+      "why": "The press applies the switch only in cobratree.RegisterAll. Measured on the shipped binary with SYNOLOGY_MCP_READ_ONLY=1: tools/list still offered abb_backup, abb_cancel, session_logout and six local writers, and tools/call sent backup, cancel and logout to a stub NAS. Same defect td-synnex and quotewerks fixed. TestReadOnlyEnvDropsEndpointWrites fails without the call (and on any offered tool lacking readOnlyHint); TestReadOnlyCallTimeBackstop fails without the backstop.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\tif cliutil.IsMCPReadOnlyEnv() {\n\t\tdropNonReadOnlyTools(s)\n\t}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if !readOnly && cliutil.IsMCPReadOnlyEnv() {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints.go",
+          "contains": "func dropNonReadOnlyTools(s *server.MCPServer) []string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "mcplib.WithReadOnlyHintAnnotation(true),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "func TestReadOnlyEnvDropsEndpointWrites(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "func TestReadOnlyCallTimeBackstop(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-fails-closed",
+      "summary": "SYNOLOGY_MCP_READ_ONLY fails closed: blank, 0, false, no and off (case-insensitive, trimmed, an unresolved ${user_config...} placeholder counts as blank) leave it off; any other value, including true, yes and on, turns it on; the generated TestMCPReadOnlySwitch 'other values' subtest is updated to that contract",
+      "why": "The generated check accepted exactly \"1\" and the .mcpb exposes the switch as a free-text field: measured on the shipped binary, SYNOLOGY_MCP_READ_ONLY=true, yes, TRUE and on all left 67 tools including fleet_sync, sync and export. Same fix as td-synnex mcp-read-only-fails-closed. TestReadOnlyEnvDropsEndpointWrites (values 1/true/yes) fails with the literal-1 check restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "case \"\", \"0\", \"false\", \"no\", \"off\":",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "not_contains": "return os.Getenv(MCPReadOnlyEnvVar) == \"1\""
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout_test.go",
+          "contains": "left the read-only switch off",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "manifest.json",
+          "contains": "Any other value, for example 1, true or yes",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "export-writes-through-cmd-out",
+      "summary": "--deliver captures every command's output: export, agent-context, version and tail write through cmd.OutOrStdout(), and the deliver writer is set on the executing command AND root (help prints through root's writer); completion refuses --deliver",
+      "why": "Measured on the shipped binary: `export group --deliver file:x`, `agent-context --deliver`, `version --deliver` and `help abb --deliver` each left an empty file while printing to the terminal. Ported from backup-radar. TestDeliverCapturesEveryCommandsOutput fails with any one of the writers or the root tee reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "writer = bufio.NewWriter(cmd.OutOrStdout())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agent_context.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/version.go",
+          "contains": "fmt.Fprintf(cmd.OutOrStdout(), \"%s %s\\n\", cmd.Root().Name(), version)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.Root().SetOut(w)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "--deliver does not apply to completion scripts; redirect stdout instead",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "Every command except `completion` accepts `--deliver <sink>`",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/deliver_gaps_test.go",
+          "contains": "func TestDeliverCapturesEveryCommandsOutput(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-after-profile",
+      "summary": "a saved profile is applied before --deliver is wired, so a --deliver the profile restores is honoured",
+      "why": "The press template wired the sink before applying --profile: measured on the shipped binary, `profile save nightly --deliver file:x` then `group list --profile nightly` left x holding the save confirmation. TestDeliverAfterProfile fails with the deliver block moved back above the profile block.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "\t\t\tappliedProfile = profile\n\t\t}\n\t\tif flags.deliverSpec != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver_gaps_test.go",
+          "contains": "func TestDeliverAfterProfile(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-on-failure",
+      "summary": "a failed command still delivers what it printed (or warns that the sink was not updated); profile save validates --deliver and records it without performing it",
+      "why": "The template delivered only on success, and the fleet/abb reports exit 6 exactly when they find something: measured on the shipped binary, `fleet status --json --deliver file:x` with a finding exited 6 and never created x, so a scheduled RMM delivery kept the previous run's all-clear. profile save overwrote its sink with the save confirmation. TestDeliverOnFailure and TestDeliverAfterProfile fail with the branch or the profile-save exception removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err != nil && !envelopeWritten && flags.deliverBuf != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "return cmd.Name() == \"save\" && cmd.Parent() != nil && cmd.Parent().Name() == \"profile\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if sink.Scheme != \"stdout\" && sink.Scheme != \"\" && !isProfileSave(cmd) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "unprojected.selectFields, unprojected.compact = \"\", false",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "A command that fails still delivers what it printed",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/deliver_gaps_test.go",
+          "contains": "func TestDeliverOnFailure(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-clear-never-marks-complete",
+      "summary": "the sync --full / --latest-only and workflow archive cursor clears mark a collection incomplete (store.ClearSyncCursor), run only after every flag is validated, and only for known resource names; the hand-written fleet mirror commits data and outcome together after the walk and has no pre-walk clear",
+      "why": "The generated clears wrote last_attempt_complete=1 for every collection before validating --since or walking anything: measured on the shipped tree, `sync --full --since bogus` exited with a usage error and left five sync_state rows marked complete with zero rows, so MCP search/sql reported store_status ready (false-GREEN). Ported from backup-radar. TestClearSyncCursorNeverMarksComplete fails with complete=1; TestSyncUsageErrorsLeaveSyncStateUntouched fails with the clear moved back before validation.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) ClearSyncCursor(resourceType string) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "last_synced_at = excluded.last_synced_at, total_count = 0, last_attempt_complete = 0`",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "clearCursors := full && !c.DryRun",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if err := db.ClearSyncCursor(resource); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if !known[resource] {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "db.SaveSyncStateAt(resource, \"\", 0, time.Time{})"
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "if err := s.ClearSyncCursor(resource); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "s.SaveSyncState(resource, \"\", 0)"
+        },
+        {
+          "file": "cli/internal/store/clear_sync_cursor_test.go",
+          "contains": "func TestClearSyncCursorNeverMarksComplete(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_clear_order_test.go",
+          "contains": "func TestSyncUsageErrorsLeaveSyncStateUntouched(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-guards-local-mutations",
+      "summary": "--dry-run changes nothing locally: export -o, feedback (local file and --send POST) and profile delete return the dry-run preview (auth login/logout and the fleet, teach and learnings writers already did)",
+      "why": "Measured on the shipped binary: `export group -o keep.json --dry-run` overwrote keep.json, `feedback --dry-run` appended to feedback.jsonl, `profile delete p1 --yes --dry-run` deleted p1. Ported from backup-radar. TestDryRunChangesNothingLocally fails with any of the three guards removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if outputFile != \"\" && !dryRunOK(flags) {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"feedback\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"profile delete\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dry_run_local_test.go",
+          "contains": "func TestDryRunChangesNothingLocally(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-setup-windows-twin",
+      "summary": "auth setup and the unauthenticated auth status print the DSM login setup for macOS/Linux and PowerShell; auth status treats SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD (or an auth_header session id) as configured and names what is missing",
+      "why": "auth setup printed `No setup URL is configured for this CLI; check the API's docs.` and named no variable, and auth status read only auth_header: measured on the shipped binary with the account and password set, even right after a successful auth login, it printed `Not authenticated`, a bare `Set your token:` and exited 4. Most MSPs run PowerShell, where `export` does not exist. TestAuthSetupPrintsBothShells and TestAuthStatusReadsDSMLogin fail with the generated text restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "printDSMSetup(w)",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "authed, missing := dsmCredentialState(cfg)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_setup_dsm.go",
+          "contains": "func printDSMSetup(w io.Writer) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_setup_dsm.go",
+          "contains": "$env:SYNOLOGY_PASSWORD = \"<password>\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "No setup URL is configured for this CLI"
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestAuthSetupPrintsBothShells(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestAuthStatusReadsDSMLogin(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "help-examples-windows-twin",
+      "summary": "every user-facing POSIX-only form carries its PowerShell twin: the auth login `SYNOLOGY_OTP_CODE=... cmd` example, the feedback `< notes.txt` example (code and SKILL.md), the fleet sync `credentials not set` hint, and the mcp-install remote launch line",
+      "why": "PowerShell has no `VAR=value cmd` prefix and rejects `<`; the fleet sync row error said `export <prefix>_ACCOUNT and <prefix>_PASSWORD` only, and mcp-install.md gave only the POSIX launch line. The PowerShell launch line keeps `VAR=` with no spaces so check_env_schema still sees each required variable. TestHelpExamplesCarryPowerShellTwin and TestFleetSyncCredentialHintCarriesPowerShellTwin fail with the twins removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "$env:SYNOLOGY_OTP_CODE = \\\"123456\\\"; synology-cli auth login   # PowerShell",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "Get-Content notes.txt | synology-cli feedback --stdin   # PowerShell",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_sync.go",
+          "contains": "PowerShell: $env:%[1]s_ACCOUNT",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_sync.go",
+          "not_contains": "\"credentials not set: export %s_ACCOUNT and %s_PASSWORD\""
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "Get-Content notes.txt | synology-cli feedback --stdin   # PowerShell",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "$env:SYNOLOGY_BASE_URL=\"https://<nas>:5001\"; $env:SYNOLOGY_ACCOUNT=\"<dsm-account>\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestHelpExamplesCarryPowerShellTwin(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestFleetSyncCredentialHintCarriesPowerShellTwin(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor refuses the placeholder address and names SYNOLOGY_BASE_URL, proves the host is a DSM WebAPI with an unauthenticated SYNO.API.Info call before any password is sent, then logs in and makes one authenticated SYNO.DSM.Info read, reporting valid / rejected (DSM 4xx) / two-factor code needed / scope-limited; the auth row counts SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD as configured",
+      "why": "The generated doctor called any answer to GET / reachable (DSM's own login page included: `reachable (HTML body at /)`) and, with SYNOLOGY_ACCOUNT/PASSWORD set, printed no credentials row and auth `not configured`; check_doctor_truth failed 5 assertions on the shipped tree, and the generated probe POSTed the password to a JSON or HTML host that is not DSM. The gate's generic stub does not speak DSM's {success,data} envelope or carry an account login, so its healthy fixture is honestly reported as not a DSM WebAPI; with the generic GET / probe gone from doctor.go the gate passes on its expired, wrong-base and placeholder checks. TestDoctorVerdictTracksReality drives a DSM-faithful stub in both directions (valid, wrong password, 2FA, non-DSM JSON, HTML, no login, placeholder) and asserts the password never reaches a non-DSM host; it fails with the generated probe restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorDSMVerdict(cmd.Context(), flags, cfg, report)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if ok, _ := dsmCredentialState(cfg); ok {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "report[\"api\"] = \"reachable (HTML body at /)\""
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s`"
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "const doctorAPIInfoPath = \"/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=SYNO.API.Auth\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "setCred(\"ERROR not verified: \" + doctorBaseURLEnv + \" does not answer as a DSM WebAPI, so the password was not sent\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorClassifyLogin(c *dsm.Client, err error) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict_test.go",
+          "contains": "func TestDoctorVerdictTracksReality(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token, SYNOLOGY_TLS_FINGERPRINT and SYNOLOGY_SKIP_TLS_VERIFY are read through cliutil.EnvOverride, so an unresolved ${user_config...} placeholder reads as unset (no bearer secret, no certificate pin) instead of as a value",
+      "why": "requireHTTPCallerToken read SYNOLOGY_MCP_HTTP_TOKEN with os.Getenv; the variable is an optional MCPB user_config value and a host that skips the prompt leaves the public placeholder text, which then authenticated anyone. dsm.EnvTLS read the TLS variables the same way, so a skipped optional pin became a fingerprint that refuses every NAS certificate. Same fix as sophos-central, bitdefender and backup-radar. TestHTTPTokenPlaceholderRefused and TestEnvTLSIgnoresUnresolvedPlaceholders fail with os.Getenv restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/cmd/synology-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/tls.go",
+          "contains": "return strings.TrimSpace(cliutil.EnvOverride(\"SYNOLOGY_TLS_FINGERPRINT\")),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/tls.go",
+          "contains": "cliutil.EnvOverride(\"SYNOLOGY_SKIP_TLS_VERIFY\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/synology-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/envtls_placeholder_test.go",
+          "contains": "func TestEnvTLSIgnoresUnresolvedPlaceholders(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "install-env-declared-on-every-channel",
+      "summary": "every variable the binaries read (SYNOLOGY_BASE_URL, ACCOUNT, PASSWORD required; DEVICE_ID, OTP_CODE, TLS_FINGERPRINT, SKIP_TLS_VERIFY, MCP_READ_ONLY, MCP_HTTP_TOKEN, USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE optional) is declared identically on manifest.json, server.json and every mcp-install.md env block, with optional values blank in the copy-paste blocks and a remote launch line for each shell",
+      "why": "check_env_schema reported 13 findings on the shipped tree: SYNOLOGY_USER_AGENT and PRINTING_PRESS_CLIENT_PROFILE undeclared, and server.json marking every variable required and secret against the manifest. The copy-paste blocks also set optional variables to `<your-...>` text, which a pasted config would send as a one-time code, a device token, a certificate pin, an HTTP token and (now that the switch fails closed) read-only mode. SYNOLOGY_BASE_URL stays required.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"SYNOLOGY_USER_AGENT\": \"${user_config.synology_user_agent}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"SYNOLOGY_USER_AGENT\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"SYNOLOGY_MCP_READ_ONLY\": \"\",",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"\"",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "SYNOLOGY_BASE_URL=https://<nas>:5001 SYNOLOGY_ACCOUNT=<dsm-account> SYNOLOGY_PASSWORD=<dsm-password> SYNOLOGY_MCP_HTTP_TOKEN=<a long random value> synology-mcp --transport http",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "not_contains": "<your-synology_mcp_read_only>"
+        }
+      ]
+    },
+    {
+      "id": "secret-fields-never-persisted",
+      "summary": "no credential-named field (password, passwd, secret, token, private key, API key, sid, did, ...) from a DSM answer reaches disk: rows are redacted at the single store sink (upsertGenericResourceTx, which sync, write-through live reads and the FTS index share), and an answer carrying one is never written to the HTTP response cache; live output is unchanged",
+      "why": "The spec declares no response schemas, so the secret-bearing reads cannot be enumerated; the class is reachable mechanically. Measured on the shipped binary against a stub NAS serving SENTINEL-SECRET-7731 in user passwd, share enc_passwd, Hyper Backup repo_password, ABB smtp_password and network pppoe_password: `sync` and the write-through of `hyperbackup tasks` stored it in data.db (which MCP sql serves even in read-only mode) and the response cache kept three copies. The fleet mirror stores typed columns only (first_error uses an allow-list of log params), so fleet sync never stored it. No synology GET is known or declared to return credential material, so no command moved to the Credential tier. TestSyncAndLiveReadsNeverPersistSecretFields walks the whole home after sync and live reads and fails with either sink's redaction removed; TestStoreNeverPersistsSecretFields and TestResponseCacheNeverStoresSecretFields pin each sink.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "data = cliutil.RedactSecretFields(data)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if !bytes.Equal(cliutil.RedactSecretFields(data), data) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_fields.go",
+          "contains": "func RedactSecretFields(data []byte) []byte {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_fields.go",
+          "contains": "func SecretFieldName(key string) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/secret_fields_persist_test.go",
+          "contains": "func TestSyncAndLiveReadsNeverPersistSecretFields(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/secret_fields_persist_test.go",
+          "contains": "func TestStoreNeverPersistsSecretFields(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/secret_cache_test.go",
+          "contains": "func TestResponseCacheNeverStoresSecretFields(",
           "min_count": 1,
           "code_only": true
         }

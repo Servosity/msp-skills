@@ -28,6 +28,9 @@ import (
 	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
+
+	"synology-pp-cli/internal/cliutil"
+	"synology-pp-cli/internal/termio"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -1245,7 +1248,7 @@ func withMigrationLock(ctx context.Context, conn *sql.Conn, deadline time.Time, 
 		// pinned connection returned to the pool with state that will
 		// confuse later queries.
 		if _, rerr := conn.ExecContext(context.Background(), "ROLLBACK"); rerr != nil {
-			fmt.Fprintf(os.Stderr, "warning: store migration rollback failed: %v\n", rerr)
+			fmt.Fprintf(termio.Stderr(), "warning: store migration rollback failed: %v\n", rerr)
 		}
 	}()
 
@@ -1341,6 +1344,9 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
+	// HAND-FIX(secret-fields-never-persisted): every row reaches the store
+	// (and its FTS index) here; credential-named values never do.
+	data = cliutil.RedactSecretFields(data)
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
@@ -1355,7 +1361,7 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 	// Use explicit rowid for FTS5 compatibility with modernc.org/sqlite.
 	// Standard DELETE WHERE column=? may not work on FTS5 virtual tables.
 	if _, err = tx.Exec(`DELETE FROM resources_fts WHERE rowid = ?`, ftsRowid); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: FTS index cleanup failed: %v\n", err)
+		fmt.Fprintf(termio.Stderr(), "warning: FTS index cleanup failed: %v\n", err)
 	}
 
 	if _, err = tx.Exec(
@@ -1364,7 +1370,7 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 		ftsRowid, id, resourceType, searchableResourceContent(data),
 	); err != nil {
 		// FTS insert failure is non-fatal
-		fmt.Fprintf(os.Stderr, "warning: FTS index update failed: %v\n", err)
+		fmt.Fprintf(termio.Stderr(), "warning: FTS index update failed: %v\n", err)
 	}
 
 	return nil
@@ -3219,7 +3225,7 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	// a structured primary_key_unresolved anomaly without spamming stderr for
 	// write-through cache batches that did persist useful rows.
 	if extractFailures > 0 && stored == 0 && len(items) > 0 {
-		fmt.Fprintf(os.Stderr, "warning: %d/%d %s items returned but not cached locally (no extractable ID field; offline lookup against these rows will be incomplete; live queries unaffected)\n", skippedCount, len(items), resourceType)
+		fmt.Fprintf(termio.Stderr(), "warning: %d/%d %s items returned but not cached locally (no extractable ID field; offline lookup against these rows will be incomplete; live queries unaffected)\n", skippedCount, len(items), resourceType)
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, extractFailures, typedFailures, err
@@ -3278,6 +3284,29 @@ func (s *Store) SaveSyncStateAt(resourceType, cursor string, count int, at time.
 		 last_synced_at = excluded.last_synced_at, total_count = excluded.total_count,
 		 last_attempt_complete = 1`,
 		resourceType, cursor, at.UTC().Format(time.RFC3339), count,
+	)
+	return err
+}
+
+// ClearSyncCursor resets a collection's cursor, watermark and count before a
+// --full / --latest-only / workflow archive walk and marks the attempt
+// INCOMPLETE; the walk's own final save marks it complete.
+//
+// HAND-FIX(sync-clear-never-marks-complete): the generated clears called
+// SaveSyncStateAt / SaveSyncState, which write last_attempt_complete = 1, for
+// every collection before walking any of them, so a usage error, Ctrl-C, an
+// MCP host's SIGTERM or an archive --timeout left never-walked collections
+// reading as synced with zero rows (MCP search/sql reported store_status
+// "ready").
+func (s *Store) ClearSyncCursor(resourceType string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	_, err := s.db.Exec(
+		`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete)
+		 VALUES (?, '', ?, 0, 0)
+		 ON CONFLICT(resource_type) DO UPDATE SET last_cursor = '',
+		 last_synced_at = excluded.last_synced_at, total_count = 0, last_attempt_complete = 0`,
+		resourceType, time.Time{}.UTC().Format(time.RFC3339),
 	)
 	return err
 }

@@ -840,7 +840,7 @@ func resolveLocal(ctx context.Context, flags *rootFlags, hintWriter io.Writer, r
 		if typedHint != "" {
 			warnWriter := hintWriter
 			if warnWriter == nil {
-				warnWriter = os.Stderr
+				warnWriter = stderrW()
 			}
 			fmt.Fprintf(warnWriter, "warning: %s\n", typedHint)
 		}
@@ -853,7 +853,7 @@ func resolveLocal(ctx context.Context, flags *rootFlags, hintWriter io.Writer, r
 		if len(projection) > 0 {
 			warnWriter := hintWriter
 			if warnWriter == nil {
-				warnWriter = os.Stderr
+				warnWriter = stderrW()
 			}
 			fmt.Fprintf(warnWriter, "warning: local data ignored projection parameter(s) %s\n", strings.Join(projection, ", "))
 		}
