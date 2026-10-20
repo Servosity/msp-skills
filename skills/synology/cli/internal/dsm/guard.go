@@ -243,20 +243,26 @@ func newResponseMasker(secrets []string) *responseMasker {
 	return m
 }
 
-// decodedView is what a reader would see (entities and percent escapes
-// decoded), computed only when there is something to decode.
-func decodedView(s string) string {
+// decodedStages is the value as stored and at every stage of decoding it
+// (entities and percent escapes), computed only when there is something to
+// decode. A secret is compared at every stage, never only at the fixed
+// point: a secret that itself contains an escape (pw%2Fab) echoed once more
+// encoded (pw%252Fab) equals the secret one stage in, not at the end.
+func decodedStages(s string) []string {
 	if strings.ContainsAny(s, "%&") {
-		return Decoded(s)
+		return DecodeStages(s)
 	}
-	return s
+	return []string{s}
 }
 
 // maskString masks secrets in one decoded string value: replaced whole when
-// it is exactly a secret (any length), otherwise maskInside.
+// any decoding stage of it is exactly a secret (any length), otherwise
+// maskInside.
 func (m *responseMasker) maskString(s string) string {
-	if t := strings.TrimSpace(s); m.exact[t] || m.exact[decodedView(t)] {
-		return ResponseMask
+	for _, stage := range decodedStages(strings.TrimSpace(s)) {
+		if m.exact[strings.TrimSpace(stage)] {
+			return ResponseMask
+		}
 	}
 	return m.maskInside(s)
 }
@@ -273,10 +279,11 @@ func (m *responseMasker) maskInside(s string) string {
 	// Any other encoding (lower-case percent escapes, nested entities, a
 	// mix): if what a reader would see still carries a secret, the whole
 	// value goes.
-	decoded := decodedView(out)
-	for _, v := range m.sub {
-		if strings.Contains(decoded, v) {
-			return ResponseMask
+	for _, decoded := range decodedStages(out) {
+		for _, v := range m.sub {
+			if strings.Contains(decoded, v) {
+				return ResponseMask
+			}
 		}
 	}
 	return out

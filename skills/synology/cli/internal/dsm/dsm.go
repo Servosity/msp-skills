@@ -370,15 +370,25 @@ func errReadBody(what string) error {
 // until the text stops changing, so a secret cannot hide behind an encoding
 // in a diagnostic. Masking runs on what a reader would see.
 func Decoded(s string) string {
-	// Each pass that changes the text shortens it, so this reaches a fixed point.
+	stages := DecodeStages(s)
+	return stages[len(stages)-1]
+}
+
+// DecodeStages returns s and every intermediate text of the entity and
+// percent decoding Decoded runs to its fixed point, so a secret whose own
+// text contains escapes (pw%2Fab) still matches at the stage where it
+// appears. Each pass that changes the text shortens it, so this ends.
+func DecodeStages(s string) []string {
+	stages := []string{s}
 	for {
 		d := pctEscape.ReplaceAllStringFunc(html.UnescapeString(s), func(m string) string {
 			b, _ := hex.DecodeString(m[1:])
 			return string(b)
 		})
 		if d == s {
-			return s
+			return stages
 		}
+		stages = append(stages, d)
 		s = d
 	}
 }

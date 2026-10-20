@@ -101,3 +101,19 @@ func TestFleetClientMasksSecretValues(t *testing.T) {
 		t.Fatalf("masking destroyed the answer: %s", data)
 	}
 }
+
+// TestMaskComparesEveryDecodingStage: a secret whose own text contains an
+// escape (pw%2Fab) echoed once more encoded (pw%252Fab) decodes to the secret
+// one stage in and to pw/ab at the fixed point. Comparing only the fixed
+// point missed it; every stage is compared, whole-field and inside text.
+func TestMaskComparesEveryDecodingStage(t *testing.T) {
+	const short, long = "pw%2Fab", "Long%2FPassword-9931"
+	body := `{"success":true,"data":{"note":"pw%252Fab","text":"see Long%252FPassword-9931 here","plain":"pw/ab"}}`
+	out := string(MaskResponse([]byte(body), short, long))
+	if strings.Contains(out, "pw%252Fab") || strings.Contains(out, "Long%252FPassword-9931") {
+		t.Fatalf("an encoded echo of a held secret survived masking: %s", out)
+	}
+	if !strings.Contains(out, `"plain":"pw/ab"`) {
+		t.Fatalf("a value that is not a secret at any stage was masked: %s", out)
+	}
+}
