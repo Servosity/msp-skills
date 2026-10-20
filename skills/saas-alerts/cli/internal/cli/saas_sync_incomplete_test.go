@@ -147,10 +147,12 @@ func TestSaasTabularOutputKeepsTheWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 	rw.Close()
-	for _, format := range []string{"--csv", "--plain", "--quiet"} {
-		_, stderr, _ := saasRunCLI(t, "triage", "--db", dbPath, format)
-		if !strings.Contains(stderr, "warning: synced: false: the last events sync did not finish") {
-			t.Errorf("triage %s: stderr %q has no completeness warning", format, stderr)
+	for _, args := range [][]string{{"triage"}, {"cross-tenant"}, {"investigate", "jane.doe@example.com"}, {"coverage"}} {
+		for _, format := range []string{"--csv", "--plain", "--quiet"} {
+			_, stderr, _ := saasRunCLI(t, append(args, "--db", dbPath, format)...)
+			if !strings.Contains(stderr, "warning: synced: false: the last events sync did not finish") {
+				t.Errorf("%v %s: stderr %q has no completeness warning", args, format, stderr)
+			}
 		}
 	}
 }

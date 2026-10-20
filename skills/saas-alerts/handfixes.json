@@ -690,6 +690,16 @@
           "file": "cli/internal/cli/saas_sync_incomplete_test.go",
           "contains": "func TestSaasTabularOutputKeepsTheWarning(",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cross_tenant.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
         }
       ]
     },
@@ -1046,6 +1056,29 @@
         {
           "file": "cli/internal/cli/channel_workflow.go",
           "not_contains": "if err := s.SaveSyncState(resource, \"\", 0); err != nil {"
+        }
+      ]
+    },
+    {
+      "id": "decide-truncated-plan-surfaced",
+      "summary": "rule-triggers decide warns on stderr and in its human output when the trigger list stopped at --max-pages (or another truncation), and a confirmed truncated run exits as a partial failure",
+      "why": "rtPlanDecisions recorded truncated/truncated_reason, but the handler emitted no warning and the human renderer omitted them, so `decide --decision reject --rule R --max-pages 1 --confirm` over 150 matching triggers decided 100 and exited 0 (Codex round 6, 2026-10-20, P1). rule-triggers queue already warned. TestRuleTriggersDecideTruncatedPlanIsSurfaced fails with both guards disabled (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "warning: the trigger list is incomplete (%s); matching triggers beyond it were not planned or decided",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if flagConfirm && result.Truncated {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideTruncatedPlanIsSurfaced(",
+          "code_only": true
         }
       ]
     }

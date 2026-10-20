@@ -219,6 +219,9 @@ The default run, without --confirm, is a preview: it fetches the selected trigge
 			if result.Summary.ActionSafetyUnknown > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d trigger(s) skipped: the actions approving would fire are unknown (action_safety_unknown)\n", result.Summary.ActionSafetyUnknown)
 			}
+			if result.Truncated { // saas-alerts hand-fix: a page-capped plan never reads as the whole selection
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: the trigger list is incomplete (%s); matching triggers beyond it were not planned or decided; rerun with a higher --max-pages or a narrower selection\n", result.TruncatedWhy)
+			}
 			var firstErr error
 			if flagConfirm {
 				dbPath := flagDB
@@ -276,6 +279,9 @@ The default run, without --confirm, is a preview: it fetches the selected trigge
 					return partialFailureErr(notFound)
 				}
 				return notFoundErr(notFound)
+			}
+			if flagConfirm && result.Truncated { // saas-alerts hand-fix: a confirmed bulk decision that stopped at the page cap is partial
+				return partialFailureErr(fmt.Errorf("decided %d trigger(s), but the trigger list is incomplete (%s); matching triggers beyond it were not decided", result.Summary.Succeeded, result.TruncatedWhy))
 			}
 			return nil
 		},
@@ -674,6 +680,9 @@ func rtWriteReceipt(ctx context.Context, db *store.Store, out rtDecideOutcome, o
 func rtPrintDecideHuman(cmd *cobra.Command, r rtDecideResult) error {
 	w := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	fmt.Fprintf(w, "%s: %s on %d trigger(s), %d skipped\n", r.Mode, r.Decision, len(r.Planned), len(r.Skipped))
+	if r.Truncated { // saas-alerts hand-fix
+		fmt.Fprintf(w, "incomplete: %s; matching triggers beyond it were not included\n", r.TruncatedWhy)
+	}
 	if len(r.Planned) > 0 && r.Mode == "preview" {
 		tw := newTabWriter(w)
 		fmt.Fprintln(tw, "TRIGGER\tSTATUS\tRULE\tACCOUNTS\tWOULD FIRE\tCALL")
