@@ -468,9 +468,9 @@ func newDownloadWatchCmd(flags *rootFlags) *cobra.Command {
 Polls one export job until it reaches a terminal state, so a script can gate
 the link step on it. Exits 0 when the job is READY_FOR_DOWNLOAD, 6 when it
 finished any other way (any status naming a failure: failed, cancelled,
-aborted, stopped, error), and with --once 8 when it is
-still being built. --timeout bounds each status check, not the wait: an
-export can take hours to build.
+aborted, stopped, error), and with --once 8 when it is still being built.
+--timeout bounds each status check, not the wait: an export can take hours to
+build.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download watch --account 5f1c2a --job 9f2b1c
