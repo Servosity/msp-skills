@@ -32,6 +32,9 @@ type watchTally struct {
 	Unmatched int `json:"unmatched"`
 	Unknown   int `json:"unknown"`
 	Pending   int `json:"pending"`
+	// Unsent counts rows still PLANNED: never submitted, so the batch is
+	// incomplete and watch cannot finish it.
+	Unsent int `json:"unsent"`
 }
 
 // jobOutcomeUnknown reports a row whose submission was never confirmed.
@@ -64,8 +67,15 @@ func jobSubmittedForMatch(j restoreJob) bool {
 
 // matchRestoreTasks pairs ledger rows with RESTORE tasks: same entity
 // (case-insensitive), same source, created no earlier than submitted_at
-// minus the slack. Rows whose resolved date equals a task's snapshotDate
-// claim it first; the rest take the earliest unclaimed candidate.
+// minus the slack. A task that reports a snapshotDate only ever matches a
+// row whose resolved backup is the same backup (sameBackup: within
+// sameBackupWindow), so a task another batch created for another date of
+// the same mailbox is never taken for this row. Rows whose resolved backup
+// matches a task's snapshotDate claim it first; a confirmed row may then
+// take the earliest unclaimed task that reports no snapshotDate. An
+// UNKNOWN or SUBMITTING row settles only on a snapshotDate match: settling
+// it on a guess would stop --retry-unknown from ever sending a restore that
+// never happened.
 func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string) map[int64]*restoreTaskView {
 	type candidate struct {
 		task    *restoreTaskView
@@ -99,6 +109,9 @@ func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string
 	claimed := map[*restoreTaskView]bool{}
 	matched := map[int64]*restoreTaskView{}
 	eligible := func(j restoreJob, c candidate) bool {
+		if snap := int64(c.task.SnapshotDate); snap != 0 && !sameBackup(snap, j.ResolvedRaw) {
+			return false
+		}
 		return !claimed[c.task] && strings.EqualFold(strings.TrimSpace(c.task.Account), strings.TrimSpace(j.Entity)) &&
 			!c.created.Before(j.SubmittedAt.Add(-watchCreateSlack))
 	}
@@ -113,14 +126,14 @@ func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string
 			continue
 		}
 		for _, c := range cands {
-			if eligible(j, c) && int64(c.task.SnapshotDate) != 0 && int64(c.task.SnapshotDate) == j.ResolvedRaw {
+			if eligible(j, c) && int64(c.task.SnapshotDate) != 0 {
 				claimed[c.task], matched[j.ID] = true, c.task
 				break
 			}
 		}
 	}
 	for _, j := range ordered {
-		if _, ok := matched[j.ID]; ok {
+		if _, ok := matched[j.ID]; ok || jobOutcomeUnknown(j) {
 			continue
 		}
 		for _, c := range cands {
@@ -160,7 +173,9 @@ func tallyJobs(jobs []restoreJob) watchTally {
 			t.Unmatched++
 		case jobOutcomeUnknown(j):
 			t.Unknown++
-		case j.Status == jobSubmitted || j.Status == jobPlanned:
+		case j.Status == jobPlanned:
+			t.Unsent++
+		case j.Status == jobSubmitted:
 			t.Pending++
 		case restoreTaskRunning(j.Status):
 			t.Running++
@@ -179,23 +194,33 @@ func printWatchTable(cmd *cobra.Command, poll int, jobs []restoreJob, t watchTal
 	if err := printRestoreTable(cmd.OutOrStdout(), []string{"entity", "requested", "status", "task_id", "progress"}, rows); err != nil {
 		return err
 	}
-	_, err := termf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending (%s)\n\n",
-		poll, t.Running, t.Finished, t.Failed, t.Unmatched, t.Unknown, t.Pending, time.Now().UTC().Format(time.RFC3339))
+	_, err := termf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending, %d never submitted (%s)\n\n",
+		poll, t.Running, t.Finished, t.Failed, t.Unmatched, t.Unknown, t.Pending, t.Unsent, time.Now().UTC().Format(time.RFC3339))
 	return err
 }
 
 func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 	var flagBatch string
-	var flagInterval, flagTimeout time.Duration
+	var flagInterval, flagMaxWait time.Duration
 	var flagOnce bool
 
 	cmd := &cobra.Command{
 		Use:   "watch",
 		Short: "Follow one submitted batch until every restore finishes",
-		Long:  "Use this command to follow the restores of one submitted batch to completion. Do NOT use it to list raw RESTORE tasks; use 'tasks list --type RESTORE' instead. Do NOT use it for past batches offline; use 'restore history' instead.",
+		Long: strings.Trim(`
+Use this command to follow the restores of one submitted batch to completion. Do NOT use
+it to list raw RESTORE tasks; use 'tasks list --type RESTORE' instead. Do NOT use it for
+past batches offline; use 'restore history' instead.
+
+Exits 0 only when every row of the batch was submitted and its RESTORE task finished.
+It exits non-zero when a restore failed, when a row is still UNKNOWN (watch keeps
+polling those until --max-wait), and when a row was never submitted (still PLANNED:
+the batch is incomplete; continue it with 'restore submit ... --resume'). --timeout
+bounds each status request; --max-wait bounds the whole watch.
+`, "\n"),
 		Example: strings.Trim(`
   cloudally-cli restore watch --batch 20261015-120000-ab12
-  cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 1m --timeout 4h
+  cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 1m --max-wait 4h
   cloudally-cli restore watch --batch 20261015-120000-ab12 --once --json
 `, "\n"),
 		Annotations: map[string]string{
@@ -223,7 +248,7 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 				flagOnce = true
 			}
 			if restoreShortCircuit(flags) {
-				would := fmt.Sprintf("load batch %s from the ledger and poll its RESTORE tasks every %s until finished or %s", flagBatch, flagInterval, flagTimeout)
+				would := fmt.Sprintf("load batch %s from the ledger and poll its RESTORE tasks every %s until finished or %s", flagBatch, flagInterval, flagMaxWait)
 				if flagOnce {
 					would = fmt.Sprintf("load batch %s from the ledger and poll its RESTORE tasks once", flagBatch)
 				}
@@ -248,7 +273,9 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			scope := scopeFromKind(batch.Scope, batch.AccountID)
-			deadline := time.Now().Add(flagTimeout)
+			// --max-wait bounds the watch; --timeout (the root flag)
+			// bounds each request through the client.
+			deadline := time.Now().Add(flagMaxWait)
 			human := wantsHumanTable(cmd.OutOrStdout(), flags)
 			out := watchOutput{BatchID: batch.BatchID}
 			for {
@@ -287,26 +314,29 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 				}
 				_ = ledgerTouchBatch(sqlDB, batch.BatchID, time.Now())
 				out.Rows, out.Tally = jobs, tallyJobs(jobs)
-				out.Done = true
+				finished := true
 				for _, j := range jobs {
 					if !jobTerminal(j) {
-						out.Done = false
+						finished = false
 						break
 					}
 				}
+				// A batch with rows never submitted is not done, even when
+				// nothing is left to poll.
+				out.Done = finished && out.Tally.Unsent == 0
 				if human {
 					if err := printWatchTable(cmd, out.Polls, jobs, out.Tally); err != nil {
 						return err
 					}
 				}
-				if out.Done || flagOnce {
+				if finished || flagOnce {
 					break
 				}
-				if time.Now().After(deadline) {
+				if flagMaxWait > 0 && time.Now().After(deadline) {
 					if !human {
 						_ = printJSONFiltered(cmd.OutOrStdout(), out, flags)
 					}
-					return apiErr(fmt.Errorf("timed out after %s with %d restore(s) still running and %d still unconfirmed (UNKNOWN) in batch %s", flagTimeout, out.Tally.Running+out.Tally.Pending, out.Tally.Unknown, batch.BatchID))
+					return apiErr(fmt.Errorf("gave up after --max-wait %s with %d restore(s) still running, %d still unconfirmed (UNKNOWN), and %d never submitted in batch %s", flagMaxWait, out.Tally.Running+out.Tally.Pending, out.Tally.Unknown, out.Tally.Unsent, batch.BatchID))
 				}
 				select {
 				case <-ctx.Done():
@@ -343,6 +373,9 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 			if out.Tally.Unknown > 0 {
 				problems = append(problems, fmt.Sprintf("%d restore(s) in batch %s are still UNKNOWN: no RESTORE task was found for them, so it is not known whether CloudAlly accepted them", out.Tally.Unknown, batch.BatchID))
 			}
+			if out.Tally.Unsent > 0 {
+				problems = append(problems, fmt.Sprintf("batch %s is incomplete: %d restore(s) were never submitted (still PLANNED); send them by re-running the 'restore submit' command that created the batch with --resume --yes added", batch.BatchID, out.Tally.Unsent))
+			}
 			if len(problems) > 0 {
 				return apiErr(errors.New(strings.Join(problems, "; ")))
 			}
@@ -351,7 +384,7 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagBatch, "batch", "", "Batch id printed by 'restore submit'")
 	cmd.Flags().DurationVar(&flagInterval, "interval", defaultWatchInterval, "Time between polls")
-	cmd.Flags().DurationVar(&flagTimeout, "timeout", defaultWatchTimeout, "Give up after this long")
+	cmd.Flags().DurationVar(&flagMaxWait, "max-wait", defaultWatchTimeout, "Give up watching after this long (0 waits without limit); --timeout bounds each request")
 	cmd.Flags().BoolVar(&flagOnce, "once", false, "Poll one time and exit")
 	return cmd
 }

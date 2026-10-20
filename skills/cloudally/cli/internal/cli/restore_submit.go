@@ -203,6 +203,10 @@ it can be sent again. To send only the mailboxes never sent, limit --entities to
 --new-batch overrides the guard and sends every row again, accepted restores included;
 use it only to restore mailboxes a second time on purpose.
 
+--timeout bounds each API and portal call, not the run. A run that ends with rows still
+PLANNED (interrupted, or stopped by a 401/403) exits non-zero and prints the --resume
+command that sends them.
+
 Without --account the active login decides the customer: the account from
 'auth use-account' or 'auth login' is recorded on the batch. A partner login needs
 --account <id>.
@@ -317,8 +321,11 @@ one the plan resolved for it.
 			if err != nil {
 				return err
 			}
-			ctx, cancel := boundCtx(cmd.Context(), flags)
-			defer cancel()
+			// No overall deadline: --timeout bounds each API and portal
+			// call (the clients apply it per request). A run that sends
+			// hundreds of restores at --rate must not stop part way and
+			// leave mailboxes unsent.
+			ctx := cmd.Context()
 			var rows []planRow
 			source := ""
 			var dateTexts []string
@@ -377,7 +384,7 @@ one the plan resolved for it.
 				printSubmitConfirmation(cmd.ErrOrStderr(), req)
 				return usageErr(fmt.Errorf("add --yes to submit these %d restores", len(ok)))
 			}
-			return runSubmit(cmd, flags, c, req)
+			return runSubmit(ctx, cmd, flags, c, req)
 		},
 	}
 	addRestoreScopeFlags(cmd, &scope)

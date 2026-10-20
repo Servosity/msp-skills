@@ -314,7 +314,7 @@ func TestRestoreWatchUnknownIsNotDone(t *testing.T) {
 		t.Fatal("submit should report the UNKNOWN row")
 	}
 	batchID := decodeSubmitOutput(t, stdout).BatchID
-	for _, extra := range [][]string{{"--once"}, {"--interval", "10ms", "--timeout", "60ms"}} {
+	for _, extra := range [][]string{{"--once"}, {"--interval", "10ms", "--max-wait", "60ms"}} {
 		out, _, err := runAuthCmd(t, "", append([]string{"restore", "watch", "--batch", batchID, "--json"}, extra...)...)
 		if err == nil || ExitCode(err) != 5 || !strings.Contains(err.Error(), "UNKNOWN") {
 			t.Fatalf("watch %v: want exit 5 naming the UNKNOWN row, got %v", extra, err)

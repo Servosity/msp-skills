@@ -15,7 +15,9 @@ import (
 	"sync"
 	"time"
 
+	"cloudally-pp-cli/internal/cadate"
 	"cloudally-pp-cli/internal/cliutil"
+	"cloudally-pp-cli/internal/store"
 )
 
 // The restore guard is the machine-wide double-send lock for 'restore
@@ -36,6 +38,16 @@ import (
 // sent again. A SENDING claim whose owner process is gone becomes UNKNOWN.
 // --new-batch marks the live claim superseded and records a new generation
 // on top of it; nothing is deleted.
+//
+// Two resolved backups of one mailbox within sameBackupWindow of each other
+// are treated as one backup: the partner calendar records a run's headline
+// time while the task record's lastBackupDates can be per sub-source and
+// seconds or minutes off, so one restore resolved two ways must still
+// collide. Backups of one mailbox are hours apart.
+//
+// Every ledger already in the data directory is imported once, read-only,
+// so restores recorded before the guard existed (or by a build without it)
+// are refused too; see seedFromLedgers.
 //
 // The customer account id is recorded on each claim and shown in refusals
 // but is not part of the identity: a raw token or a company login does not
@@ -82,6 +94,34 @@ var restoreGuardSchema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS restore_claims_live ON restore_claims(task_id, entity, resolved_raw)
 		WHERE superseded = 0 AND state IN ('SENDING', 'ACCEPTED', 'UNKNOWN')`,
 	`CREATE INDEX IF NOT EXISTS restore_claims_identity ON restore_claims(task_id, entity, resolved_raw)`,
+	// One row per ledger store already imported by seedFromLedgers.
+	`CREATE TABLE IF NOT EXISTS seeded_stores (
+		path       TEXT PRIMARY KEY,
+		imported   INTEGER NOT NULL DEFAULT 0,
+		seeded_at  TEXT NOT NULL
+	)`,
+}
+
+// sameBackupWindow is how far apart two resolved backup times of one
+// mailbox can be and still name the same backup.
+const sameBackupWindow = 30 * time.Minute
+
+// sameBackup reports whether two resolved backup times (yyyyMMddHHmmss)
+// name the same backup: equal, or both valid and within sameBackupWindow.
+func sameBackup(a, b int64) bool {
+	if a == b {
+		return true
+	}
+	ta, errA := cadate.ParseCompact(a)
+	tb, errB := cadate.ParseCompact(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	d := ta.Sub(tb)
+	if d < 0 {
+		d = -d
+	}
+	return d <= sameBackupWindow
 }
 
 // restoreIdentity is what the guard allows to be sent once.
@@ -328,6 +368,7 @@ func scanGuardClaim(row rowScanner) (guardClaim, error) {
 
 type queryer interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
 // liveClaim returns the identity's live claim, or nil.
@@ -342,6 +383,44 @@ func liveClaim(ctx context.Context, q queryer, id restoreIdentity) (*guardClaim,
 		return nil, err
 	}
 	return &c, nil
+}
+
+// liveClaimNear returns the live claim that names the same backup of the
+// same mailbox on the same task: the exact identity if one is live,
+// otherwise the nearest live claim within sameBackupWindow, or nil.
+func liveClaimNear(ctx context.Context, q queryer, id restoreIdentity) (*guardClaim, error) {
+	rows, err := q.QueryContext(ctx, `SELECT `+guardClaimColumns+` FROM restore_claims
+		WHERE task_id = ? AND entity = ? AND superseded = 0 AND state IN (?, ?, ?)`,
+		id.TaskID, id.Entity, claimSending, claimAccepted, claimUnknown)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var best *guardClaim
+	var bestGap time.Duration
+	for rows.Next() {
+		c, err := scanGuardClaim(rows)
+		if err != nil {
+			return nil, err
+		}
+		if !sameBackup(c.Resolved, id.Resolved) {
+			continue
+		}
+		gap := time.Duration(0)
+		if c.Resolved != id.Resolved {
+			ta, _ := cadate.ParseCompact(c.Resolved)
+			tb, _ := cadate.ParseCompact(id.Resolved)
+			if gap = ta.Sub(tb); gap < 0 {
+				gap = -gap
+			}
+			gap++
+		}
+		if best == nil || gap < bestGap {
+			cc := c
+			best, bestGap = &cc, gap
+		}
+	}
+	return best, rows.Err()
 }
 
 // blocks reports whether a live claim stops owner from sending: anything
@@ -370,7 +449,7 @@ func (g *restoreGuard) blocks(c guardClaim, owner claimOwner, retryUnknown, newB
 func (g *restoreGuard) conflicts(ctx context.Context, ids []restoreIdentity, owner claimOwner, retryUnknown, newBatch bool) (map[restoreIdentity]guardClaim, error) {
 	out := map[restoreIdentity]guardClaim{}
 	for _, id := range ids {
-		c, err := liveClaim(ctx, g.db, id)
+		c, err := liveClaimNear(ctx, g.db, id)
 		if err != nil {
 			return nil, err
 		}
@@ -401,7 +480,7 @@ func (g *restoreGuard) claim(ctx context.Context, id restoreIdentity, owner clai
 	var claimID int64
 	err := g.inTx(ctx, func(tx *sql.Tx) error {
 		now := isoUTC(time.Now())
-		live, err := liveClaim(ctx, tx, id)
+		live, err := liveClaimNear(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -459,4 +538,130 @@ func (g *restoreGuard) settle(ctx context.Context, claimID int64, ledgerStatus s
 			state, isoUTC(time.Now()), claimID, g.run)
 		return err
 	})
+}
+
+// sentLedgerRow is one ledger row seedFromLedgers imports.
+type sentLedgerRow struct {
+	batchID, taskID, scope, accountID, authScope string
+	entity                                       string
+	resolved                                     int64
+	outcome, rowTaskID                           string
+}
+
+// ledgerDataDir is the directory every login's ledger store lives in, as
+// defaultDBPath resolves it.
+func ledgerDataDir() string {
+	if dir, err := cliutil.DataDir(); err == nil {
+		return dir
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(home, ".local", "share", restoreCLIName)
+	}
+	return "."
+}
+
+// seedFromLedgers imports, once per store file, every restore any ledger in
+// dir recorded as sent (SUBMITTED, SUBMITTING, or UNKNOWN, or carrying a
+// RESTORE task id) as an ACCEPTED or UNKNOWN claim, so a restore sent
+// before this guard existed, or by a build without it, is still refused.
+// Stores are opened read-only and never migrated. A store that cannot be
+// read fails the run closed: nothing is sent while a ledger that may hold
+// sent restores is unreadable.
+func (g *restoreGuard) seedFromLedgers(ctx context.Context, dir string) error {
+	paths, err := filepath.Glob(filepath.Join(dir, "data-*.db"))
+	if err != nil {
+		return fmt.Errorf("listing ledgers in %s: %w", dir, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "data.db")); err == nil {
+		paths = append(paths, filepath.Join(dir, "data.db"))
+	}
+	for _, path := range paths {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		var seen int
+		if err := g.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM seeded_stores WHERE path = ?`, path).Scan(&seen); err != nil {
+			return fmt.Errorf("reading the restore guard %s: %w", g.path, err)
+		}
+		if seen > 0 {
+			continue
+		}
+		rows, err := readSentLedgerRows(ctx, path)
+		if err != nil {
+			return fmt.Errorf("the restore ledger %s cannot be read, so the restores it records cannot be checked (%w); nothing was sent. Fix or move that file, then run again", path, err)
+		}
+		if err := g.inTx(ctx, func(tx *sql.Tx) error {
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM seeded_stores WHERE path = ?`, path).Scan(&seen); err != nil || seen > 0 {
+				return err
+			}
+			now := isoUTC(time.Now())
+			imported := 0
+			for _, r := range rows {
+				id := newRestoreIdentity(r.taskID, r.entity, r.resolved)
+				live, err := liveClaimNear(ctx, tx, id)
+				if err != nil {
+					return err
+				}
+				if live != nil {
+					continue
+				}
+				state := claimUnknown
+				if r.outcome == jobSubmitted || strings.TrimSpace(r.rowTaskID) != "" {
+					state = claimAccepted
+				}
+				if _, err := tx.ExecContext(ctx, `INSERT INTO restore_claims
+					(task_id, entity, resolved_raw, generation, state, batch_id, login, account_id, scope, created_at, updated_at)
+					VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+					id.TaskID, id.Entity, id.Resolved, state, r.batchID, historyAccountLabel(r.accountID, r.authScope), r.accountID, r.scope, now, now); err != nil {
+					return err
+				}
+				imported++
+			}
+			_, err := tx.ExecContext(ctx, `INSERT INTO seeded_stores (path, imported, seeded_at) VALUES (?, ?, ?)`, path, imported, now)
+			return err
+		}); err != nil {
+			return fmt.Errorf("seeding the restore guard %s from %s: %w; nothing was sent", g.path, path, err)
+		}
+	}
+	return nil
+}
+
+// readSentLedgerRows reads one store's restore rows that were sent, through
+// a read-only open that never migrates it. A store without restore tables
+// holds none.
+func readSentLedgerRows(ctx context.Context, path string) ([]sentLedgerRow, error) {
+	st, err := store.OpenReadOnlyContext(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer st.Close()
+	db := st.DB()
+	var tables int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('restore_jobs', 'restore_batches')`).Scan(&tables); err != nil {
+		return nil, err
+	}
+	if tables < 2 {
+		return nil, nil
+	}
+	authScope := "b.auth_scope"
+	if !ledgerHasColumn(db, "restore_batches", "auth_scope") {
+		authScope = "''"
+	}
+	outcome := submitStatusExpr(db, "j.")
+	q, err := db.QueryContext(ctx, `SELECT b.batch_id, b.task_id, b.scope, b.account_id, `+authScope+`, j.entity, j.resolved_raw, `+outcome+`, COALESCE(j.task_id, '')
+		FROM restore_jobs j JOIN restore_batches b ON b.batch_id = j.batch_id
+		WHERE `+outcome+` IN (?, ?, ?) OR COALESCE(j.task_id, '') <> ''`, jobSubmitted, jobSubmitting, jobUnknown)
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	var out []sentLedgerRow
+	for q.Next() {
+		var r sentLedgerRow
+		if err := q.Scan(&r.batchID, &r.taskID, &r.scope, &r.accountID, &r.authScope, &r.entity, &r.resolved, &r.outcome, &r.rowTaskID); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, q.Err()
 }

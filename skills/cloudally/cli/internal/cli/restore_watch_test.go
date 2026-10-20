@@ -112,7 +112,7 @@ func TestRestoreRunningStatusTable(t *testing.T) {
 		{Status: "INPROCESS"}, {Status: "ARCHIVED"},
 	}
 	tally := tallyJobs(jobs)
-	if tally.Failed != 2 || tally.Unmatched != 1 || tally.Pending != 2 || tally.Running != 1 || tally.Finished != 1 {
+	if tally.Failed != 2 || tally.Unmatched != 1 || tally.Pending != 1 || tally.Unsent != 1 || tally.Running != 1 || tally.Finished != 1 {
 		t.Fatalf("tally = %+v", tally)
 	}
 	if !jobTerminal(restoreJob{Status: "ARCHIVED"}) || jobTerminal(restoreJob{Status: "QUEUED"}) || jobTerminal(restoreJob{Status: jobSubmitted}) {

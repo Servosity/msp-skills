@@ -41,8 +41,11 @@ func identityOf(entity, requested string) jobIdentity {
 // up front when any restore it would send was already sent from this
 // machine under any login or token, and each row is claimed atomically
 // right before its POST so two racing runs cannot both send it.
-func runSubmit(cmd *cobra.Command, flags *rootFlags, c *client.Client, req submitRequest) error {
-	ctx := cmd.Context()
+//
+// ctx governs the whole run, resolution and sending alike; it carries no
+// overall deadline (--timeout bounds each request), so it ends only when
+// the run is interrupted.
+func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, req submitRequest) error {
 	stderr := cmd.ErrOrStderr()
 	db, err := openLedger(ctx)
 	if err != nil {
@@ -55,6 +58,9 @@ func runSubmit(cmd *cobra.Command, flags *rootFlags, c *client.Client, req submi
 		return fmt.Errorf("opening the machine-wide restore guard: %w; nothing was sent", err)
 	}
 	defer guard.Close()
+	if err := guard.seedFromLedgers(ctx, ledgerDataDir()); err != nil {
+		return err
+	}
 	owner := claimOwner{login: req.account.label(), accountID: req.account.id, scope: req.scope.kind()}
 	kind := req.scope.kind()
 	key := batchKey(kind, req.account.id, req.taskID, req.filter, req.dateTexts)
@@ -297,14 +303,25 @@ func runSubmit(cmd *cobra.Command, flags *rootFlags, c *client.Client, req submi
 		return err
 	}
 	unsettled := out.Counts[jobFailed] + out.Counts[jobFailedRedirect] + out.Counts[jobUnknown] + out.Counts[jobSubmitting]
+	// A row still PLANNED was meant to be sent and never was: the run was
+	// interrupted, or dispatch stopped. That is never a success.
+	unsent := out.Counts[jobPlanned]
+	resumeHint := ""
+	if unsent+out.Counts[jobFailed] > 0 {
+		resumeHint = ". Send the rows never sent or refused before they ran with: " + termSafe(submitRerunCommand(cmd, "--resume", "--yes"))
+	}
+	interrupted := ""
+	if cerr := ctx.Err(); cerr != nil {
+		interrupted = " (the run was interrupted: " + cerr.Error() + ")"
+	}
 	switch {
 	case len(unrecorded) > 0:
 		return apiErr(fmt.Errorf("%d restore(s) were accepted but the ledger still shows them SUBMITTING in batch %s (%s); the next run treats them as UNKNOWN and will not send them again", len(unrecorded), batch.BatchID, termSafe(strings.Join(unrecorded, ", "))))
 	case authFailed:
-		return authErr(fmt.Errorf("restore submission rejected with 401/403; remaining rows left PLANNED in batch %s", batch.BatchID))
-	case out.NotSent > 0 || unsettled > 0:
-		return apiErr(fmt.Errorf("batch %s is not fully submitted: %d failed, %d unknown, %d not sent (counts: %s)", batch.BatchID,
-			out.Counts[jobFailed]+out.Counts[jobFailedRedirect], out.Counts[jobUnknown]+out.Counts[jobSubmitting], out.NotSent, formatCounts(out.Counts)))
+		return authErr(fmt.Errorf("restore submission rejected with 401/403; %d row(s) left PLANNED in batch %s; fix the login, then send them with: %s", unsent, batch.BatchID, termSafe(submitRerunCommand(cmd, "--resume", "--yes"))))
+	case out.NotSent > 0 || unsettled > 0 || unsent > 0:
+		return apiErr(fmt.Errorf("batch %s is not fully submitted%s: %d failed, %d unknown, %d never sent (still PLANNED), %d refused this run (counts: %s)%s", batch.BatchID, interrupted,
+			out.Counts[jobFailed]+out.Counts[jobFailedRedirect], out.Counts[jobUnknown]+out.Counts[jobSubmitting], unsent, out.NotSent, formatCounts(out.Counts), resumeHint))
 	}
 	return nil
 }
