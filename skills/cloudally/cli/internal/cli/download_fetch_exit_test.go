@@ -84,6 +84,8 @@ func TestDownloadFetchExitCodes(t *testing.T) {
 	// A --batch row nothing on the portal matches is MISSING.
 	b := newSubmitBatch(t, "20221231-000000-fetchset", jane, "gone@contoso.com")
 	b.Rows[0].SnapshotRaw = 20221231042000
+	b.Rows[0].Status, b.Rows[0].JobID = dlCreated, "j-mail"
+	b.Rows[1].Status, b.Rows[1].JobID = dlCreated, "j-gone"
 	_ = saveBatch(b)
 	out, _, err = runDL(t, s, fetchArgs(t.TempDir(), "--batch", b.BatchKey)...)
 	if err == nil || ExitCode(err) != 6 {

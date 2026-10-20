@@ -32,6 +32,10 @@ type dlJob struct {
 	Status    string
 	Snapshot  int64
 	Files     []portal.DownloadFile
+	// Label and Created are the job label and creation time the listing
+	// reports, as the live portal's jobLabel and initDate.
+	Label   string
+	Created int64
 }
 
 // dlStub stands up the three things a download run talks to: the API that
@@ -172,6 +176,7 @@ func (s *dlStub) portalServer() *httptest.Server {
 				rows = append(rows, map[string]any{
 					"taskId": j.JobID, "type": "EXPORT", "status": j.Status, "account": j.Account,
 					"source": "MS365", "subsource": j.SubSource, "snapshotDate": j.Snapshot,
+					"jobLabel": j.Label, "initDate": j.Created,
 				})
 			}
 			writeEnvelope(w, rows)
@@ -223,7 +228,9 @@ func (s *dlStub) portalServer() *httptest.Server {
 			if s.listCreated {
 				sub, _ := body["source"].(string)
 				date, _ := body["date"].(float64)
-				s.jobs = append(s.jobs, dlJob{JobID: fmt.Sprintf("job-%d", len(s.jobs)+1), Account: account, SubSource: sub, Status: "INPROCESS", Snapshot: int64(date)})
+				label, _ := body["jobLabel"].(string)
+				s.jobs = append(s.jobs, dlJob{JobID: fmt.Sprintf("job-%d", len(s.jobs)+1), Account: account, SubSource: sub,
+					Status: "INPROCESS", Snapshot: int64(date), Label: label, Created: compactNow()})
 			}
 			writeEnvelope(w, map[string]any{"needRedirect": false})
 		case "getJobsDasboard":
@@ -233,6 +240,13 @@ func (s *dlStub) portalServer() *httptest.Server {
 		}
 	})
 	return httptest.NewServer(mux)
+}
+
+// compactNow is the current time as the portal's compact yyyyMMddHHmmss.
+func compactNow() int64 {
+	var v int64
+	_, _ = fmt.Sscanf(time.Now().UTC().Format("20060102150405"), "%d", &v)
+	return v
 }
 
 func writeEnvelope(w io.Writer, data any) {

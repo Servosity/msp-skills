@@ -296,11 +296,15 @@ for as long as bytes keep arriving, and is ended only after five minutes
 with nothing received. Leftover .partial files from a run that was killed
 are removed once they are an hour old.
 
+With --batch, only the jobs the batch confirmed as its own are downloaded;
+another export of the same snapshot is never taken in their place.
+
 Exit codes: 0 every archive asked for is on disk (or the job was EMPTY);
-6 an archive FAILED or is MISSING (a --batch row or an --entities mailbox
-with no job on the portal), or the drive is too full to continue; 8 nothing
-failed but some jobs are still being built (NOT_READY): run the same
-command again later.
+3 no download job matched at all; 6 an archive FAILED or is MISSING (a
+--batch row or an --entities mailbox with no job on the portal), or the
+drive is too full to continue; 8 nothing failed but some jobs are still
+being built or not yet confirmed (NOT_READY): run the same command again
+later.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31 --dry-run
@@ -369,10 +373,10 @@ command again later.
 				}
 			}
 
-			// A batch ledger names exactly which (mailbox, sub-source,
-			// snapshot) belong to this set. That is the only workable
-			// filter for the --latest set, where every mailbox has its own
-			// date, and it is more precise than a date filter for a year.
+			// A batch ledger names exactly which jobs belong to this set, by
+			// the job ids it confirmed. That is the only workable filter
+			// for the --latest set, where every mailbox has its own date,
+			// and it is more precise than a date filter for a year.
 			var want map[string]bool
 			var batchRows []downloadRow
 			if key := strings.TrimSpace(flagBatch); key != "" {
@@ -380,12 +384,17 @@ command again later.
 				if berr != nil {
 					return usageErr(fmt.Errorf("--batch: %w", berr))
 				}
+				// Only a job the batch confirmed as its own is its archive.
+				// Another export of the same snapshot (a zip without
+				// legal-hold items, say) never stands in for it.
 				want = map[string]bool{}
 				for _, r := range b.Rows {
-					want[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] = true
+					if id := strings.ToLower(strings.TrimSpace(r.JobID)); id != "" && r.Status == dlCreated {
+						want[id] = true
+					}
 				}
 				batchRows = b.Rows
-				if len(want) == 0 {
+				if len(b.Rows) == 0 {
 					return usageErr(fmt.Errorf("--batch %s has no rows", key))
 				}
 			}
@@ -411,7 +420,7 @@ command again later.
 				if len(keep) > 0 && !keep[strings.ToLower(job.Account)] {
 					continue
 				}
-				if want != nil && !want[jobKey(job.Account, job.SubSource, job.SnapshotDate)] {
+				if want != nil && !want[strings.ToLower(strings.TrimSpace(job.JobID))] {
 					continue
 				}
 				if wantDay != "" {
@@ -419,14 +428,14 @@ command again later.
 						continue
 					}
 				}
-				matched[jobKey(job.Account, job.SubSource, job.SnapshotDate)] = true
+				matched[strings.ToLower(strings.TrimSpace(job.JobID))] = true
 				seenEntity[strings.ToLower(strings.TrimSpace(job.Account))] = true
 				out := fetchOutcome{Entity: job.Account, SubSource: job.SubSource, JobID: job.JobID}
 				if !job.Ready() {
 					// A job that has stopped without becoming ready never
 					// will; only a running one is worth waiting for.
 					if exportJobFinished(job.Status) {
-						out.Status, out.Detail = fetchFailed, "the export job finished as "+job.Status+" and has no archive to download; create it again"
+						out.Status, out.Detail = fetchFailed, fmt.Sprintf("the export job finished as %s and has no archive to download. Its batch counts it as created, so a resume does not send it; to create just this archive again run download submit for the same task and date with --entities %s --sub-sources %s --new-batch --yes", job.Status, job.Account, job.SubSource)
 					} else {
 						out.Status, out.Detail = fetchNotReady, "job status is "+job.Status
 					}
@@ -541,17 +550,30 @@ command again later.
 			}
 			// What was asked for but never seen on the portal is reported,
 			// so a run that collected only part of a set says so.
+			batchKey := strings.TrimSpace(flagBatch)
 			for _, r := range batchRows {
-				if matched[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
+				id := strings.ToLower(strings.TrimSpace(r.JobID))
+				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || r.Status == dlSkipped || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
 					continue
 				}
 				if snap := fmt.Sprintf("%d", r.SnapshotRaw); wantDay != "" && (len(snap) < 8 || snap[:8] != wantDay) {
 					continue
 				}
-				outcomes = append(outcomes, fetchOutcome{
-					Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID, Status: fetchMissing,
-					Detail: fmt.Sprintf("no download job on the portal matches this batch row (ledger status %s); see 'download submit --batch %s --resume'", r.Status, strings.TrimSpace(flagBatch)),
-				})
+				out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID}
+				switch r.Status {
+				case dlCreated:
+					out.Status = fetchMissing
+					out.Detail = fmt.Sprintf("the batch's confirmed job %s is no longer listed on the portal (it finished with nothing to download, or expired); 'download list' shows what is there", r.JobID)
+				case dlRequested, dlUnknown:
+					// Not confirmed yet. Confirming sends nothing that may
+					// already exist.
+					out.Status = fetchNotReady
+					out.Detail = fmt.Sprintf("the batch has not confirmed this job yet (ledger status %s); confirm it with: cloudally-cli download submit --batch %s --resume --yes, then run this again", r.Status, batchKey)
+				default:
+					out.Status = fetchMissing
+					out.Detail = fmt.Sprintf("this archive was never created (ledger status %s); create it with: cloudally-cli download submit --batch %s --resume --yes", r.Status, batchKey)
+				}
+				outcomes = append(outcomes, out)
 			}
 			for _, e := range sortedKeys(keep) {
 				if !seenEntity[e] && batchRows == nil {
@@ -569,7 +591,7 @@ command again later.
 	cmd.Flags().StringSliceVar(&flagEntities, "entities", nil, "Only these mailboxes")
 	cmd.Flags().BoolVar(&flagDryRun, "plan-only", false, "List what would be downloaded without writing anything")
 	cmd.Flags().StringVar(&flagBatch, "batch", "",
-		"Download only the archives named by this batch ledger. Required for the --latest set, where each mailbox has its own backup date")
+		"Download only the archives this batch ledger confirmed as its own. Required for the --latest set, where each mailbox has its own backup date")
 	cmd.Flags().StringVar(&flagPortalURL, "portal-url", portal.DefaultBaseURL, portalURLFlagHelp)
 	_ = cmd.Flags().MarkHidden("portal-url")
 	return cmd
@@ -860,6 +882,9 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 	}
 	if fatal != nil {
 		return fatal
+	}
+	if len(outcomes) == 0 {
+		return notFoundErr(errors.New("no download jobs matched: check --account, --on-date and --entities, or list the jobs with 'download list'; a job created minutes ago may not be listed yet"))
 	}
 	if n := counts[fetchFailed] + counts[fetchMissing]; n > 0 {
 		return partialFailureErr(fmt.Errorf("%d of %d archive(s) are not on disk (%d FAILED, %d MISSING); nothing was overwritten, so the same command can be run again once the cause is fixed",

@@ -102,9 +102,10 @@ func TestDownloadPrintersScrubTenantText(t *testing.T) {
 	s.jobs[0].Status = "INPROCESS" + hostile
 	s.mu.Unlock()
 	out, _, err = runDL(t, s, "download", "watch", "--account", "acct-1", "--job", "job-1", "--once", "--human-friendly")
-	if err != nil {
-		t.Fatalf("watch: %v", err)
+	if err == nil || ExitCode(err) != ExitJobPending {
+		t.Fatalf("watch --once on a running job: want exit %d, got %v", ExitJobPending, err)
 	}
+	assertNoTerminalControls(t, "download watch error", err.Error())
 	assertNoTerminalControls(t, "download watch status", out)
 }
 

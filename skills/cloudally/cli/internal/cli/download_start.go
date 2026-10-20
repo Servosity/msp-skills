@@ -212,6 +212,11 @@ is not used.
 				IncludeDeleted:   flagIncludeDeleted,
 				IncludeLegalHold: flagIncludeLegalHold,
 			}); err != nil {
+				// A failure after the request left may still have created
+				// the job, so running this again could make a second one.
+				if errors.Is(err, portal.ErrOutcomeUnknown) {
+					return fmt.Errorf("%w; the download job may have been created anyway: check 'cloudally-cli download list --account %s' before running this again", err, scope.account)
+				}
 				return err
 			}
 			out.Source = sourceForDownload(flagSource, task.Source)

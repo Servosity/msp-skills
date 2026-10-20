@@ -65,6 +65,15 @@ func TestStrictDownloadURLPolicy(t *testing.T) {
 		"https://0x7f000001/x.zip",           // hex 127.0.0.1
 		"https://metadata.0x7f.0x1/x.zip",    // hex last label
 		"https://192.168.0.1.nip.io.5/x.zip", // numeric last label
+		"https://fuse-t:18083/x.zip",         // single label
+		"https://storage/x.zip",              // single label
+		"https://nas.local/x.zip",            // mDNS
+		"https://metadata.google.internal/x", // cloud metadata
+		"https://files.lan/x.zip",            // private network
+		"https://nas.home.arpa/x.zip",        // home network
+		"https://home.arpa/x.zip",            // the suffix itself
+		"https://fileserver.corp/x.zip",      // corporate network
+		"https://a.b.LOCALHOST/x.zip",        // reserved for this machine
 	}
 	for _, raw := range refused {
 		u, err := url.Parse(raw)

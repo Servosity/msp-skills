@@ -236,7 +236,7 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 	delete(s.createCode, flaky)
 	for _, e := range []string{crashed, clean} {
 		r := rowByEntity(after, e)
-		s.jobs = append(s.jobs, dlJob{JobID: "job-" + e, Account: e, SubSource: r.SubSource, Status: "INPROCESS", Snapshot: r.SnapshotRaw})
+		s.jobs = append(s.jobs, dlJob{JobID: "job-" + e, Account: e, SubSource: r.SubSource, Status: "INPROCESS", Snapshot: r.SnapshotRaw, Label: r.Label})
 	}
 	s.mu.Unlock()
 	_, stderr, err = runDL(t, s, "download", "submit", "--batch", "20221231-000000-crash", "--resume", "--retry-unknown", "--yes", "--json")

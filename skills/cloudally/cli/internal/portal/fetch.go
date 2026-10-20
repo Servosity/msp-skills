@@ -104,6 +104,18 @@ func StrictDownloadURL(u *url.URL) error {
 		if numericLabel(lower) {
 			return fmt.Errorf("%w: host %s looks like a numeric address in a non-standard form", ErrUnsafeDownloadURL, host)
 		}
+		// A name with no dot, or under a suffix reserved for private
+		// networks, names a machine on this network. A proxy would resolve
+		// it on its own side and reach that network's services, so it is
+		// refused whether or not a proxy is in use.
+		if !strings.Contains(lower, ".") {
+			return fmt.Errorf("%w: host %s is a single-label name for a machine on the local network", ErrUnsafeDownloadURL, host)
+		}
+		for _, suffix := range localNameSuffixes {
+			if lower == suffix[1:] || strings.HasSuffix(lower, suffix) {
+				return fmt.Errorf("%w: host %s is under %s, which names private-network machines", ErrUnsafeDownloadURL, host, suffix)
+			}
+		}
 		return nil
 	}
 	if reason := blockedAddrReason(addr); reason != "" {
@@ -111,6 +123,10 @@ func StrictDownloadURL(u *url.URL) error {
 	}
 	return nil
 }
+
+// localNameSuffixes are DNS suffixes used for machines on a private
+// network rather than public object storage.
+var localNameSuffixes = []string{".local", ".internal", ".lan", ".home.arpa", ".localhost", ".corp"}
 
 // numericLabel reports whether a host's last label is all digits or a hex
 // literal, which DNS host names never are.

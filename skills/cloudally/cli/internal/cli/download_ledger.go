@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -193,9 +195,46 @@ func ownedRows(b *downloadBatch) int {
 	return n
 }
 
-// findRerunBatch returns the newest earlier batch with this identity that
-// still owns rows.
-func findRerunBatch(identity string) (*downloadBatch, int, error) {
+// mayExist reports whether a row's export was created or may have been:
+// it was sent and not cleanly refused, or the portal accepted it.
+func mayExist(r downloadRow) bool {
+	switch r.Status {
+	case dlRequested, dlCreated, dlUnknown, dlMissing, dlEmpty:
+		return true
+	}
+	return r.AcceptedAt != "" || r.ConfirmedAt != ""
+}
+
+// legacyOverlap counts the rows of nb that an older ledger (one written
+// before rerun_key existed, which records no filters) for the same scope,
+// account, task and date already created or may have created. Matching on
+// the rows themselves blocks exactly the duplicates and nothing else, so a
+// run limited to what that batch never created still goes through.
+func legacyOverlap(old, nb *downloadBatch) int {
+	if old.Scope != nb.Scope || !strings.EqualFold(strings.TrimSpace(old.AccountID), strings.TrimSpace(nb.AccountID)) ||
+		strings.TrimSpace(old.TaskID) != strings.TrimSpace(nb.TaskID) || !strings.EqualFold(old.OnDate, nb.OnDate) {
+		return 0
+	}
+	taken := map[string]bool{}
+	for _, r := range old.Rows {
+		if mayExist(r) {
+			taken[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] = true
+		}
+	}
+	n := 0
+	for _, r := range nb.Rows {
+		if taken[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] {
+			n++
+		}
+	}
+	return n
+}
+
+// findRerunBatch returns the newest earlier batch that blocks nb: one with
+// the same identity that still owns rows, or an older ledger with no
+// identity whose created rows nb would create again. A ledger it cannot
+// read is an error, never a pass: the guard fails closed.
+func findRerunBatch(nb *downloadBatch) (*downloadBatch, int, error) {
 	dir, err := batchDir()
 	if err != nil {
 		return nil, 0, err
@@ -215,10 +254,17 @@ func findRerunBatch(identity string) (*downloadBatch, int, error) {
 			continue
 		}
 		b, err := loadBatch(key)
-		if err != nil || b.RerunKey != identity {
-			continue
+		if err != nil {
+			return nil, 0, fmt.Errorf("batch ledger %s cannot be read (%v), so it cannot be checked for archives this run would create again; nothing was sent. Move it out of %s if it is not needed", filepath.Join(dir, e.Name()), err, dir)
 		}
-		if n := ownedRows(b); n > 0 && (best == nil || b.CreatedAt > best.CreatedAt) {
+		n := 0
+		switch {
+		case b.RerunKey == "":
+			n = legacyOverlap(b, nb)
+		case b.RerunKey == nb.RerunKey:
+			n = ownedRows(b)
+		}
+		if n > 0 && (best == nil || b.CreatedAt > best.CreatedAt) {
 			best, owned = b, n
 		}
 	}
@@ -239,12 +285,12 @@ func claimNewBatch(b *downloadBatch, newBatch bool) error {
 	}
 	return cliutil.WithFileLock(filepath.Join(dir, rerunGuardName), func() error {
 		if !newBatch {
-			prior, n, err := findRerunBatch(b.RerunKey)
+			prior, n, err := findRerunBatch(b)
 			if err != nil {
-				return fmt.Errorf("reading earlier batches: %w", err)
+				return usageErr(err)
 			}
 			if prior != nil {
-				return usageErr(fmt.Errorf("batch %s already has %d archive(s) for this same scope, account, task, date, filters and format that were created, may have been created, or are being sent; nothing was sent. Continue that batch with: cloudally-cli download submit --batch %s --resume --yes (or add --new-batch to start a second batch that creates every export again)",
+				return usageErr(fmt.Errorf("batch %s already holds %d archive(s) this run would create again (created, possibly created, or being sent); nothing was sent. Continue that batch with: cloudally-cli download submit --batch %s --resume --yes (or add --new-batch to start a second batch that creates every export again)",
 					prior.BatchKey, n, prior.BatchKey))
 			}
 		}
@@ -253,4 +299,109 @@ func claimNewBatch(b *downloadBatch, newBatch bool) error {
 		}
 		return saveBatch(b)
 	})
+}
+
+// neverCreatedCommands rebuilds, per mailbox, a submit command limited to
+// the rows a batch never created (never sent, or cleanly refused). None of
+// them can duplicate an export the batch made, and the re-run guard lets
+// them through for the same reason.
+func neverCreatedCommands(b *downloadBatch) []string {
+	subs := map[string][]string{}
+	var entities []string
+	for _, r := range b.Rows {
+		if mayExist(r) {
+			continue
+		}
+		if _, seen := subs[r.Entity]; !seen {
+			entities = append(entities, r.Entity)
+		}
+		subs[r.Entity] = append(subs[r.Entity], r.SubSource)
+	}
+	sort.Strings(entities)
+	base := "cloudally-cli download submit --account " + b.AccountID
+	if b.Scope == scopeReseller {
+		base += " --reseller"
+	}
+	base += " --task " + b.TaskID
+	if strings.EqualFold(b.OnDate, latestLabel) {
+		base += " --latest"
+	} else {
+		base += " --on-date " + b.OnDate
+		if off := offsetHours(b.Timezone); off != "" {
+			base += " --utc-offset " + off
+		}
+	}
+	out := make([]string, 0, len(entities))
+	for _, e := range entities {
+		s := subs[e]
+		sort.Strings(s)
+		out = append(out, fmt.Sprintf("%s --entities %s --sub-sources %s --yes", base, e, strings.Join(s, ",")))
+	}
+	return out
+}
+
+// offsetHours turns a recorded zone label ("UTC-5", "UTC+5:30") back into a
+// --utc-offset value, or "" for UTC.
+func offsetHours(label string) string {
+	rest, ok := strings.CutPrefix(strings.TrimSpace(label), "UTC")
+	if !ok || rest == "" {
+		return ""
+	}
+	sign := 1.0
+	switch rest[0] {
+	case '-':
+		sign = -1
+	case '+':
+	default:
+		return ""
+	}
+	hm := strings.SplitN(rest[1:], ":", 2)
+	var h, m float64
+	if _, err := fmt.Sscanf(hm[0], "%g", &h); err != nil {
+		return ""
+	}
+	if len(hm) == 2 {
+		if _, err := fmt.Sscanf(hm[1], "%g", &m); err != nil {
+			return ""
+		}
+	}
+	return strconv.FormatFloat(sign*(h+m/60), 'f', -1, 64)
+}
+
+// rowsTakenElsewhere maps every archive that another batch for the same
+// scope, account and task created or may have created to that batch's key.
+// A ledger that cannot be read is an error: the check fails closed.
+func rowsTakenElsewhere(batch *downloadBatch) (map[string]string, error) {
+	dir, err := batchDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	taken := map[string]string{}
+	for _, e := range entries {
+		key, ok := strings.CutSuffix(e.Name(), ".json")
+		if !ok || validBatchKey(key) != nil || key == batch.BatchKey {
+			continue
+		}
+		b, err := loadBatch(key)
+		if err != nil {
+			return nil, fmt.Errorf("batch ledger %s cannot be read (%v), so it cannot be checked for archives this run would create again; nothing was sent. Move it out of %s if it is not needed", filepath.Join(dir, e.Name()), err, dir)
+		}
+		if b.Scope != batch.Scope || !strings.EqualFold(strings.TrimSpace(b.AccountID), strings.TrimSpace(batch.AccountID)) ||
+			strings.TrimSpace(b.TaskID) != strings.TrimSpace(batch.TaskID) {
+			continue
+		}
+		for _, r := range b.Rows {
+			if mayExist(r) {
+				taken[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] = b.BatchKey
+			}
+		}
+	}
+	return taken, nil
 }

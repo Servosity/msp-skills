@@ -99,12 +99,13 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	if n := len(s.createdAccounts()); n != 4 || len(ledgerKeys(t)) != 1 {
 		t.Fatalf("a refused re-run created %d / wrote %d ledgers", n-4, len(ledgerKeys(t))-1)
 	}
-	// A different filter is a different command.
+	// A different filter is a different command, but its archives were all
+	// created by the first batch, so it creates none of them again.
 	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--sub-sources", "O365MAIL")...); err != nil {
 		t.Fatalf("a different sub-source filter should run: %v\n%s", err, stderr)
 	}
-	if n := len(s.createdAccounts()); n != 6 {
-		t.Fatalf("creates after the filtered run = %d, want 6", n)
+	if n := len(s.createdAccounts()); n != 4 {
+		t.Fatalf("creates after the filtered run = %d, want 4 (nothing created twice)", n)
 	}
 	if _, _, err := runDL(t, s, downloadSubmitArgs("--new-batch", "--resume", "--batch", first[0])...); err == nil || ExitCode(err) != 2 {
 		t.Fatalf("--new-batch with --resume: want exit 2, got %v", err)
@@ -112,7 +113,7 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--new-batch")...); err != nil {
 		t.Fatalf("--new-batch: %v\n%s", err, stderr)
 	}
-	if n := len(s.createdAccounts()); n != 10 || len(ledgerKeys(t)) != 3 {
+	if n := len(s.createdAccounts()); n != 8 || len(ledgerKeys(t)) != 3 {
 		t.Fatalf("--new-batch should create every export again: creates=%d ledgers=%d", n, len(ledgerKeys(t)))
 	}
 
@@ -318,11 +319,11 @@ func TestDownloadSubmitRetryUnknownChecksThePortalFirst(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
 	b := newSubmitBatch(t, "20221231-000000-retry", "a@contoso.com")
-	b.Rows[0].Status = dlUnknown
+	b.Rows[0].Status, b.Rows[0].Label = dlUnknown, rowLabelPrefix+"retry1"
 	if err := saveBatch(b); err != nil {
 		t.Fatal(err)
 	}
-	s.jobs = append(s.jobs, dlJob{JobID: "job-a", Account: "a@contoso.com", SubSource: "O365MAIL", Status: "INPROCESS", Snapshot: b.Rows[0].SnapshotRaw})
+	s.jobs = append(s.jobs, dlJob{JobID: "job-a", Account: "a@contoso.com", SubSource: "O365MAIL", Status: "INPROCESS", Snapshot: b.Rows[0].SnapshotRaw, Label: b.Rows[0].Label})
 	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", b.BatchKey, "--resume", "--retry-unknown", "--no-reconcile", "--yes"); err != nil {
 		t.Fatalf("resume: %v\n%s", err, stderr)
 	}

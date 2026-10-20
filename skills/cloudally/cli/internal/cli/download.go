@@ -422,10 +422,11 @@ func newDownloadWatchCmd(flags *rootFlags) *cobra.Command {
 		Use:   "watch",
 		Short: "Follow a download (export) job until its archive is ready",
 		Long: strings.Trim(`
-Polls one export job until it reaches a terminal state. Exits 0 when the job
-is READY_FOR_DOWNLOAD and non-zero when it failed or was cancelled, so a
-script can gate the link step on it. --timeout bounds each status check, not
-the wait: an export can take hours to build.
+Polls one export job until it reaches a terminal state, so a script can gate
+the link step on it. Exits 0 when the job is READY_FOR_DOWNLOAD, 6 when it
+finished any other way (failed, cancelled), and with --once 8 when it is
+still being built. --timeout bounds each status check, not the wait: an
+export can take hours to build.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download watch --account 5f1c2a --job 9f2b1c
@@ -477,16 +478,18 @@ the wait: an export can take hours to build.
 							return perr
 						}
 					}
+					// A terminal failure is reported as one whether or not
+					// this was a single check.
 					switch {
 					case job.Ready():
 						if wantsHumanTable(cmd.OutOrStdout(), flags) {
 							fmt.Fprintf(cmd.OutOrStdout(), "\nready. Get the link with: cloudally-cli download link --account %s --job %s\n", scope.account, flagJob)
 						}
 						return nil
-					case flagOnce:
-						return nil
+					case exportJobFinished(job.Status):
+						return partialFailureErr(fmt.Errorf("export job %s finished as %s, not %s", flagJob, tenantText(job.Status), portal.StatusReadyForDownload))
 					default:
-						return fmt.Errorf("export job %s finished as %s, not %s", flagJob, tenantText(job.Status), portal.StatusReadyForDownload)
+						return &cliError{code: ExitJobPending, err: fmt.Errorf("export job %s is still %s; check again later", flagJob, tenantText(job.Status))}
 					}
 				}
 				select {
