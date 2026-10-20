@@ -191,7 +191,7 @@
         },
         {
           "file": "cli/internal/cli/root.go",
-          "contains": "cmd.SetOut(io.MultiWriter(newTerminalWriter(os.Stdout), flags.deliverBuf))",
+          "contains": "cmd.SetOut(&lockedWriter{w: io.MultiWriter(newTerminalWriter(os.Stdout), flags.deliverBuf)})",
           "code_only": true
         },
         {
@@ -4438,6 +4438,42 @@
         {
           "file": "cli/internal/cli/deliver.go",
           "not_contains": "func binaryDeliverPayload("
+        }
+      ]
+    },
+    {
+      "id": "private-file-dacl-before-write",
+      "summary": "AtomicWritePrivateFile gives the temporary file a protected owner-only DACL on Windows before writing any secret, and SaveCredentials deletes a credentials file that still fails VerifyCredsPerms",
+      "why": "Chmod does not restrict NTFS ACLs, so with ESET_PROTECT_HOME under a directory granting Users read access, credentials.toml (live access and refresh tokens) inherited that access; VerifyCredsPerms then returned an error but left the file, and the token-mint path ignored the save failure (Codex round 4 P1). restrictPrivateFile (private_acl_windows.go) applies D:P(A;;FA;;;<current user>) with PROTECTED_DACL_SECURITY_INFORMATION, the same SetNamedSecurityInfo pattern the generated Windows test sandbox uses; off Windows it is a no-op. TestPrivateFileDACLBeforeWrite (Windows-only, runs on the Windows CI row) uses an Everyone-readable inheritable directory: a plain os.WriteFile control fails VerifyCredsPerms, the AtomicWritePrivateFile file passes. Not runnable on the macOS dev host; GOOS=windows go vet and go test -c pass.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "if err := restrictPrivateFile(tmpPath); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/private_acl_windows.go",
+          "contains": "windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "\t\t_ = os.Remove(path)\n\t\treturn &CredentialsPermissionError{Path: path, Err: err}",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-tee-serialized",
+      "summary": "the --deliver capture tee (terminal writer + deliverBuf) is wrapped in lockedWriter, so concurrent sync workers cannot race on deliverBuf",
+      "why": "root.go set cmd.SetOut(io.MultiWriter(newTerminalWriter(os.Stdout), flags.deliverBuf)); only the terminal writer had its own mutex, so `sync --deliver file:...` progress from concurrent workers raced on the bytes.Buffer and could corrupt the delivered output (Codex round 4 P2, reproduced with a race-enabled build). With the fix a -race run of sync over six resources with --deliver file: is clean, without it it reports DATA RACE. TestDeliverTeeIsSerialized failed with root.go reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.SetOut(&lockedWriter{w: io.MultiWriter(newTerminalWriter(os.Stdout), flags.deliverBuf)})",
+          "code_only": true
         }
       ]
     }

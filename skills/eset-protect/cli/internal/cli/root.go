@@ -400,7 +400,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 			flags.deliverSink = sink
 			if sink.Scheme != "stdout" && sink.Scheme != "" {
 				flags.deliverBuf = &bytes.Buffer{}
-				cmd.SetOut(io.MultiWriter(newTerminalWriter(os.Stdout), flags.deliverBuf))
+				cmd.SetOut(&lockedWriter{w: io.MultiWriter(newTerminalWriter(os.Stdout), flags.deliverBuf)}) // hand-fix deliver-tee-serialized
 			}
 		}
 		if flags.runProfileName != "" {

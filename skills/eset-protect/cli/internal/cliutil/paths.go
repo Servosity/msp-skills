@@ -142,6 +142,13 @@ func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileM
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("securing temporary private file: %w", err)
 	}
+	// Hand-fix private-file-dacl-before-write: on Windows the owner-only DACL
+	// goes on before any byte of the secret does.
+	if err := restrictPrivateFile(tmpPath); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("securing temporary private file ACL: %w", err)
+	}
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmpPath)

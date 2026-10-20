@@ -308,6 +308,9 @@ func SaveCredentials(creds *Credentials) error {
 		return &CredentialsPermissionError{Path: path, Err: fmt.Errorf("resolving saved file: %w", err)}
 	}
 	if err := VerifyCredsPerms(real); err != nil {
+		// Hand-fix private-file-dacl-before-write: fail closed, never leave
+		// tokens in a file the check just refused.
+		_ = os.Remove(path)
 		return &CredentialsPermissionError{Path: path, Err: err}
 	}
 	return nil
