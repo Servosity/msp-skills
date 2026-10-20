@@ -76,6 +76,13 @@
     "current_hash": "sha256:dff9c3d631e64eec29f6a6ca37409fb49d326ba91f5fd0464ae9897d124b1f4f",
     "released_hash": "sha256:dff9c3d631e64eec29f6a6ca37409fb49d326ba91f5fd0464ae9897d124b1f4f"
   },
+  "backup-radar": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:19136d9d0a16b091be558621218b7e25a5eea90563ac2fc3a1a0c965e4a3b852",
+    "released_hash": null
+  },
   "betterstack": {
     "state": "up-to-date",
     "version": "0.1.4",
