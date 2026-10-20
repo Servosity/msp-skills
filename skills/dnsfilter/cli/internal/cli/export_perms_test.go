@@ -27,10 +27,11 @@ func TestOpenExportOutputTightensExistingMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.Write([]byte("new")); err != nil {
+	if _, err := f.file.Write([]byte("new")); err != nil {
+		f.abort()
 		t.Fatal(err)
 	}
-	if err := f.Close(); err != nil {
+	if err := f.commit(); err != nil {
 		t.Fatal(err)
 	}
 	info, err := os.Stat(path)

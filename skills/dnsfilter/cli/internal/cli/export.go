@@ -119,17 +119,19 @@ large datasets as it has no memory pressure.`,
 			}
 
 			var writer *bufio.Writer
-			var outFile *os.File
+			var outFile *exportOutput
 			if outputFile != "" && !dryRunOK(flags) { // --dry-run must not create or truncate the -o file
 				f, err := openExportOutput(outputFile)
 				if err != nil {
 					return err
 				}
 				outFile = f
-				writer = bufio.NewWriter(f)
+				writer = bufio.NewWriter(f.file)
+				// A failed export discards its temp file and leaves an
+				// existing --output file (the previous backup) untouched.
 				defer func() {
-					if err != nil && outFile != nil {
-						_ = outFile.Close()
+					if outFile != nil {
+						outFile.abort()
 					}
 				}()
 			} else {
@@ -140,8 +142,8 @@ large datasets as it has no memory pressure.`,
 					return fmt.Errorf("flushing export: %w", err)
 				}
 				if outFile != nil {
-					if err := outFile.Close(); err != nil {
-						return fmt.Errorf("closing export file: %w", err)
+					if err := outFile.commit(); err != nil {
+						return err
 					}
 					outFile = nil
 				}
@@ -160,6 +162,9 @@ large datasets as it has no memory pressure.`,
 				params := map[string]string(nil)
 				if !singleItem && config.paginationType != "" {
 					params = resourcePageParams(config, cursor, page, remaining)
+				}
+				if !singleItem {
+					params = withExportListDefaults(resource, params)
 				}
 				data, err := c.Get(cmd.Context(), path, params)
 				if err != nil {
@@ -250,22 +255,64 @@ large datasets as it has no memory pressure.`,
 	return cmd
 }
 
-// openExportOutput creates or truncates path as a private file. OpenFile's
-// mode applies only when the file is created; an existing 0644 file would
-// stay world-readable across the truncate, so the mode is set again after open.
-func openExportOutput(path string) (*os.File, error) {
-	if dir := filepath.Dir(path); dir != "" && dir != "." {
+// withExportListDefaults adds the query params a list export always needs to
+// see the whole collection. HAND-FIX(export-policies-include-global): like
+// sync and policy-audit, /v1/policies/all omits global (MSP-shared) policies
+// unless include_global_policies=true.
+func withExportListDefaults(resource string, params map[string]string) map[string]string {
+	if resource != "policies" {
+		return params
+	}
+	if params == nil {
+		params = map[string]string{}
+	}
+	params["include_global_policies"] = "true"
+	return params
+}
+
+// exportOutput is an --output file being written. HAND-FIX(export-output-atomic-replace):
+// the export goes to a private temp file in the destination's directory and
+// replaces path only on success, so a failed export never truncates the
+// previous backup. The temp file is closed before the rename and removed on
+// failure (Windows cannot rename over, or delete, an open file).
+type exportOutput struct {
+	file *os.File
+	path string
+}
+
+// openExportOutput creates the temp file for path. os.CreateTemp creates it
+// 0600, and the rename replaces any existing file (and its mode), so an
+// existing world-readable file does not stay world-readable.
+func openExportOutput(path string) (*exportOutput, error) {
+	dir := filepath.Dir(path)
+	if dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("creating output directory: %w", err)
 		}
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
 		return nil, fmt.Errorf("creating output file: %w", err)
 	}
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("setting output file permissions: %w", err)
+	return &exportOutput{file: f, path: path}, nil
+}
+
+// commit closes the temp file and renames it over path.
+func (o *exportOutput) commit() error {
+	tmp := o.file.Name()
+	if err := o.file.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("closing export file: %w", err)
 	}
-	return f, nil
+	if err := os.Rename(tmp, o.path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("replacing export file: %w", err)
+	}
+	return nil
+}
+
+// abort closes and removes the temp file, leaving path as it was.
+func (o *exportOutput) abort() {
+	_ = o.file.Close()
+	_ = os.Remove(o.file.Name())
 }

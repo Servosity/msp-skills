@@ -22,7 +22,7 @@ type staleAgent struct {
 	AgentVersion string `json:"agent_version"`
 	AgentState   string `json:"agent_state"`
 	LastSync     string `json:"last_sync"`
-	Reason       string `json:"reason"` // silent, unprotected, bypassed, never_synced, state_unknown
+	Reason       string `json:"reason"` // silent, unprotected, bypassed, never_synced, state_unknown, membership_unknown
 	AgeBucket    string `json:"age_bucket"`
 }
 
@@ -46,7 +46,7 @@ func newNovelAgentsStaleCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for roaming clients that are silent (last_sync older than --older-than) or not protected (unprotected, bypassed, or no known protection state: only "protected" counts as healthy) across every client org.
 Do NOT use this command for version drift after an agent release; use 'agents drift' instead.
 
-Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first. Uninstalled clients are excluded.`,
+Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first. Uninstalled clients are excluded. With --org, a client whose site or org is missing from the mirror (or names no organization) can be neither matched nor ruled out, so it is listed with reason membership_unknown under (org membership unknown), whatever its health.`,
 		Example: strings.Trim(`
   dnsfilter-cli agents stale --older-than 7d --agent
   dnsfilter-cli agents stale --org 'Acme Dental'`, "\n"),
@@ -96,6 +96,9 @@ Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations
 			}
 			rows, scanned := computeStale(agents, networks, orgs, orgFilter, window, time.Now())
 			human := wantsHumanTable(cmd.OutOrStdout(), flags)
+			if n := staleMembershipUnknown(rows); n > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "hint: %d roaming client(s) could not be placed in or out of --org %q (their site or organization is missing from the local mirror); they are listed with reason membership_unknown\n", n, orgFilter)
+			}
 			if len(incomplete) > 0 {
 				// An unwalked site or org list empties --org; do not blame the filter.
 				if !human {
@@ -151,25 +154,30 @@ Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations
 // installed clients that passed the org filter, so an empty result can be told
 // apart from "nothing was checked".
 func computeStale(agents, networks, orgs []jaRes, orgFilter string, window time.Duration, now time.Time) (out []staleOrgRow, scanned int) {
-	netOrg := map[string]string{}
-	for _, n := range networks {
-		netOrg[n.ID] = n.relID("organization")
-	}
+	netOrg := siteOrgs(networks)
 	orgByID := byID(orgs)
 	rows := map[string]*staleOrgRow{}
 	for _, a := range agents {
 		if isUninstalled(a) {
 			continue
 		}
-		orgID := netOrg[a.relID("network")]
-		org := orgByID[orgID]
-		if orgFilter != "" && orgID != orgFilter && !strings.Contains(strings.ToLower(org.str("name")), strings.ToLower(orgFilter)) {
+		orgID, match, known := orgMembership(a, netOrg, orgByID, orgFilter)
+		if known && !match {
 			continue
 		}
+		org := orgByID[orgID]
 		scanned++
 		reason, bucket := "", ""
 		last, hasSync := parseSyncTime(a.str("last_sync"))
 		switch {
+		case !known:
+			// HAND-FIX(agents-org-membership-unknown): --org cannot match or
+			// rule out a client whose site or org the mirror lacks; it is
+			// reported, never silently filtered away into an all-clear.
+			orgID, org, reason, bucket = "", jaRes{}, "membership_unknown", "never"
+			if hasSync {
+				bucket = ageBucket(now.Sub(last))
+			}
 		case !hasSync:
 			reason, bucket = "never_synced", "never"
 		case now.Sub(last) > window:
@@ -189,6 +197,9 @@ func computeStale(agents, networks, orgs []jaRes, orgFilter string, window time.
 			row = &staleOrgRow{OrgID: orgID, OrgName: org.str("name"), Agents: make([]staleAgent, 0)}
 			if orgID == "" {
 				row.OrgName = "(site not synced)"
+				if orgFilter != "" {
+					row.OrgName = membershipUnknownName
+				}
 			}
 			rows[orgID] = row
 		}
@@ -207,6 +218,19 @@ func computeStale(agents, networks, orgs []jaRes, orgFilter string, window time.
 		return out[i].OrgName < out[j].OrgName
 	})
 	return out, scanned
+}
+
+// staleMembershipUnknown counts the clients computeStale reported as membership_unknown.
+func staleMembershipUnknown(rows []staleOrgRow) int {
+	n := 0
+	for _, r := range rows {
+		for _, a := range r.Agents {
+			if a.Reason == "membership_unknown" {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // parseSyncTime accepts the spec's `format: date` plus full timestamps.

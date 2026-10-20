@@ -99,7 +99,11 @@ func TestCompareSemver(t *testing.T) {
 
 func TestEvaluatePolicyPrecedence(t *testing.T) {
 	social := []categoryRef{{ID: "7", Name: "Social Networking"}}
-	policy := func(attrs string) jaRes { return ja(t, `{"id":"10","attributes":{"name":"Standard",`+attrs+`}}`) }
+	// Every attribute the evaluation reads is present by default; a case
+	// overrides some (a later duplicate key wins).
+	policy := func(attrs string) jaRes {
+		return ja(t, `{"id":"10","attributes":{"name":"Standard","whitelist_domains":[],"allow_list_only":false,"blacklist_domains":[],"allow_unknown_domains":true,"blacklist_categories":[],`+attrs+`}}`)
+	}
 	cases := []struct {
 		name     string
 		fqdn     string
@@ -123,7 +127,7 @@ func TestEvaluatePolicyPrecedence(t *testing.T) {
 		{"uncategorized allowed", "example.net", policy(`"allow_unknown_domains":true`), nil, "allowed", "no_matching_rule"},
 		{"blocked category", "example.net", policy(`"blacklist_categories":[7]`), social, "blocked", "category"},
 		{"nothing matches", "example.net", policy(`"blacklist_categories":[9]`), social, "allowed", "no_matching_rule"},
-		{"global policy is just a policy", "example.net", ja(t, `{"id":"1","attributes":{"name":"Global","is_global_policy":true,"blacklist_domains":["example.net"]}}`), social, "blocked", "block_list"},
+		{"global policy is just a policy", "example.net", ja(t, `{"id":"1","attributes":{"name":"Global","is_global_policy":true,"whitelist_domains":[],"allow_list_only":false,"blacklist_domains":["example.net"],"allow_unknown_domains":true,"blacklist_categories":[]}}`), social, "blocked", "block_list"},
 	}
 	unknownCats := []struct {
 		name, fqdn, decision, rule string
@@ -428,8 +432,8 @@ func TestComputeListsWhere(t *testing.T) {
 func TestAuditPolicies(t *testing.T) {
 	cats := []jaRes{ja(t, `{"id":"60","attributes":{"name":"Phishing","security":true}}`), ja(t, `{"id":"7","attributes":{"name":"Social","security":false}}`)}
 	policies := []jaRes{
-		ja(t, `{"id":"10","attributes":{"name":"Loose","organization_id":1,"whitelist_domains":["bad.example.com"],"blacklist_categories":[],"allow_unknown_domains":true}}`),
-		ja(t, `{"id":"11","attributes":{"name":"Tight","organization_id":2,"whitelist_domains":["ok.example.com"],"blacklist_categories":[60,7],"google_safesearch":true}}`),
+		ja(t, `{"id":"10","attributes":{`+auditFullAttrs+`,"name":"Loose","organization_id":1,"whitelist_domains":["bad.example.com"],"blacklist_categories":[],"allow_unknown_domains":true}}`),
+		ja(t, `{"id":"11","attributes":{`+auditFullAttrs+`,"name":"Tight","organization_id":2,"whitelist_domains":["ok.example.com"],"blacklist_categories":[60,7],"google_safesearch":true}}`),
 	}
 	domainCats := map[string][]string{"bad.example.com": {"60"}, "ok.example.com": {"7"}}
 	baseline := policies[1]
@@ -438,13 +442,13 @@ func TestAuditPolicies(t *testing.T) {
 	for _, f := range findings {
 		kinds[f.PolicyID+":"+f.Kind] = true
 	}
-	listOnly := []jaRes{ja(t, `{"id":"31","attributes":{"name":"ListOnly","allow_list_only":true,"allow_unknown_domains":true,"blacklist_categories":[]}}`)}
+	listOnly := []jaRes{ja(t, `{"id":"31","attributes":{`+auditFullAttrs+`,"name":"ListOnly","allow_list_only":true,"allow_unknown_domains":true,"blacklist_categories":[]}}`)}
 	for _, f := range auditPolicies(listOnly, cats, nil, nil) {
 		if f.Kind == "unknown_domains_allowed" || f.Kind == "security_category_not_blocked" {
 			t.Errorf("allow-list-only policy got exposure finding %s", f.Kind)
 		}
 	}
-	ext := []jaRes{ja(t, `{"id":"30","attributes":{"name":"Ext","blacklist_categories":[60,7],"google_safesearch":true,"allow_list_only":true,"youtube_restricted_level":"strict"}}`)}
+	ext := []jaRes{ja(t, `{"id":"30","attributes":{`+auditFullAttrs+`,"name":"Ext","blacklist_categories":[60,7],"google_safesearch":true,"allow_list_only":true,"youtube_restricted_level":"strict"}}`)}
 	extFindings := auditPolicies(ext, cats, nil, &baseline)
 	details := ""
 	for _, f := range extFindings {
@@ -467,6 +471,10 @@ func TestAuditPolicies(t *testing.T) {
 		t.Errorf("findings not sorted high first: %+v", findings[0])
 	}
 }
+
+// auditFullAttrs carries every policy attribute policy-audit reads, so a
+// fixture overrides only what it tests (a later duplicate key wins).
+const auditFullAttrs = `"whitelist_domains":[],"blacklist_categories":[],"allow_list_only":false,"allow_unknown_domains":false,"google_safesearch":false,"bing_safe_search":false,"duck_duck_go_safe_search":false,"ecosia_safesearch":false,"yandex_safe_search":false,"youtube_restricted":false,"interstitial":false,"youtube_restricted_level":"none"`
 
 func TestGroupUnblockRequests(t *testing.T) {
 	now, _ := time.Parse(time.RFC3339, "2026-10-14T12:00:00Z")
@@ -515,13 +523,13 @@ func TestGroupUnblockRequests(t *testing.T) {
 
 func TestPlanAllowTargets(t *testing.T) {
 	policies := map[string]jaRes{
-		"10": ja(t, `{"id":"10","attributes":{"name":"Std","is_global_policy":false,"can_edit":true}}`),
+		"10": ja(t, `{"id":"10","attributes":{"name":"Std","is_global_policy":false,"can_edit":true,"whitelist_domains":[]}}`),
 		"11": ja(t, `{"id":"11","attributes":{"name":"Has it","is_global_policy":false,"can_edit":true,"whitelist_domains":["example.com"]}}`),
 		"15": ja(t, `{"id":"15","attributes":{"name":"Parent only","is_global_policy":false,"can_edit":true,"whitelist_domains":["com"]}}`),
-		"12": ja(t, `{"id":"12","attributes":{"name":"Global","is_global_policy":true,"can_edit":true}}`),
-		"13": ja(t, `{"id":"13","attributes":{"name":"Locked","can_edit":false}}`),
-		"14": ja(t, `{"id":"14","attributes":{"name":"No flag"}}`),
-		"16": ja(t, `{"id":"16","attributes":{"name":"Global unknown","can_edit":true}}`),
+		"12": ja(t, `{"id":"12","attributes":{"name":"Global","is_global_policy":true,"can_edit":true,"whitelist_domains":[]}}`),
+		"13": ja(t, `{"id":"13","attributes":{"name":"Locked","can_edit":false,"whitelist_domains":[]}}`),
+		"14": ja(t, `{"id":"14","attributes":{"name":"No flag","whitelist_domains":[]}}`),
+		"16": ja(t, `{"id":"16","attributes":{"name":"Global unknown","can_edit":true,"whitelist_domains":[]}}`),
 	}
 	deps := []deployment{{Kind: "site", Name: "HQ", PolicyID: "10"}, {Kind: "site", Name: "Annex", PolicyID: "10"}, {Kind: "site", Name: "Lab", PolicyID: "11"}, {Kind: "roaming_client", Name: "LAPTOP", PolicyID: "12"}, {Kind: "site", Name: "Vault", PolicyID: "13"}, {Kind: "site", Name: "Quiet", PolicyID: "14"}, {Kind: "site", Name: "Parent", PolicyID: "15"}, {Kind: "site", Name: "NoGlobalFlag", PolicyID: "16"}, {Kind: "site", Name: "Ghost", PolicyID: "99"}, {Kind: "site", Name: "Sched", PolicyID: ""}}
 	got := map[string]allowTarget{}

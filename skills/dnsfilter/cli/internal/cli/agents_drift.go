@@ -20,11 +20,15 @@ type driftOrgRow struct {
 	BehindLatest  int    `json:"behind_latest"`
 	OnBadVersion  int    `json:"on_bad_version"`
 	UnknownLatest int    `json:"unknown_latest"`
-	// VersionUnknown counts clients that report no agent_version; they are
-	// never compared against a release.
-	VersionUnknown int      `json:"version_unknown"`
-	BehindVersions []string `json:"behind_versions"`
-	SampleHosts    []string `json:"sample_hosts"`
+	// VersionUnknown counts clients that report no agent_version, or one
+	// compareSemver cannot order; they are never compared against a release.
+	VersionUnknown int `json:"version_unknown"`
+	// MembershipUnknown counts clients --org could neither match nor rule
+	// out (site or org missing from the mirror); they are grouped under
+	// "(org membership unknown)".
+	MembershipUnknown int      `json:"membership_unknown"`
+	BehindVersions    []string `json:"behind_versions"`
+	SampleHosts       []string `json:"sample_hosts"`
 }
 
 type driftView struct {
@@ -55,7 +59,7 @@ func newNovelAgentsDriftCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for roaming-client agent version questions (who is behind the latest release, who is on a specific bad version) across every client org.
 Do NOT use this command for roaming clients that stopped checking in or lost protection; use 'agents stale' instead.
 
-The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first); the release feed is read live on every run, because the vendor publishes it as a current "latest per agent type, architecture, channel and white label" snapshot and a mirrored copy would keep withdrawn releases after a rollback. Latest is the highest non-white-label release in the chosen channel (default stable) per agent type, across architectures. Roaming clients map to an org through their site (network). --data-source local and live are both rejected: the fleet is always the local mirror and the release feed is always live.`,
+The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first); the release feed is read live on every run, because the vendor publishes it as a current "latest per agent type, architecture, channel and white label" snapshot and a mirrored copy would keep withdrawn releases after a rollback. Latest is the highest non-white-label release in the chosen channel (default stable) per agent type, across architectures; an in-channel release whose version cannot be compared makes that type's latest unknown, and a client version that cannot be compared (e.g. "999unknown") counts as version_unknown, never current. Roaming clients map to an org through their site (network); with --org, a client whose site or org is missing from the mirror is counted under (org membership unknown) as membership_unknown instead of being dropped. --data-source local and live are both rejected: the fleet is always the local mirror and the release feed is always live.`,
 		Example: strings.Trim(`
   dnsfilter-cli agents drift --agent
   dnsfilter-cli agents drift --bad-version 3.1.0 --agent-type windows`, "\n"),
@@ -69,6 +73,9 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 			}
 			if flags.dataSource == "local" || flags.dataSource == "live" {
 				return usageErr(fmt.Errorf("agents drift joins the local roaming-client mirror with the live release feed, so neither --data-source local nor live applies; omit --data-source"))
+			}
+			if badVersion != "" && !isComparableVersion(badVersion) {
+				return usageErr(fmt.Errorf("--bad-version %q is not a comparable version (dotted numbers, optional -prerelease)", badVersion))
 			}
 			opts := driftOptions{BadVersion: badVersion, AgentType: agentType, Channel: channel, Org: orgFilter}
 			empty := computeDrift(nil, nil, nil, nil, opts)
@@ -117,6 +124,9 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				// listed nothing; it does not apply when the feed was never read.
 				view.Note = fmt.Sprintf("Release feed unavailable (%v); versions cannot be compared.", feedErr)
 			}
+			if n := driftMembershipUnknown(view.Orgs); n > 0 {
+				view.Note = joinNotes(view.Note, fmt.Sprintf("%d roaming client(s) could not be placed in or out of --org %q (their site or organization is missing from the local mirror); they are counted under %s.", n, orgFilter, membershipUnknownName))
+			}
 			if len(incomplete) > 0 {
 				view.IncompleteCollections = incomplete
 			}
@@ -147,7 +157,11 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				fmt.Fprintln(w, "No client org has roaming clients behind the latest release.")
 			}
 			for _, r := range view.Orgs {
-				fmt.Fprintf(w, "  %-30s agents=%-4d behind=%-4d bad=%-4d no-known-release=%-4d version-unknown=%-4d versions=%s\n", humanText(r.OrgName), r.Agents, r.BehindLatest, r.OnBadVersion, r.UnknownLatest, r.VersionUnknown, humanText(strings.Join(r.BehindVersions, ",")))
+				fmt.Fprintf(w, "  %-30s agents=%-4d behind=%-4d bad=%-4d no-known-release=%-4d version-unknown=%-4d versions=%s", humanText(r.OrgName), r.Agents, r.BehindLatest, r.OnBadVersion, r.UnknownLatest, r.VersionUnknown, humanText(strings.Join(r.BehindVersions, ",")))
+				if r.MembershipUnknown > 0 {
+					fmt.Fprintf(w, " membership-unknown=%d", r.MembershipUnknown)
+				}
+				fmt.Fprintln(w)
 			}
 			if view.Note != "" {
 				fmt.Fprintln(w, "note:", humanText(view.Note))
@@ -227,6 +241,10 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 	if o.Channel != "" {
 		view.Channel, view.ChannelSource = strings.ToLower(o.Channel), "flag"
 	}
+	// HAND-FIX(agents-drift-incomparable-version-unknown): an in-channel
+	// release whose version cannot be ordered could be the latest one, so its
+	// agent type has no known latest release.
+	incomparable := map[string]bool{}
 	for _, r := range releases {
 		inChannel := false
 		for _, ch := range releaseChannels(r) {
@@ -240,14 +258,18 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		if r.boolean("white_label") {
 			continue
 		}
+		if inChannel && t != "" && !isComparableVersion(r.str("agent_version")) {
+			incomparable[t] = true
+			continue
+		}
 		if inChannel && t != "" && compareSemver(r.str("agent_version"), view.Latest[t]) > 0 {
 			view.Latest[t] = r.str("agent_version")
 		}
 	}
-	netOrg := map[string]string{}
-	for _, n := range networks {
-		netOrg[n.ID] = n.relID("organization")
+	for t := range incomparable {
+		delete(view.Latest, t)
 	}
+	netOrg := siteOrgs(networks)
 	orgByID := byID(orgs)
 	rows := map[string]*driftOrgRow{}
 	versionsSeen := map[string]map[string]bool{}
@@ -259,17 +281,25 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		if o.AgentType != "" && t != strings.ToLower(o.AgentType) {
 			continue
 		}
-		orgID := netOrg[a.relID("network")]
-		org := orgByID[orgID]
-		if o.Org != "" && orgID != o.Org && !strings.Contains(strings.ToLower(org.str("name")), strings.ToLower(o.Org)) {
+		orgID, match, known := orgMembership(a, netOrg, orgByID, o.Org)
+		if known && !match {
 			continue
 		}
+		if !known {
+			// HAND-FIX(agents-org-membership-unknown): --org can neither match
+			// nor rule out this client; count it apart instead of dropping it.
+			orgID = ""
+		}
+		org := orgByID[orgID]
 		view.AgentsScanned++
 		row := rows[orgID]
 		if row == nil {
 			row = &driftOrgRow{OrgID: orgID, OrgName: org.str("name"), BehindVersions: make([]string, 0), SampleHosts: make([]string, 0)}
 			if orgID == "" {
 				row.OrgName = "(site not synced)"
+				if o.Org != "" {
+					row.OrgName = membershipUnknownName
+				}
 			}
 			if v, ok := org.Attrs["user_agents_auto_update"].(bool); ok {
 				row.AutoUpdate = &v
@@ -278,8 +308,11 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 			versionsSeen[orgID] = map[string]bool{}
 		}
 		row.Agents++
+		if !known {
+			row.MembershipUnknown++
+		}
 		ver := a.str("agent_version")
-		if ver == "" {
+		if ver == "" || !isComparableVersion(ver) {
 			row.VersionUnknown++
 			continue
 		}
@@ -304,7 +337,7 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 	for _, r := range rows {
 		// Orgs whose clients have no known latest release (an agent type the
 		// feed does not list) are reported too, so coverage gaps stay visible.
-		if r.BehindLatest > 0 || r.OnBadVersion > 0 || r.UnknownLatest > 0 || r.VersionUnknown > 0 {
+		if r.BehindLatest > 0 || r.OnBadVersion > 0 || r.UnknownLatest > 0 || r.VersionUnknown > 0 || r.MembershipUnknown > 0 {
 			sort.Slice(r.BehindVersions, func(i, j int) bool { return compareSemver(r.BehindVersions[i], r.BehindVersions[j]) < 0 })
 			view.Orgs = append(view.Orgs, *r)
 		}
@@ -319,10 +352,22 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		}
 		return a.OrgName < b.OrgName
 	})
-	if len(view.Latest) == 0 {
+	switch {
+	case len(incomparable) > 0:
+		view.Note = fmt.Sprintf("the release feed lists an agent_version that cannot be compared for agent type(s) %s in channel %s, so their latest release is unknown", strings.Join(sortedKeys(incomparable), ", "), view.Channel)
+	case len(view.Latest) == 0:
 		view.Note = "the release feed lists no non-white-label release for channel " + view.Channel
 	}
 	return view
+}
+
+// driftMembershipUnknown totals the clients --org could not place.
+func driftMembershipUnknown(rows []driftOrgRow) int {
+	n := 0
+	for _, r := range rows {
+		n += r.MembershipUnknown
+	}
+	return n
 }
 
 // releaseChannels returns the channel values a release is published to.

@@ -5,6 +5,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -47,7 +48,8 @@ Do NOT use this command for a security review of all allow lists; use 'policy-au
 
 Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).
 sites and roaming_clients count every site and installed roaming client the policy governs: its own assignment, a roaming client inheriting its site's policy, or any slot of a scheduled policy (the client's own or inherited from its site). scheduled_sites and scheduled_roaming_clients say how many of those reach the policy through a schedule slot, so it governs them only part of the week.
-Assignments are resolved as why-blocked resolves them: a scheduled policy replaces a retained direct policy, and a site's to-many policies relationship is not an assignment and is not counted. User, collection and LAN-subnet assignments are not exposed by the policy API and are not counted.`,
+Assignments are resolved as why-blocked resolves them: a scheduled policy replaces a retained direct policy, and a site's to-many policies relationship is not an assignment and is not counted. User, collection and LAN-subnet assignments are not exposed by the policy API and are not counted.
+Unknown is never an all-clear: a policy whose allow or block list is absent, null or unreadable in the mirror is named in meta.unreadable_policies, a scheduled policy whose 672 slots are not all usable policy ids in meta.unresolved_schedules, and roaming clients inheriting from a site the mirror lacks in meta.unplaced_roaming_clients.`,
 		Example: strings.Trim(`
   dnsfilter-cli lists where example.com --agent
   dnsfilter-cli lists where cdn.example.com`, "\n"),
@@ -97,10 +99,19 @@ Assignments are resolved as why-blocked resolves them: a scheduled policy replac
 			// deployments' policies unknown; re-syncing a complete collection
 			// cannot fix it, so it is reported apart from incomplete collections.
 			withheld := len(incomplete) > 0 || len(unresolved) > 0
+			// HAND-FIX(lists-where-unreadable-policy-lists): a complete policies
+			// sync does not make each policy's lists readable; one whose list is
+			// absent or null cannot be ruled out, and neither can the impact of
+			// a client inheriting from a site the mirror lacks.
+			unreadable := unreadablePolicyLists(loaded["policies"])
+			unplaced := unplacedRoamingClients(loaded["user-agents"], loaded["networks"])
+			withheld = withheld || len(unreadable) > 0 || unplaced > 0
+			extraNote := whereUnreadableNote(unreadable, unplaced)
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				if withheld {
 					res := incompleteMirrorJSON(rows, incomplete)
 					res.Meta.Note, res.Meta.UnresolvedSchedules = whereWithheldNote(incomplete, unresolved), sortedKeys(unresolved)
+					res.Meta.Note, res.Meta.UnreadablePolicies, res.Meta.UnplacedRoamingClients = joinNotes(extraNote, res.Meta.Note), unreadable, unplaced
 					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+res.Meta.Note)
 					return printJSONFiltered(cmd.OutOrStdout(), res, flags)
 				}
@@ -120,7 +131,7 @@ Assignments are resolved as why-blocked resolves them: a scheduled policy replac
 			}
 			if withheld {
 				// Unwalked sites or clients read as sites=0 roaming=0: no impact.
-				fmt.Fprintln(w, humanText(whereWithheldNote(incomplete, unresolved)))
+				fmt.Fprintln(w, humanText(joinNotes(extraNote, whereWithheldNote(incomplete, unresolved))))
 			}
 			return nil
 		},
@@ -147,10 +158,54 @@ func whereWithheldNote(incomplete []string, unresolved map[string]int) string {
 	return strings.Join(notes, " ")
 }
 
+// unreadablePolicyLists returns, sorted, the ids of policies whose
+// whitelist_domains or blacklist_domains is absent, null, not a list, or holds
+// an unreadable entry: lists where cannot rule the domain out of them.
+func unreadablePolicyLists(policies []jaRes) []string {
+	ids := map[string]bool{}
+	for _, p := range policies {
+		for _, attr := range []string{"whitelist_domains", "blacklist_domains"} {
+			if _, ok := p.strsKnown(attr); !ok {
+				ids[p.ID] = true
+			}
+		}
+	}
+	return sortedKeys(ids)
+}
+
+// unplacedRoamingClients counts installed roaming clients with no assignment
+// of their own whose site is not in the mirror: their inherited policy, and
+// so every impact count, is unknown.
+func unplacedRoamingClients(agents, networks []jaRes) int {
+	sites := byID(networks)
+	n := 0
+	for _, a := range agents {
+		if isUninstalled(a) || a.relID("policy") != "" || a.relID("scheduled_policy") != "" {
+			continue
+		}
+		if _, ok := sites[a.relID("network")]; !ok {
+			n++
+		}
+	}
+	return n
+}
+
+// whereUnreadableNote describes unreadable policy lists and unplaced clients ("" when neither).
+func whereUnreadableNote(unreadable []string, unplaced int) string {
+	notes := make([]string, 0, 2)
+	if len(unreadable) > 0 {
+		notes = append(notes, fmt.Sprintf("%d policies have an allow or block list that is absent, null or unreadable in the local mirror (policy ids %s), so the domain cannot be ruled out of them; this is not an all-clear.", len(unreadable), strings.Join(unreadable, ", ")))
+	}
+	if unplaced > 0 {
+		notes = append(notes, fmt.Sprintf("%d roaming clients inherit their policy from a site that is not in the local mirror; their policies, and the roaming-client counts, are unknown.", unplaced))
+	}
+	return joinNotes(notes...)
+}
+
 // computeListsWhere is the pure join behind `lists where`. unresolved maps
-// each scheduled policy id that deployments use but schedules lacks (or that
-// lists no slot policy) to how many deployments use it; their policies, and
-// so the counts, are unknown.
+// each scheduled policy id that deployments use but schedules lacks (or whose
+// raw slot list is not 672 usable policy ids) to how many deployments use it;
+// their policies, and so the counts, are unknown.
 func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved map[string]int) {
 	unresolved = map[string]int{}
 	sites, roaming := map[string]int{}, map[string]int{}
@@ -162,9 +217,12 @@ func computeListsWhere(domain string, policies, orgs, networks, agents, schedule
 		if schedID == "" {
 			return ids
 		}
+		// HAND-FIX(lists-where-schedule-every-slot-resolved): one usable id
+		// among 671 nulls resolved the schedule. Every slot must name a policy
+		// (scheduleSlotIDs, and no "0"), or the slot policies are unknown.
 		if sp, ok := schedByID[schedID]; ok {
-			for _, id := range sp.strs("policy_ids") {
-				if id != "0" {
+			if slots, valid := scheduleSlotIDs(sp); valid && !slices.Contains(slots, "0") {
+				for _, id := range sp.strs("policy_ids") {
 					ids[id] = true
 				}
 			}

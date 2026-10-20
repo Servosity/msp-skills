@@ -31,9 +31,13 @@ type queryLogHit struct {
 }
 
 type whyBlockedView struct {
-	FQDN        string                 `json:"fqdn"`
-	Org         orgRef                 `json:"org"`
-	Blocked     bool                   `json:"blocked"`
+	FQDN string `json:"fqdn"`
+	Org  orgRef `json:"org"`
+	// Blocked is true or false only when Decision is blocked or not_blocked;
+	// it is null when the decision is unknown.
+	Blocked *bool `json:"blocked"`
+	// Decision is the aggregate: blocked, not_blocked or unknown.
+	Decision    string                 `json:"decision"`
 	Categories  []categoryRef          `json:"categories"`
 	Deployments []whyBlockedDeployment `json:"deployments"`
 	RecentHits  []queryLogHit          `json:"recent_hits"`
@@ -53,7 +57,9 @@ func newNovelWhyBlockedCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to change a policy; use 'allow' instead.
 Do NOT use this command to find every client whose allow or block lists contain a domain; use 'lists where' instead.
 
-Each site (or, with --host, roaming client) is evaluated against the policy it uses right now: a scheduled policy's current 15-minute slot is resolved in the schedule's timezone, and a roaming client without its own assignment inherits its site's. Rules follow DNSFilter's documented policy order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories. Recent blocked query-log hits (exact domain match) name the policy that actually applied.
+Each site (or, with --host, roaming client) is evaluated against the policy it uses right now: a scheduled policy's current 15-minute slot is resolved in the schedule's timezone, and a roaming client without its own assignment inherits its site's. Rules follow DNSFilter's documented policy order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories; a policy attribute that is absent, null or unreadable makes that deployment's verdict unknown, never allowed. Recent blocked query-log hits (exact domain match) name the policy that actually applied.
+
+The top-level decision is blocked (a deployment's policy or a recent hit blocks it), not_blocked (every deployment was evaluated as allowed, no site is missing from the scan, and the full query-log scan found no hit), or unknown; blocked is true or false to match, and null when the decision is unknown.
 
 Not evaluated (not exposed by the policy API): user, collection and LAN-subnet policy assignments, the org/MSP Universal Allow and Block Lists, and AppAware application rules. When a hit's policy is not one of the site or roaming-client policies, the output says so.`,
 		Example: strings.Trim(`
@@ -110,9 +116,6 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 				} else {
 					row.Verdict = verdict{"unknown", "no_policy", "effective policy could not be resolved (" + d.Via + ")"}
 				}
-				if row.Verdict.Decision == "blocked" {
-					view.Blocked = true
-				}
 				view.Deployments = append(view.Deployments, row)
 			}
 
@@ -125,18 +128,19 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 				assigned[d.PolicyID] = true
 			}
 			view.BlockingPolicyIDs = make([]string, 0)
+			hitCount, logComplete := 0, false
 			if hits, complete, err := fetchBlockedHits(ctx, c, bc.Org.ID, bc.FQDN, agentIDs, since, now); err != nil {
 				view.Notes = append(view.Notes, fmt.Sprintf("query log unavailable: %v", err))
 			} else {
 				if !complete {
 					view.Notes = append(view.Notes, fmt.Sprintf("query-log scan stopped after %d pages; older hits may name other blocking policies", queryLogScanPages))
 				}
+				hitCount, logComplete = len(hits), complete
 				view.RecentHits = hits
 				if len(view.RecentHits) > maxHits {
 					view.RecentHits = view.RecentHits[:maxHits]
 				}
 				for _, h := range hits {
-					view.Blocked = true
 					if h.PolicyID != "" {
 						view.BlockingPolicyIDs = appendUnique(view.BlockingPolicyIDs, h.PolicyID)
 					}
@@ -146,6 +150,14 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 						view.Notes = append(view.Notes, fmt.Sprintf("recent hits were blocked by policy %s, which is not a site or roaming-client assignment shown here (likely a user, collection or LAN-subnet assignment)", id))
 					}
 				}
+			}
+			var why string
+			view.Decision, why = whyBlockedDecision(view.Deployments, hitCount, logComplete, bc.Gaps)
+			if view.Decision != "unknown" {
+				blocked := view.Decision == "blocked"
+				view.Blocked = &blocked
+			} else {
+				view.Notes = append(view.Notes, "overall decision unknown: "+why)
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
@@ -164,6 +176,7 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 			for _, h := range view.RecentHits {
 				fmt.Fprintf(w, "  %s %s policy=%q method=%q %s\n", humanText(h.Time), humanText(h.FQDN), h.PolicyName, h.MethodName, humanText(h.Source))
 			}
+			fmt.Fprintf(w, "overall: %s\n", strings.ToUpper(strings.ReplaceAll(view.Decision, "_", " ")))
 			for _, n := range view.Notes {
 				fmt.Fprintf(w, "note: %s\n", humanText(n))
 			}
@@ -176,6 +189,43 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 	cmd.Flags().IntVar(&maxScanPages, "max-scan-pages", 5, "Maximum 100-row pages of sites or roaming clients to scan")
 	cmd.Flags().IntVar(&maxHits, "max-hits", 20, "Maximum recent query-log hits to return")
 	return cmd
+}
+
+// whyBlockedDecision is the aggregate verdict. HAND-FIX(why-blocked-aggregate-unknown):
+// it was a bool that stayed false when every deployment was unknown and the
+// query log failed. blocked needs one deployment that blocks or one recent
+// hit; not_blocked needs at least one deployment, every deployment allowed,
+// a complete query-log scan with no hit, and no gap in the site set.
+// Anything else is unknown, with the reason.
+func whyBlockedDecision(rows []whyBlockedDeployment, hits int, logComplete bool, gaps []string) (decision, why string) {
+	unknown := 0
+	for _, r := range rows {
+		switch r.Verdict.Decision {
+		case "blocked":
+			return "blocked", ""
+		case "allowed":
+		default:
+			unknown++
+		}
+	}
+	reasons := make([]string, 0, 4)
+	switch {
+	case hits > 0:
+		return "blocked", ""
+	case !logComplete:
+		reasons = append(reasons, "the query log was not read in full")
+	}
+	if len(rows) == 0 {
+		reasons = append(reasons, "no site or roaming client was evaluated")
+	}
+	if unknown > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d of %d deployments have an unknown verdict", unknown, len(rows)))
+	}
+	reasons = append(reasons, gaps...)
+	if len(reasons) > 0 {
+		return "unknown", strings.Join(reasons, "; ")
+	}
+	return "not_blocked", ""
 }
 
 // parseQueryLogHits decodes {data:{values:[...]}}; a response without a values

@@ -57,7 +57,7 @@ func newNovelPolicyAuditCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for a security hygiene sweep of every policy: threat-categorized allow-list entries, unblocked security categories, unknown domains allowed, and drift from a --baseline policy.
 Do NOT use this command to look up one domain across the fleet; use 'lists where' instead.
 
-Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups.
+Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. A policy (or --baseline policy) whose lists or flags are absent, null or unreadable gets a policy_attributes_unknown (baseline_attributes_unknown) finding naming them, and the checks that read them are not counted as passed. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups; an entry with no usable lookup record of its own is counted as unchecked.
 Global (MSP-shared) policies are audited too, with or without --org; their findings carry is_global=true, and each policy is scanned once however many client orgs share it.
 A catalog category without a boolean security flag is never treated as safe: it is listed in unclassified_categories and the note, and the audit is not an all-clear. The same holds for an empty category catalog (catalog_empty), a catalog with no security category (no_security_categories), no listed policies (no_policies) and blocked category ids the catalog does not contain (unknown_category_ids).`,
 		Example: strings.Trim(`
@@ -96,7 +96,8 @@ A catalog category without a boolean security flag is never treated as safe: it 
 			// A global policy may be listed once per client org; audit and count it once.
 			policies, seen := make([]jaRes, 0, len(listed)), map[string]bool{}
 			for _, p := range listed {
-				if !seen[p.ID] {
+				// A policy without an id cannot be a repeat of another one.
+				if p.ID == "" || !seen[p.ID] {
 					seen[p.ID] = true
 					policies = append(policies, p)
 				}
@@ -137,6 +138,10 @@ A catalog category without a boolean security flag is never treated as safe: it 
 				domains, view.LookupsTruncated = domains[:maxLookups], true
 			}
 			domainCats := map[string][]string{}
+			// unusable: requested domains with an unusable record of their own,
+			// or in a batch that returned a record naming no host (it could be
+			// any of them).
+			unusable := map[string]bool{}
 			for i := 0; i < len(domains); i += auditLookupBatch {
 				end := min(i+auditLookupBatch, len(domains))
 				raw, err := c.GetNoCache(ctx, "/v1/domains/bulk_lookup", map[string]string{"fqdns": strings.Join(domains[i:end], ",")})
@@ -148,23 +153,41 @@ A catalog category without a boolean security flag is never treated as safe: it 
 					return apiErr(fmt.Errorf("bulk domain lookup: %w", err))
 				}
 				for _, l := range list {
-					host := normalizeDomain(l.str("host"))
-					if host == "" {
-						host = normalizeDomain(l.str("name"))
-					}
+					host := lookupRecordHost(l)
 					// Only a well-formed record (host + category list) counts as
 					// checked; anything else stays unchecked and is reported.
-					if ok, ids := domainRecordCategories(l); ok && host != "" {
+					ok, ids := domainRecordCategories(l)
+					switch {
+					case host == "":
+						for _, d := range domains[i:end] {
+							unusable[d] = true
+						}
+					case !ok:
+						unusable[host] = true
+					default:
 						domainCats[host] = append(domainCats[host], ids...)
 					}
 				}
 			}
-			view.DomainsLooked = len(domainCats)
-			if missing := len(domains) - len(domainCats); missing > 0 {
-				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d allow-list domains returned no usable lookup record and were not checked for threat categories.", missing))
+			// HAND-FIX(policy-audit-lookup-coverage-by-membership): coverage is
+			// counted per requested domain, not by comparing counts: a record
+			// for a host nobody asked about must not stand in for a missing one.
+			missing := 0
+			for _, d := range domains {
+				if _, ok := domainCats[d]; ok && !unusable[d] {
+					view.DomainsLooked++
+				} else {
+					missing++
+				}
+			}
+			if missing > 0 {
+				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d allow-list domains returned no usable lookup record of their own and were not checked for threat categories.", missing))
 			}
 			view.PoliciesScanned = len(policies)
 			view.Findings = auditPolicies(policies, cats, domainCats, baseline)
+			if n := countFindings(view.Findings, "policy_attributes_unknown", "baseline_attributes_unknown"); n > 0 {
+				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d policies carry absent, null or unreadable attributes (see the policy_attributes_unknown and baseline_attributes_unknown findings); the checks that read them did not run, so this audit is not an all-clear.", n))
+			}
 			if len(cats) == 0 {
 				view.CatalogEmpty = true
 				view.Note = strings.TrimSpace(view.Note + " The category catalog returned no categories, so no category's security status is known: blocked security categories and threat-categorized allow-list entries were not checked, and this audit is not an all-clear.")
@@ -214,6 +237,19 @@ A catalog category without a boolean security flag is never treated as safe: it 
 	cmd.Flags().StringVar(&baselineID, "baseline", "", "Policy id whose blocked categories and safety flags every policy should match")
 	cmd.Flags().IntVar(&maxLookups, "max-lookups", 500, "Maximum distinct allow-list domains to re-categorize")
 	return cmd
+}
+
+// countFindings counts the findings of the given kinds.
+func countFindings(findings []auditFinding, kinds ...string) int {
+	n := 0
+	for _, f := range findings {
+		for _, k := range kinds {
+			if f.Kind == k {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // anySecurityCategory reports whether the catalog flags any category security=true.
@@ -296,11 +332,37 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 		}
 	}
 	out := make([]auditFinding, 0)
+	// HAND-FIX(policy-audit-unknown-attributes): boolean() and strs() read an
+	// absent or null attribute as false / empty, so a policy whose lists and
+	// flags were unavailable audited clean. Each unreadable attribute is
+	// listed in a policy_attributes_unknown finding instead, and the checks
+	// that read it are not counted as passed.
+	var baseBlocked []string
+	baseUnknown := make([]string, 0)
+	if baseline != nil {
+		var ok bool
+		if baseBlocked, ok = baseline.strsKnown("blacklist_categories"); !ok {
+			baseUnknown = append(baseUnknown, "blacklist_categories")
+		}
+		for _, f := range baselineFlags {
+			if _, ok := baseline.boolKnown(f); !ok {
+				baseUnknown = append(baseUnknown, f)
+			}
+		}
+		if _, ok := baseline.strKnown("youtube_restricted_level"); !ok {
+			baseUnknown = append(baseUnknown, "youtube_restricted_level")
+		}
+	}
 	for _, p := range policies {
 		add := func(kind, sev, detail string) {
 			out = append(out, auditFinding{PolicyID: p.ID, PolicyName: p.str("name"), OrgID: p.str("organization_id"), IsGlobal: p.boolean("is_global_policy"), Kind: kind, Severity: sev, Detail: detail})
 		}
-		for _, d := range p.strs("whitelist_domains") {
+		unknown := make([]string, 0)
+		allowList, ok := p.strsKnown("whitelist_domains")
+		if !ok {
+			unknown = append(unknown, "whitelist_domains")
+		}
+		for _, d := range allowList {
 			for _, id := range domainCats[normalizeDomain(d)] {
 				if security[id] {
 					add("threat_allowlisted", "high", fmt.Sprintf("allow-list entry %q is now categorized %q", d, catName[id]))
@@ -308,43 +370,73 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 				}
 			}
 		}
+		blockedList, blockedKnown := p.strsKnown("blacklist_categories")
+		if !blockedKnown {
+			unknown = append(unknown, "blacklist_categories")
+		}
 		blocked := map[string]bool{}
-		for _, id := range p.strs("blacklist_categories") {
+		for _, id := range blockedList {
 			blocked[id] = true
 		}
 		// Allow-list-only mode blocks everything not allow-listed, so category
-		// and unknown-domain exposure checks do not apply to it.
-		listOnly := p.boolean("allow_list_only")
+		// and unknown-domain exposure checks do not apply to it. Only a known
+		// true switches them off.
+		listOnly, listOnlyKnown := p.boolKnown("allow_list_only")
+		if !listOnlyKnown {
+			unknown = append(unknown, "allow_list_only")
+		}
 		missing := make([]string, 0)
 		for _, id := range sortedKeys(security) {
 			if !blocked[id] {
 				missing = append(missing, catName[id])
 			}
 		}
-		if len(missing) > 0 && !listOnly {
+		if blockedKnown && len(missing) > 0 && !listOnly {
 			add("security_category_not_blocked", "high", "not blocking: "+strings.Join(missing, ", "))
 		}
-		if p.boolean("allow_unknown_domains") && !listOnly {
+		allowUnknown, allowUnknownKnown := p.boolKnown("allow_unknown_domains")
+		if !allowUnknownKnown {
+			unknown = append(unknown, "allow_unknown_domains")
+		}
+		if allowUnknown && !listOnly {
 			add("unknown_domains_allowed", "medium", "uncategorized domains are allowed")
 		}
-		if p.boolean("allow_list_only") {
+		if listOnly {
 			add("allow_list_only", "info", "policy blocks everything not on its allow list")
 		}
 		if baseline != nil && baseline.ID != p.ID {
-			for _, id := range baseline.strs("blacklist_categories") {
-				if !blocked[id] {
-					add("baseline_category_missing", "medium", fmt.Sprintf("baseline blocks %q (%s); this policy does not", catName[id], id))
+			if blockedKnown {
+				for _, id := range baseBlocked {
+					if !blocked[id] {
+						add("baseline_category_missing", "medium", fmt.Sprintf("baseline blocks %q (%s); this policy does not", catName[id], id))
+					}
 				}
 			}
 			for _, f := range baselineFlags {
-				if p.boolean(f) != baseline.boolean(f) {
-					add("baseline_flag_differs", "info", fmt.Sprintf("%s=%v (baseline %v)", f, p.boolean(f), baseline.boolean(f)))
+				pv, pKnown := p.boolKnown(f)
+				bv, bKnown := baseline.boolKnown(f)
+				if !pKnown {
+					unknown = appendUnique(unknown, f)
+				}
+				if pKnown && bKnown && pv != bv {
+					add("baseline_flag_differs", "info", fmt.Sprintf("%s=%v (baseline %v)", f, pv, bv))
 				}
 			}
-			if p.str("youtube_restricted_level") != baseline.str("youtube_restricted_level") {
-				add("baseline_flag_differs", "info", fmt.Sprintf("youtube_restricted_level=%q (baseline %q)", p.str("youtube_restricted_level"), baseline.str("youtube_restricted_level")))
+			pl, pKnown := p.strKnown("youtube_restricted_level")
+			bl, bKnown := baseline.strKnown("youtube_restricted_level")
+			if !pKnown {
+				unknown = append(unknown, "youtube_restricted_level")
+			}
+			if pKnown && bKnown && pl != bl {
+				add("baseline_flag_differs", "info", fmt.Sprintf("youtube_restricted_level=%q (baseline %q)", pl, bl))
 			}
 		}
+		if len(unknown) > 0 {
+			add("policy_attributes_unknown", "medium", fmt.Sprintf("absent, null or unreadable: %s; the checks that read them did not run, so this policy is not clean", strings.Join(unknown, ", ")))
+		}
+	}
+	if len(baseUnknown) > 0 {
+		out = append(out, auditFinding{PolicyID: baseline.ID, PolicyName: baseline.str("name"), OrgID: baseline.str("organization_id"), IsGlobal: baseline.boolean("is_global_policy"), Kind: "baseline_attributes_unknown", Severity: "medium", Detail: fmt.Sprintf("the --baseline policy has absent, null or unreadable %s; drift on them was not compared", strings.Join(baseUnknown, ", "))})
 	}
 	rank := map[string]int{"high": 0, "medium": 1, "info": 2}
 	sort.SliceStable(out, func(i, j int) bool { return rank[out[i].Severity] < rank[out[j].Severity] })

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,7 +23,7 @@ type allowTarget struct {
 	PolicyID   string   `json:"policy_id"`
 	PolicyName string   `json:"policy_name"`
 	UsedBy     []string `json:"used_by"`
-	Action     string   `json:"action"` // add, noop, skip
+	Action     string   `json:"action"` // add, noop, skip, review (assignment fallback: not written)
 	Reason     string   `json:"reason"`
 	Result     string   `json:"result,omitempty"` // success, failure, noop (after --confirm)
 }
@@ -52,7 +53,7 @@ Do NOT use this command to work through the queue of end-user unblock requests; 
 
 Without --confirm the command resolves and prints the plan; nothing is written. With --confirm (and --note) it adds the domain via add_whitelist_domain (one policy) or the bulk allow-list endpoint (several), then re-reads each policy and exits 6 if any target failed.
 
-Targets are the policies that blocked this exact domain in recent query-log hits for the org (--since window); when there are no hits, the site (or --host roaming client) assignments are used instead and the output says attribution=assignment. Refused unless --force: a domain in a security (threat) category or in a category this key cannot resolve. Skipped: global policies unless --include-global, policies whose can_edit is not true, and deployments whose current scheduled-policy slot cannot be resolved.`,
+Targets are the policies that blocked this exact domain in recent query-log hits for the org (--since window); when there are no hits, the site (or --host roaming client) assignments are used instead and the output says attribution=assignment. Then only an assigned policy whose evaluation blocks the domain is a target: one that already allows it is a noop, and one whose verdict is unknown (an unreadable policy attribute, unknown categories, an unverified parent-domain entry) gets action review and is never written. Refused unless --force: a domain in a security (threat) category or in a category this key cannot resolve. Skipped: global policies unless --include-global, policies whose can_edit is not true, policies whose allow list is unreadable, and deployments whose current scheduled-policy slot cannot be resolved.`,
 		Example: strings.Trim(`
   dnsfilter-cli allow example.com --org 'Acme Dental' --note 'TKT-4821'
   dnsfilter-cli allow example.com --org 'Acme Dental' --note 'TKT-4821' --confirm --agent`, "\n"),
@@ -145,7 +146,7 @@ Targets are the policies that blocked this exact domain in recent query-log hits
 				view.Targets = planAllowTargets(bc.FQDN, bc.Policies, blockedBy, flagIncludeGlobal)
 			} else {
 				view.Attribution = "assignment"
-				view.Targets = planAllowTargets(bc.FQDN, bc.Policies, assignmentUse(bc.Deployments), flagIncludeGlobal)
+				view.Targets = planAssignmentTargets(bc, flagIncludeGlobal)
 				for _, d := range bc.Deployments {
 					if d.PolicyID == "" {
 						view.Targets = append(view.Targets, allowTarget{UsedBy: []string{d.Kind + " " + d.Name}, Action: "skip", Reason: "effective policy unresolved (" + d.Via + ")"})
@@ -153,11 +154,17 @@ Targets are the policies that blocked this exact domain in recent query-log hits
 				}
 			}
 
-			toAdd := make([]string, 0)
+			toAdd, review := make([]string, 0), 0
 			for _, t := range view.Targets {
-				if t.Action == "add" {
+				switch t.Action {
+				case "add":
 					toAdd = append(toAdd, t.PolicyID)
+				case "review":
+					review++
 				}
+			}
+			if review > 0 {
+				view.Notes = append(view.Notes, fmt.Sprintf("%d assigned policies could not be ruled out as blocking %s (action review) and are never written; check them, or re-run once the query log shows the block", review, bc.FQDN))
 			}
 			var failed int
 			switch {
@@ -208,6 +215,40 @@ func assignmentUse(deps []deployment) map[string][]string {
 	return use
 }
 
+// planAssignmentTargets plans the assignment fallback (no query-log hit names
+// a policy). HAND-FIX(allow-assignment-targets-blocking-policies): it used to
+// add the domain to every editable assigned policy, including policies that
+// already allow it. Now only a policy whose evaluation blocks the domain is a
+// candidate; one that allows it is a noop, and one whose verdict is unknown
+// is left for review and never written.
+func planAssignmentTargets(bc *blockContext, includeGlobal bool) []allowTarget {
+	use := assignmentUse(bc.Deployments)
+	blocking := map[string][]string{}
+	others := make([]allowTarget, 0)
+	for _, id := range sortedKeys(use) {
+		p, readable := bc.Policies[id]
+		if !readable {
+			blocking[id] = use[id] // planAllowTargets skips it as unreadable
+			continue
+		}
+		v := evaluatePolicy(bc.FQDN, p, bc.Categories, bc.CategoriesKnown)
+		t := allowTarget{PolicyID: id, PolicyName: p.str("name"), UsedBy: use[id]}
+		switch v.Decision {
+		case "blocked":
+			blocking[id] = use[id]
+			continue
+		case "allowed":
+			t.Action, t.Reason = "noop", fmt.Sprintf("policy already allows the domain (%s: %s)", v.Rule, v.Detail)
+		default:
+			t.Action, t.Reason = "review", fmt.Sprintf("cannot rule out that this policy blocks the domain (%s: %s); not written, check it in the dashboard or re-run once the query log shows the block", v.Rule, v.Detail)
+		}
+		others = append(others, t)
+	}
+	targets := append(planAllowTargets(bc.FQDN, bc.Policies, blocking, includeGlobal), others...)
+	sort.SliceStable(targets, func(i, j int) bool { return targets[i].PolicyID < targets[j].PolicyID })
+	return targets
+}
+
 // planAllowTargets decides add / noop / skip for each candidate policy.
 func planAllowTargets(fqdn string, policies map[string]jaRes, use map[string][]string, includeGlobal bool) []allowTarget {
 	targets := make([]allowTarget, 0, len(use))
@@ -215,11 +256,16 @@ func planAllowTargets(fqdn string, policies map[string]jaRes, use map[string][]s
 		p, readable := policies[id]
 		t := allowTarget{PolicyID: id, PolicyName: p.str("name"), UsedBy: use[id], Action: "add", Reason: "domain not on this policy's allow list"}
 		canEdit, _ := p.Attrs["can_edit"].(bool)
+		allowList, allowKnown := p.strsKnown("whitelist_domains")
 		switch {
 		case !readable:
 			t.Action, t.Reason = "skip", "policy not readable with this API key"
-		case hasExactEntry(p.strs("whitelist_domains"), fqdn):
+		case hasExactEntry(allowList, fqdn):
 			t.Action, t.Reason = "noop", fmt.Sprintf("already on the allow list as %q", fqdn)
+		case !allowKnown:
+			// "Not on the allow list" needs a readable list, and so does
+			// the read-back that proves the write.
+			t.Action, t.Reason = "skip", "policy's whitelist_domains is absent, null or unreadable, so the plan cannot tell whether the domain is already listed or read the write back"
 		case !hasBool(p, "is_global_policy") && !includeGlobal:
 			t.Action, t.Reason = "skip", "policy does not report is_global_policy, so it may be shared across client orgs; pass --include-global to edit it"
 		case p.boolean("is_global_policy") && !includeGlobal:

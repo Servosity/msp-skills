@@ -24,6 +24,7 @@ type triageGroup struct {
 	BlockedBy      []string `json:"blocked_by"`
 	Categories     []string `json:"categories"`
 	IsThreat       bool     `json:"is_threat"`
+	ThreatUnknown  int      `json:"threat_unknown"` // requests whose category.is_threat is missing or not a boolean
 	AlreadyAllowed bool     `json:"already_allowed"`
 	CoveredBy      []string `json:"covered_by"`         // policy, universal_org, universal_msp
 	Unchecked      int      `json:"coverage_unchecked"` // requests whose coverage was not read
@@ -50,7 +51,7 @@ func newNovelUnblocksTriageCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to diagnose a block reported by phone or ticket with no unblock request; use 'why-blocked' instead.
 Do NOT use this command to apply an allow; use 'allow' instead.
 
-Coverage comes from each request's already_covered field (policy list or org/MSP Universal Allow List, evaluated by DNSFilter at call time), read for up to --max-coverage-checks requests. Requests with no domain are grouped under an empty domain ((unknown domain) in the table) whose hint is always review. Hints follow a fixed rule: threat category -> deny; every request in the group confirmed covered -> resolve-already-allowed; otherwise review. The unblock queue only has data when the account has unblock requests enabled. Apply a decision with 'unblock-requests decision unblock-requests <id> --decision <allow|deny|resolve-already-allowed>'.`,
+Coverage comes from each request's already_covered field (policy list or org/MSP Universal Allow List, evaluated by DNSFilter at call time), read for up to --max-coverage-checks requests. Requests with no domain are grouped under an empty domain ((unknown domain) in the table) whose hint is always review. Hints follow a fixed rule: threat category -> deny; any request whose threat status is missing (threat_unknown) -> review; every request in the group confirmed covered by its own coverage record -> resolve-already-allowed; otherwise review. A queue page with no readable request list is an error, never an empty queue. The unblock queue only has data when the account has unblock requests enabled. Apply a decision with 'unblock-requests decision unblock-requests <id> --decision <allow|deny|resolve-already-allowed>'.`,
 		Example: strings.Trim(`
   dnsfilter-cli unblocks triage --agent
   dnsfilter-cli unblocks triage --org 'Acme Dental'`, "\n"),
@@ -95,11 +96,17 @@ Coverage comes from each request's already_covered field (policy list or org/MSP
 				if i >= maxCoverageChecks {
 					break
 				}
+				if r.ID == "" {
+					continue
+				}
 				raw, err := c.GetNoCache(ctx, "/v2/unblock_requests/"+url.PathEscape(r.ID), nil)
 				if err != nil {
 					continue
 				}
-				if list, _ := decodeJA(raw); len(list) > 0 {
+				// HAND-FIX(unblocks-triage-coverage-identity): only the
+				// requested record may vouch for coverage; a response for
+				// another request leaves this one unchecked.
+				if list, derr := decodeJA(raw); derr == nil && len(list) == 1 && list[0].ID == r.ID {
 					if cov, ok := list[0].Attrs["already_covered"].(map[string]any); ok {
 						coverage[r.ID] = cov
 					}
@@ -122,7 +129,11 @@ Coverage comes from each request's already_covered field (policy list or org/MSP
 				if domain == "" {
 					domain = "(unknown domain)"
 				}
-				fmt.Fprintf(w, "%-24s %-30s requests=%-3d age=%dh threat=%v allowed=%v orgs=%s\n", humanText(g.Hint), humanText(domain), g.Requests, g.AgeHours, g.IsThreat, g.AlreadyAllowed, humanText(strings.Join(g.Orgs, ", ")))
+				threat := fmt.Sprint(g.IsThreat)
+				if !g.IsThreat && g.ThreatUnknown > 0 {
+					threat = "unknown"
+				}
+				fmt.Fprintf(w, "%-24s %-30s requests=%-3d age=%dh threat=%s allowed=%v orgs=%s\n", humanText(g.Hint), humanText(domain), g.Requests, g.AgeHours, threat, g.AlreadyAllowed, humanText(strings.Join(g.Orgs, ", ")))
 			}
 			if view.Note != "" {
 				fmt.Fprintln(w, "note:", humanText(view.Note))
@@ -167,19 +178,28 @@ func groupUnblockRequests(requests []jaRes, coverage map[string]map[string]any, 
 		g.RequestIDs = append(g.RequestIDs, r.ID)
 		g.Orgs = appendUnique(g.Orgs, nestedName(r.Attrs["organization"]))
 		g.BlockedBy = appendUnique(g.BlockedBy, r.str("blocked_by"))
-		if cat, ok := r.Attrs["category"].(map[string]any); ok {
-			if threat, _ := cat["is_threat"].(bool); threat {
-				g.IsThreat = true
-			}
-			names, _ := cat["names"].([]any)
-			for _, n := range names {
-				g.Categories = appendUnique(g.Categories, idString(n))
-			}
+		// HAND-FIX(unblocks-triage-unknown-threat-and-coverage): a missing or
+		// non-boolean is_threat or covered is unknown, not false: an unknown
+		// threat status keeps the group at review, and an unreadable covered
+		// counts as unchecked.
+		cat, _ := r.Attrs["category"].(map[string]any)
+		switch threat, known := cat["is_threat"].(bool); {
+		case !known:
+			g.ThreatUnknown++
+		case threat:
+			g.IsThreat = true
+		}
+		names, _ := cat["names"].([]any)
+		for _, n := range names {
+			g.Categories = appendUnique(g.Categories, idString(n))
 		}
 		g.PolicyIDs = appendUnique(g.PolicyIDs, nestedID(r.Attrs["policy"]))
-		if cov, ok := coverage[r.ID]; !ok {
+		cov, checked := coverage[r.ID]
+		isCovered, covKnown := cov["covered"].(bool)
+		switch {
+		case !checked || !covKnown:
 			g.Unchecked++
-		} else if isCovered, _ := cov["covered"].(bool); isCovered {
+		case isCovered:
 			covered[domain]++
 			list, _ := cov["list"].(string)
 			g.CoveredBy = appendUnique(g.CoveredBy, list)
@@ -199,6 +219,8 @@ func groupUnblockRequests(requests []jaRes, coverage map[string]map[string]any, 
 			g.Hint = "review"
 		case g.IsThreat:
 			g.Hint = "deny"
+		case g.ThreatUnknown > 0:
+			g.Hint = "review"
 		case g.AlreadyAllowed:
 			g.Hint = "resolve-already-allowed"
 		default:

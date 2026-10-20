@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"sort"
@@ -121,6 +122,50 @@ func (r jaRes) strs(k string) []string {
 	return out
 }
 
+// HAND-FIX(novel-presence-aware-attributes): boolean() and strs() turn an
+// absent, null or mistyped attribute into false / an empty list. A verdict
+// that rules something out needs the attribute to be known, so these
+// variants report presence: ok=false is unknown, never false or empty.
+
+// boolKnown returns a boolean attribute; ok is false unless it is a real boolean.
+func (r jaRes) boolKnown(k string) (bool, bool) {
+	b, ok := r.Attrs[k].(bool)
+	return b, ok
+}
+
+// strsKnown returns a list attribute's readable entries; ok is false when the
+// attribute is absent, null or not a list, or any entry is null, empty or not
+// a scalar (that entry is dropped, so the list is incomplete).
+func (r jaRes) strsKnown(k string) ([]string, bool) {
+	arr, ok := r.Attrs[k].([]any)
+	out := make([]string, 0, len(arr))
+	for _, it := range arr {
+		if s := idString(it); s != "" {
+			out = append(out, s)
+		} else {
+			ok = false
+		}
+	}
+	return out, ok
+}
+
+// strKnown returns a string attribute; ok is false unless it is a non-empty string.
+func (r jaRes) strKnown(k string) (string, bool) {
+	s, ok := r.Attrs[k].(string)
+	return s, ok && s != ""
+}
+
+// joinNotes joins the non-empty notes with a space.
+func joinNotes(notes ...string) string {
+	kept := make([]string, 0, len(notes))
+	for _, n := range notes {
+		if n = strings.TrimSpace(n); n != "" {
+			kept = append(kept, n)
+		}
+	}
+	return strings.Join(kept, " ")
+}
+
 // relID returns relationships.<name>.data.id ("" when absent or null).
 func (r jaRes) relID(name string) string {
 	rel, _ := r.Rels[name].(map[string]any)
@@ -146,6 +191,23 @@ func (r jaRes) relIDs(name string) []string {
 // ponytail: fixed page size; V1 list responses carry no total, so a short page ends the walk.
 const dnsfilterPageSize = 100
 
+// decodeJAList decodes one page of a list endpoint. HAND-FIX(fetch-pages-null-collection-unknown):
+// the collection must be a JSON array, bare or under "data"; null, a missing
+// data key, or an object is an unreadable page, never an empty (exhausted) one.
+func decodeJAList(raw json.RawMessage) ([]jaRes, error) {
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+	if m, isObj := v.(map[string]any); isObj {
+		v = m["data"]
+	}
+	if _, isList := v.([]any); !isList {
+		return nil, fmt.Errorf("decoding response: the page carries no list (got %T where a list was expected), so its rows are unknown", v)
+	}
+	return decodeJA(raw)
+}
+
 // fetchAllPages walks a V1 `page[number]` list until a short page or maxPages.
 // truncated reports that maxPages stopped the walk with more data likely.
 func fetchAllPages(ctx context.Context, c *client.Client, path string, params map[string]string, maxPages int) (items []jaRes, truncated bool, err error) {
@@ -159,7 +221,7 @@ func fetchAllPages(ctx context.Context, c *client.Client, path string, params ma
 		if err != nil {
 			return items, false, err
 		}
-		batch, err := decodeJA(raw)
+		batch, err := decodeJAList(raw)
 		if err != nil {
 			return items, false, err
 		}
@@ -366,6 +428,39 @@ func isDigits(s string) bool {
 	return s != "" && leadingDigits(s) == s
 }
 
+// isComparableVersion reports whether compareSemver can order v: an optional
+// leading "v", dot-separated numeric core parts, then an optional
+// "-prerelease" and "+build" of dot-separated [0-9A-Za-z-] identifiers.
+// HAND-FIX(agents-drift-incomparable-version-unknown): compareCore reads only
+// leading digits, so "999unknown" would compare as 999 and read as current.
+func isComparableVersion(v string) bool {
+	v, build, hasBuild := strings.Cut(strings.TrimPrefix(v, "v"), "+")
+	core, pre, hasPre := strings.Cut(v, "-")
+	if (hasBuild && !validVersionIdents(build)) || (hasPre && !validVersionIdents(pre)) {
+		return false
+	}
+	for _, part := range strings.Split(core, ".") {
+		if !isDigits(part) {
+			return false
+		}
+	}
+	return true
+}
+
+func validVersionIdents(s string) bool {
+	for _, id := range strings.Split(s, ".") {
+		if id == "" {
+			return false
+		}
+		for _, r := range id {
+			if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // isUninstalled covers every uninstall marker the spec documents.
 func isUninstalled(a jaRes) bool {
 	switch a.str("status") {
@@ -374,6 +469,45 @@ func isUninstalled(a jaRes) bool {
 	}
 	return a.str("uninstalled_at") != "" || a.str("agent_state") == "uninstalled"
 }
+
+// orgMembership applies --org (an org id, or a case-insensitive substring of
+// its name) to a roaming client through its site. HAND-FIX(agents-org-membership-unknown):
+// known is false when the client names no site, its site is missing from the
+// mirror or names no organization, or the org's name cannot be read and its
+// id does not match. Such a client can be neither matched nor ruled out, so
+// callers report it instead of filtering it away. With no filter every client
+// matches.
+func orgMembership(a jaRes, netOrg map[string]string, orgByID map[string]jaRes, filter string) (orgID string, match, known bool) {
+	orgID, linked := netOrg[a.relID("network")]
+	if filter == "" {
+		return orgID, true, true
+	}
+	if !linked || orgID == "" {
+		return orgID, false, false
+	}
+	if orgID == filter {
+		return orgID, true, true
+	}
+	org, synced := orgByID[orgID]
+	name, named := org.strKnown("name")
+	if !synced || !named {
+		return orgID, false, false
+	}
+	return orgID, strings.Contains(strings.ToLower(name), strings.ToLower(filter)), true
+}
+
+// siteOrgs maps each mirrored site id to its organization id ("" when the
+// site names none); a site missing from the mirror has no entry.
+func siteOrgs(networks []jaRes) map[string]string {
+	netOrg := make(map[string]string, len(networks))
+	for _, n := range networks {
+		netOrg[n.ID] = n.relID("organization")
+	}
+	return netOrg
+}
+
+// membershipUnknownName labels the group of clients orgMembership could not place.
+const membershipUnknownName = "(org membership unknown)"
 
 func leadingDigits(s string) string {
 	for i, r := range s {
@@ -447,8 +581,17 @@ type incompleteMirrorResult struct {
 		IncompleteCollections []string `json:"incomplete_collections"`
 		Note                  string   `json:"note"`
 		// UnresolvedSchedules (lists where) names scheduled policies that
-		// deployments use but the mirror lacks or that name no slot policy.
+		// deployments use but the mirror lacks, or that do not name a usable
+		// policy in every one of their 672 slots.
 		UnresolvedSchedules []string `json:"unresolved_schedules,omitempty"`
+		// UnreadablePolicies (lists where) names policies whose allow or
+		// block list is absent, null or holds an unreadable entry, so the
+		// domain cannot be ruled out of them.
+		UnreadablePolicies []string `json:"unreadable_policies,omitempty"`
+		// UnplacedRoamingClients (lists where) counts installed roaming
+		// clients with no assignment of their own whose site is missing from
+		// the mirror: their policy, and so the impact counts, are unknown.
+		UnplacedRoamingClients int `json:"unplaced_roaming_clients,omitempty"`
 	} `json:"meta"`
 	Results any `json:"results"`
 }
@@ -567,12 +710,17 @@ type blockContext struct {
 	FQDN       string
 	Org        orgRef
 	Categories []categoryRef
-	// CategoriesKnown is false when the domain lookup returned no domain
-	// record, so "no categories" cannot be trusted.
+	// CategoriesKnown is false when the domain lookup returned no usable
+	// record for this exact domain (or any unusable record), so "no
+	// categories" cannot be trusted.
 	CategoriesKnown bool
 	Policies        map[string]jaRes
 	Deployments     []deployment
 	Notes           []string
+	// Gaps name reasons the deployment set may be missing sites (a capped
+	// site scan, sites with no organization link); each is also a note, and
+	// any gap rules out an all-clear.
+	Gaps []string
 }
 
 // attributionNote is attached to every why-blocked / allow result: the policy
@@ -603,12 +751,25 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 	}
 	if truncated {
 		bc.Notes = append(bc.Notes, fmt.Sprintf("site scan stopped at --max-scan-pages=%d; raise it if a site is missing", maxPages))
+		if host == "" {
+			bc.Gaps = append(bc.Gaps, "site scan capped")
+		}
 	}
 	sites := map[string]jaRes{}
+	unlinked := 0
 	for _, n := range networks {
-		if n.relID("organization") == org.ID {
+		switch n.relID("organization") {
+		case org.ID:
 			sites[n.ID] = n
+		case "":
+			unlinked++
 		}
+	}
+	// HAND-FIX(why-blocked-aggregate-unknown): a site with no organization
+	// link may belong to this org; it is not evaluated, so it is a gap.
+	if unlinked > 0 && host == "" {
+		bc.Notes = append(bc.Notes, fmt.Sprintf("%d sites name no organization, so they may belong to this org and were not evaluated", unlinked))
+		bc.Gaps = append(bc.Gaps, "sites without an organization link")
 	}
 
 	if host != "" {
@@ -627,7 +788,8 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 				site, ok := sites[d.NetworkID]
 				if !ok && d.NetworkID != "" {
 					if raw, err := c.GetNoCache(ctx, "/v1/networks/"+url.PathEscape(d.NetworkID), nil); err == nil {
-						if list, _ := decodeJA(raw); len(list) > 0 {
+						// Only the client's own site may supply its policy.
+						if list, _ := decodeJA(raw); len(list) == 1 && list[0].ID == d.NetworkID {
 							site, ok = list[0], true
 						}
 					}
@@ -666,7 +828,9 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 			schedCache[d.ScheduledPolicyID] = nil
 			if raw, err := c.GetNoCache(ctx, "/v1/scheduled_policies/"+url.PathEscape(d.ScheduledPolicyID), nil); err != nil {
 				bc.Notes = append(bc.Notes, fmt.Sprintf("scheduled policy %s unreadable: %v", d.ScheduledPolicyID, err))
-			} else if list, _ := decodeJA(raw); len(list) > 0 {
+			} else if list, _ := decodeJA(raw); len(list) == 1 && (list[0].ID == "" || list[0].ID == d.ScheduledPolicyID) {
+				// The show response carries no id per the spec; one that names
+				// another schedule is not this schedule.
 				schedCache[d.ScheduledPolicyID] = &list[0]
 			}
 			sp = schedCache[d.ScheduledPolicyID]
@@ -693,7 +857,7 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 	}
 	bc.Categories, bc.CategoriesKnown = cats, known
 	if !known {
-		bc.Notes = append(bc.Notes, "domain lookup returned no domain record; categorization is unavailable, so category and uncategorized verdicts are unreliable")
+		bc.Notes = append(bc.Notes, "domain lookup returned no usable domain record for this exact domain (or an unusable record alongside it); categorization is unavailable, so category and uncategorized verdicts are unreliable")
 	}
 	return bc, nil
 }
@@ -823,16 +987,47 @@ func matchHosts(agents []jaRes, host string) ([]jaRes, error) {
 	return []jaRes{}, nil
 }
 
+// scheduleSlotIDs validates a scheduled policy's raw policy_ids before any
+// filtering. HAND-FIX(schedule-slots-validated-raw): strs() drops unusable
+// entries, which shifts every later slot, so a 673-entry list with one null
+// passed as 672. ok is true only for a list of exactly 672 entries that are
+// each an id (a non-empty string or a non-negative whole number); entry i is
+// slot i, and "0" names no policy.
+func scheduleSlotIDs(sp jaRes) ([]string, bool) {
+	raw, isList := sp.Attrs["policy_ids"].([]any)
+	if !isList || len(raw) != 672 {
+		return nil, false
+	}
+	slots := make([]string, len(raw))
+	for i, v := range raw {
+		switch t := v.(type) {
+		case string:
+			slots[i] = t
+		case float64:
+			if t < 0 || t != math.Trunc(t) {
+				return nil, false
+			}
+			slots[i] = idString(t)
+		default:
+			return nil, false
+		}
+		if slots[i] == "" {
+			return nil, false
+		}
+	}
+	return slots, true
+}
+
 // scheduledPolicyNow returns the policy id for now's 15-minute slot; ok is
-// false unless the schedule has all 672 slots, a loadable timezone, and a
-// non-empty id for this slot.
+// false unless the schedule's raw list is 672 usable ids (scheduleSlotIDs),
+// its timezone loads, and this slot names a policy (not "0").
 func scheduledPolicyNow(sp *jaRes, now time.Time) (string, string, bool) {
 	if sp == nil {
 		return "", "", false
 	}
-	slots := sp.strs("policy_ids")
+	slots, valid := scheduleSlotIDs(*sp)
 	tz := sp.str("timezone")
-	if len(slots) != 672 {
+	if !valid {
 		return "", "", false
 	}
 	if _, err := time.LoadLocation(tz); err != nil || tz == "" {
@@ -875,18 +1070,27 @@ func lookupCategories(ctx context.Context, c *client.Client, fqdn string) ([]cat
 	if err != nil {
 		return nil, false, fmt.Errorf("domain lookup: %w", err)
 	}
-	known := false
+	// HAND-FIX(lookup-categories-own-record-required): a usable record for
+	// another host (a parent with categories []) does not certify this one.
+	// Categories are known only when the requested domain has a usable record
+	// of its own and no returned record is unusable (an unusable record's
+	// categories are missing from the union).
+	ownRecord, allUsable := false, true
 	catIDs := map[string]bool{}
 	for _, l := range lookups {
 		ok, ids := domainRecordCategories(l)
 		if !ok {
+			allUsable = false
 			continue
 		}
-		known = true
+		if lookupRecordHost(l) == fqdn {
+			ownRecord = true
+		}
 		for _, id := range ids {
 			catIDs[id] = true
 		}
 	}
+	known := ownRecord && allUsable
 	out := make([]categoryRef, 0, len(catIDs))
 	if len(catIDs) == 0 {
 		return out, known, nil
@@ -927,6 +1131,15 @@ func domainRecordCategories(l jaRes) (bool, []string) {
 		return false, nil
 	}
 	return true, ids
+}
+
+// lookupRecordHost is the normalized host a lookup record describes: its
+// host attribute, else its name ("" when it names neither).
+func lookupRecordHost(l jaRes) string {
+	if host := normalizeDomain(l.str("host")); host != "" {
+		return host
+	}
+	return normalizeDomain(l.str("name"))
 }
 
 // fetchBlockedHits returns every recent query-log hit for exactly fqdn within
@@ -1015,29 +1228,59 @@ func evaluateLists(fqdn string, policy jaRes, cats []categoryRef, categoriesKnow
 		}
 		return ""
 	}
-	if e := listed(policy.strs("whitelist_domains"), allowParents); e != "" {
+	// HAND-FIX(evaluate-policy-unknown-attributes): an attribute the policy
+	// does not carry as a readable value (absent, null, mistyped, or a list
+	// with an unreadable entry) is unknown, never false or empty. A match in
+	// the readable part of a list still decides; otherwise, once the rules
+	// reach an unknown attribute, the verdict is unknown.
+	unreadable := func(attr string) verdict {
+		return verdict{"unknown", "policy_attribute_unavailable", fmt.Sprintf("policy %q does not carry a readable %s, so the rules from it on cannot be evaluated", policy.str("name"), attr)}
+	}
+	allowList, allowKnown := policy.strsKnown("whitelist_domains")
+	if e := listed(allowList, allowParents); e != "" {
 		return verdict{"allowed", "allow_list", fmt.Sprintf("%q on policy %q", e, policy.str("name"))}
 	}
-	if policy.boolean("allow_list_only") {
+	if !allowKnown {
+		return unreadable("whitelist_domains")
+	}
+	listOnly, listOnlyKnown := policy.boolKnown("allow_list_only")
+	if !listOnlyKnown {
+		return unreadable("allow_list_only")
+	}
+	if listOnly {
 		return verdict{"blocked", "allow_list_only", fmt.Sprintf("policy %q only allows allow-listed domains", policy.str("name"))}
 	}
-	if e := listed(policy.strs("blacklist_domains"), blockParents); e != "" {
+	blockList, blockKnown := policy.strsKnown("blacklist_domains")
+	if e := listed(blockList, blockParents); e != "" {
 		return verdict{"blocked", "block_list", fmt.Sprintf("%q on policy %q", e, policy.str("name"))}
+	}
+	if !blockKnown {
+		return unreadable("blacklist_domains")
 	}
 	if !categoriesKnown {
 		return verdict{"unknown", "categorization_unavailable", fmt.Sprintf("no list entry in policy %q matches and the domain's categories could not be read", policy.str("name"))}
 	}
-	if len(cats) == 0 && !policy.boolean("allow_unknown_domains") {
-		return verdict{"blocked", "uncategorized", fmt.Sprintf("domain has no category and policy %q blocks unknown domains", policy.str("name"))}
+	if len(cats) == 0 {
+		allowUnknown, known := policy.boolKnown("allow_unknown_domains")
+		if !known {
+			return unreadable("allow_unknown_domains")
+		}
+		if !allowUnknown {
+			return verdict{"blocked", "uncategorized", fmt.Sprintf("domain has no category and policy %q blocks unknown domains", policy.str("name"))}
+		}
 	}
+	blockedCats, catsKnown := policy.strsKnown("blacklist_categories")
 	blocked := map[string]bool{}
-	for _, id := range policy.strs("blacklist_categories") {
+	for _, id := range blockedCats {
 		blocked[id] = true
 	}
 	for _, cat := range cats {
 		if blocked[cat.ID] {
 			return verdict{"blocked", "category", fmt.Sprintf("category %q (%s) is blocked by policy %q", cat.Name, cat.ID, policy.str("name"))}
 		}
+	}
+	if !catsKnown && len(cats) > 0 {
+		return unreadable("blacklist_categories")
 	}
 	return verdict{"allowed", "no_matching_rule", fmt.Sprintf("no list entry or blocked category in policy %q matches", policy.str("name"))}
 }

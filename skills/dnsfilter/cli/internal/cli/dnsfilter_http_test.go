@@ -91,9 +91,11 @@ func (f *fixtureAPI) handler(t *testing.T) http.Handler {
 				{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"10"}}}},
 				{"id":"51","attributes":{"name":"Annex"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"11"}}}}]}`)
 		case p == "/v1/policies/all" && page == "1":
+			// Both block example.com by an exact block-list entry, with every
+			// attribute the policy evaluation reads present.
 			fmt.Fprint(w, `{"data":[
-				{"id":"10","attributes":{"name":"Std","can_edit":true,"is_global_policy":false,"whitelist_domains":[],"allow_unknown_domains":true}},
-				{"id":"11","attributes":{"name":"Annex","can_edit":true,"is_global_policy":false,"whitelist_domains":[],"allow_unknown_domains":true}}]}`)
+				{"id":"10","attributes":{"name":"Std","can_edit":true,"is_global_policy":false,"whitelist_domains":[],"allow_list_only":false,"blacklist_domains":["example.com"],"blacklist_categories":[],"allow_unknown_domains":true}},
+				{"id":"11","attributes":{"name":"Annex","can_edit":true,"is_global_policy":false,"whitelist_domains":[],"allow_list_only":false,"blacklist_domains":["example.com"],"blacklist_categories":[],"allow_unknown_domains":true}}]}`)
 		case p == "/v1/policies/95":
 			// Wrong identity: answers for a different policy.
 			fmt.Fprint(w, `{"data":{"id":"94","attributes":{"name":"Impostor","can_edit":true,"is_global_policy":false,"whitelist_domains":[]}}}`)

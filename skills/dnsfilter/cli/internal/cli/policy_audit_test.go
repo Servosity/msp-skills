@@ -152,7 +152,7 @@ func TestPolicyAuditUnclassifiedCategoryIsNotAllClear(t *testing.T) {
 		case "/v1/categories/all":
 			fmt.Fprint(w, `{"data":[{"id":"60","attributes":{"name":"Malware"}},{"id":"61","attributes":{"name":"Phishing","security":"yes"}},{"id":"7","attributes":{"name":"Social","security":false}}]}`)
 		case "/v1/policies/all":
-			fmt.Fprint(w, `{"data":[{"id":"10","attributes":{"name":"Open","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[],"allow_unknown_domains":false}}]}`)
+			fmt.Fprint(w, `{"data":[{"id":"10","attributes":{"name":"Open","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[],"allow_unknown_domains":false,"allow_list_only":false}}]}`)
 		default:
 			t.Errorf("unexpected request %s", r.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -192,7 +192,7 @@ func TestPolicyAuditUnclassifiedCategoryIsNotAllClear(t *testing.T) {
 func TestPolicyAuditUnknownCatalogIsNotAllClear(t *testing.T) {
 	testenv.Isolate(t)
 	catalog := ""
-	policies := `{"id":"10","attributes":{"name":"Std","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[60,99],"allow_unknown_domains":false}}`
+	policies := `{"id":"10","attributes":{"name":"Std","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[60,99],"allow_unknown_domains":false,"allow_list_only":false}}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if p := r.URL.Query().Get("page[number]"); p != "" && p != "1" {
 			fmt.Fprint(w, `{"data":[]}`)
