@@ -55,9 +55,9 @@ All notable changes to this skill are documented here. Format follows
   Respond access token, or a webhook token of 8 or more characters), as written or
   JSON-escaped, URL-encoded or as HTML entities, the answer's text is withheld from the
   error message instead of being printed or returned over MCP. In a successful answer,
-  any field that quotes one back is replaced by `[withheld]` before it is printed,
-  cached, stored or returned over MCP. A base64, case-changed or partial echo is not
-  detected.
+  any field that quotes one back is replaced by `[withheld]` (or the whole answer is
+  withheld when the echo is not in a single field) before it is printed, cached, stored
+  or returned over MCP. A base64, case-changed or partial echo is not detected.
 - An environment `SAAS_ALERTS_BASE_URL` is never saved to `config.toml`.
 
 ### Known limitations
