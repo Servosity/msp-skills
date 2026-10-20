@@ -541,7 +541,7 @@
   "td-synnex": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "td-synnex-v0.1.0",
     "current_hash": "sha256:48b95cc40889282e427f31e8e9e5182dbd88646c1310660b63a47359183df5bb",
     "released_hash": null
   },
