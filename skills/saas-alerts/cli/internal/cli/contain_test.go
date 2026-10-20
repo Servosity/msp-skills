@@ -1307,3 +1307,40 @@ func TestContainUnreadableNewFlaggedRowWarns(t *testing.T) {
 		}
 	})
 }
+
+// TestContainUnreadableExecuteAnswerStopsLaterActions: when Respond answers
+// the execute call but the answer cannot be read, whether the action was
+// applied is unknown, so no further account change is sent.
+func TestContainUnreadableExecuteAnswerStopsLaterActions(t *testing.T) {
+	for name, raw := range map[string]func(w http.ResponseWriter){
+		"unsupported encoding": func(w http.ResponseWriter) {
+			w.Header().Set("Content-Encoding", "x-unknown")
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"status":"PROCESSING"}`))
+		},
+		"html page": func(w http.ResponseWriter) {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`<html><head><title>Gateway</title></head><body>ok</body></html>`))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			api := newRQTAPI(t)
+			api.execRaw = raw
+			rqtEnv(t, api)
+			rqtFastPoll(t)
+			out, _, err := rqtRun(t, "contain", "jane.doe@example.com", "--org-id", "ORG_1", "--account-id", "ACC_JANE",
+				"--confirm", "--wait", "50ms", "--json")
+			res := rqtDecode[rqtContainOut](t, out)
+			execs := len(api.callsMatching("POST", "/respondApi/api/v1/response-actions/execute"))
+			if rqtExit(err) == 0 || execs != 1 || res.Actions[0].Status != "unknown_outcome" {
+				t.Fatalf("exit=%d execs=%d first=%+v", rqtExit(err), execs, res.Actions[0])
+			}
+			for _, a := range res.Actions[1:] {
+				if a.Status != "not_sent" {
+					t.Fatalf("an action after an unreadable answer was sent: %+v", a)
+				}
+			}
+		})
+	}
+}

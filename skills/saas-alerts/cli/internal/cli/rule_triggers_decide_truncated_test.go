@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,5 +76,23 @@ func TestRuleTriggersDecideIDsAccountMismatchIsReported(t *testing.T) {
 	res := rqtDecode[rtDecideResult](t, out)
 	if len(res.Planned) != 0 || rqtSkipReasons(res)["RT_B"] != rtSkipStatusMismatch {
 		t.Fatalf("RT_B (bob@example.com) must be skipped as a selection mismatch: %s", out)
+	}
+}
+
+// TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead: an answer that
+// cannot be read is not a failure; the re-read decides, as for an off-contract
+// answer.
+func TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead(t *testing.T) {
+	api := newRQTAPI(t)
+	api.decisionRaw = map[string]func(w http.ResponseWriter){"RT_D": func(w http.ResponseWriter) {
+		w.Header().Set("Content-Encoding", "x-unknown")
+		_, _ = w.Write([]byte(`{}`))
+	}}
+	rqtEnv(t, api)
+	dbPath := filepath.Join(t.TempDir(), "receipts.db")
+	out, _, err := rqtRun(t, "rule-triggers", "decide", "--decision", "reject", "--remarks", "fp", "--ids", "RT_D", "--confirm", "--db", dbPath, "--json")
+	res := rqtDecode[rtDecideResult](t, out)
+	if err != nil || res.Summary.Failed != 0 || res.Summary.Succeeded != 1 || len(res.Results) != 1 || !res.Results[0].Verified {
+		t.Fatalf("an unreadable answer whose re-read shows the decision: err=%v\n%s", err, out)
 	}
 }

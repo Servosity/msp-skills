@@ -161,6 +161,14 @@ type rqtAPI struct {
 	// execHook can add other jobs (other operators, action-less, ...) when an
 	// action executes; it runs under the lock.
 	execHook func(a *rqtAPI, action string, executedAt int64)
+	// decisionRaw, when set for a trigger, applies the decision and then writes
+	// the whole decision answer itself.
+	decisionRaw map[string]func(w http.ResponseWriter)
+	// patchRaw, when set for a channel, enables it and then writes the whole
+	// PATCH answer itself.
+	patchRaw map[string]func(w http.ResponseWriter)
+	// execRaw, when set, writes the whole execute answer itself.
+	execRaw func(w http.ResponseWriter)
 
 	// decisionBody replaces a decision POST's 200 answer; the decision only
 	// changes the trigger when decisionApplies is set for that id.
@@ -315,6 +323,13 @@ func (a *rqtAPI) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		next := map[string]string{"approve": "APPROVED", "reject": "REJECTED", "ignore": "IGNORED", "manually-remediate": "MANUALLY_REMEDIATED"}[decision]
+		if raw := a.decisionRaw[id]; raw != nil {
+			tr["status"] = next
+			hist, _ := tr["history"].([]any)
+			tr["history"] = append(hist, map[string]any{"type": next, "timestamp": rqtMS(0)})
+			raw(w)
+			return
+		}
 		if body, ok := a.decisionBody[id]; ok {
 			if a.decisionApplies[id] {
 				tr["status"] = next
@@ -336,6 +351,11 @@ func (a *rqtAPI) handle(w http.ResponseWriter, r *http.Request) {
 			Action string `json:"action"`
 		}
 		_ = json.Unmarshal(body, &req)
+		if a.execRaw != nil {
+			a.execCount++
+			a.execRaw(w)
+			return
+		}
 		if a.execBody != nil {
 			code := a.execCode
 			if code == 0 {
@@ -436,6 +456,11 @@ func (a *rqtAPI) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		if a.onPatch != nil {
 			a.onPatch(a, ch)
+		}
+		if raw := a.patchRaw[ch]; raw != nil {
+			a.enableSubscription(ch)
+			raw(w)
+			return
 		}
 		body, overridden := a.patchBody[ch]
 		var updated map[string]any

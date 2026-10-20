@@ -1164,6 +1164,9 @@ func containJSONEmpty(v json.RawMessage) bool {
 // transport failure after the request may have been sent. A 4xx (refused),
 // a failure before sending (auth mint, no route to host) is a known "no".
 func containOutcomeUnknown(err error) bool {
+	if client.IsAnswerUnreadable(err) { // saas-alerts hand-fix: the server answered; only its answer is unreadable
+		return true
+	}
 	var apiErr *client.APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode >= 500 && strings.Contains(apiErr.Path, "/response-actions/execute")

@@ -712,7 +712,7 @@ func shExecutePlan(ctx context.Context, c *client.Client, plan []shPlanItem, kno
 			Channels: []string{item.ChannelID}, DeliveryErrors: make([]shDeliveryError, 0)}
 		data, code, err := c.Patch(ctx, item.patch.Path, item.patch.Body)
 		ex.HTTPStatus = code
-		if err != nil {
+		if err != nil && !client.IsAnswerUnreadable(err) { // saas-alerts hand-fix: an unreadable answer is checked by re-reading
 			var apiErr *client.APIError
 			if errors.As(err, &apiErr) {
 				ex.HTTPStatus = apiErr.StatusCode
@@ -723,6 +723,9 @@ func shExecutePlan(ctx context.Context, c *client.Client, plan []shPlanItem, kno
 			continue
 		}
 		why := shPatchAnswerShowsEnabled(data, item.ChannelID)
+		if err != nil {
+			why = "an answer that could not be read (" + err.Error() + ")"
+		}
 		if why == "" {
 			ex.OK, ex.Outcome, ex.Verification = true, "reenabled", "answer"
 			reenabled = append(reenabled, item)

@@ -562,7 +562,7 @@ func rtExecuteDecisions(ctx context.Context, c *client.Client, result *rtDecideR
 		calledAt := rqNow()
 		data, code, err := c.Post(ctx, p.Path, p.Body)
 		out.HTTPStatus = code
-		if err != nil {
+		if err != nil && !client.IsAnswerUnreadable(err) { // saas-alerts hand-fix: an unreadable answer is checked by re-reading, like an off-contract one
 			var apiErr *client.APIError
 			if errors.As(err, &apiErr) {
 				out.HTTPStatus = apiErr.StatusCode
@@ -575,6 +575,9 @@ func rtExecuteDecisions(ctx context.Context, c *client.Client, result *rtDecideR
 			result.Summary.Failed++
 		} else {
 			why := rtCheckDecisionResponse(data, p.TriggerID, opts.decision)
+			if err != nil {
+				why = "an answer that could not be read (" + err.Error() + ")"
+			}
 			// The verification read runs either way: it is the only evidence
 			// left when the POST answer is not the documented RuleTrigger.
 			after, verr := rqFetchOne(ctx, c, p.TriggerID)

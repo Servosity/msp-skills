@@ -759,3 +759,30 @@ func TestSubscriptionsHealthFailureFlaggedQueueMembersLeaveDepthUnknown(t *testi
 		}
 	})
 }
+
+// TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead: a PATCH
+// answer that cannot be read is checked by re-reading the subscriptions, not
+// reported as a refused re-enable.
+func TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead(t *testing.T) {
+	api := newRQTAPI(t)
+	rqtWebhookFixtures(api)
+	api.patchRaw = map[string]func(w http.ResponseWriter){"CH_S4": func(w http.ResponseWriter) {
+		w.Header().Set("Content-Encoding", "x-unknown")
+		_, _ = w.Write([]byte(`{}`))
+	}}
+	rqtEnv(t, api)
+	out, _, _ := rqtRun(t, "subscriptions", "health", "--reenable", "--confirm", "--json")
+	res := rqtDecode[shResult](t, out)
+	if res.Executed == nil {
+		t.Fatalf("nothing executed:\n%s", out)
+	}
+	for _, ex := range *res.Executed {
+		if ex.ChannelID == "CH_S4" && ex.Method == "PATCH" {
+			if !ex.OK || ex.Outcome != "reenabled" || !strings.Contains(ex.Verification, "read") {
+				t.Fatalf("CH_S4 PATCH with an unreadable answer: %+v", ex)
+			}
+			return
+		}
+	}
+	t.Fatalf("no CH_S4 PATCH executed:\n%s", out)
+}

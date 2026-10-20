@@ -18,7 +18,8 @@ All notable changes to this skill are documented here. Format follows
   or auto-ignore; `rule-triggers decide` applies one decision to many triggers, previewed
   until `--confirm`.
 - `contain` blocks sign-in, expires sessions and resets the password for one Microsoft
-  365 account in order, previewed until `--confirm`.
+  365 account in order, previewed until `--confirm`. When Respond's answer to a step
+  cannot be read, the outcome is reported as unknown and no further step is sent.
 - `rule-triggers list --all` follows Respond's cursor across every page; Unify device syncs
   and the `devices` list commands page with `searchAfter`, and the `devices` commands read
   live only (their local copy cannot answer per-account questions).

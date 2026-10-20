@@ -1402,14 +1402,14 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		respBody, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if err != nil {
-			return nil, 0, fmt.Errorf("reading response: %w", c.maskError(err, authHeader)) // saas-alerts hand-fix: error-text-secret-funnel
+			return nil, 0, unreadableAnswer{fmt.Errorf("reading response: %w", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))} // saas-alerts hand-fix: error-text-secret-funnel; the server answered, so a write's outcome is unknown
 		}
 		// Decode after the read. A spec-set Accept-Encoding disables net/http's
 		// transparent gzip, but some hosts truncate the body unless that
 		// header is present, so the header stays and the bytes are inflated here.
 		respBody, err = decodeContentEncoding(resp.Header.Get("Content-Encoding"), respBody)
 		if err != nil {
-			return nil, 0, fmt.Errorf("decoding response: %w", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...)) // saas-alerts hand-fix: error-text-secret-funnel (Content-Encoding is server text)
+			return nil, 0, unreadableAnswer{fmt.Errorf("decoding response: %w", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))} // saas-alerts hand-fix: error-text-secret-funnel (Content-Encoding is server text)
 		}
 
 		// Pace to the server-advertised budget when it ships rate-limit
@@ -1449,7 +1449,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 					if c.echoesCredential(respBody, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
 						summary = echoWithheldText
 					}
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))
+					return nil, resp.StatusCode, unreadableAnswer{fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))}
 				}
 			}
 			return c.withholdEchoedValues(withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), append(requestWebhookTokens(path, bodyBytes), authHeader)...), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens and echoed secrets never leave the client
@@ -1591,7 +1591,7 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.funnelText(params[k], append(requestWebhookTokens(path, body), authHeader)...))
 			queryPrinted = true
 		}
 	}

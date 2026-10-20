@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"html"
 	"strings"
 	"unicode"
@@ -140,6 +141,22 @@ func dropUnprintable(s string) string {
 		}
 		return r
 	}, strings.ToValidUTF8(s, ""))
+}
+
+// unreadableAnswer marks an error where the server answered but its answer
+// could not be read (a failed body read, an unsupported Content-Encoding, an
+// HTML page where JSON was expected). For a write, whether it was applied is
+// then unknown. The message is the wrapped error's, unchanged.
+type unreadableAnswer struct{ err error }
+
+func (e unreadableAnswer) Error() string { return e.err.Error() }
+func (e unreadableAnswer) Unwrap() error { return e.err }
+
+// IsAnswerUnreadable reports whether err is an answer the server sent but this
+// client could not read, so a write's outcome is unknown, not refused.
+func IsAnswerUnreadable(err error) bool {
+	var u unreadableAnswer
+	return errors.As(err, &u)
 }
 
 // funnelText is the last step before text is shown: the raw mask, then the
