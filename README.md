@@ -218,7 +218,7 @@ Outcomes, not hype - drawn from each of the 82 connectors' skill pages:
 | Pull this month's invoices | datagate | `datagate-cli invoices --period-start 2026-08-01T00:00:00Z --period-end 2026-08-31T23:59:59Z --json` |
 | Which protected machines failed their last backup screenshot verification? | datto-bcdr | `datto-bcdr-cli screenshots --failed --stale-days 7 --agent` |
 | Which devices haven't checked in for 30 days, across every client? | datto-rmm | `datto-rmm-cli fleet stale --days 30 --agent` |
-| TODO: question an MSP keeps asking | dnsfilter | `dnsfilter-cli TODO` |
+| Why is this domain blocked for this client, and which policy and rule did it? | dnsfilter | `dnsfilter-cli why-blocked "example.com" --org "Acme Dental"` |
 | Is anything on fire across all my sites? | domotz | `domotz-cli fleet health --agent` |
 | Give me one posture verdict across every client FortiGate, showing only findings that are new since the last run. | fortinet | `fortinet-cli fleet audit --new` |
 | Which accounts across all my clients lack 2-Step Verification, with unenrolled admins first? | google-workspace | `google-workspace-cli mfa-gaps --all-tenants --agent` |

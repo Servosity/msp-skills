@@ -92,6 +92,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Datto RMM (RMM) - ask "Which devices haven't checked in for 30 days, across every client?" - Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
+- DNSFilter (Security) - ask "Why is this domain blocked for this client, and which policy and rule did it?" - DNS security policies, roaming agents and blocked requests across every DNSFilter client.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/dnsfilter/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dnsfilter/install.sh)
 - Domotz (Network Monitoring) - ask "Is anything on fire across all my sites?" - Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/domotz/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
