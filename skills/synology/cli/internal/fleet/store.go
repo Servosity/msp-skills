@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"synology-pp-cli/internal/cliutil"
+	"synology-pp-cli/internal/dsm"
 )
 
 // DBPath is <data dir>/fleet.db: one mirror across every NAS, independent of
@@ -88,6 +89,22 @@ var addedColumns = [][3]string{
 // is never reported as current.
 const MirrorFormat = 12 // 3: results record protected device ids; 4: transfers checked against them; 5: transfer parents must be backups; 6-8: every last_result identity mirrored and checked; 9: unfinished task runs stored as running; 10-11: transfers within their run's time (checked after merging); 12: a byte count DSM did not report is stored as unknown (-1), not 0
 
+// MirrorAddress is the one form in which the mirror records a NAS address:
+// dsm.DisplayAddress, so an address is never stored (or read back for
+// printing) with user info, a query or a fragment. A registry entry that
+// carries a password (a hand-edited fleet.json) is refused before any
+// request, and its sync record holds the address without it.
+func MirrorAddress(raw string) string {
+	return dsm.DisplayAddress(raw)
+}
+
+// SameMirrorAddress reports whether a recorded address and a registered URL
+// are one NAS address, both in MirrorAddress form: the comparison every
+// "is this mirror still this box's" check makes.
+func SameMirrorAddress(recorded, registered string) bool {
+	return MirrorAddress(recorded) == MirrorAddress(registered)
+}
+
 // EnsureSchema creates the fleet tables and migrates an older mirror.
 func EnsureSchema(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
@@ -104,7 +121,56 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 			}
 		}
 	}
+	if err := scrubMirrorAddresses(ctx, db); err != nil {
+		return fmt.Errorf("migrating fleet tables: %w", err)
+	}
 	return nil
+}
+
+// scrubMirrorAddresses rewrites, in MirrorAddress form, any address an
+// earlier build recorded raw: a hand-edited registry URL with a password
+// was copied into fleet_sync.url. It runs on one connection with
+// secure_delete on (so SQLite zeroes the overwritten bytes) and, when it
+// changed a row, checkpoints and truncates the WAL, so the password does not
+// linger in the database file or its write-ahead log.
+func scrubMirrorAddresses(ctx context.Context, db *sql.DB) error {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	rows, err := conn.QueryContext(ctx, `SELECT nas, url FROM fleet_sync WHERE url IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	type fix struct{ nas, from, to string }
+	var fixes []fix
+	for rows.Next() {
+		var nas, url string
+		if err := rows.Scan(&nas, &url); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if m := MirrorAddress(url); m != url {
+			fixes = append(fixes, fix{nas, url, m})
+		}
+	}
+	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+		return err
+	}
+	if len(fixes) == 0 {
+		return nil
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA secure_delete = ON`); err != nil {
+		return err
+	}
+	for _, f := range fixes {
+		if _, err := conn.ExecContext(ctx, `UPDATE fleet_sync SET url = ? WHERE nas = ? AND url = ?`, f.to, f.nas, f.from); err != nil {
+			return err
+		}
+	}
+	_, err = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	return err
 }
 
 // addColumn adds one column and backfills it in one transaction. A
@@ -134,7 +200,9 @@ func addColumn(ctx context.Context, db *sql.DB, table, column, typ string) error
 	return tx.Commit()
 }
 
-// NeedsMigration reports whether a mirror lacks a column this version reads.
+// NeedsMigration reports whether a mirror lacks a column this version reads,
+// or still holds an address an earlier build recorded raw (so the first
+// fleet report, not only the next sync, scrubs it).
 func NeedsMigration(ctx context.Context, db Querier) (bool, error) {
 	for _, c := range addedColumns {
 		has, err := hasColumn(ctx, db, c[0], c[1])
@@ -142,7 +210,21 @@ func NeedsMigration(ctx context.Context, db Querier) (bool, error) {
 			return true, err
 		}
 	}
-	return false, nil
+	rows, err := db.QueryContext(ctx, `SELECT url FROM fleet_sync WHERE url IS NOT NULL`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return false, err
+		}
+		if MirrorAddress(url) != url {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 func hasColumn(ctx context.Context, db Querier, table, column string) (bool, error) {
@@ -224,7 +306,7 @@ func claim(ctx context.Context, tx *sql.Tx, n NAS, at time.Time) error {
 		// Checked before the origin: an old sync of a replaced box must not
 		// purge the replacement's newer history.
 		return ErrSuperseded
-	case prevURL != n.URL:
+	case !SameMirrorAddress(prevURL, n.URL):
 		return purge(ctx, tx, n.Name) // another box's rows
 	case prevFormat < MirrorFormat:
 		// Rows written under older rules: drop the data and its coverage and
@@ -269,7 +351,7 @@ ON CONFLICT(nas) DO UPDATE SET url=excluded.url, client=excluded.client, attempt
   history_to=CASE WHEN excluded.history_to IS NULL THEN fleet_sync.history_to
     WHEN fleet_sync.history_to IS NULL OR excluded.history_from > fleet_sync.history_to THEN excluded.history_to
     ELSE MAX(fleet_sync.history_to, excluded.history_to) END`,
-		n.Name, n.URL, n.Client, at.Unix(), succeeded, errText, info.Model, info.DSMVersion, info.ABBInstalled, seen, hFrom, hTo, MirrorFormat)
+		n.Name, MirrorAddress(n.URL), n.Client, at.Unix(), succeeded, errText, info.Model, info.DSMVersion, info.ABBInstalled, seen, hFrom, hTo, MirrorFormat)
 	return err
 }
 
@@ -534,7 +616,7 @@ func ResultCursor(ctx context.Context, db *sql.DB, n NAS) (int64, error) {
 	var url string
 	var format int64
 	err := db.QueryRowContext(ctx, `SELECT COALESCE(url,''), COALESCE(mirror_format,0) FROM fleet_sync WHERE nas = ?`, n.Name).Scan(&url, &format)
-	if err == sql.ErrNoRows || (err == nil && (url != n.URL || format < MirrorFormat)) {
+	if err == sql.ErrNoRows || (err == nil && (!SameMirrorAddress(url, n.URL) || format < MirrorFormat)) {
 		return 0, nil // another box's or an older version's history: CommitSync purges it
 	}
 	if err != nil {

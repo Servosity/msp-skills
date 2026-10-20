@@ -54,13 +54,13 @@ func newNovelAbbTriageCmd(flags *rootFlags) *cobra.Command {
 	var nasName string
 	var scan, detailLimit int
 	cmd := &cobra.Command{
-		Use:   "triage [task]",
+		Use:   "triage <task>",
 		Short: "Why one ABB task failed: its newest failed run, the run's detail lines and the ABB log from that window, errors first",
 		Long: strings.Trim(`
 Use this command to see why one specific ABB task failed. Do NOT use this
 command to find which tasks failed; use 'abb failures' instead.
 
-[task] is a task id or name (case-insensitive; a unique partial name works).
+<task> is a task id or name (case-insensitive; a unique partial name works).
 Live: reads the task list, the task's backup results, the newest non-success
 run's detail lines and the ABB activity log between that run's start and end.
 DSM reports log types and parameters (path, fs_error, error_code), not message

@@ -73,7 +73,7 @@ func newFleetAddCmd(flags *rootFlags) *cobra.Command {
 	var nasURL, client, envPrefix, fingerprint string
 	var pinCert, insecure, check bool
 	cmd := &cobra.Command{
-		Use:   "add [name]",
+		Use:   "add <name>",
 		Short: "Register a client NAS: its URL, client name and the env-var prefix holding its login",
 		Long: strings.Trim(`
 Register a client NAS for the fleet commands. The login is never stored: the
@@ -438,7 +438,7 @@ func newFleetRemoveCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 	// mcp:hidden: registry administration is operator-only (see fleet add).
 	cmd := &cobra.Command{
-		Use:         "remove [name]",
+		Use:         "remove <name>",
 		Short:       "Unregister a NAS and delete its rows from the local mirror",
 		Example:     "  synology-cli fleet remove acme",
 		Annotations: map[string]string{"mcp:read-only": "false", "mcp:hidden": "true", "pp:happy-args": "name=acme;--dry-run"},

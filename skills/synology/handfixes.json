@@ -334,8 +334,8 @@
     },
     {
       "id": "dsm-auth-logout",
-      "summary": "auth logout forgets, on this computer, the whole cached session file of the NAS SYNOLOGY_BASE_URL (or the config's base_url, or --nas <registered name>) names - every account's sid, SynoToken, cookies and two-factor trusted-device tokens - or with --all every session cache file in the data directory, plus the login stored in the CLI's own config (credential fields of config.json, the credentials file); it prints every file it removed or changed (or 'nothing cached for <address>'), never contacts the NAS and says so, keeps --dry-run truthful, and with no usable NAS address refuses (exit 2, naming SYNOLOGY_BASE_URL, --nas and --all) instead of reporting 'cleared' for the example placeholder",
-      "why": "The generated logout cleared only what the current shell named: in a fresh shell (SYNOLOGY_BASE_URL unset) it targeted https://nas.example.com:5001, cleared nothing, wrote a config.json naming the placeholder and still printed {\"cleared\": true} / 'Logged out. Credentials cleared.', so the next command reused the live sid with no password; with SYNOLOGY_BASE_URL set and SYNOLOGY_ACCOUNT unset it removed the sid but kept the account's trusted-device token, so the next password login skipped the second factor. TestAuthLogoutInAFreshShell, TestAuthLogoutWithoutAnAccount and TestAuthLogoutForgetsOnlyTheNamedNAS (against a two-factor DSM stand-in: after logout the next command needs the password and a one-time code) fail with the contract reverted.",
+      "summary": "auth logout forgets, on this computer, the whole cached session file of the NAS SYNOLOGY_BASE_URL (or the config's base_url, or --nas <registered name>) names - every account's sid, SynoToken, cookies and two-factor trusted-device tokens - or with --all every session file the CLI wrote, plus the login stored in the CLI's own config (credential fields of config.json, the credentials file); it removes only files it can prove it wrote (the name is exactly the CLI's scheme - session-<scheme>-<host>_<port>[_<path>]-<hash8>.json in the data directory, the legacy session.json, or either's .<name>.<digits>.tmp - AND the content parses as the record the CLI writes under that name, a per-NAS record's origin naming the file), never follows a symbolic link, and lists every other session-cache-like file as skipped (kept); it prints every file it removed, changed or kept (or 'nothing cached for <address>'), never contacts the NAS and says so, keeps --dry-run truthful with the same JSON shape as the run (every list [] when empty, never null), and with no usable NAS address refuses (exit 2, naming SYNOLOGY_BASE_URL, --nas and --all) instead of reporting 'cleared' for the example placeholder",
+      "why": "The generated logout cleared only what the current shell named: in a fresh shell (SYNOLOGY_BASE_URL unset) it targeted https://nas.example.com:5001, cleared nothing, wrote a config.json naming the placeholder and still printed {\"cleared\": true} / 'Logged out. Credentials cleared.', so the next command reused the live sid with no password; with SYNOLOGY_BASE_URL set and SYNOLOGY_ACCOUNT unset it removed the sid but kept the account's trusted-device token, so the next password login skipped the second factor. TestAuthLogoutInAFreshShell, TestAuthLogoutWithoutAnAccount and TestAuthLogoutForgetsOnlyTheNamedNAS (against a two-factor DSM stand-in: after logout the next command needs the password and a one-time code) fail with the contract reverted. Round 5: --all deleted every file NAMED like a session cache in the config directory (--config, SYNOLOGY_CONFIG, SYNOLOGY_CONFIG_DIR can point at a shared or per-client folder), so a user's session.json, session-planning-2026.json and .session-keep.tmp were removed; and the dry-run printed session_files null where the run printed []. TestSessionCacheFilesAreProvenBeforeRemoval, TestAuthLogoutKeepsFilesItDidNotWrite and TestAuthLogoutPreviewAndRunHaveOneShape fail with the proof, the data-directory scoping or the list normalisation reverted.",
       "status": "active",
       "asserts": [
         {
@@ -372,13 +372,13 @@
         },
         {
           "file": "cli/internal/cli/auth_logout_dsm.go",
-          "contains": "removed, ferr := dsm.ForgetSessionFiles(files)",
+          "contains": "removed, changed, ferr := dsm.ForgetSessionFiles(files)",
           "min_count": 1,
           "code_only": true
         },
         {
           "file": "cli/internal/dsm/sessioncache.go",
-          "contains": "func CachedSessions(baseURL string, dirs ...string) ([]CachedSession, error) {",
+          "contains": "func CachedSessions(baseURL string, dirs SessionDirs) ([]CachedSession, []SkippedFile, error) {",
           "min_count": 1,
           "code_only": true
         },
@@ -397,6 +397,92 @@
         {
           "file": "cli/internal/cli/auth_logout_contract_test.go",
           "contains": "func TestAuthLogoutForgetsOnlyTheNamedNAS(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "\"Forget every DSM session file this CLI wrote in its data directory (the single NAS and every fleet NAS), the legacy session.json next to the config when it is the CLI's, and the stored login; any other file is kept\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "Forget every cached DSM session in the data directory"
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_dsm.go",
+          "contains": "files, skipped, err := dsm.CachedSessions(target, dirs)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_dsm.go",
+          "contains": "fillNilLists(&rep)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache.go",
+          "contains": "} else if SessionFileName(origin) != owner {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache.go",
+          "contains": "case owner != \"session.json\" && !dataDir:",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache.go",
+          "contains": "case lst.Mode()&fs.ModeSymlink != 0:",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache.go",
+          "contains": "if _, reason, _ := proveSessionFile(f.File, f.owner, f.legacy); reason != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache.go",
+          "not_contains": "func isSessionCacheName("
+        },
+        {
+          "file": "cli/internal/dsm/devicecache.go",
+          "contains": "os.CreateTemp(filepath.Dir(path), atomicTempPattern(path))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache_test.go",
+          "contains": "func TestSessionCacheFilesAreProvenBeforeRemoval(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_proof_test.go",
+          "contains": "func TestAuthLogoutKeepsFilesItDidNotWrite(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_proof_test.go",
+          "contains": "func TestAuthLogoutPreviewAndRunHaveOneShape(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/devicecache.go",
+          "contains": "return \".\" + filepath.Base(path) + \".*.tmp\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache_test.go",
+          "contains": "func TestAtomicWriteTempNamesItsFile(",
           "min_count": 1,
           "code_only": true
         }
@@ -2478,6 +2564,80 @@
         {
           "file": "cli/internal/cli/json_flag_usage_test.go",
           "contains": "func TestInvalidJSONFlagIsUsageError(t *testing.T)",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "required-positionals",
+      "summary": "a positional a command needs is declared once, as \"<name>\" in Use (abb triage <task>, abb device <host-name>, fleet add/remove <name>), so the Cobra mirror's MCP schema requires it and the required-argument guard refuses a tool call without it; the CLI enforces the same declaration in one place (a hook wrapping the root PersistentPreRunE, before any other pre-run step): a call missing or blanking a required positional exits 2 naming it ('<path> requires <name> (missing or empty); nothing was run'), a bare call prints the help (exit 0), --dry-run does not waive it (only the press verify/dogfood harness does); and Cobra's own positional-count refusals (accepts N arg(s) / between / at most / requires at least) are usage errors, exit 2, in isCobraUsageError",
+      "why": "abb triage and abb device declared their needed positional optional ([task], [host-name]), so their MCP tools did not require it and a call without it returned the command's help text with isError false (round-5 review); across the CLI the same omission exited 0 (help for recall, learnings forget and search even with --json; a dry-run plan for abb triage/device, learnings confirm/reject and fleet add/remove) or 1 (export, profile, client: Cobra's ExactArgs/RangeArgs message was not a recognised usage error). TestMissingRequiredPositionalIsRefused (every command in the tree, through the real Execute), TestRequiredPositionalsReadUseLikeTheMCPSchema and TestMirroredPositionalsAreRequired (every mirrored tool, through the server's message path) fail with the declarations, the hook or the classifier rule reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "HAND-FIX(required-positionals)",
+          "min_count": 1,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "isCobraArgCountError(msg)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/required_positionals.go",
+          "contains": "if err := refuseMissingPositionals(cmd, flags, args); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/required_positionals.go",
+          "contains": "return pflag.ErrHelp",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/abb_triage.go",
+          "contains": "Use:   \"triage <task>\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/abb_device.go",
+          "contains": "Use:   \"device <host-name>\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_registry.go",
+          "contains": "Use:   \"add <name>\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_registry.go",
+          "contains": "Use:         \"remove <name>\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/required_positionals_test.go",
+          "contains": "func TestMissingRequiredPositionalIsRefused(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/required_positionals_test.go",
+          "contains": "func TestRequiredPositionalsReadUseLikeTheMCPSchema(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/positional_required_test.go",
+          "contains": "func TestMirroredPositionalsAreRequired(",
           "min_count": 1,
           "code_only": true
         }

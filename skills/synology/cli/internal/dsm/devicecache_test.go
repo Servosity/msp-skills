@@ -124,12 +124,12 @@ func TestForgetSessionFilesRemovesEveryAccount(t *testing.T) {
 	_ = SaveDeviceID(dir, base, "admin", "did-a")
 	_ = SaveDeviceID(dir, base, "fleet", "did-f")
 	_ = SaveDeviceID(dir, "https://other:5001", "admin", "did-o")
-	files, err := CachedSessions(base, dir)
+	files, _, err := CachedSessions(base, SessionDirs{Data: dir})
 	if err != nil || len(files) != 1 || files[0].NAS != "https://nas:5001" ||
 		strings.Join(files[0].DeviceTokenAccounts, ",") != "admin,fleet" || files[0].SessionID {
 		t.Fatalf("CachedSessions(%s) = %+v, %v", base, files, err)
 	}
-	removed, err := ForgetSessionFiles(files)
+	removed, _, err := ForgetSessionFiles(files)
 	if err != nil || len(removed) != 1 {
 		t.Fatalf("ForgetSessionFiles = %+v, %v", removed, err)
 	}
@@ -140,7 +140,7 @@ func TestForgetSessionFilesRemovesEveryAccount(t *testing.T) {
 		t.Fatal("forgetting one NAS removed another NAS's token")
 	}
 	// Removing again removes nothing and is not an error.
-	if removed, err := ForgetSessionFiles(files); err != nil || len(removed) != 0 {
+	if removed, _, err := ForgetSessionFiles(files); err != nil || len(removed) != 0 {
 		t.Fatalf("second ForgetSessionFiles = %+v, %v", removed, err)
 	}
 }

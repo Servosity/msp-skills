@@ -19,7 +19,7 @@ func newNovelAbbDeviceCmd(flags *rootFlags) *cobra.Command {
 	var r fleetReport
 	var runs int
 	cmd := &cobra.Command{
-		Use:   "device [host-name]",
+		Use:   "device <host-name>",
 		Short: "Find a machine by host name across every NAS: protecting task, last success and recent runs",
 		Long: strings.Trim(`
 Use this command for one machine's backup status looked up by host name. Do

@@ -107,9 +107,8 @@ func CachedDeviceIDFile(path, baseURL, account string) string {
 
 func readRecord(path string) map[string]any {
 	rec := map[string]any{}
-	// path is SessionFilePath (this CLI's data dir joined with a sanitized,
-	// hashed per-NAS file name) or a session cache file CachedSessions listed
-	// in this CLI's own data or config directory.
+	// path is SessionFilePath: this CLI's data dir joined with a sanitized,
+	// hashed per-NAS file name.
 	if data, err := os.ReadFile(filepath.Clean(path)); err == nil {
 		if json.Unmarshal(data, &rec) != nil || rec == nil {
 			rec = map[string]any{} // unreadable or JSON null: start over
@@ -169,15 +168,24 @@ func WriteSessionRecord(path string, data []byte, account, deviceID string) erro
 	return writeAtomic(path, out)
 }
 
+// atomicTempPattern is writeAtomic's os.CreateTemp pattern for path:
+// ".<file name>.<digits>.tmp", the only temp file name sessionOwner maps back
+// to its session file.
+func atomicTempPattern(path string) string {
+	return "." + filepath.Base(path) + ".*.tmp"
+}
+
 // writeAtomic replaces path with data, mode 0600, through a temp file and a
-// rename so a reader never sees a torn file.
+// rename so a reader never sees a torn file. The temp file is named
+// ".<file name>.<digits>.tmp", so a crash leaves one that names the session
+// file it belongs to (auth logout removes it only as that file's temp file).
 // ponytail: read-modify-write is not locked across processes; two logins to
 // one host in the same instant can drop one token (the next OTP login re-adds it).
 func writeAtomic(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".session-*.tmp")
+	f, err := os.CreateTemp(filepath.Dir(path), atomicTempPattern(path))
 	if err != nil {
 		return err
 	}

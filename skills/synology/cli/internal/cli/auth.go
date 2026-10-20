@@ -190,9 +190,10 @@ func credentialSavePath(cfg *config.Config) string {
 func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 	// HAND-FIX(dsm-auth-logout): logout forgets, on this computer, the whole
 	// cached DSM session file of the NAS SYNOLOGY_BASE_URL (or --nas) names,
-	// or with --all every cached session, plus the CLI's stored login, and
-	// prints exactly what it removed; with no NAS address it refuses rather
-	// than report "cleared" for the example placeholder.
+	// or with --all every session file the CLI wrote (never a file it cannot
+	// prove it wrote), plus the CLI's stored login, and prints exactly what
+	// it removed and kept; with no NAS address it refuses rather than report
+	// "cleared" for the example placeholder.
 	var all bool
 	var nasName string
 	cmd := &cobra.Command{
@@ -205,7 +206,7 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			return runAuthLogout(cmd, flags, all, nasName) // HAND-FIX(dsm-auth-logout)
 		},
 	}
-	cmd.Flags().BoolVar(&all, "all", false, "Forget every cached DSM session in the data directory (the single NAS and every fleet NAS) and the stored login")
+	cmd.Flags().BoolVar(&all, "all", false, "Forget every DSM session file this CLI wrote in its data directory (the single NAS and every fleet NAS), the legacy session.json next to the config when it is the CLI's, and the stored login; any other file is kept")
 	cmd.Flags().StringVar(&nasName, "nas", "", "Forget the cached session of this registered NAS (see 'fleet list') instead of SYNOLOGY_BASE_URL's")
 	return cmd
 }

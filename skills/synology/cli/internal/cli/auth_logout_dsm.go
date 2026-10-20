@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -31,8 +32,16 @@ nothing was cached.
 
 The NAS is the one SYNOLOGY_BASE_URL (or the config's base_url) names, or the
 registered NAS passed with --nas. Without either it refuses: pass --all to
-forget every cached session in the data directory (the single NAS and every
-fleet NAS alike).
+forget every session file this CLI wrote in its data directory (the single NAS
+and every fleet NAS alike), plus the session.json an early build kept next to
+the config file when its content is the CLI's own session record.
+
+Only files this CLI can prove it wrote are removed: the name is exactly the
+CLI's own session file name (session-<scheme>-<host>_<port>[_<path>]-<hash>.json
+in the data directory, or the legacy session.json) and the content is the
+session record the CLI writes under that name. Any other file named like a
+session cache (for example a session.json of your own in a shared config
+folder) is listed as skipped and kept, and a symbolic link is never followed.
 
 Local only: the NAS is not contacted, so a session id stays valid on the NAS
 until DSM times it out; run 'synology-cli session logout' first to end it there
@@ -64,6 +73,9 @@ type logoutReport struct {
 	NAS   string `json:"nas,omitempty"`
 	// SessionFiles are the session cache files removed (would be removed).
 	SessionFiles []dsm.CachedSession `json:"session_files"`
+	// Skipped are files named like a session cache that this CLI did not
+	// write (or could not prove it wrote): listed, never removed.
+	Skipped []dsm.SkippedFile `json:"skipped"`
 	// StoredCredentials are the config and credentials files cleared.
 	StoredCredentials []logoutCredentialFile `json:"stored_credentials"`
 	// Cleared is true only when something was removed or changed.
@@ -85,8 +97,7 @@ func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName strin
 	if err != nil {
 		return configErr(err)
 	}
-	rep := logoutReport{DryRun: dryRunOK(flags), Scope: "all", SessionFiles: []dsm.CachedSession{},
-		StoredCredentials: []logoutCredentialFile{}, EnvStillSet: []string{}}
+	rep := logoutReport{DryRun: dryRunOK(flags), Scope: "all"}
 	target, envPrefixes := "", []string{"SYNOLOGY"}
 	switch {
 	case all:
@@ -124,15 +135,17 @@ func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName strin
 	if err != nil {
 		return configErr(fmt.Errorf("locating the data directory: %w", err))
 	}
-	// Early builds kept an origin-less session.json next to the config file.
-	dirs := []string{dataDir}
-	if d := filepath.Dir(cfg.Path); cfg.Path != "" && d != dataDir {
-		dirs = append(dirs, d)
+	// Early builds kept an origin-less session.json next to the config file;
+	// that legacy file is the only thing looked at there.
+	dirs := dsm.SessionDirs{Data: dataDir}
+	if cfg.Path != "" {
+		dirs.Config = filepath.Dir(cfg.Path)
 	}
-	files, err := dsm.CachedSessions(target, dirs...)
+	files, skipped, err := dsm.CachedSessions(target, dirs)
 	if err != nil {
 		return configErr(err)
 	}
+	rep.Skipped = skipped
 	// The CLI's stored login belongs to the configured NAS: forget it only when
 	// that is the NAS being logged out of (or with --all), never when --nas
 	// names another NAS.
@@ -144,8 +157,8 @@ func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName strin
 	if rep.DryRun {
 		rep.SessionFiles, rep.StoredCredentials = files, creds
 	} else {
-		removed, ferr := dsm.ForgetSessionFiles(files)
-		rep.SessionFiles = removed
+		removed, changed, ferr := dsm.ForgetSessionFiles(files)
+		rep.SessionFiles, rep.Skipped = removed, append(rep.Skipped, changed...)
 		cleared, cerr := clearStoredLogins(creds)
 		rep.StoredCredentials = cleared
 		if err := errors.Join(ferr, cerr); err != nil {
@@ -159,6 +172,7 @@ func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName strin
 		rep.Note = "still set in this environment (a later command can log in with them): " + strings.Join(rep.EnvStillSet, ", ")
 	}
 	rep.Result = rep.headline()
+	fillNilLists(&rep) // HAND-FIX(dsm-auth-logout): the one place the preview and the run get one shape: a list is [] when empty, never null
 
 	w := cmd.OutOrStdout()
 	if flags.asJSON || flags.selectFields != "" || flags.compact {
@@ -176,15 +190,25 @@ func (r logoutReport) where() string {
 
 func (r logoutReport) headline() string {
 	n := len(r.SessionFiles) + len(r.StoredCredentials)
+	var head string
 	switch {
 	case r.DryRun && n == 0:
-		return fmt.Sprintf("dry-run: nothing cached for %s on this computer; nothing would be removed", r.where())
+		head = fmt.Sprintf("dry-run: nothing cached for %s on this computer; nothing would be removed", r.where())
 	case r.DryRun:
-		return fmt.Sprintf("dry-run: would forget %d session file(s) and clear %d stored login file(s) for %s on this computer (local only: the NAS would not be contacted); nothing was changed", len(r.SessionFiles), len(r.StoredCredentials), r.where())
+		head = fmt.Sprintf("dry-run: would forget %d session file(s) and clear %d stored login file(s) for %s on this computer (local only: the NAS would not be contacted); nothing was changed", len(r.SessionFiles), len(r.StoredCredentials), r.where())
 	case n == 0:
-		return fmt.Sprintf("nothing cached for %s on this computer (no session file, no stored login); nothing was removed", r.where())
+		head = fmt.Sprintf("nothing cached for %s on this computer (no session file, no stored login); nothing was removed", r.where())
+	default:
+		head = fmt.Sprintf("forgot %d session file(s) and cleared %d stored login file(s) for %s on this computer (local only: the NAS was not contacted)", len(r.SessionFiles), len(r.StoredCredentials), r.where())
 	}
-	return fmt.Sprintf("forgot %d session file(s) and cleared %d stored login file(s) for %s on this computer (local only: the NAS was not contacted)", len(r.SessionFiles), len(r.StoredCredentials), r.where())
+	if k := len(r.Skipped); k > 0 {
+		kept := "were kept"
+		if r.DryRun {
+			kept = "would be kept"
+		}
+		head += fmt.Sprintf("; %d other file(s) named like a session cache are not session files this CLI wrote and %s", k, kept)
+	}
+	return head
 }
 
 func (r logoutReport) removedSummary() string {
@@ -228,6 +252,13 @@ func (r logoutReport) writeHuman(w io.Writer) error {
 		}
 		line("  %s %s (%s: %s)", verb, f.File, nas, strings.Join(held, "; "))
 	}
+	for _, f := range r.Skipped {
+		if r.DryRun {
+			line("  would skip %s (%s; it would be kept)", f.File, f.Reason)
+		} else {
+			line("  skipped %s (%s; kept)", f.File, f.Reason)
+		}
+	}
 	for _, c := range r.StoredCredentials {
 		if c.Kind == "credentials" {
 			line("  %s %s (stored login file)", verb, c.File)
@@ -240,6 +271,32 @@ func (r logoutReport) writeHuman(w io.Writer) error {
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// fillNilLists sets every nil slice in the struct v points at (and in the
+// structs its slices hold) to an empty one, so a report prints [] for an
+// empty list in every mode, never null.
+func fillNilLists(v any) {
+	fillNilListsValue(reflect.ValueOf(v).Elem())
+}
+
+func fillNilListsValue(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if f := v.Field(i); f.CanSet() {
+				fillNilListsValue(f)
+			}
+		}
+	case reflect.Slice:
+		if v.IsNil() {
+			v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+			return
+		}
+		for i := 0; i < v.Len(); i++ {
+			fillNilListsValue(v.Index(i))
+		}
+	}
 }
 
 // storedLogins lists the CLI's own config and credentials files that hold a

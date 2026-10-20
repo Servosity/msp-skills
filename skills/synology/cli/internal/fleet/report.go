@@ -79,6 +79,7 @@ func LoadSyncStates(ctx context.Context, db Querier) (map[string]SyncState, erro
 		if err := rows.Scan(&s.NAS, &s.URL, &s.Client, &s.AttemptedAt, &s.SucceededAt, &s.Error, &s.Model, &s.DSMVersion, &s.ABBInstalled, &s.ABBSeen, &s.HistoryFrom, &s.Format); err != nil {
 			return nil, err
 		}
+		s.URL = MirrorAddress(s.URL) // a row an earlier build wrote raw is never read back with a password
 		out[s.NAS] = s
 	}
 	return out, rows.Err()
@@ -88,7 +89,7 @@ func LoadSyncStates(ctx context.Context, db Querier) (map[string]SyncState, erro
 // succeeded with no error, against the URL n is registered with now, within
 // maxAge.
 func (s SyncState) FreshFor(n NAS, now time.Time, maxAge time.Duration) bool {
-	return s.Error == "" && s.SucceededAt > 0 && s.SucceededAt >= s.AttemptedAt && s.URL == n.URL && s.Format >= MirrorFormat &&
+	return s.Error == "" && s.SucceededAt > 0 && s.SucceededAt >= s.AttemptedAt && SameMirrorAddress(s.URL, n.URL) && s.Format >= MirrorFormat &&
 		now.Sub(time.Unix(s.SucceededAt, 0)) <= maxAge
 }
 
@@ -213,7 +214,7 @@ func syncNote(st SyncState, ok bool, n NAS) string {
 		return "never synced: run 'synology-cli fleet sync'"
 	case st.Error != "":
 		return "last sync failed: " + st.Error
-	case st.URL != n.URL:
+	case !SameMirrorAddress(st.URL, n.URL):
 		return "the NAS's registered URL changed since its last sync; run 'synology-cli fleet sync'"
 	case st.Format < MirrorFormat:
 		return "the mirror was written by an older version of this CLI; run 'synology-cli fleet sync'"
