@@ -215,7 +215,7 @@ Active Backup for Business is free with the NAS, so it backs up a lot of small-b
 - `synology-cli abb failures --since 24h` - every failed, partial or missed task, with the first error line.
 - `synology-cli abb stale --older-than 72h` - every machine with no good backup in three days, including ones that never had one.
 - `synology-cli fleet health` - degraded pools, bad SMART disks and nearly full volumes, with days to full.
-- `synology-cli abb triage "Office PCs"` - why one task failed: the failed run's detail lines and the log from that window.
+- `synology-cli abb triage "Office PCs" --nas acme` - why one task failed: the failed run's detail lines and the log from that window.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 

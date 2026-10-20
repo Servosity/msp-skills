@@ -101,8 +101,9 @@ whatever certificate is presented) without that check.
 
 ## Default-safe behavior
 
-- **Almost everything reads.** Every Active Backup for Business, Hyper Backup,
-  storage, system, log, package, folder, user and group command is a read, and the
+- **Almost everything reads.** Every Active Backup for Business command except
+  `abb backup` and `abb cancel`, and every Hyper Backup, storage, system, log,
+  package, folder, user and group command, is a read, and the
   fleet reports (`fleet status`, `fleet health`, `abb failures`, `abb stale`,
   `abb device`, `abb trend`) read only the local mirror.
 - **Three commands act on a NAS, and they do not ask first.** `abb backup` starts

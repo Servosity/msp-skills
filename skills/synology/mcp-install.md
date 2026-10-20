@@ -56,8 +56,9 @@ Add (or merge with your existing `mcpServers` block):
 
 Replace the three `<...>` values; leave the optional ones blank unless you need
 them (`SYNOLOGY_TLS_FINGERPRINT` pins a self-signed certificate,
-`SYNOLOGY_DEVICE_ID` or a one-time `SYNOLOGY_OTP_CODE` is for a two-factor
-account, and any `SYNOLOGY_MCP_READ_ONLY` value other than blank, 0, false, no
+a two-factor account needs neither `SYNOLOGY_DEVICE_ID` nor `SYNOLOGY_OTP_CODE`
+once you run `synology-cli auth login` with a fresh code in a terminal, because
+the server reuses the trusted-device token it cached, and any `SYNOLOGY_MCP_READ_ONLY` value other than blank, 0, false, no
 or off removes every write tool). Quit Claude Desktop completely and reopen,
 then ask a question that needs the API.
 
@@ -149,9 +150,10 @@ Windows (PowerShell):
 $env:SYNOLOGY_BASE_URL="https://<nas>:5001"; $env:SYNOLOGY_ACCOUNT="<dsm-account>"; $env:SYNOLOGY_PASSWORD="<dsm-password>"; $env:SYNOLOGY_MCP_HTTP_TOKEN="<a long random value>"; synology-mcp --transport http
 ```
 
-Add `SYNOLOGY_TLS_FINGERPRINT` for a self-signed certificate and
-`SYNOLOGY_DEVICE_ID` (or a one-time `SYNOLOGY_OTP_CODE`) for a two-factor
-account. Callers must send `Authorization: Bearer <the same token>`; the server
+Add `SYNOLOGY_TLS_FINGERPRINT` for a self-signed certificate. For a two-factor
+account, run `synology-cli auth login` with a fresh `SYNOLOGY_OTP_CODE` once in
+a terminal on the same machine; the server reuses the trusted-device token it
+cached. Callers must send `Authorization: Bearer <the same token>`; the server
 refuses to start without `SYNOLOGY_MCP_HTTP_TOKEN`.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
@@ -219,7 +221,7 @@ For the simplest path overall, use Claude Desktop or the Claude Code / Codex Ski
 
 ## Fleet NAS units over MCP
 
-The `env` blocks above configure the single NAS in `SYNOLOGY_BASE_URL`. `fleet_sync` and `abb_triage` reach every NAS you registered with `synology-cli fleet add`, and each of those reads its own login from the MCP server's environment: add `SYNOLOGY_<NAME>_ACCOUNT` and `SYNOLOGY_<NAME>_PASSWORD` (or the `--env-prefix` you chose, plus `_DEVICE_ID` for a two-factor account) for every registered NAS to the server's `env` block. The one-click `.mcpb` has no fields for them, so a fleet setup uses the JSON config. `synology-cli fleet list` shows which variables each NAS expects and whether they are set. These config files hold the passwords in plain text: keep them private.
+The `env` blocks above configure the single NAS in `SYNOLOGY_BASE_URL`. `fleet_sync` and `abb_triage` reach every NAS you registered with `synology-cli fleet add`, and each of those reads its own login from the MCP server's environment: add `SYNOLOGY_<NAME>_ACCOUNT` and `SYNOLOGY_<NAME>_PASSWORD` (or the `--env-prefix` you chose) for every registered NAS to the server's `env` block; for a two-factor account, run `synology-cli fleet add <name> --check` with `SYNOLOGY_<NAME>_OTP_CODE` once in a terminal and the server reuses the cached trusted-device token. The one-click `.mcpb` has no fields for them, so a fleet setup uses the JSON config. Ask the agent to run the MCP `fleet_list` tool to see which variables each NAS expects and whether the server has them (`synology-cli fleet list` in a terminal reports that terminal's environment, not the server's). These config files hold the passwords in plain text: keep them private.
 
 ## Troubleshooting
 

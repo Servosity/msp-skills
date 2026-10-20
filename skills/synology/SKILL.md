@@ -103,7 +103,7 @@ Do not use this CLI for:
   _Use after abb failures names a task, before re-running it._
 
   ```bash
-  synology-cli abb triage "Office PCs" --agent
+  synology-cli abb triage "Office PCs" --nas acme --agent
   ```
 - **`abb device`**  -  Find a machine by host name across every NAS and see which task protects it, its last success and its recent runs.
 
@@ -255,7 +255,7 @@ ABB task rows carry dozens of fields; select only the outcome and the protected 
 ### Why did a task fail
 
 ```bash
-synology-cli abb triage "Office PCs" --agent
+synology-cli abb triage "Office PCs" --nas acme --agent
 ```
 
 Newest failed run, its detail lines and the ABB log from that window, errors first.

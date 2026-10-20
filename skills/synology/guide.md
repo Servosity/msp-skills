@@ -58,7 +58,7 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=synology).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `SYNOLOGY_BASE_URL` (the NAS address, for example `https://192.168.1.50:5001`), `SYNOLOGY_ACCOUNT` and `SYNOLOGY_PASSWORD` when Claude Desktop prompts you. A two-factor account also needs `SYNOLOGY_DEVICE_ID`, or a one-time `SYNOLOGY_OTP_CODE` for the first login.
+3. Fill in `SYNOLOGY_BASE_URL` (the NAS address, for example `https://192.168.1.50:5001`), `SYNOLOGY_ACCOUNT` and `SYNOLOGY_PASSWORD` when Claude Desktop prompts you. A two-factor account: run `synology-cli auth login` once in a terminal with a fresh `SYNOLOGY_OTP_CODE` (`fleet add <name> --check` with `SYNOLOGY_<NAME>_OTP_CODE` for a fleet NAS); the MCP server then reuses the trusted-device token cached in the CLI's data directory, so leave `SYNOLOGY_DEVICE_ID` and `SYNOLOGY_OTP_CODE` blank (a one-time code expires in seconds).
 
 Requires Claude Desktop 1.0.0 or later. One bundle covers macOS (Apple Silicon and Intel), Linux (`amd64`) and Windows (`amd64`; Windows on ARM runs it under x64 emulation); on Linux `arm64`, use the manual config below.
 
@@ -171,7 +171,7 @@ synology-cli abb failures --since 24h
   _Use after abb failures names a task, before re-running it._
 
   ```bash
-  synology-cli abb triage "Office PCs" --agent
+  synology-cli abb triage "Office PCs" --nas acme --agent
   ```
 - **`abb device`**  -  Find a machine by host name across every NAS and see which task protects it, its last success and its recent runs.
 
@@ -217,7 +217,7 @@ ABB task rows carry dozens of fields; select only the outcome and the protected 
 ### Why did a task fail
 
 ```bash
-synology-cli abb triage "Office PCs" --agent
+synology-cli abb triage "Office PCs" --nas acme --agent
 ```
 
 Newest failed run, its detail lines and the ABB log from that window, errors first.

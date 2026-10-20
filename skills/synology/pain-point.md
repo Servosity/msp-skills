@@ -51,7 +51,7 @@ had no good backup in three days, and which task protects this laptop.
 - `synology-cli fleet health` finds degraded volumes and pools, disks with bad
   SMART status, hot disks and nearly full volumes, with days to full when the
   mirror has enough history.
-- `synology-cli abb triage "Office PCs"` explains one failed task: its newest
+- `synology-cli abb triage "Office PCs" --nas acme` explains one failed task: its newest
   failed run, that run's detail lines and the Active Backup log from that window.
 
 ## Status
