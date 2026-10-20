@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -35,6 +36,10 @@ type watchTally struct {
 	// Unsent counts rows still PLANNED: never submitted, so the batch is
 	// incomplete and watch cannot finish it.
 	Unsent int `json:"unsent"`
+	// Unrecognized counts restores whose task ended with a status that is
+	// neither on the success allow-list nor a known failure; they need a
+	// person and are never counted as a success.
+	Unrecognized int `json:"unrecognized"`
 }
 
 // jobOutcomeUnknown reports a row whose submission was never confirmed.
@@ -164,13 +169,32 @@ func jobTerminal(j restoreJob) bool {
 }
 
 // restoreTaskFailed reports a row whose submission or RESTORE task ended
-// badly: FAILED and FAILED_REDIRECT, and any task status that names a
-// failure, an error, or a cancellation. The task status vocabulary is not
-// documented, so a finished task only counts as a success when its status
-// says none of those.
+// badly: FAILED and FAILED_REDIRECT, and any task status restoreTaskOutcome
+// reads as a failure (a failure word, a partial result, an abort, a stop).
 func restoreTaskFailed(status string) bool {
-	s := strings.ToUpper(status)
-	return strings.Contains(s, "FAIL") || strings.Contains(s, "ERROR") || strings.Contains(s, "CANCEL")
+	return restoreTaskOutcome(status) == taskFailed
+}
+
+// unrecognizedStatuses lists the raw statuses tallyJobs counted as
+// unrecognised, with how many rows carry each, so a person sees exactly
+// what CloudAlly reported.
+func unrecognizedStatuses(jobs []restoreJob) string {
+	counts := map[string]int{}
+	for _, j := range jobs {
+		if tallyJobs([]restoreJob{j}).Unrecognized == 1 {
+			counts[j.Status]++
+		}
+	}
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("status %q on %d", k, counts[k]))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func tallyJobs(jobs []restoreJob) watchTally {
@@ -189,8 +213,10 @@ func tallyJobs(jobs []restoreJob) watchTally {
 			t.Pending++
 		case restoreTaskRunning(j.Status):
 			t.Running++
-		default:
+		case restoreTaskOutcome(j.Status) == taskSucceeded:
 			t.Finished++
+		default:
+			t.Unrecognized++
 		}
 	}
 	return t
@@ -204,8 +230,8 @@ func printWatchTable(cmd *cobra.Command, poll int, jobs []restoreJob, t watchTal
 	if err := printRestoreTable(cmd.OutOrStdout(), []string{"entity", "requested", "status", "task_id", "progress"}, rows); err != nil {
 		return err
 	}
-	_, err := termf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending, %d never submitted (%s)\n\n",
-		poll, t.Running, t.Finished, t.Failed, t.Unmatched, t.Unknown, t.Pending, t.Unsent, time.Now().UTC().Format(time.RFC3339))
+	_, err := termf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending, %d never submitted, %d unrecognised status (%s)\n\n",
+		poll, t.Running, t.Finished, t.Failed, t.Unmatched, t.Unknown, t.Pending, t.Unsent, t.Unrecognized, time.Now().UTC().Format(time.RFC3339))
 	return err
 }
 
@@ -223,12 +249,15 @@ it to list raw RESTORE tasks; use 'tasks list --type RESTORE' instead. Do NOT us
 past batches offline; use 'restore history' instead.
 
 Exits 0 only when every row of the batch was submitted and its RESTORE task finished
-without a failure, error, or cancellation. Exits 5 when a restore failed, when a row is
-still UNKNOWN (watch keeps polling those until --max-wait), when a row was never
-submitted (still PLANNED: the batch is incomplete; continue it with 'restore submit ...
---resume'), and when a restore was accepted but no RESTORE task was ever seen for it
-(UNMATCHED). Exits 8 when restores are still running: with --once, after --max-wait,
-or on Ctrl-C; run watch again later. --timeout bounds each status request; --max-wait
+with a success status (COMPLETED, COMPLETE, SUCCEEDED, SUCCEED, SUCCESS, DONE,
+FINISHED). Exits 5 when a restore failed or ended partly done, aborted, stopped, or
+cancelled; when its task reports a status this CLI does not recognise (the raw status
+is printed; it is never read as success); when a row is still UNKNOWN (watch keeps
+polling those until --max-wait); when a row was never submitted (still PLANNED: the
+batch is incomplete; continue it with 'restore submit ... --resume'); and when a
+restore was accepted but no RESTORE task was ever seen for it (UNMATCHED). Exits 8
+when restores are still running (PENDING, QUEUED, SCHEDULED, IN_PROCESS, IN_PROGRESS,
+PAUSED and the like): with --once, after --max-wait, or on Ctrl-C; run watch again later. --timeout bounds each status request; --max-wait
 bounds the whole watch.
 `, "\n"),
 		Example: strings.Trim(`
@@ -302,7 +331,27 @@ bounds the whole watch.
 				}
 				tasks, err := fetchRestoreTasks(ctx, c, scope)
 				if err != nil {
-					return classifyAPIError(cmd.OutOrStdout(), err, flags)
+					// Ctrl-C (or SIGTERM) while the status request is in
+					// flight is an interrupted watch, exactly like one during
+					// the interval wait: keep the last tally and say how to
+					// watch again. Only an error with a live context is an
+					// API failure.
+					if ctx.Err() == nil && !errors.Is(err, context.Canceled) {
+						return classifyAPIError(cmd.OutOrStdout(), err, flags)
+					}
+					out.Polls--
+					if out.Polls == 0 {
+						// Interrupted on the first poll: the ledger's own
+						// state is the last tally there is.
+						out.Rows, out.Tally = jobs, tallyJobs(jobs)
+					}
+					finished, out.Done = false, false
+					cause := err
+					if ctx.Err() != nil {
+						cause = ctx.Err()
+					}
+					stopped = "interrupted: " + cause.Error()
+					break
 				}
 				matched := matchRestoreTasks(jobs, tasks, batch.Source)
 				for i := range jobs {
@@ -396,6 +445,10 @@ bounds the whole watch.
 			}
 			if out.Tally.Unsent > 0 {
 				problems = append(problems, fmt.Sprintf("batch %s is incomplete: %d restore(s) were never submitted (still PLANNED); send them by re-running the 'restore submit' command that created the batch with --resume --yes added", batch.BatchID, out.Tally.Unsent))
+			}
+			if out.Tally.Unrecognized > 0 {
+				problems = append(problems, fmt.Sprintf("%d restore(s) in batch %s ended with a status this CLI does not recognise as success (%s); they are not counted as successes: check them with 'cloudally-cli tasks list --type RESTORE' and in the mailboxes before doing anything else",
+					out.Tally.Unrecognized, batch.BatchID, termSafe(unrecognizedStatuses(out.Rows))))
 			}
 			if out.Tally.Unmatched > 0 {
 				problems = append(problems, fmt.Sprintf("%d restore(s) in batch %s were accepted by CloudAlly but no RESTORE task was seen for them after %d poll(s); do not send them again: look for them with 'cloudally-cli tasks list --type RESTORE' and check the mailboxes", out.Tally.Unmatched, batch.BatchID, out.Polls))

@@ -49,19 +49,75 @@ const (
 	planOK            = "OK"
 )
 
-// restoreRunningStatuses is the single provisional table that decides which
-// raw task statuses still count as running. Everything else is finished.
+// RESTORE task statuses. CloudAlly does not document the vocabulary, so a
+// restore counts as a success only when its status is on the success
+// allow-list. A running status keeps 'restore watch' polling; a failure, a
+// partial result, an abort, or a stop is a failure; anything else is
+// unrecognised and needs a person, never a success.
 var restoreRunningStatuses = map[string]bool{
-	"PENDING":    true,
-	"QUEUED":     true,
-	"DISPATCHED": true,
-	"INPROCESS":  true,
-	"ACTIVE":     true,
+	"PENDING":     true,
+	"QUEUED":      true,
+	"SCHEDULED":   true,
+	"DISPATCHED":  true,
+	"INPROCESS":   true,
+	"IN_PROCESS":  true,
+	"INPROGRESS":  true,
+	"IN_PROGRESS": true,
+	"RUNNING":     true,
+	"ACTIVE":      true,
+	"PAUSED":      true,
+}
+
+// restoreSucceededStatuses are the only statuses read as a finished,
+// successful restore.
+var restoreSucceededStatuses = map[string]bool{
+	"COMPLETED": true,
+	"COMPLETE":  true,
+	"SUCCEEDED": true,
+	"SUCCEED":   true,
+	"SUCCESS":   true,
+	"DONE":      true,
+	"FINISHED":  true,
+}
+
+// restoreFailedStatuses are failures that carry no failure word: a partial
+// result, or a restore that was stopped part way.
+var restoreFailedStatuses = map[string]bool{
+	"PARTIALLY_SUCCEEDED":   true,
+	"PARTIALLY_SUCCEED":     true,
+	"PARTIAL":               true,
+	"COMPLETED_WITH_ERRORS": true,
+	"ABORTED":               true,
+	"STOPPED":               true,
+}
+
+// Outcomes of restoreTaskOutcome.
+const (
+	taskRunning      = "running"
+	taskSucceeded    = "succeeded"
+	taskFailed       = "failed"
+	taskUnrecognized = "unrecognized"
+)
+
+// restoreTaskOutcome classifies a raw task (or ledger) status.
+func restoreTaskOutcome(status string) string {
+	s := strings.ToUpper(strings.TrimSpace(status))
+	switch {
+	case restoreRunningStatuses[s]:
+		return taskRunning
+	case restoreSucceededStatuses[s]:
+		return taskSucceeded
+	case restoreFailedStatuses[s], strings.Contains(s, "FAIL"), strings.Contains(s, "ERROR"),
+		strings.Contains(s, "CANCEL"), strings.Contains(s, "ABORT"):
+		return taskFailed
+	default:
+		return taskUnrecognized
+	}
 }
 
 // restoreTaskRunning reports whether a raw task status is still in flight.
 func restoreTaskRunning(status string) bool {
-	return restoreRunningStatuses[strings.ToUpper(strings.TrimSpace(status))]
+	return restoreTaskOutcome(status) == taskRunning
 }
 
 // restoreTaskListType is the task type filter for the status feed.

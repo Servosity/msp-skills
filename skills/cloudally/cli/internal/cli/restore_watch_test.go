@@ -97,22 +97,22 @@ func TestMatchRestoreTasksPrefersRecordedTaskID(t *testing.T) {
 }
 
 func TestRestoreRunningStatusTable(t *testing.T) {
-	for _, s := range []string{"PENDING", "queued", "Dispatched", "INPROCESS", "ACTIVE"} {
+	for _, s := range []string{"PENDING", "queued", "Dispatched", "INPROCESS", "IN_PROCESS", "IN_PROGRESS", "SCHEDULED", "PAUSED", "ACTIVE"} {
 		if !restoreTaskRunning(s) {
 			t.Fatalf("%s should be running", s)
 		}
 	}
-	for _, s := range []string{"ARCHIVED", "NOTACTIVE", "IN_ANOTHER", "PAUSED", "ON_PREMISE", "SKIPPED", "", "weird"} {
+	for _, s := range []string{"ARCHIVED", "NOTACTIVE", "IN_ANOTHER", "ON_PREMISE", "SKIPPED", "", "weird", "COMPLETED"} {
 		if restoreTaskRunning(s) {
-			t.Fatalf("%s should be finished", s)
+			t.Fatalf("%s should not be running", s)
 		}
 	}
 	jobs := []restoreJob{
 		{Status: jobFailed}, {Status: jobFailedRedirect}, {Status: jobUnmatched}, {Status: jobSubmitted}, {Status: jobPlanned},
-		{Status: "INPROCESS"}, {Status: "ARCHIVED"},
+		{Status: "INPROCESS"}, {Status: "COMPLETED"}, {Status: "ARCHIVED"},
 	}
 	tally := tallyJobs(jobs)
-	if tally.Failed != 2 || tally.Unmatched != 1 || tally.Pending != 1 || tally.Unsent != 1 || tally.Running != 1 || tally.Finished != 1 {
+	if tally.Failed != 2 || tally.Unmatched != 1 || tally.Pending != 1 || tally.Unsent != 1 || tally.Running != 1 || tally.Finished != 1 || tally.Unrecognized != 1 {
 		t.Fatalf("tally = %+v", tally)
 	}
 	if !jobTerminal(restoreJob{Status: "ARCHIVED"}) || jobTerminal(restoreJob{Status: "QUEUED"}) || jobTerminal(restoreJob{Status: jobSubmitted}) {

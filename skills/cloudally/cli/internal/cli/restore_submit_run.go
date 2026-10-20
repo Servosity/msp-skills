@@ -244,6 +244,15 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 			out.FetchFailures = append(out.FetchFailures, submitFailure{Entity: res.job.Entity, Requested: res.job.Requested, Status: res.status, Error: res.errText})
 			return
 		}
+		// A clean refusal (4xx, 401/403 included, or a redirect) of a
+		// --retry-unknown resend answers only that resend. The first send
+		// may still have been accepted, so the row and its guard claim stay
+		// UNKNOWN: recording FAILED would release the restore and let a
+		// plain --resume or a new batch send it again.
+		if (res.status == jobFailed || res.status == jobFailedRedirect) && res.job.submitOutcome() == jobUnknown {
+			res.status = jobUnknown
+			res.errText = "the --retry-unknown resend was refused (" + res.errText + "); the first send may still have been accepted, so the row stays UNKNOWN"
+		}
 		ledgerMu.Lock()
 		// The guard is settled first: if this process dies between the two
 		// writes, the guard already holds the outcome and the ledger row is

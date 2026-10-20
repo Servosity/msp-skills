@@ -50,6 +50,10 @@ type fakeRestoreAPI struct {
 	getPaths []string
 	// notFoundBody is the body of a 404.
 	notFoundBody string
+	// onList runs before the RESTORE task list is answered (a test can
+	// block it); listStatus, when set, answers that list with an error.
+	onList     func(r *http.Request)
+	listStatus int
 }
 
 func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
@@ -84,6 +88,17 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 			f.mu.Unlock()
 			_, _ = fmt.Fprintf(w, `{"id":"64b0e9","source":%q,"entities":[%s]}`, source, strings.Join(ents, ","))
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/backup-tasks"):
+			f.mu.Lock()
+			hook, failWith := f.onList, f.listStatus
+			f.mu.Unlock()
+			if hook != nil {
+				hook(r)
+			}
+			if failWith != 0 {
+				w.WriteHeader(failWith)
+				_, _ = w.Write([]byte(`{"errorMessage":"task list unavailable"}`))
+				return
+			}
 			f.mu.Lock()
 			for _, t := range f.tasks {
 				t["status"] = f.taskStatus
