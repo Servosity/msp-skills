@@ -82,9 +82,11 @@ before the requested date. The portal returns no job id, so it prints the
 'download list' command to find it.
 
 The create runs as a one-archive batch through the same download guard and
-ledger as 'download submit': the batch key is printed, the same start again
-is refused (exit 2), and 'download submit --batch <key> --resume --yes'
-confirms the job without creating another.
+ledger as 'download submit': the batch key is printed, the same start again is
+refused (exit 2), and 'download submit --batch <key> --resume --yes' confirms
+the job without creating another, unless the create was accepted over an hour
+ago and its job is still not listed: then the row is MISSING and that resume
+creates it again.
 
 This is deliberately one mailbox per run: a download is a real job against a
 customer's data, and nothing about this command should make it easy to fan
@@ -245,11 +247,12 @@ is not used.
 	addRestoreScopeFlags(cmd, &scope)
 	cmd.Flags().StringVar(&flagTask, "task", "", "Backup task id the mailbox belongs to")
 	cmd.Flags().StringVar(&flagEntity, "entity", "", "The one mailbox (or site, or drive) to build an archive of")
-	cmd.Flags().StringVar(&flagDate, "date", "", restoreDateFlagHelp)
+	cmd.Flags().StringVar(&flagDate, "date", "",
+		"Restore point, in UTC: YYYY-MM-DD means up to 23:59:59 UTC that day; also RFC3339, YYYY-MM-DDTHH:MM (UTC), or yyyyMMddHHmmss (UTC). One date per run")
 	cmd.Flags().StringVar(&flagFormat, "format", downloadFormatZip,
 		"Archive format: zip (default, one archive), pst (split into chunks), or single-pst (one PST file)")
 	cmd.Flags().StringVar(&flagSource, "source", "",
-		"Service to archive: the task's own source (a whole mailbox) by default, or one sub-source such as O365MAIL for mail only")
+		"Service to archive: the task's own source (a whole mailbox) by default. MS365 tasks and their sub-sources (O365MAIL and the like) are refused here; use 'download submit --entities <mailbox> --sub-sources O365MAIL'")
 	cmd.Flags().StringVar(&flagLabel, "label", "", "Free text added to the job label, after the tool's unique label (cloudally-cli <id> <text>)")
 	cmd.Flags().BoolVar(&flagIncludeDeleted, "include-deleted", false, "Include deleted items in the archive")
 	cmd.Flags().BoolVar(&flagIncludeLegalHold, "include-legal-hold", false, "Include items under legal hold")
@@ -342,12 +345,12 @@ func printDownloadStartDryRun(cmd *cobra.Command, flags *rootFlags, scope restor
 	if h := cliutil.HarnessName(); h != "" {
 		mode = h + " harness"
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "%s: would resolve %s for %s then POST %s; nothing created\n",
-		mode, requested.text, entity, scope.exportPath())
+	fmt.Fprintf(cmd.ErrOrStderr(), "%s: would resolve %s for %s, then create one EXPORT job through the customer portal; nothing created\n",
+		mode, requested.text, entity)
 	return writeWould(cmd.OutOrStdout(), flags, "download start",
-		fmt.Sprintf("create a %s download job for %s from the backup at or before %s", format, entity, requested.text),
+		fmt.Sprintf("create a %s EXPORT job for %s from the backup at or before %s, through the customer portal", format, entity, requested.text),
 		map[string]any{
-			"path": scope.exportPath(), "task": taskID, "entity": entity,
+			"via": "customer portal", "task": taskID, "entity": entity,
 			"requested": requested.text, "format": format, "destination": downloadDestinationOwned,
 		})
 }

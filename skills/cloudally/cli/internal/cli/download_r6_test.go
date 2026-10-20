@@ -522,7 +522,7 @@ func TestDownloadSubmitDryRunSendsNothing(t *testing.T) {
 	if n := hits.Load(); n != 0 {
 		t.Fatalf("--dry-run sent %d request(s)", n)
 	}
-	if !strings.Contains(out, "would resolve the backup on 2022-12-31") || !strings.Contains(out, "EXPORT job per mailbox and sub-source") {
+	if !strings.Contains(out, "would resolve the backup on 2022-12-31 (UTC)") || !strings.Contains(out, "EXPORT job per mailbox and sub-source through the customer portal") || strings.Contains(out, "recovery/export") {
 		t.Fatalf("--dry-run should say what it would do:\n%s", out)
 	}
 	if len(ledgerKeys(t)) != 0 {
@@ -1134,5 +1134,41 @@ func TestFetchBatchFollowsOnlyAProvenReplacementOfAFailedHeldJob(t *testing.T) {
 				t.Fatalf("an unconfirmed replacement is NOT_READY naming its batch: want exit %d, got %v\n%s\n%s", ExitJobPending, err, out, stderr)
 			}
 		})
+	}
+}
+
+// Docs review P2: a Ctrl-C during the first job-count read left every row
+// PLANNED and the run exited 0 with "requested 0 archive(s)".
+func TestARunStoppedBeforeItsFirstCreateIsUnsettled(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.mu.Lock()
+	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+	s.onDashboard = func(call int) {
+		if call == 1 {
+			cancel()
+		}
+	}
+	s.mu.Unlock()
+	_, stderr, err := runDLContext(t, ctx, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...)
+	if n := len(s.createdAccounts()); n != 0 {
+		t.Fatalf("a stopped run sent %d create(s)", n)
+	}
+	if err == nil || ExitCode(err) != 6 || !strings.Contains(err.Error(), "2 archive(s) were never sent; continue with: cloudally-cli download submit --batch") {
+		t.Fatalf("want exit 6 naming the resume, got %v\n%s", err, stderr)
+	}
+}
+
+// Docs review P2: a plan with no rows says so plainly (exit 0).
+func TestAnEmptyPlanSaysNothingToCreate(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	s.taskEntities = []string{"a@contoso.com"}
+	_, stderr, err := runDL(t, s, downloadSubmitArgs("--entities", "nobody@contoso.com")...)
+	if err != nil || !strings.Contains(stderr, "nothing to create:") {
+		t.Fatalf("want exit 0 and a nothing-to-create notice, got %v\n%s", err, stderr)
 	}
 }

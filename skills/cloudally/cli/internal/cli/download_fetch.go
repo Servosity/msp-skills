@@ -434,7 +434,8 @@ Downloads the archives of finished download jobs into
 
 with a small <archive>.zip.cloudally.json record beside each one naming the
 export it came from and its size. Folders and files are created readable by
-the current user only, since they hold customer mail.
+the current user only on macOS and Linux; on Windows they inherit the
+permissions of --dest, so choose a private folder.
 
 Each link is minted and streamed in one step, because a link is valid for
 only about a minute. Object storage authorises at request time, so a large
@@ -484,10 +485,13 @@ download job matched at all; 6 an archive FAILED, is UNLISTED, or is MISSING
 (a --batch row or an --entities mailbox with no job on the portal), or the
 drive is too full to continue; 8 nothing failed but some jobs are still being
 built or not yet confirmed (NOT_READY): run the same command again later.
+Without --batch, 0 means only that every job found was saved, not that a batch
+is complete.
 `, "\n"),
 		Example: strings.Trim(`
-  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31 --dry-run
-  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31
+  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12 --plan-only
+  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12
+  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31 --utc-offset -5
 `, "\n"),
 		Annotations: map[string]string{"mcp:hidden": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -874,7 +878,7 @@ built or not yet confirmed (NOT_READY): run the same command again later.
 	cmd.Flags().StringVar(&flagDest, "dest", "", "Existing directory to download into, for example ./archives")
 	cmd.Flags().StringVar(&flagYear, "year", "", "Folder name for this set, for example 2022")
 	cmd.Flags().StringVar(&flagOnDate, "on-date", "",
-		"Only archives of this backup date, as YYYY-MM-DD. Strongly recommended: without it, a job from any other date would be filed under this year")
+		"Only archives of this backup date, as YYYY-MM-DD (the UTC day unless --utc-offset is given). Collect a 'download submit' set with --batch instead: without it an archive that was never created is not reported")
 	cmd.Flags().Float64Var(&flagUTCOffset, "utc-offset", 0,
 		"The account's offset from UTC in hours, as given to 'download submit --utc-offset'. --on-date is then that calendar day in the account's own timezone; 0 reads it as the UTC day")
 	cmd.Flags().StringSliceVar(&flagEntities, "entities", nil, "Only these mailboxes")

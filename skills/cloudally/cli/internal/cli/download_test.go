@@ -115,10 +115,11 @@ func TestDownloadStartDryRunCreatesNothing(t *testing.T) {
 	if !strings.Contains(out, "dry_run") {
 		t.Fatalf("output = %s", out)
 	}
-	// The dry run must say where it would post and that the archive stays
-	// in CloudAlly storage.
-	if !strings.Contains(out, "recovery/export") || !strings.Contains(out, downloadDestinationOwned) {
-		t.Fatalf("dry-run should name the endpoint and destination: %s", out)
+	// The dry run says the job is created through the customer portal (not
+	// the documented recovery/export endpoint, which creates nothing) and
+	// that the archive stays in CloudAlly storage.
+	if !strings.Contains(out, `"via":"customer portal"`) || strings.Contains(out, "recovery/export") || !strings.Contains(out, downloadDestinationOwned) {
+		t.Fatalf("dry-run should name the customer portal and the destination: %s", out)
 	}
 }
 

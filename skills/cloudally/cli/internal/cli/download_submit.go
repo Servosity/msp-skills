@@ -878,12 +878,15 @@ last. Any other unfound row is MISSING (or stays UNKNOWN).
 --timeout bounds each API call, not the run: archives stream for as long as
 they keep arriving, and the reconcile wait is not cut short.
 
-Exit codes: 0 every row settled (CREATED, EMPTY, or held by another batch);
-2 nothing sent (usage, a refused re-run, another batch's create still
-unsettled, a batch in use, an unreadable ledger); 6 rows remain FAILED,
-MISSING, JOB_FAILED, UNKNOWN or ambiguous, or REQUESTED and not yet confirmed,
+Exit codes: 0 every row settled (CREATED, EMPTY, or held by another batch); 2
+nothing sent (usage, a refused re-run, another batch's create still unsettled,
+a batch in use, an unreadable ledger); 6 rows remain FAILED, MISSING,
+JOB_FAILED, UNKNOWN or ambiguous, or REQUESTED and not yet confirmed,
 including when the reconcile wait is interrupted (the resume command is
-printed).
+printed). 1 the portal session, ledger or guard could not be opened or saved;
+3, 4, 5 or 7 the task read failed (not found, auth, API, rate limit): stop and
+read the message, and if a batch key was printed continue only with its
+--resume command.
 
 Nothing is created without --yes: without it the run plans the rows (it
 reads the portal), prints them and exits 2. --dry-run does not open the
@@ -1002,7 +1005,7 @@ prints the ledger's rows).
 				if flagPlanOut != "" {
 					return usageErr(errors.New("--plan-out needs the planned rows, which come from the portal: run without --yes (and without --dry-run) to write the plan"))
 				}
-				return printDownloadSubmitDryRun(cmd, flags, scope, flagTask, flagOnDate, flagLatest, format, sortedKeys(filter), sortedKeys(subFilter), flagIncludeDeleted, flagIncludeLegalHold)
+				return printDownloadSubmitDryRun(cmd, flags, scope, flagTask, flagOnDate, flagLatest, format, sortedKeys(filter), sortedKeys(subFilter), flagIncludeDeleted, flagIncludeLegalHold, flagUTCOffset)
 			}
 			if cliutil.IsAnyHarness() {
 				return writeWould(cmd.OutOrStdout(), flags, "download submit",
@@ -1188,7 +1191,7 @@ prints the ledger's rows).
 	cmd.Flags().StringVar(&flagMinSize, "min-size", "",
 		"Skip mailboxes holding less than this, for example 10MB. Mailboxes reporting 0 bytes or Not Accessible are always skipped, since they can only produce empty archives")
 	cmd.Flags().StringVar(&flagBatch, "batch", "", "Batch key to resume")
-	cmd.Flags().BoolVar(&flagResume, "resume", false, "Re-send only the rows that never appeared on the portal (MISSING) or were refused (FAILED); UNKNOWN rows are held")
+	cmd.Flags().BoolVar(&flagResume, "resume", false, "Continue the batch: send rows that never appeared on the portal (MISSING, including a row accepted over an hour ago and still unlisted), were refused (FAILED), or whose confirmed job failed (JOB_FAILED, created once more); UNKNOWN rows are held unless --retry-unknown")
 	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows that are still not on the portal; the portal is always checked first, even with --no-reconcile")
 	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Start a new batch even though other batches already hold its archives; every export of the run is created again. The only override of the download guard")
 	cmd.Flags().BoolVar(&flagNoReconcile, "no-reconcile", false, "Skip the reconcile pass; rows stay REQUESTED and unverified")
@@ -1275,6 +1278,11 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 	}
 	if err := runDownloadBatch(ctx, r.cmd, r.sess, r.guard, batch, sendable, r.concurrency, retry, r.newBatch); err != nil {
 		return err
+	}
+	// A run stopped (Ctrl-C, say) before a row was claimed leaves it
+	// PLANNED: never sent, so the batch is not done.
+	if n := countStatus(sendable, dlPlanned); n > 0 {
+		return partialFailureErr(fmt.Errorf("%d archive(s) were never sent; continue with: cloudally-cli download submit --batch %s --resume --yes", n, batch.BatchKey))
 	}
 	accepted, sentCount := 0, 0
 	for _, row := range sendable {
@@ -1629,6 +1637,11 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 			case <-ctx.Done():
 				return
 			}
+			// select picks at random when both are ready: a stopped run
+			// never starts another create.
+			if ctx.Err() != nil {
+				return
+			}
 			mu.Lock()
 			if r.Status == dlJobFailed {
 				// The failed job keeps its label; the new create gets its own.
@@ -1769,7 +1782,7 @@ func adoptHeldClaim(r *downloadRow, c downloadClaim, batchKey string) {
 
 // printDownloadSubmitDryRun says what a new batch would do, without the
 // portal: the rows themselves need each mailbox's backup calendar.
-func printDownloadSubmitDryRun(cmd *cobra.Command, flags *rootFlags, scope restoreScope, taskID, onDate string, latest bool, format string, entities, subSources []string, includeDeleted, includeLegalHold bool) error {
+func printDownloadSubmitDryRun(cmd *cobra.Command, flags *rootFlags, scope restoreScope, taskID, onDate string, latest bool, format string, entities, subSources []string, includeDeleted, includeLegalHold bool, utcOffset float64) error {
 	date := "the backup on " + onDate
 	if latest {
 		date = "each mailbox's newest backup (--latest)"
@@ -1778,18 +1791,38 @@ func printDownloadSubmitDryRun(cmd *cobra.Command, flags *rootFlags, scope resto
 	if h := cliutil.HarnessName(); h != "" {
 		mode = h + " harness"
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "%s: would resolve each mailbox's backup calendar, then POST %s once per mailbox and sub-source; nothing created. Run without --yes to see the planned rows.\n",
-		mode, scope.exportPath())
+	fmt.Fprintf(cmd.ErrOrStderr(), "%s: would resolve each mailbox's backup calendar, then create one EXPORT job per mailbox and sub-source through the customer portal; nothing created. Run without --yes to see the planned rows.\n",
+		mode)
 	return writeWould(cmd.OutOrStdout(), flags, "download submit",
-		fmt.Sprintf("resolve %s for every mailbox of task %s, then create one %s EXPORT job per mailbox and sub-source", date, taskID, format),
+		fmt.Sprintf("resolve %s (%s) for every mailbox of task %s, then create one %s EXPORT job per mailbox and sub-source through the customer portal", date, offsetLabel(time.Duration(utcOffset*float64(time.Hour))), taskID, format),
 		map[string]any{
-			"path": scope.exportPath(), "task": taskID, "on_date": onDate, "latest": latest, "format": format,
+			"via": "customer portal", "task": taskID, "on_date": onDate, "utc_offset": utcOffset, "latest": latest, "format": format,
 			"entities": entities, "sub_sources": subSources,
 			"include_deleted": includeDeleted, "include_legal_hold": includeLegalHold,
 		})
 }
 
+// countStatus counts the rows of rows in status.
+func countStatus(rows []*downloadRow, status string) int {
+	n := 0
+	for _, r := range rows {
+		if r.Status == status {
+			n++
+		}
+	}
+	return n
+}
+
 func printDownloadBatchPlan(cmd *cobra.Command, flags *rootFlags, batch *downloadBatch, sendable []*downloadRow, dry bool) error {
+	if len(batch.Rows) == 0 {
+		// Nothing to do is not a failure (exit 0), but it must not read as
+		// a completed set.
+		if len(batch.Skipped) > 0 {
+			fmt.Fprintln(cmd.ErrOrStderr(), "nothing to create: every mailbox was skipped (see the skipped list)")
+		} else {
+			fmt.Fprintln(cmd.ErrOrStderr(), "nothing to create: no mailbox matched this run's selection")
+		}
+	}
 	if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 		return printJSONFiltered(cmd.OutOrStdout(), batch, flags)
 	}
