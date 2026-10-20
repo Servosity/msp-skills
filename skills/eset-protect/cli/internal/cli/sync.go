@@ -45,10 +45,34 @@ const dogfoodMaxParentRows = 2
 // resource, and says so on the event stream.
 func filteredSyncHold(db *store.Store, syncEvents io.Writer, resource string) {
 	db.HoldSyncState(resource)
+	if humanFriendly {
+		fmt.Fprintf(os.Stderr, "note: %s: this sync is filtered, so rows outside the filter are kept and the resource's sync state is unchanged\n", resource)
+		return
+	}
 	if syncEvents == nil {
 		return
 	}
 	fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"filtered_sync","message":"user params narrow this request: rows outside the filter are kept and the resource's sync state is left as the last unfiltered sync wrote it"}`+"\n", resource)
+}
+
+// syncNarrowed reports whether this run's request for resource is narrower
+// than the whole resource: a user param applies to it, or a --path-context
+// key other than region fills a placeholder in its path (ip-sets is one
+// policy's list). Hand-fix filtered-sync-never-prunes-or-completes.
+func syncNarrowed(resource string, userParams *syncUserParams) bool {
+	if userParams.narrows(resource, false) {
+		return true
+	}
+	path, err := syncResourcePath(resource)
+	if err != nil {
+		return false
+	}
+	for k, v := range syncPathContextValues {
+		if k != "region" && strings.TrimSpace(v) != "" && strings.Contains(path, "{"+k+"}") {
+			return true
+		}
+	}
+	return false
 }
 
 // pathContextVarSet is the set of --path-context keys sync accepts
@@ -243,7 +267,7 @@ Resource scoping:
 			// Hand-fix filtered-sync-never-prunes-or-completes: hold the state
 			// of every narrowed resource before --full / --latest-only reset it.
 			for _, resource := range resources {
-				if userParams.narrows(resource, false) {
+				if syncNarrowed(resource, userParams) {
 					db.HoldSyncState(resource)
 				}
 			}
@@ -540,7 +564,8 @@ func syncResource(ctx context.Context, c interface {
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}
-	if userParams.narrows(resource, false) {
+	narrowed := syncNarrowed(resource, userParams)
+	if narrowed {
 		prune = false
 		filteredSyncHold(db, syncEvents, resource)
 	}
@@ -614,6 +639,11 @@ func syncResource(ctx context.Context, c interface {
 		return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
 	}
 	existingCursor := persistedCursor
+	if narrowed {
+		// filtered-sync-never-prunes-or-completes: the persisted cursor was
+		// issued for another query (the reset that would clear it is held).
+		existingCursor = ""
+	}
 	if !full {
 		if storedCount, err := db.Count(resource); err == nil && storedCount == 0 {
 			existingCursor = ""

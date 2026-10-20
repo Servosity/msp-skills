@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"eset-protect-pp-cli/internal/cliutil/testenv"
 	"eset-protect-pp-cli/internal/store"
@@ -71,5 +73,117 @@ func TestFilteredFullSyncKeepsRowsOutsideTheFilter(t *testing.T) {
 	defer db.Close()
 	if _, err := db.Get("devices", unmuted); err == nil {
 		t.Fatal("an unfiltered --full sync must still prune a device ESET no longer returns")
+	}
+}
+
+// TestFilteredSyncIgnoresAnotherQuerysCursor (filtered-sync-never-prunes-or-
+// completes): with the --full / --latest-only reset held for a narrowed
+// resource, syncResource read back the resume cursor an interrupted UNFILTERED
+// sync left and sent it with the filter, skipping the filtered head.
+func TestFilteredSyncIgnoresAnotherQuerysCursor(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	var mu sync.Mutex
+	var seen []string
+	first := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		if len(seen) == 0 {
+			return ""
+		}
+		return seen[0]
+	}
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.URL.RawQuery)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("pageToken") == "" {
+			_, _ = io.WriteString(w, `{"devices":[{"uuid":"00000000-0000-0000-0000-00000000000a","displayName":"A"}],"nextPageToken":"dp2"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"devices":[{"uuid":"00000000-0000-0000-0000-00000000000b","displayName":"B"}],"nextPageToken":""}`)
+	})
+	for _, args := range [][]string{
+		{"sync", "--resources", "devices", "--full"},
+		{"sync", "--resources", "devices", "--max-pages", "1"}, // leaves cursor dp2
+	} {
+		if _, errOut, err := captureExecuteAll(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, errOut)
+		}
+	}
+	for _, args := range [][]string{
+		{"sync", "--resources", "devices", "--full", "--param", "isMuted=true"},
+		{"sync", "--resources", "devices", "--latest-only", "--resource-param", "devices:isMuted=true"},
+	} {
+		mu.Lock()
+		seen = nil
+		mu.Unlock()
+		if _, errOut, err := captureExecuteAll(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, errOut)
+		}
+		if q := first(); q == "" || strings.Contains(q, "pageToken=") {
+			t.Fatalf("%v resumed another query's cursor: first request %q", args, q)
+		}
+	}
+}
+
+// TestPolicyScopedIPSetsSyncKeepsOtherPolicies (filtered-sync-never-prunes-
+// or-completes): ip-sets is one policy's list (--path-context policyUuid), but
+// reconciled as flat_global, so `sync --resources ip-sets --path-context
+// policyUuid=B --full` deleted policy A's mirrored rows.
+func TestPolicyScopedIPSetsSyncKeepsOtherPolicies(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	const polA, polB = "00000000-0000-0000-0000-0000000000a1", "00000000-0000-0000-0000-0000000000b1"
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		id := "00000000-0000-0000-0000-0000000000a2"
+		if strings.Contains(r.URL.Path, polB) {
+			id = "00000000-0000-0000-0000-0000000000b2"
+		}
+		_, _ = io.WriteString(w, `{"ipSets":[{"uuid":"`+id+`","displayName":"set"}],"nextPageToken":""}`)
+	})
+	for _, pol := range []string{polA, polB} {
+		args := []string{"sync", "--resources", "ip-sets", "--path-context", "policyUuid=" + pol, "--full"}
+		if _, errOut, err := captureExecuteAll(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, errOut)
+		}
+	}
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, id := range []string{"00000000-0000-0000-0000-0000000000a2", "00000000-0000-0000-0000-0000000000b2"} {
+		if _, err := db.Get("ip-sets", id); err != nil {
+			t.Fatalf("ip-set %s missing after syncing both policies: %v", id, err)
+		}
+	}
+}
+
+// TestArchiveFullResetIsNotComplete (handfixes.json: archive-full-reset-not-
+// complete): `workflow archive --full` reset every resource with SaveSyncState,
+// which stamps now and complete=1 before anything is fetched, so a run that
+// timed out on its first resource left the untouched ones marked complete.
+func TestArchiveFullResetIsNotComplete(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(1500 * time.Millisecond) // past --timeout on the first resource
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"nextPageToken":""}`)
+	})
+	_, _, _ = captureExecuteAll(t, "workflow", "archive", "--full", "--timeout", "300ms")
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if st := esetMirrorCheck(db, "devices", "incidents"); len(st.Incomplete) != 2 {
+		t.Fatalf("resources the archive never fetched read as complete: %+v", st)
 	}
 }

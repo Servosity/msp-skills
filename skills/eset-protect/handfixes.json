@@ -5407,8 +5407,8 @@
     },
     {
       "id": "filtered-sync-never-prunes-or-completes",
-      "summary": "a sync narrowed by --param / --resource-param / --global-param never prunes and never writes sync_state for the narrowed resource (held before the --full reset), so rows outside the filter stay and completeness stays as the last unfiltered sync left it",
-      "why": "User params narrowed the request, but reaching its last page still allowed ReconcileAll across the whole resource: after a full devices sync, `sync --resources devices --full --param isMuted=true` deleted every unmuted device from the mirror and marked devices fully synced, so fleet reports silently undercounted (Codex round 6 P1). syncUserParams.narrows decides per resource (any user param counts); Store.HoldSyncState makes SaveSyncStateAt / SaveSyncProgress / SaveSyncCursor no-ops for it, applied in RunE before the --full/--latest-only reset and again in syncResource / syncDependentResource, which also turn prune off and emit a filtered_sync sync_warning. TestFilteredFullSyncKeepsRowsOutsideTheFilter failed with sync.go and helpers.go reverted (`pruned a device outside its filter`), checks the devices sync state is unchanged, and checks an unfiltered --full still prunes.",
+      "summary": "a sync narrowed by --param / --resource-param / --global-param never prunes and never writes sync_state for the narrowed resource (held before the --full reset), so rows outside the filter stay and completeness stays as the last unfiltered sync left it; a --path-context key other than region that fills a placeholder in the resource's path (ip-sets' policyUuid) counts as narrowing, and a narrowed run always starts from the head instead of another query's resume cursor",
+      "why": "User params narrowed the request, but reaching its last page still allowed ReconcileAll across the whole resource: after a full devices sync, `sync --resources devices --full --param isMuted=true` deleted every unmuted device from the mirror and marked devices fully synced, so fleet reports silently undercounted (Codex round 6 P1). syncUserParams.narrows decides per resource (any user param counts); Store.HoldSyncState makes SaveSyncStateAt / SaveSyncProgress / SaveSyncCursor no-ops for it, applied in RunE before the --full/--latest-only reset and again in syncResource / syncDependentResource, which also turn prune off and emit a filtered_sync sync_warning. TestFilteredFullSyncKeepsRowsOutsideTheFilter failed with sync.go and helpers.go reverted (`pruned a device outside its filter`), checks the devices sync state is unchanged, and checks an unfiltered --full still prunes. Codex round 7: ip-sets is one policy's list but reconciled flat_global, so `sync --resources ip-sets --path-context policyUuid=B --full` deleted policy A's rows (TestPolicyScopedIPSetsSyncKeepsOtherPolicies failed with the path-context check disabled). Adversarial round 5: with the reset held, a filtered --full / --latest-only resumed the cursor an interrupted unfiltered sync left (pageToken=dp2 sent with isMuted=true), skipping the filtered head (TestFilteredSyncIgnoresAnotherQuerysCursor failed with the cursor clear removed); the human-mode note now goes to stderr instead of an NDJSON line on stdout.",
       "status": "active",
       "asserts": [
         {
@@ -5428,18 +5428,45 @@
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "\t\t\t\tif userParams.narrows(resource, false) {\n\t\t\t\t\tdb.HoldSyncState(resource)\n\t\t\t\t}",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
           "contains": "\tif userParams.narrows(dep.Name, true) {\n\t\tprune = false\n\t\tfilteredSyncHold(db, syncEvents, dep.Name)\n\t}",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "\tif userParams.narrows(resource, false) {\n\t\tprune = false\n\t\tfilteredSyncHold(db, syncEvents, resource)\n\t}",
+          "contains": "\t\t\t\tif syncNarrowed(resource, userParams) {\n\t\t\t\t\tdb.HoldSyncState(resource)\n\t\t\t\t}",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\tnarrowed := syncNarrowed(resource, userParams)\n\tif narrowed {\n\t\tprune = false\n\t\tfilteredSyncHold(db, syncEvents, resource)\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\tif narrowed {\n\t\t// filtered-sync-never-prunes-or-completes: the persisted cursor was\n\t\t// issued for another query (the reset that would clear it is held).\n\t\texistingCursor = \"\"\n\t}",
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if k != \"region\" && strings.TrimSpace(v) != \"\" && strings.Contains(path, \"{\"+k+\"}\") {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "archive-full-reset-not-complete",
+      "summary": "workflow archive --full resets each resource's sync state with a zero timestamp (SaveSyncStateAt(resource, \"\", 0, time.Time{})), as sync --full does, so a resource the archive never reaches is not left marked complete",
+      "why": "The generated archive reset used SaveSyncState, which stamps now and last_attempt_complete=1 before anything is fetched; when the run timed out on its first resource the untouched detections, incidents, devices and groups stayed falsely complete, and on a fresh mirror triage could report an empty queue without synced_hint (Codex round 7 P1). TestArchiveFullResetIsNotComplete times out on the first resource and checks devices and incidents read as incomplete; it failed with channel_workflow.go reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "if err := s.SaveSyncStateAt(resource, \"\", 0, time.Time{}); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "if err := s.SaveSyncState(resource, \"\", 0); err != nil {"
         }
       ]
     }
