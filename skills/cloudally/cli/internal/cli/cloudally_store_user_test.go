@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"cloudally-pp-cli/internal/client"
+	"cloudally-pp-cli/internal/cliutil"
 	"cloudally-pp-cli/internal/config"
 )
 
@@ -198,8 +199,11 @@ func TestLegacyRecordIsBoundAndFollowsRefresh(t *testing.T) {
 // to find the data directory.
 func currentStorePathUnscoped(t *testing.T) string {
 	t.Helper()
-	setDefaultDBScopeIdentity("", "", "")
-	return defaultDBPath("cloudally-pp-cli")
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(dir, "data.db")
 }
 
 // Round two, item 3b: a record that exists but cannot be used stops the

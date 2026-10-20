@@ -189,3 +189,82 @@ func TestUndecidedOwnerNeverHandsOverDataDB(t *testing.T) {
 		t.Fatal("restore history ran against an unmarkable unowned data.db")
 	}
 }
+
+// Round four: a run with no credential at all (here an MCPB host whose
+// ${user_config.*} placeholders were never filled) never opens an older
+// tenant's data.db, marked unclaimed or not yet marked.
+func TestCredentiallessRunNeverReadsAnOlderTenantsDataDB(t *testing.T) {
+	for _, marked := range []bool{true, false} {
+		name := "not yet marked"
+		if marked {
+			name = "marked unclaimed"
+		}
+		t.Run(name, func(t *testing.T) {
+			isolateAuthState(t)
+			resetStoreScope(t)
+			for _, v := range []string{"CLOUDALLY_CLIENT_ID", "CLOUDALLY_CLIENT_SECRET", "CLOUDALLY_ACCESS_TOKEN", "CLOUDALLY_EMAIL", "CLOUDALLY_PASSWORD"} {
+				t.Setenv(v, "${user_config."+strings.ToLower(v)+"}")
+			}
+			unscoped := seedTenantADataDB(t)
+			if marked {
+				if err := markUnscopedStoreUnclaimed(); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			stdout, _, err := runAuthCmd(t, "", "restore", "history", "--json")
+			if err != nil {
+				t.Fatalf("restore history: %v", err)
+			}
+			if strings.Contains(stdout, "tenant-a-batch") {
+				t.Fatalf("a credential-less run shows the older tenant's batch: %s", stdout)
+			}
+			if got := currentStorePath(); got == unscoped {
+				t.Fatal("the credential-less CLI store is the older tenant's data.db")
+			}
+			if mcpPath, err := MCPStorePath(); err != nil || mcpPath == unscoped {
+				t.Fatalf("MCPStorePath = %q, %v: MCP sql/search would open the older tenant's data.db", mcpPath, err)
+			}
+		})
+	}
+}
+
+// The other direction: credential-less runs on a never-used data directory
+// still work and keep what they write from one run to the next.
+func TestCredentiallessRunOnAFreshDataDirKeepsItsStore(t *testing.T) {
+	isolateAuthState(t)
+	resetStoreScope(t)
+
+	stdout, _, err := runAuthCmd(t, "", "restore", "history", "--json")
+	if err != nil || strings.TrimSpace(stdout) != "[]" {
+		t.Fatalf("restore history = %q, %v; want []", stdout, err)
+	}
+	path := currentStorePath()
+	if filepath.Base(path) != credentiallessStoreName {
+		t.Fatalf("credential-less store = %s, want %s", filepath.Base(path), credentiallessStoreName)
+	}
+	if mcpPath, err := MCPStorePath(); err != nil || mcpPath != path {
+		t.Fatalf("MCPStorePath = %q, %v; want %q", mcpPath, err, path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	db, err := store.OpenWithContext(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ledgerInsertBatch(db.DB(), restoreBatch{
+		BatchID: "own-batch", BatchKey: "k", ResumeKey: "r", CreatedAt: time.Now(),
+		Scope: scopeAccount, TaskID: "t", Source: "MS365", Dates: []string{"2025-12-31"}, Options: map[string]any{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	stdout, _, err = runAuthCmd(t, "", "restore", "history", "--json")
+	if err != nil || !strings.Contains(stdout, "own-batch") {
+		t.Fatalf("the next credential-less run lost its own store: %q, %v", stdout, err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(path), "data.db")); !os.IsNotExist(err) {
+		t.Fatalf("a credential-less run created data.db: %v", err)
+	}
+}

@@ -126,6 +126,21 @@ func decideStoreScope(c *config.Config) (string, error) {
 	return id, nil
 }
 
+// credentiallessStoreName is the store a run with no credential at all uses.
+const credentiallessStoreName = "data-nocredential.db"
+
+// credentiallessStorePath is where a run with no credential scope keeps its
+// local store (helpers.go defaultDBPathInDir calls it instead of returning
+// data.db). data.db on an existing install may hold an older tenant's rows
+// and is marked unclaimed; a run that has no credential (for example an
+// MCPB host whose ${user_config.*} placeholders were never filled) must not
+// read it. This file is written only by credential-less runs, which cannot
+// reach the API, so it never holds tenant data; on a fresh data directory
+// it simply starts empty and persists like data.db did.
+func credentiallessStorePath(dir string) string {
+	return filepath.Join(dir, credentiallessStoreName)
+}
+
 // unscopedStoreAdoptable reports whether data.db already belongs to the
 // scope with this hash, because its owner marker names it. The generated
 // store logic (helpers.go defaultDBPathInDir) calls it before its own claim,
