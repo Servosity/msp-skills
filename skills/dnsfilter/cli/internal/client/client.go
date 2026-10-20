@@ -1553,9 +1553,22 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
 				}
 			}
-			return json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil
+			out := sanitizeJSONResponse(respBody)
+			// Hand-wired (handfixes.json: read-only-refuses-non-json): the
+			// read-only filters read JSON keys, so under the switch a 2xx
+			// body that is not JSON (XML, CSV, plain text) is refused in the
+			// one funnel every MCP tool and the companion CLI share.
+			if cliutil.IsMCPReadOnlyEnv() && len(bytes.TrimSpace(out)) > 0 && !json.Valid(out) {
+				return nil, 0, fmt.Errorf("refusing %s %s while %s is set: the response is not JSON, so it cannot be checked for credentials", method, path, cliutil.MCPReadOnlyEnvVar)
+			}
+			return json.RawMessage(out), resp.StatusCode, nil
 		}
 
+		// An error body no rule can read (a NUL byte, not UTF-8: UTF-16,
+		// gzip) is summarized, never shown, in every mode.
+		if !bodyIsText(respBody) {
+			respBody = []byte(fmt.Sprintf("(%d-byte response body that is not UTF-8 text; not shown)", len(respBody)))
+		}
 		if !binaryResponse {
 			respBody = sanitizeJSONResponse(respBody)
 		}

@@ -797,9 +797,14 @@ func TestSyncDependentWithNoParentRows(t *testing.T) {
 		return `{"data":[]}`, true
 	})
 	dbPath := filepath.Join(t.TempDir(), "data.db")
-	out, err := syncHFRun("sync", "--resources", "lan_ips", "--db", dbPath)
-	if err == nil || strings.Contains(out, `{"event":"sync_complete","resource":"lan_ips"`) || !strings.Contains(out, `"reason":"parent_collection_incomplete"`) {
-		t.Fatalf("lan_ips with no synced parent reported done (err=%v):\n%s", err, out)
+	for _, args := range [][]string{
+		{"sync", "--dry-run", "--resources", "lan_ips", "--db", dbPath}, // the preview shows the same warning
+		{"sync", "--resources", "lan_ips", "--db", dbPath},
+	} {
+		out, err := syncHFRun(args...)
+		if err == nil || strings.Contains(out, `{"event":"sync_complete","resource":"lan_ips"`) || !strings.Contains(out, `"reason":"parent_collection_incomplete"`) {
+			t.Fatalf("%v: lan_ips with no synced parent reported done (err=%v):\n%s", args, err, out)
+		}
 	}
 	syncHFWantComplete(t, dbPath, "lan_ips", 0, "lan_ips with no synced parent")
 	syncHFRunOK(t, "sync", "--resources", "networks", "--db", dbPath)
@@ -982,4 +987,51 @@ func TestSyncFullSinceNeverPrunes(t *testing.T) {
 		t.Fatalf("--full --since pruned rows outside its window: %d rows left, want 2", n)
 	}
 	syncHFWantComplete(t, dbPath, "distributors-msps", 0, "--full --since 7d")
+}
+
+// A proven-complete --full walk prunes the dependent rows the API no longer
+// returns. DNSFilter children are JSON:API objects with the parent only under
+// relationships, so the partition is scoped on the parent_id sync stores.
+func TestSyncFullPrunesDependentRows(t *testing.T) {
+	testenv.Isolate(t)
+	lanIPs := 3
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		if p := q.Get("page[number]"); p != "" && p != "1" {
+			return `{"data":[]}`, true
+		}
+		switch path {
+		case "/v1/networks/all":
+			return `{"data":[{"id":"2","type":"networks","attributes":{"name":"HQ"}}]}`, true
+		case "/v1/networks/2/lan_ips":
+			rows := make([]string, 0, lanIPs)
+			for i := 0; i < lanIPs; i++ {
+				rows = append(rows, fmt.Sprintf(`{"id":"%d","type":"lan_ips","attributes":{"ip":"10.0.0.%d"},"relationships":{"network":{"data":{"id":"2","type":"networks"}}}}`, 2000+i, i))
+			}
+			return `{"data":[` + strings.Join(rows, ",") + `]}`, true
+		}
+		return "", false
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	count := func() int {
+		t.Helper()
+		db, err := store.OpenReadOnly(dbPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		n, _ := db.Count("lan_ips")
+		return n
+	}
+	syncHFRunOK(t, "sync", "--full", "--resources", "networks,lan_ips", "--db", dbPath)
+	if n := count(); n != 3 {
+		t.Fatalf("first walk stored %d lan_ips, want 3", n)
+	}
+	lanIPs = 1
+	out, err := syncHFRun("sync", "--full", "--resources", "networks,lan_ips", "--db", dbPath)
+	if err != nil {
+		t.Fatalf("second walk: %v\n%s", err, out)
+	}
+	if n := count(); n != 1 {
+		t.Fatalf("a complete --full walk kept %d lan_ips the API no longer returns, want 1:\n%s", n, out)
+	}
 }

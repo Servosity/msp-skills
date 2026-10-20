@@ -947,10 +947,10 @@ func TestUpsertBatch_CompositeDateIDStoresDistinctRows(t *testing.T) {
 	}()
 
 	items := []json.RawMessage{
-		json.RawMessage(`{"date":"2026-08-22","model_permaslug":"openrouter/auto","total_tokens":10}`),
-		json.RawMessage(`{"date":"2026-08-23","model_permaslug":"openrouter/auto","total_tokens":20}`),
-		json.RawMessage(`{"date":"2026-08-22","model_permaslug":"acme/model","total_tokens":30}`),
-		json.RawMessage(`{"date":"2026-08-22","model_permaslug":"openrouter/auto","total_tokens":11}`),
+		json.RawMessage(`{"date":"2026-08-22","model_permaslug":"openrouter/auto","total_requests":10}`),
+		json.RawMessage(`{"date":"2026-08-23","model_permaslug":"openrouter/auto","total_requests":20}`),
+		json.RawMessage(`{"date":"2026-08-22","model_permaslug":"acme/model","total_requests":30}`),
+		json.RawMessage(`{"date":"2026-08-22","model_permaslug":"openrouter/auto","total_requests":11}`),
 	}
 	stored, extractFailures, err := s.UpsertBatch("rankings-daily", items)
 	if err != nil {
@@ -973,8 +973,8 @@ func TestUpsertBatch_CompositeDateIDStoresDistinctRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get composite id: %v", err)
 	}
-	if !strings.Contains(string(row), `"total_tokens":11`) && !strings.Contains(string(row), `"total_tokens": 11`) {
-		t.Fatalf("upserted composite row missing updated tokens, got %s", row)
+	if !strings.Contains(string(row), `"total_requests":11`) && !strings.Contains(string(row), `"total_requests": 11`) {
+		t.Fatalf("upserted composite row missing updated count, got %s", row)
 	}
 }
 

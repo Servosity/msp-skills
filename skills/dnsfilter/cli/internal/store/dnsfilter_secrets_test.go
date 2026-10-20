@@ -23,6 +23,7 @@ func TestIsSecretKey(t *testing.T) {
 		"ep-grd-subscriber-secret", "new_password", "reset_password_url",
 		"private_key", "X-Api-Key", "apiKey", "refresh_token", "Password",
 		"preshared_key", "credentials", "pin", "uninstall_pin", "UninstallPin", "PIN",
+		"uninstall_pins", "PINs", "tokens", "access_tokens", "total_tokens", "max_tokens",
 	} {
 		if !IsSecretKey(k) {
 			t.Errorf("IsSecretKey(%q) = false, want true", k)
@@ -35,7 +36,7 @@ func TestIsSecretKey(t *testing.T) {
 		"blacklist_domains", "blacklist_categories", "organization_id", "policy_ids",
 		"relationships", "attributes", "id", "type", "hashed_device_sn", "friendly_name",
 		"youtube_restricted_level", "scheduled_policy", "network", "policy", "status",
-		"key", "", "api_keys_id", "apiKeyId", "secret_key_id", "token_ids", "networks_id", "total_tokens", "max_tokens",
+		"key", "", "api_keys_id", "apiKeyId", "secret_key_id", "token_ids", "networks_id",
 		"pin_code_enabled", "pin_id", "pinned", "ping", "pinned_at",
 	} {
 		if IsSecretKey(k) {
@@ -104,6 +105,11 @@ func TestScrubSecretsInsideStrings(t *testing.T) {
 		"url query":            `{"a":"https://x.example/reset?password=` + secretSentinel + `"}`,
 		"table header":         `{"a":"name,token\nci,` + secretSentinel + `"}`,
 		"in an array of texts": `{"a":["ok","pin=` + secretSentinel + `"]}`,
+		"plural label":         `{"a":"Uninstall PINs: ` + secretSentinel + `"}`,
+		"plural qualified":     `{"a":"Roaming client uninstall PINs (HQ, Branch): ` + secretSentinel + `"}`,
+		"plural tokens":        `{"a":"API tokens: ` + secretSentinel + `"}`,
+		"plural key=value":     `{"a":"uninstall_pins=` + secretSentinel + `"}`,
+		"plural key in string": `{"a":` + q(`{"uninstall_pins":["`+secretSentinel+`"]}`) + `}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
 		if bytes.Contains(bytes.ToLower(out), []byte("sentinel")) {

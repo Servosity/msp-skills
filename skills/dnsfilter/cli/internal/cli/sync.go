@@ -3464,8 +3464,13 @@ func syncOneParent(
 		outcome.complete, outcome.reason = false, "incremental_window"
 	}
 	if prune && outcome.complete && dep.ReconcileMode == "per_parent" {
+		// HAND-FIX(sync-prune-scopes-on-parent-id): DNSFilter children are
+		// JSON:API objects with no top-level network/organization, so the
+		// generated scope path matched no row and prune deleted nothing.
+		// Every row this walk stores carries parent_id (set above), so the
+		// partition is scoped on it.
 		deleted, rerr := db.ReconcilePartition(
-			dep.Name, dep.GenericScopeJSONPath, outcome.scopeVal,
+			dep.Name, "$.parent_id", outcome.scopeVal,
 			seenIDs, reconcileTypedTable(dep.Name), store.CascadeJunctionsFor(dep.Name),
 		)
 		if rerr != nil {
@@ -3651,10 +3656,10 @@ func syncDependentResource(ctx context.Context, c interface {
 	// complete; otherwise nothing was walked, which is a warning, never
 	// "(done)".
 	if len(parentRows) == 0 {
-		if preview, ok := c.(interface{ IsDryRun() bool }); ok && preview.IsDryRun() {
-			return syncResult{Resource: dep.Name, Duration: time.Since(started)} // a preview saves no state
-		}
 		if parentCertified {
+			if preview, ok := c.(interface{ IsDryRun() bool }); ok && preview.IsDryRun() {
+				return syncResult{Resource: dep.Name, Duration: time.Since(started)} // a preview saves no state
+			}
 			if err := db.SaveSyncState(dep.Name, "", 0); err != nil {
 				return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, err), Duration: time.Since(started)}
 			}

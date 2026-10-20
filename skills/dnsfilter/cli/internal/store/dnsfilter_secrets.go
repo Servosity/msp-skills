@@ -925,11 +925,16 @@ var secretKeyFragments = []string{
 }
 
 // secretKeySuffixes match at the end of a folded key: token, access_token,
-// payment_token, refresh_token, pin, uninstall_pin. token_type, last_four,
-// pin_code_enabled and counters such as total_tokens do not match.
+// payment_token, refresh_token, pin, uninstall_pin, and the plurals
+// (uninstall_pins, "Uninstall PINs:", "API tokens:"), since a plural label
+// still heads secrets. token_type, last_four and pin_code_enabled do not
+// match. A counter such as total_tokens is withheld too; no DNSFilter field
+// has that shape, so that over-withholding costs nothing.
 var secretKeySuffixes = []string{
 	"token",
+	"tokens",
 	"pin",
+	"pins",
 }
 
 // identifierWords end a key that names a reference to a secret-bearing

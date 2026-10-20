@@ -84,3 +84,42 @@ func TestNonTextBodyNeverPassesAsText(t *testing.T) {
 		t.Fatalf("read-only mode returned a body no rule can read: %v", err)
 	}
 }
+
+// TestReadOnlyBodiesTheFiltersCannotRead: under the read-only switch a 2xx
+// body that is not JSON (XML, one-column CSV) is refused, and in every mode an
+// error body that is not UTF-8 text (UTF-16) is summarized, never shown.
+func TestReadOnlyBodiesTheFiltersCannotRead(t *testing.T) {
+	utf16 := []byte{'s', 0, 'e', 0, 'c', 0, 'r', 0, 'e', 0, 't', 0, '_', 0, 'k', 0, 'e', 0, 'y', 0, ':', 0, 'Z', 0, 'Q', 0}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/networks/40":
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(`<network><secret_key>ZQ</secret_key></network>`))
+		case "/v1/networks/45":
+			w.Header().Set("Content-Type", "text/csv")
+			_, _ = w.Write([]byte("secret_key\nZQ"))
+		case "/v1/networks/21":
+			w.Header().Set("Content-Type", "application/json; charset=utf-16")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write(utf16)
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"id":"1"}}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+	c := New(&config.Config{BaseURL: server.URL, DnsfilterApiKey: "test-key"}, 5*time.Second, 0)
+	c.NoCache = true
+	if _, err := c.Get(context.Background(), "/v1/networks/21", nil); err == nil || strings.Contains(err.Error(), "Z\x00Q") || strings.Contains(err.Error(), `\u0000`) || !strings.Contains(err.Error(), "not UTF-8 text") {
+		t.Fatalf("a UTF-16 error body was shown: %v", err)
+	}
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	for _, p := range []string{"/v1/networks/40", "/v1/networks/45"} {
+		if data, err := c.Get(context.Background(), p, nil); err == nil || !strings.Contains(err.Error(), "not JSON") {
+			t.Fatalf("%s: read-only mode returned a non-JSON body: %s %v", p, data, err)
+		}
+	}
+	if _, err := c.Get(context.Background(), "/v1/networks/1", nil); err != nil {
+		t.Fatalf("read-only mode refused a JSON body: %v", err)
+	}
+}
