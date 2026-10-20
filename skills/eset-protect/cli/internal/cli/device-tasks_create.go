@@ -52,7 +52,7 @@ func newDeviceTasksCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
 				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+				if err := esetDecodeExact(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
 				body = jsonBody
@@ -66,7 +66,7 @@ func newDeviceTasksCreateCmd(flags *rootFlags) *cobra.Command {
 					}
 					if cmd.Flags().Changed("task-action-params") || bodyTaskActionParams != "" {
 						var parsedTaskActionParams any
-						if err := json.Unmarshal([]byte(bodyTaskActionParams), &parsedTaskActionParams); err != nil {
+						if err := esetDecodeExact([]byte(bodyTaskActionParams), &parsedTaskActionParams); err != nil {
 							return fmt.Errorf("parsing --task-action-params JSON: %w", err)
 						}
 						asMap, ok := parsedTaskActionParams.(map[string]any)
@@ -116,7 +116,7 @@ func newDeviceTasksCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("task-triggers") || bodyTaskTriggers != "" {
 					var parsedTaskTriggers any
-					if err := json.Unmarshal([]byte(bodyTaskTriggers), &parsedTaskTriggers); err != nil {
+					if err := esetDecodeExact([]byte(bodyTaskTriggers), &parsedTaskTriggers); err != nil {
 						return fmt.Errorf("parsing --task-triggers JSON: %w", err)
 					}
 					asArray, ok := parsedTaskTriggers.([]any)

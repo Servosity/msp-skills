@@ -42,7 +42,7 @@ func newEdrRulesCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
 				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+				if err := esetDecodeExact(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
 				body = jsonBody
@@ -54,7 +54,7 @@ func newEdrRulesCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("rule-scopes") || bodyRuleScopes != "" {
 					var parsedRuleScopes any
-					if err := json.Unmarshal([]byte(bodyRuleScopes), &parsedRuleScopes); err != nil {
+					if err := esetDecodeExact([]byte(bodyRuleScopes), &parsedRuleScopes); err != nil {
 						return fmt.Errorf("parsing --rule-scopes JSON: %w", err)
 					}
 					asArray, ok := parsedRuleScopes.([]any)

@@ -39,7 +39,7 @@ func newDevicesBatchImportPromotedCmd(flags *rootFlags) *cobra.Command {
 			var body any = bodyMap
 			if cmd.Flags().Changed("devices") || bodyDevices != "" {
 				var parsedDevices any
-				if err := json.Unmarshal([]byte(bodyDevices), &parsedDevices); err != nil {
+				if err := esetDecodeExact([]byte(bodyDevices), &parsedDevices); err != nil {
 					return fmt.Errorf("parsing --devices JSON: %w", err)
 				}
 				asArray, ok := parsedDevices.([]any)

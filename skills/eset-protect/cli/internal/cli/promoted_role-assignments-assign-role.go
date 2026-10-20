@@ -46,7 +46,7 @@ func newRoleAssignmentsAssignRolePromotedCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("role-scopes") || bodyRoleScopes != "" {
 					var parsedRoleScopes any
-					if err := json.Unmarshal([]byte(bodyRoleScopes), &parsedRoleScopes); err != nil {
+					if err := esetDecodeExact([]byte(bodyRoleScopes), &parsedRoleScopes); err != nil {
 						return fmt.Errorf("parsing --role-scopes JSON: %w", err)
 					}
 					asArray, ok := parsedRoleScopes.([]any)

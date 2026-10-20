@@ -41,7 +41,7 @@ func newPoliciesCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
 				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+				if err := esetDecodeExact(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
 				body = jsonBody
@@ -56,7 +56,7 @@ func newPoliciesCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("policy-features") || bodyPolicyFeatures != "" {
 					var parsedPolicyFeatures any
-					if err := json.Unmarshal([]byte(bodyPolicyFeatures), &parsedPolicyFeatures); err != nil {
+					if err := esetDecodeExact([]byte(bodyPolicyFeatures), &parsedPolicyFeatures); err != nil {
 						return fmt.Errorf("parsing --policy-features JSON: %w", err)
 					}
 					asArray, ok := parsedPolicyFeatures.([]any)

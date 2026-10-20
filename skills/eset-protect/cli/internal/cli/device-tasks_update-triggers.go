@@ -59,7 +59,7 @@ func newDeviceTasksUpdateTriggersCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
 				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+				if err := esetDecodeExact(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
 				body = jsonBody
@@ -68,7 +68,7 @@ func newDeviceTasksUpdateTriggersCmd(flags *rootFlags) *cobra.Command {
 				body = bodyMap
 				if cmd.Flags().Changed("triggers") || bodyTriggers != "" {
 					var parsedTriggers any
-					if err := json.Unmarshal([]byte(bodyTriggers), &parsedTriggers); err != nil {
+					if err := esetDecodeExact([]byte(bodyTriggers), &parsedTriggers); err != nil {
 						return fmt.Errorf("parsing --triggers JSON: %w", err)
 					}
 					asArray, ok := parsedTriggers.([]any)

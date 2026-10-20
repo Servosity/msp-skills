@@ -76,7 +76,10 @@ but do not stop the import.`,
 					continue
 				}
 
-				var body map[string]any
+				// Hand-fix json-numbers-exact: RawMessage values keep every
+				// number byte for byte (map[string]any rounded big integers
+				// through float64 before the POST).
+				var body map[string]json.RawMessage
 				if err := json.Unmarshal([]byte(line), &body); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: skipping invalid JSON line: %v\n", err)
 					failed++

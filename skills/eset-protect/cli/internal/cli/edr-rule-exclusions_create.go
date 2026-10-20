@@ -45,7 +45,7 @@ func newEdrRuleExclusionsCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
 				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+				if err := esetDecodeExact(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
 				body = jsonBody
@@ -67,7 +67,7 @@ func newEdrRuleExclusionsCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("exclusion-scopes") || bodyExclusionScopes != "" {
 					var parsedExclusionScopes any
-					if err := json.Unmarshal([]byte(bodyExclusionScopes), &parsedExclusionScopes); err != nil {
+					if err := esetDecodeExact([]byte(bodyExclusionScopes), &parsedExclusionScopes); err != nil {
 						return fmt.Errorf("parsing --exclusion-scopes JSON: %w", err)
 					}
 					asArray, ok := parsedExclusionScopes.([]any)

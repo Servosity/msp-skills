@@ -46,7 +46,7 @@ func newInstallersCreateCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
 				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+				if err := esetDecodeExact(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
 				body = jsonBody
@@ -88,7 +88,7 @@ func newInstallersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("requested-component-ids") || bodyRequestedComponentIds != "" {
 					var parsedRequestedComponentIds any
-					if err := json.Unmarshal([]byte(bodyRequestedComponentIds), &parsedRequestedComponentIds); err != nil {
+					if err := esetDecodeExact([]byte(bodyRequestedComponentIds), &parsedRequestedComponentIds); err != nil {
 						return fmt.Errorf("parsing --requested-component-ids JSON: %w", err)
 					}
 					asArray, ok := parsedRequestedComponentIds.([]any)

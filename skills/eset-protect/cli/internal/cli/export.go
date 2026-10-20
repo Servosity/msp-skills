@@ -6,6 +6,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -177,7 +178,7 @@ large datasets as it has no memory pressure.`,
 				if singleItem {
 					count = 1
 					if format == "jsonl" {
-						if _, err := fmt.Fprintln(writer, string(data)); err != nil {
+						if _, err := fmt.Fprintln(writer, exportJSONLine(data)); err != nil {
 							return fmt.Errorf("writing export: %w", err)
 						}
 					} else {
@@ -194,7 +195,7 @@ large datasets as it has no memory pressure.`,
 						break
 					}
 					if format == "jsonl" {
-						if _, err := fmt.Fprintln(writer, string(item)); err != nil {
+						if _, err := fmt.Fprintln(writer, exportJSONLine(item)); err != nil {
 							return fmt.Errorf("writing export: %w", err)
 						}
 					} else {
@@ -231,11 +232,12 @@ large datasets as it has no memory pressure.`,
 				enc.SetIndent("", "  ")
 				output := any(allItems)
 				if singleItem {
-					var value any
-					if err := json.Unmarshal(singlePayload, &value); err != nil {
-						return fmt.Errorf("decoding exported resource: %w", err)
+					// json-numbers-exact: RawMessage keeps big integers exact
+					// (decoding into any rounded them through float64).
+					if !json.Valid(singlePayload) {
+						return fmt.Errorf("decoding exported resource: invalid JSON")
 					}
-					output = value
+					output = json.RawMessage(singlePayload)
 				}
 				if err := enc.Encode(output); err != nil {
 					return err
@@ -257,6 +259,17 @@ large datasets as it has no memory pressure.`,
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Bypass response cache for fresh data")
 
 	return cmd
+}
+
+// exportJSONLine is one JSONL record: compacted, so a pretty-printed API
+// response cannot span several lines (hand-fix json-numbers-exact; import
+// reads one record per line). Invalid JSON passes through unchanged.
+func exportJSONLine(b []byte) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, b); err != nil {
+		return string(b)
+	}
+	return buf.String()
 }
 
 // openExportOutput creates or truncates path as a private file. OpenFile's

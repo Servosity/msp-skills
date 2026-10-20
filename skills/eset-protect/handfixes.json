@@ -4124,6 +4124,239 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "json-numbers-exact",
+      "summary": "write bodies and exports keep every JSON number byte for byte: import posts each line as map[string]json.RawMessage, the generated --stdin bodies and JSON-valued flags decode through esetDecodeExact (json.Number), single-record JSON export encodes the RawMessage, and JSONL export compacts each record onto one line",
+      "why": "Press 4.33.5 decoded write bodies into map[string]any / any, so an integer above 2^53 (9007199254740993) reached the API as 9007199254740992 with exit 0: import (Codex round 2 P1, reproduced), single-record `export <res> <id> --format json` (Codex round 2 P1), and the same class in 34 generated write commands (41 call sites: --stdin bodies and JSON-valued flags such as device-tasks create --task-action-params). JSONL export kept a pretty-printed record's newlines, so its output could not be re-imported (Codex P2). TestImportExportKeepNumbersExact failed with import.go reverted, with export.go reverted, and with only exportJSONLine removed; TestGeneratedWriteBodiesKeepNumbersExact failed with groups_create.go reverted (--stdin) and with device-tasks_create.go reverted (JSON flag).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "var body map[string]json.RawMessage",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "output = json.RawMessage(singlePayload)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "fmt.Fprintln(writer, exportJSONLine(item))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "fmt.Fprintln(writer, exportJSONLine(data))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detection-groups_resolve.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2_batch-get.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2_resolve.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_create.go",
+          "contains": "esetDecodeExact([]byte(bodyTaskActionParams), &parsedTaskActionParams)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_create.go",
+          "contains": "esetDecodeExact([]byte(bodyTaskTriggers), &parsedTaskTriggers)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-targets.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-triggers.go",
+          "contains": "esetDecodeExact([]byte(bodyTriggers), &parsedTriggers)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-triggers.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_move.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_rename.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_create.go",
+          "contains": "esetDecodeExact([]byte(bodyExclusionScopes), &parsedExclusionScopes)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_update-definition.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_create.go",
+          "contains": "esetDecodeExact([]byte(bodyRuleScopes), &parsedRuleScopes)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_disable.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_enable.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_update-definition.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables_block.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables_unblock.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_move.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_rename.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_basic-attributes-update_incidents-update-incident-basic-attributes.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_close.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-create-incident.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-update-incident-text.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_reopen.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/installers_create.go",
+          "contains": "esetDecodeExact([]byte(bodyRequestedComponentIds), &parsedRequestedComponentIds)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/installers_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ip-sets_update.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies_create.go",
+          "contains": "esetDecodeExact([]byte(bodyPolicyFeatures), &parsedPolicyFeatures)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_assign-policy.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_update-ranking.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_devices-batch-import.go",
+          "contains": "esetDecodeExact([]byte(bodyDevices), &parsedDevices)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_role-assignments-assign-role.go",
+          "contains": "esetDecodeExact([]byte(bodyRoleScopes), &parsedRoleScopes)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_role-assignments-revoke-role.go",
+          "contains": "esetDecodeExact([]byte(bodyRoleScopes), &parsedRoleScopes)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/roles_create.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/web-address-rules_domains_web-address-rules-update.go",
+          "contains": "esetDecodeExact(stdinData, &jsonBody)",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
