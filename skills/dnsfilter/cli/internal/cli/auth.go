@@ -255,10 +255,23 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			if envStillSet == "" && os.Getenv("DNSFILTER_API_KEY") != "" {
 				envStillSet = "DNSFILTER_API_KEY"
 			}
+			// Hand-wired (handfixes.json: explicit-config-logout-never-falls-back):
+			// "Credentials cleared" is said only when a fresh load of this
+			// config finds none; otherwise name what still authenticates.
+			stillFrom := ""
+			if after, loadErr := config.Load(flags.configPath); loadErr != nil {
+				stillFrom = "unknown (reloading the config failed: " + loadErr.Error() + ")"
+			} else if after.CredentialConfigured() {
+				stillFrom = credentialsInEffectFrom(after)
+			}
 
-			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.
+			// JSON envelope: {cleared: true, credentials_still_in_effect,
+			// still_in_effect_from?, note?: "<env_var> env var is still set"}.
 			if flags.asJSON {
-				out := map[string]any{"cleared": true}
+				out := map[string]any{"cleared": true, "credentials_still_in_effect": stillFrom != ""}
+				if stillFrom != "" {
+					out["still_in_effect_from"] = stillFrom
+				}
 				if envStillSet != "" {
 					out["note"] = envStillSet + " env var is still set"
 				}
@@ -269,10 +282,31 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "Config cleared. Note: %s env var is still set.\n", envStillSet)
 				return nil
 			}
+			if stillFrom != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Stored credentials cleared, but credentials are still in effect from %s.\n", stillFrom)
+				return nil
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), "Logged out. Credentials cleared.")
 			return nil
 		},
 	}
+}
+
+// credentialsInEffectFrom names where a loaded config's credentials come from.
+func credentialsInEffectFrom(cfg *config.Config) string {
+	switch {
+	case strings.HasPrefix(cfg.AuthSource, "env:"):
+		return "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
+	case cfg.CredentialsLoadedFrom() != "":
+		return cfg.CredentialsLoadedFrom()
+	case cfg.CredentialSource == "legacy config path" && cfg.LegacyConfigPath() != "":
+		return cfg.LegacyConfigPath()
+	case cfg.CredentialSource == "agentcookie":
+		return "the agentcookie-managed config " + cfg.Path
+	case cfg.Path != "":
+		return cfg.Path
+	}
+	return "the config"
 }
 
 // printKeySetup prints the key setup lines for both shells: most MSPs run

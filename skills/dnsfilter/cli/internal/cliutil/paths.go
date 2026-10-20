@@ -128,6 +128,15 @@ func ReadFileWithLegacyFallback(primary, legacy string) ([]byte, string, error) 
 }
 
 func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileMode) error {
+	return atomicWritePrivateFile(path, data, fileMode, dirMode, nil)
+}
+
+// atomicWritePrivateFile is AtomicWritePrivateFile with an optional check of
+// the still-empty temporary file. Hand-wired (handfixes.json:
+// save-never-leaves-an-unverified-secret): Chmod does not restrict an
+// inherited Windows DACL, so a secret is written only into a file whose access
+// already passed verify; a refusal is returned as is and nothing is published.
+func atomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileMode, verify func(tmpPath string) error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return fmt.Errorf("creating private file dir: %w", err)
@@ -141,6 +150,13 @@ func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileM
 		_ = tmp.Close()
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("securing temporary private file: %w", err)
+	}
+	if verify != nil {
+		if err := verify(tmpPath); err != nil {
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
+			return err
+		}
 	}
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()

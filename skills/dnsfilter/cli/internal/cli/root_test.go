@@ -445,8 +445,10 @@ func TestWriteCredentialSaveErrorEnvelope(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("permission failure envelope must be valid JSON: %v\n%s", err, out.String())
 	}
-	if !payload.Saved || payload.CredentialsPath != cause.Path || payload.PermissionsVerified || payload.Error == "" || payload.Code == 0 {
-		t.Fatalf("permission failure envelope = %+v, want saved path, unsafe permissions, error, and non-zero code", payload)
+	// handfixes.json: save-never-leaves-an-unverified-secret. A file that
+	// fails the guard is removed, so the envelope must not claim a save.
+	if payload.Saved || payload.CredentialsPath != cause.Path || payload.PermissionsVerified || payload.Error == "" || payload.Code == 0 {
+		t.Fatalf("permission failure envelope = %+v, want saved=false, the path, unsafe permissions, error, and non-zero code", payload)
 	}
 }
 

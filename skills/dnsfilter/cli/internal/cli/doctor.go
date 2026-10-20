@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -135,6 +137,50 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 // doctorBaseURLRemedy names the setting to fix when base_url is not the
 // DNSFilter API root.
 const doctorBaseURLRemedy = "Set base_url in the config file or DNSFILTER_BASE_URL (PowerShell: $env:DNSFILTER_BASE_URL = \"https://api.dnsfilter.com\") to https://api.dnsfilter.com, or unset it to use that default."
+
+// doctorFullResponseHint names the command that shows the API's whole answer
+// to the credential probe.
+const doctorFullResponseHint = "Run `dnsfilter-cli current-user user-current-show --json` to see the full response."
+
+// doctorProbeRedirectedAway reports where a probe's answer came from when that
+// is not the configured API host and the probed path. Hand-wired
+// (handfixes.json: doctor-verdict-tracks-reality): a redirect destination's
+// 200 proves nothing about the API or the key (the key is not even sent to
+// another host). An http to https upgrade on the same host and path is the
+// same endpoint.
+func doctorProbeRedirectedAway(c *client.Client, probePath string, final *url.URL) (string, bool) {
+	if final == nil || final.Host == "" {
+		return "", false
+	}
+	want, err := url.Parse(c.RequestBaseURL() + probePath)
+	if err != nil || want.Host == "" {
+		return "", false
+	}
+	port := func(u *url.URL) string {
+		if p := u.Port(); p != "" {
+			return p
+		}
+		switch strings.ToLower(u.Scheme) {
+		case "https":
+			return "443"
+		case "http":
+			return "80"
+		}
+		return ""
+	}
+	sameHost := strings.EqualFold(final.Hostname(), want.Hostname()) &&
+		(port(final) == port(want) || (strings.EqualFold(want.Scheme, "http") && strings.EqualFold(final.Scheme, "https") && want.Port() == "" && final.Port() == ""))
+	samePath := strings.TrimSuffix(final.EscapedPath(), "/") == strings.TrimSuffix(want.EscapedPath(), "/")
+	if sameHost && samePath {
+		return "", false
+	}
+	return c.MaskCredentialText(final.Scheme + "://" + final.Host + final.EscapedPath()), true
+}
+
+// doctorForbiddenAuthFailure matches a 403 body that says the request was not
+// authenticated (a missing, invalid, expired or revoked key) rather than
+// refused for lack of permission.
+var doctorForbiddenAuthFailure = regexp.MustCompile(`(?i)\bauthenticat|\bunauthori[sz]ed\b|\blog ?in required\b|\b(invalid|expired|revoked|missing|bad|unknown)\b.{0,24}\b(token|api[ _-]?key|key|credentials?)\b|\b(token|api[ _-]?key|credentials?)\b.{0,24}\b(invalid|expired|revoked|missing|required|not valid)\b`)
 
 func newDoctorCmd(flags *rootFlags) *cobra.Command {
 	var failOn string
@@ -280,9 +326,14 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					}
 					// No cache read: a verdict served from the 5-minute response
 					// cache would say "reachable" while the host is down.
-					reachBody, reachErr := c.GetWithHeadersNoCache(cmd.Context(), healthPath, nil, map[string]string{client.HTMLResponseHeader: "true"})
+					var reachURL url.URL
+					reachCtx := client.WithResponseURLRecorder(cmd.Context(), &reachURL)
+					reachBody, reachErr := c.GetWithHeadersNoCache(reachCtx, healthPath, nil, map[string]string{client.HTMLResponseHeader: "true"})
 					var reachAPIErr *client.APIError
+					reachAway, reachRedirected := doctorProbeRedirectedAway(c, healthPath, &reachURL)
 					switch {
+					case reachRedirected && (reachErr == nil || errors.As(reachErr, &reachAPIErr)):
+						report["api"] = fmt.Sprintf("WARN %s was redirected to %s, so the answer did not come from the configured API. %s", healthPath, reachAway, doctorBaseURLRemedy)
 					case reachErr == nil:
 						// 2xx response — clearly reachable. Still inspect the
 						// body for a known interstitial; some bot walls return
@@ -334,25 +385,41 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						if !strings.HasPrefix(verifyPath, "/") {
 							verifyPath = "/" + verifyPath
 						}
-						_, authErr := c.GetWithHeadersNoCache(cmd.Context(), verifyPath, authParams, authHeaders)
+						var authURL url.URL
+						authCtx := client.WithResponseURLRecorder(cmd.Context(), &authURL)
+						_, authErr := c.GetWithHeadersNoCache(authCtx, verifyPath, authParams, authHeaders)
 						var authAPIErr *client.APIError
+						authAway, authRedirected := doctorProbeRedirectedAway(c, verifyPath, &authURL)
 						switch {
+						case authRedirected && (authErr == nil || errors.As(authErr, &authAPIErr)):
+							// Hand-wired (handfixes.json: doctor-verdict-tracks-reality):
+							// only the configured API's authenticated endpoint can
+							// vouch for the key.
+							report["credentials"] = fmt.Sprintf("WARN not verified: %s was redirected to %s, so the answer did not come from the configured API's authenticated endpoint. %s", verifyPath, authAway, doctorBaseURLRemedy)
 						case authErr == nil:
 							report["credentials"] = "valid"
 						case errors.As(authErr, &authAPIErr):
 							switch {
 							case authAPIErr.StatusCode == 401:
 								report["credentials"] = fmt.Sprintf("invalid (HTTP %d) — check your credentials", authAPIErr.StatusCode)
+							case authAPIErr.StatusCode == 403 && doctorForbiddenAuthFailure.MatchString(authAPIErr.Body):
+								// A 403 that says the request was not authenticated is
+								// an auth failure, not proof the key is valid.
+								report["credentials"] = fmt.Sprintf("invalid (HTTP %d: the API says the request was not authenticated); check your credentials", authAPIErr.StatusCode)
 							case authAPIErr.StatusCode == 403:
-								report["credentials"] = fmt.Sprintf("scope-limited (HTTP %d) — credentials are valid but lack permission for this endpoint. Check your dashboard's API key scope.", authAPIErr.StatusCode)
+								// Hand-wired (handfixes.json: doctor-verdict-tracks-reality):
+								// a refusal is not proof the key works, so it is a WARN and
+								// --fail-on warn trips on it.
+								report["credentials"] = fmt.Sprintf("WARN scope-limited (HTTP %d at %s): the API refused this endpoint, which does not prove the key works; it may be valid but lack permission here. Check the API key's scope in the DNSFilter dashboard.", authAPIErr.StatusCode, verifyPath)
+							case authAPIErr.StatusCode == 404:
+								report["credentials"] = fmt.Sprintf("WARN not verified (HTTP 404 from %s): the endpoint is not there, so base_url is likely not the DNSFilter API root. %s", verifyPath, doctorBaseURLRemedy)
+							case authAPIErr.StatusCode >= 500:
+								report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s): the API had a server error, so the key was neither accepted nor rejected. Run doctor again in a few minutes. %s", authAPIErr.StatusCode, verifyPath, doctorFullResponseHint)
 							default:
-								// Non-auth HTTP status (404, 500, etc.): the probe never
-								// reached an authenticated resource, so auth was neither
-								// accepted nor rejected. "Don't blame the credentials" and
-								// "the credentials are ok" are different claims; only the
-								// first is supported here. Report not-verified at WARN so the
-								// verdict is honest and --fail-on warn can trip on it.
-								report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) — probe reached a non-auth endpoint; set auth.verify_path to a known-good authenticated GET", authAPIErr.StatusCode, verifyPath)
+								// Any other status: the key was neither accepted nor
+								// rejected. Report not-verified at WARN so the verdict is
+								// honest and --fail-on warn can trip on it.
+								report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s): the API neither accepted nor rejected the key. %s", authAPIErr.StatusCode, verifyPath, doctorFullResponseHint)
 							}
 						default:
 							report["credentials"] = fmt.Sprintf("error: %s", authErr)
@@ -441,7 +508,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "  %s %s: %s\n", indicator, ck.label, s)
 			}
 			// Print info keys without status indicator
-			for _, key := range []string{"config_path", "base_url", "auth_source", "auth_refusals", "credentials_location", "version"} {
+			for _, key := range []string{"config_path", "base_url", "auth_source", "auth_refusals", "credentials_location", "credentials_file", "version"} {
 				if v, ok := report[key]; ok {
 					fmt.Fprintf(w, "  %s: %v\n", key, v)
 				}
@@ -581,10 +648,20 @@ func collectCredentialsLocationReport(report map[string]any, cfg *config.Config)
 		return
 	}
 
+	// Hand-wired (handfixes.json: explicit-config-logout-never-falls-back):
+	// probe the credentials files this config actually reads (an explicit
+	// config's sibling, and the default file only when Load can fall back to
+	// it), name them by path, and report the one in use.
 	locations := []string{}
-	credsPresent, err := cliutil.CredentialsFileHasValues()
-	if err == nil && credsPresent {
-		locations = append(locations, "credentials file")
+	credsPresent := false
+	for _, path := range cfg.CredentialsFilesInScope() {
+		if ok, err := cliutil.CredentialsFileHasValuesAt(path); err == nil && ok {
+			locations = append(locations, path)
+			credsPresent = true
+		}
+	}
+	if inUse := cfg.CredentialsLoadedFrom(); inUse != "" {
+		report["credentials_file"] = inUse
 	}
 	legacySecretsElsewhere := ""
 	for _, path := range legacyCredentialProbePaths(cfg) {
@@ -603,7 +680,7 @@ func collectCredentialsLocationReport(report map[string]any, cfg *config.Config)
 		if legacySecretsElsewhere != "" {
 			report["credentials_location_warning"] = "WARN credentials stored in more than one location; legacy secrets remain at " + legacySecretsElsewhere + "; " + remediationHint + " to consolidate and remove legacy secrets"
 		} else {
-			report["credentials_location_warning"] = "WARN credentials stored in more than one location; current reads use credentials file; " + remediationHint + " to consolidate"
+			report["credentials_location_warning"] = "WARN credentials stored in more than one location; current reads use " + credentialsInEffectFrom(cfg) + "; " + remediationHint + " to consolidate"
 		}
 	}
 }
@@ -645,6 +722,7 @@ var doctorInfoKeys = map[string]bool{
 	"browser_session_proof_detail": true,
 	"credentials_location":         true,
 	"credentials_locations":        true,
+	"credentials_file":             true,
 	"agentcookie":                  true,
 }
 
@@ -673,7 +751,7 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 			// phrases below put those sections on the same gates. An empty
 			// base_url ("not configured (set base_url in config file)") stays
 			// off the gate so an unconfigured first run is not a CI failure.
-			if strings.HasPrefix(low, "warn") {
+			if strings.HasPrefix(low, "warn") || strings.Contains(low, "scope-limited") {
 				worstWarn = true
 			} else if strings.HasPrefix(low, "error") || strings.HasPrefix(low, "refused:") || strings.HasPrefix(low, "rejected") || strings.Contains(low, "error") || strings.Contains(low, "unreachable") || strings.Contains(low, "invalid") || strings.Contains(low, "missing") || strings.Contains(low, "not configured (base_url is a placeholder)") {
 				worstError = true

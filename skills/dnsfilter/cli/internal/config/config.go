@@ -5,6 +5,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,8 +42,12 @@ type Config struct {
 	// credentials in its own sibling data/credentials.toml, the file Load
 	// reads first; saves and logout use that same path, and logout also
 	// removes the file the credentials were actually loaded from.
+	// HAND-FIX(explicit-config-logout-never-falls-back): credsFallbackBlocked
+	// is set when an explicit config's sibling holds credentials, was refused
+	// or records a logout; Load then never reads the default credentials file.
 	explicitConfig        bool
 	credentialsLoadedFrom string
+	credsFallbackBlocked  bool
 	AccessToken           string          `toml:"access_token"`
 	RefreshToken          string          `toml:"refresh_token"`
 	TokenExpiry           time.Time       `toml:"token_expiry"`
@@ -139,6 +144,7 @@ func Load(configPath string) (*Config, error) {
 		var ok bool
 		loadedFrom := ""
 		credentialsRefused := false
+		siblingLoggedOut := false
 		if !cfg.hasCompleteCredentialFields() {
 			if explicitConfigFile {
 				var status cliutil.CredentialLoadStatus
@@ -151,8 +157,13 @@ func Load(configPath string) (*Config, error) {
 					cfg.addCredentialRefusal(*status.Refusal)
 					credentialsRefused = status.Refusal.CredentialsPresent
 				}
+				// HAND-FIX(explicit-config-logout-never-falls-back): after
+				// `--config X auth logout` the sibling records the logout, so
+				// the default file (another tenant's key) stays out.
+				siblingLoggedOut = status.LoggedOut
+				cfg.credsFallbackBlocked = credentialsRefused || siblingLoggedOut || (ok && creds.HasValues())
 			}
-			if (!ok || creds == nil || !creds.HasValues()) && !credentialsRefused {
+			if (!ok || creds == nil || !creds.HasValues()) && !credentialsRefused && !siblingLoggedOut {
 				var status cliutil.CredentialLoadStatus
 				creds, status, err = cliutil.LoadCredentialsWithStatus()
 				if err != nil {
@@ -171,6 +182,10 @@ func Load(configPath string) (*Config, error) {
 					cfg.CredentialSource = "credentials file"
 				}
 			}
+		} else if explicitConfigFile {
+			// The explicit config file's own credentials win; the default
+			// credentials file is not this config's.
+			cfg.credsFallbackBlocked = true
 		}
 	}
 
@@ -526,6 +541,15 @@ func (c *Config) saveCredentialsThenConfigLocked(credsPath string) error {
 		return err
 	}
 	if err := c.saveCredentialsFirst(); err != nil {
+		// HAND-FIX(save-never-leaves-an-unverified-secret): a refused save
+		// leaves the previous file untouched or removes what it wrote; put
+		// the previous credentials back only when the file on disk is no
+		// longer the snapshot, so an untouched file keeps its own access.
+		if !credentialsFileMatchesSnapshot(snap) {
+			if restoreErr := restoreCredentialsFile(snap); restoreErr != nil {
+				return fmt.Errorf("%w (the previous credentials at %s could not be restored: %v)", err, credsPath, restoreErr)
+			}
+		}
 		return err
 	}
 	if err := c.save(); err != nil {
@@ -594,14 +618,35 @@ func restoreCredentialsFile(snap credentialsSnapshot) error {
 		}
 		return nil
 	}
-	mode := snap.perm
-	if mode == 0 {
-		mode = 0o600
-	}
-	if err := cliutil.AtomicWritePrivateFile(snap.path, snap.data, mode, 0o700); err != nil {
+	// HAND-FIX(save-never-leaves-an-unverified-secret): the restored secret
+	// passes the same private-file guard as a fresh save, and a restore never
+	// loosens the file beyond owner-only.
+	if err := cliutil.WriteVerifiedCredentialsFile(snap.path, snap.data); err != nil {
 		return err
 	}
-	return os.Chmod(snap.path, mode)
+	if snap.perm != 0 && snap.perm&0o077 == 0 {
+		return os.Chmod(snap.path, snap.perm)
+	}
+	return nil
+}
+
+// credentialsFileMatchesSnapshot reports whether the credentials file is
+// still exactly what snapshotCredentialsFile recorded.
+func credentialsFileMatchesSnapshot(snap credentialsSnapshot) bool {
+	info, err := os.Lstat(snap.path)
+	if snap.missing {
+		return err != nil && os.IsNotExist(err)
+	}
+	if err != nil || (info.Mode()&os.ModeSymlink != 0) != (snap.symlinkTarget != "") {
+		return false
+	}
+	if snap.symlinkTarget != "" {
+		if target, err := os.Readlink(snap.path); err != nil || target != snap.symlinkTarget {
+			return false
+		}
+	}
+	data, err := os.ReadFile(filepath.Clean(snap.path)) // #nosec G304 -- app-owned credentials path.
+	return err == nil && bytes.Equal(data, snap.data)
 }
 
 // Explicit login flags intentionally opt these fields out of environment-value
@@ -705,7 +750,40 @@ func (c *Config) ClearTokens() error {
 		}
 	}
 	c.credentialsLoadedFrom = ""
+	// HAND-FIX(explicit-config-logout-never-falls-back): an explicit config's
+	// sibling now records the logout; with the file simply gone, the next
+	// `--config X` run would fall back to the default credentials file.
+	if c.explicitConfig {
+		if err := cliutil.WriteCredentialsLogoutMarker(path); err != nil {
+			return err
+		}
+		c.credsFallbackBlocked = true
+	}
 	return c.save()
+}
+
+// CredentialsLoadedFrom is the credentials file this config's credentials
+// were read from, or "" when they came from elsewhere (the config file, the
+// environment) or nowhere.
+func (c *Config) CredentialsLoadedFrom() string { return c.credentialsLoadedFrom }
+
+// CredentialsFilesInScope lists the credentials files Load consults for this
+// config, in order: an explicit config's sibling, then the default file
+// unless the sibling holds credentials, was refused or records a logout.
+func (c *Config) CredentialsFilesInScope() []string {
+	var paths []string
+	if c.explicitConfig && c.Path != "" {
+		if sibling, err := cliutil.CredentialsFilePathForConfig(c.Path); err == nil {
+			paths = append(paths, sibling)
+		}
+		if c.credsFallbackBlocked {
+			return paths
+		}
+	}
+	if def, err := cliutil.CredentialsFilePath(); err == nil {
+		paths = append(paths, def)
+	}
+	return paths
 }
 
 // CredentialsFilePath is where this config's credentials are saved: an
@@ -799,7 +877,13 @@ func (c *Config) save() error {
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
+	write := func(path string, data []byte) error { return cliutil.AtomicWritePrivateFile(path, data, 0o600, 0o700) }
+	if c.AgentcookieManagedByExternalStore() && persisted.hasCredentialFields() {
+		// HAND-FIX(save-never-leaves-an-unverified-secret): this config file
+		// carries the credentials, so it gets the credentials file's guard.
+		write = cliutil.AtomicWriteSecretFile
+	}
+	if err := write(configWritePath(c.Path), data); err != nil {
 		return err
 	}
 	c.scrubLegacyCredentials()
@@ -815,6 +899,23 @@ func (c *Config) save() error {
 	c.fileConfig.Headers = cloneStringMap(c.fileConfig.Headers)
 	return nil
 }
+
+// configWritePath is where save() publishes the config file. HAND-FIX(
+// credentials-file-follows-config): a symlinked config is written through the
+// link to its target. Replacing the link with a regular file moved the
+// sibling credentials location (it follows the resolved config) after one
+// `auth set-token`, so later loads silently fell back to the default file.
+func configWritePath(path string) string {
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return path
+	}
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		return real
+	}
+	return path
+}
+
 func (c *Config) scrubLegacyCredentials() {
 	if c.legacySourcePath == "" || c.legacySourcePath == c.Path {
 		return

@@ -8,6 +8,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"dnsfilter-pp-cli/internal/cliutil"
@@ -56,8 +57,13 @@ func TestExplicitConfigCredentialsFollowTheConfig(t *testing.T) {
 	if err := cfg.ClearTokens(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(sibling); !os.IsNotExist(err) {
+	// The sibling now records the logout (explicit-config-logout-never-falls-back)
+	// and holds no credential.
+	if has, err := cliutil.CredentialsFileHasValuesAt(sibling); err != nil || has {
 		t.Fatalf("logout left the explicit config's credentials at %s (%v)", sibling, err)
+	}
+	if data, _ := os.ReadFile(sibling); strings.Contains(string(data), "tenant-key") {
+		t.Fatalf("logout left the tenant key in %s: %q", sibling, data)
 	}
 	def, err := Load("")
 	if err != nil || def.DnsfilterApiKey != "default-key" {

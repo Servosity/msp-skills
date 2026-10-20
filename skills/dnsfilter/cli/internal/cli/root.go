@@ -265,8 +265,10 @@ func writeCredentialSaveErrorEnvelope(w io.Writer, flags *rootFlags, err error) 
 	if !errors.As(err, &permissionErr) {
 		return false
 	}
+	// handfixes.json: save-never-leaves-an-unverified-secret. A file that
+	// fails the private-file guard is never kept, so nothing was saved.
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"saved":                true,
+		"saved":                false,
 		"credentials_path":     permissionErr.Path,
 		"permissions_verified": false,
 		"error":                permissionErr.Error(),
@@ -804,6 +806,14 @@ var learnFamilyCommands = map[string]struct{}{
 // line is not left unpaired when the process exits.
 func deriveFlagCorrections(flags *rootFlags, rootCmd, executed *cobra.Command) {
 	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() {
+		return
+	}
+	// Hand-wired (handfixes.json: read-commands-open-store-read-only): the
+	// pass opens the default store with the migrating opener, so it is gated
+	// like the pre-run learn seed. A read-only command (search, analytics, a
+	// GET, doctor, help) never creates or migrates the mirror; the journal
+	// lines stay unread for the next command that may write the store.
+	if executed == nil || shouldSkipLearnHook(executed.CommandPath()) || !commandMayWriteStore(executed) {
 		return
 	}
 	chain := journalVerbChain(rootCmd, executed)

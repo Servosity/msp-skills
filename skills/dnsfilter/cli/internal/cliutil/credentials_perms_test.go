@@ -227,17 +227,22 @@ func TestSaveCredentialsVerifiesWrittenFile(t *testing.T) {
 		err = SaveCredentials(&Credentials{AccessToken: credsSampleReadPermsToken})
 		var permissionErr *CredentialsPermissionError
 		if err == nil || !strings.Contains(err.Error(), "permissions") || !errors.As(err, &permissionErr) {
-			t.Fatalf("SaveCredentials() error = %v, want post-save permission refusal", err)
+			t.Fatalf("SaveCredentials() error = %v, want a permission refusal", err)
 		}
 		if permissionErr.Path != filepath.Join(dataDir, credentialsFileName) {
 			t.Fatalf("permission error path = %q, want %q", permissionErr.Path, filepath.Join(dataDir, credentialsFileName))
 		}
-		data, readErr := os.ReadFile(permissionErr.Path)
+		// handfixes.json: save-never-leaves-an-unverified-secret. The refused
+		// token is nowhere on disk: not at the path, not in a temporary file.
+		entries, readErr := os.ReadDir(dataDir)
 		if readErr != nil {
-			t.Fatalf("read saved credentials after permission refusal: %v", readErr)
+			t.Fatalf("read data dir after permission refusal: %v", readErr)
 		}
-		if !strings.Contains(string(data), credsSampleReadPermsToken) {
-			t.Fatalf("saved credentials do not contain test token: %q", data)
+		for _, entry := range entries {
+			data, _ := os.ReadFile(filepath.Join(dataDir, entry.Name()))
+			if strings.Contains(string(data), credsSampleReadPermsToken) {
+				t.Fatalf("%s holds the refused token after a permission refusal", entry.Name())
+			}
 		}
 		return
 	}

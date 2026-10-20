@@ -34,15 +34,17 @@ type Credentials struct {
 	DnsfilterApiKey string    `toml:"api_key"`
 }
 
-// CredentialsPermissionError means the credentials bytes were published but
-// the landed file failed the platform-specific private-file guard.
+// CredentialsPermissionError means a credentials file failed the
+// platform-specific private-file guard while being written, so it was not
+// saved. Hand-wired (handfixes.json: save-never-leaves-an-unverified-secret):
+// the secret is never left on disk in a file that failed the guard.
 type CredentialsPermissionError struct {
 	Path string
 	Err  error
 }
 
 func (e *CredentialsPermissionError) Error() string {
-	return fmt.Sprintf("credentials file saved but permissions are unsafe for %s: %v", e.Path, e.Err)
+	return fmt.Sprintf("credentials not saved: permissions are unsafe for %s: %v", e.Path, e.Err)
 }
 
 func (e *CredentialsPermissionError) Unwrap() error { return e.Err }
@@ -69,6 +71,9 @@ type CredentialLoadStatus struct {
 	Path    string
 	Loaded  bool
 	Refusal *CredentialRefusal
+	// LoggedOut reports a credentials file that records an explicit
+	// config's logout (WriteCredentialsLogoutMarker), whatever its access.
+	LoggedOut bool
 }
 
 func credentialsFileFrom(creds *Credentials) map[string]interface{} {
@@ -131,6 +136,31 @@ func CredentialsFilePathForConfig(configPath string) (string, error) {
 
 func CredentialsFilePath() (string, error) {
 	return credentialsPath()
+}
+
+// IsCredentialHeaderName reports a request header whose value is a
+// credential, judged by its name: Authorization, Proxy-Authorization, Cookie,
+// and any name that mentions auth, a key, token, secret, password, session,
+// signature or credential (X-Api-Key, X-Auth-Token). Hand-wired
+// (handfixes.json: config-headers-never-replace-auth): custom headers from the
+// config file get the masking and redirect stripping a credential gets.
+func IsCredentialHeaderName(name string) bool {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	folded := b.String()
+	if folded == "cookie" || folded == "setcookie" {
+		return true
+	}
+	for _, stem := range []string{"auth", "key", "token", "secret", "password", "passwd", "session", "signature", "credential"} {
+		if strings.Contains(folded, stem) {
+			return true
+		}
+	}
+	return false
 }
 
 func LoadCredentials() (*Credentials, bool, error) {
@@ -196,7 +226,12 @@ func loadCredentialsWithStatus(path string, rejectInvalid bool) (*Credentials, C
 			CredentialsPresent: credentialsFileHasValues(path),
 		}
 		status.Refusal = &refusal
-		ReportCredentialRefusal(refusal)
+		status.LoggedOut = credentialsFileLoggedOut(path)
+		// A file with no credential in it (an empty file, a logout record)
+		// is not reported as "credential present but refused".
+		if refusal.CredentialsPresent {
+			ReportCredentialRefusal(refusal)
+		}
 		return nil, status, nil
 	}
 	data, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- app-owned credentials path from cliutil.DataDir.
@@ -222,6 +257,7 @@ func loadCredentialsWithStatus(path string, rejectInvalid bool) (*Credentials, C
 		return nil, status, nil
 	}
 	status.Loaded = true
+	status.LoggedOut = credentialsDataLoggedOut(data)
 	return &creds, status, nil
 }
 
@@ -231,6 +267,45 @@ func CredentialsFileHasValues() (bool, error) {
 		return false, err
 	}
 	return creds.HasValues(), nil
+}
+
+// CredentialsFileHasValuesAt reports whether the credentials file at path
+// loads (passes the private-file guard and parses) with a credential in it.
+func CredentialsFileHasValuesAt(path string) (bool, error) {
+	creds, status, err := loadCredentialsWithStatus(path, false)
+	if err != nil || !status.Loaded {
+		return false, err
+	}
+	return creds.HasValues(), nil
+}
+
+// credentialsLogoutMarker is the whole content of the credentials file an
+// explicit config's logout leaves behind. Hand-wired (handfixes.json:
+// explicit-config-logout-never-falls-back): Load never falls back from such a
+// file to the default credentials file, so a logout cannot reactivate another
+// tenant's key. It holds no secret.
+type credentialsLogoutMarker struct {
+	LoggedOut bool `toml:"logged_out"`
+}
+
+// WriteCredentialsLogoutMarker replaces the credentials file at path with a
+// logout record that holds no credential.
+func WriteCredentialsLogoutMarker(path string) error {
+	data, err := toml.Marshal(credentialsLogoutMarker{LoggedOut: true})
+	if err != nil {
+		return fmt.Errorf("marshaling logout record: %w", err)
+	}
+	return AtomicWritePrivateFile(path, data, 0o600, 0o700)
+}
+
+func credentialsDataLoggedOut(data []byte) bool {
+	var marker credentialsLogoutMarker
+	return toml.Unmarshal(data, &marker) == nil && marker.LoggedOut
+}
+
+func credentialsFileLoggedOut(path string) bool {
+	data, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- app-owned credentials path from cliutil.DataDir.
+	return err == nil && credentialsDataLoggedOut(data)
 }
 
 func (c *Credentials) HasValues() bool {
@@ -296,17 +371,51 @@ func SaveCredentialsAt(path string, creds *Credentials) error {
 	if err != nil {
 		return fmt.Errorf("marshaling credentials: %w", err)
 	}
-	if err := AtomicWritePrivateFile(path, data, 0o600, 0o700); err != nil {
+	return WriteVerifiedCredentialsFile(path, data)
+}
+
+// SavedCredentialsPermsCheck is the private-file guard applied to a
+// credentials file this process writes. Tests replace it to inject a refusal.
+var SavedCredentialsPermsCheck = VerifyCredsPerms
+
+// AtomicWriteSecretFile is AtomicWritePrivateFile for any file that holds a
+// secret: the temporary file must pass SavedCredentialsPermsCheck before the
+// secret is written into it, so a refusal publishes nothing and leaves the
+// previous file at path untouched.
+func AtomicWriteSecretFile(path string, data []byte) error {
+	verifyTmp := func(tmpPath string) error {
+		if err := SavedCredentialsPermsCheck(tmpPath); err != nil {
+			return &CredentialsPermissionError{Path: path, Err: err}
+		}
+		return nil
+	}
+	return atomicWritePrivateFile(path, data, 0o600, 0o700, verifyTmp)
+}
+
+// WriteVerifiedCredentialsFile publishes data at path (0600, parent 0700).
+// Hand-wired (handfixes.json: save-never-leaves-an-unverified-secret): Chmod
+// cannot restrict an inherited Windows DACL, so the temporary file is checked
+// before the secret is written into it, and the published file is checked
+// again. On a refusal the previous file at path is untouched (the first
+// check) or the written file is removed (the second); the secret never stays
+// on disk in a file that failed the guard.
+func WriteVerifiedCredentialsFile(path string, data []byte) error {
+	if err := AtomicWriteSecretFile(path, data); err != nil {
 		return err
 	}
 	real, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return &CredentialsPermissionError{Path: path, Err: fmt.Errorf("resolving saved file: %w", err)}
+		err = fmt.Errorf("resolving saved file: %w", err)
+	} else {
+		err = SavedCredentialsPermsCheck(real)
 	}
-	if err := VerifyCredsPerms(real); err != nil {
-		return &CredentialsPermissionError{Path: path, Err: err}
+	if err == nil {
+		return nil
 	}
-	return nil
+	if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+		return &CredentialsPermissionError{Path: path, Err: fmt.Errorf("%v (removing the written file failed: %v)", err, rmErr)}
+	}
+	return &CredentialsPermissionError{Path: path, Err: err}
 }
 
 func RemoveCredentials() error {

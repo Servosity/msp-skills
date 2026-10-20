@@ -429,6 +429,33 @@ func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
 	return false
 }
 
+// stripOffOriginHeaders removes what must not reach another host: every
+// header the config file adds ([headers]) and every credential-named header
+// (Proxy-Authorization, Cookie, X-Api-Key, ...).
+func stripOffOriginHeaders(h http.Header, cfg *config.Config) {
+	if cfg != nil {
+		for name := range cfg.Headers {
+			h.Del(strings.TrimSpace(name))
+		}
+	}
+	for name := range h {
+		if cliutil.IsCredentialHeaderName(name) {
+			delete(h, name)
+		}
+	}
+}
+
+// responseURLKey carries the recorder WithResponseURLRecorder installs.
+type responseURLKey struct{}
+
+// WithResponseURLRecorder returns a context under which a request records in
+// *dst the URL its response finally came from, after any redirect. doctor
+// uses it: a probe answered by a redirect destination proves nothing about
+// the configured API.
+func WithResponseURLRecorder(ctx context.Context, dst *url.URL) context.Context {
+	return context.WithValue(ctx, responseURLKey{}, dst)
+}
+
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	cacheDir := ""
 	if dir, err := cliutil.CacheDir(); err == nil {
@@ -469,6 +496,11 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		// custom headers and URL query values need explicit removal here.
 		if redirectLeavesOrigin(req.URL, via) {
 			req.Header.Del("Authorization")
+			// Hand-wired (handfixes.json: redirect-strips-every-custom-credential):
+			// Go copies every header of the first request onto each hop, so a
+			// hop off the configured API host also drops every config-file
+			// header and every header whose name marks a credential.
+			stripOffOriginHeaders(req.Header, c.Config)
 		}
 		// Re-stamp only when the hop stays on the origin. Custom headers
 		// are never in the set Go removes automatically, so this gate
@@ -828,6 +860,15 @@ func (c *Client) readCacheWithHeaders(path string, params map[string]string, hea
 	}
 	data, err := os.ReadFile(filepath.Clean(cacheFile)) // #nosec G304 -- app-derived cache path from sha256 cache key.
 	if err != nil {
+		return nil, false
+	}
+	// Hand-wired (handfixes.json: response-cache-never-holds-secrets): a hit
+	// is held to the rule a write is, so a body an older build cached (not
+	// JSON, a binary envelope, a secret-named key) is never served, and the
+	// read-only refusal of a non-JSON body cannot be skipped through the
+	// cache: the request goes to the network path, which refuses it.
+	if !responseCacheable(path, data) {
+		_ = os.Remove(cacheFile)
 		return nil, false
 	}
 	// A leftover 0644 file can still be inside the TTL after upgrade; tighten before returning.
@@ -1419,6 +1460,14 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		}
 		if c.Config != nil {
 			for k, v := range c.Config.Headers {
+				// Hand-wired (handfixes.json: config-headers-never-replace-auth):
+				// an Authorization entry under [headers] would replace the key
+				// set-token saved, survive logout, and escape credential
+				// handling, so it is never sent.
+				if strings.EqualFold(strings.TrimSpace(k), "Authorization") {
+					warnConfigAuthorizationHeader(c.Config.Path)
+					continue
+				}
 				req.Header.Set(k, v)
 			}
 		}
@@ -1475,6 +1524,11 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			httpClient = &uploadClient
 		}
 		resp, err := httpClient.Do(req)
+		if err == nil && resp.Request != nil && resp.Request.URL != nil {
+			if dst, ok := ctx.Value(responseURLKey{}).(*url.URL); ok && dst != nil {
+				*dst = *resp.Request.URL
+			}
+		}
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, 0, ctxErr
@@ -1501,14 +1555,15 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		respBody, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if err != nil {
-			return nil, 0, fmt.Errorf("reading response: %w", err)
+			return nil, 0, fmt.Errorf("reading response: %w", c.maskError(err, authHeader))
 		}
 		// Decode after the read. A spec-set Accept-Encoding disables net/http's
 		// transparent gzip, but some hosts truncate the body unless that
 		// header is present, so the header stays and the bytes are inflated here.
 		respBody, err = decodeContentEncoding(resp.Header.Get("Content-Encoding"), respBody)
 		if err != nil {
-			return nil, 0, fmt.Errorf("decoding response: %w", err)
+			// The error can quote the response's Content-Encoding value.
+			return nil, 0, fmt.Errorf("decoding response: %w", c.maskError(err, authHeader))
 		}
 
 		// Pace to the server-advertised budget when it ships rate-limit
@@ -1560,7 +1615,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			}
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
+					// Hand-wired (handfixes.json: response-text-in-errors-is-masked):
+					// the title is response text; a page can echo the API key.
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, authHeader))
 				}
 			}
 			return json.RawMessage(out), resp.StatusCode, nil
@@ -1635,6 +1692,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if requestID == "" {
 				requestID = resp.Header.Get("Request-ID")
 			}
+			requestID = c.maskCredentialText(requestID, authHeader)
 			if c.platformSession != nil {
 				c.platformSession.RecordRateLimitExhausted()
 			}
@@ -1732,6 +1790,20 @@ func (c *Client) ConfiguredTimeout() time.Duration {
 		return c.HTTPClient.Timeout
 	}
 	return 60 * time.Second
+}
+
+// configAuthorizationWarned makes the [headers] Authorization warning once
+// per process.
+var configAuthorizationWarned sync.Once
+
+func warnConfigAuthorizationHeader(configPath string) {
+	configAuthorizationWarned.Do(func() {
+		where := "the config file"
+		if configPath != "" {
+			where = configPath
+		}
+		fmt.Fprintf(cliutil.Stderr(), "warning: ignoring the Authorization entry under [headers] in %s: requests carry the API key saved by auth set-token or set in DNSFILTER_API_KEY. Remove that entry.\n", where)
+	})
 }
 
 func (c *Client) authHeader(ctx context.Context) (string, error) {
@@ -2042,6 +2114,12 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 	return maskedError{msg: msg}
 }
 
+// MaskCredentialText replaces every configured credential in text with
+// "****", the masking every client error applies.
+func (c *Client) MaskCredentialText(text string) string {
+	return c.maskCredentialText(text)
+}
+
 func (c *Client) maskCredentialText(text string, extraCredentials ...string) string {
 	if text == "" {
 		return text
@@ -2093,6 +2171,13 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		addCredential(c.Config.RefreshToken)
 		addCredential(c.Config.ClientSecret)
 		addCredential(c.Config.DnsfilterApiKey)
+		// Hand-wired (handfixes.json: config-headers-never-replace-auth): a
+		// credential carried in a config-file header is masked too.
+		for name, value := range c.Config.Headers {
+			if cliutil.IsCredentialHeaderName(name) {
+				addCredential(value)
+			}
+		}
 	}
 	sort.SliceStable(masks, func(i, j int) bool {
 		return len(masks[i].needle) > len(masks[j].needle)
