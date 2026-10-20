@@ -132,7 +132,7 @@ cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --dry-run
   ```bash
   cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --date 2026-10-03 --agent
   ```
-- **`restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume never resends a restore the API accepted or may have accepted, and keeps the batch's recorded target account and restore options.
+- **`restore submit`** - Submit one restore per mailbox per date with a local ledger and a machine-wide guard: a restore already sent from this machine, under any login or token, is never sent again unless you pass --new-batch; --resume keeps the batch's recorded target account and restore options.
 
   _Use this instead of looping over recovery restore when more than one mailbox or date is involved._
 
@@ -236,7 +236,7 @@ Needs `auth login --partner`; refreshes the statuses feed for every customer, th
 cloudally-cli restore history --since 2026-07-01 --csv
 ```
 
-Reads the local ledger only, so it works offline and keeps every batch this machine submitted.
+Reads this login's local ledger only, so it works offline. The partner login, each `auth use-account` customer and each company login keep separate ledgers, so run it under the login that submitted the batches.
 
 ### Check which backup a past date resolves to for one mailbox
 
@@ -519,7 +519,7 @@ Manage user
 
 - **`cloudally-cli restore plan`** - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
 
-- **`cloudally-cli restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume never resends a restore the API accepted or may have accepted, and keeps the batch's recorded target account and restore options.
+- **`cloudally-cli restore submit`** - Submit one restore per mailbox per date with a local ledger and a machine-wide guard: a restore already sent from this machine, under any login or token, is never sent again unless you pass --new-batch; --resume keeps the batch's recorded target account and restore options.
 
 - **`cloudally-cli restore watch`** - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
 
@@ -649,6 +649,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **portal session is not authenticated (status 401)** - Several portal sessions for the same customer started at the same instant invalidated each other's handoff tokens. Start parallel `download fetch` or `download submit` runs a few seconds apart, or run them one at a time.
 - **A link from download link stopped working** - Links last about 60 seconds. Run `download link` again for a fresh one, or let `download fetch` mint and stream in one step.
 - **restore submit lists restores that may already have been accepted** - Check the batch with cloudally-cli restore watch --batch <id> --once, and again after a few minutes: a RESTORE task can appear late (see UNMATCHED above), and watch settles every row it finds one for. Only for rows still UNKNOWN after that, and after checking tasks list --type RESTORE in that account, run the command the notice prints (your original submit with --resume --retry-unknown --yes added); it sends only rows still UNKNOWN.
+- **restore submit refuses: already sent from this machine** - The machine-wide guard (restore-guard.db in the state dir) spans every login and token here. Look the batch up with restore history --batch <id> under the login named; send only the remaining mailboxes with the printed --entities command.
 - **restore submit --resume finds no earlier batch** - Each login (the partner login, or one company after auth use-account) keeps its own ledger. Run restore history under the login that started the batch before dropping --resume; a new batch resends every restore.
 - **A portal command refuses with CLOUDALLY_PORTAL_URL** - CLOUDALLY_BASE_URL points away from production, so the CLI will not send a partner handoff token to the production portal. Set CLOUDALLY_PORTAL_URL to the matching portal, or unset CLOUDALLY_BASE_URL.
 - **restore submit refuses: batch already has restores CloudAlly accepted** - Re-running would restore those mailboxes twice. Run the --resume command the error prints; pass --new-batch only to restore every mailbox again.
