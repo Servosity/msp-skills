@@ -712,8 +712,8 @@
     },
     {
       "id": "events-sync-restart-and-filtered",
-      "summary": "an events sync never resumes a saved offset (it restarts from the top); a sync of ANY resource narrowed by --param/--global-param/--resource-param (including a page-size override) stores its rows but is marked incomplete before reconcile (no prune, no watermark, no coverage floor), on the flat and the dependent path, and the summary counts it as warned; an explicit incremental events sync re-reads saasEventsLateAllowance (6h) before the watermark; parameters a resource requires do not count as narrowing; a filtered walk never saves a resume cursor; the late-event look-back anchors to the last explicit sync's watermark (saas_events_explicit_watermark), which the page-capped auto-refresh cannot move",
-      "why": "Events page by offset over timeSort=desc, so a saved offset from an unfinished sync shifts as new events arrive; resuming it skipped them and the completed resume then advanced the watermark past them (adversarial review round 3, 2026-10-20, P1: 350 of 400 new events stored, synced:true). A filtered sync (Codex 2026-10-20, P1) saved the partner-wide watermark and coverage floor from one customer's events, so triage said synced:true and later incremental syncs never fetched the other customers; with --full it would also have pruned their local rows. TestSaasEventsSyncRestartsFromTop and TestSaasFilteredEventsSyncIsNotComplete fail with either guard disabled (proven 2026-10-20). Codex round 2 (2026-10-20, P1): the guard was events-only, so `sync --resources rule-triggers --full --resource-param rule-triggers:organizationIds[]=ORG_A` pruned other organizations' triggers, and `--param pageSize=100` made a full bare Unify page look terminal; it now covers every resource (TestSaasFilteredFullSyncNeverPrunes fails with the guard disabled, proven 2026-10-20). Adversarial round 4 (P1): events are filtered by event time and SaaS Alerts pulls some late (isLatent), so a sync starting at the watermark never fetched them; TestSaasIncrementalEventsSyncRereadsLateAllowance fails without the allowance (proven 2026-10-20). The page-capped auto-refresh keeps the plain watermark. Adversarial round 5 (2026-10-20, P1): counting required params (events-fileshare startDate/endDate, report organizationIds) made those resources impossible to complete, and an auto-refresh moving the watermark shifted the explicit look-back past late events. Codex round 3 (P1): a filtered --max-pages walk saved a cursor a later unfiltered sync resumed. TestSaasFilteredSyncDropsItsCursor and TestSaasLateAllowanceAnchorsToExplicitSync fail with their fix disabled (proven 2026-10-20).",
+      "summary": "an events sync never resumes a saved offset (it restarts from the top); a sync of ANY resource narrowed by --param/--global-param/--resource-param (including a page-size override) stores its rows but is marked incomplete before reconcile (no prune, no watermark, no coverage floor), on the flat and the dependent path, and the summary counts it as warned; an explicit incremental events sync re-reads saasEventsLateAllowance (6h) before the watermark; parameters a resource requires do not count as narrowing; a filtered walk never saves a resume cursor; the late-event look-back anchors to the last explicit sync's watermark (saas_events_explicit_watermark), which the page-capped auto-refresh cannot move; a filtered walk never checkpoints a cursor at any save point (per page, integrity path, end of walk) and is reported even when --max-pages also stopped it; flat resources that need scoping params are never whole-table pruned",
+      "why": "Events page by offset over timeSort=desc, so a saved offset from an unfinished sync shifts as new events arrive; resuming it skipped them and the completed resume then advanced the watermark past them (adversarial review round 3, 2026-10-20, P1: 350 of 400 new events stored, synced:true). A filtered sync (Codex 2026-10-20, P1) saved the partner-wide watermark and coverage floor from one customer's events, so triage said synced:true and later incremental syncs never fetched the other customers; with --full it would also have pruned their local rows. TestSaasEventsSyncRestartsFromTop and TestSaasFilteredEventsSyncIsNotComplete fail with either guard disabled (proven 2026-10-20). Codex round 2 (2026-10-20, P1): the guard was events-only, so `sync --resources rule-triggers --full --resource-param rule-triggers:organizationIds[]=ORG_A` pruned other organizations' triggers, and `--param pageSize=100` made a full bare Unify page look terminal; it now covers every resource (TestSaasFilteredFullSyncNeverPrunes fails with the guard disabled, proven 2026-10-20). Adversarial round 4 (P1): events are filtered by event time and SaaS Alerts pulls some late (isLatent), so a sync starting at the watermark never fetched them; TestSaasIncrementalEventsSyncRereadsLateAllowance fails without the allowance (proven 2026-10-20). The page-capped auto-refresh keeps the plain watermark. Adversarial round 5 (2026-10-20, P1): counting required params (events-fileshare startDate/endDate, report organizationIds) made those resources impossible to complete, and an auto-refresh moving the watermark shifted the explicit look-back past late events. Codex round 3 (P1): a filtered --max-pages walk saved a cursor a later unfiltered sync resumed. TestSaasFilteredSyncDropsItsCursor and TestSaasLateAllowanceAnchorsToExplicitSync fail with their fix disabled (proven 2026-10-20). Adversarial round 6 and Codex round 4 (2026-10-20, P1, both): the per-page SaveSyncProgress still saved a filtered cursor when the next page failed, and treating required organizationIds as non-narrowing let --full whole-table prune other organizations' mailbox-rule rows. TestSaasInterruptedFilteredWalkSavesNoCursor, TestSaasScopedResourceNeverWholeTablePruned and TestSaasCappedFilteredSyncIsWarned each fail with their fix reverted (proven 2026-10-20).",
       "status": "active",
       "asserts": [
         {
@@ -738,7 +738,7 @@
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "if saasSyncFiltered(userParams, resource, false) && outcome.complete {",
+          "contains": "filteredSync := saasSyncFiltered(userParams, resource, false)",
           "code_only": true
         },
         {
@@ -748,7 +748,7 @@
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "if outcome.reason == \"filtered_sync\" {",
+          "contains": "return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf(\"query params changed what this sync fetched, so it is not a complete sync\"), Duration: time.Since(started)}",
           "code_only": true
         },
         {
@@ -773,7 +773,7 @@
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "if saasSyncFiltered(userParams, resource, false) {",
+          "contains": "db.SaveSyncProgress(resource, saasCheckpointCursor(userParams, resource, nextCursor), totalCount)",
           "code_only": true
         },
         {
@@ -799,6 +799,41 @@
         {
           "file": "cli/internal/cli/saas_sync_events_safety_test.go",
           "contains": "func TestSaasLateAllowanceAnchorsToExplicitSync(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "db.SaveSyncProgress(resource, saasCheckpointCursor(userParams, resource, finalCursor), cachedCount)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "prune = saasPruneAllowed(resource, prune)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasCheckpointCursor(p *syncUserParams, resource, cursor string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasInterruptedFilteredWalkSavesNoCursor(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasScopedResourceNeverWholeTablePruned(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_events_safety_test.go",
+          "contains": "func TestSaasCappedFilteredSyncIsWarned(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "return prune && len(syncResourceRequiredQueryParams(resource)) == 0",
           "code_only": true
         }
       ]
@@ -907,6 +942,11 @@
         {
           "file": "cli/internal/cli/contain_crosssource_test.go",
           "contains": "func TestContainCrossSourceAmbiguityRefuses(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "sync first: saas-alerts-cli sync --resources rule-triggers,customers --db %s",
           "code_only": true
         }
       ]

@@ -306,3 +306,23 @@ func saasRefuseParentKeyOverride(dep dependentResourceDef, queryParams []depende
 	}
 	return nil
 }
+
+// saasCheckpointCursor is the cursor a sync may persist: none for a filtered
+// walk. Respond's startAfter and Unify's searchAfter are positions in the
+// global sort order, so a later unfiltered sync resuming a filtered walk's
+// cursor would skip every other organization's rows before it and still reach
+// a proven end.
+func saasCheckpointCursor(p *syncUserParams, resource, cursor string) string {
+	if saasSyncFiltered(p, resource, false) {
+		return ""
+	}
+	return cursor
+}
+
+// saasPruneAllowed keeps the whole-table prune off for flat resources that
+// require scoping query params (events-fileshare's dates, the report
+// resources' organizationIds): every walk of them is scoped, so pruning the
+// rows it did not see would delete other scopes' data.
+func saasPruneAllowed(resource string, prune bool) bool {
+	return prune && len(syncResourceRequiredQueryParams(resource)) == 0
+}

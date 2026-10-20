@@ -1002,7 +1002,7 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		// Save cursor after each page for resumability
-		if err := db.SaveSyncProgress(resource, nextCursor, totalCount); err != nil {
+		if err := db.SaveSyncProgress(resource, saasCheckpointCursor(userParams, resource, nextCursor), totalCount); err != nil { // saas-alerts hand-fix: a filtered walk never checkpoints a cursor
 			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
 
@@ -1011,11 +1011,15 @@ func syncResource(ctx context.Context, c interface {
 
 	var reconcileErr error
 
-	if saasSyncFiltered(userParams, resource, false) && outcome.complete { // saas-alerts hand-fix: a filtered sync is never complete (no prune, no watermark, no coverage floor)
-		outcome.complete = false
-		outcome.reason = "filtered_sync"
+	filteredSync := saasSyncFiltered(userParams, resource, false)
+	if filteredSync { // saas-alerts hand-fix: a filtered sync is never complete (no prune, no watermark, no coverage floor) and is always reported
+		if outcome.complete {
+			outcome.complete = false
+			outcome.reason = "filtered_sync"
+		}
 		emitSaasFilteredSyncWarning(syncEvents, resource)
 	}
+	prune = saasPruneAllowed(resource, prune) // saas-alerts hand-fix: a resource that needs scoping params is never enumerated whole, so never whole-table pruned
 
 	// Flat reconcile: prune local rows the API no longer returns, gated on a
 	// proven-complete sync.
@@ -1097,7 +1101,7 @@ func syncResource(ctx context.Context, c interface {
 	// Integrity verdicts must precede completion persistence. Otherwise a
 	// run can advance its watermark and only then report that no rows landed.
 	if consumedTotal > 0 && totalCount == 0 {
-		if err := db.SaveSyncProgress(resource, finalCursor, cachedCount); err != nil {
+		if err := db.SaveSyncProgress(resource, saasCheckpointCursor(userParams, resource, finalCursor), cachedCount); err != nil { // saas-alerts hand-fix: a filtered walk never checkpoints a cursor
 			return syncResult{Resource: resource, Count: 0, Err: fmt.Errorf("saving incomplete sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
 		if extractFailureTotal < consumedTotal {
@@ -1130,7 +1134,7 @@ func syncResource(ctx context.Context, c interface {
 		// result windows on the next run.
 		finalCursor = ""
 	}
-	if saasSyncFiltered(userParams, resource, false) { // saas-alerts hand-fix: a filtered walk's cursor must not seed a later unfiltered sync
+	if filteredSync { // saas-alerts hand-fix: a filtered walk's cursor must not seed a later unfiltered sync
 		finalCursor = ""
 	}
 	stateErr = nil
@@ -1153,7 +1157,7 @@ func syncResource(ctx context.Context, c interface {
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
 	}
-	if outcome.reason == "filtered_sync" { // saas-alerts hand-fix: the summary counts a filtered sync as warned, not done
+	if filteredSync { // saas-alerts hand-fix: the summary counts a filtered sync as warned, not done
 		return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf("query params changed what this sync fetched, so it is not a complete sync"), Duration: time.Since(started)}
 	}
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}

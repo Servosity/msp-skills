@@ -23,11 +23,13 @@ All notable changes to this skill are documented here. Format follows
   and the `devices` list commands page with `searchAfter`, and the `devices` commands read
   live only (their local copy cannot answer per-account questions).
 - A sync narrowed with `--param`, `--global-param` or `--resource-param` stores its rows but
-  never prunes, never moves the incremental watermark, and is reported as a warning (sync
-  exits 1 when every resource it ran was narrowed). Parameters a resource requires do not
+  never prunes, never moves the incremental watermark or saves a resume cursor, and is
+  reported as a warning (sync exits 1 when every resource it ran was narrowed). Parameters a resource requires do not
   count as narrowing, and overriding the `customerId` the users sync sets per customer is
   refused.
-- A full sync prunes users that were removed upstream.
+- A full sync prunes users removed upstream from a customer that is still synced; resources
+  that need scoping parameters (`events-fileshare`, the mailbox-rule and Unify reports) are
+  never pruned as a whole.
 - An explicit incremental events sync re-reads the 6 hours before the previous explicit
   sync, so an event SaaS Alerts recorded late is still fetched.
 - `subscriptions health` checks every webhook subscription, its unsent queue and domain,

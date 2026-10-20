@@ -573,7 +573,7 @@ func TestContainHelpStatesScopeAndPreview(t *testing.T) {
 	if err != nil {
 		t.Fatalf("help: %v", err)
 	}
-	for _, want := range []string{"Microsoft 365 accounts only", "--org-id and --account-id", "sync --resources rule-triggers,users",
+	for _, want := range []string{"Microsoft 365 accounts only", "--org-id and --account-id", "sync --resources rule-triggers,customers",
 		"Reports customer id equals the Respond organization id", "inferred:true", "without --confirm", "--dry-run only prints a stub",
 		"returns no job id", "never proves completion", "verified:false", "more than one Microsoft 365 account"} {
 		if !strings.Contains(out, want) {

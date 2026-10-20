@@ -172,7 +172,7 @@ func newNovelContainCmd(flags *rootFlags) *cobra.Command {
 
 Targets Microsoft 365 accounts only: Respond response actions run against application MS, so a Google Workspace or other non-Microsoft account is refused (exit 2).
 
-Organization and account IDs come from --org-id and --account-id together, or are looked up in the local store, which needs synced rule-triggers or users (saas-alerts-cli sync --resources rule-triggers,users). Given alone, --org-id or --account-id narrows that lookup. If the email maps to more than one Microsoft 365 account, the command stops (exit 2) and lists the candidates. The users fallback assumes the Reports customer id equals the Respond organization id and is flagged inferred:true in the output.
+Organization and account IDs come from --org-id and --account-id together, or are looked up in the local store, which needs synced rule-triggers or users (saas-alerts-cli sync --resources rule-triggers,customers). Given alone, --org-id or --account-id narrows that lookup. If the email maps to more than one Microsoft 365 account, the command stops (exit 2) and lists the candidates. The users fallback assumes the Reports customer id equals the Respond organization id and is flagged inferred:true in the output.
 
 The default run, without --confirm, is a preview of the exact execute calls and changes nothing; --confirm submits them in order. The API returns no job id and its jobs carry no account link, so the job_match reported for each action is best-effort (action, operator and time) and never proves completion: the output always says verified:false. The exit code is non-zero when an execute call is refused; when its answer does not say whether it was applied (an unknown_outcome, which is never retried and stops the remaining actions); or when a matched job reports failed or missed accounts, or a job response matching the call carries an explicit failure indicator. --dry-run only prints a stub and does not resolve or plan anything.`,
 		Example: strings.Trim(`
@@ -397,7 +397,7 @@ func containResolve(ctx context.Context, email, orgID, accountID, dbPath string)
 	if orgID != "" && accountID != "" {
 		return containResolution{Source: "flags", OrganizationID: orgID, AccountID: accountID}, nil
 	}
-	missingHint := fmt.Sprintf("pass --org-id and --account-id, or sync first: saas-alerts-cli sync --resources rule-triggers,users --db %s", dbPath)
+	missingHint := fmt.Sprintf("pass --org-id and --account-id, or sync first: saas-alerts-cli sync --resources rule-triggers,customers --db %s", dbPath)
 	if _, err := os.Stat(dbPath); err != nil {
 		return containResolution{}, fmt.Errorf("cannot resolve Respond IDs for %s: no local mirror at %s; %s", email, dbPath, missingHint)
 	}

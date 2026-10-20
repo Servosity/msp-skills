@@ -374,3 +374,94 @@ func TestSaasLateAllowanceAnchorsToExplicitSync(t *testing.T) {
 		t.Fatalf("explicit sync started at %v, want %v (last explicit watermark minus the allowance)", got, want)
 	}
 }
+
+// TestSaasInterruptedFilteredWalkSavesNoCursor: a filtered rule-triggers walk
+// that fails on page 2 must not leave the page-1 cursor for a plain sync.
+func TestSaasInterruptedFilteredWalkSavesNoCursor(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/respondApi/api/v1/auth":
+			w.Write([]byte(`{"accessToken":"t"}`))
+		case "/respondApi/api/v1/rule-triggers":
+			if len(r.URL.Query()["startAfter"]) > 0 {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(`{"message":"boom"}`))
+				return
+			}
+			w.Write([]byte(`{"ruleTriggers":[{"id":"RT_A","status":"PENDING","triggeredAt":1686299747000}],"pagination":{"hasNextPage":true,"cursor":[1686299747000,"RT_A"]}}`))
+		default:
+			w.Write([]byte(`[]`))
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("SAAS_ALERTS_BASE_URL", srv.URL)
+	t.Setenv("SAAS_ALERTS_API_KEY", "test-partner-key")
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	saasRunSync(t, "--resources", "rule-triggers", "--resource-param", "rule-triggers:organizationIds[]=ORG_A", "--db", dbPath, "--json")
+	db, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if cur := db.GetSyncCursor("rule-triggers"); cur != "" {
+		t.Fatalf("interrupted filtered walk saved cursor %q", cur)
+	}
+}
+
+// TestSaasScopedResourceNeverWholeTablePruned: a --full sync of a resource that
+// requires organizationIds must not delete rows stored for other organizations.
+func TestSaasScopedResourceNeverWholeTablePruned(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/account-mailbox-rules") || strings.Contains(r.URL.Path, "mailbox") {
+			org := r.URL.Query().Get("organizationIds")
+			w.Write([]byte(fmt.Sprintf(`[{"updatedAt":"2026-10-01T00:00:00Z","organizationId":%q,"partnerId":"P1","userName":"u@%s.example","ruleName":"r"}]`, org, strings.ToLower(org))))
+			return
+		}
+		w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+	t.Setenv("SAAS_ALERTS_BASE_URL", srv.URL)
+	t.Setenv("SAAS_ALERTS_API_KEY", "test-partner-key")
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	saasRunSync(t, "--resources", "reports-account-mailbox-rules", "--resource-param", "reports-account-mailbox-rules:organizationIds=ORG_A", "--db", dbPath, "--json")
+	out := saasRunSync(t, "--resources", "reports-account-mailbox-rules", "--full", "--resource-param", "reports-account-mailbox-rules:organizationIds=ORG_B", "--db", dbPath, "--json")
+	db, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if n, _ := db.Count("reports-account-mailbox-rules"); n != 2 {
+		t.Fatalf("--full of ORG_B left %d mailbox-rule rows, want 2 (ORG_A pruned):\n%s", n, out)
+	}
+}
+
+// TestSaasCappedFilteredSyncIsWarned: a filtered walk stopped by --max-pages
+// is still reported as a filtered (warned) sync.
+func TestSaasCappedFilteredSyncIsWarned(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/respondApi/api/v1/auth":
+			w.Write([]byte(`{"accessToken":"t"}`))
+		case "/respondApi/api/v1/rule-triggers":
+			w.Write([]byte(`{"ruleTriggers":[{"id":"RT_A","status":"PENDING","triggeredAt":1686299747000}],"pagination":{"hasNextPage":true,"cursor":[1686299747000,"RT_A"]}}`))
+		default:
+			w.Write([]byte(`[]`))
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("SAAS_ALERTS_BASE_URL", srv.URL)
+	t.Setenv("SAAS_ALERTS_API_KEY", "test-partner-key")
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
+	out := saasRunSync(t, "--resources", "rule-triggers", "--max-pages", "1", "--resource-param", "rule-triggers:organizationIds[]=ORG_A", "--db", filepath.Join(t.TempDir(), "data.db"), "--json")
+	if !strings.Contains(out, "filtered_sync_not_complete") || !strings.Contains(out, `"warned":1`) {
+		t.Fatalf("capped filtered sync not reported as warned:\n%s", out)
+	}
+}
