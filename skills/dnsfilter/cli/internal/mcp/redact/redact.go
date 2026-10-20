@@ -307,10 +307,17 @@ func redactValue(value any) (any, bool) {
 			// JSON only if the WHOLE string is exactly one JSON value
 			// (Decoder.More is not an EOF test: {"ok":1}} token=S would pass).
 			if inner, ok := decodeExactlyOne(trimmed); ok {
+				out, outChanged := v, false
 				if cleaned, changed := redactValue(inner); changed || !rawJSONClean(trimmed) {
-					return encodeJSONCompact(cleaned), true
+					out, outChanged = encodeJSONCompact(cleaned), true
 				}
-				return v, false
+				// The cleaned form still gets the plain rule: a JSON key
+				// can carry a qualified label ({"Uninstall PIN (HQ)":"x"})
+				// that no key rule names.
+				if store.TextNamesSecret(out) {
+					return WithheldFieldPlaceholder, true
+				}
+				return out, outChanged
 			}
 		}
 		// Not exactly one JSON value: the store's order (scrubSecretString).

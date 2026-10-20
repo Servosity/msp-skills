@@ -242,11 +242,17 @@ func scrubSecretString(s string, depth int) (any, bool) {
 		if inner, ok := decodeSingleJSON([]byte(trimmed)); ok {
 			// Same rule as the top-level row: keep the string only when its
 			// raw tokens prove there is nothing to scrub.
+			// The kept or re-encoded form still gets the text rule: a JSON
+			// key can carry a qualified label ({"Uninstall PIN (HQ)":"x"})
+			// that no key rule names.
 			if rawJSONNeedsNoScrub([]byte(trimmed), depth+1) {
+				if textNamesSecret(s) {
+					return WithheldValuePlaceholder, true
+				}
 				return s, false
 			}
 			cleaned, _ := scrubSecretValueDepth(inner, depth+1)
-			if enc, ok := encodeCompactJSON(cleaned); ok {
+			if enc, ok := encodeCompactJSON(cleaned); ok && !textNamesSecret(enc) {
 				return enc, true
 			}
 			return WithheldValuePlaceholder, true

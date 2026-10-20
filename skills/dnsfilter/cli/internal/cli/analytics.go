@@ -43,7 +43,7 @@ Null or missing --group-by values are JSON null. Table output labels them (none)
 				dbPath = defaultDBPath("dnsfilter-cli")
 			}
 
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			db, err := store.OpenReadOnlyContext(cmd.Context(), dbPath) // HAND-FIX(read-commands-open-store-read-only)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w\nRun 'dnsfilter-cli sync' first.", err)
 			}

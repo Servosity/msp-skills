@@ -101,3 +101,29 @@ func TestQuotedValueRuleMatchesStore(t *testing.T) {
 		t.Fatalf("%d of 100000 quoted values got different decisions", mismatches)
 	}
 }
+
+// TestQualifiedLabelAsJSONKeyInString: a string holding exactly one JSON
+// value still gets the plain rule on its cleaned form, so a JSON key that
+// carries a qualified label is withheld in a result and in a stored row.
+func TestQualifiedLabelAsJSONKeyInString(t *testing.T) {
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	q := func(s string) string { b, _ := json.Marshal(s); return string(b) }
+	for _, inner := range []string{
+		`{"Uninstall PIN (HQ)":"` + secretMarker + `"}`,
+		`{"name":"x","Admin password for HQ":"` + secretMarker + `"}`,
+		`["ok",{"PIN for laptops":"` + secretMarker + `"}]`,
+	} {
+		for _, doc := range []string{`{"note":` + q(inner) + `}`, `{"note":` + q(q(inner)) + `}`} {
+			if out := Final(doc); strings.Contains(out, secretMarker) {
+				t.Errorf("read-only result kept a qualified JSON-key label: %s -> %s", doc, out)
+			}
+			if out := store.ScrubPersistedSecrets(json.RawMessage(doc)); strings.Contains(string(out), secretMarker) {
+				t.Errorf("store kept a qualified JSON-key label: %s -> %s", doc, out)
+			}
+		}
+	}
+	// A JSON-in-string with no secret is kept as written.
+	if doc := `{"cfg":` + q(`{"name":"x","pin_code_enabled":true}`) + `}`; Final(doc) != doc {
+		t.Errorf("a clean JSON-in-string changed: %s -> %s", doc, Final(doc))
+	}
+}

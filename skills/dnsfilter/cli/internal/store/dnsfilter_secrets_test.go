@@ -110,6 +110,8 @@ func TestScrubSecretsInsideStrings(t *testing.T) {
 		"plural tokens":        `{"a":"API tokens: ` + secretSentinel + `"}`,
 		"plural key=value":     `{"a":"uninstall_pins=` + secretSentinel + `"}`,
 		"plural key in string": `{"a":` + q(`{"uninstall_pins":["`+secretSentinel+`"]}`) + `}`,
+		"qualified json key":   `{"a":` + q(`{"Uninstall PIN (HQ)":"`+secretSentinel+`"}`) + `}`,
+		"qualified key, twice": `{"a":` + q(q(`{"name":"x","Admin password for HQ":"`+secretSentinel+`"}`)) + `}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
 		if bytes.Contains(bytes.ToLower(out), []byte("sentinel")) {

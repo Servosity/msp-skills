@@ -1035,3 +1035,16 @@ func TestSyncFullPrunesDependentRows(t *testing.T) {
 		t.Fatalf("a complete --full walk kept %d lan_ips the API no longer returns, want 1:\n%s", n, out)
 	}
 }
+
+// search and analytics only read the mirror: they open it read-only, so they
+// never create, migrate or stamp a database file.
+func TestReadCommandsNeverCreateTheMirror(t *testing.T) {
+	testenv.Isolate(t)
+	for _, args := range [][]string{{"analytics"}, {"search", "acme"}} {
+		dbPath := filepath.Join(t.TempDir(), "data.db")
+		syncHFRun(append(args, "--db", dbPath)...)
+		if _, err := os.Stat(dbPath); err == nil {
+			t.Errorf("%v created %s", args, dbPath)
+		}
+	}
+}
