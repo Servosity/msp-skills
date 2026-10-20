@@ -40,8 +40,11 @@ func scopeConfig(baseURL, clientID, token string) *config.Config {
 
 const scopeAPI = "https://api.cloudally.com"
 
-// scopeBinding is the binding scopeConfig(scopeAPI, "cid", ...) resolves to.
-var scopeBinding = authBinding{origin: cloudallyStoreOrigin(scopeAPI), clientID: "cid"}
+// scopeBinding is the binding scopeConfig(scopeAPI, ...) resolves to.
+var scopeBinding = authBinding{origin: cloudallyStoreOrigin(scopeAPI)}
+
+// testPartner is the partner user the command-level tests sign in as.
+var testPartner = partnerPrincipal("tech@example.com")
 
 // bindSidecar writes the auth record a login or use-account leaves behind
 // for a token with no refresh token, under scopeBinding.
@@ -49,7 +52,7 @@ func bindSidecar(t *testing.T, scope, token, principal string) {
 	t.Helper()
 	actx := &authContext{Scope: scope}
 	if scope == authScopePartner {
-		actx.stashPartner(scopeBinding, token, "", time.Time{}, true)
+		actx.stashPartner(scopeBinding, token, "", time.Time{}, principal)
 	}
 	actx.bindTo(scopeBinding, token, "", principal)
 	if err := saveAuthContext(actx); err != nil {
@@ -62,11 +65,11 @@ func TestStoreScopeSurvivesTokenRotation(t *testing.T) {
 	resetStoreScope(t)
 	dir := t.TempDir()
 
-	bindSidecar(t, authScopePartner, "token-A", principalPartner)
+	bindSidecar(t, authScopePartner, "token-A", testPartner)
 	a := storePathFor(scopeConfig(scopeAPI, "cid", "token-A"), dir)
 
 	// What the refresh hook does on rotation: rebind to the new token.
-	bindSidecar(t, authScopePartner, "token-B", principalPartner)
+	bindSidecar(t, authScopePartner, "token-B", testPartner)
 	b := storePathFor(scopeConfig(scopeAPI, "cid", "token-B"), dir)
 	if a != b {
 		t.Fatalf("token rotation moved the store: %s -> %s", filepath.Base(a), filepath.Base(b))
@@ -74,8 +77,9 @@ func TestStoreScopeSurvivesTokenRotation(t *testing.T) {
 	if got := storePathFor(scopeConfig("HTTPS://API.cloudally.com/", "cid", "token-B"), dir); got != a {
 		t.Fatalf("a spelling variant of the base URL moved the store: %s -> %s", filepath.Base(a), filepath.Base(got))
 	}
-	if got := storePathFor(scopeConfig(scopeAPI, "other-client", "token-B"), dir); got == a {
-		t.Fatalf("a different client id shares the store %s", filepath.Base(a))
+	// Same user, rotated API key pair: same store (see TestRotatedKeyPairKeepsTheStore).
+	if got := storePathFor(scopeConfig(scopeAPI, "other-client", "token-B"), dir); got != a {
+		t.Fatalf("a rotated key pair moved the store: %s -> %s", filepath.Base(a), filepath.Base(got))
 	}
 	if got := storePathFor(scopeConfig("https://stub.example.test", "cid", "token-B"), dir); got == a {
 		t.Fatalf("a different API origin shares the store %s", filepath.Base(a))
@@ -101,11 +105,13 @@ func TestStoreScopeSeparatesPrincipals(t *testing.T) {
 	dir := t.TempDir()
 	paths := map[string]string{}
 	for _, p := range []struct{ name, scope, principal string }{
-		{"partner", authScopePartner, principalPartner},
+		{"partner", authScopePartner, testPartner},
 		{"company A", authScopeAccount, companyPrincipal("backups@contoso.com")},
 		{"company B", authScopeAccount, companyPrincipal("it@fabrikam.com")},
-		{"customer 5f1c2a", authScopeAccount, principalAccountPrefix + "5f1c2a"},
-		{"customer abc123", authScopeAccount, principalAccountPrefix + "abc123"},
+		{"customer 5f1c2a", authScopeAccount, accountPrincipal(testPartner, "5f1c2a")},
+		{"customer abc123", authScopeAccount, accountPrincipal(testPartner, "abc123")},
+		{"second partner user", authScopePartner, partnerPrincipal("restricted@example.com")},
+		{"customer 5f1c2a for the second user", authScopeAccount, accountPrincipal(partnerPrincipal("restricted@example.com"), "5f1c2a")},
 	} {
 		token := "token-" + p.name
 		bindSidecar(t, p.scope, token, p.principal)
@@ -122,39 +128,53 @@ func TestStoreScopeSeparatesPrincipals(t *testing.T) {
 	}
 }
 
-// A record that does not describe the active token (an environment token,
-// set-token, a hand-edited credentials file) never names the store; the
-// generated per-token key applies, as before this change.
+// A record that does not describe the active token never names the store.
+// Where that is by design (an environment token, a raw auth header, a known
+// token with no known user) the per-token store is used; where the record
+// is simply stale the run fails closed for ledger commands.
 func TestStoreScopeIgnoresARecordForAnotherToken(t *testing.T) {
 	isolateAuthState(t)
 	resetStoreScope(t)
-	bindSidecar(t, authScopePartner, "token-A", principalPartner)
-	cfg := scopeConfig(scopeAPI, "cid", "env-token")
-	if id := cloudallyStoreScopeIdentity(cfg); id != "" {
+	t.Setenv("CLOUDALLY_ACCESS_TOKEN", "")
+	bindSidecar(t, authScopePartner, "token-A", testPartner)
+
+	stale := scopeConfig(scopeAPI, "cid", "other-token")
+	if id := cloudallyStoreScopeIdentity(stale); id != "" {
 		t.Fatalf("identity %q came from a record for another token", id)
 	}
-	if cfg.StoreScopeCredential() != cfg.StoreScopeLegacyCredential() {
-		t.Fatal("an unbound token should keep the generated per-token key")
+	if err := requireBoundStoreScope(); err == nil {
+		t.Fatal("a stale record should fail ledger commands closed")
 	}
 
-	// A record without a fingerprint (an older format) vouches for nothing,
-	// even when its kept partner token is the active token.
-	if err := saveAuthContext(&authContext{Scope: authScopePartner, PartnerAccessToken: "token-A"}); err != nil {
-		t.Fatal(err)
+	t.Setenv("CLOUDALLY_ACCESS_TOKEN", "env-token")
+	env := scopeConfig(scopeAPI, "cid", "env-token")
+	if id := cloudallyStoreScopeIdentity(env); id != "" {
+		t.Fatalf("identity %q for an environment token", id)
 	}
-	if id := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "cid", "token-A")); id != "" {
-		t.Fatalf("identity %q came from a record without a fingerprint", id)
+	if env.StoreScopeCredential() != env.StoreScopeLegacyCredential() {
+		t.Fatal("an environment token should keep the generated per-token key")
 	}
+	if err := requireBoundStoreScope(); err != nil {
+		t.Fatalf("an environment token is per-token by design: %v", err)
+	}
+	t.Setenv("CLOUDALLY_ACCESS_TOKEN", "")
 
-	// No client id, or a raw auth header, also keeps the generated key.
-	bindSidecar(t, authScopePartner, "token-A", principalPartner)
-	if id := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "", "token-A")); id != "" {
-		t.Fatalf("identity without a client id = %q", id)
-	}
 	withHeader := scopeConfig(scopeAPI, "cid", "token-A")
 	withHeader.AuthHeaderVal = "Bearer other"
 	if id := cloudallyStoreScopeIdentity(withHeader); id != "" {
 		t.Fatalf("identity under a raw auth header = %q", id)
+	}
+	if err := requireBoundStoreScope(); err != nil {
+		t.Fatalf("a raw auth header is per-token by design: %v", err)
+	}
+
+	// A known token whose user is not known.
+	bindSidecar(t, authScopeAccount, "token-C", "")
+	if id := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "cid", "token-C")); id != "" {
+		t.Fatalf("identity %q for a token with no known user", id)
+	}
+	if err := requireBoundStoreScope(); err != nil {
+		t.Fatalf("a known token with no user is per-token by design: %v", err)
 	}
 }
 
@@ -176,7 +196,7 @@ func TestStoreScopeAdoptsTokenNamedStore(t *testing.T) {
 	if got := storePathFor(cfg, dir); got != legacy {
 		t.Fatalf("without a vouching record the store should be the per-token one: %s", filepath.Base(got))
 	}
-	bindSidecar(t, authScopePartner, "token-A", principalPartner)
+	bindSidecar(t, authScopePartner, "token-A", testPartner)
 	if err := os.WriteFile(legacy, []byte("existing ledger"), 0o600); err != nil {
 		t.Fatalf("seed legacy store: %v", err)
 	}
@@ -192,7 +212,7 @@ func TestStoreScopeAdoptsTokenNamedStore(t *testing.T) {
 	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
 		t.Fatalf("the token-named store is still on disk: %v", err)
 	}
-	bindSidecar(t, authScopePartner, "token-B", principalPartner)
+	bindSidecar(t, authScopePartner, "token-B", testPartner)
 	if got := storePathFor(scopeConfig(scopeAPI, "cid", "token-B"), dir); got != stable {
 		t.Fatalf("after adoption a rotated token moved the store: %s -> %s", filepath.Base(stable), filepath.Base(got))
 	}
@@ -352,7 +372,7 @@ func TestUseAccountRefreshNeverFilesACompanyTokenAsPartner(t *testing.T) {
 		t.Fatalf("the refreshed company token moved off the company store: %s -> %s", filepath.Base(companyStore), filepath.Base(got))
 	}
 	actx, _ := loadAuthContext()
-	if actx.stashIsPartner(bindingFor(cfg)) {
+	if actx.stashPrincipal(bindingFor(cfg)) != "" {
 		t.Fatalf("a company token was kept as a verified partner session: %+v", actx)
 	}
 }
@@ -395,7 +415,7 @@ func TestRefreshOfAnotherTokenLeavesThePartnerSessionAlone(t *testing.T) {
 		t.Fatalf("refresh: %v", err)
 	}
 	actx, ok := loadAuthContext()
-	if !ok || actx.PartnerAccessToken != "partner-access" || !actx.stashIsPartner(bindingFor(other)) {
+	if !ok || actx.PartnerAccessToken != "partner-access" || actx.stashPrincipal(bindingFor(other)) != testPartner {
 		t.Fatalf("the refresh of another token rewrote the partner session: %+v", actx)
 	}
 	if id := cloudallyStoreScopeIdentity(other); id != "" {
@@ -466,7 +486,7 @@ func TestRefreshWithAnotherSessionsRefreshTokenIsNotBound(t *testing.T) {
 		if id := cloudallyStoreScopeIdentity(cfg); id != "" {
 			t.Fatalf("%s: the token minted from another session's refresh token resolved to %q", where, id)
 		}
-		if actx, ok := loadAuthContext(); ok && actx.PartnerAccessToken == "company-rotated" && actx.stashIsPartner(bindingFor(cfg)) {
+		if actx, ok := loadAuthContext(); ok && actx.PartnerAccessToken == "company-rotated" && actx.stashPrincipal(bindingFor(cfg)) != "" {
 			t.Fatalf("%s: that token was kept as a verified partner session", where)
 		}
 	}
@@ -495,21 +515,22 @@ func TestRefreshWithAnotherSessionsRefreshTokenIsNotBound(t *testing.T) {
 	}
 }
 
-// Codex round three: a binding names the API origin and client id it was
-// made under, so the same token under another client id or API origin
-// does not open that principal's store.
-func TestBindingIsTiedToClientAndOrigin(t *testing.T) {
+// A binding names the API origin it was made under, so the same token under
+// another API origin does not open that user's store. The API client id is
+// not part of it: the same user with a rotated key pair keeps the store.
+func TestBindingIsTiedToOriginNotKeyPair(t *testing.T) {
 	isolateAuthState(t)
 	resetStoreScope(t)
-	bindSidecar(t, authScopePartner, "token-A", principalPartner)
-	if id := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "cid", "token-A")); id == "" {
+	bindSidecar(t, authScopePartner, "token-A", testPartner)
+	id := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "cid", "token-A"))
+	if id == "" {
 		t.Fatal("the bound token should resolve")
 	}
-	if id := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "client-B", "token-A")); id != "" {
-		t.Fatalf("the token resolved under another client id: %q", id)
+	if got := cloudallyStoreScopeIdentity(scopeConfig(scopeAPI, "client-B", "token-A")); got != id {
+		t.Fatalf("the same user under another key pair resolved to %q, want %q", got, id)
 	}
-	if id := cloudallyStoreScopeIdentity(scopeConfig("https://other-region.example.test", "cid", "token-A")); id != "" {
-		t.Fatalf("the token resolved under another API origin: %q", id)
+	if got := cloudallyStoreScopeIdentity(scopeConfig("https://other-region.example.test", "cid", "token-A")); got != "" {
+		t.Fatalf("the token resolved under another API origin: %q", got)
 	}
 }
 

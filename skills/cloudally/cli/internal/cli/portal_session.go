@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -140,18 +141,52 @@ const cloudallyDefaultAPIHost = "api.cloudally.com"
 // refused and names the variable to set. --portal-url at its default value
 // counts as unset, because the flag cannot tell "not passed" from "passed
 // the default".
+//
+// Whatever is chosen must be https, except on a loopback host (a local test
+// portal): the single-use handoff token travels in the URL, so a plain-http
+// portal anywhere else would send it in cleartext. This is checked here,
+// before the token is minted.
 func resolvePortalURL(flagValue, apiBaseURL string) (string, error) {
 	if v := strings.TrimSpace(flagValue); v != "" && !strings.EqualFold(strings.TrimRight(v, "/"), portal.DefaultBaseURL) {
-		return v, nil
+		return checkPortalURL(v, "--portal-url")
 	}
 	if v := strings.TrimSpace(cliutil.EnvOverride(cloudallyPortalURLEnv)); v != "" {
-		return v, nil
+		return checkPortalURL(v, cloudallyPortalURLEnv)
 	}
 	if isDefaultCloudallyAPI(apiBaseURL) {
 		return portal.DefaultBaseURL, nil
 	}
 	return "", usageErr(fmt.Errorf("the API base URL (CLOUDALLY_BASE_URL or base_url in the config) points at %s, not %s, so the customer portal cannot be assumed to be %s: the portal handoff token would be minted by one service and spent at another. Set %s (or --portal-url) to the portal that belongs to this API; set it to %s only if that really is the matching portal",
 		describeOrigin(apiBaseURL), cloudallyDefaultAPIHost, portal.DefaultBaseURL, cloudallyPortalURLEnv, portal.DefaultBaseURL))
+}
+
+// checkPortalURL accepts an https portal origin, or http on a loopback
+// host. source names where the value came from, for the message.
+func checkPortalURL(raw, source string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.Hostname() == "" {
+		return "", usageErr(fmt.Errorf("%s must be a portal origin such as https://app.cloudally.com, got %q", source, describeOrigin(raw)))
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return raw, nil
+	case "http":
+		if isLoopbackHost(u.Hostname()) {
+			return raw, nil
+		}
+		return "", usageErr(fmt.Errorf("%s is %s: the portal handoff token is sent in the URL, so the portal must use https (plain http is accepted only on a loopback test host)", source, describeOrigin(raw)))
+	default:
+		return "", usageErr(fmt.Errorf("%s has scheme %q; the portal must use https", source, u.Scheme))
+	}
+}
+
+// isLoopbackHost reports whether host is localhost or a loopback address.
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // isDefaultCloudallyAPI reports whether baseURL is the production API over

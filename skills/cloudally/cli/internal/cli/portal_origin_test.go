@@ -113,3 +113,77 @@ func TestPortalHandoffStaysWithANonDefaultAPI(t *testing.T) {
 		t.Fatalf("mints = %d, want 1", n)
 	}
 }
+
+// Round two, item 4: the handoff token travels in the portal URL, so a
+// portal override must be https unless it is a loopback test host, and the
+// check runs before any token is minted.
+func TestPortalURLMustBeHTTPS(t *testing.T) {
+	const api = "https://api.cloudally.com"
+	cases := []struct {
+		flag, env string
+		ok        bool
+	}{
+		{env: "http://10.255.255.1", ok: false},
+		{env: "http://portal.example.test", ok: false},
+		{flag: "http://10.0.0.5:8080", ok: false},
+		{env: "ftp://portal.example.test", ok: false},
+		{env: "portal.example.test", ok: false},
+		{env: "https://portal.example.test", ok: true},
+		{env: "http://127.0.0.1:18080", ok: true},
+		{env: "http://localhost:18080", ok: true},
+		{flag: "http://[::1]:18080", ok: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.flag+tc.env, func(t *testing.T) {
+			t.Setenv(cloudallyPortalURLEnv, tc.env)
+			flag := tc.flag
+			if flag == "" {
+				flag = portal.DefaultBaseURL
+			}
+			got, err := resolvePortalURL(flag, api)
+			if tc.ok {
+				if err != nil {
+					t.Fatalf("want accepted, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("want refused, got %q", got)
+			}
+			if cliErrCode(t, err) != 2 {
+				t.Fatalf("want a usage error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestPlainHTTPPortalIsRefusedBeforeMinting(t *testing.T) {
+	isolateAuthState(t)
+	var mints atomic.Int32
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/partner-access-token") {
+			mints.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"accessToken":"single-use-handoff"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer api.Close()
+	var opened []string
+	orig := openPortal
+	openPortal = func(_ context.Context, cfg portal.Config, _ string) (*portal.Session, error) {
+		opened = append(opened, cfg.BaseURL)
+		return nil, errors.New("recorder: no network")
+	}
+	t.Cleanup(func() { openPortal = orig })
+
+	t.Setenv(cloudallyPortalURLEnv, "http://10.255.255.1")
+	c := client.New(&config.Config{BaseURL: api.URL, AccessToken: "partner-token", ClientID: "cid", ClientSecret: "csecret"}, 5*time.Second, 0)
+	if _, err := openPortalSession(context.Background(), c, restoreScope{account: "5f1c2a"}, portal.DefaultBaseURL); err == nil {
+		t.Fatal("a plain-http portal was accepted")
+	}
+	if n := mints.Load(); n != 0 || len(opened) != 0 {
+		t.Fatalf("handoff tokens minted = %d, sessions opened at %q; want none", n, opened)
+	}
+}
