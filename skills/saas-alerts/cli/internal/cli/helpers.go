@@ -1030,7 +1030,7 @@ func classifyHTMLTransportError(err error) error {
 		return classified
 	}
 	if htmlLooksLikeAuthFailure(evidence) {
-		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""))
+		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"))
 	}
 	return apiErr(fmt.Errorf("%w\nhint: the request may have reached a web page or the wrong endpoint", err))
 }
@@ -1058,21 +1058,21 @@ func classifyAPIErrorOnly(err error) error {
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""+
+			"\n      Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"+
 			"\n      In SaaS Alerts open Settings > API and click Show key under Manage API."+
 			"\n      Run 'saas-alerts-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your API key."+
-			" Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""+
+			" Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"+
 			"\n      In SaaS Alerts open Settings > API and click Show key under Manage API."+
 			"\n      Run 'saas-alerts-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
-			"\n      Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""+
+			"\n      Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"+
 			"\n      In SaaS Alerts open Settings > API and click Show key under Manage API."+
 			"\n      Run 'saas-alerts-cli doctor' to check auth status.", err))
@@ -4318,7 +4318,7 @@ func nonJSONPayloadError(data json.RawMessage) error {
 	}
 	if len(trimmed) > 0 && trimmed[0] == '<' {
 		if htmlLooksLikeAuthFailure(trimmed) {
-			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""))
+			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"))
 		}
 		return apiErr(fmt.Errorf("API returned HTML instead of JSON; the request may have reached a web page or the wrong endpoint"))
 	}

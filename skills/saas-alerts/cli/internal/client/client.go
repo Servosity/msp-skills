@@ -1660,7 +1660,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export SAAS_ALERTS_API_KEY=<your-token-here> or echo \"$TOKEN\" | saas-alerts-cli auth set-token")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export SAAS_ALERTS_API_KEY=<your-token-here> (PowerShell: $env:SAAS_ALERTS_API_KEY = \"<your-token-here>\") or echo \"$TOKEN\" | saas-alerts-cli auth set-token")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

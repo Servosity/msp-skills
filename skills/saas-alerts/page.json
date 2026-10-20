@@ -85,7 +85,7 @@
     },
     {
       "q": "Do Respond triggers expire?",
-      "a": "Yes. The Respond API documents that a manual approval expires after 12 hours or when the rule triggers again, whichever is earlier, and the SaaS Alerts help center says a failed remediation is automatically ignored after the third 15-minute reminder. rule-triggers queue lists pending and failed triggers by that deadline, with the actions an approval would fire, and rule-triggers decide skips expired or superseded triggers unless you pass --include-expired."
+      "a": "Yes. The Respond API documents that a manual approval expires after 12 hours or when the rule triggers again, whichever is earlier, and the SaaS Alerts help center says a failed remediation is automatically ignored after the third 15-minute reminder. rule-triggers queue lists pending and failed triggers by that deadline, with the actions an approval would fire, and rule-triggers decide skips expired or superseded triggers unless you pass --include-expired. The API does not say whether \"triggers again\" means anywhere or for the same customer, so the CLI counts a trigger as superseded only by a newer one of the same rule for the same organization and accounts: it may show a trigger Respond already expired (Respond then refuses the approve), but it never hides a live one."
     },
     {
       "q": "Why does triage say synced: false?",

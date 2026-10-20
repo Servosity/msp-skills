@@ -69,7 +69,7 @@ func newNovelCrossTenantCmd(flags *rootFlags) *cobra.Command {
 		Long: "Use this command to find one IP, ASN or country hitting several customers. Do NOT use this command for a single account's sign-in sources; use 'investigate' instead.\n\n" +
 			"An event is excluded only when its source is on that event's own customer whitelist for the chosen --by dimension: ipRanges for ip, asnList for asn (whitelist entries carry no AS number, so they match by ASN name), countries for country. " +
 			"Partner-inherited whitelists are not applied. --include-whitelisted keeps every event.\n\n" +
-			"Reads the local store only: run 'saas-alerts-cli sync --resources customers,events' first. synced is false (with a note) when events were never synced.",
+			"Reads the local store only: run 'saas-alerts-cli sync --resources customers,events' first. synced is false (with a note) when events were never synced or the last events sync did not finish.",
 		Example: strings.Trim(`
   saas-alerts-cli cross-tenant --by ip --since 24h --min-customers 2 --agent
   saas-alerts-cli cross-tenant --by asn --since 7d --min-customers 3
@@ -124,8 +124,9 @@ func newNovelCrossTenantCmd(flags *rootFlags) *cobra.Command {
 			}
 			saasLocalSyncHints(cmd, db, flags, "events")
 			unsynced := saasUnsyncedResources(db, "events")
-			result.Synced = len(unsynced) == 0
-			result.Note = saasUnsyncedNote(unsynced, saasCrossTenantSyncResources)
+			gaps, incomplete := saasSyncGaps(db, unsynced, "events") // saas-alerts hand-fix: an unfinished sync is not synced
+			result.Synced = len(gaps) == 0
+			result.Note = saasSyncGapNote(unsynced, incomplete, saasCrossTenantSyncResources)
 			saasBuildCrossTenant(&result, events, customers, flagIncludeWhitelisted, flagLimit)
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {

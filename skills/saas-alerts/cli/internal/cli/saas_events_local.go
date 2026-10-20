@@ -25,6 +25,7 @@ import (
 	"math"
 	"net/netip"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -725,6 +726,52 @@ func saasUnsyncedResources(db *store.Store, resources ...string) []string {
 	return missing
 }
 
+// saasIncompleteResources lists resources that were synced before but whose
+// latest sync attempt did not finish (sync_state.last_attempt_complete = 0): a
+// page-capped auto-refresh, --max-pages, or an interrupted or rejected sync
+// left newer rows unfetched. Reporting such a store as synced would present a
+// partial window as complete, so callers fold these into synced:false.
+func saasIncompleteResources(db *store.Store, resources ...string) []string {
+	var incomplete []string
+	if db == nil {
+		return incomplete
+	}
+	for _, r := range resources {
+		var complete int
+		err := db.DB().QueryRow(`SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, r).Scan(&complete)
+		if err == nil && complete == 0 {
+			incomplete = append(incomplete, r)
+		}
+	}
+	return incomplete
+}
+
+// saasSyncGaps returns the never-synced and the incompletely synced resources,
+// the never-synced ones first, without duplicates.
+func saasSyncGaps(db *store.Store, unsynced []string, resources ...string) (gaps, incomplete []string) {
+	gaps = append(make([]string, 0, len(unsynced)), unsynced...)
+	for _, r := range saasIncompleteResources(db, resources...) {
+		if !slices.Contains(unsynced, r) {
+			incomplete = append(incomplete, r)
+			gaps = append(gaps, r)
+		}
+	}
+	return gaps, incomplete
+}
+
+// saasSyncGapNote explains synced:false: never-synced resources first, then
+// resources whose last sync did not finish. Empty when there is no gap.
+func saasSyncGapNote(unsynced, incomplete []string, syncResources string) string {
+	if len(unsynced) > 0 {
+		return saasUnsyncedNote(unsynced, syncResources)
+	}
+	if len(incomplete) == 0 {
+		return ""
+	}
+	list := strings.Join(incomplete, ",")
+	return fmt.Sprintf("the last %s sync did not finish, so newer rows may be missing from these results; run: %s sync --resources %s", strings.Join(incomplete, ", "), saasLocalCLIName, list)
+}
+
 // saasUnsyncedNote explains an empty result from a never-synced store so it
 // does not read as all-clear. Empty when nothing is missing.
 func saasUnsyncedNote(missing []string, syncResources string) string {
@@ -735,7 +782,7 @@ func saasUnsyncedNote(missing []string, syncResources string) string {
 	if n := len(missing); n > 1 {
 		list = strings.Join(missing[:n-1], ", ") + " or " + missing[n-1]
 	}
-	return fmt.Sprintf("local store has no synced %s; run: %s sync --resources %s --since 7d", list, saasLocalCLIName, syncResources)
+	return fmt.Sprintf("local store has no synced %s; run: %s sync --resources %s --since 24h (the events search stops at 10,000 rows per sync, so start with a short window)", list, saasLocalCLIName, syncResources)
 }
 
 // saasLocalSyncHints emits the unsynced-or-stale hint for the primary resource.

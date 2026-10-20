@@ -197,7 +197,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
 						report["auth"] = "not configured"
-						report["auth_hint"] = "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""
+						report["auth_hint"] = "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"
 						report["auth_key_url"] = "https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"
 						report["auth_instructions"] = "In SaaS Alerts open Settings > API and click Show key under Manage API."
 					} else {
@@ -206,7 +206,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						report["auth_source"] = authSource
 						if expiresAt, _, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok && expired {
 							report["auth"] = "ERROR token expired at " + expiresAt
-							report["auth_hint"] = "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\""
+							report["auth_hint"] = "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"
 						}
 					}
 				}

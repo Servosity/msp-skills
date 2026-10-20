@@ -47,6 +47,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
 			fmt.Fprintln(w, "  export SAAS_ALERTS_API_KEY=\"your-token-here\"")
+			fmt.Fprintln(w, "  PowerShell:  $env:SAAS_ALERTS_API_KEY = \"your-token-here\"")
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | saas-alerts-cli auth set-token")
 			if !launch {
 				return nil
@@ -142,6 +143,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
 				fmt.Fprintln(w, "  export SAAS_ALERTS_API_KEY=\"your-token-here\" # Partner API key from SaaS Alerts Settings > API (Show key under Manage API).")
+				fmt.Fprintln(w, "  PowerShell:  $env:SAAS_ALERTS_API_KEY = \"your-token-here\"")
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | saas-alerts-cli auth set-token\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -152,7 +154,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")")
 				}
 			}
 			return nil

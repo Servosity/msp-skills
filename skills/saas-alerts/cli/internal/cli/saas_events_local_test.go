@@ -624,9 +624,9 @@ func TestSaasUnsyncedStoreIsNotAllClear(t *testing.T) {
 	rowsNoState := saasSeedFixture(t, false)
 
 	const (
-		triageNote   = "local store has no synced events; run: saas-alerts-cli sync --resources customers,events --since 7d"
-		investNote   = "local store has no synced events, users, rule-triggers, suppressions or devices; run: saas-alerts-cli sync --resources customers,events,rule-triggers,suppressions,devices --since 7d"
-		coverageNote = "local store has no synced customers, events, organizations or rules; run: saas-alerts-cli sync --resources customers,events,organizations,organizations-disconnected,rules --since 7d"
+		triageNote   = "local store has no synced events; run: saas-alerts-cli sync --resources customers,events --since 24h (the events search stops at 10,000 rows per sync, so start with a short window)"
+		investNote   = "local store has no synced events, users, rule-triggers, suppressions or devices; run: saas-alerts-cli sync --resources customers,events,rule-triggers,suppressions,devices --since 24h (the events search stops at 10,000 rows per sync, so start with a short window)"
+		coverageNote = "local store has no synced customers, events, organizations or rules; run: saas-alerts-cli sync --resources customers,events,organizations,organizations-disconnected,rules --since 24h (the events search stops at 10,000 rows per sync, so start with a short window)"
 	)
 	type syncedEnvelope struct {
 		Synced bool   `json:"synced"`

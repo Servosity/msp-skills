@@ -350,13 +350,17 @@ func rqFormatTime(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 func rqStringPtr(s string) *string { return &s }
 
 // rqAnnotate computes per-trigger deadlines against now. Supersession looks
-// only at triggers in the given set: a newer trigger for the same rule.id that
+// only at triggers in the given set: a newer trigger for the same key that
 // was filtered out (other status, other org, beyond --max-pages) is invisible.
-// UNVERIFIED: supersession is keyed by rule.id alone, reading the Respond spec
-// ("auto expire when the rule triggers again") as rule-wide. If Respond scopes
-// it per organization or account, an org-wide rule firing for one customer
-// wrongly expires another customer's pending approval; confirm against a live
-// tenant before narrowing the key (polish 2026-10-14, output-review finding).
+// UNVERIFIED scope, keyed conservatively (saas-alerts hand-fix, adversarial
+// review 2026-10-20): the Respond spec says only "auto expire when the rule
+// triggers again", without saying whether that is rule-wide or per customer.
+// Keying by rule.id alone let one customer's firing hide another customer's
+// live approval (expired_count, skipped by decide). The key is rule.id plus
+// organization.id plus the trigger's accounts, so an unverified reading can
+// only err toward showing a trigger Respond already expired, whose approve the
+// API then refuses, never toward hiding a live one. Widen it only against a
+// live tenant.
 func rqAnnotate(triggers []rqTrigger, now time.Time) []rqQueueItem {
 	type stamp struct {
 		at time.Time
@@ -371,7 +375,7 @@ func rqAnnotate(triggers []rqTrigger, now time.Time) []rqQueueItem {
 		if at.IsZero() {
 			continue
 		}
-		byRule[t.Rule.ID] = append(byRule[t.Rule.ID], stamp{at: at, id: t.ID})
+		byRule[rqSupersessionKey(t)] = append(byRule[rqSupersessionKey(t)], stamp{at: at, id: t.ID})
 	}
 
 	items := make([]rqQueueItem, 0, len(triggers))
@@ -407,7 +411,7 @@ func rqAnnotate(triggers []rqTrigger, now time.Time) []rqQueueItem {
 			expires := at.Add(rqManualApprovalWindow)
 			reason := "12h"
 			var newer stamp
-			for _, s := range byRule[t.Rule.ID] {
+			for _, s := range byRule[rqSupersessionKey(t)] {
 				if s.id == t.ID || !s.at.After(at) {
 					continue
 				}
@@ -989,4 +993,12 @@ func rqHumanLeft(left *int64) string {
 		return "expired " + s + " ago"
 	}
 	return s
+}
+
+// rqSupersessionKey scopes "the rule triggers again" to one rule firing for one
+// organization and the same accounts (see rqAnnotate).
+func rqSupersessionKey(t rqTrigger) string {
+	accounts := append([]string(nil), t.accountEmails()...)
+	sort.Strings(accounts)
+	return t.Rule.ID + "\x00" + t.Organization.ID + "\x00" + strings.Join(accounts, ",")
 }

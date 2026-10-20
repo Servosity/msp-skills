@@ -134,10 +134,17 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your SaaS Alerts portal):
+Set the partner API key from the SaaS Alerts dashboard (**Settings > API**, **Show Api Key**):
 
 ```bash
 SAAS_ALERTS_API_KEY=<value> saas-alerts-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:SAAS_ALERTS_API_KEY = "<value>"
+saas-alerts-cli doctor
 ```
 
 `doctor` checks config, paths and API reachability, and sends the key to the Reports API's partner profile endpoint, so a rejected key shows up as a `Credentials: invalid` row. It exits 0 even then, so scripts should add `--fail-on error`. The Respond access token is minted on the first Respond call, not by `doctor`; `saas-alerts-cli respond status` confirms Respond works end to end.
@@ -164,11 +171,11 @@ Most SaaS Alerts integrations and MCP servers proxy each question into a live AP
 
 This skill syncs customers, events, users and Respond triggers into a **local SQLite store**, so `triage`, `cross-tenant`, `investigate` and `coverage` answer across every customer in one local query, and say `synced: false` instead of an empty all-clear when the data was never synced. It covers all four SaaS Alerts APIs with one partner key: it mints the Respond access token itself (Respond answers "Only secure origins are allowed" to a call that carries only the API key), works the Respond queue by deadline with `rule-triggers queue`, and previews every change `rule-triggers decide` and `contain` would make until you add `--confirm`.
 
-[WYRE-AI's saas-alerts-mcp](https://github.com/WYRE-AI/saas-alerts-mcp), which also backs the SaaS Alerts plugin in their msp-claude-plugins marketplace, exposes the SaaS Alerts External Partner API as 30 tools across customers, events, users, devices, billing, scheduled reports and partner settings, with no Respond, suppression or webhook tools. This one adds Respond, suppressions and webhooks, and runs on your machine with your own key. It complements the SaaS Alerts dashboard rather than replacing it: the dashboard stays the place to configure monitoring, review alerts and set up Respond.
+[WYRE-AI's saas-alerts-mcp](https://github.com/WYRE-AI/saas-alerts-mcp), which also backs the SaaS Alerts plugin in their msp-claude-plugins marketplace, exposes the SaaS Alerts External Partner API as 30 tools across customers, events, users, devices, billing, scheduled reports and partner settings, with no Respond, suppression or webhook tools; it runs locally with your own key, or through WYRE's hosted Conduit gateway when used from their plugin. This one adds Respond, suppressions and webhooks. It complements the SaaS Alerts dashboard rather than replacing it: the dashboard stays the place to configure monitoring, review alerts and set up Respond.
 
 ## The pain this closes
 
-SaaS Alerts' Respond module is on a clock. The Respond API documents that a manual approval "will auto expire when the rule triggers again or 12 hours whichever is earlier", and the SaaS Alerts help center ([Analyzing a Respond trigger](https://help.saasalerts.kaseya.com/help/Content/How-To/analyzing-a-respond-trigger.htm)) says a failed remediation is reminded every 15 minutes and automatically ignored after the third reminder. Across many customers, the hard part is knowing which decision lapses first. Scripts that try to help hit a second credential: Respond wants a short-lived access token minted from the partner key, and a call without it fails with "Only secure origins are allowed". In the r/msp thread ["Kaseya Saas Alerts API"](https://www.reddit.com/r/msp/comments/1p9dbc1/kaseya_saas_alerts_api/) MSPs spent weeks on that error, suspecting CORS, before finding they had to POST to the auth endpoint first. And the alert volume is real: MSP reviewers of SaaS Alerts on [G2](https://www.g2.com/products/saas-alerts/reviews) describe a flood of notifications until the configuration is tuned and false positives you learn to filter out over time.
+SaaS Alerts' Respond module is on a clock. The Respond API documents that a manual approval "will auto expire when the rule triggers again or 12 hours whichever is earlier", and the SaaS Alerts help center ([Analyzing a Respond trigger](https://help.saasalerts.kaseya.com/help/Content/How-To/analyzing-a-respond-trigger.htm)) says a failed remediation is reminded every 15 minutes and automatically ignored after the third reminder. Across many customers, the hard part is knowing which decision lapses first. Scripts that try to help hit a second credential: Respond wants a short-lived access token minted from the partner key, and a call without it fails with "Only secure origins are allowed". In the r/msp thread ["Kaseya Saas Alerts API"](https://www.reddit.com/r/msp/comments/1p9dbc1/kaseya_saas_alerts_api/) an MSP got that error on every call, another replied they had been "banging my head against this same issue for weeks", suspecting CORS, and the fix the thread landed on was to POST to the auth endpoint first and send the access token. And the alert volume is real: MSP reviewers of SaaS Alerts on [G2](https://www.g2.com/products/saas-alerts/reviews) describe a flood of notifications until the configuration is tuned and false positives you learn to filter out over time.
 
 - `saas-alerts-cli triage --since 24h` - one severity-ordered digest across every customer, grouped by customer, account and event type.
 - `saas-alerts-cli rule-triggers queue --expiring-within 2h` - pending and failed Respond triggers by how soon they expire or auto-ignore, with the actions an approval would fire.
@@ -247,7 +254,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Status
 
-Beta. Validated against the SaaS Alerts API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Beta. Built and tested against SaaS Alerts' published API specs and local mock servers; not yet run against a live SaaS Alerts tenant. Be the first: bring it to our weekly Build Sessions and run it against your own tenant. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

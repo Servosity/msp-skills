@@ -404,7 +404,7 @@
     },
     {
       "id": "generated-doc-corrections",
-      "summary": "the re-vendored SKILL.md, guide.md and AGENTS.md carry the msp-skills corrections: SKILL.md description leads with 'Use when the user asks about', the H1 drops the press brand, the unpublished EU host is not presented as a known base URL, guide.md gives the Windows step for a pre-built binary, and AGENTS.md has no TODO marker",
+      "summary": "the re-vendored SKILL.md, guide.md and AGENTS.md carry the msp-skills corrections: SKILL.md description leads with 'Use when the user asks about', the H1 drops the press brand, the unpublished EU host is not presented as a known base URL, guide.md gives the Windows step for a pre-built binary, and AGENTS.md has no TODO marker; the key setup and install check carry PowerShell twins",
       "why": "onboard.py --resume re-vendors SKILL.md, guide.md and AGENTS.md from the press source on every run, silently reverting these edits. The press research (cli-factory saas-alerts research) found only a release-note hint of a Germany instance and no published EU base URL, so 'EU-instance partners can point SAAS_ALERTS_BASE_URL at their host' overstated it. Re-apply after any re-vendor; the build-pane doc fixes live in ~/Documents/Dev/cli-factory/saas-alerts/handfixes/apply_doc_patch.py.",
       "status": "active",
       "asserts": [
@@ -435,6 +435,106 @@
         {
           "file": "AGENTS.md",
           "not_contains": "TODO stubs"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "PowerShell: `$env:SAAS_ALERTS_API_KEY = \"<key>\"`"
+        },
+        {
+          "file": "guide.md",
+          "contains": "PowerShell: `$env:SAAS_ALERTS_API_KEY = \"<key>\"`"
+        }
+      ]
+    },
+    {
+      "id": "unfinished-sync-is-not-synced",
+      "summary": "triage, cross-tenant, investigate and coverage report synced:false (with a 'the last <resource> sync did not finish' note, and the resource in unsynced_resources) when a checked resource's latest sync attempt did not finish, not only when it was never synced",
+      "why": "In the default auto data source a stale store triggers a bounded, page-capped refresh: one page of the 100 newest events since the last sync. With more new events than that, the store missed every older one, yet triage said synced:true and the digest silently dropped critical alerts for whole customers (adversarial review 2026-10-20, P1; mock receipt: 3 of 4 criticals, synced:true). saasIncompleteResources reads sync_state.last_attempt_complete; a fully fetched refresh still marks the attempt complete (verified), so this does not false-RED a healthy store, and `sync --resources events` closes the gap (verified 180/180). TestSaasIncompleteSyncIsNotSynced fails with the check disabled (proven 2026-10-20). The never-synced remedy also moved from --since 7d to --since 24h because the events search stops at 10,000 rows per sync.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasIncompleteResources(db *store.Store, resources ...string) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, \"events\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cross_tenant.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, \"events\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, saasCoverageCheckedResources...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "gaps, incomplete := saasSyncGaps(db, unsynced, saasInvestigateCheckedResources...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_incomplete_test.go",
+          "contains": "func TestSaasIncompleteSyncIsNotSynced(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "respond-supersession-scoped-to-org-and-accounts",
+      "summary": "a PENDING Respond trigger counts as superseded only by a newer trigger of the same rule for the same organization and accounts",
+      "why": "The Respond spec says only that a manual approval expires 'when the rule triggers again or 12 hours whichever is earlier', without the scope. Keying by rule id alone let one customer's firing mark another customer's live approval expired: rule-triggers queue hid it (expired_count only) and rule-triggers decide skipped it, so a compromised account could stay unblocked (adversarial review 2026-10-20, mock receipt). The narrow key can only err toward showing a trigger Respond already expired, whose approve the API refuses. Widen it only against a live tenant. TestRespondSupersessionNeverHidesAnotherCustomer fails with the rule-only key (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_respond_queue.go",
+          "contains": "return t.Rule.ID + \"\\x00\" + t.Organization.ID + \"\\x00\" + strings.Join(accounts, \",\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_queue.go",
+          "contains": "for _, s := range byRule[rqSupersessionKey(t)] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_supersede_test.go",
+          "contains": "func TestRespondSupersessionNeverHidesAnotherCustomer(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-hints-windows-twin",
+      "summary": "every press auth hint that prints `export SAAS_ALERTS_API_KEY=...` also prints the PowerShell form, and auth setup prints a PowerShell line",
+      "why": "Windows is the primary MSP platform and the generated hints (auth setup, auth status, doctor auth_hint, the HTML-instead-of-JSON and 401 hints, the placeholder-credential error) were POSIX-only (adversarial review 2026-10-20, P2). Same pattern as backup-radar's auth-hints-windows-twin.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "fmt.Fprintln(w, \"  PowerShell:  $env:SAAS_ALERTS_API_KEY = \\\"your-token-here\\\"\")",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"your-token-here\\\")",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"your-token-here\\\")",
+          "min_count": 5,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"<your-token-here>\\\")",
+          "code_only": true
         }
       ]
     }

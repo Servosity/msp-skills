@@ -289,7 +289,7 @@ The default run, without --confirm, is a preview: it fetches the selected trigge
 	cmd.Flags().StringVar(&flagRemarks, "remarks", "", "Remarks sent with reject, ignore and manually-remediate (approve takes no body)")
 	cmd.Flags().BoolVar(&flagConfirm, "confirm", false, "Apply the decisions; without it the command only previews")
 	cmd.Flags().BoolVar(&flagAllowDestructive, "allow-destructive", false, "Allow approving triggers whose rule fires Reset User Password or Delete User")
-	cmd.Flags().BoolVar(&flagIncludeExpired, "include-expired", false, "Also act on PENDING triggers past their 12h window or superseded by a newer trigger of the same rule")
+	cmd.Flags().BoolVar(&flagIncludeExpired, "include-expired", false, "Also act on PENDING triggers past their 12h window or superseded by a newer trigger of the same rule for the same organization and accounts")
 	cmd.Flags().IntVar(&flagMaxPages, "max-pages", rqDefaultMaxPages, "Maximum pages of live rule triggers to fetch (100 per page)")
 	cmd.Flags().StringVar(&flagDB, "db", "", "Local store that receives decision receipts (default: the CLI's local store)")
 	return cmd
@@ -390,7 +390,7 @@ func rtPlanDecisions(ctx context.Context, c *client.Client, opts rtDecideOptions
 		if strings.EqualFold(t.Status, "PENDING") && item.Expired && !opts.includeExpired {
 			reason, detail := rtSkipExpired12h, "the 12h manual-approval window has passed"
 			if item.ExpiryReason == "superseded" {
-				reason, detail = rtSkipExpiredSuper, "superseded by newer trigger "+item.SupersededBy+" of the same rule"
+				reason, detail = rtSkipExpiredSuper, "superseded by newer trigger "+item.SupersededBy+" of the same rule for the same organization and accounts"
 			}
 			if item.ExpiresAt != nil {
 				detail += " (expired " + *item.ExpiresAt + ")"
