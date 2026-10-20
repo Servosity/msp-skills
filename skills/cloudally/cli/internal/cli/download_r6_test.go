@@ -226,6 +226,11 @@ func TestEmptyInferenceAgainstABruteForceOracle(t *testing.T) {
 		createdEmpty
 		withFiles
 		late
+		// lateAfterLag: an earlier row accepted more than reconcileDelay
+		// before the window (not yet stale) whose job is counted inside
+		// it. The guard's lag clause does not see it; only the batch's
+		// own REQUESTED row (and the fresh-claim clause) can.
+		lateAfterLag
 	)
 	const (
 		noOther = iota
@@ -246,7 +251,7 @@ func TestEmptyInferenceAgainstABruteForceOracle(t *testing.T) {
 	var shapes []pRow
 	for _, now := range []bool{true, false} {
 		for resp := accepted; resp <= refused; resp++ {
-			for effect := dropped; effect <= late; effect++ {
+			for effect := dropped; effect <= lateAfterLag; effect++ {
 				if resp == refused && effect != dropped {
 					continue
 				}
@@ -288,6 +293,8 @@ func TestEmptyInferenceAgainstABruteForceOracle(t *testing.T) {
 			case !r.now && r.effect == late:
 				w.delta++                 // an earlier create landing inside the window
 				w.outsideUnsettled = true // its claim: UNKNOWN, or accepted just before
+			case !r.now && r.effect == lateAfterLag:
+				w.delta++ // counted late; worst case, no guard flag
 			}
 			if !r.now && r.resp == lost {
 				w.outsideUnsettled = true // an UNKNOWN claim outside this run
@@ -470,7 +477,7 @@ func TestCountActivitySeesOnlyWhatCanMoveTheCount(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	long := since.Add(-time.Hour)
+	long := since.Add(-2 * time.Hour)
 	for _, tc := range []struct {
 		name               string
 		state, job, owner  string
@@ -479,7 +486,10 @@ func TestCountActivitySeesOnlyWhatCanMoveTheCount(t *testing.T) {
 	}{
 		{"unknown long ago", dgUnknown, "", "other", long, true, false},
 		{"in flight", dgInFlight, "", "other", long, true, false},
-		{"accepted long ago", dgCreated, "", "other", long, false, false},
+		{"accepted long ago (stale)", dgCreated, "", "other", long, false, false},
+		// Round 7 runtime P2-1: accepted, not confirmed, not yet stale:
+		// its job may still be counted late.
+		{"accepted 30 minutes ago, unconfirmed", dgCreated, "", "other", since.Add(-30 * time.Minute), true, false},
 		{"accepted just before", dgCreated, "", "other", since.Add(-time.Second), true, false},
 		{"settled in the window", dgCreated, "", "other", since.Add(2 * time.Second), true, true},
 		{"refused in the window", dgRejected, "", "other", since.Add(2 * time.Second), true, true},

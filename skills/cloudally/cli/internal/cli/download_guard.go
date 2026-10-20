@@ -732,20 +732,22 @@ func (g *downloadGuard) replacement(ctx context.Context, jobID string) (*downloa
 // countActivity reads what, outside this run's own claims, could have moved
 // the account's portal job count around since. unsettled: a create in
 // flight or with an unknown outcome (it may land at any time, superseded
-// or not), or any claim made or changed from lag before since onwards, in
-// any state, confirmed or not: another run can create and pin a job
-// entirely between this run's two count reads, and a create accepted just
-// before since may only be counted inside the window. changed: any claim
-// made or changed at or after since. Timestamps are whole seconds, so the
-// second before a bound also counts: that only ever withholds EMPTY.
+// or not); an accepted create not yet confirmed and not yet stale
+// (staleRequestedAge), whose job may be counted late; or any claim made or
+// changed from lag before since onwards, in any state, confirmed or not:
+// another run can create and pin a job entirely between this run's two
+// count reads. changed: any claim made or changed at or after since.
+// Timestamps are whole seconds, so the second before a bound also counts:
+// that only ever withholds EMPTY.
 func (g *downloadGuard) countActivity(ctx context.Context, account string, since time.Time, lag time.Duration) (unsettled, changed bool, err error) {
 	var u, c int
 	early, open := isoUTC(since.Add(-lag)), isoUTC(since)
+	fresh := isoUTC(since.Add(-staleRequestedAge))
 	err = g.db.QueryRowContext(ctx, `SELECT
-		COALESCE(SUM(state IN (?, ?) OR created_at >= ? OR updated_at >= ?), 0),
+		COALESCE(SUM(state IN (?, ?) OR (state = ? AND job_id = '' AND updated_at >= ?) OR created_at >= ? OR updated_at >= ?), 0),
 		COALESCE(SUM(created_at >= ? OR updated_at >= ?), 0)
 		FROM download_claims WHERE account_id = ? AND owner_run <> ?`,
-		dgInFlight, dgUnknown, early, early, open, open, account, g.run).Scan(&u, &c)
+		dgInFlight, dgUnknown, dgCreated, fresh, early, early, open, open, account, g.run).Scan(&u, &c)
 	return u > 0, c > 0, err
 }
 

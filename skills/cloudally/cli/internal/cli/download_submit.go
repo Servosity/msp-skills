@@ -695,7 +695,8 @@ type countWindow struct {
 //     accepted;
 //   - every other create this run sent has a known answer (refused, or
 //     never sent), and no row of the batch it did not send is UNKNOWN or
-//     REQUESTED with no answer: any of those may be in the count;
+//     REQUESTED, answered or not: an accepted create not yet confirmed
+//     may be counted late, inside this window;
 //   - nothing outside this run was unsettled at the window's open or close,
 //     or changed inside it, and both guards could be read.
 //
@@ -721,7 +722,7 @@ func emptyRows(batch *downloadBatch, sent []*downloadRow, w countWindow) map[*do
 	}
 	for i := range batch.Rows {
 		r := &batch.Rows[i]
-		if !sentNow[r] && (r.Status == dlUnknown || (r.Status == dlRequested && r.AcceptedAt == "")) {
+		if !sentNow[r] && (r.Status == dlUnknown || r.Status == dlRequested) {
 			return nil
 		}
 	}
@@ -870,10 +871,11 @@ runs never work on one batch at once.
 An unfound row is EMPTY only when this run sent it and the portal accepted it,
 the portal's job count grew by exactly the creates this run had accepted,
 every other create this run sent has a known answer, no row of the batch it
-did not send is UNKNOWN, and no other download or restore in this state
-directory was in flight or unknown, or made or changed any claim (confirmed or
-not) from the reconcile delay before this run's first count read until its
-last. Any other unfound row is MISSING (or stays UNKNOWN).
+did not send is UNKNOWN or REQUESTED, and no other download or restore in this
+state directory was in flight or unknown, had an accepted create not yet
+confirmed (for up to an hour), or made or changed any claim (confirmed or not)
+from the reconcile delay before this run's first count read until its last.
+Any other unfound row is MISSING (or stays UNKNOWN).
 
 --timeout bounds each API call, not the run: archives stream for as long as
 they keep arriving, and the reconcile wait is not cut short.
