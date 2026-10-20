@@ -1081,6 +1081,24 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "decide-ids-never-truncated",
+      "summary": "rule-triggers decide with --ids is never reported truncated: every requested id is either found on a fetched page or read directly, so a --max-pages cap cannot hide one",
+      "why": "decide-truncated-plan-surfaced made a page-capped plan warn and a confirmed one exit as partial, which also fired for an --ids selection whose ids were all resolved by direct reads (adversarial review round 9, 2026-10-20, P2 regression: a fully decided --ids run exited 6). TestRuleTriggersDecideIDsAreNeverTruncated fails with the reset removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "result.Truncated, result.TruncatedWhy = false, \"\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecideIDsAreNeverTruncated(",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

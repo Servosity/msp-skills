@@ -362,6 +362,9 @@ func rtPlanDecisions(ctx context.Context, c *client.Client, opts rtDecideOptions
 			have[id] = true
 			set = append(set, t)
 		}
+		// Every requested id was found on a page or read directly, so the
+		// page cap cannot hide one: an --ids selection is complete.
+		result.Truncated, result.TruncatedWhy = false, "" // saas-alerts hand-fix: decide-ids-never-truncated
 	}
 	result.Fetched = len(set)
 
