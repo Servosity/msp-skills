@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/saas-alerts-mcp",
+  "title": "SaaS Alerts MCP",
+  "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with",
+  "version": "3.362.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/saas-alerts/saas-alerts-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/saas-alerts"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/saas-alerts-v3.362.0/saas-alerts-mcp.mcpb",
+      "version": "3.362.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SAAS_ALERTS_API_KEY",
+          "description": "Set the SAAS_ALERTS_API_KEY credential for the SaaS Alerts MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

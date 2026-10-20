@@ -706,6 +706,17 @@
       "url": "/skills/runzero/"
     },
     {
+      "slug": "saas-alerts",
+      "display_name": "SaaS Alerts",
+      "tagline": "Triage alerts across every customer tenant, clear the Respond approval queue, and contain a compromised account.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/saas-alerts/"
+    },
+    {
       "slug": "salesbuildr",
       "display_name": "Salesbuildr",
       "tagline": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.",

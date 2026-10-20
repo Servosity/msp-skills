@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "saas-alerts-pp-mcp",
+  "display_name": "SaaS Alerts",
+  "version": "3.362.0",
+  "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/saas-alerts-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/saas-alerts-pp-mcp",
+      "args": [],
+      "env": {
+        "SAAS_ALERTS_API_KEY": "${user_config.saas_alerts_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "saas_alerts_api_key": {
+      "type": "string",
+      "title": "SaaS Alerts partner API key",
+      "description": "Partner API key sent as the api_key header to the Reports, Manage, and Webhooks APIs; the CLI exchanges it for the Respond access token.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T19:28:40.237345Z",
+    "spec_checksum": "sha256:2016ac2a1a48f77a3198809b6f8b89d129b734e826e1782aa1554f91192fb272",
+    "spec_format": "internal"
+  }
+}
