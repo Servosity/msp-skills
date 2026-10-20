@@ -1,5 +1,5 @@
 {
-  "count": 83,
+  "count": 84,
   "connectors": [
     {
       "slug": "abnormal",
@@ -704,6 +704,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/runzero/"
+    },
+    {
+      "slug": "saas-alerts",
+      "display_name": "SaaS Alerts",
+      "tagline": "Triage alerts across every customer tenant, clear the Respond approval queue, and contain a compromised account.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/saas-alerts/"
     },
     {
       "slug": "salesbuildr",

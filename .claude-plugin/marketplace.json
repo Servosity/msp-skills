@@ -1340,6 +1340,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "saas-alerts",
+      "source": "./skills/saas-alerts",
+      "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "saas-alerts",
+        "saas alerts",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
