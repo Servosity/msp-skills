@@ -817,7 +817,10 @@ MISSING, JOB_FAILED, UNKNOWN or ambiguous, or REQUESTED and not yet confirmed,
 including when the reconcile wait is interrupted (the resume command is
 printed).
 
-Nothing is created without --yes.
+Nothing is created without --yes: without it the run plans the rows (it
+reads the portal), prints them and exits 2. --dry-run does not open the
+portal at all: it says what a run would do and exits 0 (with --resume it
+prints the ledger's rows).
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2022-12-31 --dry-run
@@ -914,13 +917,20 @@ Nothing is created without --yes.
 				return err
 			}
 
-			if dryRunOK(flags) && batch == nil {
-				// A dry run still needs the calendar to show real rows, so
-				// it is only short-circuited under a harness.
-				if cliutil.IsAnyHarness() {
-					return writeWould(cmd.OutOrStdout(), flags, "download submit",
-						fmt.Sprintf("plan year-end archives for %s on %s", flagTask, flagOnDate), nil)
+			// --dry-run never opens the portal: opening it mints a partner
+			// handoff token with a POST, which a dry-run client only prints,
+			// so the run failed before showing anything. It says what a real
+			// run would do; the plan with real rows is a run without --yes.
+			if dryRunOK(flags) {
+				if batch != nil {
+					// A resume's rows are in its ledger. The real resume
+					// looks on the portal first, so it may send fewer.
+					return printDownloadBatchPlan(cmd, flags, batch, pendingDownloadRows(batch, true, flagRetryUnknown), true)
 				}
+				if flagPlanOut != "" {
+					return usageErr(errors.New("--plan-out needs the planned rows, which come from the portal: run without --yes (and without --dry-run) to write the plan"))
+				}
+				return printDownloadSubmitDryRun(cmd, flags, scope, flagTask, flagOnDate, flagLatest, format, sortedKeys(filter), sortedKeys(subFilter), flagIncludeDeleted, flagIncludeLegalHold)
 			}
 			if cliutil.IsAnyHarness() {
 				return writeWould(cmd.OutOrStdout(), flags, "download submit",
@@ -994,9 +1004,6 @@ Nothing is created without --yes.
 					return fmt.Errorf("writing --plan-out: %w", werr)
 				}
 				fmt.Fprintf(cmd.ErrOrStderr(), "plan written to %s\n", flagPlanOut)
-			}
-			if dryRunOK(flags) {
-				return printDownloadBatchPlan(cmd, flags, batch, sendable, true)
 			}
 			if !flags.yes {
 				if held := heldUnknownRows(batch, sendable); len(held) > 0 {
@@ -1649,6 +1656,28 @@ func adoptHeldClaim(r *downloadRow, c downloadClaim, batchKey string) {
 	}
 	r.Status, r.HeldBy = dlSkipped, c.BatchKey
 	r.Detail = fmt.Sprintf("batch %s holds this archive (%s); it is not created again here", c.BatchKey, downloadClaimText(c.State))
+}
+
+// printDownloadSubmitDryRun says what a new batch would do, without the
+// portal: the rows themselves need each mailbox's backup calendar.
+func printDownloadSubmitDryRun(cmd *cobra.Command, flags *rootFlags, scope restoreScope, taskID, onDate string, latest bool, format string, entities, subSources []string, includeDeleted, includeLegalHold bool) error {
+	date := "the backup on " + onDate
+	if latest {
+		date = "each mailbox's newest backup (--latest)"
+	}
+	mode := "dry-run"
+	if h := cliutil.HarnessName(); h != "" {
+		mode = h + " harness"
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "%s: would resolve each mailbox's backup calendar, then POST %s once per mailbox and sub-source; nothing created. Run without --yes to see the planned rows.\n",
+		mode, scope.exportPath())
+	return writeWould(cmd.OutOrStdout(), flags, "download submit",
+		fmt.Sprintf("resolve %s for every mailbox of task %s, then create one %s EXPORT job per mailbox and sub-source", date, taskID, format),
+		map[string]any{
+			"path": scope.exportPath(), "task": taskID, "on_date": onDate, "latest": latest, "format": format,
+			"entities": entities, "sub_sources": subSources,
+			"include_deleted": includeDeleted, "include_legal_hold": includeLegalHold,
+		})
 }
 
 func printDownloadBatchPlan(cmd *cobra.Command, flags *rootFlags, batch *downloadBatch, sendable []*downloadRow, dry bool) error {

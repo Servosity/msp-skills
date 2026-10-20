@@ -3,8 +3,11 @@ package cli
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -489,5 +492,34 @@ func TestCountActivitySeesOnlyWhatCanMoveTheCount(t *testing.T) {
 		if u, c, _ := g.countActivity(ctx, "acct-other", since, 10*time.Second); u || c {
 			t.Errorf("%s: another account's claim moved this account's count", tc.name)
 		}
+	}
+}
+
+// Docs review 1: submit --dry-run opened the portal, whose handoff POST a
+// dry-run client only prints, so it exited 1 before showing anything. It
+// now says what a real run would do, sends nothing, and exits 0.
+func TestDownloadSubmitDryRunSendsNothing(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	var hits atomic.Int32
+	for _, srv := range []*httptest.Server{s.api, s.portal} {
+		h := srv.Config.Handler
+		srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hits.Add(1)
+			h.ServeHTTP(w, r)
+		})
+	}
+	out, stderr, err := runDL(t, s, "download", "submit", "--account", "acct-1", "--task", "task-1", "--on-date", "2022-12-31", "--dry-run")
+	if err != nil {
+		t.Fatalf("--dry-run must exit 0, got %v\n%s\n%s", err, out, stderr)
+	}
+	if n := hits.Load(); n != 0 {
+		t.Fatalf("--dry-run sent %d request(s)", n)
+	}
+	if !strings.Contains(out, "would resolve the backup on 2022-12-31") || !strings.Contains(out, "EXPORT job per mailbox and sub-source") {
+		t.Fatalf("--dry-run should say what it would do:\n%s", out)
+	}
+	if len(ledgerKeys(t)) != 0 {
+		t.Fatal("--dry-run saved a ledger")
 	}
 }
