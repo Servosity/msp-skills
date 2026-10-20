@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -535,6 +536,9 @@ func TestAuthKeepsRefreshTokenShadowedByConfig(t *testing.T) {
 		"unsafe credentials":   {"access_token = \"legacy\"\n", 0o644, "refusing to replace"},
 	} {
 		t.Run(name, func(t *testing.T) {
+			if tc.mode&0o077 != 0 && runtime.GOOS == "windows" {
+				t.Skip("Windows has no mode bits: credential safety there is an ACL check (creds_perms_eval tests)")
+			}
 			creds, cmd := setup(t, tc.cfg, tc.mode)
 			before, _ := os.ReadFile(creds)
 			if err := ionSetTokenRunE(&rootFlags{})(cmd, nil); err == nil || !strings.Contains(err.Error(), tc.want) {

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -257,7 +258,11 @@ func TestOAuthTransportErrorNeverEchoesTheServer(t *testing.T) {
 		t.Fatalf("malformed response must be named by kind: %v", err)
 	}
 	_, _, err = postIONForm(context.Background(), &http.Client{}, "http://127.0.0.1:1/oauth/token", url.Values{"access_token": {token}}, 0)
-	if err == nil || !strings.Contains(err.Error(), "connection failed: connection refused") {
+	want := "connection failed: connection refused"
+	if runtime.GOOS == "windows" { // WSAECONNREFUSED's own text
+		want = "connection failed: No connection could be made"
+	}
+	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Fatalf("refused connection must keep its errno kind: %v", err)
 	}
 }

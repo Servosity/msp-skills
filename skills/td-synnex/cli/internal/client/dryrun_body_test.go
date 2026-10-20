@@ -18,6 +18,7 @@ func captureStderr(t *testing.T, run func()) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer f.Close() // Windows cannot remove the TempDir while the file is open
 	old := os.Stderr
 	os.Stderr = f
 	defer func() { os.Stderr = old }()
