@@ -46,7 +46,7 @@
       "command": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes"
     },
     {
-      "question": "Download every finished year-end archive to disk, one folder per mailbox.",
+      "question": "Download every finished year-end archive to disk, one folder per mailbox and sub-source.",
       "command": "cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31"
     },
     {

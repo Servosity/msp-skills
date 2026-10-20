@@ -39,7 +39,7 @@ customer account in the partner portal and looking.
   for every mailbox backed up on one date (in the customer's own timezone with
   `--utc-offset`), reconciles what the portal actually created, and resumes cleanly;
   `download fetch` mints each 60-second link and streams the archive to disk in one
-  step, one folder per year and mailbox.
+  step, one folder per year, mailbox and sub-source.
 - `cloudally-cli backup health` finds every stale or failing mailbox and site across
   every customer from one synced feed.
 

@@ -103,7 +103,7 @@ Do not use this CLI for:
   ```bash
   cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run
   ```
-- **`download fetch`** - Download every ready archive to disk, one folder per year and mailbox, minting and streaming each 60-second link in one step and resuming safely after an interruption.
+- **`download fetch`** - Download every ready archive to disk, one folder per year, mailbox and sub-source, minting and streaming each 60-second link in one step and resuming safely after an interruption.
 
   _Use this to collect the archives `download submit` created; `--plan-only` lists what it would write._
 
@@ -296,7 +296,7 @@ Do not use this CLI for:
 
 - `cloudally-cli download submit` - Create one download (export) job per mailbox and sub-source for every mailbox backed up on one date, with a local ledger and a reconcile pass.
 
-- `cloudally-cli download fetch` - Download every ready archive to disk, one folder per year and mailbox.
+- `cloudally-cli download fetch` - Download every ready archive to disk, one folder per year, mailbox and sub-source.
 
 - `cloudally-cli download start` - Build one archive of one mailbox (single-archive sources; MS365 goes through download submit).
 
@@ -304,7 +304,7 @@ Do not use this CLI for:
 
 - `cloudally-cli download watch` - Follow one download job until its archive is ready.
 
-- `cloudally-cli download link` - Mint a fresh 60-second link for a finished download job.
+- `cloudally-cli download link` - Mint a fresh 60-second link for each file of a finished download job.
 
 
 ### Finding the right command
@@ -382,7 +382,7 @@ cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-3
 cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes
 ```
 
-Creates one job per mailbox and sub-source for the backups taken on 31 December in the account's own timezone. A mailbox with no successful backup that day is listed as skipped, never archived from another date. Rows that never appear on the portal are marked MISSING; re-send them with `--batch <key> --resume --yes`.
+Creates one job per mailbox and sub-source for the backups taken on 31 December in the account's own timezone. A mailbox with no successful backup that day is listed as skipped, never archived from another date. Each row is saved as REQUESTED before its create is sent. A create whose result is unknown (timeout, dropped connection, server error) is UNKNOWN and is never sent again by `--resume` on its own: `--resume` first marks jobs it finds on the portal CREATED; add `--retry-unknown` only after `download list` shows they are missing. Rows that never appear on the portal are marked MISSING; re-send them with `--batch <key> --resume --yes`. The command exits 6 while rows are FAILED or UNKNOWN.
 
 ### Collect the finished archives
 
@@ -390,7 +390,7 @@ Creates one job per mailbox and sub-source for the backups taken on 31 December 
 cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31
 ```
 
-Writes `<dest>/2025/<mailbox>/<archive>.zip`, skipping archives already present at the expected size, so it can be re-run until every job is collected. When several fetches run for the same customer, start them a few seconds apart.
+Create the folder first (`mkdir archives`; PowerShell: `New-Item -ItemType Directory archives`). Writes `<dest>/2025/<mailbox>/<sub-source>/<archive>.zip` with a small `.cloudally.json` record beside each archive. Re-runs skip an archive only when its record matches, so it can be re-run until every job is collected; existing files are never overwritten, and a name held by another file gets the export id added. Folders and files are readable only by the current user on macOS and Linux; on Windows they inherit the permissions of the `--dest` folder, so choose a private one. It exits 6 if any archive FAILED (including a body of the wrong size or an unsafe link). When several fetches run for the same customer, start them a few seconds apart.
 
 ## How CloudAlly behaves (read before restoring or downloading)
 
