@@ -27,4 +27,18 @@ All notable changes to this skill are documented here. Format follows
   domain or a parent domain, and a hygiene sweep for threat-categorized allow-list
   entries, unblocked security categories and drift from a baseline policy.
 - Local SQLite mirror (`sync`, `search`, `analytics`). Secret fields DNSFilter returns
-  (site secret keys, API key tokens) are not written to it.
+  (site secret keys, API key tokens) are never written to it or to the response cache,
+  and `api-keys` is not synced by default. A collection reads as synced only after a
+  complete walk.
+- MCP: `DNSFILTER_MCP_READ_ONLY=1` (or `true` / `yes`; it fails closed) removes `allow`,
+  `sync`, `export` and the archive tool, limits `dnsfilter_execute` to GET endpoints,
+  refuses API key reads, site secret-key endpoints and the roaming client uninstall PIN,
+  and withholds `secret_key` from networks reads. Writes through `dnsfilter_execute`
+  refuse parameters outside the endpoint's schema; `import` and file-path flags are not
+  offered over MCP.
+- Safety: saved profiles never supply `--confirm`, `--force` or `--yes`; `--dry-run`
+  covers local mutations too (export files, feedback, auth, profile delete); `--deliver`
+  captures every command's output; tenant strings are escaped before they reach a
+  terminal or an MCP client; `doctor` checks the token against `/v1/current_user` and
+  warns when a stored key starts with `Bearer ` or `Token `; Windows (PowerShell) forms
+  sit beside every POSIX auth hint.

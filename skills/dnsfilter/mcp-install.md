@@ -53,9 +53,11 @@ Quit Claude Desktop completely and reopen, then ask a question that needs the AP
 
 For an agent that should only read, set the `"DNSFILTER_MCP_READ_ONLY"` entry that is already in
 the `env` block to `"1"` (here or in any other agent's config below; do not add a second entry,
-because JSON keeps the last one). The MCP server then offers only tools that read from DNSFilter,
-and refuses the reads that return a secret (site secret keys, API key tokens, the roaming client
-uninstall PIN). The other optional entries can stay empty; an empty `DNSFILTER_BASE_URL` means
+because JSON keeps the last one). The MCP server then offers only tools that read from DNSFilter:
+`allow`, `sync` and `export` are removed, the generic `dnsfilter_execute` tool runs GET endpoints
+only, API key reads, the site secret-key endpoints and the roaming client uninstall PIN are
+refused, and networks reads come back with each `secret_key` withheld. `true` and `yes` work too;
+only `0`, `false`, `no` or `off` (or an empty value) leave it off. The other optional entries can stay empty; an empty `DNSFILTER_BASE_URL` means
 the DNSFilter API (`https://api.dnsfilter.com`).
 
 ## GitHub Copilot (VS Code)

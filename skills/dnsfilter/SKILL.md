@@ -605,6 +605,13 @@ DNSFilter uses an API key sent as the raw value of the Authorization header (no 
 
 Run `dnsfilter-cli doctor` to verify setup.
 
+## Safety for agents
+
+- **Read freely:** `why-blocked`, `unblocks triage`, `agents drift`, `agents stale`, `lists where`, `policy-audit`, and list/get commands, except the credential reads below.
+- **Plan before a policy change:** run `allow` without `--confirm` and show the plan; only add `--confirm --note "<ticket>"` after the user approves. Preview every generated write (`policies add-whitelist-domain`, `policies update`, `unblock-requests decision unblock-requests`, deletes) with `--dry-run` first: they send as soon as they run.
+- **Credential reads are human-only:** `networks index`, `networks show`, `networks all`, `networks msp` and `networks msp-all` return each site's `secret_key`; `api-keys index` and `api-keys show` return tokens; `user-agents uninstall-pin` returns the uninstall PIN. Do not run them unless the user asks for that secret.
+- **MCP:** the generic `dnsfilter_execute` tool can call any endpoint, deletes included, with no dry-run. With `DNSFILTER_MCP_READ_ONLY=1` the server drops writes and `allow`, runs GET endpoints only, and withholds the secrets above. See [governance.md](./governance.md).
+
 ## Agent Mode
 
 Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
