@@ -7,6 +7,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
@@ -367,5 +368,25 @@ func TestSecretHoldingDecodableTextIsStillCaught(t *testing.T) {
 		if err == nil || strings.Contains(err.Error(), "Q7zX") {
 			t.Fatalf("%s leaked: %v", enc, err)
 		}
+	}
+}
+
+// TestSecretWithAControlCharacterEchoedAsJSONIsCaught: a token holding a tab,
+// echoed by a JSON encoder as an escape, is caught.
+func TestSecretWithAControlCharacterEchoedAsJSONIsCaught(t *testing.T) {
+	tok := "Q7zXwTok-tab" + string(rune(9)) + "after-0000"
+	answer := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key-0000", SaasAlertsApiKey: "test-key-0000"}, 5*time.Second, 0)
+	echo, _ := json.Marshal(map[string]string{"message": "bad token " + tok})
+	answer = string(echo)
+	_, _, err := c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": tok})
+	if err == nil || strings.Contains(err.Error(), "Q7zX") {
+		t.Fatalf("a JSON-escaped tab token leaked: %v", err)
 	}
 }

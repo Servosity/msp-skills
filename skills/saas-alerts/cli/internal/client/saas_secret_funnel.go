@@ -249,7 +249,7 @@ func (c *Client) funnelShown(path, text string, extra ...string) string {
 	return text
 }
 
-// jsonUnescape decodes JSON string escapes (\uXXXX, \/, \", \\) wherever they
+// jsonUnescape decodes JSON string escapes (\uXXXX, \/, \", \\, \b \f \n \r \t) wherever they
 // appear, without requiring the text to be valid JSON.
 func jsonUnescape(s string) string {
 	if !strings.Contains(s, `\`) {
@@ -277,6 +277,10 @@ func jsonUnescape(s string) string {
 				}
 			case '/', '"', '\\':
 				b.WriteByte(s[i+1])
+				i++
+				continue
+			case 'b', 'f', 'n', 'r', 't':
+				b.WriteByte(map[byte]byte{'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t'}[s[i+1]])
 				i++
 				continue
 			}
