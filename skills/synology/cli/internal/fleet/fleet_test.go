@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // HAND-AUTHORED. Behavioral tests: a fake DSM serves ABB + storage payloads in
 // the shapes cited in spec.yaml, Fetch parses them, CommitSync mirrors them,
 // and the reports must flag exactly the broken things.

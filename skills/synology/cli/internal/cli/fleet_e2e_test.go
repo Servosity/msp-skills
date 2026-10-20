@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // HAND-AUTHORED. End-to-end through the Cobra tree: register a fake NAS, sync
 // it, and check every fleet/abb novel command's output and exit code.
 

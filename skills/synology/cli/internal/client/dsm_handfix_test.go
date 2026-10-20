@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // HAND-AUTHORED. Exercises the HAND-FIX(dsm-login) and HAND-FIX(dsm-envelope)
 // edits in client.go and session.go against a fake DSM.
 

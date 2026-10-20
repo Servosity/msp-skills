@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // HAND-AUTHORED. Not emitted by CLI Printing Press; survives regeneration.
 //
 // Package dsm holds the Synology DSM wire dialect the generic session-handshake
