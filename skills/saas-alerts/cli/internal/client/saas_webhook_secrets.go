@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"sort"
 	"strings"
 )
 
@@ -149,76 +147,4 @@ func requestWebhookTokens(path string, body []byte) []string {
 	}
 	walk(v)
 	return out
-}
-
-// maskEchoedSecrets masks credentials (the partner key, Respond tokens, the
-// request's webhook tokens) that an error answer quotes back. A body that is
-// exactly one JSON value is decoded first, so an escaped echo (\/, \u002B,
-// \") is caught in its keys and string values; the raw text is then masked as
-// written, URL-encoded and path-encoded. It runs before the body is cut to its
-// display length, so a secret straddling the cut cannot leave a prefix behind.
-// Values under 8 characters are skipped, so a short one cannot garble the text.
-func maskEchoedSecrets(body []byte, secrets []string) []byte {
-	var tokens []string
-	for _, s := range secrets {
-		if len(s) >= 8 {
-			tokens = append(tokens, s)
-		}
-	}
-	if len(tokens) == 0 || len(body) == 0 {
-		return body
-	}
-	sort.SliceStable(tokens, func(i, j int) bool { return len(tokens[i]) > len(tokens[j]) })
-	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.UseNumber()
-	var v any
-	// Only a body that is exactly one JSON value is re-encoded, so trailing
-	// content is never dropped from the error text.
-	if dec.Decode(&v) == nil && len(bytes.TrimSpace(body[dec.InputOffset():])) == 0 {
-		if masked, changed := maskTokenStrings(v, tokens); changed {
-			var buf bytes.Buffer
-			enc := json.NewEncoder(&buf)
-			enc.SetEscapeHTML(false)
-			if enc.Encode(masked) == nil {
-				body = bytes.TrimRight(buf.Bytes(), "\n")
-			}
-		}
-	}
-	text := string(body)
-	for _, t := range tokens {
-		text = strings.ReplaceAll(text, t, "****")
-		text = strings.ReplaceAll(text, url.QueryEscape(t), "****")
-		text = strings.ReplaceAll(text, url.PathEscape(t), "****")
-	}
-	return []byte(text)
-}
-
-func maskTokenStrings(v any, tokens []string) (any, bool) {
-	switch t := v.(type) {
-	case string:
-		out := t
-		for _, tok := range tokens {
-			out = strings.ReplaceAll(out, tok, "****")
-		}
-		return out, out != t
-	case map[string]any:
-		out := make(map[string]any, len(t))
-		changed := false
-		for k, val := range t {
-			nk, kc := maskTokenStrings(k, tokens)
-			nv, vc := maskTokenStrings(val, tokens)
-			out[nk.(string)] = nv
-			changed = changed || kc || vc
-		}
-		return out, changed
-	case []any:
-		changed := false
-		for i, val := range t {
-			if nv, c := maskTokenStrings(val, tokens); c {
-				t[i], changed = nv, true
-			}
-		}
-		return t, changed
-	}
-	return v, false
 }

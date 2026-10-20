@@ -45,18 +45,16 @@ All notable changes to this skill are documented here. Format follows
 
 ### Security
 - Webhook subscription delivery tokens are withheld before they are printed, cached,
-  stored or returned over MCP, including in a `token` field of an API error answer, and a
-  token of 8 or more characters that the request sent is masked if an error answer
-  quotes it back as written, URL-encoded, in an HTML error title, or JSON-escaped in a
-  JSON answer.
+  stored or returned over MCP, including in a `token` field of an API error answer.
 - Tenant values cannot drive the terminal through command output: `--csv`, `--plain`,
   `--quiet` and the human output of the workflow commands drop control characters, and
   JSON output escapes C1 controls.
 - A Webhooks API write whose token is the `[withheld]` placeholder is refused, so copying a
   listed subscription into an update never overwrites the real token.
-- The partner API key and Respond access tokens are masked in error messages even when
-  the API's answer JSON-escapes them or they fall at the point where long error text is
-  cut.
+- When an error answer quotes back a credential this CLI sent (the partner API key, a
+  Respond access token, or a webhook token of 8 or more characters), as written or
+  JSON-escaped, URL-encoded or as HTML entities, the answer's text is withheld from the
+  error message instead of being printed or returned over MCP.
 - An environment `SAAS_ALERTS_BASE_URL` is never saved to `config.toml`.
 
 ### Known limitations

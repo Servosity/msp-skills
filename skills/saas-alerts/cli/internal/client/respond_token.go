@@ -92,7 +92,7 @@ func (c *Client) respondAccessToken(ctx context.Context, apiKey string, refresh 
 			Method:     http.MethodPost,
 			Path:       respondAuthPath,
 			StatusCode: resp.StatusCode,
-			Body:       c.maskCredentialText(truncateBody(maskEchoedSecrets(body, c.credentialSecrets(apiKey))), apiKey) + " (Respond access-token mint; check SAAS_ALERTS_API_KEY and that Respond is enabled for the partner)",
+			Body:       c.maskCredentialText(truncateBody(c.respondMintDisplay(body, apiKey)), apiKey) + " (Respond access-token mint; check SAAS_ALERTS_API_KEY and that Respond is enabled for the partner)",
 		}
 	}
 	var out struct {
@@ -117,4 +117,13 @@ func (c *Client) respondMintErr(label string, err error, apiKey string) error {
 		return fmt.Errorf("%s: %s", label, masked)
 	}
 	return fmt.Errorf("%s: %w", label, err)
+}
+
+// respondMintDisplay is the text of a failed mint answer, withheld whole when
+// it quotes back the partner key or a Respond token (error-text-secret-funnel).
+func (c *Client) respondMintDisplay(body []byte, apiKey string) []byte {
+	if c.echoesCredential(body, apiKey) {
+		return []byte(echoWithheldText)
+	}
+	return body
 }

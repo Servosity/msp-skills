@@ -1439,7 +1439,10 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			}
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, authHeader)) // saas-alerts hand-fix: an HTML title can echo a credential
+					if c.echoesCredential(respBody, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
+						summary = echoWithheldText
+					}
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))
 				}
 			}
 			return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens never leave the client
@@ -1448,11 +1451,16 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if !binaryResponse {
 			respBody = withholdWebhookTokens(path, sanitizeJSONResponse(respBody)) // saas-alerts hand-fix: error bodies too
 		}
-		respBody = maskEchoedSecrets(respBody, c.credentialSecrets(append(requestWebhookTokens(path, bodyBytes), authHeader)...)) // saas-alerts hand-fix: every credential, decoded, before the cut
+		// The display copy is checked whole, before any cut or summary; the
+		// classification below still reads respBody.
+		display := respBody
+		if c.echoesCredential(respBody, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
+			display = []byte(echoWithheldText)
+		}
 
-		bodyText := truncateBody(respBody)
+		bodyText := truncateBody(display)
 		if resp.StatusCode == http.StatusForbidden {
-			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody)
+			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, display)
 		}
 
 		apiErr := &APIError{
@@ -1904,7 +1912,7 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 
 // credentialSecrets lists every credential value this client masks (trimmed,
 // plus the token after an auth scheme). maskCredentialText and the decoded
-// pre-cut pass over error bodies (maskEchoedSecrets) share it.
+// whole-body echo check (echoesCredential) share it.
 func (c *Client) credentialSecrets(extraCredentials ...string) []string {
 	var out []string
 	add := func(value string) {

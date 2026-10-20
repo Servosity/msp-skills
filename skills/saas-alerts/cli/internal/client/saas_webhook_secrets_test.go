@@ -199,8 +199,8 @@ func TestWebhookTokenEchoedEncodedIsMasked(t *testing.T) {
 		}
 	}
 	ctype, answer = "application/json", `{"message":"abcd+efgh/ijkl is invalid"} {"second":"error"}`
-	if msg := post(); strings.Contains(msg, "efgh") || !strings.Contains(msg, "second") {
-		t.Fatalf("raw echo or trailing content wrong: %s", msg)
+	if msg := post(); strings.Contains(msg, "efgh") || !strings.Contains(msg, echoWithheldText) {
+		t.Fatalf("an echo followed by trailing content must be withheld whole: %s", msg)
 	}
 }
 
