@@ -148,3 +148,60 @@ func requestWebhookTokens(path string, body []byte) []string {
 	walk(v)
 	return out
 }
+
+// maskEchoedWebhookTokens masks request tokens an error answer quotes back. A
+// JSON body is decoded first, so an escaped echo (\/, \u002B, \") is caught
+// in its string values; the raw text is then masked as a backstop. It runs
+// before the body is cut to its display length, so a token straddling the cut
+// cannot leave a prefix behind.
+func maskEchoedWebhookTokens(body []byte, tokens []string) []byte {
+	if len(tokens) == 0 || len(body) == 0 {
+		return body
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var v any
+	if dec.Decode(&v) == nil {
+		if masked, changed := maskTokenStrings(v, tokens); changed {
+			var buf bytes.Buffer
+			enc := json.NewEncoder(&buf)
+			enc.SetEscapeHTML(false)
+			if enc.Encode(masked) == nil {
+				body = bytes.TrimRight(buf.Bytes(), "\n")
+			}
+		}
+	}
+	text := string(body)
+	for _, t := range tokens {
+		text = strings.ReplaceAll(text, t, "****")
+	}
+	return []byte(text)
+}
+
+func maskTokenStrings(v any, tokens []string) (any, bool) {
+	switch t := v.(type) {
+	case string:
+		out := t
+		for _, tok := range tokens {
+			out = strings.ReplaceAll(out, tok, "****")
+		}
+		return out, out != t
+	case map[string]any:
+		changed := false
+		for k, val := range t {
+			if nv, c := maskTokenStrings(val, tokens); c {
+				t[k], changed = nv, true
+			}
+		}
+		return t, changed
+	case []any:
+		changed := false
+		for i, val := range t {
+			if nv, c := maskTokenStrings(val, tokens); c {
+				t[i], changed = nv, true
+			}
+		}
+		return t, changed
+	}
+	return v, false
+}

@@ -1448,6 +1448,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if !binaryResponse {
 			respBody = withholdWebhookTokens(path, sanitizeJSONResponse(respBody)) // saas-alerts hand-fix: error bodies too
 		}
+		respBody = maskEchoedWebhookTokens(respBody, requestWebhookTokens(path, bodyBytes)) // saas-alerts hand-fix: before the cut, decoded
 
 		bodyText := truncateBody(respBody)
 		if resp.StatusCode == http.StatusForbidden {
@@ -1458,7 +1459,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			Method:     method,
 			Path:       c.displayURL(path, authHeader),
 			StatusCode: resp.StatusCode,
-			Body:       c.maskCredentialText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: an echoed request token is masked too
+			Body:       c.maskCredentialText(bodyText, authHeader),
 		}
 
 		// Rate limited: classify before provider decoding. The server-driven

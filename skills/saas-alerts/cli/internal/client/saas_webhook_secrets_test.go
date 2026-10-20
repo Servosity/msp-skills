@@ -139,3 +139,32 @@ func TestWebhookTokenEchoedInErrorTextIsMasked(t *testing.T) {
 		t.Fatalf("a short token garbled the error: %v", err)
 	}
 }
+
+// TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked: a token echoed with JSON
+// escapes, or straddling the error-text cut, does not reach the error.
+func TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked(t *testing.T) {
+	answer := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key"}, 5*time.Second, 0)
+	post := func(token string) string {
+		_, _, err := c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": token})
+		if err == nil {
+			t.Fatal("want an error")
+		}
+		return err.Error()
+	}
+	answer = `{"message":"token test\"SECRET\u002Becho\/x is invalid"}`
+	if msg := post(`test"SECRET+echo/x`); strings.Contains(msg, "SECRET") {
+		t.Fatalf("escaped echo leaked: %s", msg)
+	}
+	// The cut keeps the first maxErrorBodyBytes bytes; start the token 12 bytes before it.
+	answer = `{"message":"` + strings.Repeat("x", maxErrorBodyBytes-len(`{"message":"`)-12) + `test-secret-straddle"}`
+	if msg := post("test-secret-straddle"); strings.Contains(msg, "test-secret") {
+		t.Fatalf("token at the cut leaked a prefix: %s", msg[len(msg)-80:])
+	}
+}

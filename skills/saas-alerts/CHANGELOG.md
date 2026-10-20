@@ -46,8 +46,8 @@ All notable changes to this skill are documented here. Format follows
 ### Security
 - Webhook subscription delivery tokens are withheld before they are printed, cached,
   stored or returned over MCP, including in a `token` field of an API error answer, and a
-  token of 8 or more characters that the request sent is masked if an error message
-  quotes it back verbatim.
+  token of 8 or more characters that the request sent is masked if an error answer
+  quotes it back, JSON-escaped or not.
 - Tenant values cannot drive the terminal through command output: `--csv`, `--plain`,
   `--quiet` and the human output of the workflow commands drop control characters, and
   JSON output escapes C1 controls.
