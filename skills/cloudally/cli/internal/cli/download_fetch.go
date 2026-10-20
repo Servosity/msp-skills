@@ -265,7 +265,7 @@ func resolveHeld(b *downloadBatch) map[int]heldArchive {
 // heldOutcome reports a --batch row another batch holds, from the holder's
 // own ledger row. Its confirmed job was in the run's job list (want), so
 // when it was seen there the job loop already reported it.
-func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, account string, listingCut bool) (fetchOutcome, bool) {
+func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, current func(string) string, account string, listingCut bool) (fetchOutcome, bool) {
 	out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource}
 	resume := fmt.Sprintf("cloudally-cli download submit --batch %s --resume --yes", h.key)
 	if h.row == nil {
@@ -279,7 +279,7 @@ func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, account 
 	case hr.Status == dlEmpty:
 		return out, false
 	case hr.Status == dlCreated && hr.JobID != "":
-		if matched[strings.ToLower(strings.TrimSpace(hr.JobID))] {
+		if matched[current(hr.JobID)] {
 			return out, false
 		}
 		if listingCut {
@@ -459,15 +459,20 @@ are removed once they are an hour old.
 
 With --batch, only the jobs the batch confirmed as its own are downloaded, and
 only with the --account the batch was recorded for (another is refused, exit
-2); another export of the same snapshot is never taken in their place. A job
-that ended in failure (any status naming a failure: FAILED, CANCELLED,
-ABORTED, STOPPED, ERROR) is handed back to the batch that confirmed it, and
-that batch's resume creates it once more. A row another batch holds (a pilot
-run's mailbox, say) is collected through that batch: its confirmed job,
-matched by job id, is downloaded here. When that batch's job failed or its
-create was refused the row is FAILED, when it is not confirmed or ready yet it
-is NOT_READY, and when that batch's ledger cannot be read it is MISSING, each
-naming that batch's resume command.
+2); another export of the same snapshot is never taken in their place on a
+guess. A job that ended in failure (any status naming a failure: FAILED,
+CANCELLED, ABORTED, STOPPED, ERROR) is handed back to the batch that confirmed
+it, and that batch's resume creates it once more; when another batch has
+already created that archive again (--new-batch, say), the new job is
+downloaded in its place once the download guard shows it is confirmed for
+exactly that archive, and is NOT_READY until then. Under --batch every archive
+asked for ends with an outcome; without --batch, a failed job that was created
+again is skipped as history. A row another batch holds (a pilot run's mailbox,
+say) is collected through that batch: its confirmed job, matched by job id, is
+downloaded here. When that batch's job failed or its create was refused the
+row is FAILED, when it is not confirmed or ready yet it is NOT_READY, and when
+that batch's ledger cannot be read it is MISSING, each naming that batch's
+resume command.
 
 The portal lists jobs 100 to a page. If the listing stops at its cap of 50
 pages while more may exist, an archive whose job is not among those read is
@@ -619,11 +624,38 @@ built or not yet confirmed (NOT_READY): run the same command again later.
 			matched := map[string]bool{}
 			seenEntity := map[string]bool{}
 			swept := map[string]bool{}
+			// Under --batch every archive asked for ends with an outcome. A
+			// job of the batch (or of a batch holding one of its rows) that
+			// ended without an archive is followed to its replacement only
+			// when the guard proves one: the current claim of exactly the
+			// same archive. A confirmed replacement is downloaded in its
+			// place; one not yet confirmed is NOT_READY, naming the batch
+			// creating it; with none, the failure is reported.
+			replaced := map[string]string{}
+			pending := map[string]*downloadClaim{}
+			if want != nil && guard != nil {
+				for _, job := range jobs {
+					id := strings.ToLower(strings.TrimSpace(job.JobID))
+					if !want[id] || job.Ready() || !exportJobFinished(job.Status) {
+						continue
+					}
+					cur, rerr := guard.replacement(ctx, job.JobID)
+					switch {
+					case rerr != nil || cur == nil:
+					case cur.JobID != "":
+						r := strings.ToLower(strings.TrimSpace(cur.JobID))
+						replaced[id], want[r] = r, true
+					default:
+						pending[id] = cur
+					}
+				}
+			}
 			for _, job := range jobs {
 				if len(keep) > 0 && !keep[strings.ToLower(job.Account)] {
 					continue
 				}
-				if want != nil && !want[strings.ToLower(strings.TrimSpace(job.JobID))] {
+				id := strings.ToLower(strings.TrimSpace(job.JobID))
+				if want != nil && !want[id] {
 					continue
 				}
 				if wantDay != "" {
@@ -631,22 +663,35 @@ built or not yet confirmed (NOT_READY): run the same command again later.
 						continue
 					}
 				}
-				matched[strings.ToLower(strings.TrimSpace(job.JobID))] = true
+				if !job.Ready() && exportJobFinished(job.Status) {
+					// Without --batch, a failed job its batch has already
+					// created again (or that --new-batch replaced) is
+					// history, not a failure of this run. It is not counted
+					// as seen either.
+					if want == nil && guard != nil {
+						if gone, rerr := guard.jobReplaced(ctx, job.JobID); rerr == nil && gone {
+							continue
+						}
+					}
+					// Under --batch its replacement is reported instead.
+					if _, ok := replaced[id]; ok {
+						continue
+					}
+				}
+				matched[id] = true
 				seenEntity[strings.ToLower(strings.TrimSpace(job.Account))] = true
 				out := fetchOutcome{Entity: job.Account, SubSource: job.SubSource, JobID: job.JobID}
 				if !job.Ready() {
 					// A job that has stopped without becoming ready never
 					// will; only a running one is worth waiting for.
 					if exportJobFinished(job.Status) {
-						// A failed job its batch has already created again
-						// (or that --new-batch replaced) is history, not a
-						// failure of this run.
-						if guard != nil {
-							if replaced, rerr := guard.jobReplaced(ctx, job.JobID); rerr == nil && replaced {
-								continue
-							}
+						if cur, ok := pending[id]; ok {
+							out.Status = fetchNotReady
+							out.Detail = fmt.Sprintf("job %s finished as %s with no archive; batch %s is creating this archive again and has not confirmed it yet; confirm it with: cloudally-cli download submit --batch %s --resume --yes, then run this again",
+								job.JobID, job.Status, cur.BatchKey, cur.BatchKey)
+						} else {
+							out.Status, out.Detail = fetchFailed, failedJobAdvice(ctx, guard, job)
 						}
-						out.Status, out.Detail = fetchFailed, failedJobAdvice(ctx, guard, job)
 					} else {
 						out.Status, out.Detail = fetchNotReady, "job status is "+job.Status
 					}
@@ -762,8 +807,16 @@ built or not yet confirmed (NOT_READY): run the same command again later.
 			// What was asked for but never seen on the portal is reported,
 			// so a run that collected only part of a set says so.
 			batchKey := strings.TrimSpace(flagBatch)
+			// A row's job is the one that now holds its archive.
+			current := func(jobID string) string {
+				id := strings.ToLower(strings.TrimSpace(jobID))
+				if r, ok := replaced[id]; ok {
+					return r
+				}
+				return id
+			}
 			for i, r := range batchRows {
-				id := strings.ToLower(strings.TrimSpace(r.JobID))
+				id := current(r.JobID)
 				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
 					continue
 				}
@@ -771,7 +824,7 @@ built or not yet confirmed (NOT_READY): run the same command again later.
 					continue
 				}
 				if h, ok := held[i]; ok {
-					if out, report := heldOutcome(r, h, matched, scope.account, listingCut); report {
+					if out, report := heldOutcome(r, h, matched, current, scope.account, listingCut); report {
 						outcomes = append(outcomes, out)
 					}
 					continue

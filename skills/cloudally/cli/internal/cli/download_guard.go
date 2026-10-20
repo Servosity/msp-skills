@@ -694,6 +694,41 @@ func (g *downloadGuard) jobReplaced(ctx context.Context, jobID string) (bool, er
 	return later > 0, err
 }
 
+// replacement returns the claim that now holds the archive jobID was made
+// for, when the guard proves one: a live claim of exactly that identity
+// (format and both include flags), newer than jobID's own claim. Its JobID
+// is empty while that create is not confirmed. nil when there is none, or
+// when jobID's own claim is still the archive's current one.
+func (g *downloadGuard) replacement(ctx context.Context, jobID string) (*downloadClaim, error) {
+	var id int64
+	var c downloadClaim
+	err := g.db.QueryRowContext(ctx, `SELECT id, account_id, task_id, entity, sub_source, snapshot, format, include_deleted, include_legal_hold
+		FROM download_claims WHERE job_id = ? ORDER BY id DESC LIMIT 1`, jobID).Scan(&id,
+		&c.Account, &c.Task, &c.Entity, &c.SubSource, &c.Snapshot, &c.Format, &c.IncludeDeleted, &c.IncludeLegalHold)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	row := g.db.QueryRowContext(ctx, `SELECT `+downloadClaimColumns+` FROM download_claims
+		WHERE account_id = ? AND task_id = ? AND entity = ? AND sub_source = ? AND snapshot = ? AND format = ?
+		AND include_deleted = ? AND include_legal_hold = ? AND id > ? AND superseded = 0 AND state IN ('IN_FLIGHT', 'UNKNOWN', 'CREATED')
+		ORDER BY id DESC LIMIT 1`,
+		c.Account, c.Task, c.Entity, c.SubSource, c.Snapshot, c.Format, c.IncludeDeleted, c.IncludeLegalHold, id)
+	cur, err := scanDownloadClaim(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(strings.TrimSpace(cur.JobID), strings.TrimSpace(jobID)) {
+		return nil, nil
+	}
+	return &cur, nil
+}
+
 // countActivity reads what, outside this run's own claims, could have moved
 // the account's portal job count around since. unsettled: a create in
 // flight or with an unknown outcome (it may land at any time, superseded

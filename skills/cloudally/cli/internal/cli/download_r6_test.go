@@ -1060,3 +1060,79 @@ func unpacedPortal(t *testing.T) {
 	}
 	t.Cleanup(func() { openPortal = orig })
 }
+
+// Round 7 P1-c: pilot P confirms J1, the whole-task batch W holds it as
+// SKIPPED, J1 fails, and a --new-batch run creates J2. fetch --batch W used
+// to mark J1 as seen, then suppress its failure as replaced, so the held
+// archive was neither downloaded nor reported and fetch exited 0. Under
+// --batch every row ends with an outcome: a replacement the guard proves
+// is downloaded in J1's place, and one not yet confirmed is NOT_READY.
+func TestFetchBatchFollowsOnlyAProvenReplacementOfAFailedHeldJob(t *testing.T) {
+	for _, mode := range []string{"confirmed", "unconfirmed", "none"} {
+		t.Run("replacement "+mode, func(t *testing.T) {
+			confirmed := mode == "confirmed"
+			testenv.Isolate(t)
+			s := newDLStub(t)
+			quickReconcile(t, s)
+			s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+			if _, stderr, err := runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com", "--sub-sources", "O365MAIL")...); err != nil {
+				t.Fatalf("pilot: %v\n%s", err, stderr)
+			}
+			pilot := ledgerKeys(t)[0]
+			j1 := mustLoadBatch(t, pilot).Rows[0].JobID
+			if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err != nil {
+				t.Fatalf("whole task: %v\n%s", err, stderr)
+			}
+			var whole string
+			for _, k := range ledgerKeys(t) {
+				if k != pilot {
+					whole = k
+				}
+			}
+			s.mu.Lock()
+			for i := range s.jobs {
+				if s.jobs[i].JobID == j1 {
+					s.jobs[i].Status = "FAILED"
+				}
+			}
+			s.listCreated = confirmed
+			s.mu.Unlock()
+			if mode != "none" {
+				_, _, _ = runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com", "--sub-sources", "O365MAIL", "--new-batch")...)
+			}
+			readyAllJobs(s)
+			s.mu.Lock()
+			for i := range s.jobs {
+				if s.jobs[i].JobID == j1 {
+					s.jobs[i].Status, s.jobs[i].Files = "FAILED", nil
+				}
+			}
+			s.mu.Unlock()
+
+			dest := t.TempDir()
+			out, stderr, err := runDL(t, s, fetchArgs(dest, "--batch", whole)...)
+			aOnDisk := 0
+			_ = filepath.WalkDir(dest, func(p string, d os.DirEntry, werr error) error {
+				if werr == nil && !d.IsDir() && strings.Contains(p, "a@contoso.com") && strings.HasSuffix(p, ".zip") {
+					aOnDisk++
+				}
+				return nil
+			})
+			if confirmed {
+				if err != nil || aOnDisk != 1 {
+					t.Fatalf("the proven replacement must be downloaded for the held row: err=%v, a@ archives on disk=%d\n%s\n%s", err, aOnDisk, out, stderr)
+				}
+				return
+			}
+			if mode == "none" {
+				if err == nil || ExitCode(err) != 6 || !strings.Contains(out, "--batch "+pilot+" --resume --yes") {
+					t.Fatalf("a failed held job with no replacement is FAILED with the holder's resume: got %v\n%s", err, out)
+				}
+				return
+			}
+			if err == nil || ExitCode(err) != ExitJobPending || !strings.Contains(out, "is creating this archive again") {
+				t.Fatalf("an unconfirmed replacement is NOT_READY naming its batch: want exit %d, got %v\n%s\n%s", ExitJobPending, err, out, stderr)
+			}
+		})
+	}
+}
