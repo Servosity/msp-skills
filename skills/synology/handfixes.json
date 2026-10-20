@@ -189,8 +189,8 @@
     },
     {
       "id": "dsm-auth-login",
-      "summary": "auth login performs the DSM login and caches the session instead of importing browser cookies for the spec's placeholder host",
-      "why": "The generated auth login imported cookies for https://nas.example.com:5001 (the spec placeholder), so it could never authenticate a real NAS.",
+      "summary": "auth login performs the DSM login and caches the session instead of importing browser cookies for the spec's placeholder host; the generated browser-cookie import helpers it replaced (loadSessionCookiesFromFile and three siblings) are deleted, since nothing calls them",
+      "why": "The generated auth login imported cookies for https://nas.example.com:5001 (the spec placeholder), so it could never authenticate a real NAS. The dead helpers were also the only source of three security-gate P1s in auth.go (gosec G304 on the cookie-file read, G124 on two http.Cookie literals); a reprint that restores them restores those findings.",
       "status": "active",
       "asserts": [
         {
@@ -207,6 +207,10 @@
           "contains": "dsm.Origin(cfg.BaseURL)",
           "min_count": 2,
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "func loadSessionCookiesFromFile("
         }
       ]
     },

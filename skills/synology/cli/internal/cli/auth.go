@@ -5,12 +5,9 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"synology-pp-cli/internal/client"
@@ -109,88 +106,6 @@ code is not needed again. SYNOLOGY_DEVICE_ID overrides the kept token.`, "\n"),
 		},
 	}
 	return cmd
-}
-
-func loadSessionCookiesFromFile(path string, domain string) ([]*http.Cookie, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading cookies file: %w", err)
-	}
-	var state struct {
-		Cookies []struct {
-			Name     string  `json:"name"`
-			Value    string  `json:"value"`
-			Domain   string  `json:"domain"`
-			Path     string  `json:"path"`
-			Expires  float64 `json:"expires"`
-			Secure   bool    `json:"secure"`
-			HTTPOnly bool    `json:"httpOnly"`
-		} `json:"cookies"`
-	}
-	if err := json.Unmarshal(data, &state); err == nil {
-		if len(state.Cookies) == 0 {
-			return nil, fmt.Errorf("cookies file contains an empty cookies array")
-		}
-		cookies := make([]*http.Cookie, 0, len(state.Cookies))
-		for _, c := range state.Cookies {
-			if !sessionCookieDomainMatches(c.Domain, domain) {
-				continue
-			}
-			name := strings.TrimSpace(c.Name)
-			if name == "" {
-				continue
-			}
-			path := c.Path
-			if path == "" {
-				path = "/"
-			}
-			ck := &http.Cookie{Name: name, Value: c.Value, Domain: c.Domain, Path: path, Secure: c.Secure, HttpOnly: c.HTTPOnly}
-			if c.Expires > 0 {
-				ck.Expires = time.Unix(int64(c.Expires), 0)
-			}
-			cookies = append(cookies, ck)
-		}
-		if len(cookies) == 0 {
-			return nil, fmt.Errorf("cookies file contains no cookies for %s", domain)
-		}
-		return cookies, nil
-	}
-	header := trimSessionCookieHeaderPrefix(string(data))
-	cookies := parseSessionCookieHeaderCookies(header)
-	if len(cookies) == 0 {
-		return nil, fmt.Errorf("cookies file is empty")
-	}
-	return cookies, nil
-}
-
-func trimSessionCookieHeaderPrefix(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) >= len("Cookie:") && strings.EqualFold(s[:len("Cookie:")], "Cookie:") {
-		return strings.TrimSpace(s[len("Cookie:"):])
-	}
-	return s
-}
-
-func parseSessionCookieHeaderCookies(header string) []*http.Cookie {
-	parts := strings.Split(header, ";")
-	cookies := make([]*http.Cookie, 0, len(parts))
-	for _, part := range parts {
-		name, value, ok := strings.Cut(strings.TrimSpace(part), "=")
-		if !ok || strings.TrimSpace(name) == "" {
-			continue
-		}
-		cookies = append(cookies, &http.Cookie{Name: strings.TrimSpace(name), Value: strings.TrimSpace(value), Path: "/"})
-	}
-	return cookies
-}
-
-func sessionCookieDomainMatches(cookieDomain string, targetDomain string) bool {
-	target := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(targetDomain)), ".")
-	if target == "" {
-		return true
-	}
-	candidate := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(cookieDomain)), ".")
-	return candidate == target || strings.HasSuffix(candidate, "."+target) || (strings.Contains(candidate, ".") && strings.HasSuffix(target, "."+candidate))
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
