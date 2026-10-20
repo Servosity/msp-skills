@@ -19,9 +19,12 @@ type auditFinding struct {
 	PolicyID   string `json:"policy_id"`
 	PolicyName string `json:"policy_name"`
 	OrgID      string `json:"org_id"`
-	Kind       string `json:"kind"`
-	Severity   string `json:"severity"` // high, medium, info
-	Detail     string `json:"detail"`
+	// IsGlobal marks a global (MSP-shared) policy: one finding there
+	// affects every client org that uses it.
+	IsGlobal bool   `json:"is_global"`
+	Kind     string `json:"kind"`
+	Severity string `json:"severity"` // high, medium, info
+	Detail   string `json:"detail"`
 }
 
 type auditView struct {
@@ -46,7 +49,8 @@ func newNovelPolicyAuditCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for a security hygiene sweep of every policy: threat-categorized allow-list entries, unblocked security categories, unknown domains allowed, and drift from a --baseline policy.
 Do NOT use this command to look up one domain across the fleet; use 'lists where' instead.
 
-Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups.`,
+Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups.
+Global (MSP-shared) policies are audited too, with or without --org; their findings carry is_global=true, and each policy is scanned once however many client orgs share it.`,
 		Example: strings.Trim(`
   dnsfilter-cli policy-audit --agent
   dnsfilter-cli policy-audit --org 'Acme Dental' --baseline 1201`, "\n"),
@@ -67,7 +71,8 @@ Findings: threat_allowlisted (an allow-list entry is now in a security category)
 			if err != nil {
 				return err
 			}
-			params := map[string]string{}
+			// Global (MSP-shared) policies are listed only on request.
+			params := map[string]string{"include_global_policies": "true"}
 			if orgRefStr != "" {
 				org, err := resolveOrg(ctx, c, orgRefStr)
 				if err != nil {
@@ -75,9 +80,17 @@ Findings: threat_allowlisted (an allow-list entry is now in a security category)
 				}
 				params["organization_id"] = org.ID
 			}
-			policies, _, err := fetchAllPages(ctx, c, "/v1/policies/all", params, 0)
+			listed, _, err := fetchAllPages(ctx, c, "/v1/policies/all", params, 0)
 			if err != nil {
 				return classifyAPIErrorOnly(err)
+			}
+			// A global policy may be listed once per client org; audit and count it once.
+			policies, seen := make([]jaRes, 0, len(listed)), map[string]bool{}
+			for _, p := range listed {
+				if !seen[p.ID] {
+					seen[p.ID] = true
+					policies = append(policies, p)
+				}
 			}
 			cats, _, err := fetchAllPages(ctx, c, "/v1/categories/all", nil, 0)
 			if err != nil {
@@ -155,6 +168,9 @@ Findings: threat_allowlisted (an allow-list entry is now in a security category)
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "%d policies scanned, %d allow-list domains categorized, %d findings\n", view.PoliciesScanned, view.DomainsLooked, len(view.Findings))
 			for _, f := range view.Findings {
+				if f.IsGlobal {
+					f.Detail += " [global policy, shared across client orgs]"
+				}
 				fmt.Fprintf(w, "  %-6s %-30s policy %s %q: %s\n", humanText(f.Severity), humanText(f.Kind), humanText(f.PolicyID), f.PolicyName, humanText(f.Detail))
 			}
 			if view.Note != "" {
@@ -201,7 +217,7 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 	out := make([]auditFinding, 0)
 	for _, p := range policies {
 		add := func(kind, sev, detail string) {
-			out = append(out, auditFinding{PolicyID: p.ID, PolicyName: p.str("name"), OrgID: p.str("organization_id"), Kind: kind, Severity: sev, Detail: detail})
+			out = append(out, auditFinding{PolicyID: p.ID, PolicyName: p.str("name"), OrgID: p.str("organization_id"), IsGlobal: p.boolean("is_global_policy"), Kind: kind, Severity: sev, Detail: detail})
 		}
 		for _, d := range p.strs("whitelist_domains") {
 			for _, id := range domainCats[normalizeDomain(d)] {

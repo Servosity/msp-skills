@@ -77,8 +77,31 @@ func runFakeCLI(mode string) int {
 		fmt.Fprint(os.Stderr, "Error: upstream returned ")
 		_, _ = os.Stderr.Write(bigNetworksBody())
 		return 1
+	case "sync-resumed":
+		// sync on a walk resumed from a saved cursor: the remedy is on
+		// stdout, stderr only reports the warned run (mcp-failure-keeps-stdout-remedy).
+		fmt.Println(`{"event":"sync_start","resource":"user-agents"}`)
+		fmt.Println(`{"event":"sync_warning","resource":"user-agents","reason":"resumed_from_cursor","message":"the walk resumed from a saved cursor; run 'dnsfilter-cli sync --full --resources user-agents' to complete it"}`)
+		fmt.Println(`{"event":"sync_summary","warned":1}`)
+		fmt.Fprintln(os.Stderr, "Error: 1 resource(s) completed with warnings but no successful syncs")
+		return 1
 	}
 	return 0
+}
+
+// TestSyncToolFailureShowsStdoutRemedy: over MCP the sync tool's error carries
+// the child's sync_warning remedy, through the result funnel.
+func TestSyncToolFailureShowsStdoutRemedy(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(srv.Close)
+	setIsolatedHome(t, srv.URL)
+	t.Setenv("DNSFILTER_CLI_PATH", os.Args[0])
+	t.Setenv(fakeCLIModeEnv, "sync-resumed")
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "")
+	frame := callToolWire(t, newRegisteredServer(t), "sync", map[string]any{"resources": "user-agents"})
+	if !strings.Contains(frame, "completed with warnings") || !strings.Contains(frame, "sync --full --resources user-agents") {
+		t.Fatalf("the sync tool error lost the --full remedy: %s", frame)
+	}
 }
 
 func setIsolatedHome(t *testing.T, baseURL string) {

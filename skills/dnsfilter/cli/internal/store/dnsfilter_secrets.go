@@ -340,8 +340,10 @@ var tableCellRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*$`)
 // can carry its value: a name=value / name: value pair whose value is not
 // empty, true, false or null, or a header row of a table that has at least
 // one more line (a single line such as "Top Secret, Finance" is a name, not a
-// table).
+// table). JSON string escaping is undone first (UnescapeForTextRule), so a
+// key spelled tok\u0065n in a cut-off JSON blob is still read as token.
 func textNamesSecret(text string) bool {
+	text = UnescapeForTextRule(text)
 	if strings.ContainsAny(text, ":=") {
 		for _, m := range secretPairRE.FindAllStringSubmatchIndex(text, -1) {
 			if !IsSecretKey(text[m[2]:m[3]]) {
@@ -369,6 +371,79 @@ func textNamesSecret(text string) bool {
 		}
 	}
 	return false
+}
+
+// maxUnescapeRounds bounds how many levels of JSON string escaping the text
+// rule sees through (JSON quoted in a string quoted in a string ...).
+const maxUnescapeRounds = 6
+
+// UnescapeForTextRule undoes JSON string escaping, one level per round, so a
+// text rule reads a key name, a quote, a separator or a newline however
+// deeply it was escaped (\u0065, \", \n). Malformed escapes stay as they
+// are. It is the read-only MCP redactor's rule, shared so the store scrub is
+// never narrower than what MCP output withholds.
+func UnescapeForTextRule(s string) string {
+	for round := 0; round < maxUnescapeRounds && strings.Contains(s, "\\"); round++ {
+		var b strings.Builder
+		b.Grow(len(s))
+		for i := 0; i < len(s); i++ {
+			if s[i] != '\\' || i+1 >= len(s) {
+				b.WriteByte(s[i])
+				continue
+			}
+			switch c := s[i+1]; c {
+			case '"', '\\', '/':
+				b.WriteByte(c)
+				i++
+			case 'n':
+				b.WriteByte('\n')
+				i++
+			case 'r':
+				b.WriteByte('\r')
+				i++
+			case 't':
+				b.WriteByte('\t')
+				i++
+			case 'b', 'f':
+				b.WriteByte(' ')
+				i++
+			case 'u':
+				if i+5 < len(s) && isHexByte(s[i+2]) && isHexByte(s[i+3]) && isHexByte(s[i+4]) && isHexByte(s[i+5]) {
+					var r rune
+					for _, h := range []byte(s[i+2 : i+6]) {
+						r = r*16 + rune(hexByteVal(h))
+					}
+					b.WriteRune(r)
+					i += 5
+					continue
+				}
+				b.WriteByte(s[i])
+			default:
+				b.WriteByte(s[i])
+			}
+		}
+		next := b.String()
+		if next == s {
+			break
+		}
+		s = next
+	}
+	return s
+}
+
+func isHexByte(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+func hexByteVal(c byte) byte {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0'
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10
+	default:
+		return c - 'A' + 10
+	}
 }
 
 // pairValueEmpty reports whether the text after a separator carries no value:

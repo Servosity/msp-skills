@@ -25,7 +25,8 @@ All notable changes to this skill are documented here. Format follows
   grouped by client org, from the local mirror.
 - `lists where` and `policy-audit`: every policy whose allow or block list holds a
   domain or a parent domain (with the sites and roaming clients it governs, directly
-  or through any slot of a scheduled policy), and a hygiene sweep for threat-categorized allow-list
+  or through any slot of a scheduled policy), and a hygiene sweep (global, MSP-shared
+  policies included and flagged) for threat-categorized allow-list
   entries, unblocked security categories and drift from a baseline policy.
 - Local SQLite mirror (`sync`, `search`, `analytics`). Secret fields DNSFilter returns
   (site secret keys, API key tokens) are never written to it or to the response cache,

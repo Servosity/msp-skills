@@ -38,6 +38,42 @@ func (g *secretGen) quote(s string) string {
 	return string(b)
 }
 
+// escKey spells a key as JSON text (quotes included) with some of its
+// characters written as \u00XX escapes in random hex case, so tok\u0065n and
+// S\u0045CRET-style spellings reach both the decoder and the text rule.
+func (g *secretGen) escKey(key string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	escaped := false
+	for i := 0; i < len(key); i++ {
+		if g.r.Intn(2) == 0 || (!escaped && i == len(key)-1) {
+			hex := fmt.Sprintf("%04x", key[i])
+			if g.r.Intn(2) == 0 {
+				hex = strings.ToUpper(hex)
+			}
+			b.WriteString(`\u` + hex)
+			escaped = true
+			continue
+		}
+		b.WriteByte(key[i])
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
+// keyText is the JSON spelling of key, escaped some of the time for the
+// secret-named keys.
+func (g *secretGen) keyText(key string) string {
+	if IsSecretKey(key) && g.r.Intn(3) == 0 {
+		return g.escKey(key)
+	}
+	return g.quote(key)
+}
+
+func (g *secretGen) secretKeyName() string {
+	return []string{"token", "secret_key", "pin"}[g.r.Intn(3)]
+}
+
 // plainValue is any JSON value that carries no secret.
 func (g *secretGen) plainValue(depth int) string {
 	switch k := g.r.Intn(9); {
@@ -88,12 +124,12 @@ func (g *secretGen) object(depth int) string {
 	parts := make([]string, 0, n+1)
 	for i := 0; i < n; i++ {
 		key := genKeys[g.r.Intn(len(genKeys))]
-		parts = append(parts, g.quote(key)+":"+g.value(key, depth))
+		parts = append(parts, g.keyText(key)+":"+g.value(key, depth))
 	}
 	if g.r.Intn(3) == 0 && n > 0 {
 		// Repeat a key, often with the secret first and a null after it.
 		key := []string{"token", "secret_key", "pin", "name"}[g.r.Intn(4)]
-		parts = append(parts, g.quote(key)+":"+g.value(key, depth), g.quote(key)+":null")
+		parts = append(parts, g.keyText(key)+":"+g.value(key, depth), g.keyText(key)+":null")
 	}
 	return "{" + strings.Join(parts, ",") + "}"
 }
@@ -113,7 +149,21 @@ func (g *secretGen) textValue(depth int) string {
 	pair := func() string {
 		return []string{"token=", "pin: ", "secret_key=", "Token:"}[g.r.Intn(4)] + g.sentinel()
 	}
-	switch g.r.Intn(7) {
+	switch g.r.Intn(10) {
+	case 7:
+		// A cut-off JSON blob (undecodable) whose secret key is \u-escaped.
+		cut := `{"name":"x",` + g.escKey(g.secretKeyName()) + `:"` + g.sentinel()
+		if g.r.Intn(2) == 0 {
+			cut += `"`
+		}
+		return cut
+	case 8:
+		// The same blob quoted once more (escaped quotes and backslashes).
+		return g.quote(`{"id":1,` + g.escKey(g.secretKeyName()) + `:"` + g.sentinel())
+	case 9:
+		// A name=value pair whose name is \u-escaped text.
+		k := g.escKey(g.secretKeyName())
+		return "x " + k[1:len(k)-1] + "=" + g.sentinel()
 	case 0:
 		return g.object(depth)
 	case 1:
@@ -176,6 +226,10 @@ func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {
 		"duplicate in embedded json": `{"meta":` + q(`note {"pin":"SNTNL-4","pin":true} end`) + `}`,
 		"text after embedded value":  `{"meta":` + q(`{"ok":1}} token=SNTNL-5`) + `}`,
 		"second value in string":     `{"meta":` + q(`{"ok":1} {"token":"SNTNL-6"}`) + `}`,
+		"escaped key, cut-off blob":  `{"x":"{\"a\":1,\"tok\\u0065n\":\"SNTNL-7\""}`,
+		"escaped key, upper hex":     `{"x":` + q(`{"a":1,"S\u0045CRET_KEY":"SNTNL-8`) + `}`,
+		"escaped key, decodable":     `{"x":` + q(`{"p\u0069n":"SNTNL-9"}`) + `}`,
+		"escaped key, top level":     `{"tok\u0045n":"SNTNL-10","name":"a"}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
 		if bytes.Contains(out, []byte(sentinelPrefix)) || !json.Valid(out) {
@@ -187,5 +241,46 @@ func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {
 	in := `{"name":"a","name":"b"}`
 	if out := string(ScrubPersistedSecrets(json.RawMessage(in))); out != `{"name":"b"}` {
 		t.Errorf("duplicate non-secret key: %s", out)
+	}
+}
+
+func TestUnescapeForTextRule(t *testing.T) {
+	// Built from bs so no escape sequence is written literally in this file.
+	bs := "\\"
+	u := func(hex string) string { return bs + "u" + hex }
+	cases := []struct{ in, want string }{
+		{"tok" + u("0065") + "n", "token"},
+		{"S" + u("0045") + "CRET" + u("005F") + "KEY", "SECRET_KEY"},
+		{"p" + u("0069") + "n", "pin"},
+		{bs + `"pin` + bs + `":` + bs + `"1` + bs + `"`, `"pin":"1"`},
+		{"a" + bs + bs + bs + `"b`, `a"b`}, // two levels
+		{"line" + bs + "nnext" + bs + "tx" + bs + "/y", "line\nnext\tx/y"},
+		{"bad " + bs + "u12 and " + bs + "q stay", "bad " + bs + "u12 and " + bs + "q stay"},
+		{"trailing " + bs, "trailing " + bs},
+		{"p" + bs + bs + "u0069n=1", "pin=1"},
+		{"no escapes at all", "no escapes at all"},
+	}
+	for _, c := range cases {
+		if got := UnescapeForTextRule(c.in); got != c.want {
+			t.Errorf("UnescapeForTextRule(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	// One level per round, at most maxUnescapeRounds rounds.
+	deep := "t"
+	for i := 0; i < maxUnescapeRounds+1; i++ {
+		deep = strings.ReplaceAll(deep, bs, bs+bs)
+		if i == 0 {
+			deep = u("0074")
+		}
+	}
+	if got := UnescapeForTextRule(deep + "oken=X"); got == "token=X" {
+		t.Errorf("escaping deeper than %d levels must not be fully undone, got %q", maxUnescapeRounds, got)
+	}
+	shallow := u("0074")
+	for i := 1; i < maxUnescapeRounds; i++ {
+		shallow = strings.ReplaceAll(shallow, bs, bs+bs)
+	}
+	if got := UnescapeForTextRule(shallow + "oken=X"); got != "token=X" {
+		t.Errorf("%d levels must be undone, got %q", maxUnescapeRounds, got)
 	}
 }

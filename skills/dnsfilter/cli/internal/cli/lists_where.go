@@ -167,7 +167,11 @@ func computeListsWhere(domain string, policies, orgs, networks, agents, schedule
 		return ids
 	}
 	for _, n := range networks {
-		ids := map[string]bool{n.relID("policy"): true}
+		// A scheduled assignment replaces the direct one (why-blocked precedence).
+		ids := map[string]bool{}
+		if n.relID("scheduled_policy") == "" {
+			ids[n.relID("policy")] = true
+		}
 		for _, id := range n.relIDs("policies") {
 			ids[id] = true
 		}
@@ -198,6 +202,10 @@ func computeListsWhere(domain string, policies, orgs, networks, agents, schedule
 		// its site's schedule.
 		if id == "" && sched == "" {
 			id, sched = sitePolicy[a.relID("network")], siteSched[a.relID("network")]
+		}
+		// A schedule replaces a retained direct policy (why-blocked precedence).
+		if sched != "" {
+			id = ""
 		}
 		ids := map[string]bool{id: true}
 		for sid := range slotPolicies(sched) {

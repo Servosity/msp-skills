@@ -445,3 +445,44 @@ func TestNovelReadersRemedyIsFullSync(t *testing.T) {
 		t.Fatalf("stale empty-mirror line must give sync --full:\n%s", human)
 	}
 }
+
+// A scheduled assignment replaces the direct one, as why-blocked resolves it:
+// a site or roaming client that keeps direct policy 10 but runs a schedule
+// whose every slot is policy 20 is governed by 20 only.
+func TestListsWhereScheduleReplacesDirectPolicy(t *testing.T) {
+	run := mirrorRunner(t, &fixtureAPI{})
+	db := filepath.Join(t.TempDir(), "mirror.db")
+	now := time.Now().UTC().Format(time.RFC3339)
+	client := func(id, rels string) string {
+		return `{"id":"` + id + `","attributes":{"hostname":"PC-` + id + `","agent_type":"windows","agent_version":"3.2.0","status":"active","agent_state":"protected","last_sync":"` + now + `"},"relationships":{` + rels + `}}`
+	}
+	seedMirror(t, db, map[string][]string{
+		"organizations": {mirrorOrg},
+		"policies": {mirrorPolicy,
+			`{"id":"20","attributes":{"name":"Sched","is_global_policy":false,"whitelist_domains":["example.com"],"blacklist_domains":[]},"relationships":{"organization":{"data":{"id":"1"}}}}`},
+		"scheduled-policies": {`{"id":"8","attributes":{"name":"Always 20","timezone":"UTC","policy_ids":` + scheduleSlots(20, 20) + `}}`},
+		"networks":           {`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"10"}},"scheduled_policy":{"data":{"id":"8"}}}}`},
+		"user-agents": {
+			client("a1", `"network":{"data":{"id":"50"}},"policy":{"data":{"id":"10"}},"scheduled_policy":{"data":{"id":"8"}}`), // own direct 10, own schedule 8
+			client("a2", `"network":{"data":{"id":"50"}}`), // inherits site 50: its schedule, not its retained direct 10
+		},
+	}, map[string]string{"organizations": "complete", "policies": "complete", "scheduled-policies": "complete", "networks": "complete", "user-agents": "complete"})
+
+	out, errOut := run("lists", "where", "example.com", "--db", db, "--json")
+	var rows []listsWhereRow
+	if err := json.Unmarshal([]byte(out), &rows); err != nil || len(rows) != 2 {
+		t.Fatalf("lists where: err=%v\n%s%s", err, out, errOut)
+	}
+	for _, r := range rows {
+		switch r.PolicyID {
+		case "10":
+			if r.Sites != 0 || r.RoamingClients != 0 {
+				t.Fatalf("policy 10 is overridden by schedule 8 everywhere, got %+v", r)
+			}
+		case "20":
+			if r.Sites != 1 || r.RoamingClients != 2 || r.ScheduledSites != 1 || r.ScheduledRoamingClients != 2 {
+				t.Fatalf("policy 20 (every slot of schedule 8) = %+v, want sites=1 roaming=2 scheduled 1/2", r)
+			}
+		}
+	}
+}

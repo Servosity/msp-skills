@@ -6,11 +6,13 @@ package cobratree
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/mcp/bound"
@@ -500,6 +502,14 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 		msg := stderrText
 		if msg == "" {
 			msg = strings.TrimSpace(stdoutText)
+		} else if detail := failedStdoutDetail(stdoutText); detail != "" {
+			// Hand-wired (handfixes.json: mcp-failure-keeps-stdout-remedy): a
+			// command that exits non-zero can print its remedy on stdout (sync's
+			// {"event":"sync_warning",...,"message":"run 'dnsfilter-cli sync
+			// --full --resources user-agents'..."}); stderr alone only says
+			// "completed with warnings". Carried here, it still passes
+			// bound.Text (redaction, budget) and the MCP result funnel.
+			msg += "\noutput: " + detail
 		}
 		if msg != "" {
 			label := "stderr"
@@ -511,6 +521,68 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 		return result, fmt.Errorf("cli %s: %w", binPath, err)
 	}
 	return result, nil
+}
+
+// failedStdoutTailLines and failedStdoutDetailBytes bound what a failed
+// command's stdout adds to the error when it carries no remedy line.
+const (
+	failedStdoutTailLines   = 20
+	failedStdoutDetailBytes = 8000
+)
+
+// failedStdoutDetail picks what an agent needs from a failed command's
+// stdout: every warning, hint or error line (an NDJSON event whose "event"
+// names a warning, hint or error, such as sync_warning, or a plain line that
+// starts with hint:, warning: or error:), else the last lines of output. The
+// result is cut from the front to failedStdoutDetailBytes, so the newest
+// lines (where a remedy usually is) survive.
+func failedStdoutDetail(stdout string) string {
+	var picked, all []string
+	for _, raw := range strings.Split(strings.ReplaceAll(stdout, "\r\n", "\n"), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		all = append(all, line)
+		if isRemedyLine(line) {
+			picked = append(picked, line)
+		}
+	}
+	if len(picked) == 0 {
+		picked = all
+		if len(picked) > failedStdoutTailLines {
+			picked = picked[len(picked)-failedStdoutTailLines:]
+		}
+	}
+	detail := strings.Join(picked, "\n")
+	if len(detail) > failedStdoutDetailBytes {
+		cut := len(detail) - failedStdoutDetailBytes
+		for cut < len(detail) && !utf8.RuneStart(detail[cut]) {
+			cut++
+		}
+		detail = detail[cut:]
+	}
+	return detail
+}
+
+func isRemedyLine(line string) bool {
+	lower := strings.ToLower(line)
+	for _, prefix := range []string{"hint:", "warning:", "error:"} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	if !strings.HasPrefix(line, "{") {
+		return false
+	}
+	var ev struct {
+		Event string `json:"event"`
+	}
+	if json.Unmarshal([]byte(line), &ev) != nil {
+		return false
+	}
+	e := strings.ToLower(ev.Event)
+	return strings.Contains(e, "warning") || strings.Contains(e, "hint") || strings.Contains(e, "error")
 }
 
 func stderrHintLines(stderr string) []string {

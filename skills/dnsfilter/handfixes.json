@@ -140,7 +140,7 @@
     {
       "id": "secrets-never-persisted",
       "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key, a trailing pin such as uninstall_pin, and the like, at any depth, including inside JSON encoded in a string value) and withholds a string value that still names one as key=value text or a table header, before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
-      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted.",
+      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted. Codex round 3 (P1) / adversarial round 5 (P2): the text rule ran secretPairRE on the raw string and never undid JSON escaping, so a string field holding a cut-off (undecodable) JSON blob with a \\u-escaped key name persisted the secret (ScrubPersistedSecrets of a meta string {\"a\":1,\"tok\\\\u0065n\":\"SECRET\" returned it unchanged; reproduced end to end through sync and read-only MCP sql substr). textNamesSecret now runs on UnescapeForTextRule(text), which undoes JSON string escaping one level per round up to 6 levels (\\u0065 in either hex case, \\\", \\\\, \\n, \\t, \\/), the same rule as the read-only MCP redactor's unescapeForTextRule (200,000 random strings gave identical output), so the store scrub is never narrower than MCP output and the redactor can call store.UnescapeForTextRule. The property generator now also spells token/secret_key/pin with \\u-escaped characters (upper and lower hex) as document keys, in JSON-in-string, in cut-off blobs (once and twice quoted) and in name=value text; it fails on the previous code (seed 20261020 case 22, a twice-quoted cut-off blob with p\\\\u0069n) and with the unescape call removed.",
       "status": "active",
       "asserts": [
         {
@@ -276,6 +276,21 @@
         {
           "file": "cli/internal/store/dnsfilter_secrets_property_test.go",
           "contains": "func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "text = UnescapeForTextRule(text)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func UnescapeForTextRule(s string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_property_test.go",
+          "contains": "func TestUnescapeForTextRule(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -2576,6 +2591,106 @@
         {
           "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
           "contains": "func TestSyncResumedWalkIsIncomplete(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-failure-keeps-stdout-remedy",
+      "summary": "when a mirrored command exits non-zero with something on stderr, the MCP tool error also carries the command's stdout warning, hint and error lines (NDJSON events such as sync_warning, or lines starting hint:/warning:/error:), or the last 20 stdout lines when there are none, cut to 8000 bytes, still through bound.Text (redaction, budget) and the MCP result funnel",
+      "why": "Adversarial round 5 (2026-10-20, P2): RunCLICommand built the error from stderr alone, so over MCP a sync on a resumed walk returned only 'exit status 1 (stderr: Error: 1 resource(s) completed with warnings but no successful syncs)' and dropped the stdout {\"event\":\"sync_warning\",\"reason\":\"resumed_from_cursor\",...\"run 'dnsfilter-cli sync --full --resources user-agents' to complete it\"} line, the one actionable remedy. Same class as quotewerks mcp-partial-failure-keeps-receipt, with the stdout part narrowed to remedy lines. Proven over stdio 2026-10-20: a user-agents walk interrupted at page 2 (the mock answered 400), then tools/call sync {resources:\"user-agents\"} resumed at page 2 and its error showed the sync_warning with the --full remedy. TestRunCLICommandFailureKeepsStdoutRemedy and TestSyncToolFailureShowsStdoutRemedy fail when the stdout detail is dropped; TestFailedStdoutDetailPicksRemedyLines fails when the line picker is disabled.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: shellout.go.tmpl RunCLICommand should keep a failed command's stdout warning lines (or a bounded tail) in the error.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "} else if detail := failedStdoutDetail(stdoutText); detail != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "msg += \"\\noutput: \" + detail",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func failedStdoutDetail(stdout string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "return strings.Contains(e, \"warning\") || strings.Contains(e, \"hint\") || strings.Contains(e, \"error\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/failure_remedy_test.go",
+          "contains": "func TestRunCLICommandFailureKeepsStdoutRemedy(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/failure_remedy_test.go",
+          "contains": "func TestFailedStdoutDetailPicksRemedyLines(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/oversized_redaction_test.go",
+          "contains": "func TestSyncToolFailureShowsStdoutRemedy(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "policy-audit-includes-global-policies",
+      "summary": "policy-audit lists /v1/policies/all with include_global_policies=true (with and without --org), so global (MSP-shared) policies are audited; each policy id is audited and counted once even when the listing repeats a shared policy per client org (policies_scanned, findings and --baseline drift never double-count); findings carry is_global, and the human line appends '[global policy, shared across client orgs]' to a global policy's finding. The help text says so.",
+      "why": "Codex round 3 / adversarial round 5 P1 (2026-10-20): the API lists global policies only on request, and policy-audit did not ask (why-blocked, allow and sync already send include_global_policies=true). A threat-categorized domain on a global allow list, or a global policy leaving Malware unblocked, produced findings [] and 'N policies scanned' with no note: a false all-clear on the policies that reach the most clients. Proven 2026-10-20 against a mock that returns global policy 90 (twice) only when include_global_policies=true: dropping the parameter fails TestPolicyAuditIncludesGlobalPoliciesOnce (policies_scanned 1, want 2); dropping the de-duplication fails it (3, want 2); dropping is_global or the human marker fails it. E2E: the previous binary printed '2 policies scanned, 1 allow-list domains categorized, 0 findings'; the fixed one '3 policies scanned, 2 allow-list domains categorized, 2 findings' with threat_allowlisted and security_category_not_blocked on policy 90 marked global.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "params := map[string]string{\"include_global_policies\": \"true\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "policies, seen := make([]jaRes, 0, len(listed)), map[string]bool{}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "IsGlobal: p.boolean(\"is_global_policy\"), Kind: kind",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "f.Detail += \" [global policy, shared across client orgs]\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit_test.go",
+          "contains": "func TestPolicyAuditIncludesGlobalPoliciesOnce(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "lists-where-schedule-replaces-direct-policy",
+      "summary": "lists where applies why-blocked's precedence to impact counts: a site with a scheduled policy is governed by its schedule's slot policies only (its retained direct policy is not counted), and a roaming client whose own or inherited assignment includes a schedule likewise drops its direct policy. A client inherits its site's assignment only when it has neither its own policy nor its own schedule, as before.",
+      "why": "Codex round 3 / adversarial round 5 P2 (2026-10-20): computeListsWhere counted a deployment's direct policy_id as governing even when its scheduled_policy_id overrides it, so with direct policy 10 retained and all 672 slots on policy 20, policy 10 reported sites=1 roaming=1. resolveBlockContext (dnsfilter_common.go) resolves a schedule's current slot into PolicyID and never falls back to the direct assignment, for sites and roaming clients alike; impact now mirrors that. Proven 2026-10-20: counting the site's direct policy under a schedule, or the client's, each fails TestListsWhereScheduleReplacesDirectPolicy. E2E over a fully synced mock tenant: the previous binary printed 'policy 10 \"Acme Std\" sites=1 roaming=1', the fixed one 'sites=0 roaming=0', with policy 20 at sites=1 roaming=1 via the schedule.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "ids[n.relID(\"policy\")] = true",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "if sched != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
+          "contains": "func TestListsWhereScheduleReplacesDirectPolicy(t *testing.T) {",
           "code_only": true
         }
       ]
