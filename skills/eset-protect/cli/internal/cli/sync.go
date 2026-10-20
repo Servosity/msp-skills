@@ -814,6 +814,17 @@ func syncResource(ctx context.Context, c interface {
 		// continues the walk; without one it is the natural end. The generated
 		// fallback stored `{}` as a row and, losing the token, ended the walk
 		// early and let --full prune devices on pages it never read.
+		// sync-metadata-only-pages: a non-string nextPageToken on ANY list
+		// page is not "no more pages"; stop without completing or pruning.
+		if len(responsePathForResource(resource, path)) > 0 && esetMalformedPageToken(data) {
+			outcome.reason = "malformed_cursor"
+			if humanFriendly {
+				fmt.Fprintf(os.Stderr, "\n  %s: nextPageToken is not a string; stopped without pruning.\n", resource)
+			} else {
+				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"malformed_cursor","message":"nextPageToken is not a string; the walk stops and the mirror is not pruned"}`+"\n", resource)
+			}
+			break
+		}
 		// Only list resources: a single-object resource (quarantined-objects-
 		// count) answering {} is its zero value, stored by the fallback below.
 		if len(items) == 0 && len(responsePathForResource(resource, path)) > 0 {
@@ -1077,7 +1088,7 @@ func syncResource(ctx context.Context, c interface {
 			// the operator's page ceiling fired on that same request.
 			if capResumed {
 				outcome.reason = "max_pages_cap"
-			} else if paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {
+			} else if pageSize.cursorType != "page_token" && paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {
 				outcome.reason = "cursor_unavailable"
 			} else if !hasMore ||
 				shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, capPageLimit) {
@@ -1112,7 +1123,12 @@ func syncResource(ctx context.Context, c interface {
 			outcome.complete = true // resource declares no pagination: one page is the whole set
 			break
 		}
-		if paginationEndUnprovable(true, nextCursor, fetchedThisPage, pageSize.limit, data, responsePathForResource(resource, path)...) {
+		// Hand-fix page-token-end-is-provable: for ESET's page_token
+		// pagination an empty or absent nextPageToken (type-checked above) is
+		// the documented last page, even when that page is full; the generated
+		// check wanted a has_more=false ESET never sends, so a full final page
+		// never reconciled.
+		if pageSize.cursorType != "page_token" && paginationEndUnprovable(true, nextCursor, fetchedThisPage, pageSize.limit, data, responsePathForResource(resource, path)...) {
 			outcome.reason = "cursor_unavailable"
 			break
 		}

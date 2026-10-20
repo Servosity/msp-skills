@@ -5560,7 +5560,7 @@
     {
       "id": "export-empty-list-is-zero-records",
       "summary": "export treats a list page with no extractable items and nothing but paging metadata (`{}`, `{\"nextPageToken\":\"\",\"totalSize\":0}`) as zero records instead of exporting the envelope as one record; a dry run's {\"dry_run\": true} sentinel is passed through, and an empty or short page that still carries a next-page token keeps paginating",
-      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`). Adversarial round 8: the first version rejected the dry-run sentinel, so every `export <resource> --dry-run` exited 1 (CLI and MCP), and a token-only page ended the export early; TestExportDryRunAndTokenOnlyPages failed with each of those two pieces disabled. The short-page break now also requires that no next-page token came back (AIP-158 pages may be short mid-stream). Adversarial round 9: with empty token-only pages no longer ending the walk, a server cycling tokens over empty pages ran to the 100000-page cap; export now stops on any cursor it has already seen (TestExportStopsOnCyclingCursors made 100001 requests with the guard disabled).",
+      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`). Adversarial round 8: the first version rejected the dry-run sentinel, so every `export <resource> --dry-run` exited 1 (CLI and MCP), and a token-only page ended the export early; TestExportDryRunAndTokenOnlyPages failed with each of those two pieces disabled. The short-page break now also requires that no next-page token came back (AIP-158 pages may be short mid-stream). Adversarial round 9: with empty token-only pages no longer ending the walk, a server cycling tokens over empty pages ran to the 100000-page cap; export now stops on any cursor it has already seen (TestExportStopsOnCyclingCursors made 100001 requests with the guard disabled). Adversarial round 13 / Codex round 21: export now type-checks the token on every page (a non-string token is an error, never the end); the export half of TestSyncTokenTypeOnEveryPageAndFullFinalPage failed with that check disabled.",
       "status": "active",
       "asserts": [
         {
@@ -5591,6 +5591,11 @@
         {
           "file": "cli/internal/cli/export.go",
           "contains": "return false, \"\", fmt.Errorf(\"%s is not a string\", config.nextCursorPath)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if !singleItem && esetMalformedPageToken(data) {",
           "code_only": true
         }
       ]
@@ -5956,7 +5961,7 @@
     {
       "id": "sync-metadata-only-pages",
       "summary": "sync treats a list page with no list field and only paging metadata as an empty page: its nextPageToken continues the walk, and without one it is the natural end; it is never stored as a resource row; it applies only to list resources (a single-object resource's `{}` is its zero value and is stored), and a present non-string token leaves the walk incomplete instead of ending it",
-      "why": "Protobuf JSON can omit an empty repeated field. The generated fallback stored `{}` (or `{\"nextPageToken\":\"B\"}`) as a bogus resource row with no UUID, lost the continuation token and marked the walk complete, so `sync --full` could prune mirrored devices on pages it never read (Codex round 19 P1). TestSyncMetadataOnlyPages (A, then a token-only page, then D) failed with the handling disabled (`a device after a metadata-only page was pruned`) and checks no metadata row is stored and a device ESET no longer returns is still pruned. Adversarial round 12: the shortcut also caught quarantined-objects-count, so a count dropping to zero (`{}`) left the stale count mirrored; Codex round 20: `{\"nextPageToken\":42}` decoded to \"\", ended the walk as complete and let --full prune unread pages. TestSyncMalformedTokenAndSingleObject failed with each guard disabled.",
+      "why": "Protobuf JSON can omit an empty repeated field. The generated fallback stored `{}` (or `{\"nextPageToken\":\"B\"}`) as a bogus resource row with no UUID, lost the continuation token and marked the walk complete, so `sync --full` could prune mirrored devices on pages it never read (Codex round 19 P1). TestSyncMetadataOnlyPages (A, then a token-only page, then D) failed with the handling disabled (`a device after a metadata-only page was pruned`) and checks no metadata row is stored and a device ESET no longer returns is still pruned. Adversarial round 12: the shortcut also caught quarantined-objects-count, so a count dropping to zero (`{}`) left the stale count mirrored; Codex round 20: `{\"nextPageToken\":42}` decoded to \"\", ended the walk as complete and let --full prune unread pages. TestSyncMalformedTokenAndSingleObject failed with each guard disabled. Codex round 21: the type check covered only metadata-only pages; `{\"devices\":[A],\"nextPageToken\":{}}` still ended the walk and --full pruned D. Every list page's token is now type-checked first (esetMalformedPageToken); TestSyncTokenTypeOnEveryPageAndFullFinalPage failed with that check disabled.",
       "status": "active",
       "asserts": [
         {
@@ -5972,6 +5977,11 @@
         {
           "file": "cli/internal/cli/eset_sync_pages.go",
           "contains": "func esetMetadataOnlyPage(data json.RawMessage) (meta bool, token string, tokenOK bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if len(responsePathForResource(resource, path)) > 0 && esetMalformedPageToken(data) {",
           "code_only": true
         }
       ]
@@ -5994,6 +6004,24 @@
         {
           "file": "cli/internal/store/upsert_batch_test.go",
           "contains": "func TestUpsert_ReplacesStoredRow(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "page-token-end-is-provable",
+      "summary": "for page_token pagination, an empty or absent nextPageToken (after the type check) ends the walk as complete even when the last page is full",
+      "why": "The generated paginationEndUnprovable treated a full page with no cursor as possibly unfinished unless a has_more=false field said otherwise; ESET sends no such field, so whenever the last page was exactly pageSize long (100 devices) sync --full never reconciled, kept devices deleted in ESET and left the state incomplete (Codex round 21 P1). Both sync call sites now skip that check for page_token resources. TestSyncTokenTypeOnEveryPageAndFullFinalPage (101 mirrored, 100 returned with an empty token) failed with the check restored (`101 devices left, want 100`).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if pageSize.cursorType != \"page_token\" && paginationEndUnprovable(true, nextCursor, fetchedThisPage, pageSize.limit, data, responsePathForResource(resource, path)...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "} else if pageSize.cursorType != \"page_token\" && paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {",
           "code_only": true
         }
       ]

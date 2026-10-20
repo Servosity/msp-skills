@@ -4,6 +4,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -108,5 +110,77 @@ func TestSyncMalformedTokenAndSingleObject(t *testing.T) {
 	}
 	if strings.Contains(data, `"5"`) {
 		t.Fatalf("a zero count ({}) left the stale count in the mirror: %s", data)
+	}
+}
+
+// TestSyncTokenTypeOnEveryPageAndFullFinalPage (sync-metadata-only-pages,
+// page-token-end-is-provable): a non-string nextPageToken on a page WITH
+// rows still read as "no more pages", so --full pruned unread devices; and a
+// full final page with nextPageToken "" never reconciled, because the
+// generated end check wanted a has_more=false ESET never sends.
+func TestSyncTokenTypeOnEveryPageAndFullFinalPage(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	id := func(i int) string { return fmt.Sprintf("00000000-0000-0000-0000-%012d", i) }
+	body := ""
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, body)
+	})
+	rows := func(from, to int) string {
+		parts := make([]string, 0, to-from+1)
+		for i := from; i <= to; i++ {
+			parts = append(parts, `{"uuid":"`+id(i)+`"}`)
+		}
+		return strings.Join(parts, ",")
+	}
+	count := func() int {
+		t.Helper()
+		db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		var n int
+		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = 'devices'`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	syncFull := func() {
+		t.Helper()
+		_, _, _ = captureExecuteAll(t, "sync", "--resources", "devices", "--full")
+	}
+	// Seed 101 devices over two pages (100 + 1).
+	body = `{"devices":[` + rows(1, 2) + `],"nextPageToken":""}`
+	syncFull()
+	if n := count(); n != 2 {
+		t.Fatalf("seed: %d devices", n)
+	}
+	body = `{"devices":[` + rows(1, 1) + `],"nextPageToken":{}}`
+	syncFull()
+	if n := count(); n != 2 {
+		t.Fatalf("a non-string token on a page with rows let --full prune: %d devices left", n)
+	}
+	if _, _, err := captureExecuteAll(t, "export", "devices", "--format", "jsonl", "--no-cache"); err == nil {
+		t.Fatal("export read a non-string token on a page with rows as the end")
+	}
+	// A full final page (100 rows, pageSize 100) with an empty token is the
+	// end: device 101 is gone from ESET and must be pruned.
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 101; i++ {
+		if err := db.Upsert("devices", id(i), json.RawMessage(`{"uuid":"`+id(i)+`"}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = db.Close()
+	body = `{"devices":[` + rows(1, 100) + `],"nextPageToken":""}`
+	syncFull()
+	if n := count(); n != 100 {
+		t.Fatalf("a full final page with an empty token did not reconcile: %d devices left, want 100", n)
 	}
 }

@@ -29,3 +29,19 @@ func esetMetadataOnlyPage(data json.RawMessage) (meta bool, token string, tokenO
 	}
 	return true, token, true
 }
+
+// esetMalformedPageToken reports a list page whose nextPageToken is present,
+// not null and not a string. ESET tokens are strings; any other type must not
+// be read as "no more pages" (handfixes.json: sync-metadata-only-pages).
+func esetMalformedPageToken(data json.RawMessage) bool {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return false
+	}
+	raw, ok := obj["nextPageToken"]
+	if !ok || string(raw) == "null" {
+		return false
+	}
+	var token string
+	return json.Unmarshal(raw, &token) != nil
+}

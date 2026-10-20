@@ -176,6 +176,11 @@ large datasets as it has no memory pressure.`,
 				if !ok {
 					return fmt.Errorf("export %s: %w", resource, cliutil.ErrNotPersistable)
 				}
+				if !singleItem && esetMalformedPageToken(data) {
+					// export-empty-list-is-zero-records: a non-string token is
+					// not "no more pages".
+					return fmt.Errorf("export %s: nextPageToken is not a string", resource)
+				}
 				if singleItem {
 					count = 1
 					if format == "jsonl" {
