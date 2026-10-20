@@ -84,20 +84,28 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				hintIfStale(cmd, db, "user-agents", flags.maxAge)
 			}
 			ctx := cmd.Context()
-			agents, err := loadLocal(ctx, db, "user-agents")
-			if err != nil {
-				return err
-			}
+			// Read the live feed first so the snapshot is not held across it.
 			releases, feedErr := fetchReleaseFeed(cmd, flags)
-			networks, err := loadLocal(ctx, db, "networks")
+			// Rows and their completeness come from one snapshot.
+			snap, err := mirrorSnapshot(ctx, db)
 			if err != nil {
 				return err
 			}
-			orgs, err := loadLocal(ctx, db, "organizations")
+			defer snap.Rollback()
+			agents, err := loadLocal(ctx, snap, "user-agents")
 			if err != nil {
 				return err
 			}
-			incomplete, err := incompleteCollections(ctx, db, driftCollections...)
+			networks, err := loadLocal(ctx, snap, "networks")
+			if err != nil {
+				return err
+			}
+			orgs, err := loadLocal(ctx, snap, "organizations")
+			if err != nil {
+				return err
+			}
+			afterMirrorRowsRead()
+			incomplete, err := incompleteCollections(ctx, snap, driftCollections...)
 			if err != nil {
 				return err
 			}

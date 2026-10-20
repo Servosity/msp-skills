@@ -71,19 +71,26 @@ Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations
 				hintIfStale(cmd, db, "user-agents", flags.maxAge)
 			}
 			ctx := cmd.Context()
-			agents, err := loadLocal(ctx, db, "user-agents")
+			// Rows and their completeness come from one snapshot.
+			snap, err := mirrorSnapshot(ctx, db)
 			if err != nil {
 				return err
 			}
-			networks, err := loadLocal(ctx, db, "networks")
+			defer snap.Rollback()
+			agents, err := loadLocal(ctx, snap, "user-agents")
 			if err != nil {
 				return err
 			}
-			orgs, err := loadLocal(ctx, db, "organizations")
+			networks, err := loadLocal(ctx, snap, "networks")
 			if err != nil {
 				return err
 			}
-			incomplete, err := incompleteCollections(ctx, db, staleCollections...)
+			orgs, err := loadLocal(ctx, snap, "organizations")
+			if err != nil {
+				return err
+			}
+			afterMirrorRowsRead()
+			incomplete, err := incompleteCollections(ctx, snap, staleCollections...)
 			if err != nil {
 				return err
 			}

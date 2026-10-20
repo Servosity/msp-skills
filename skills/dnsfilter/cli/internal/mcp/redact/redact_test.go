@@ -42,13 +42,19 @@ func TestFinalWithholdsUndecodablePreview(t *testing.T) {
 		}
 	}
 	kept := []string{
-		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": "` + WithheldFieldPlaceholder + `", "has_secret_key": true}, {"id": 2, "name": "Site 0002", "secret_key": "[withhe`,
+		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": "` + WithheldFieldPlaceholder + `", "has_secret_key": true}, {"id": 2, "name": "Site 0002", "secret_key": null, "x": "y`,
 		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": `,
 	}
 	for _, p := range kept {
 		if got := Final(envelope(p)); !strings.Contains(got, "Site 0001") {
 			t.Fatalf("redacted preview was withheld: %s", got)
 		}
+	}
+	// A preview cut inside a placeholder is withheld (one rule with the
+	// store, which has no cut-placeholder exemption; fails closed).
+	cut := `{"data": [{"id": 1, "name": "Site 0001", "secret_key": "[withhe`
+	if got := Final(envelope(cut)); strings.Contains(got, "Site 0001") {
+		t.Fatalf("a preview cut inside a placeholder was kept: %s", got)
 	}
 }
 

@@ -149,7 +149,20 @@ func (g *secretGen) textValue(depth int) string {
 	pair := func() string {
 		return []string{"token=", "pin: ", "secret_key=", "Token:"}[g.r.Intn(4)] + g.sentinel()
 	}
-	switch g.r.Intn(10) {
+	switch g.r.Intn(13) {
+	case 10:
+		// A value that STARTS with an exempt literal or the placeholder and
+		// continues, with no delimiter, into the secret.
+		lead := []string{"true", "false", "null", WithheldValuePlaceholder}[g.r.Intn(4)]
+		glue := []string{"!", "-", "_", ".", ":", "", "/", "+"}[g.r.Intn(8)]
+		sep := []string{"=", ": ", ":", " = "}[g.r.Intn(4)]
+		return "x " + []string{"password", "token", "pin", "secret_key"}[g.r.Intn(4)] + sep + lead + glue + g.sentinel()
+	case 11:
+		// The same inside a cut-off JSON blob: "token":"true...secret.
+		return `{"name":"x",` + g.keyText(g.secretKeyName()) + `:"` + []string{"true", "null", "false"}[g.r.Intn(3)] + "!" + g.sentinel()
+	case 12:
+		// The value on the next line (YAML-style), after an empty separator.
+		return g.secretKeyName() + ":\n  " + g.sentinel()
 	case 7:
 		// A cut-off JSON blob (undecodable) whose secret key is \u-escaped.
 		cut := `{"name":"x",` + g.escKey(g.secretKeyName()) + `:"` + g.sentinel()
@@ -230,6 +243,11 @@ func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {
 		"escaped key, upper hex":     `{"x":` + q(`{"a":1,"S\u0045CRET_KEY":"SNTNL-8`) + `}`,
 		"escaped key, decodable":     `{"x":` + q(`{"p\u0069n":"SNTNL-9"}`) + `}`,
 		"escaped key, top level":     `{"tok\u0045n":"SNTNL-10","name":"a"}`,
+		"literal prefix (Codex)":     `{"meta":"password=true!SNTNL-11"}`,
+		"null prefix":                `{"meta":"token: null-SNTNL-12"}`,
+		"placeholder prefix":         `{"meta":` + q("pin="+WithheldValuePlaceholder+"SNTNL-13") + `}`,
+		"literal prefix in blob":     `{"meta":` + q(`{"a":1,"token":"false.SNTNL-14`) + `}`,
+		"value on the next line":     `{"meta":` + q("secret_key:\n  SNTNL-15") + `}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
 		if bytes.Contains(out, []byte(sentinelPrefix)) || !json.Valid(out) {
@@ -282,5 +300,38 @@ func TestUnescapeForTextRule(t *testing.T) {
 	}
 	if got := UnescapeForTextRule(shallow + "oken=X"); got != "token=X" {
 		t.Errorf("%d levels must be undone, got %q", maxUnescapeRounds, got)
+	}
+}
+
+// The text rule's exemptions match exactly, never as a prefix: a value that
+// starts with true / false / null / the placeholder and goes on is a value.
+func TestSecretPairExemptionsAreExact(t *testing.T) {
+	bs := "\\"
+	carries := []string{
+		"password=true!SECRET", "token: null-SECRET", "pin=falsey", "token=truex",
+		"secret_key=" + WithheldValuePlaceholder + "SECRET", "token=[withheld", "token=nul",
+		"token:\n  SECRET", `"token":"false.SECRET`, "token=" + bs + "SECRET", "tok" + bs + "u0065n=SECRET",
+	}
+	for _, text := range carries {
+		if !TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = false, want true (a value follows)", text)
+		}
+	}
+	empty := []string{
+		"token=", "token=,next=1", "token=&a=1", "token=true", "token=true,x=1", "token=null}",
+		`"token":"false"`, `"token": null,`, "pin:true", "token=" + WithheldValuePlaceholder,
+		"token=" + WithheldValuePlaceholder + "&a=1", "token=true next", "password=", `{"token":""}`,
+	}
+	for _, text := range empty {
+		if TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = true, want false (no value)", text)
+		}
+	}
+	// SecretPairInText expects text that is already unescaped.
+	if SecretPairInText("tok" + bs + "u0065n=SECRET") {
+		t.Error("SecretPairInText must not unescape by itself")
+	}
+	if !SecretPairInText(UnescapeForTextRule("tok" + bs + "u0065n=SECRET")) {
+		t.Error("SecretPairInText missed an unescaped pair")
 	}
 }

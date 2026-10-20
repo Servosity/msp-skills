@@ -28,12 +28,16 @@ type auditFinding struct {
 }
 
 type auditView struct {
-	PoliciesScanned  int            `json:"policies_scanned"`
-	DomainsLooked    int            `json:"allowlist_domains_categorized"`
-	LookupsTruncated bool           `json:"lookups_truncated"`
-	Baseline         string         `json:"baseline,omitempty"`
-	Findings         []auditFinding `json:"findings"`
-	Note             string         `json:"note,omitempty"`
+	PoliciesScanned  int    `json:"policies_scanned"`
+	DomainsLooked    int    `json:"allowlist_domains_categorized"`
+	LookupsTruncated bool   `json:"lookups_truncated"`
+	Baseline         string `json:"baseline,omitempty"`
+	// UnclassifiedCategories lists catalog category ids with no boolean
+	// security flag: their security status is unknown, so they were not
+	// checked as security categories and the audit is not an all-clear.
+	UnclassifiedCategories []string       `json:"unclassified_categories,omitempty"`
+	Findings               []auditFinding `json:"findings"`
+	Note                   string         `json:"note,omitempty"`
 }
 
 // ponytail: bulk_lookup takes a comma-separated fqdns list; 50 per call keeps URLs short.
@@ -50,7 +54,8 @@ func newNovelPolicyAuditCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to look up one domain across the fleet; use 'lists where' instead.
 
 Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups.
-Global (MSP-shared) policies are audited too, with or without --org; their findings carry is_global=true, and each policy is scanned once however many client orgs share it.`,
+Global (MSP-shared) policies are audited too, with or without --org; their findings carry is_global=true, and each policy is scanned once however many client orgs share it.
+A catalog category without a boolean security flag is never treated as safe: it is listed in unclassified_categories and the note, and the audit is not an all-clear.`,
 		Example: strings.Trim(`
   dnsfilter-cli policy-audit --agent
   dnsfilter-cli policy-audit --org 'Acme Dental' --baseline 1201`, "\n"),
@@ -156,6 +161,10 @@ Global (MSP-shared) policies are audited too, with or without --org; their findi
 			}
 			view.PoliciesScanned = len(policies)
 			view.Findings = auditPolicies(policies, cats, domainCats, baseline)
+			if ids, labels := unclassifiedCategories(cats); len(ids) > 0 {
+				view.UnclassifiedCategories = ids
+				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d categories in the category catalog have no boolean security flag (%s); they were not checked as security categories, so this audit is not an all-clear.", len(ids), strings.Join(labels, ", ")))
+			}
 			if n := unresolvedCategoryDomains(domainCats, cats); n > 0 {
 				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d allow-list domains carry category ids missing from the category catalog or without a security flag; their threat check is incomplete.", n))
 			}
@@ -183,6 +192,25 @@ Global (MSP-shared) policies are audited too, with or without --org; their findi
 	cmd.Flags().StringVar(&baselineID, "baseline", "", "Policy id whose blocked categories and safety flags every policy should match")
 	cmd.Flags().IntVar(&maxLookups, "max-lookups", 500, "Maximum distinct allow-list domains to re-categorize")
 	return cmd
+}
+
+// unclassifiedCategories returns the catalog categories whose security flag
+// is absent or not a boolean (sorted ids, and "name (id)" labels). Unknown is
+// not false: auditPolicies cannot tell whether such a category is a threat.
+// Names are listed, not matched against a list of known threat names.
+func unclassifiedCategories(cats []jaRes) (ids, labels []string) {
+	byCat := map[string]string{}
+	for _, c := range cats {
+		if _, isBool := c.Attrs["security"].(bool); !isBool {
+			byCat[c.ID] = c.str("name")
+		}
+	}
+	ids = sortedKeys(byCat)
+	labels = make([]string, 0, len(ids))
+	for _, id := range ids {
+		labels = append(labels, fmt.Sprintf("%s (%s)", byCat[id], id))
+	}
+	return ids, labels
 }
 
 // unresolvedCategoryDomains counts looked-up domains with a category id the

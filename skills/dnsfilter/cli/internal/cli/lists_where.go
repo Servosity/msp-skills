@@ -46,7 +46,8 @@ Do NOT use this command for the effective verdict for one client; use 'why-block
 Do NOT use this command for a security review of all allow lists; use 'policy-audit' instead.
 
 Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).
-sites and roaming_clients count every site and installed roaming client the policy governs: its own assignment, a roaming client inheriting its site's policy, or any slot of a scheduled policy (the client's own or inherited from its site). scheduled_sites and scheduled_roaming_clients say how many of those reach the policy through a schedule slot, so it governs them only part of the week.`,
+sites and roaming_clients count every site and installed roaming client the policy governs: its own assignment, a roaming client inheriting its site's policy, or any slot of a scheduled policy (the client's own or inherited from its site). scheduled_sites and scheduled_roaming_clients say how many of those reach the policy through a schedule slot, so it governs them only part of the week.
+Assignments are resolved as why-blocked resolves them: a scheduled policy replaces a retained direct policy, and a site's to-many policies relationship is not an assignment and is not counted. User, collection and LAN-subnet assignments are not exposed by the policy API and are not counted.`,
 		Example: strings.Trim(`
   dnsfilter-cli lists where example.com --agent
   dnsfilter-cli lists where cdn.example.com`, "\n"),
@@ -74,13 +75,20 @@ sites and roaming_clients count every site and installed roaming client the poli
 				hintIfStale(cmd, db, "policies", flags.maxAge)
 			}
 			ctx := cmd.Context()
+			// Rows and their completeness come from one snapshot.
+			snap, err := mirrorSnapshot(ctx, db)
+			if err != nil {
+				return err
+			}
+			defer snap.Rollback()
 			loaded := map[string][]jaRes{}
 			for _, rt := range []string{"policies", "organizations", "networks", "user-agents", "scheduled-policies"} {
-				if loaded[rt], err = loadLocal(ctx, db, rt); err != nil {
+				if loaded[rt], err = loadLocal(ctx, snap, rt); err != nil {
 					return err
 				}
 			}
-			incomplete, err := incompleteCollections(ctx, db, whereCollections...)
+			afterMirrorRowsRead()
+			incomplete, err := incompleteCollections(ctx, snap, whereCollections...)
 			if err != nil {
 				return err
 			}
@@ -168,12 +176,11 @@ func computeListsWhere(domain string, policies, orgs, networks, agents, schedule
 	}
 	for _, n := range networks {
 		// A scheduled assignment replaces the direct one (why-blocked precedence).
+		// The to-many policies relationship is not an assignment; why-blocked
+		// ignores it, so it is not counted.
 		ids := map[string]bool{}
 		if n.relID("scheduled_policy") == "" {
 			ids[n.relID("policy")] = true
-		}
-		for _, id := range n.relIDs("policies") {
-			ids[id] = true
 		}
 		for id := range slotPolicies(n.relID("scheduled_policy")) {
 			ids[id] = true

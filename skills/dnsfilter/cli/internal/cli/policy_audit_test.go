@@ -137,3 +137,52 @@ func TestPolicyAuditIncludesGlobalPoliciesOnce(t *testing.T) {
 		t.Fatalf("human output does not show the audited global policy:\n%s", human)
 	}
 }
+
+// A catalog category with no boolean security flag is unknown, not false. A
+// "Malware" row without the flag, with a policy that blocks no categories and
+// has no allow-list entries, produced findings [] and no note: an all-clear.
+func TestPolicyAuditUnclassifiedCategoryIsNotAllClear(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p := r.URL.Query().Get("page[number]"); p != "" && p != "1" {
+			fmt.Fprint(w, `{"data":[]}`)
+			return
+		}
+		switch r.URL.Path {
+		case "/v1/categories/all":
+			fmt.Fprint(w, `{"data":[{"id":"60","attributes":{"name":"Malware"}},{"id":"61","attributes":{"name":"Phishing","security":"yes"}},{"id":"7","attributes":{"name":"Social","security":false}}]}`)
+		case "/v1/policies/all":
+			fmt.Fprint(w, `{"data":[{"id":"10","attributes":{"name":"Open","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[],"allow_unknown_domains":false}}]}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	t.Cleanup(func() { humanFriendly = false })
+	run := func(args ...string) string {
+		humanFriendly = false
+		cmd := RootCmd()
+		cmd.SetArgs(append(args, "--rate-limit", "0"))
+		var out, errOut bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&errOut)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("%v: %v\n%s%s", args, err, out.String(), errOut.String())
+		}
+		return out.String()
+	}
+	var v auditView
+	if err := json.Unmarshal([]byte(run("policy-audit", "--json")), &v); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(v.UnclassifiedCategories, ",") != "60,61" || !strings.Contains(v.Note, "Malware (60), Phishing (61)") || !strings.Contains(v.Note, "not an all-clear") {
+		t.Fatalf("unclassified categories not reported: unclassified=%v note=%q findings=%+v", v.UnclassifiedCategories, v.Note, v.Findings)
+	}
+	human := run("policy-audit", "--human-friendly")
+	if !strings.Contains(human, "note: 2 categories in the category catalog have no boolean security flag (Malware (60), Phishing (61))") {
+		t.Fatalf("human output lacks the unclassified-category note:\n%s", human)
+	}
+}

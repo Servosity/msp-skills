@@ -397,78 +397,15 @@ func rawJSONClean(raw string) bool {
 	}
 }
 
-// maxUnescapeRounds bounds how many levels of JSON string escaping the text
-// rule sees through (JSON quoted in a string quoted in a string ...).
-const maxUnescapeRounds = 6
-
-// unescapeForTextRule undoes JSON string escaping, one level per round, so the
-// text rule reads a key name, a quote, a separator or a newline however
-// deeply it was escaped (\u0065, \", \n). Malformed escapes stay as they are.
-func unescapeForTextRule(s string) string {
-	for round := 0; round < maxUnescapeRounds && strings.Contains(s, "\\"); round++ {
-		var b strings.Builder
-		b.Grow(len(s))
-		for i := 0; i < len(s); i++ {
-			if s[i] != '\\' || i+1 >= len(s) {
-				b.WriteByte(s[i])
-				continue
-			}
-			switch c := s[i+1]; c {
-			case '"', '\\', '/':
-				b.WriteByte(c)
-				i++
-			case 'n':
-				b.WriteByte('\n')
-				i++
-			case 'r':
-				b.WriteByte('\r')
-				i++
-			case 't':
-				b.WriteByte('\t')
-				i++
-			case 'b', 'f':
-				b.WriteByte(' ')
-				i++
-			case 'u':
-				if i+5 < len(s) && isHex(s[i+2]) && isHex(s[i+3]) && isHex(s[i+4]) && isHex(s[i+5]) {
-					var r rune
-					for _, h := range s[i+2 : i+6] {
-						r = r*16 + rune(hexVal(byte(h)))
-					}
-					b.WriteRune(r)
-					i += 5
-					continue
-				}
-				b.WriteByte(s[i])
-			default:
-				b.WriteByte(s[i])
-			}
-		}
-		next := b.String()
-		if next == s {
-			break
-		}
-		s = next
-	}
-	return s
-}
-
-func hexVal(c byte) byte {
-	switch {
-	case c >= '0' && c <= '9':
-		return c - '0'
-	case c >= 'a' && c <= 'f':
-		return c - 'a' + 10
-	default:
-		return c - 'A' + 10
-	}
-}
-
-// textNamesCredential is the text rule: a key=value / key: value pair
-// anywhere in the whole (redacted) text, or a CSV/table header in its
-// non-JSON remainder, after undoing JSON string escaping.
+// textNamesCredential is the text rule, the store's (one definition):
+// store.TextNamesSecret on the non-JSON remainder (a secret pair, or a
+// CSV/table header with a secret column, after undoing JSON escaping), plus
+// one MCP-only widening: the secret-pair check also runs over the WHOLE
+// (redacted) text, so a pair whose value is itself JSON (token=["S"]) is
+// caught. The store rule has no literal-prefix, cut-placeholder or
+// environment-variable exemption, so neither does this.
 func textNamesCredential(whole, plain string) bool {
-	return keyValueNamesCredential(unescapeForTextRule(whole)) || headerNamesCredential(unescapeForTextRule(plain))
+	return store.SecretPairInText(store.UnescapeForTextRule(whole)) || store.TextNamesSecret(plain)
 }
 
 var (
@@ -510,98 +447,6 @@ func carriesWithheldValue(text string) bool {
 	for v := range withheldValues {
 		if strings.Contains(text, v) {
 			return true
-		}
-	}
-	return false
-}
-
-// keyValueRE finds the name and separator of name=value / name: value pairs in
-// plain text, tolerating the escaped quotes of JSON quoted inside a string;
-// the caller checks that a value follows, so the value's first character is
-// never consumed (it may start the next name).
-var keyValueRE = regexp.MustCompile(`([A-Za-z][A-Za-z0-9_.\-]*)(?:\\*["'])?\s*[:=]`)
-
-// headerSplitRE splits a CSV, TSV, pipe or column-aligned table header line.
-var headerSplitRE = regexp.MustCompile(`\s*[,\t|]\s*|\s{2,}`)
-
-// headerCellRE is one bare identifier, the only shape a header cell takes.
-var headerCellRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*$`)
-
-// valueCarriesNothing reports whether the text after a separator is not a
-// credential value: nothing (a cut right after the separator), a JSON
-// literal true/false/null, or the placeholder (or a prefix of it, where a
-// preview cut through it).
-func valueCarriesNothing(rest string) bool {
-	if rest == "" || strings.ContainsAny(rest[:1], "\r\n,;}]") {
-		return true
-	}
-	for _, lit := range []string{"true", "false", "null"} {
-		if strings.HasPrefix(rest, lit) && (len(rest) == len(lit) || !isWordByte(rest[len(lit)])) {
-			return true
-		}
-	}
-	// The value ends at a quote, a backslash or the line end (a preview
-	// string's own closing quote can follow a placeholder cut short).
-	val := rest
-	if i := strings.IndexAny(val, "\"'\\\r\n"); i >= 0 {
-		val = val[:i]
-	}
-	if val == "" {
-		return true
-	}
-	// A placeholder, or a placeholder cut short (at least "[w", so a JSON
-	// array value such as ["S"] never reads as one).
-	return (len(val) >= 2 && strings.HasPrefix(WithheldFieldPlaceholder, val)) || strings.HasPrefix(val, WithheldFieldPlaceholder)
-}
-
-func isWordByte(c byte) bool {
-	return c == '_' || c == '-' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-}
-
-// keyValueNamesCredential reports a key=value / key: value pair (including a
-// JSON fragment that no longer decodes) whose key names a credential and
-// whose value carries something. This CLI's own environment variable names
-// (DNSFILTER_API_KEY in the auth hint `export DNSFILTER_API_KEY="your-token-here"`)
-// are names, not data fields, and are skipped so an auth error stays readable.
-func keyValueNamesCredential(text string) bool {
-	for _, m := range keyValueRE.FindAllStringSubmatchIndex(text, -1) {
-		name := text[m[2]:m[3]]
-		if strings.HasPrefix(name, "DNSFILTER_") || !IsCredentialKey(name) {
-			continue
-		}
-		if !valueCarriesNothing(strings.TrimLeft(text[m[1]:], " \t\"'\\")) {
-			return true
-		}
-	}
-	return false
-}
-
-// headerNamesCredential reports a delimited header line (CSV, TSV, a pipe or
-// column-aligned table) with a credential-named column. A header needs a
-// table under it: like the store's textNamesSecret, a one-line string
-// ("Finance, password reset desk", or a prose list of field names) is not a
-// CSV header.
-func headerNamesCredential(plain string) bool {
-	lines := strings.Split(strings.TrimSpace(plain), "\n")
-	if len(lines) < 2 {
-		return false
-	}
-	for _, line := range lines {
-		fields := headerSplitRE.Split(strings.TrimSpace(line), -1)
-		if len(fields) < 2 {
-			continue
-		}
-		for _, f := range fields {
-			f = strings.Trim(f, `"' `)
-			// A header cell is one identifier; prose such as "invalid token"
-			// between commas, or a "key":"value" fragment, is not a column
-			// name (the key=value scan owns fragments).
-			if len(f) > 64 || !headerCellRE.MatchString(f) || strings.HasPrefix(f, "DNSFILTER_") {
-				continue
-			}
-			if IsCredentialKey(f) {
-				return true
-			}
 		}
 	}
 	return false

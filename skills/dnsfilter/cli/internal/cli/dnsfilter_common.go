@@ -412,11 +412,11 @@ func openLocalMirror(cmd *cobra.Command, flags *rootFlags, dbPath, syncHint stri
 // (sync_state.last_attempt_complete is 1 only after one). A read-only store
 // that predates that column proves nothing, so every collection counts as
 // incomplete there, the same rule mcpStoreStatus applies.
-func incompleteCollections(ctx context.Context, db *store.Store, collections ...string) ([]string, error) {
+func incompleteCollections(ctx context.Context, db mirrorReader, collections ...string) ([]string, error) {
 	out := make([]string, 0)
 	for _, c := range collections {
 		var complete int
-		err := db.DB().QueryRowContext(ctx, `SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, c).Scan(&complete)
+		err := db.QueryRowContext(ctx, `SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, c).Scan(&complete)
 		if err == nil && complete == 1 {
 			continue
 		}
@@ -459,9 +459,38 @@ func incompleteMirrorJSON(rows any, missing []string) incompleteMirrorResult {
 	return r
 }
 
+// mirrorReader is what loadLocal and incompleteCollections query: a read
+// transaction from mirrorSnapshot (or the store's *sql.DB in tests).
+type mirrorReader interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// mirrorSnapshot opens one read transaction on the mirror. The store is WAL,
+// so every read inside it sees the same committed state: a sync that commits
+// rows and marks a collection complete between two reads cannot pair the old
+// rows with the new completeness flag. The caller rolls it back when done.
+func mirrorSnapshot(ctx context.Context, db *store.Store) (*sql.Tx, error) {
+	tx, err := db.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("opening a read snapshot of the local mirror: %w", err)
+	}
+	return tx, nil
+}
+
+// mirrorRowsReadHook, when set by a test, runs after a reader has loaded its
+// rows and before it reads sync_state.
+var mirrorRowsReadHook func()
+
+func afterMirrorRowsRead() {
+	if mirrorRowsReadHook != nil {
+		mirrorRowsReadHook()
+	}
+}
+
 // loadLocal returns every synced row of one resource type (drain-first).
-func loadLocal(ctx context.Context, db *store.Store, resourceType string) ([]jaRes, error) {
-	rows, err := db.DB().QueryContext(ctx, `SELECT data FROM resources WHERE resource_type = ?`, resourceType)
+func loadLocal(ctx context.Context, db mirrorReader, resourceType string) ([]jaRes, error) {
+	rows, err := db.QueryContext(ctx, `SELECT data FROM resources WHERE resource_type = ?`, resourceType)
 	if err != nil {
 		return nil, fmt.Errorf("query %s: %w", resourceType, err)
 	}

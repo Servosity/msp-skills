@@ -268,7 +268,7 @@ func TestNovelReadersIncompleteCollectionsStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := incompleteCollections(t.Context(), ro, "organizations", "networks", "policies", "user-agents")
+	got, err := incompleteCollections(t.Context(), ro.DB(), "organizations", "networks", "policies", "user-agents")
 	ro.Close()
 	if err != nil || !reflect.DeepEqual(got, []string{"networks", "policies", "user-agents"}) {
 		t.Fatalf("incompleteCollections = %v, %v", got, err)
@@ -287,7 +287,7 @@ func TestNovelReadersIncompleteCollectionsStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ro.Close()
-	got, err = incompleteCollections(t.Context(), ro, "organizations", "networks")
+	got, err = incompleteCollections(t.Context(), ro.DB(), "organizations", "networks")
 	if err != nil || !reflect.DeepEqual(got, []string{"organizations", "networks"}) {
 		t.Fatalf("legacy store: incompleteCollections = %v, %v", got, err)
 	}
@@ -448,7 +448,9 @@ func TestNovelReadersRemedyIsFullSync(t *testing.T) {
 
 // A scheduled assignment replaces the direct one, as why-blocked resolves it:
 // a site or roaming client that keeps direct policy 10 but runs a schedule
-// whose every slot is policy 20 is governed by 20 only.
+// whose every slot is policy 20 is governed by 20 only. The site also lists
+// 10 in its to-many policies relationship, which why-blocked ignores, and
+// so does site 51 (direct policy 11, no schedule).
 func TestListsWhereScheduleReplacesDirectPolicy(t *testing.T) {
 	run := mirrorRunner(t, &fixtureAPI{})
 	db := filepath.Join(t.TempDir(), "mirror.db")
@@ -461,7 +463,8 @@ func TestListsWhereScheduleReplacesDirectPolicy(t *testing.T) {
 		"policies": {mirrorPolicy,
 			`{"id":"20","attributes":{"name":"Sched","is_global_policy":false,"whitelist_domains":["example.com"],"blacklist_domains":[]},"relationships":{"organization":{"data":{"id":"1"}}}}`},
 		"scheduled-policies": {`{"id":"8","attributes":{"name":"Always 20","timezone":"UTC","policy_ids":` + scheduleSlots(20, 20) + `}}`},
-		"networks":           {`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"10"}},"scheduled_policy":{"data":{"id":"8"}}}}`},
+		"networks": {`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"10"}},"policies":{"data":[{"id":"10"}]},"scheduled_policy":{"data":{"id":"8"}}}}`,
+			`{"id":"51","attributes":{"name":"Annex"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"11"}},"policies":{"data":[{"id":"10"}]}}}`},
 		"user-agents": {
 			client("a1", `"network":{"data":{"id":"50"}},"policy":{"data":{"id":"10"}},"scheduled_policy":{"data":{"id":"8"}}`), // own direct 10, own schedule 8
 			client("a2", `"network":{"data":{"id":"50"}}`), // inherits site 50: its schedule, not its retained direct 10
@@ -484,5 +487,73 @@ func TestListsWhereScheduleReplacesDirectPolicy(t *testing.T) {
 				t.Fatalf("policy 20 (every slot of schedule 8) = %+v, want sites=1 roaming=2 scheduled 1/2", r)
 			}
 		}
+	}
+}
+
+// A sync that commits new rows and marks the collection complete after a
+// reader loaded its rows but before it read sync_state must not let the
+// reader pair the old rows with the new completeness flag: rows and the flag
+// come from one snapshot, so the reader still sees the collection incomplete.
+func TestNovelReadersRowsAndCompletenessShareOneSnapshot(t *testing.T) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	client := func(id, version, state string) string {
+		return `{"id":"` + id + `","attributes":{"hostname":"PC-` + id + `","agent_type":"windows","agent_version":"` + version + `","status":"active","agent_state":"` + state + `","last_sync":"` + now + `"},"relationships":{"network":{"data":{"id":"50"}}}}`
+	}
+	cases := []struct {
+		name     string
+		args     []string
+		rows     map[string][]string
+		state    map[string]string
+		commit   map[string][]string // committed between the reader's two reads
+		complete string              // collection the commit marks complete
+		allClear string
+	}{
+		{
+			name:   "agents stale",
+			args:   []string{"agents", "stale"},
+			rows:   map[string][]string{"user-agents": {client("a1", "3.2.0", "protected")}, "networks": {mirrorSite}, "organizations": {mirrorOrg}},
+			state:  map[string]string{"user-agents": "partial", "networks": "complete", "organizations": "complete"},
+			commit: map[string][]string{"user-agents": {client("a2", "3.2.0", "unprotected")}}, complete: "user-agents",
+			allClear: "No roaming clients silent",
+		},
+		{
+			name:   "agents drift",
+			args:   []string{"agents", "drift"},
+			rows:   map[string][]string{"user-agents": {client("a1", "3.2.0", "protected")}, "networks": {mirrorSite}, "organizations": {mirrorOrg}},
+			state:  map[string]string{"user-agents": "partial", "networks": "complete", "organizations": "complete"},
+			commit: map[string][]string{"user-agents": {client("a2", "3.1.0", "protected")}}, complete: "user-agents",
+			allClear: "No client org has roaming clients behind",
+		},
+		{
+			name:   "lists where",
+			args:   []string{"lists", "where", "example.com"},
+			rows:   map[string][]string{"policies": {mirrorPolicy}, "organizations": {mirrorOrg}},
+			state:  map[string]string{"policies": "complete", "organizations": "complete", "networks": "partial", "user-agents": "complete", "scheduled-policies": "complete"},
+			commit: map[string][]string{"networks": {mirrorSite}}, complete: "networks",
+			allClear: "sites=0 roaming=0 global=false\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			run := mirrorRunner(t, &fixtureAPI{releases: []string{mirrorFeedLatest}})
+			db := filepath.Join(t.TempDir(), "mirror.db")
+			seedMirror(t, db, c.rows, c.state)
+			fired := false
+			mirrorRowsReadHook = func() {
+				if fired {
+					return
+				}
+				fired = true
+				seedMirror(t, db, c.commit, map[string]string{c.complete: "complete"})
+			}
+			t.Cleanup(func() { mirrorRowsReadHook = nil })
+			human, _ := run(append(c.args, "--db", db, "--human-friendly")...)
+			if !fired {
+				t.Fatal("the interleaved commit never ran")
+			}
+			if strings.HasSuffix(human, c.allClear) || strings.Contains(human, c.allClear+"\n") || !strings.Contains(human, "Incomplete local mirror: no complete sync of "+c.complete) {
+				t.Fatalf("%s paired rows read before the commit with completeness read after it:\n%s", c.name, human)
+			}
+		})
 	}
 }

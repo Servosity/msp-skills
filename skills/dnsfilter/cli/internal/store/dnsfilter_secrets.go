@@ -336,23 +336,24 @@ var tableSplitRE = regexp.MustCompile(`\s*[,\t|]\s*|\s{2,}`)
 // tableCellRE is one bare identifier, the only shape a header cell takes.
 var tableCellRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*$`)
 
-// textNamesSecret reports whether text names a secret key in a shape that
-// can carry its value: a name=value / name: value pair whose value is not
-// empty, true, false or null, or a header row of a table that has at least
-// one more line (a single line such as "Top Secret, Finance" is a name, not a
-// table). JSON string escaping is undone first (UnescapeForTextRule), so a
-// key spelled tok\u0065n in a cut-off JSON blob is still read as token.
+// textNamesSecret is the store's text rule on a raw string value; see
+// TextNamesSecret.
 func textNamesSecret(text string) bool {
+	return TextNamesSecret(text)
+}
+
+// TextNamesSecret reports whether text names a secret key in a shape that
+// can carry its value: a name=value / name: value pair whose value is not
+// exactly empty, true, false, null or the placeholder (SecretPairInText), or
+// a header row of a table that has at least one more line (a single line
+// such as "Top Secret, Finance" is a name, not a table). text is RAW: JSON
+// string escaping is undone first (UnescapeForTextRule), so a key spelled
+// tok\u0065n in a cut-off JSON blob is still read as token. There is no
+// exception for this CLI's own environment variable names.
+func TextNamesSecret(text string) bool {
 	text = UnescapeForTextRule(text)
-	if strings.ContainsAny(text, ":=") {
-		for _, m := range secretPairRE.FindAllStringSubmatchIndex(text, -1) {
-			if !IsSecretKey(text[m[2]:m[3]]) {
-				continue
-			}
-			if !pairValueEmpty(strings.TrimLeft(text[m[1]:], " \t\"'\\")) {
-				return true
-			}
-		}
+	if SecretPairInText(text) {
+		return true
 	}
 	lines := strings.Split(strings.TrimSpace(text), "\n")
 	if len(lines) < 2 {
@@ -368,6 +369,27 @@ func textNamesSecret(text string) bool {
 			if len(c) <= 64 && tableCellRE.MatchString(c) && IsSecretKey(c) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// SecretPairInText reports whether text holds a secret-named key followed by
+// a separator (= or :, quotes allowed around the name) and a value. The value
+// is what follows the separator once spaces, newlines, quotes and
+// backslashes are skipped, up to the next delimiter (see pairValueEmpty).
+// text must ALREADY be unescaped (UnescapeForTextRule); TextNamesSecret does
+// that for raw text.
+func SecretPairInText(text string) bool {
+	if !strings.ContainsAny(text, ":=") {
+		return false
+	}
+	for _, m := range secretPairRE.FindAllStringSubmatchIndex(text, -1) {
+		if !IsSecretKey(text[m[2]:m[3]]) {
+			continue
+		}
+		if !pairValueEmpty(strings.TrimLeft(text[m[1]:], " \t\r\n\"'\\")) {
+			return true
 		}
 	}
 	return false
@@ -446,22 +468,32 @@ func hexByteVal(c byte) byte {
 	}
 }
 
-// pairValueEmpty reports whether the text after a separator carries no value:
-// nothing, a delimiter, a JSON true/false/null, or the placeholder.
+// pairValueEmpty reports whether the text after a separator (leading
+// spaces, newlines, quotes and backslashes already skipped) carries no value.
+// Only an EXACT match is exempt, never a prefix: nothing at all, a delimiter
+// that ends an empty value (, ; & } ] )), or a value token that is exactly
+// true, false, null or the placeholder, ending at the end of the text or a
+// delimiter (whitespace , ; & " ' } ] )). "true!secret", "null-secret" and
+// "[withheld: credential]secret" all carry a value.
 func pairValueEmpty(rest string) bool {
-	if rest == "" || strings.ContainsAny(rest[:1], "\r\n,;}]") {
+	if rest == "" || strings.ContainsAny(rest[:1], ",;&}])") {
 		return true
 	}
-	for _, lit := range []string{"true", "false", "null"} {
-		if strings.HasPrefix(rest, lit) && (len(rest) == len(lit) || !isIdentByte(rest[len(lit)])) {
+	for _, lit := range []string{"true", "false", "null", WithheldValuePlaceholder} {
+		if strings.HasPrefix(rest, lit) && (len(rest) == len(lit) || isValueDelimiter(rest[len(lit)])) {
 			return true
 		}
 	}
-	return strings.HasPrefix(rest, WithheldValuePlaceholder)
+	return false
 }
 
-func isIdentByte(c byte) bool {
-	return c == '_' || c == '-' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+// isValueDelimiter reports whether c ends a value token in key=value text.
+func isValueDelimiter(c byte) bool {
+	switch c {
+	case ' ', '\t', '\r', '\n', ',', ';', '&', '"', '\'', '}', ']', ')':
+		return true
+	}
+	return false
 }
 
 // secretKeyFragments match anywhere in a key once it is folded to lower-case

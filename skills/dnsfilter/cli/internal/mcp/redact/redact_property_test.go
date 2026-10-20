@@ -84,7 +84,24 @@ func (g *propGen) credValue(depth int) string {
 	return quoteJSON(g.secret())
 }
 
+// literalPrefixedValue is a value that starts with a JSON literal or the
+// placeholder (or a cut placeholder) and continues with a secret, joined by a
+// character that is not a value terminator.
+func (g *propGen) literalPrefixedValue() string {
+	lit := []string{"true", "false", "null", "[withheld: credential]", "[withhe", "[w"}[g.r.Intn(6)]
+	// None of these ends a value token (the store's delimiters are space,
+	// tab, line ends, quotes, , ; & } ] and ), so the token is the literal
+	// plus the secret, never exactly the literal.
+	sep := []string{"", "!", "#", "+", ":", "/", ".", "@", "%", "|", "~", "*", "="}[g.r.Intn(13)]
+	return lit + sep + g.secret()
+}
+
 func (g *propGen) textWithSecret() string {
+	if g.r.Intn(3) == 0 {
+		key := []string{"password", "token", "secret_key", "pin", "client_secret"}[g.r.Intn(5)]
+		op := []string{"=", ": ", " = ", ":"}[g.r.Intn(4)]
+		return []string{"", "note ", "a=b "}[g.r.Intn(3)] + key + op + g.literalPrefixedValue()
+	}
 	s := g.secret()
 	switch g.r.Intn(5) {
 	case 0:
@@ -225,6 +242,10 @@ func TestRedactionKnownBypasses(t *testing.T) {
 		`{"meta":"token=[\"SECRETX5\"]"}`,
 		`{"meta":"{\"token\":\"SECRETX6\"}","meta":"x"}`,
 		`x {"name":"a","name":"{\"pin\":\"SECRETX7\"}","name":"b"} y`,
+		`{"meta":"password=true!SECRETX8"}`,
+		`{"meta":"token=null~SECRETX9"}`,
+		`{"meta":"pin: [withheld: credential]SECRETX10"}`,
+		`{"meta":"secret_key=false#SECRETX11"}`,
 	} {
 		resetWithheldMemory()
 		for name, fn := range map[string]func(string) string{"Final": Final, "Raw": Raw} {
