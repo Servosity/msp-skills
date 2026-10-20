@@ -14,6 +14,7 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf16"
+	"unicode/utf8"
 
 	"saas-alerts-pp-cli/internal/platform"
 )
@@ -249,7 +250,8 @@ func (c *Client) funnelShown(path, text string, extra ...string) string {
 	return text
 }
 
-// jsonUnescape decodes JSON string escapes (\uXXXX, \/, \", \\, \b \f \n \r \t) wherever they
+// jsonUnescape decodes JSON string escapes (\uXXXX, \/, \", \\, \b \f \n \r \t) and the
+// JavaScript forms \', \xHH and \u{H...} wherever they
 // appear, without requiring the text to be valid JSON.
 func jsonUnescape(s string) string {
 	if !strings.Contains(s, `\`) {
@@ -260,6 +262,22 @@ func jsonUnescape(s string) string {
 		if s[i] == '\\' && i+1 < len(s) {
 			switch s[i+1] {
 			case 'u':
+				// A JavaScript \u{H...} code point escape.
+				if i+3 < len(s) && s[i+2] == '{' {
+					if end := strings.IndexByte(s[i+3:], '}'); end > 0 && end <= 6 {
+						if v, err := hex.DecodeString(strings.Repeat("0", (8-end)%2) + s[i+3:i+3+end]); err == nil {
+							r := rune(0)
+							for _, x := range v {
+								r = r<<8 | rune(x)
+							}
+							if utf8.ValidRune(r) {
+								b.WriteRune(r)
+								i += 3 + end
+								continue
+							}
+						}
+					}
+				}
 				if r, ok := hexRune(s, i+2); ok {
 					// A UTF-16 surrogate pair is two escapes for one character.
 					if utf16.IsSurrogate(r) && i+12 <= len(s) && s[i+6] == '\\' && s[i+7] == 'u' {
@@ -279,6 +297,19 @@ func jsonUnescape(s string) string {
 				b.WriteByte(s[i+1])
 				i++
 				continue
+			case '\'':
+				b.WriteByte('\'')
+				i++
+				continue
+			case 'x':
+				// A JavaScript \xHH escape.
+				if i+4 <= len(s) {
+					if v, err := hex.DecodeString(s[i+2 : i+4]); err == nil {
+						b.WriteByte(v[0])
+						i += 3
+						continue
+					}
+				}
 			case 'b', 'f', 'n', 'r', 't':
 				b.WriteByte(map[byte]byte{'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t'}[s[i+1]])
 				i++

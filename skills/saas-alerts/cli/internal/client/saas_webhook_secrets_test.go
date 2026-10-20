@@ -7,6 +7,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -353,17 +354,34 @@ func TestWebhookHTMLPageStaysAnErrorWhenItsTokenIsWithheld(t *testing.T) {
 	}
 }
 
-// TestWebhookBackstopKeepsFreeTextAnswers: on a JSON answer only a JSON-shaped
-// token key counts, so free text that mentions a token keeps the list intact.
+// TestWebhookBackstopKeepsFreeTextAnswers: a JSON answer whose free text only
+// mentions a token keeps every record; text that quotes a token value loses
+// only that string.
 func TestWebhookBackstopKeepsFreeTextAnswers(t *testing.T) {
 	const path = "/outgoingWebhookApi/api/v1/queue"
 	bs := string(rune(92))
-	for _, body := range []string{
-		`[{"channelId":"ch-1","failedAttempts":[{"message":"401 Unauthorized: missing token:"}],"url":"https://h/x?token=abc"}]`,
-		`[{"jointDesc":"Refresh token: 'revoked' for user"},{"jointDesc":"OAuth token: ` + bs + `"Outlook Mobile` + bs + `" granted"}]`,
-	} {
-		if out := string(withholdWebhookTokens(path, []byte(body))); out != body {
-			t.Fatalf("free text was withheld:\n in: %s\nout: %s", body, out)
-		}
+	unchanged := `[{"channelId":"ch-1","failedAttempts":[{"message":"401 Unauthorized: missing token:"}],"url":"https://h/x?token=abc"}]`
+	if out := string(withholdWebhookTokens(path, []byte(unchanged))); out != unchanged {
+		t.Fatalf("a mention was withheld:\n in: %s\nout: %s", unchanged, out)
+	}
+	quoted := `[{"id":"e1","jointDesc":"Refresh token: 'revoked' for user"},{"id":"e2","jointDesc":"OAuth token: ` + bs + `"Outlook Mobile` + bs + `" granted"}]`
+	var rows []map[string]any
+	if err := json.Unmarshal(withholdWebhookTokens(path, []byte(quoted)), &rows); err != nil || len(rows) != 2 || rows[0]["id"] != "e1" || rows[1]["id"] != "e2" {
+		t.Fatalf("records were lost: %v %v", rows, err)
+	}
+}
+
+// TestWebhookTokenInFreeTextIsWithheldFieldByField: inside a JSON answer, a
+// string value that quotes a token (an inspect print, punctuation included) is
+// replaced on its own and the rest of the answer stays.
+func TestWebhookTokenInFreeTextIsWithheldFieldByField(t *testing.T) {
+	const path = "/outgoingWebhookApi/api/v1/subscriptions"
+	body := `[{"channelId":"ch-1","message":"bad subscription { token: 'test-secret-inspect,with{punct}' }"},{"channelId":"ch-2"}]`
+	out := string(withholdWebhookTokens(path, []byte(body)))
+	if strings.Contains(out, "test-secret") || !strings.Contains(out, "ch-1") || !strings.Contains(out, "ch-2") || !strings.Contains(out, WebhookTokenWithheld) {
+		t.Fatalf("free-text token: %s", out)
+	}
+	if out := string(withholdWebhookTokens(path, []byte(`Error: { token: 'test-secret,inspect' }`))); strings.Contains(out, "test-secret") {
+		t.Fatalf("punctuated inspect token in text leaked: %s", out)
 	}
 }

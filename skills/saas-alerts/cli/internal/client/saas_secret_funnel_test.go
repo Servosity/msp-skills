@@ -47,6 +47,10 @@ var funnelEncodings = map[string]func(string) string{
 	"html-decimal":  func(s string) string { return funnelEach(s, func(r rune) string { return fmt.Sprintf("&#%d;", r) }) },
 	"html-hex":      func(s string) string { return funnelEach(s, func(r rune) string { return fmt.Sprintf("&#x%x;", r) }) },
 	"json-of-pct":   func(s string) string { return strings.ReplaceAll(funnelBytes(s, "%%%02X"), "%", funnelBS+"u0025") },
+	"js-hex":        func(s string) string { return funnelBytes(s, funnelBS+"x%02x") },
+	"js-codepoint": func(s string) string {
+		return funnelEach(s, func(r rune) string { return fmt.Sprintf(funnelBS+"u{%x}", r) })
+	},
 	"pct-5-deep": func(s string) string {
 		head := fmt.Sprintf("%%%02X", s[0])
 		for i := 0; i < 4; i++ {

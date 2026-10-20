@@ -32,11 +32,11 @@ const WebhookTokenWithheld = "[withheld]"
 // such as `missing token:` or `Refresh token: 'revoked'` must not match.
 var webhookTokenStrict = regexp.MustCompile(`(?i)"token"[\s\p{Z}]*:[\s\p{Z}]*"([^"\n]+)"`)
 
-// webhookTokenLoose also accepts single-quoted or unquoted keys and values (a
-// JavaScript inspect print); it is used only on text that is not JSON. The
-// value must close and hold no JSON punctuation, so it cannot run across a
-// string boundary.
-var webhookTokenLoose = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])["']?token["']?[\s\p{Z}]*:[\s\p{Z}]*["']([^"'\n,{}\[\]]+)["']`)
+// webhookTokenLoose also accepts single-quoted or unquoted keys (a JavaScript
+// inspect print) with a value in single or double quotes, up to the matching
+// quote. It is applied to text that is not JSON and to single JSON string
+// values, never across a serialized JSON document.
+var webhookTokenLoose = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])["']?token["']?[\s\p{Z}]*:[\s\p{Z}]*(?:'([^'\n]+)'|"([^"\n]+)")`)
 
 // webhookTokenWord is a cheap prefilter: a view without "token" cannot match.
 var webhookTokenWord = regexp.MustCompile(`(?i)token`)
@@ -66,6 +66,11 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 		}
 		if withholdTokenKeys(v) {
 			changed = true
+		}
+		// A string value that quotes a token in free text (an inspect print,
+		// an embedded JSON message) is replaced whole; the rest stays.
+		if nv, c := withholdTokenStrings(v); c {
+			v, changed = nv, true
 		}
 		if err := enc.Encode(v); err != nil {
 			return body
@@ -101,12 +106,48 @@ func webhookTokenValueLeft(text []byte, pattern *regexp.Regexp) bool {
 			return false
 		}
 		for _, m := range pattern.FindAllStringSubmatch(view, -1) {
-			if v := strings.TrimSpace(m[1]); v != "" && v != WebhookTokenWithheld {
-				return true
+			for _, g := range m[1:] {
+				if v := strings.TrimSpace(g); v != "" && v != WebhookTokenWithheld {
+					return true
+				}
 			}
 		}
 		return false
 	})
+}
+
+// withholdTokenStrings replaces each JSON string (key or value) that, in any
+// decoded view, quotes a token with a value by WebhookTokenWithheld.
+func withholdTokenStrings(v any) (any, bool) {
+	switch t := v.(type) {
+	case string:
+		if t != WebhookTokenWithheld && webhookTokenLeftInText([]byte(t)) {
+			return WebhookTokenWithheld, true
+		}
+	case map[string]any:
+		changed := false
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			if webhookTokenLeftInText([]byte(k)) {
+				k, changed = WebhookTokenWithheld, true
+			}
+			nv, c := withholdTokenStrings(val)
+			out[k] = nv
+			changed = changed || c
+		}
+		if changed {
+			return out, true
+		}
+	case []any:
+		changed := false
+		for i, val := range t {
+			if nv, c := withholdTokenStrings(val); c {
+				t[i], changed = nv, true
+			}
+		}
+		return t, changed
+	}
+	return v, false
 }
 
 // withholdTokenKeys walks v and replaces the value of every object key named
