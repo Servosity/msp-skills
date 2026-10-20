@@ -67,7 +67,13 @@ another host. **Three commands write a credential to disk:** `auth login` (and
   API refused before running it can be sent again. `--new-batch` is the only override:
   it keeps the earlier record and sends again. Another OS user, `--home`,
   `CLOUDALLY_HOME` or `CLOUDALLY_STATE_DIR` is a different state directory and so a
-  separate guard; run restores from one account and one state directory. The generated
+  separate guard; run restores from one account and one state directory. On every
+  `restore submit` the guard imports, once per store and read-only, every restore any
+  local ledger in the data directory recorded as sent, so restores made by earlier
+  builds or under other logins are refused too; if a ledger cannot be read, nothing is
+  sent. One backup reached two ways (the portal calendar and the task's last-backup
+  dates can differ by seconds or minutes) counts as one restore: anything within 30
+  minutes for the same task and mailbox is refused. The generated
   single-restore `recovery restore` commands and the MCP `cloudally_execute` tool are not
   behind the guard.
 - **Downloads only ever create EXPORT jobs.** The portal endpoint the download
