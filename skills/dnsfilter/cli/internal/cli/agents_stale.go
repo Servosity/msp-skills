@@ -46,7 +46,7 @@ func newNovelAgentsStaleCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for roaming clients that are silent (last_sync older than --older-than) or not protected (unprotected or bypassed) across every client org.
 Do NOT use this command for version drift after an agent release; use 'agents drift' instead.
 
-Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networks,user-agents' first. Uninstalled clients are excluded.`,
+Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first. Uninstalled clients are excluded.`,
 		Example: strings.Trim(`
   dnsfilter-cli agents stale --older-than 7d --agent
   dnsfilter-cli agents stale --org 'Acme Dental'`, "\n"),
@@ -114,7 +114,7 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 			}
 			if len(agents) == 0 {
 				// An unsynced mirror is not a healthy fleet; never print the all-clear.
-				fmt.Fprintln(w, "No roaming clients in the local mirror; nothing was checked. Run: dnsfilter-cli sync --resources organizations,networks,user-agents")
+				fmt.Fprintln(w, "No roaming clients in the local mirror; nothing was checked. Run: dnsfilter-cli sync --full --resources organizations,networks,user-agents")
 				return nil
 			}
 			if len(incomplete) > 0 {

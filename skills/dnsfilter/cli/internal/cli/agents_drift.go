@@ -55,7 +55,7 @@ func newNovelAgentsDriftCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for roaming-client agent version questions (who is behind the latest release, who is on a specific bad version) across every client org.
 Do NOT use this command for roaming clients that stopped checking in or lost protection; use 'agents stale' instead.
 
-The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --resources organizations,networks,user-agents' first); the release feed is read live on every run, because the vendor publishes it as a current "latest per agent type, architecture, channel and white label" snapshot and a mirrored copy would keep withdrawn releases after a rollback. Latest is the highest non-white-label release in the chosen channel (default stable) per agent type, across architectures. Roaming clients map to an org through their site (network). --data-source local and live are both rejected: the fleet is always the local mirror and the release feed is always live.`,
+The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first); the release feed is read live on every run, because the vendor publishes it as a current "latest per agent type, architecture, channel and white label" snapshot and a mirrored copy would keep withdrawn releases after a rollback. Latest is the highest non-white-label release in the chosen channel (default stable) per agent type, across architectures. Roaming clients map to an org through their site (network). --data-source local and live are both rejected: the fleet is always the local mirror and the release feed is always live.`,
 		Example: strings.Trim(`
   dnsfilter-cli agents drift --agent
   dnsfilter-cli agents drift --bad-version 3.1.0 --agent-type windows`, "\n"),
@@ -73,7 +73,7 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 			opts := driftOptions{BadVersion: badVersion, AgentType: agentType, Channel: channel, Org: orgFilter}
 			empty := computeDrift(nil, nil, nil, nil, opts)
 			empty.ReleasesSource = "unavailable"
-			empty.Note = "no local mirror; run: dnsfilter-cli sync --resources organizations,networks,user-agents"
+			empty.Note = "no local mirror; run: dnsfilter-cli sync --full --resources organizations,networks,user-agents"
 			empty.IncompleteCollections = driftCollections
 			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,user-agents", empty)
 			if !ok {
@@ -134,7 +134,7 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 			case view.AgentsScanned == 0:
 				// Zero scanned is not an all-clear: the mirror may be unsynced
 				// or --org / --agent-type matched nothing.
-				fmt.Fprintln(w, "No synced roaming clients matched; nothing was compared. Run: dnsfilter-cli sync --resources organizations,networks,user-agents (or widen --org / --agent-type).")
+				fmt.Fprintln(w, "No synced roaming clients matched; nothing was compared. Run: dnsfilter-cli sync --full --resources organizations,networks,user-agents (or widen --org / --agent-type).")
 			case len(view.Orgs) == 0 && view.ReleasesSource == "live" && len(view.Latest) > 0:
 				fmt.Fprintln(w, "No client org has roaming clients behind the latest release.")
 			}

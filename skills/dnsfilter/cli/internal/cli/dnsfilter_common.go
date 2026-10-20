@@ -393,7 +393,7 @@ func openLocalMirror(cmd *cobra.Command, flags *rootFlags, dbPath, syncHint stri
 		dbPath = defaultDBPath("dnsfilter-cli")
 	}
 	if _, statErr := os.Stat(dbPath); os.IsNotExist(statErr) {
-		fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local mirror at %s; this command reads synced data only. Run: dnsfilter-cli sync --resources %s --db %s\n", dbPath, syncHint, dbPath)
+		fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local mirror at %s; this command reads synced data only. Run: dnsfilter-cli sync --full --resources %s --db %s\n", dbPath, syncHint, dbPath)
 		if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 			return nil, false, printJSONFiltered(cmd.OutOrStdout(), empty, flags)
 		}
@@ -432,8 +432,10 @@ func incompleteCollections(ctx context.Context, db *store.Store, collections ...
 
 // incompleteSyncNote is the note a local-mirror command prints, in place of
 // its all-clear, when incompleteCollections reported missing collections.
+// The remedy is --full: a plain sync resumes an interrupted or page-capped
+// walk from its saved cursor and still records it incomplete.
 func incompleteSyncNote(missing []string) string {
-	return fmt.Sprintf("Incomplete local mirror: no complete sync of %s, so this is not an all-clear (clients or rows may be missing, counts may be low). Run: dnsfilter-cli sync --resources %s", strings.Join(missing, ", "), strings.Join(missing, ","))
+	return fmt.Sprintf("Incomplete local mirror: no complete sync of %s, so this is not an all-clear (clients or rows may be missing, counts may be low). Run: dnsfilter-cli sync --full --resources %s", strings.Join(missing, ", "), strings.Join(missing, ","))
 }
 
 // incompleteMirrorResult replaces a list command's bare JSON rows when the
@@ -444,6 +446,9 @@ type incompleteMirrorResult struct {
 	Meta struct {
 		IncompleteCollections []string `json:"incomplete_collections"`
 		Note                  string   `json:"note"`
+		// UnresolvedSchedules (lists where) names scheduled policies that
+		// deployments use but the mirror lacks or that name no slot policy.
+		UnresolvedSchedules []string `json:"unresolved_schedules,omitempty"`
 	} `json:"meta"`
 	Results any `json:"results"`
 }

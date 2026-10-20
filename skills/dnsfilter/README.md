@@ -233,7 +233,7 @@ No, and it says so. It evaluates the site or roaming client's current policy (in
 
 ### Why do agents drift, agents stale or lists where say there is nothing to report?
 
-They read the local mirror, so run sync first: `dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy.
+They read the local mirror, so run sync first: `dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy.
 
 ### Has it been tested against a live DNSFilter account?
 

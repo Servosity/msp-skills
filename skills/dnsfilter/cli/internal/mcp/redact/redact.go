@@ -20,6 +20,8 @@ package redact
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/url"
 	"regexp"
 	"strings"
@@ -182,7 +184,7 @@ func Final(text string) string {
 		return text
 	}
 	out, plain := redactJSONSegments(text)
-	if plainTextNamesCredential(plain) || carriesWithheldValue(out) {
+	if textNamesCredential(out, plain) || carriesWithheldValue(out) {
 		return WithheldBlockMessage
 	}
 	return out
@@ -223,7 +225,11 @@ func redactJSONSegments(text string) (string, string) {
 			continue
 		}
 		end := start + int(dec.InputOffset())
-		if cleaned, changed := redactValue(v); changed {
+		// The raw bytes are kept only when a token walk of them shows no
+		// credential-named key with a value and no duplicate key: a decoded
+		// map keeps the LAST of {"token":"S","token":null}, so a clean decoded
+		// value does not prove clean bytes.
+		if cleaned, changed := redactValue(v); changed || !rawJSONClean(text[start:end]) {
 			out.WriteString(encodeJSONCompact(cleaned))
 		} else {
 			out.WriteString(text[start:end])
@@ -282,21 +288,20 @@ func redactValue(value any) (any, bool) {
 		return v, changed
 	case string:
 		trimmed := strings.TrimSpace(v)
-		if trimmed != "" && (trimmed[0] == '{' || trimmed[0] == '[') {
-			dec := json.NewDecoder(strings.NewReader(trimmed))
-			dec.UseNumber()
-			var inner any
-			if dec.Decode(&inner) == nil && !dec.More() {
-				if cleaned, changed := redactValue(inner); changed {
+		if trimmed != "" && strings.ContainsAny(trimmed[:1], "{[\"") {
+			// JSON only if the WHOLE string is exactly one JSON value
+			// (Decoder.More is not an EOF test: {"ok":1}} token=S would pass).
+			if inner, ok := decodeExactlyOne(trimmed); ok {
+				if cleaned, changed := redactValue(inner); changed || !rawJSONClean(trimmed) {
 					return encodeJSONCompact(cleaned), true
 				}
 				return v, false
 			}
 		}
-		// Not one decodable JSON value: redact the complete records inside
-		// it, then fail closed on what is left.
+		// Not exactly one JSON value: redact the complete records inside it,
+		// then run the text rule over the whole (redacted) string.
 		inner, plain := redactJSONSegments(v)
-		if plainTextNamesCredential(plain) {
+		if textNamesCredential(inner, plain) {
 			return WithheldFieldPlaceholder, true
 		}
 		if inner != v {
@@ -304,6 +309,166 @@ func redactValue(value any) (any, bool) {
 		}
 	}
 	return value, false
+}
+
+// decodeExactlyOne decodes s as JSON only when it is exactly one JSON value
+// followed by nothing but whitespace (Token returns io.EOF).
+func decodeExactlyOne(s string) (any, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	dec.UseNumber()
+	var v any
+	if dec.Decode(&v) != nil {
+		return nil, false
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return nil, false
+	}
+	return v, true
+}
+
+// rawJSONClean walks the raw tokens of one JSON value and reports whether it
+// can be returned byte-for-byte: no object repeats a key, and no
+// credential-named key carries anything but null or a boolean at any
+// occurrence. Strings are not descended into here; redactValue already
+// judged every string value, and reports a change when one needed it.
+func rawJSONClean(raw string) bool {
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
+	type frame struct {
+		object    bool
+		expectKey bool
+		keys      map[string]bool
+	}
+	var stack []*frame
+	credValue := false
+	valueDone := func() {
+		if n := len(stack); n > 0 && stack[n-1].object {
+			stack[n-1].expectKey = true
+		}
+	}
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			return len(stack) == 0
+		}
+		if err != nil {
+			return false
+		}
+		if n := len(stack); n > 0 && stack[n-1].object && stack[n-1].expectKey {
+			if d, ok := tok.(json.Delim); ok && d == '}' {
+				stack = stack[:n-1]
+				valueDone()
+				continue
+			}
+			k, ok := tok.(string)
+			if !ok || stack[n-1].keys[k] {
+				return false
+			}
+			stack[n-1].keys[k] = true
+			stack[n-1].expectKey = false
+			credValue = IsCredentialKey(k)
+			continue
+		}
+		if credValue {
+			switch tok.(type) {
+			case nil, bool:
+			default:
+				return false
+			}
+			credValue = false
+		}
+		switch d := tok.(type) {
+		case json.Delim:
+			switch d {
+			case '{':
+				stack = append(stack, &frame{object: true, expectKey: true, keys: map[string]bool{}})
+			case '[':
+				stack = append(stack, &frame{})
+			case ']', '}':
+				if len(stack) == 0 {
+					return false
+				}
+				stack = stack[:len(stack)-1]
+				valueDone()
+			}
+		default:
+			valueDone()
+		}
+	}
+}
+
+// maxUnescapeRounds bounds how many levels of JSON string escaping the text
+// rule sees through (JSON quoted in a string quoted in a string ...).
+const maxUnescapeRounds = 6
+
+// unescapeForTextRule undoes JSON string escaping, one level per round, so the
+// text rule reads a key name, a quote, a separator or a newline however
+// deeply it was escaped (\u0065, \", \n). Malformed escapes stay as they are.
+func unescapeForTextRule(s string) string {
+	for round := 0; round < maxUnescapeRounds && strings.Contains(s, "\\"); round++ {
+		var b strings.Builder
+		b.Grow(len(s))
+		for i := 0; i < len(s); i++ {
+			if s[i] != '\\' || i+1 >= len(s) {
+				b.WriteByte(s[i])
+				continue
+			}
+			switch c := s[i+1]; c {
+			case '"', '\\', '/':
+				b.WriteByte(c)
+				i++
+			case 'n':
+				b.WriteByte('\n')
+				i++
+			case 'r':
+				b.WriteByte('\r')
+				i++
+			case 't':
+				b.WriteByte('\t')
+				i++
+			case 'b', 'f':
+				b.WriteByte(' ')
+				i++
+			case 'u':
+				if i+5 < len(s) && isHex(s[i+2]) && isHex(s[i+3]) && isHex(s[i+4]) && isHex(s[i+5]) {
+					var r rune
+					for _, h := range s[i+2 : i+6] {
+						r = r*16 + rune(hexVal(byte(h)))
+					}
+					b.WriteRune(r)
+					i += 5
+					continue
+				}
+				b.WriteByte(s[i])
+			default:
+				b.WriteByte(s[i])
+			}
+		}
+		next := b.String()
+		if next == s {
+			break
+		}
+		s = next
+	}
+	return s
+}
+
+func hexVal(c byte) byte {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0'
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10
+	default:
+		return c - 'A' + 10
+	}
+}
+
+// textNamesCredential is the text rule: a key=value / key: value pair
+// anywhere in the whole (redacted) text, or a CSV/table header in its
+// non-JSON remainder, after undoing JSON string escaping.
+func textNamesCredential(whole, plain string) bool {
+	return keyValueNamesCredential(unescapeForTextRule(whole)) || headerNamesCredential(unescapeForTextRule(plain))
 }
 
 var (
@@ -375,37 +540,48 @@ func valueCarriesNothing(rest string) bool {
 			return true
 		}
 	}
-	n := len(rest)
-	if n > len(WithheldFieldPlaceholder) {
-		n = len(WithheldFieldPlaceholder)
+	// The value ends at a quote, a backslash or the line end (a preview
+	// string's own closing quote can follow a placeholder cut short).
+	val := rest
+	if i := strings.IndexAny(val, "\"'\\\r\n"); i >= 0 {
+		val = val[:i]
 	}
-	return strings.HasPrefix(WithheldFieldPlaceholder, rest[:n])
+	if val == "" {
+		return true
+	}
+	// A placeholder, or a placeholder cut short (at least "[w", so a JSON
+	// array value such as ["S"] never reads as one).
+	return (len(val) >= 2 && strings.HasPrefix(WithheldFieldPlaceholder, val)) || strings.HasPrefix(val, WithheldFieldPlaceholder)
 }
 
 func isWordByte(c byte) bool {
 	return c == '_' || c == '-' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
-// plainTextNamesCredential reports whether non-JSON text names a credential
-// field in a shape that can carry its value: a key=value / key: value pair
-// (including a JSON fragment that no longer decodes), or a delimited header
-// line (CSV, TSV, a pipe or column-aligned table). This CLI's own environment
-// variable names (DNSFILTER_API_KEY in the auth hint
-// `export DNSFILTER_API_KEY="your-token-here"`) are names, not data fields,
-// and are skipped so an auth error stays readable.
-func plainTextNamesCredential(plain string) bool {
-	for _, m := range keyValueRE.FindAllStringSubmatchIndex(plain, -1) {
-		name := plain[m[2]:m[3]]
+// keyValueNamesCredential reports a key=value / key: value pair (including a
+// JSON fragment that no longer decodes) whose key names a credential and
+// whose value carries something. This CLI's own environment variable names
+// (DNSFILTER_API_KEY in the auth hint `export DNSFILTER_API_KEY="your-token-here"`)
+// are names, not data fields, and are skipped so an auth error stays readable.
+func keyValueNamesCredential(text string) bool {
+	for _, m := range keyValueRE.FindAllStringSubmatchIndex(text, -1) {
+		name := text[m[2]:m[3]]
 		if strings.HasPrefix(name, "DNSFILTER_") || !IsCredentialKey(name) {
 			continue
 		}
-		if !valueCarriesNothing(strings.TrimLeft(plain[m[1]:], " \t\"'\\")) {
+		if !valueCarriesNothing(strings.TrimLeft(text[m[1]:], " \t\"'\\")) {
 			return true
 		}
 	}
-	// A header needs a table under it: like the store's textNamesSecret, a
-	// one-line string ("Finance, password reset desk", or a prose list of
-	// field names) is not a CSV header.
+	return false
+}
+
+// headerNamesCredential reports a delimited header line (CSV, TSV, a pipe or
+// column-aligned table) with a credential-named column. A header needs a
+// table under it: like the store's textNamesSecret, a one-line string
+// ("Finance, password reset desk", or a prose list of field names) is not a
+// CSV header.
+func headerNamesCredential(plain string) bool {
 	lines := strings.Split(strings.TrimSpace(plain), "\n")
 	if len(lines) < 2 {
 		return false
@@ -419,7 +595,7 @@ func plainTextNamesCredential(plain string) bool {
 			f = strings.Trim(f, `"' `)
 			// A header cell is one identifier; prose such as "invalid token"
 			// between commas, or a "key":"value" fragment, is not a column
-			// name (the key=value scan above owns fragments).
+			// name (the key=value scan owns fragments).
 			if len(f) > 64 || !headerCellRE.MatchString(f) || strings.HasPrefix(f, "DNSFILTER_") {
 				continue
 			}

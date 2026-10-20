@@ -32,32 +32,131 @@ var withheldRow = json.RawMessage(`{}`)
 // Matching is by key name on the decoded JSON (see IsSecretKey), including
 // JSON encoded inside string values, never by string search on the raw row;
 // a string value that still names a secret key as text is withheld (see
-// scrubSecretString). Data with no secret is returned byte-for-byte. Data
-// that is not a single decodable JSON value is withheld whole (fail closed).
+// scrubSecretString). Data that is not a single decodable JSON value is
+// withheld whole (fail closed).
+//
+// The original bytes are kept only when rawJSONNeedsNoScrub proves, by a
+// token walk over the RAW input (every key occurrence, duplicates included),
+// that they carry nothing to scrub. Any other row is re-encoded from the
+// scrubbed decoded value, never copied: decoding keeps only the last of
+// duplicate keys, so a decision made on the decoded value alone would let
+// {"token":"SECRET","token":null} through byte-for-byte.
 func ScrubPersistedSecrets(data json.RawMessage) json.RawMessage {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return data
 	}
-	dec := json.NewDecoder(bytes.NewReader(data))
+	if rawJSONNeedsNoScrub(data, 0) {
+		return data
+	}
+	value, ok := decodeSingleJSON(data)
+	if !ok {
+		return withheldRow
+	}
+	cleaned, _ := scrubSecretValue(value)
+	enc, ok := encodeCompactJSON(cleaned)
+	if !ok {
+		return withheldRow
+	}
+	return json.RawMessage(enc)
+}
+
+// decodeSingleJSON decodes raw as exactly one JSON value (numbers kept as
+// json.Number) with nothing but whitespace after it.
+func decodeSingleJSON(raw []byte) (any, bool) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	var value any
 	if err := dec.Decode(&value); err != nil {
-		return withheldRow
+		return nil, false
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return withheldRow
+		return nil, false
 	}
-	cleaned, removed := scrubSecretValue(value)
-	if !removed {
-		return data
+	return value, true
+}
+
+// rawJSONNeedsNoScrub walks the tokens of raw and reports true only when raw
+// is exactly one JSON value with nothing but whitespace after it, no object
+// repeats a key, no secret-named key carries anything but null or a boolean,
+// and every string value is one scrubSecretString leaves unchanged (at depth,
+// the JSON-in-string level raw sits at). Any doubt reports false, which
+// sends the caller to the re-encode path.
+func rawJSONNeedsNoScrub(raw []byte, depth int) bool {
+	type frame struct {
+		object    bool
+		expectKey bool
+		keys      map[string]bool
 	}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(cleaned); err != nil {
-		return withheldRow
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var stack []*frame
+	secretValue := false // the next value belongs to a secret-named key
+	values := 0          // complete top-level values
+	finish := func() {
+		secretValue = false
+		if len(stack) == 0 {
+			values++
+			return
+		}
+		if top := stack[len(stack)-1]; top.object {
+			top.expectKey = true
+		}
 	}
-	return json.RawMessage(bytes.TrimRight(buf.Bytes(), "\n"))
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			return values == 1 && len(stack) == 0
+		}
+		if err != nil || (len(stack) == 0 && values > 0) {
+			return false
+		}
+		if n := len(stack); n > 0 && stack[n-1].object && stack[n-1].expectKey {
+			if d, ok := tok.(json.Delim); ok && d == '}' {
+				stack = stack[:n-1]
+				finish()
+				continue
+			}
+			key, ok := tok.(string)
+			if !ok || stack[n-1].keys[key] {
+				return false
+			}
+			stack[n-1].keys[key] = true
+			stack[n-1].expectKey = false
+			secretValue = IsSecretKey(key)
+			continue
+		}
+		switch t := tok.(type) {
+		case json.Delim:
+			switch t {
+			case '{', '[':
+				if secretValue {
+					return false
+				}
+				stack = append(stack, &frame{object: t == '{', expectKey: t == '{', keys: map[string]bool{}})
+			default:
+				if len(stack) == 0 {
+					return false
+				}
+				stack = stack[:len(stack)-1]
+				finish()
+			}
+		case string:
+			if secretValue {
+				return false
+			}
+			if _, changed := scrubSecretString(t, depth); changed {
+				return false
+			}
+			finish()
+		case json.Number:
+			if secretValue {
+				return false
+			}
+			finish()
+		default: // bool, nil
+			finish()
+		}
+	}
 }
 
 // scrubSecretValue drops secret-named keys from every object reachable from
@@ -140,21 +239,23 @@ func scrubSecretString(s string, depth int) (any, bool) {
 	}
 	trimmed := strings.TrimSpace(s)
 	if trimmed != "" && strings.ContainsAny(trimmed[:1], "{[\"") {
-		dec := json.NewDecoder(strings.NewReader(trimmed))
-		dec.UseNumber()
-		var inner any
-		if dec.Decode(&inner) == nil {
-			if _, err := dec.Token(); errors.Is(err, io.EOF) {
-				cleaned, removed := scrubSecretValueDepth(inner, depth+1)
-				if !removed {
-					return s, false
-				}
-				if enc, ok := encodeCompactJSON(cleaned); ok {
-					return enc, true
-				}
-				return WithheldValuePlaceholder, true
+		if inner, ok := decodeSingleJSON([]byte(trimmed)); ok {
+			// Same rule as the top-level row: keep the string only when its
+			// raw tokens prove there is nothing to scrub.
+			if rawJSONNeedsNoScrub([]byte(trimmed), depth+1) {
+				return s, false
 			}
+			cleaned, _ := scrubSecretValueDepth(inner, depth+1)
+			if enc, ok := encodeCompactJSON(cleaned); ok {
+				return enc, true
+			}
+			return WithheldValuePlaceholder, true
 		}
+	}
+	// Not exactly one JSON value (text around or after an embedded value
+	// included): the text rule runs over the WHOLE string first.
+	if textNamesSecret(s) {
+		return WithheldValuePlaceholder, true
 	}
 	text, plain, changed := scrubEmbeddedJSON(s, depth)
 	if textNamesSecret(plain) {
@@ -198,15 +299,16 @@ func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
 			continue
 		}
 		end := start + int(dec.InputOffset())
-		if cleaned, removed := scrubSecretValueDepth(v, depth+1); removed {
+		if rawJSONNeedsNoScrub([]byte(text[start:end]), depth+1) {
+			out.WriteString(text[start:end])
+		} else {
+			cleaned, _ := scrubSecretValueDepth(v, depth+1)
 			enc, ok := encodeCompactJSON(cleaned)
 			if !ok {
 				enc = `"` + WithheldValuePlaceholder + `"`
 			}
 			out.WriteString(enc)
 			changed = true
-		} else {
-			out.WriteString(text[start:end])
 		}
 		i = end
 	}

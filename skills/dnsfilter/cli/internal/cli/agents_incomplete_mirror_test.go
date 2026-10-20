@@ -120,7 +120,7 @@ func decodeIncomplete(t *testing.T, label, out string, want []string) json.RawMe
 	if !reflect.DeepEqual(env.Meta.IncompleteCollections, want) {
 		t.Fatalf("%s: incomplete_collections = %v, want %v", label, env.Meta.IncompleteCollections, want)
 	}
-	if cmd := "dnsfilter-cli sync --resources " + strings.Join(want, ","); !strings.HasSuffix(env.Meta.Note, cmd) {
+	if cmd := "dnsfilter-cli sync --full --resources " + strings.Join(want, ","); !strings.HasSuffix(env.Meta.Note, cmd) {
 		t.Fatalf("%s: note %q does not end with %q", label, env.Meta.Note, cmd)
 	}
 	return env.Results
@@ -204,7 +204,7 @@ func TestDriftIncompleteMirrorIsNotAnAllClear(t *testing.T) {
 		if err := json.Unmarshal([]byte(out), &v); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
-		if !reflect.DeepEqual(v.IncompleteCollections, missing) || !strings.HasSuffix(v.Note, "dnsfilter-cli sync --resources organizations,networks") {
+		if !reflect.DeepEqual(v.IncompleteCollections, missing) || !strings.HasSuffix(v.Note, "dnsfilter-cli sync --full --resources organizations,networks") {
 			t.Fatalf("%v: incomplete_collections=%v note=%q", args, v.IncompleteCollections, v.Note)
 		}
 		if !strings.Contains(errOut, "hint: Incomplete local mirror") {
@@ -361,21 +361,87 @@ func TestListsWhereCountsScheduleGovernedDeployments(t *testing.T) {
 	}
 }
 
-// A deployment naming a schedule the mirror lacks has unknown policies: the
-// counts are not an all-clear even when every collection reads complete.
-func TestListsWhereMissingScheduleIsIncomplete(t *testing.T) {
+// A deployment naming a schedule the mirror lacks, or one whose slots name no
+// policy, has unknown policies: the counts are not an all-clear. With
+// scheduled-policies completely synced, re-syncing cannot fix that, so it is
+// reported as unresolved_schedules, never as an incomplete collection; only a
+// truly incomplete scheduled-policies sync goes in incomplete_collections.
+func TestListsWhereUnresolvedScheduleIsNotAllClear(t *testing.T) {
 	run := mirrorRunner(t, &fixtureAPI{})
 	db := filepath.Join(t.TempDir(), "mirror.db")
+	all := map[string]string{"organizations": "complete", "policies": "complete", "scheduled-policies": "complete", "networks": "complete", "user-agents": "complete"}
 	seedMirror(t, db, map[string][]string{
-		"organizations": {mirrorOrg},
-		"policies":      {mirrorPolicy},
-		"networks":      {`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"scheduled_policy":{"data":{"id":"9"}}}}`},
-	}, map[string]string{"organizations": "complete", "policies": "complete", "scheduled-policies": "complete", "networks": "complete", "user-agents": "complete"})
+		"organizations":      {mirrorOrg},
+		"policies":           {mirrorPolicy},
+		"scheduled-policies": {`{"id":"6","attributes":{"name":"Empty","timezone":"UTC","policy_ids":` + scheduleSlots(0, 0) + `}}`},
+		"networks": {
+			`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"scheduled_policy":{"data":{"id":"9"}}}}`,
+			`{"id":"51","attributes":{"name":"Annex"},"relationships":{"organization":{"data":{"id":"1"}},"scheduled_policy":{"data":{"id":"6"}}}}`},
+	}, all)
 
-	out, _ := run("lists", "where", "example.com", "--db", db, "--json")
-	decodeIncomplete(t, "lists where --json, unknown schedule", out, []string{"scheduled-policies"})
+	out, errOut := run("lists", "where", "example.com", "--db", db, "--json")
+	var env struct {
+		Meta struct {
+			IncompleteCollections []string `json:"incomplete_collections"`
+			Note                  string   `json:"note"`
+			UnresolvedSchedules   []string `json:"unresolved_schedules"`
+		} `json:"meta"`
+		Results []listsWhereRow `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil || env.Meta.IncompleteCollections == nil {
+		t.Fatalf("unresolved schedules must withhold the all-clear in the envelope (err=%v):\n%s", err, out)
+	}
+	if len(env.Meta.IncompleteCollections) != 0 || !reflect.DeepEqual(env.Meta.UnresolvedSchedules, []string{"6", "9"}) || len(env.Results) != 1 {
+		t.Fatalf("complete mirror, dangling schedule 9 and empty schedule 6: meta=%+v results=%d", env.Meta, len(env.Results))
+	}
+	if !strings.HasPrefix(env.Meta.Note, "2 site or roaming-client assignment(s) use a scheduled policy that is not in the local mirror") || strings.Contains(env.Meta.Note, "sync") {
+		t.Fatalf("note must say the schedules are unresolved, not ask for a sync that cannot fix it: %q", env.Meta.Note)
+	}
+	if !strings.Contains(errOut, "hint: 2 site or roaming-client assignment(s)") {
+		t.Fatalf("no stderr hint: %s", errOut)
+	}
 	human, _ := run("lists", "where", "example.com", "--db", db, "--human-friendly")
-	if !strings.HasSuffix(human, "--resources scheduled-policies\n") {
-		t.Fatalf("unknown schedule not flagged:\n%s", human)
+	if !strings.Contains(human, "policy 10") || !strings.HasSuffix(human, "(scheduled policy ids 6, 9); their impact counts are unknown, so this is not an all-clear.\n") {
+		t.Fatalf("human output must keep the row and say the schedules are unresolved:\n%s", human)
+	}
+
+	// scheduled-policies really incomplete: it is an incomplete collection
+	// (remedy: sync --full) and the dangling ids are still reported.
+	seedMirror(t, db, nil, map[string]string{"scheduled-policies": "partial"})
+	out, _ = run("lists", "where", "example.com", "--db", db, "--json")
+	env.Meta.UnresolvedSchedules = nil
+	if err := json.Unmarshal(decodeIncomplete(t, "partial scheduled-policies", out, []string{"scheduled-policies"}), &env.Results); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil || !reflect.DeepEqual(env.Meta.UnresolvedSchedules, []string{"6", "9"}) {
+		t.Fatalf("partial scheduled-policies: unresolved_schedules = %v (err %v)", env.Meta.UnresolvedSchedules, err)
+	}
+}
+
+// The remedy for an incomplete collection is sync --full: a plain sync resumes
+// an interrupted or page-capped walk from its cursor and stays incomplete.
+func TestNovelReadersRemedyIsFullSync(t *testing.T) {
+	run := mirrorRunner(t, &fixtureAPI{releases: []string{mirrorFeedLatest}})
+	db := filepath.Join(t.TempDir(), "mirror.db")
+	seedMirror(t, db, map[string][]string{"user-agents": {mirrorAgent()}}, map[string]string{"user-agents": "partial"})
+	for _, args := range [][]string{{"agents", "stale"}, {"agents", "drift"}, {"lists", "where", "example.com"}} {
+		human, _ := run(append(args, "--db", db, "--human-friendly")...)
+		if !strings.Contains(human, "Run: dnsfilter-cli sync --full --resources ") || strings.Contains(human, "Run: dnsfilter-cli sync --resources ") {
+			t.Fatalf("%v: remedy must be sync --full:\n%s", args, human)
+		}
+	}
+	empty := filepath.Join(t.TempDir(), "absent.db")
+	_, errOut := run("agents", "stale", "--db", empty, "--json")
+	if !strings.Contains(errOut, "Run: dnsfilter-cli sync --full --resources organizations,networks,user-agents --db ") {
+		t.Fatalf("no-mirror hint must give sync --full: %s", errOut)
+	}
+	if out, _ := run("agents", "drift", "--db", empty, "--json"); !strings.Contains(out, "run: dnsfilter-cli sync --full --resources organizations,networks,user-agents") {
+		t.Fatalf("drift no-mirror note must give sync --full:\n%s", out)
+	}
+	// An interrupted first walk that stored no client yet.
+	noRows := filepath.Join(t.TempDir(), "norows.db")
+	seedMirror(t, noRows, nil, map[string]string{"user-agents": "partial"})
+	if human, _ := run("agents", "stale", "--db", noRows, "--human-friendly"); !strings.Contains(human, "Run: dnsfilter-cli sync --full --resources organizations,networks,user-agents") {
+		t.Fatalf("stale empty-mirror line must give sync --full:\n%s", human)
 	}
 }

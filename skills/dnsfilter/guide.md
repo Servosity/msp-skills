@@ -103,7 +103,7 @@ DNSFilter uses an API key sent as the raw value of the Authorization header (no 
 dnsfilter-cli doctor --dry-run
 
 # Mirror client orgs, sites, policies and the roaming-client fleet locally so fleet commands run offline.
-dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents
+dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents
 
 # Diagnose a blocked-site ticket: effective policy, deciding rule, recent query-log hits.
 dnsfilter-cli why-blocked example.com --org "Acme Dental"
@@ -144,14 +144,14 @@ dnsfilter-cli agents drift --agent
 ### Fleet health across every client
 - **`agents drift`**  -  See which client orgs have roaming clients behind the latest agent release, or on a specific bad build, with auto-update state per org. Joins the synced fleet with the vendor's live release feed.
 
-  _Use after an agent release goes bad, or in the weekly fleet pass. Run dnsfilter-cli sync --resources organizations,networks,user-agents first; the release feed is read live so a rollback shows up immediately._
+  _Use after an agent release goes bad, or in the weekly fleet pass. Run dnsfilter-cli sync --full --resources organizations,networks,user-agents first; the release feed is read live so a rollback shows up immediately._
 
   ```bash
   dnsfilter-cli agents drift --bad-version 3.1.0 --agent
   ```
 - **`agents stale`**  -  List roaming clients that stopped checking in or are unprotected or bypassed, grouped by client org with age buckets. Reads the local mirror; sync first.
 
-  _Use for the weekly check of endpoints that are silently unfiltered. Run dnsfilter-cli sync --resources organizations,networks,user-agents first._
+  _Use for the weekly check of endpoints that are silently unfiltered. Run dnsfilter-cli sync --full --resources organizations,networks,user-agents first._
 
   ```bash
   dnsfilter-cli agents stale --older-than 7d --agent
@@ -160,7 +160,7 @@ dnsfilter-cli agents drift --agent
 ### Policy hygiene across tenants
 - **`lists where`**  -  Find every policy across every client whose allow or block list holds a domain or a parent domain, with counts of the sites and roaming clients it governs. Reads the local mirror; sync first.
 
-  _Use to check precedent before allowing a domain, or to measure exposure when a domain makes the news. Run dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents first; an empty mirror returns an empty result._
+  _Use to check precedent before allowing a domain, or to measure exposure when a domain makes the news. Run dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents first; an empty mirror returns an empty result._
 
   ```bash
   dnsfilter-cli lists where example.com --agent
@@ -1004,7 +1004,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **Not sure which credential the CLI is using**  -  Run dnsfilter-cli auth status; it reports the credential source (env:DNSFILTER_API_KEY or the config file) without calling the API.
 - **HTTP 401 {"error":"Not Authorized"}**  -  Set DNSFILTER_API_KEY to the raw key from Account Settings, API Tokens (no Bearer prefix) and run dnsfilter-cli doctor.
 - **HTTP 429 Too Many Requests**  -  The CLI honors Retry-After; for large fleets sync fewer resources per run, e.g. dnsfilter-cli sync --resources user-agents.
-- **agents drift, agents stale or lists where prints an empty list**  -  Populate the mirror first: dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents.
+- **agents drift, agents stale or lists where prints an empty list**  -  Populate the mirror first: dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents.
 - **sync warns on distributors resources**  -  Distributor endpoints need a distributor key; MSP keys can ignore the warning or sync only MSP resources with --resources.
 - **allow wrote nothing**  -  allow only previews by default; re-run with --confirm --note "<ticket>" to apply.
 

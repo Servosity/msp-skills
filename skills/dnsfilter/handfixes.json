@@ -140,7 +140,7 @@
     {
       "id": "secrets-never-persisted",
       "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key, a trailing pin such as uninstall_pin, and the like, at any depth, including inside JSON encoded in a string value) and withholds a string value that still names one as key=value text or a table header, before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
-      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets.",
+      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted.",
       "status": "active",
       "asserts": [
         {
@@ -220,11 +220,6 @@
         },
         {
           "file": "cli/internal/store/dnsfilter_secrets.go",
-          "contains": "cleaned, removed := scrubSecretValueDepth(inner, depth+1)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/store/dnsfilter_secrets.go",
           "contains": "text, plain, changed := scrubEmbeddedJSON(s, depth)",
           "code_only": true
         },
@@ -241,6 +236,46 @@
         {
           "file": "cli/internal/store/dnsfilter_secrets_test.go",
           "contains": "func TestScrubSecretsInsideStrings(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if rawJSONNeedsNoScrub(data, 0) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func rawJSONNeedsNoScrub(raw []byte, depth int) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if !ok || stack[n-1].keys[key] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if rawJSONNeedsNoScrub([]byte(trimmed), depth+1) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "cleaned, _ := scrubSecretValueDepth(inner, depth+1)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if rawJSONNeedsNoScrub([]byte(text[start:end]), depth+1) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_property_test.go",
+          "contains": "func TestScrubPersistedSecretsProperty(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_property_test.go",
+          "contains": "func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -499,7 +534,7 @@
     {
       "id": "mcp-read-only-withholds-credentials",
       "summary": "with DNSFILTER_MCP_READ_ONLY=1 no MCP tool returns a credential: dnsfilter_execute refuses the api-keys reads, every network secret_key endpoint, the roaming client uninstall PIN and the GET that creates a PSA integration (keyed on the registered path template); the Cobra mirror skips or refuses any command or resource argument naming those paths (tail api-keys); and the result funnel (internal/mcp/redact.Final, called by the middleware in result_safety.go) replaces the value of every credential-named field (store.IsSecretKey, which now includes a trailing pin) at any depth of every JSON value in a result, withholds plain text that names one as a CSV/table header or key=value pair, and withholds any text carrying a value it already withheld",
-      "why": "DNSFilter GETs return live credentials: ApiKey.token (/v1/api_keys, /v1/api_keys/{id}), Network.secret_key (the site deployment secret, in every networks list and show), the organization's uninstall PIN (/v1/user_agents/uninstall_pin, annotated mcp:read-only), and EnterpriseConnection options.client_secret. The generated read-only switch only refused non-GET execute calls, so a read-only agent could read all of them through dnsfilter_execute, and `tail api-keys` / `tail networks` printed them through the mirror. GET /v1/psa_integrations/redirect_link creates an integration, a write behind a GET. Networks reads stay available with secret_key replaced by '[withheld: credential]' so a read-only agent still sees site names and ids. Proven over stdio 2026-10-20 against a mock returning secret_key SENTINEL-NET-SECRET: in read-only mode no tools/call result (execute networks.index/all/show, tail networks, sql, search, context) carried the sentinel, the api-keys reads, the uninstall PIN and tail api-keys were refused with zero requests reaching the mock. Each piece fails its test when reverted: the execute refusal (TestReadOnlyExecuteRefusesCredentialEndpoints, TestReadOnlyCredentialRefusalCoversRegistry), the funnel filter (TestReadOnlyResultFunnelWithholdsCredentials), the mirror guard (TestReadOnlyMirrorSkipsCredentialCommands) and the resource-argument guard (TestReadOnlyMirrorRefusesCredentialResourceArgs). Depends on store.IsSecretKey from secrets-never-persisted (one secret-key rule for the store and the MCP funnel). Round 2 (2026-10-20): the filter moved from result_safety.go into the internal/mcp/redact package so internal/mcp/bound can call it before budgeting (mcp-read-only-redacts-before-bounding); the needles are unchanged, only their file. Round 3 (2026-10-20): the path rule is now the segment set redact.CredentialPathSegments (api_keys, uninstall_pin, secret_key, redirect_link), the same set the response cache refuses, applied to the resolved path as well as the template (mcp-read-only-resolved-path-refusal); the key rule is store.IsSecretKey alone (the store rule gained the trailing pin), so the local mirror and the MCP funnel share one definition.",
+      "why": "DNSFilter GETs return live credentials: ApiKey.token (/v1/api_keys, /v1/api_keys/{id}), Network.secret_key (the site deployment secret, in every networks list and show), the organization's uninstall PIN (/v1/user_agents/uninstall_pin, annotated mcp:read-only), and EnterpriseConnection options.client_secret. The generated read-only switch only refused non-GET execute calls, so a read-only agent could read all of them through dnsfilter_execute, and `tail api-keys` / `tail networks` printed them through the mirror. GET /v1/psa_integrations/redirect_link creates an integration, a write behind a GET. Networks reads stay available with secret_key replaced by '[withheld: credential]' so a read-only agent still sees site names and ids. Proven over stdio 2026-10-20 against a mock returning secret_key SENTINEL-NET-SECRET: in read-only mode no tools/call result (execute networks.index/all/show, tail networks, sql, search, context) carried the sentinel, the api-keys reads, the uninstall PIN and tail api-keys were refused with zero requests reaching the mock. Each piece fails its test when reverted: the execute refusal (TestReadOnlyExecuteRefusesCredentialEndpoints, TestReadOnlyCredentialRefusalCoversRegistry), the funnel filter (TestReadOnlyResultFunnelWithholdsCredentials), the mirror guard (TestReadOnlyMirrorSkipsCredentialCommands) and the resource-argument guard (TestReadOnlyMirrorRefusesCredentialResourceArgs). Depends on store.IsSecretKey from secrets-never-persisted (one secret-key rule for the store and the MCP funnel). Round 2 (2026-10-20): the filter moved from result_safety.go into the internal/mcp/redact package so internal/mcp/bound can call it before budgeting (mcp-read-only-redacts-before-bounding); the needles are unchanged, only their file. Round 3 (2026-10-20): the path rule is now the segment set redact.CredentialPathSegments (api_keys, uninstall_pin, secret_key, redirect_link), the same set the response cache refuses, applied to the resolved path as well as the template (mcp-read-only-resolved-path-refusal); the key rule is store.IsSecretKey alone (the store rule gained the trailing pin), so the local mirror and the MCP funnel share one definition. Round 5 (2026-10-20): the text rule is textNamesCredential (key=value over the whole redacted text, header over the non-JSON remainder, both after undoing JSON escaping); see mcp-redact-exact-json-and-duplicate-keys.",
       "status": "active",
       "spec_encode_followup": "Press-side: the read-only switch should refuse credential-returning reads (a spec x-credential marker) and the MCP result path should redact secret-named fields.",
       "asserts": [
@@ -545,7 +580,7 @@
         },
         {
           "file": "cli/internal/mcp/redact/redact.go",
-          "contains": "if plainTextNamesCredential(plain) || carriesWithheldValue(out) {",
+          "contains": "if textNamesCredential(out, plain) || carriesWithheldValue(out) {",
           "code_only": true
         },
         {
@@ -1563,8 +1598,8 @@
     },
     {
       "id": "novel-readers-require-complete-sync",
-      "summary": "agents stale, agents drift and lists where check sync_state.last_attempt_complete for every collection their answer joins (stale and drift: organizations, networks, user-agents; lists where: organizations, networks, policies, scheduled-policies, user-agents) through incompleteCollections (internal/cli/dnsfilter_common.go). When any is never synced, cleared, or interrupted, the command prints no all-clear and no clean empty result: JSON carries incomplete_collections plus a note ending in the exact 'dnsfilter-cli sync --resources <list>' (stale and lists where switch their bare array to the {meta, results} envelope --agent already prints, so --agent keeps its results array and only meta gains the fields; drift adds incomplete_collections next to its existing note), machine modes add a stderr hint, and the human all-clear line is replaced by the same note while real findings still print. stale no longer blames --org when the sites or orgs were never walked. A read-only store that predates the column counts every collection incomplete. With every collection complete the output is byte-identical (exit 0 kept in all cases, the agents stale nothing-checked convention).",
-      "why": "The readers looked at the timestamp of ONE collection (user-agents for stale and drift, policies for lists where). So lists where with policies synced but sites, clients and orgs never walked returned rows with sites=0 roaming=0 and no hint (a false all-clear on impact); agents stale --org and agents drift --org over never-walked networks or organizations returned [] / agents_scanned=0 with exit 0 and blamed the filter; and a first-ever interrupted user-agents walk (or a --full cursor clear that never re-walked) still printed the stdout all-clear 'No roaming clients silent...' computed on partial data. Found by a prior reviewer after 19 Codex rounds. Proven 2026-10-20 by reverting each file: agents_stale.go fails TestStaleOrgOverUnwalkedSitesNamesTheSync and TestStalePartialClientWalkIsNotAnAllClear (partial, cleared); lists_where.go fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear; agents_drift.go wiring fails TestDriftIncompleteMirrorIsNotAnAllClear; an incompleteCollections that reports nothing fails all of them plus TestNovelReadersIncompleteCollectionsStates. TestNovelReadersCompleteMirrorOutputUnchanged (exact strings) passes on both the old and new code, and 35 command/mode pairs (human, --json, --agent, --select, --csv) were byte-identical between the old and new binary over a fully synced mirror.",
+      "summary": "agents stale, agents drift and lists where check sync_state.last_attempt_complete for every collection their answer joins (stale and drift: organizations, networks, user-agents; lists where: organizations, networks, policies, scheduled-policies, user-agents) through incompleteCollections (internal/cli/dnsfilter_common.go). When any is never synced, cleared, or interrupted, the command prints no all-clear and no clean empty result: JSON carries incomplete_collections plus a note ending in the exact 'dnsfilter-cli sync --full --resources <list>' (--full because a plain sync resumes an interrupted or --max-pages-capped walk from its saved cursor and still records it incomplete; the no-mirror hint, the empty-mirror line, drift's notes and the three commands' help name --full too, and the note never carries --db) (stale and lists where switch their bare array to the {meta, results} envelope --agent already prints, so --agent keeps its results array and only meta gains the fields; drift adds incomplete_collections next to its existing note), machine modes add a stderr hint, and the human all-clear line is replaced by the same note while real findings still print. stale no longer blames --org when the sites or orgs were never walked. A read-only store that predates the column counts every collection incomplete. With every collection complete the output is byte-identical (exit 0 kept in all cases, the agents stale nothing-checked convention).",
+      "why": "The readers looked at the timestamp of ONE collection (user-agents for stale and drift, policies for lists where). So lists where with policies synced but sites, clients and orgs never walked returned rows with sites=0 roaming=0 and no hint (a false all-clear on impact); agents stale --org and agents drift --org over never-walked networks or organizations returned [] / agents_scanned=0 with exit 0 and blamed the filter; and a first-ever interrupted user-agents walk (or a --full cursor clear that never re-walked) still printed the stdout all-clear 'No roaming clients silent...' computed on partial data. Found by a prior reviewer after 19 Codex rounds. Proven 2026-10-20 by reverting each file: agents_stale.go fails TestStaleOrgOverUnwalkedSitesNamesTheSync and TestStalePartialClientWalkIsNotAnAllClear (partial, cleared); lists_where.go fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear; agents_drift.go wiring fails TestDriftIncompleteMirrorIsNotAnAllClear; an incompleteCollections that reports nothing fails all of them plus TestNovelReadersIncompleteCollectionsStates. TestNovelReadersCompleteMirrorOutputUnchanged (exact strings) passes on both the old and new code, and 35 command/mode pairs (human, --json, --agent, --select, --csv) were byte-identical between the old and new binary over a fully synced mirror. Round 4 (2026-10-20): the remedy 'sync --resources X' did not clear an incomplete collection on the first try, because sync records a resumed walk incomplete and only sync --full completes it in one run (proven e2e: interrupted user-agents, plain sync left last_attempt_complete=0, sync --full set 1). Restoring the plain remedy in incompleteSyncNote fails TestNovelReadersRemedyIsFullSync plus every test that decodes the note; restoring it in the no-mirror hint, the stale empty-mirror line or drift's no-mirror note each fails TestNovelReadersRemedyIsFullSync.",
       "status": "active",
       "spec_encode_followup": "Press-side: generated local-data readers should gate on the sync_state completeness of every collection they join, not on one collection's last_synced_at (sync_hint.go readSyncHintState).",
       "asserts": [
@@ -1624,16 +1659,6 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/cli/lists_where.go",
-          "contains": "return printJSONFiltered(cmd.OutOrStdout(), incompleteMirrorJSON(rows, incomplete), flags)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/lists_where.go",
-          "contains": "if len(rows) == 0 && len(incomplete) == 0 {",
-          "code_only": true
-        },
-        {
           "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
           "contains": "func TestStalePartialClientWalkIsNotAnAllClear(t *testing.T) {",
           "code_only": true
@@ -1641,6 +1666,36 @@
         {
           "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
           "contains": "func TestNovelReadersCompleteMirrorOutputUnchanged(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "return fmt.Sprintf(\"Incomplete local mirror: no complete sync of %s, so this is not an all-clear (clients or rows may be missing, counts may be low). Run: dnsfilter-cli sync --full --resources %s\", strings.Join(missing, \", \"), strings.Join(missing, \",\"))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "this command reads synced data only. Run: dnsfilter-cli sync --full --resources %s --db %s",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "fmt.Fprintln(w, \"No roaming clients in the local mirror; nothing was checked. Run: dnsfilter-cli sync --full --resources organizations,networks,user-agents\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "empty.Note = \"no local mirror; run: dnsfilter-cli sync --full --resources organizations,networks,user-agents\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "if len(rows) == 0 && !withheld {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
+          "contains": "func TestNovelReadersRemedyIsFullSync(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -1747,7 +1802,7 @@
         },
         {
           "file": "cli/internal/mcp/redact/redact.go",
-          "contains": "if !valueCarriesNothing(strings.TrimLeft(plain[m[1]:], \" \\t\\\"'\\\\\")) {",
+          "contains": "if !valueCarriesNothing(strings.TrimLeft(text[m[1]:], \" \\t\\\"'\\\\\")) {",
           "code_only": true
         },
         {
@@ -2264,19 +2319,14 @@
     },
     {
       "id": "lists-where-counts-scheduled-policy-deployments",
-      "summary": "lists where counts a site or installed roaming client as governed by a policy when any of the 672 slots of its scheduled policy uses it (the site's schedule, the client's own schedule, or the site's schedule a client with no own assignment inherits), folded into sites / roaming_clients, with the schedule-reached subset in new scheduled_sites / scheduled_roaming_clients fields and a '(via a schedule slot: sites=N roaming=M)' suffix on the human line when non-zero. scheduled-policies joins the required-complete set and every sync hint (organizations,networks,policies,scheduled-policies,user-agents); a deployment naming a schedule missing from the mirror (or one listing no slot policy) adds scheduled-policies to incomplete_collections, so its unknown policies never read as zero impact.",
-      "why": "Codex review P1 (round 2, 2026-10-20): computeListsWhere skipped every scheduled assignment (sites on a schedule were not counted, and a client inheriting a scheduled site was dropped), so with every collection fully synced a policy used only through a schedule reported sites=0 roaming_clients=0 while governing those deployments, with no incompleteness warning: a false all-clear on exposure. why-blocked resolves only the CURRENT slot (correct for 'why is it blocked now'); impact needs every slot, because the policy governs the deployment part of the week. Proven 2026-10-20: ignoring schedule slots fails TestListsWhereCountsScheduleGovernedDeployments (policy 10: sites=0 roaming=0, want 1/2) and TestListsWhereMissingScheduleIsIncomplete; dropping scheduled-policies from whereCollections fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear; dropping the unknown-schedule append fails TestListsWhereMissingScheduleIsIncomplete. E2E over a fully synced mock tenant: the previous binary printed 'policy 10 \"Std\" sites=0 roaming=0', the fixed one 'sites=1 roaming=2 global=false (via a schedule slot: sites=1 roaming=2)'.",
+      "summary": "lists where counts a site or installed roaming client as governed by a policy when any of the 672 slots of its scheduled policy uses it (the site's schedule, the client's own schedule, or the site's schedule a client with no own assignment inherits), folded into sites / roaming_clients, with the schedule-reached subset in new scheduled_sites / scheduled_roaming_clients fields and a '(via a schedule slot: sites=N roaming=M)' suffix on the human line when non-zero. scheduled-policies joins the required-complete set and every sync hint (organizations,networks,policies,scheduled-policies,user-agents). A deployment naming a scheduled policy missing from the mirror (a dangling reference, or a schedule the key cannot list) or one whose slots name no policy still withholds the all-clear, but is reported apart from incomplete collections: meta.unresolved_schedules lists the ids and the note says how many assignments use them and that their impact counts are unknown; scheduled-policies goes in incomplete_collections only when its own sync_state is incomplete.",
+      "why": "Codex review P1 (round 2, 2026-10-20): computeListsWhere skipped every scheduled assignment (sites on a schedule were not counted, and a client inheriting a scheduled site was dropped), so with every collection fully synced a policy used only through a schedule reported sites=0 roaming_clients=0 while governing those deployments, with no incompleteness warning: a false all-clear on exposure. why-blocked resolves only the CURRENT slot (correct for 'why is it blocked now'); impact needs every slot, because the policy governs the deployment part of the week. Proven 2026-10-20: ignoring schedule slots fails TestListsWhereCountsScheduleGovernedDeployments (policy 10: sites=0 roaming=0, want 1/2); dropping scheduled-policies from whereCollections fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear. E2E over a fully synced mock tenant: the previous binary printed 'policy 10 \"Std\" sites=0 roaming=0', the fixed one 'sites=1 roaming=2 global=false (via a schedule slot: sites=1 roaming=2)'. Round 4 P2 (2026-10-20): folding an unresolved schedule into incomplete_collections told the operator scheduled-policies had 'no complete sync' and to re-sync it, which never clears a dangling reference on a completely synced collection. Proven: folding it back fails TestListsWhereUnresolvedScheduleIsNotAllClear; letting unresolved schedules stop withholding the all-clear fails it too. E2E over a completely synced mock tenant with site 51 on missing schedule 99: the round-3 binary said 'no complete sync of scheduled-policies ... Run: dnsfilter-cli sync --resources scheduled-policies', the fixed one '1 site or roaming-client assignment(s) use a scheduled policy that is not in the local mirror ... (scheduled policy ids 99); their impact counts are unknown' with incomplete_collections [] and unresolved_schedules [\"99\"].",
       "status": "active",
       "spec_encode_followup": "Docs outside the CLI still name the four-collection sync for lists where (SKILL.md, guide.md, page.json, README.md, which.go WhyItMatters, docs/llms-full.txt, docs/skills/dnsfilter.md); they should add scheduled-policies.",
       "asserts": [
         {
           "file": "cli/internal/cli/lists_where.go",
           "contains": "var whereCollections = []string{\"organizations\", \"networks\", \"policies\", \"scheduled-policies\", \"user-agents\"}",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/lists_where.go",
-          "contains": "func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved int) {",
           "code_only": true
         },
         {
@@ -2296,16 +2346,6 @@
         },
         {
           "file": "cli/internal/cli/lists_where.go",
-          "contains": "if unresolved > 0 && !slices.Contains(incomplete, \"scheduled-policies\") {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/lists_where.go",
-          "contains": "incomplete = append(incomplete, \"scheduled-policies\")",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/lists_where.go",
           "contains": "db, ok, err := openLocalMirror(cmd, flags, dbPath, \"organizations,networks,policies,scheduled-policies,user-agents\", incompleteMirrorJSON(make([]listsWhereRow, 0), whereCollections))",
           "code_only": true
         },
@@ -2315,8 +2355,38 @@
           "code_only": true
         },
         {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved map[string]int) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "unresolved[schedID]++",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "withheld := len(incomplete) > 0 || len(unresolved) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "res.Meta.Note, res.Meta.UnresolvedSchedules = whereWithheldNote(incomplete, unresolved), sortedKeys(unresolved)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "notes = append(notes, fmt.Sprintf(\"%d site or roaming-client assignment(s) use a scheduled policy that is not in the local mirror or names no policy in any slot (scheduled policy ids %s); their impact counts are unknown, so this is not an all-clear.\", n, strings.Join(sortedKeys(unresolved), \", \")))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "UnresolvedSchedules []string `json:\"unresolved_schedules,omitempty\"`",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
-          "contains": "func TestListsWhereMissingScheduleIsIncomplete(t *testing.T) {",
+          "contains": "func TestListsWhereUnresolvedScheduleIsNotAllClear(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -2388,6 +2458,73 @@
         {
           "file": "cli/internal/mcp/notes_resource_test.go",
           "contains": "func TestCodeOrchExecuteFillsNotesResource(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-redact-exact-json-and-duplicate-keys",
+      "summary": "the read-only redactor treats a string as JSON only when it is exactly one JSON value followed by whitespace (Token returns io.EOF), otherwise the text rule runs over the whole string; raw bytes of a decoded value (a whole string or an embedded segment) are returned only when a token walk shows no duplicate key and no credential-named key with a non-null, non-boolean value at any occurrence; the text rule reads key=value pairs over the whole (redacted) text after undoing JSON string escaping",
+      "why": "Codex round 2 (2026-10-20, P1): redactValue accepted a string as JSON when Decoder.More() was false, which is not an EOF test, so a UserAgent meta string {\"ok\":1}} token=SECRET decoded as {\"ok\":1}, looked clean and was returned raw: dnsfilter_execute returned SECRET with DNSFILTER_MCP_READ_ONLY=1. The sibling hole: a decoded map keeps the LAST of {\"token\":\"S\",\"token\":null}, so a clean decoded value returned the raw bytes with S (also for a duplicated non-credential key whose first value hid JSON with a secret). Also closed: a text pair whose value is a JSON array (token=[\"S\"]) slipped past the remainder-only scan, and escaped key names or newlines (tok\\u0065n, \\\\n in a CSV quoted twice) hid from the text rule. TestReadOnlyRedactionProperty generates 4000 random documents (nesting, duplicate keys, keys from name/token/secret_key/pin/id/meta in any case or \\u-escaped, JSON in a string, JSON in a string in a string, trailing text, truncated previews) and asserts no minted secret survives Final, Final(Raw) or Raw; its oracle is only that the secret markers never appear. Against the previous redact.go it fails at seed 4 and on the reported shapes; a one-off 60000-seed run passed. Proven over stdio against a mock: the previous binary returned SECRETVALUE1 (meta trailing text), SECRETDUP2 (duplicate token), SECRETNESTED3 (duplicate inside JSON in a string) and SECRETNDUP4 (duplicate meta) under read-only; the fixed binary returned none. Revert proofs: the io.EOF test (TestStringIsJSONOnlyWhenExactlyOneValue), the raw walk on segments and on strings, duplicate-key detection, unescaping, and the whole-string key=value rule each fail when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "func decodeExactlyOne(s string) (any, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if _, err := dec.Token(); !errors.Is(err, io.EOF) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "func rawJSONClean(raw string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if !ok || stack[n-1].keys[k] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if cleaned, changed := redactValue(v); changed || !rawJSONClean(text[start:end]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if cleaned, changed := redactValue(inner); changed || !rawJSONClean(trimmed) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "func unescapeForTextRule(s string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "return keyValueNamesCredential(unescapeForTextRule(whole)) || headerNamesCredential(unescapeForTextRule(plain))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "not_contains": "!dec.More()"
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_property_test.go",
+          "contains": "func TestReadOnlyRedactionProperty(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_property_test.go",
+          "contains": "func TestRedactionKnownBypasses(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_property_test.go",
+          "contains": "func TestStringIsJSONOnlyWhenExactlyOneValue(t *testing.T) {",
           "code_only": true
         }
       ]

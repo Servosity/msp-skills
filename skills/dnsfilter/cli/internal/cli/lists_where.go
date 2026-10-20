@@ -5,7 +5,6 @@ package cli
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -46,7 +45,7 @@ func newNovelListsWhereCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command for the effective verdict for one client; use 'why-blocked' instead.
 Do NOT use this command for a security review of all allow lists; use 'policy-audit' instead.
 
-Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).
+Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).
 sites and roaming_clients count every site and installed roaming client the policy governs: its own assignment, a roaming client inheriting its site's policy, or any slot of a scheduled policy (the client's own or inherited from its site). scheduled_sites and scheduled_roaming_clients say how many of those reach the policy through a schedule slot, so it governs them only part of the week.`,
 		Example: strings.Trim(`
   dnsfilter-cli lists where example.com --agent
@@ -86,19 +85,21 @@ sites and roaming_clients count every site and installed roaming client the poli
 				return err
 			}
 			rows, unresolved := computeListsWhere(normalizeDomain(args[0]), loaded["policies"], loaded["organizations"], loaded["networks"], loaded["user-agents"], loaded["scheduled-policies"])
-			if unresolved > 0 && !slices.Contains(incomplete, "scheduled-policies") {
-				// A deployment names a schedule the mirror lacks: its policies are unknown.
-				incomplete = append(incomplete, "scheduled-policies")
-			}
+			// A schedule the mirror lacks (or with no slot policy) leaves those
+			// deployments' policies unknown; re-syncing a complete collection
+			// cannot fix it, so it is reported apart from incomplete collections.
+			withheld := len(incomplete) > 0 || len(unresolved) > 0
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
-				if len(incomplete) > 0 {
-					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+incompleteSyncNote(incomplete))
-					return printJSONFiltered(cmd.OutOrStdout(), incompleteMirrorJSON(rows, incomplete), flags)
+				if withheld {
+					res := incompleteMirrorJSON(rows, incomplete)
+					res.Meta.Note, res.Meta.UnresolvedSchedules = whereWithheldNote(incomplete, unresolved), sortedKeys(unresolved)
+					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+res.Meta.Note)
+					return printJSONFiltered(cmd.OutOrStdout(), res, flags)
 				}
 				return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
 			}
 			w := cmd.OutOrStdout()
-			if len(rows) == 0 && len(incomplete) == 0 {
+			if len(rows) == 0 && !withheld {
 				fmt.Fprintf(w, "No synced policy lists %s or a parent domain.\n", humanText(normalizeDomain(args[0])))
 				return nil
 			}
@@ -109,9 +110,9 @@ sites and roaming_clients count every site and installed roaming client the poli
 				}
 				fmt.Fprintln(w)
 			}
-			if len(incomplete) > 0 {
+			if withheld {
 				// Unwalked sites or clients read as sites=0 roaming=0: no impact.
-				fmt.Fprintln(w, humanText(incompleteSyncNote(incomplete)))
+				fmt.Fprintln(w, humanText(whereWithheldNote(incomplete, unresolved)))
 			}
 			return nil
 		},
@@ -120,10 +121,30 @@ sites and roaming_clients count every site and installed roaming client the poli
 	return cmd
 }
 
-// computeListsWhere is the pure join behind `lists where`. unresolved counts
-// deployments whose scheduled policy is missing from schedules (or lists no
-// slot policy), so their policies, and the counts, are unknown.
-func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved int) {
+// whereWithheldNote is what lists where prints instead of an all-clear: the
+// schedules it could not resolve, then any incomplete collections (that note
+// ends in the sync command).
+func whereWithheldNote(incomplete []string, unresolved map[string]int) string {
+	notes := make([]string, 0, 2)
+	if len(unresolved) > 0 {
+		n := 0
+		for _, c := range unresolved {
+			n += c
+		}
+		notes = append(notes, fmt.Sprintf("%d site or roaming-client assignment(s) use a scheduled policy that is not in the local mirror or names no policy in any slot (scheduled policy ids %s); their impact counts are unknown, so this is not an all-clear.", n, strings.Join(sortedKeys(unresolved), ", ")))
+	}
+	if len(incomplete) > 0 {
+		notes = append(notes, incompleteSyncNote(incomplete))
+	}
+	return strings.Join(notes, " ")
+}
+
+// computeListsWhere is the pure join behind `lists where`. unresolved maps
+// each scheduled policy id that deployments use but schedules lacks (or that
+// lists no slot policy) to how many deployments use it; their policies, and
+// so the counts, are unknown.
+func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved map[string]int) {
+	unresolved = map[string]int{}
 	sites, roaming := map[string]int{}, map[string]int{}
 	schedSites, schedRoaming := map[string]int{}, map[string]int{}
 	// slotPolicies returns every policy any of a schedule's 672 slots uses.
@@ -141,7 +162,7 @@ func computeListsWhere(domain string, policies, orgs, networks, agents, schedule
 			}
 		}
 		if len(ids) == 0 {
-			unresolved++
+			unresolved[schedID]++
 		}
 		return ids
 	}
