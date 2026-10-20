@@ -86,7 +86,9 @@ mode `allow`, `sync`, `export` and the archive tool are removed, `dnsfilter_exec
 runs GET endpoints only, the reads that return a secret (API key reads, the site
 secret-key endpoints, the roaming client uninstall PIN) are refused, and networks
 reads come back with each `secret_key` replaced by `[withheld: credential]`, so the
-agent still sees site names and ids.
+agent still sees site names and ids. The same switch is enforced inside the HTTP client of the
+companion `dnsfilter-cli` the MCP server runs, so no route can send a write or a
+credential read while it is on.
 
 ## Permission tiers
 

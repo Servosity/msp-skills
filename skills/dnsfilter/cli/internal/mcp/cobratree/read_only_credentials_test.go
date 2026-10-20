@@ -70,12 +70,18 @@ func TestReadOnlyMirrorRefusesCredentialResourceArgs(t *testing.T) {
 		{"args": "api-keys"},
 		{"resources": "networks,api-keys"},
 		{"type": []any{"networks", "uninstall-pin"}},
+		{"host": "uninstall_pin"},
+		{"host": "UNINSTALL_PIN"},
+		{"host": "uninstall%5Fpin"},
+		{"host": "uninstall_pin.json"},
+		{"resource": "api_keys/"},
+		{"org": "../psa_integrations/redirect_link"},
 	} {
 		if msg := mirroredMCPReadOnlyRefusal(tail, args); msg == "" {
 			t.Fatalf("read-only let %v through", args)
 		}
 	}
-	if msg := mirroredMCPReadOnlyRefusal(tail, map[string]any{"resource": "networks", "follow": false}); msg != "" {
+	if msg := mirroredMCPReadOnlyRefusal(tail, map[string]any{"resource": "networks", "follow": false, "host": "laptop-17", "fqdn": "facebook.com"}); msg != "" {
 		t.Fatalf("read-only refused a plain resource: %s", msg)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "")

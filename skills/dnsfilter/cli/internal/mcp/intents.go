@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"strings"
 
+	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/mcp/cobratree"
+	"dnsfilter-pp-cli/internal/mcp/redact"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -56,6 +58,11 @@ func handlePrecedentCheckBeforeAllowingADomain(ctx context.Context, req mcplib.C
 	var missingDomain bool
 	if err := rejectFlagLikeRecipeValue("domain", input["domain"]); err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
+	}
+	// Hand-wired (handfixes.json: mcp-read-only-resolved-path-refusal): the
+	// same credential-path check every mirror argument gets.
+	if cliutil.IsMCPReadOnlyEnv() && redact.IsCredentialRequestPath("/"+recipeValueString(input["domain"])) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing precedent_check_before_allowing_a_domain %q while %s=1: it names a credential endpoint", recipeValueString(input["domain"]), cliutil.MCPReadOnlyEnvVar)), nil
 	}
 	args, missingDomain = appendRecipePositional(args, input["domain"], true)
 	if missingDomain {

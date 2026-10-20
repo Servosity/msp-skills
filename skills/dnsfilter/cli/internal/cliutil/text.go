@@ -5,6 +5,7 @@
 package cliutil
 
 import (
+	"fmt"
 	"html"
 	"net/url"
 	"regexp"
@@ -26,17 +27,31 @@ func CleanText(s string) string {
 }
 
 // ScrubTerminal prevents untrusted scalar values from altering terminal output.
-// Tabs and newlines become spaces; other control characters are removed.
+// Tabs and newlines become spaces; other control characters are removed; bidi
+// embedding, override and isolate controls are written as \u20XX so a tenant
+// string cannot reorder what the operator reads (Trojan Source).
 func ScrubTerminal(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r == '\t' || r == '\n' {
-			return ' '
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r == '\t' || r == '\n':
+			b.WriteByte(' ')
+		case r < 0x20 || (r >= 0x7f && r <= 0x9f):
+		case IsBidiControl(r):
+			fmt.Fprintf(&b, `\u%04x`, r)
+		default:
+			b.WriteRune(r)
 		}
-		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
-			return -1
-		}
-		return r
-	}, s)
+	}
+	return b.String()
+}
+
+// IsBidiControl reports the Unicode bidirectional embedding, override and
+// isolate controls (LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, PDI): invisible
+// characters that reorder how the text around them is displayed.
+func IsBidiControl(r rune) bool {
+	return (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)
 }
 
 // EscapePathParam encodes a path-param value as one URL path segment.

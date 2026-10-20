@@ -71,3 +71,25 @@ func TestTerminalWriterSplitAndLoneC1(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+// Bidi embedding, override and isolate controls are escaped on stderr and by
+// ScrubTerminal (human tables, humanText); other RTL text is untouched.
+func TestBidiControlsEscaped(t *testing.T) {
+	in := "allow \u202egnp.exe\u202c via \u2066policy\u2069 שלום"
+	var out bytes.Buffer
+	if _, err := NewTerminalWriter(&out).Write([]byte(in)); err != nil {
+		t.Fatal(err)
+	}
+	want := `allow \u202egnp.exe\u202c via \u2066policy\u2069 ` + "שלום"
+	if out.String() != want {
+		t.Fatalf("stderr writer: got %q want %q", out.String(), want)
+	}
+	if got := ScrubTerminal(in + "\x1b[2J\t"); got != want+"[2J " {
+		t.Fatalf("ScrubTerminal: got %q want %q", got, want+"[2J ")
+	}
+	for r := rune(0x2000); r < 0x2100; r++ {
+		if IsBidiControl(r) != ((r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)) {
+			t.Fatalf("IsBidiControl(%U) wrong", r)
+		}
+	}
+}

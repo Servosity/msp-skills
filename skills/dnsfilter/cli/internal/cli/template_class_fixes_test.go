@@ -200,3 +200,39 @@ func TestRootHelpBrandCasing(t *testing.T) {
 		t.Fatalf("root help casing: Short=%q Long starts %q", root.Short, root.Long[:40])
 	}
 }
+
+// --csv and --plain cells, and the novel commands' human output, write bidi
+// controls as \u20XX so a tenant name cannot reorder an allow preview.
+func TestScrubbersEscapeBidiControls(t *testing.T) {
+	name := "Acme \u202eexe.gnp\u202c Dental"
+	want := `Acme \u202eexe.gnp\u202c Dental`
+	if got := scrubCell(name); got != want {
+		t.Fatalf("scrubCell = %q, want %q", got, want)
+	}
+	if got := humanText(name); got != want {
+		t.Fatalf("humanText = %q, want %q", got, want)
+	}
+	data, _ := json.Marshal([]map[string]any{{"id": "1", "name": name}})
+	var out bytes.Buffer
+	if err := printCSV(&out, data); err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out.String(), '\u202e') || !strings.Contains(out.String(), want) {
+		t.Fatalf("--csv kept a raw bidi control: %q", out.String())
+	}
+}
+
+// psa-integrations is a GET that creates a PSA integration, so it must not
+// carry mcp:read-only (MCP hosts would see readOnlyHint and may auto-approve).
+func TestPSAIntegrationsNotReadOnly(t *testing.T) {
+	cmd, _, err := RootCmd().Find([]string{"psa-integrations"})
+	if err != nil || cmd.Name() != "psa-integrations" {
+		t.Fatalf("psa-integrations not found: %v", err)
+	}
+	if cmd.Annotations["mcp:read-only"] == "true" {
+		t.Fatal("psa-integrations creates a PSA integration but is annotated mcp:read-only")
+	}
+	if cmd.Annotations["pp:path"] != "/v1/psa_integrations/redirect_link" {
+		t.Fatalf("unexpected path %q", cmd.Annotations["pp:path"])
+	}
+}

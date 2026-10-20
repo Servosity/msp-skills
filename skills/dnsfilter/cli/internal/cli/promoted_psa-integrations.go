@@ -21,7 +21,7 @@ func newPsaIntegrationsPromotedCmd(flags *rootFlags) *cobra.Command {
 		Long:        "Creates a new PSA integration, if one does not exist and returns the redirect link.",
 		Example:     "  dnsfilter-cli psa-integrations",
 		Args:        cobra.NoArgs,
-		Annotations: map[string]string{"pp:endpoint": "psa-integrations.redirect-link", "pp:method": "GET", "pp:path": "/v1/psa_integrations/redirect_link", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "psa-integrations.redirect-link", "pp:method": "GET", "pp:path": "/v1/psa_integrations/redirect_link"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
 			if err != nil {

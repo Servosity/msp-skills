@@ -260,7 +260,7 @@ func TestSyncNeverPersistsSecrets(t *testing.T) {
 	syncHFServer(t, func(path string) (string, bool) {
 		switch path {
 		case "/v1/networks/all":
-			return `{"data":[{"id":"50","type":"networks","attributes":{"name":"VISIBLE-HQ","secret_key":"` + syncHFSentinel + `","organization_id":1},"relationships":{"organization":{"data":{"id":"1","type":"organizations"}}}}]}`, true
+			return `{"data":[{"id":"50","type":"networks","attributes":{"name":"VISIBLE-HQ","secret_key":"` + syncHFSentinel + `","organization_id":1,"uninstall_pin":"` + syncHFSentinel + `-PIN","pin":"` + syncHFSentinel + `-PIN2","nested":"{\"secret_key\":\"` + syncHFSentinel + `-NESTED\",\"name\":\"VISIBLE-NESTED\"}"},"relationships":{"organization":{"data":{"id":"1","type":"organizations"}}}}]}`, true
 		case "/v1/api_keys":
 			return `{"data":[{"id":"4","type":"api_keys","attributes":{"name":"VISIBLE-KEY","token":"` + syncHFSentinel + `","last_four":"z123"}}]}`, true
 		}
@@ -270,6 +270,7 @@ func TestSyncNeverPersistsSecrets(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	var visible, leaked []string
+	sawNested := false
 	_ = filepath.Walk(home, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
@@ -282,6 +283,7 @@ func TestSyncNeverPersistsSecrets(t *testing.T) {
 		if bytes.Contains(lower, []byte("visible-hq")) {
 			visible = append(visible, path)
 		}
+		sawNested = sawNested || bytes.Contains(lower, []byte("visible-nested"))
 		if bytes.Contains(lower, []byte("sentinel")) {
 			leaked = append(leaked, path)
 		}
@@ -289,6 +291,9 @@ func TestSyncNeverPersistsSecrets(t *testing.T) {
 	})
 	if len(visible) == 0 {
 		t.Fatal("the synced networks row was not found under the home dir; the grep is not looking where sync writes")
+	}
+	if !sawNested {
+		t.Fatal("the JSON inside the nested string was withheld whole instead of scrubbed")
 	}
 	if len(leaked) > 0 {
 		t.Fatalf("secret sentinel persisted in %v", leaked)

@@ -139,8 +139,8 @@
     },
     {
       "id": "secrets-never-persisted",
-      "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key and the like, at any depth) before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
-      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands.",
+      "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key, a trailing pin such as uninstall_pin, and the like, at any depth, including inside JSON encoded in a string value) and withholds a string value that still names one as key=value text or a table header, before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
+      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets.",
       "status": "active",
       "asserts": [
         {
@@ -206,6 +206,41 @@
         {
           "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
           "contains": "func TestDefaultSyncSkipsApiKeys(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "\"pin\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "return scrubSecretString(v, depth)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "cleaned, removed := scrubSecretValueDepth(inner, depth+1)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "text, plain, changed := scrubEmbeddedJSON(s, depth)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if textNamesSecret(plain) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if !pairValueEmpty(strings.TrimLeft(text[m[1]:], \" \\t\\\"'\\\\\")) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_test.go",
+          "contains": "func TestScrubSecretsInsideStrings(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -409,8 +444,8 @@
     },
     {
       "id": "mcp-tool-results-escape-controls",
-      "summary": "every MCP tool result and handler error (typed tools, code orchestration, intents and every Cobra-mirror shell-out) passes one server middleware that rewrites C0 controls (except tab and newline), a bare CR, DEL and C1 controls as \\u00XX before the text leaves the server",
-      "why": "Tenant strings (organization, site, policy and agent names, notes, block-page text) reached content[].text verbatim from API JSON, the local store and the companion CLI's stdout, so a name carrying U+009D ... U+009C (an OSC 52 clipboard write) or ESC[8m reached a host that prints results to a terminal. Ported from backup-radar's escaping constructors, but installed as the outermost mcp-go middleware (installResultSafety, first line of RegisterTools) so a tool added by any later registrar and a Go error returned by any handler are covered without per-call-site discipline. The escape is lossless inside JSON strings. TestResultFunnelEscapesEveryTool drives probe tools through the real JSON-RPC dispatch and fails when installResultSafety is removed or when safeResultText stops escaping (both proven 2026-10-20).",
+      "summary": "every MCP tool result and handler error (typed tools, code orchestration, intents and every Cobra-mirror shell-out) passes one server middleware that rewrites C0 controls (except tab and newline), a bare CR, DEL, C1 controls and the bidi embedding/override/isolate controls (U+202A-U+202E, U+2066-U+2069) as \\uXXXX before the text leaves the server",
+      "why": "Tenant strings (organization, site, policy and agent names, notes, block-page text) reached content[].text verbatim from API JSON, the local store and the companion CLI's stdout, so a name carrying U+009D ... U+009C (an OSC 52 clipboard write) or ESC[8m reached a host that prints results to a terminal. Ported from backup-radar's escaping constructors, but installed as the outermost mcp-go middleware (installResultSafety, first line of RegisterTools) so a tool added by any later registrar and a Go error returned by any handler are covered without per-call-site discipline. The escape is lossless inside JSON strings. TestResultFunnelEscapesEveryTool drives probe tools through the real JSON-RPC dispatch and fails when installResultSafety is removed or when safeResultText stops escaping (both proven 2026-10-20). Round 2 adversarial (2026-10-20, P2): bidi override/isolate controls in tenant names reached results unchanged, a Trojan-Source-style display spoof in why_blocked / allow previews; they are now escaped at the same boundary (\\u202e etc.), losslessly inside JSON. TestEscapeBidiControls fails when isBidiControl is dropped from isTerminalControl.",
       "status": "active",
       "spec_encode_followup": "Press-side: the generated RegisterTools should install a result-escaping middleware.",
       "asserts": [
@@ -443,13 +478,28 @@
           "file": "cli/internal/mcp/result_safety_test.go",
           "contains": "func TestResultFunnelEscapesEveryTool(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "return (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "|| (r >= 0x80 && r <= 0x9f) || isBidiControl(r)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety_test.go",
+          "contains": "func TestEscapeBidiControls(t *testing.T) {",
+          "code_only": true
         }
       ]
     },
     {
       "id": "mcp-read-only-withholds-credentials",
-      "summary": "with DNSFILTER_MCP_READ_ONLY=1 no MCP tool returns a credential: dnsfilter_execute refuses the api-keys reads, every network secret_key endpoint, the roaming client uninstall PIN and the GET that creates a PSA integration (keyed on the registered path template); the Cobra mirror skips or refuses any command or resource argument naming those paths (tail api-keys); and the result funnel (internal/mcp/redact.Final, called by the middleware in result_safety.go) replaces the value of every credential-named field (store.IsSecretKey plus a trailing pin) at any depth of every JSON value in a result, withholds plain text that names one as a CSV/table header or key=value pair, and withholds any text carrying a value it already withheld",
-      "why": "DNSFilter GETs return live credentials: ApiKey.token (/v1/api_keys, /v1/api_keys/{id}), Network.secret_key (the site deployment secret, in every networks list and show), the organization's uninstall PIN (/v1/user_agents/uninstall_pin, annotated mcp:read-only), and EnterpriseConnection options.client_secret. The generated read-only switch only refused non-GET execute calls, so a read-only agent could read all of them through dnsfilter_execute, and `tail api-keys` / `tail networks` printed them through the mirror. GET /v1/psa_integrations/redirect_link creates an integration, a write behind a GET. Networks reads stay available with secret_key replaced by '[withheld: credential]' so a read-only agent still sees site names and ids. Proven over stdio 2026-10-20 against a mock returning secret_key SENTINEL-NET-SECRET: in read-only mode no tools/call result (execute networks.index/all/show, tail networks, sql, search, context) carried the sentinel, the api-keys reads, the uninstall PIN and tail api-keys were refused with zero requests reaching the mock. Each piece fails its test when reverted: the execute refusal (TestReadOnlyExecuteRefusesCredentialEndpoints, TestReadOnlyCredentialRefusalCoversRegistry), the funnel filter (TestReadOnlyResultFunnelWithholdsCredentials), the mirror guard (TestReadOnlyMirrorSkipsCredentialCommands) and the resource-argument guard (TestReadOnlyMirrorRefusesCredentialResourceArgs). Depends on store.IsSecretKey from secrets-never-persisted (one secret-key rule for the store and the MCP funnel). Round 2 (2026-10-20): the filter moved from result_safety.go into the internal/mcp/redact package so internal/mcp/bound can call it before budgeting (mcp-read-only-redacts-before-bounding); the needles are unchanged, only their file.",
+      "summary": "with DNSFILTER_MCP_READ_ONLY=1 no MCP tool returns a credential: dnsfilter_execute refuses the api-keys reads, every network secret_key endpoint, the roaming client uninstall PIN and the GET that creates a PSA integration (keyed on the registered path template); the Cobra mirror skips or refuses any command or resource argument naming those paths (tail api-keys); and the result funnel (internal/mcp/redact.Final, called by the middleware in result_safety.go) replaces the value of every credential-named field (store.IsSecretKey, which now includes a trailing pin) at any depth of every JSON value in a result, withholds plain text that names one as a CSV/table header or key=value pair, and withholds any text carrying a value it already withheld",
+      "why": "DNSFilter GETs return live credentials: ApiKey.token (/v1/api_keys, /v1/api_keys/{id}), Network.secret_key (the site deployment secret, in every networks list and show), the organization's uninstall PIN (/v1/user_agents/uninstall_pin, annotated mcp:read-only), and EnterpriseConnection options.client_secret. The generated read-only switch only refused non-GET execute calls, so a read-only agent could read all of them through dnsfilter_execute, and `tail api-keys` / `tail networks` printed them through the mirror. GET /v1/psa_integrations/redirect_link creates an integration, a write behind a GET. Networks reads stay available with secret_key replaced by '[withheld: credential]' so a read-only agent still sees site names and ids. Proven over stdio 2026-10-20 against a mock returning secret_key SENTINEL-NET-SECRET: in read-only mode no tools/call result (execute networks.index/all/show, tail networks, sql, search, context) carried the sentinel, the api-keys reads, the uninstall PIN and tail api-keys were refused with zero requests reaching the mock. Each piece fails its test when reverted: the execute refusal (TestReadOnlyExecuteRefusesCredentialEndpoints, TestReadOnlyCredentialRefusalCoversRegistry), the funnel filter (TestReadOnlyResultFunnelWithholdsCredentials), the mirror guard (TestReadOnlyMirrorSkipsCredentialCommands) and the resource-argument guard (TestReadOnlyMirrorRefusesCredentialResourceArgs). Depends on store.IsSecretKey from secrets-never-persisted (one secret-key rule for the store and the MCP funnel). Round 2 (2026-10-20): the filter moved from result_safety.go into the internal/mcp/redact package so internal/mcp/bound can call it before budgeting (mcp-read-only-redacts-before-bounding); the needles are unchanged, only their file. Round 3 (2026-10-20): the path rule is now the segment set redact.CredentialPathSegments (api_keys, uninstall_pin, secret_key, redirect_link), the same set the response cache refuses, applied to the resolved path as well as the template (mcp-read-only-resolved-path-refusal); the key rule is store.IsSecretKey alone (the store rule gained the trailing pin), so the local mirror and the MCP funnel share one definition.",
       "status": "active",
       "spec_encode_followup": "Press-side: the read-only switch should refuse credential-returning reads (a spec x-credential marker) and the MCP result path should redact secret-named fields.",
       "asserts": [
@@ -465,17 +515,17 @@
         },
         {
           "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
-          "contains": "func ReadOnlyCredentialRefusal(method, pathTemplate string) string {",
+          "contains": "func ReadOnlyCredentialRefusal(method, path string) string {",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
-          "contains": "\"/uninstall_pin\",",
+          "contains": "if redact.IsCredentialRequestPath(path) {",
           "code_only": true
         },
         {
-          "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
-          "contains": "\"/v1/psa_integrations/redirect_link\": \"creates a PSA integration\",",
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "func IsCredentialKey(key string) bool { return store.IsSecretKey(key) }",
           "code_only": true
         },
         {
@@ -496,16 +546,6 @@
         {
           "file": "cli/internal/mcp/redact/redact.go",
           "contains": "if plainTextNamesCredential(plain) || carriesWithheldValue(out) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/redact/redact.go",
-          "contains": "if store.IsSecretKey(key) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/redact/redact.go",
-          "contains": "return strings.HasSuffix(b.String(), \"pin\")",
           "code_only": true
         },
         {
@@ -734,8 +774,8 @@
     },
     {
       "id": "output-escapes-c1-controls",
-      "summary": "stdout is wrapped in c1EscapeWriter, which rewrites UTF-8 C1 controls (U+0080-U+009F) as \\u00XX; the --deliver and envelope writers use it too, and isTerminal unwraps it; stderr uses the stricter writer of stderr-escapes-c0-controls",
-      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant organization or roaming-client name in --json, --agent or pretty-JSON output could drive the terminal. The escape keeps JSON valid and lossless (stdout stays C1-only so CSV cells keep their quoted CR). Ported from bitdefender (PR #402). TestExecuteEscapesC1OnStdout runs the real Execute() against a stub whose org name carries C1 CSI/OSC/ST and fails without the wrap; TestIsTerminalUnwrapsC1EscapeWriter fails without the unwrap. Round 2: rootCmd.SetErr moved from c1EscapeWriter to stderrW() (see stderr-escapes-c0-controls).",
+      "summary": "stdout is wrapped in c1EscapeWriter, which rewrites C1 controls (UTF-8 U+0080-U+009F and lone 8-bit 0x80-0x9F bytes) and bidi controls as \\u00XX/\\u20XX, decoding UTF-8 with a carry so valid multibyte sequences and C0 (a CSV cell's quoted CR) pass unchanged; the --deliver and envelope writers use it too, and isTerminal unwraps it; stderr uses the stricter writer of stderr-escapes-c0-controls",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant organization or roaming-client name in --json, --agent or pretty-JSON output could drive the terminal. Ported from bitdefender (PR #402). Adversarial round 2 (P2): the writer matched only the UTF-8 form (C2 80-9F), and a raw API body passed through to --json, tail and search can carry a lone 8-bit 0x9b, which a non-UTF-8 terminal treats as CSI; the writer now decodes runes, escapes lone 0x80-0x9F bytes, and holds an incomplete sequence for the next write so a multibyte character split across writes is untouched. Proved under a real pty: an org name with a raw 0x9b gave 1 raw 0x9b on the terminal from the HEAD build's `organizations index --json`, 0 from the fixed build. The escapes are valid JSON and decode to the same text. TestC1EscapeWriterLoneC1BidiAndMultibyte (lone C1, a euro sign split across writes, emoji, CJK, bidi, CSV CRLF) and TestExecuteEscapesLoneC1OnStdout (real Execute()) fail when the lone-byte rule or the carry is reverted.",
       "status": "active",
       "asserts": [
         {
@@ -764,13 +804,32 @@
           "code_only": true
         },
         {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "case r == utf8.RuneError && size == 1 && b <= 0x9f:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "c.carry = append(c.carry, in[i:]...)",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/cli/c1_escape_test.go",
           "contains": "func TestExecuteEscapesC1OnStdout(t *testing.T) {",
           "code_only": true
         },
         {
+          "file": "cli/internal/cli/c1_escape_test.go",
+          "contains": "func TestExecuteEscapesLoneC1OnStdout(t *testing.T) {",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/cli/root.go",
           "not_contains": "cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))"
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "not_contains": "pending bool"
         }
       ]
     },
@@ -1872,6 +1931,183 @@
         {
           "file": "cli/internal/cli/stderr_boundary_test.go",
           "contains": "\"../store\", \"../learn\", \"../platform\", \"../../cmd/dnsfilter-mcp\", \"../../cmd/dnsfilter-cli\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "bidi-controls-escaped",
+      "summary": "Unicode bidi embedding, override and isolate controls (U+202A-U+202E, U+2066-U+2069) in tenant strings are written as \\u20XX everywhere they reach a terminal: cliutil.ScrubTerminal (human tables and the novel commands' humanText), scrubCell (--csv/--plain), the stderr TerminalWriter and the stdout c1EscapeWriter (so --json on a terminal too, as a valid lossless JSON escape)",
+      "why": "Adversarial round 2 (P2): an organization or policy name carrying RLO/PDF or an isolate reached the terminal unchanged in --plain, --csv, human tables, the novel human output (why-blocked, allow previews, agents stale/drift, lists where) and on stderr, so the operator could read a reordered domain or name (Trojan Source). --json stays data: the escape is applied at the same stdout boundary that already escapes C1, and decodes to the identical string, so JSON consumers see no change; %q arguments were already escaped by fmt. Bidi marks (LRM/RLM/ALM) are left alone because legitimate RTL names use them. Proved under a real pty with NO_COLOR=1: the HEAD build put 2 raw bidi controls on the terminal for organizations index --json, --plain and --csv, organizations show (human) and a 422 error on stderr; the fixed build 0 in every case. TestBidiControlsEscaped (stderr writer, ScrubTerminal), TestScrubbersEscapeBidiControls (scrubCell, humanText, printCSV) and TestC1EscapeWriterLoneC1BidiAndMultibyte fail when each rule is reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/text.go",
+          "contains": "func IsBidiControl(r rune) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/text.go",
+          "contains": "return (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/text.go",
+          "contains": "\t\tcase IsBidiControl(r):\n\t\t\tfmt.Fprintf(&b, `\\u%04x`, r)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "\t\tcase cliutil.IsBidiControl(r):\n\t\t\tfmt.Fprintf(&b, `\\u%04x`, r)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/termwriter.go",
+          "contains": "case (r >= 0x80 && r <= 0x9f) || IsBidiControl(r):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "case (r >= 0x80 && r <= 0x9f) || cliutil.IsBidiControl(r):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/termwriter_test.go",
+          "contains": "func TestBidiControlsEscaped(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestScrubbersEscapeBidiControls(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "psa-integrations-not-read-only",
+      "summary": "the psa-integrations command (GET /v1/psa_integrations/redirect_link, which creates a PSA integration if none exists) no longer carries mcp:read-only",
+      "why": "Adversarial round 2 (P2): the generator annotated every promoted GET mcp:read-only, so MCP hosts saw readOnlyHint=true on a call that creates tenant state and could auto-approve it. Without the annotation the MCP walker registers it without readOnlyHint and the read-only surface drops it (read-only mode already refused it by path). The CLI's store gate is unchanged (a GET never migrates the store). Proved: agent-context showed 'mcp:read-only': 'true' for psa-integrations on the HEAD build and no such annotation on the fixed build; internal/mcp tests still pass. TestPSAIntegrationsNotReadOnly fails when the annotation is restored.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/promoted_psa-integrations.go",
+          "not_contains": "\"mcp:read-only\": \"true\""
+        },
+        {
+          "file": "cli/internal/cli/promoted_psa-integrations.go",
+          "contains": "\"pp:path\": \"/v1/psa_integrations/redirect_link\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestPSAIntegrationsNotReadOnly(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-resolved-path-refusal",
+      "summary": "under DNSFILTER_MCP_READ_ONLY the credential refusal runs on the RESOLVED request path (placeholders filled and percent-encoded, query split off), normalized for case, repeated percent-encoding, duplicate and trailing slashes, backslash, a format suffix (.json), matrix params and '-' for '_': dnsfilter_execute checks the path it is about to send, every Cobra-mirror argument and the recipe intent's argument are read as request paths, and the matched segment set is the one the response cache refuses (api_keys, uninstall_pin, secret_key, redirect_link)",
+      "why": "Adversarial round 2 (2026-10-20, P1): the read-only refusal checked only the registered template, so dnsfilter_execute {\"endpoint_id\":\"user-agents.show\",\"params\":{\"id\":\"uninstall_pin\",\"organization_id\":10}} passed (/v1/user_agents/{id}), sent GET /v1/user_agents/uninstall_pin and returned the PIN, a bare JSON string no key-name redaction can see. Now the resolved path is checked before any request (codeOrchResolvedPathRefusal), and the mirror (why_blocked --host uninstall_pin builds /v1/user_agents/<id> in the child CLI; tail API_KEYS) and the intent refuse any argument that reads as a credential path. redact.CredentialPathSegments is the response cache's set; TestCredentialPathSegmentsMatchResponseCache parses internal/client responseCacheCredentialPath and fails on drift. Proven over stdio 2026-10-20 against a mock that answers uninstall_pin with \"493817\": with read-only on, user-agents.show id=uninstall_pin (the receipt), UNINSTALL_PIN, uninstall_pin/, uninstall%5Fpin, uninstall_pin.json, users.show id=../api_keys, networks.show id=7/secret_key, why_blocked host=uninstall_pin and tail API_KEYS were all refused and the mock saw only the control call (/v1/user_agents/12345); with read-only off the receipt call reached the mock and returned 493817. Revert proofs: the resolved-path call, each normalization step (percent-decoding, case, backslash, segment cut, hyphen), the mirror-argument matcher, the intent check, and the shared segment set each fail their test when reverted.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the read-only switch should check the resolved request path in the HTTP client itself, for every caller (the companion CLI child included).",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if msg := codeOrchResolvedPathRefusal(ep, path); msg != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if why := cobratree.ReadOnlyCredentialRefusal(ep.Method, resolvedPath); why != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "func IsCredentialRequestPath(path string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "decoded := lenientPercentDecode(p)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "p = strings.ToLower(strings.ReplaceAll(p, \"\\\\\", \"/\"))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if i := strings.IndexAny(seg, \";.?#%\"); i >= 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "\"uninstall_pin\": true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "\"redirect_link\": true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
+          "contains": "if redact.IsCredentialRequestPath(\"/\" + tok) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "if cliutil.IsMCPReadOnlyEnv() && redact.IsCredentialRequestPath(\"/\"+recipeValueString(input[\"domain\"])) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/resolved_path_test.go",
+          "contains": "func TestReadOnlyExecuteRefusesResolvedCredentialPaths(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/resolved_path_test.go",
+          "contains": "func TestReadOnlyIntentRefusesCredentialPathArg(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/credential_path_test.go",
+          "contains": "func TestIsCredentialRequestPath(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/credential_path_test.go",
+          "contains": "func TestCredentialPathSegmentsMatchResponseCache(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/credential_path_test.go",
+          "contains": "func TestCredentialKeyRuleIsTheStoreRule(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "client-read-only-guard",
+      "summary": "under DNSFILTER_MCP_READ_ONLY the HTTP client itself refuses every write (POST/PUT/PATCH/DELETE without read intent, and mutation-intent GETs) and every credential read (api_keys, uninstall_pin, secret_key, redirect_link path segments after decoding, case folding, '-' as '_' and a segment cut at '.' or ';'), before any request is built",
+      "why": "Round 2 adversarial reached the uninstall PIN in read-only MCP through user-agents.show with id=uninstall_pin: the MCP layer checked the endpoint template, not the resolved path. The MCP layer now checks resolved paths (mcp-read-only-resolved-path-refusal), but for mirror tools the real request is built inside the companion CLI the MCP server runs, so the parent can only inspect arguments. The MCP server passes its environment to that child, so a guard in internal/client is the one place every request from every route passes. responseCacheCredentialPath now normalizes the path the way a server would read it and serves both the cache rule and this guard. TestClientReadOnlyGuard sends ten refused shapes through a recording transport (zero calls allowed) and fails when the guard is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if cliutil.IsMCPReadOnlyEnv() && ((!readOnlyIntent && (mutationIntent || isMutatingVerb(method))) || responseCacheCredentialPath(path)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "d, err := url.PathUnescape(p)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/read_only_guard_test.go",
+          "contains": "func TestClientReadOnlyGuard(t *testing.T) {",
           "code_only": true
         }
       ]

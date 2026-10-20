@@ -20,6 +20,7 @@ package redact
 import (
 	"bytes"
 	"encoding/json"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -28,8 +29,9 @@ import (
 	"dnsfilter-pp-cli/internal/store"
 )
 
-// WithheldFieldPlaceholder replaces the value of a credential-named field.
-const WithheldFieldPlaceholder = "[withheld: credential]"
+// WithheldFieldPlaceholder replaces the value of a credential-named field;
+// it is the store scrub's placeholder text (one definition).
+const WithheldFieldPlaceholder = store.WithheldValuePlaceholder
 
 // WithheldBlockMessage replaces a whole text block that names a credential
 // field outside JSON (CSV or table headers, key=value prose) or carries a
@@ -39,21 +41,87 @@ const WithheldBlockMessage = "withheld: this result carries a credential-bearing
 // Enabled reports whether the read-only switch is on.
 func Enabled() bool { return cliutil.IsMCPReadOnlyEnv() }
 
-// IsCredentialKey is the store's secret-key rule (store.IsSecretKey: secret,
-// password, apikey, credential, a trailing token and friends, case and
-// separator insensitive) plus a trailing "pin", so a PIN field
-// (uninstall_pin, pin) is withheld too.
-func IsCredentialKey(key string) bool {
-	if store.IsSecretKey(key) {
-		return true
+// IsCredentialKey is the store's secret-key rule, one definition for the
+// local mirror and the MCP funnel (store.IsSecretKey: secret, password,
+// apikey, credential, a trailing token or pin, case and separator
+// insensitive, a trailing id/uuid word excluded).
+func IsCredentialKey(key string) bool { return store.IsSecretKey(key) }
+
+// CredentialPathSegments are the DNSFilter API path segments whose GET answer
+// IS a credential: /v1/api_keys and /v1/api_keys/{id} (ApiKey.token),
+// /v1/networks/{id}/secret_key (the site deployment secret),
+// /v1/user_agents/uninstall_pin (the roaming client uninstall PIN, a bare JSON
+// string no key-name redaction can see) and
+// /v1/psa_integrations/redirect_link (a one-time token, and a GET that creates
+// an integration). It is the same set the response cache refuses to store
+// (internal/client responseCacheCredentialPath); TestCredentialPathSegmentsMatchResponseCache
+// fails if the two drift.
+var CredentialPathSegments = map[string]bool{
+	"api_keys":      true,
+	"uninstall_pin": true,
+	"secret_key":    true,
+	"redirect_link": true,
+}
+
+// maxPathDecodeRounds bounds the repeated percent-decoding of a request path,
+// so double and triple encoding (uninstall%255Fpin) are seen through.
+const maxPathDecodeRounds = 4
+
+// IsCredentialRequestPath reports whether a request path, as it will be sent
+// (placeholders filled, values percent-encoded), reaches a credential
+// endpoint. It runs on the RESOLVED path, never a template, and normalizes the
+// ways a caller-supplied id can spell a segment: the query and fragment are
+// dropped, percent-encoding is decoded repeatedly, backslash counts as a
+// separator, case is folded, empty segments (duplicate or trailing slashes)
+// are skipped, a segment is cut at ';' (matrix params), '.' (a format
+// suffix such as uninstall_pin.json), any '?' or '#' an encoded value
+// smuggled in and a malformed escape left after decoding, and '-' reads as
+// '_'.
+func IsCredentialRequestPath(path string) bool {
+	p := path
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
 	}
-	var b strings.Builder
-	for _, r := range strings.ToLower(key) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
+	for round := 0; round < maxPathDecodeRounds && strings.Contains(p, "%"); round++ {
+		decoded := lenientPercentDecode(p)
+		if decoded == p {
+			break
+		}
+		p = decoded
+	}
+	p = strings.ToLower(strings.ReplaceAll(p, "\\", "/"))
+	for _, seg := range strings.Split(p, "/") {
+		if i := strings.IndexAny(seg, ";.?#%"); i >= 0 {
+			seg = seg[:i]
+		}
+		seg = strings.ReplaceAll(strings.TrimFunc(seg, func(r rune) bool { return r <= ' ' || r == 0x7f }), "-", "_")
+		if seg != "" && CredentialPathSegments[seg] {
+			return true
 		}
 	}
-	return strings.HasSuffix(b.String(), "pin")
+	return false
+}
+
+// lenientPercentDecode decodes every valid %XX escape and leaves a malformed
+// one in place, so one bad escape cannot hide the valid ones beside it (which
+// url.PathUnescape would refuse to decode at all).
+func lenientPercentDecode(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == '%' && i+2 < len(s) && isHex(s[i+1]) && isHex(s[i+2]) {
+			v, _ := url.PathUnescape(s[i : i+3])
+			b.WriteString(v)
+			i += 2
+			continue
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
+func isHex(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
 
 // Raw replaces the value of every credential-named field in every decodable

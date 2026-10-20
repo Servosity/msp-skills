@@ -867,12 +867,27 @@ func responseCacheable(path string, data json.RawMessage) bool {
 // responseCacheCredentialPath reports DNSFilter GETs whose answer is a
 // credential: API keys, the roaming client uninstall PIN, network secret
 // keys and the PSA integration redirect link (it carries a one-time token).
+// The path is normalized the way a server would read it: query and fragment
+// dropped, percent-encoding decoded until stable, case folded, backslash as
+// a separator, "-" as "_", and each segment cut at ";" or "." (so
+// uninstall_pin.json still counts).
 func responseCacheCredentialPath(path string) bool {
-	p := strings.ToLower(path)
+	p := path
 	if i := strings.IndexAny(p, "?#"); i >= 0 {
 		p = p[:i]
 	}
+	for n := 0; n < 4; n++ {
+		d, err := url.PathUnescape(p)
+		if err != nil || d == p {
+			break
+		}
+		p = d
+	}
+	p = strings.NewReplacer("\\", "/", "-", "_").Replace(strings.ToLower(p))
 	for _, seg := range strings.Split(p, "/") {
+		if i := strings.IndexAny(seg, ";.?#"); i >= 0 {
+			seg = seg[:i]
+		}
 		switch seg {
 		case "api_keys", "uninstall_pin", "secret_key", "redirect_link":
 			return true
@@ -1239,6 +1254,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	// client_credentials mint happens unnecessarily.
 	if !readOnlyIntent && (mutationIntent || isMutatingVerb(method)) && cliutil.IsVerifyEnv() && !cliutil.IsVerifyLiveHTTPEnv() {
 		return verifyShortCircuitEnvelope(method, path), http.StatusOK, nil
+	}
+	// handfixes.json: client-read-only-guard. Under DNSFILTER_MCP_READ_ONLY
+	// (the MCP server passes its environment to the companion CLI it runs)
+	// no request writes or reads a credential, whichever route built it.
+	if cliutil.IsMCPReadOnlyEnv() && ((!readOnlyIntent && (mutationIntent || isMutatingVerb(method))) || responseCacheCredentialPath(path)) {
+		return nil, 0, fmt.Errorf("refusing %s %s while %s is set: read-only mode never writes or reads a credential", method, path, cliutil.MCPReadOnlyEnvVar)
 	}
 	if err := rejectUnresolvedPathParams(path, nil); err != nil {
 		return nil, 0, err

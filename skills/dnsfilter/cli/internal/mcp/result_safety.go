@@ -79,7 +79,8 @@ func safeResultText(s string) string {
 }
 
 // escapeTerminalControls rewrites C0 controls (except tab and newline), a CR
-// not followed by LF, DEL and C1 controls (U+0080-U+009F) as \u00XX. Tenant
+// not followed by LF, DEL, C1 controls (U+0080-U+009F) and the bidi
+// override/isolate controls (U+202A-U+202E, U+2066-U+2069) as \uXXXX. Tenant
 // strings (organization, site, policy and agent names, notes, block-page
 // text) reach tool results from API JSON, the local store and the companion
 // CLI's stdout; a host that prints a result to a terminal would otherwise
@@ -92,11 +93,14 @@ func escapeTerminalControls(s string) string {
 	}
 	var b strings.Builder
 	b.Grow(len(s) + 16)
+	const hex = "0123456789abcdef"
 	for i, r := range s {
 		if isTerminalControl(r) || (r == '\r' && (i+1 >= len(s) || s[i+1] != '\n')) {
-			b.WriteString(`\u00`)
-			b.WriteByte("0123456789abcdef"[r>>4])
-			b.WriteByte("0123456789abcdef"[r&0xf])
+			b.WriteString(`\u`)
+			b.WriteByte(hex[(r>>12)&0xf])
+			b.WriteByte(hex[(r>>8)&0xf])
+			b.WriteByte(hex[(r>>4)&0xf])
+			b.WriteByte(hex[r&0xf])
 			continue
 		}
 		b.WriteRune(r)
@@ -105,5 +109,14 @@ func escapeTerminalControls(s string) string {
 }
 
 func isTerminalControl(r rune) bool {
-	return (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || r == 0x7f || (r >= 0x80 && r <= 0x9f)
+	return (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || r == 0x7f || (r >= 0x80 && r <= 0x9f) || isBidiControl(r)
+}
+
+// isBidiControl reports the Unicode bidirectional embedding, override and
+// isolate controls (U+202A-U+202E, U+2066-U+2069). In a tenant name they
+// reorder how a host displays the surrounding text (Trojan Source), so
+// why_blocked / allow previews could show a different domain or policy than
+// the one acted on. Hand-wired (handfixes.json: mcp-tool-results-escape-controls).
+func isBidiControl(r rune) bool {
+	return (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)
 }

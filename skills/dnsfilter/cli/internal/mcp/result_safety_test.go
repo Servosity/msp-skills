@@ -211,3 +211,27 @@ func TestReadOnlyFilterKeepsAuthHintReadable(t *testing.T) {
 		t.Fatalf("refusal withheld: %q", got)
 	}
 }
+
+// TestEscapeBidiControls: the bidi embedding/override/isolate controls a
+// tenant name can carry (Trojan Source) reach the client escaped, losslessly
+// inside JSON.
+func TestEscapeBidiControls(t *testing.T) {
+	name := "policy-\u202egnp.exe\u202c and \u2066isolate\u2069 \u202a\u202b\u202d\u2067\u2068"
+	raw, _ := json.Marshal(map[string]string{"name": name})
+	got := escapeTerminalControls(string(raw))
+	for _, r := range []rune{0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069} {
+		if strings.ContainsRune(got, r) {
+			t.Fatalf("raw bidi control U+%04X reached the client: %q", r, got)
+		}
+	}
+	if !strings.Contains(got, `\u202e`) || !strings.Contains(got, `\u2066`) {
+		t.Fatalf("expected \\u202e / \\u2066 escapes: %q", got)
+	}
+	var back map[string]string
+	if err := json.Unmarshal([]byte(got), &back); err != nil || back["name"] != name {
+		t.Fatalf("escape is not lossless inside JSON: %v %q", err, back)
+	}
+	if plain := "Main Office \u05e9\u05dc\u05d5\u05dd"; escapeTerminalControls(plain) != plain {
+		t.Fatal("ordinary RTL text must pass unchanged")
+	}
+}

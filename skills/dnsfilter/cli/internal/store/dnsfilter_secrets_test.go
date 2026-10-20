@@ -22,7 +22,7 @@ func TestIsSecretKey(t *testing.T) {
 		"secret_key", "token", "client_secret", "access_token", "payment_token",
 		"ep-grd-subscriber-secret", "new_password", "reset_password_url",
 		"private_key", "X-Api-Key", "apiKey", "refresh_token", "Password",
-		"preshared_key", "credentials",
+		"preshared_key", "credentials", "pin", "uninstall_pin", "UninstallPin", "PIN",
 	} {
 		if !IsSecretKey(k) {
 			t.Errorf("IsSecretKey(%q) = false, want true", k)
@@ -36,6 +36,7 @@ func TestIsSecretKey(t *testing.T) {
 		"relationships", "attributes", "id", "type", "hashed_device_sn", "friendly_name",
 		"youtube_restricted_level", "scheduled_policy", "network", "policy", "status",
 		"key", "", "api_keys_id", "apiKeyId", "secret_key_id", "token_ids", "networks_id", "total_tokens", "max_tokens",
+		"pin_code_enabled", "pin_id", "pinned", "ping", "pinned_at",
 	} {
 		if IsSecretKey(k) {
 			t.Errorf("IsSecretKey(%q) = true, want false", k)
@@ -80,6 +81,64 @@ func TestScrubPersistedSecrets(t *testing.T) {
 	}
 }
 
+// String values: JSON inside a string (once, twice, embedded in text, cut
+// mid-record), key=value text and a table header are scrubbed or withheld;
+// names and plain text that only look similar are kept byte-for-byte.
+func TestScrubSecretsInsideStrings(t *testing.T) {
+	q := func(v any) string {
+		b, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	inner := `{"secret_key":"` + secretSentinel + `","name":"inner"}`
+	for name, in := range map[string]string{
+		"json in string":       `{"a":` + q(inner) + `}`,
+		"json twice encoded":   `{"a":` + q(q(inner)) + `}`,
+		"array in string":      `{"a":` + q(`[{"uninstall_pin":"`+secretSentinel+`"}]`) + `}`,
+		"embedded in text":     `{"a":` + q(`error: `+inner+` while rotating`) + `}`,
+		"json cut mid-record":  `{"a":` + q(`{"name":"x","secret_key":"`+secretSentinel) + `}`,
+		"key=value text":       `{"a":"token=` + secretSentinel + `"}`,
+		"key: value text":      `{"a":"Uninstall PIN: ` + secretSentinel + `"}`,
+		"url query":            `{"a":"https://x.example/reset?password=` + secretSentinel + `"}`,
+		"table header":         `{"a":"name,token\nci,` + secretSentinel + `"}`,
+		"in an array of texts": `{"a":["ok","pin=` + secretSentinel + `"]}`,
+	} {
+		out := ScrubPersistedSecrets(json.RawMessage(in))
+		if bytes.Contains(bytes.ToLower(out), []byte("sentinel")) {
+			t.Errorf("%s: secret survived: %s", name, out)
+		}
+		if !json.Valid(out) {
+			t.Errorf("%s: scrubbed row is not JSON: %s", name, out)
+		}
+	}
+	// The JSON around a scrubbed secret survives.
+	out := ScrubPersistedSecrets(json.RawMessage(`{"a":` + q(inner) + `}`))
+	var got struct{ A string }
+	if err := json.Unmarshal(out, &got); err != nil || got.A != `{"name":"inner"}` {
+		t.Fatalf("json in string: got %s (%v)", out, err)
+	}
+	for _, keep := range []string{
+		`{"name":"Top Secret, Finance","note":"Password managers are allowed","t":"2026-10-01T12:00:00Z"}`,
+		`{"msg":"Hello {name}, see [docs]","pin_code_enabled":true,"token":null,"cfg":"{\"name\":\"x\"}"}`,
+		`{"url":"https://x.example/a?b=c","ratio":"1:2","secret":false}`,
+		`{"v":"token: null","w":"password=","x":"pin:true"}`,
+	} {
+		if got := ScrubPersistedSecrets(json.RawMessage(keep)); !bytes.Equal(got, json.RawMessage(keep)) {
+			t.Errorf("a row with no secret must be returned byte-for-byte:\n in  %s\n out %s", keep, got)
+		}
+	}
+	// Nesting deeper than the bound is still withheld as text.
+	deep := inner
+	for i := 0; i < maxNestedJSONDepth+3; i++ {
+		deep = q(deep)
+	}
+	if out := ScrubPersistedSecrets(json.RawMessage(`{"a":` + deep + `}`)); bytes.Contains(bytes.ToLower(out), []byte("sentinel")) {
+		t.Fatalf("deeply nested secret survived: %.200s", out)
+	}
+}
+
 // secretPayload is a JSON:API row carrying secrets at several depths plus
 // every NOT NULL column any typed table declares, so each typed writer
 // actually commits its row.
@@ -96,6 +155,11 @@ func secretPayload(t *testing.T, s *Store, id string) json.RawMessage {
 			"nested":        map[string]any{"client_secret": secretSentinel},
 			"list":          []any{map[string]any{"access_token": secretSentinel}},
 			"payment_token": secretSentinel,
+			"uninstall_pin": secretSentinel + "-PIN",
+			"pin":           secretSentinel + "-PIN2",
+			"nested_json":   "{\"secret_key\":\"" + secretSentinel + "\",\"name\":\"inner\"}",
+			"note":          "rotated, see {\"client_secret\":\"" + secretSentinel + "\"} in the log",
+			"memo":          "token=" + secretSentinel,
 		},
 		"secret_key": secretSentinel,
 	}

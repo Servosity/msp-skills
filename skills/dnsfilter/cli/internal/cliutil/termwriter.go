@@ -17,9 +17,10 @@ import (
 // clipboard, CSI moves the cursor or clears the screen, a bare CR overwrites
 // the line. The writer rewrites every C0 control except tab and newline (and
 // CR directly before a newline), DEL, UTF-8 C1 and lone 8-bit C1 bytes as
-// \u00XX. It passes through exactly the SGR sequences the CLI's own color
-// helpers emit, so colored output keeps working; those can only change text
-// style. Text without controls is written byte for byte.
+// \u00XX, and bidi embedding, override and isolate controls as \u20XX. It
+// passes through exactly the SGR sequences the CLI's own color helpers emit,
+// so colored output keeps working; those can only change text style. Text
+// without controls is written byte for byte.
 type TerminalWriter struct {
 	stream func() io.Writer
 	mu     sync.Mutex
@@ -87,7 +88,7 @@ func (t *TerminalWriter) Write(p []byte) (int, error) {
 			switch {
 			case r == utf8.RuneError && size == 1 && b <= 0x9f:
 				out = fmt.Appendf(out, `\u%04x`, b) // lone 8-bit C1
-			case r >= 0x80 && r <= 0x9f:
+			case (r >= 0x80 && r <= 0x9f) || IsBidiControl(r):
 				out = fmt.Appendf(out, `\u%04x`, r)
 			default:
 				out = append(out, in[i:i+size]...)

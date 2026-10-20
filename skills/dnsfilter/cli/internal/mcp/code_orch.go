@@ -3758,6 +3758,19 @@ func codeOrchReadOnlyRefusal(ep *codeOrchEndpoint) string {
 	return ""
 }
 
+// codeOrchResolvedPathRefusal refuses, under the read-only switch, a request
+// whose RESOLVED path (placeholders filled and percent-encoded, query split
+// off) reaches a credential endpoint, whatever the registered template was.
+func codeOrchResolvedPathRefusal(ep *codeOrchEndpoint, resolvedPath string) string {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return ""
+	}
+	if why := cobratree.ReadOnlyCredentialRefusal(ep.Method, resolvedPath); why != "" {
+		return fmt.Sprintf("refusing %s %s while %s=1: %s (resolved path %s)", ep.Method, ep.ID, cliutil.MCPReadOnlyEnvVar, why, resolvedPath)
+	}
+	return ""
+}
+
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
@@ -3845,6 +3858,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		if splitErr != nil {
 			return mcplib.NewToolResultError(splitErr.Error()), nil
 		}
+	}
+
+	// Hand-wired (handfixes.json: mcp-read-only-resolved-path-refusal): the
+	// template check above cannot see a placeholder value, so
+	// user-agents.show {"id":"uninstall_pin"} would send
+	// GET /v1/user_agents/uninstall_pin and return the PIN. Check the path
+	// exactly as it is about to be sent.
+	if msg := codeOrchResolvedPathRefusal(ep, path); msg != "" {
+		return mcplib.NewToolResultError(msg), nil
 	}
 
 	writeBody := func() any {

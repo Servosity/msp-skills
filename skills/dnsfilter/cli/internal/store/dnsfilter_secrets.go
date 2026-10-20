@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -28,9 +29,11 @@ var withheldRow = json.RawMessage(`{}`)
 // through). The CLI command that fetched them still prints them; the local
 // mirror never keeps them.
 //
-// Matching is by key name on the decoded JSON (see IsSecretKey), never by
-// string search. Data with no secret key is returned byte-for-byte. Data that
-// is not a single decodable JSON value is withheld whole (fail closed).
+// Matching is by key name on the decoded JSON (see IsSecretKey), including
+// JSON encoded inside string values, never by string search on the raw row;
+// a string value that still names a secret key as text is withheld (see
+// scrubSecretString). Data with no secret is returned byte-for-byte. Data
+// that is not a single decodable JSON value is withheld whole (fail closed).
 func ScrubPersistedSecrets(data json.RawMessage) json.RawMessage {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return data
@@ -58,9 +61,28 @@ func ScrubPersistedSecrets(data json.RawMessage) json.RawMessage {
 }
 
 // scrubSecretValue drops secret-named keys from every object reachable from
-// value. A secret-named key whose value is a boolean or null is kept: it
-// carries no secret and may be a flag the API reports.
+// value, including objects inside JSON that is encoded in a string value.
+// A secret-named key whose value is a boolean or null is kept: it carries no
+// secret and may be a flag the API reports.
 func scrubSecretValue(value any) (any, bool) {
+	return scrubSecretValueDepth(value, 0)
+}
+
+// maxNestedJSONDepth bounds how many times a string holding JSON is decoded
+// inside another (JSON in a string in a string ...). Past it the string is
+// only checked as text, which still withholds it if it names a credential.
+const maxNestedJSONDepth = 8
+
+// maxFailedSegmentDecodes bounds the embedded-JSON scan of one string value
+// (a value full of stray brackets), so it cannot go quadratic.
+const maxFailedSegmentDecodes = 256
+
+// WithheldValuePlaceholder replaces a string value that names a credential
+// in a shape the scrub cannot take apart (key=value text, a table, JSON cut
+// mid-record). It is the read-only MCP redactor's placeholder text.
+const WithheldValuePlaceholder = "[withheld: credential]"
+
+func scrubSecretValueDepth(value any, depth int) (any, bool) {
 	switch v := value.(type) {
 	case map[string]any:
 		removed := false
@@ -74,7 +96,7 @@ func scrubSecretValue(value any) (any, bool) {
 					continue
 				}
 			}
-			cleaned, childRemoved := scrubSecretValue(child)
+			cleaned, childRemoved := scrubSecretValueDepth(child, depth)
 			if childRemoved {
 				v[key] = cleaned
 				removed = true
@@ -84,15 +106,185 @@ func scrubSecretValue(value any) (any, bool) {
 	case []any:
 		removed := false
 		for i, child := range v {
-			cleaned, childRemoved := scrubSecretValue(child)
+			cleaned, childRemoved := scrubSecretValueDepth(child, depth)
 			if childRemoved {
 				v[i] = cleaned
 				removed = true
 			}
 		}
 		return v, removed
+	case string:
+		return scrubSecretString(v, depth)
 	}
 	return value, false
+}
+
+// scrubSecretString scrubs the JSON a string value carries and withholds the
+// string whole when its remaining text still names a credential with a
+// value:
+//   - a string that is one JSON value (an object, an array, or a JSON string
+//     holding more JSON) is decoded, scrubbed and re-encoded compactly;
+//   - otherwise every decodable object or array embedded in the text is
+//     scrubbed in place;
+//   - text that then still names a secret key in a name=value / name: value
+//     pair (JSON cut mid-record included), or in the header row of a
+//     multi-line table, is replaced by WithheldValuePlaceholder.
+//
+// A string with nothing to scrub is returned unchanged (removed == false).
+func scrubSecretString(s string, depth int) (any, bool) {
+	if depth >= maxNestedJSONDepth {
+		if textNamesSecret(s) {
+			return WithheldValuePlaceholder, true
+		}
+		return s, false
+	}
+	trimmed := strings.TrimSpace(s)
+	if trimmed != "" && strings.ContainsAny(trimmed[:1], "{[\"") {
+		dec := json.NewDecoder(strings.NewReader(trimmed))
+		dec.UseNumber()
+		var inner any
+		if dec.Decode(&inner) == nil {
+			if _, err := dec.Token(); errors.Is(err, io.EOF) {
+				cleaned, removed := scrubSecretValueDepth(inner, depth+1)
+				if !removed {
+					return s, false
+				}
+				if enc, ok := encodeCompactJSON(cleaned); ok {
+					return enc, true
+				}
+				return WithheldValuePlaceholder, true
+			}
+		}
+	}
+	text, plain, changed := scrubEmbeddedJSON(s, depth)
+	if textNamesSecret(plain) {
+		return WithheldValuePlaceholder, true
+	}
+	if changed {
+		return text, true
+	}
+	return s, false
+}
+
+// scrubEmbeddedJSON scrubs every decodable JSON object or array inside text
+// and returns the rewritten text, the non-JSON remainder (for the text
+// check) and whether anything was scrubbed. After a failed decode the scan
+// moves one byte on, so the complete records inside a truncated container
+// are still found.
+func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
+	var out, plain strings.Builder
+	changed := false
+	failures := 0
+	i := 0
+	for i < len(text) {
+		j := strings.IndexAny(text[i:], "{[")
+		if j < 0 || failures >= maxFailedSegmentDecodes {
+			out.WriteString(text[i:])
+			plain.WriteString(text[i:])
+			break
+		}
+		start := i + j
+		out.WriteString(text[i:start])
+		plain.WriteString(text[i:start])
+		plain.WriteByte(' ')
+		dec := json.NewDecoder(strings.NewReader(text[start:]))
+		dec.UseNumber()
+		var v any
+		if err := dec.Decode(&v); err != nil {
+			failures++
+			out.WriteByte(text[start])
+			plain.WriteByte(text[start])
+			i = start + 1
+			continue
+		}
+		end := start + int(dec.InputOffset())
+		if cleaned, removed := scrubSecretValueDepth(v, depth+1); removed {
+			enc, ok := encodeCompactJSON(cleaned)
+			if !ok {
+				enc = `"` + WithheldValuePlaceholder + `"`
+			}
+			out.WriteString(enc)
+			changed = true
+		} else {
+			out.WriteString(text[start:end])
+		}
+		i = end
+	}
+	return out.String(), plain.String(), changed
+}
+
+func encodeCompactJSON(v any) (string, bool) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return "", false
+	}
+	return strings.TrimRight(buf.String(), "\n"), true
+}
+
+// secretPairRE finds the name and separator of name=value / name: value pairs
+// in text, tolerating the escaped quotes of JSON quoted inside a string; the
+// caller checks that a value follows.
+var secretPairRE = regexp.MustCompile(`([A-Za-z][A-Za-z0-9_.\-]*)(?:\\*["'])?\s*[:=]`)
+
+// tableSplitRE splits a CSV, TSV, pipe or column-aligned table row.
+var tableSplitRE = regexp.MustCompile(`\s*[,\t|]\s*|\s{2,}`)
+
+// tableCellRE is one bare identifier, the only shape a header cell takes.
+var tableCellRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*$`)
+
+// textNamesSecret reports whether text names a secret key in a shape that
+// can carry its value: a name=value / name: value pair whose value is not
+// empty, true, false or null, or a header row of a table that has at least
+// one more line (a single line such as "Top Secret, Finance" is a name, not a
+// table).
+func textNamesSecret(text string) bool {
+	if strings.ContainsAny(text, ":=") {
+		for _, m := range secretPairRE.FindAllStringSubmatchIndex(text, -1) {
+			if !IsSecretKey(text[m[2]:m[3]]) {
+				continue
+			}
+			if !pairValueEmpty(strings.TrimLeft(text[m[1]:], " \t\"'\\")) {
+				return true
+			}
+		}
+	}
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+	if len(lines) < 2 {
+		return false
+	}
+	for _, line := range lines {
+		cells := tableSplitRE.Split(strings.TrimSpace(line), -1)
+		if len(cells) < 2 {
+			continue
+		}
+		for _, c := range cells {
+			c = strings.Trim(c, `"' `)
+			if len(c) <= 64 && tableCellRE.MatchString(c) && IsSecretKey(c) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pairValueEmpty reports whether the text after a separator carries no value:
+// nothing, a delimiter, a JSON true/false/null, or the placeholder.
+func pairValueEmpty(rest string) bool {
+	if rest == "" || strings.ContainsAny(rest[:1], "\r\n,;}]") {
+		return true
+	}
+	for _, lit := range []string{"true", "false", "null"} {
+		if strings.HasPrefix(rest, lit) && (len(rest) == len(lit) || !isIdentByte(rest[len(lit)])) {
+			return true
+		}
+	}
+	return strings.HasPrefix(rest, WithheldValuePlaceholder)
+}
+
+func isIdentByte(c byte) bool {
+	return c == '_' || c == '-' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 // secretKeyFragments match anywhere in a key once it is folded to lower-case
@@ -110,10 +302,11 @@ var secretKeyFragments = []string{
 }
 
 // secretKeySuffixes match at the end of a folded key: token, access_token,
-// payment_token, refresh_token. token_type, last_four and counters such as
-// total_tokens do not match.
+// payment_token, refresh_token, pin, uninstall_pin. token_type, last_four,
+// pin_code_enabled and counters such as total_tokens do not match.
 var secretKeySuffixes = []string{
 	"token",
+	"pin",
 }
 
 // identifierWords end a key that names a reference to a secret-bearing

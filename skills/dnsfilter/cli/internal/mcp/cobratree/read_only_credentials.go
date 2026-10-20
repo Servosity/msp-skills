@@ -8,44 +8,21 @@ package cobratree
 import (
 	"strings"
 
+	"dnsfilter-pp-cli/internal/mcp/redact"
 	"github.com/spf13/cobra"
 )
 
-// credentialPathFragments mark DNSFilter API paths whose response IS a
-// credential, so no read-only MCP surface may call them: /v1/api_keys and
-// /v1/api_keys/{id} return ApiKey.token, /v1/networks/{id}/secret_key manages
-// the site deployment secret, and /v1/user_agents/uninstall_pin returns the
-// roaming client uninstall PIN. A path that merely carries a secret among
-// other fields (the networks lists, enterprise connections) stays callable;
-// the MCP result funnel withholds the secret-named field instead.
-var credentialPathFragments = []string{
-	"/api_keys",
-	"/secret_key",
-	"/uninstall_pin",
-}
-
-// writesBehindGET lists GET paths that change tenant state, so read-only mode
-// refuses them even though the method reads as safe.
-var writesBehindGET = map[string]string{
-	// "Creates a new PSA integration, if one does not exist and returns the
-	// redirect link."
-	"/v1/psa_integrations/redirect_link": "creates a PSA integration",
-}
-
 // ReadOnlyCredentialRefusal returns a non-empty reason when method+path must
-// not run while the MCP read-only switch is on: every non-GET, every
-// credential-returning path, and every GET that writes. pathTemplate is the
-// registered template (with {placeholders}), never a resolved path, so a
-// caller-supplied id cannot steer the check.
-func ReadOnlyCredentialRefusal(method, pathTemplate string) string {
-	lower := strings.ToLower(pathTemplate)
-	for _, frag := range credentialPathFragments {
-		if strings.Contains(lower, frag) {
-			return "it returns or manages a credential"
-		}
-	}
-	if why, ok := writesBehindGET[lower]; ok {
-		return why
+// not run while the MCP read-only switch is on: every non-GET, and every path
+// that reaches a credential endpoint (redact.CredentialPathSegments: the
+// api-keys reads, the network secret_key endpoints, the roaming client
+// uninstall PIN, and the PSA redirect link, which carries a one-time token
+// and is a GET that creates an integration). Callers pass the registered
+// template AND, separately, the resolved request path: a caller-supplied
+// placeholder value (id="uninstall_pin") only shows up in the latter.
+func ReadOnlyCredentialRefusal(method, path string) string {
+	if redact.IsCredentialRequestPath(path) {
+		return "it returns or manages a credential"
 	}
 	if !strings.EqualFold(method, "GET") {
 		return "it is a " + strings.ToUpper(method) + " request"
@@ -74,9 +51,10 @@ func commandCallsCredentialPath(cmd *cobra.Command) bool {
 }
 
 // credentialResourceArg returns the first argument value of a mirrored call
-// that names a credential resource by the CLI's resource naming (api-keys is
-// /api_keys, secret-key is /secret_key, uninstall-pin is /uninstall_pin), so
-// `tail api-keys` cannot poll the API key list under the read-only switch.
+// that names a credential endpoint (api-keys, uninstall_pin, secret-key,
+// redirect_link, in any spelling IsCredentialRequestPath sees through), so
+// `tail api-keys` or `why_blocked --host uninstall_pin` cannot make the child
+// CLI request one under the read-only switch.
 // Every string value is checked (flags, structured positionals, and each
 // token of the raw args field), comma lists included.
 func credentialResourceArg(args map[string]any) string {
@@ -84,12 +62,14 @@ func credentialResourceArg(args map[string]any) string {
 	check = func(v any) string {
 		switch tv := v.(type) {
 		case string:
+			// Each token is read as a request path the child CLI might build
+			// from it (a tail resource, a --host roaming-client id that
+			// becomes /v1/user_agents/<id>), with the same normalization as
+			// the resolved-path check: case, '-' for '_', percent-encoding,
+			// slashes, a format suffix.
 			for _, tok := range SplitShellArgs(strings.ReplaceAll(tv, ",", " ")) {
-				name := "/" + strings.ReplaceAll(strings.ToLower(strings.TrimSpace(tok)), "-", "_")
-				for _, frag := range credentialPathFragments {
-					if name == frag {
-						return tok
-					}
+				if redact.IsCredentialRequestPath("/" + tok) {
+					return tok
 				}
 			}
 		case []any:

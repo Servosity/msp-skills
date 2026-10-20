@@ -80,3 +80,58 @@ func TestIsTerminalUnwrapsC1EscapeWriter(t *testing.T) {
 		t.Fatal("isTerminal does not unwrap c1EscapeWriter")
 	}
 }
+
+// Lone 8-bit C1 bytes (from a raw, non-UTF-8 API body) and bidi controls are
+// escaped on stdout; valid multibyte sequences, split across writes or not,
+// and a CSV cell's quoted CR pass through unchanged.
+func TestC1EscapeWriterLoneC1BidiAndMultibyte(t *testing.T) {
+	var out bytes.Buffer
+	w := &c1EscapeWriter{w: &out}
+	chunks := [][]byte{
+		[]byte("{\"name\":\"Raw\x9b31mRAW9B \xe2"), // lone CSI byte; the euro sign is split
+		[]byte("\x82\xac Zürich \U0001F600 中 \u202eevil\u2066x\u2069\"}\n"),
+		[]byte("\"a\r\nb\",c\r\n"), // quoted CSV cell with CRLF inside
+	}
+	for _, ch := range chunks {
+		if _, err := w.Write(ch); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := out.String()
+	want := `{"name":"Raw\u009b31mRAW9B ` + "€ Zürich \U0001F600 中 " + `\u202eevil\u2066x\u2069"}` + "\n\"a\r\nb\",c\r\n"
+	if got != want {
+		t.Fatalf("got  %q\nwant %q", got, want)
+	}
+	enc, _ := json.Marshal(map[string]string{"name": "A\u202eB\u2067C"})
+	out.Reset()
+	if _, err := (&c1EscapeWriter{w: &out}).Write(enc); err != nil {
+		t.Fatal(err)
+	}
+	var back map[string]string
+	if err := json.Unmarshal(out.Bytes(), &back); err != nil || back["name"] != "A\u202eB\u2067C" || bytes.Contains(out.Bytes(), []byte("\u202e")) {
+		t.Fatalf("bidi escape must keep JSON valid and lossless with no raw control: %q (%v)", out.Bytes(), err)
+	}
+}
+
+// The receipt: an organization name carrying a raw 0x9b byte in the API body
+// reaches stdout escaped through the real Execute().
+func TestExecuteEscapesLoneC1OnStdout(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{\"data\":[{\"id\":\"1\",\"attributes\":{\"name\":\"Raw\x9b31mRAW9B\"}}]}"))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	stdout, stderr, err := executeArgs(t, "organizations", "index", "--json")
+	if err != nil {
+		t.Fatalf("organizations index: %v\n%s%s", err, stdout, stderr)
+	}
+	if strings.Contains(stdout, "\x9b") {
+		t.Fatalf("raw 0x9b reached stdout: %q", stdout)
+	}
+	if !strings.Contains(stdout, "RAW9B") {
+		t.Fatalf("organization missing from output: %q", stdout)
+	}
+}
