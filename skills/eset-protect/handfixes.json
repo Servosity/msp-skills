@@ -5489,7 +5489,7 @@
     {
       "id": "credentials-path-follows-config",
       "summary": "an explicit --config writes only its own colocated data/credentials.toml (SaveTokens, the token mint, the save lock and rollback, auth logout, auth's save-path message), even when it reads the default login because it has no credentials of its own; doctor probes the file the config read, and logout says when the default login still applies",
-      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back). Adversarial round 6: when the explicit config had no credentials of its own, Load fell back to the global file and pointed writes there too, so `--config tenantB auth set-token` (or the password-grant mint) overwrote the default tenant's token and `--config tenantB auth logout` deleted it. Reads keep the generated fallback (three generated tests pin it: a --config used only for settings still uses the default login); writes no longer follow it (TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal failed when the fallback reset credentialsPath). doctor's credentials-location probe now checks the file the config read (CredentialsReadPath) instead of always the global file. Adversarial round 7 (P2s): logout now also warns when clearing the config's own file makes the default login apply from then on, and names ESET_PROTECT_CONFIG when that is the config source; TestExplicitConfigLogoutNotesAndDoctorProbe covers both notes and the doctor probe (it failed with auth.go at the previous commit and with doctor.go before the probe change). Accepted residual: when the default login stores a password (legacy config.toml migration), the first write under such a config copies it into the config's own file.",
+      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back). Adversarial round 6: when the explicit config had no credentials of its own, Load fell back to the global file and pointed writes there too, so `--config tenantB auth set-token` (or the password-grant mint) overwrote the default tenant's token and `--config tenantB auth logout` deleted it. Reads keep the generated fallback (three generated tests pin it: a --config used only for settings still uses the default login); writes no longer follow it (TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal failed when the fallback reset credentialsPath). doctor's credentials-location probe now checks the file the config read (CredentialsReadPath) instead of always the global file. Adversarial round 7 (P2s): logout now also warns when clearing the config's own file makes the default login apply from then on, and names ESET_PROTECT_CONFIG when that is the config source; TestExplicitConfigLogoutNotesAndDoctorProbe covers both notes and the doctor probe (it failed with auth.go at the previous commit and with doctor.go before the probe change). Accepted residual: when the default login stores a password (legacy config.toml migration), the first write under such a config copies it into the config's own file. Adversarial round 9: the ESET_PROTECT_CONFIG wording (named whenever the env var is set, since a plain logout selects that file even when --config was given) had no test; TestExplicitConfigLogoutNotesAndDoctorProbe now covers it with and without --config and failed with the previous condition.",
       "status": "active",
       "asserts": [
         {
@@ -5531,6 +5531,11 @@
           "file": "cli/internal/cli/auth.go",
           "contains": "case ownPath != globalPath && globalHas:",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if strings.TrimSpace(os.Getenv(\"ESET_PROTECT_CONFIG\")) != \"\" {\n\t\t\t\tclearDefault = \"unset ESET_PROTECT_CONFIG and run auth logout without --config to clear it\"",
+          "code_only": true
         }
       ]
     },
@@ -5555,7 +5560,7 @@
     {
       "id": "export-empty-list-is-zero-records",
       "summary": "export treats a list page with no extractable items and nothing but paging metadata (`{}`, `{\"nextPageToken\":\"\",\"totalSize\":0}`) as zero records instead of exporting the envelope as one record; a dry run's {\"dry_run\": true} sentinel is passed through, and an empty or short page that still carries a next-page token keeps paginating",
-      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`). Adversarial round 8: the first version rejected the dry-run sentinel, so every `export <resource> --dry-run` exited 1 (CLI and MCP), and a token-only page ended the export early; TestExportDryRunAndTokenOnlyPages failed with each of those two pieces disabled. The short-page break now also requires that no next-page token came back (AIP-158 pages may be short mid-stream).",
+      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`). Adversarial round 8: the first version rejected the dry-run sentinel, so every `export <resource> --dry-run` exited 1 (CLI and MCP), and a token-only page ended the export early; TestExportDryRunAndTokenOnlyPages failed with each of those two pieces disabled. The short-page break now also requires that no next-page token came back (AIP-158 pages may be short mid-stream). Adversarial round 9: with empty token-only pages no longer ending the walk, a server cycling tokens over empty pages ran to the 100000-page cap; export now stops on any cursor it has already seen (TestExportStopsOnCyclingCursors made 100001 requests with the guard disabled).",
       "status": "active",
       "asserts": [
         {
@@ -5576,6 +5581,11 @@
         {
           "file": "cli/internal/cli/export.go",
           "contains": "if config.limitParam != \"\" && !hasMore && nextCursor == \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if seenCursors[cursor] {",
           "code_only": true
         }
       ]
@@ -5638,6 +5648,24 @@
         {
           "file": "cli/internal/cli/eset_auth.go",
           "contains": "\t\t\tcfg.RefreshToken = \"\"\n\t\t\tctx, cancel := context.WithTimeout(cmd.Context(), flags.timeout)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "local-group-filter-refused",
+      "summary": "local list reads refuse a device-group filter (any *GroupUuid query param such as deviceGroupUuid) instead of applying it as exact equality; the error names --data-source live",
+      "why": "ESET's device-group filters on device-patches, device-vulnerabilities and device-os-vulnerabilities include every subgroup recursively, but the local reader matched the row's direct deviceGroupUuid exactly, so `device-patches --device-group-uuid <customer> --data-source local --all` (and the automatic outage fallback) returned an empty successful result for patches on devices in a subgroup (Codex round 17 P1). parseLocalListQuery now classifies those params as row-selecting, which the local reader refuses. TestLocalReadRefusesRecursiveGroupFilter (a row in a subgroup, queried by the parent) failed with the classification disabled.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "case strings.HasSuffix(strings.ReplaceAll(canon, \"_\", \"\"), \"groupuuid\"):\n\t\t\t// Hand-fix local-group-filter-refused",
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "case strings.HasSuffix(strings.ReplaceAll(canon, \"_\", \"\"), \"groupuuid\"):",
           "code_only": true
         }
       ]

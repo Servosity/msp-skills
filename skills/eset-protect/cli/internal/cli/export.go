@@ -155,6 +155,7 @@ large datasets as it has no memory pressure.`,
 			allItems := []json.RawMessage{}
 			var singlePayload json.RawMessage
 			count, page, cursor := 0, 0, ""
+			seenCursors := map[string]bool{}
 			for {
 				remaining := 0
 				if limit > 0 {
@@ -234,6 +235,15 @@ large datasets as it has no memory pressure.`,
 				}
 				if stop {
 					break
+				}
+				// export-empty-list-is-zero-records: with empty token-only pages
+				// no longer ending the walk, a server cycling tokens (A, B, A...)
+				// must not loop until the page cap.
+				if cursor != "" {
+					if seenCursors[cursor] {
+						return fmt.Errorf("export pagination for %q: cursor %q came back again", resource, cursor)
+					}
+					seenCursors[cursor] = true
 				}
 				// A short page is the end only when no next-page token came
 				// back (AIP-158 pages may be short, or empty, mid-stream).

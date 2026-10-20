@@ -1354,6 +1354,13 @@ func parseLocalListQuery(params map[string]string) localListQuery {
 			}
 			page = n
 			pageKey = key
+		case strings.HasSuffix(strings.ReplaceAll(canon, "_", ""), "groupuuid"):
+			// Hand-fix local-group-filter-refused: ESET's device-group filters
+			// (deviceGroupUuid on device-patches, device vulnerabilities, ...)
+			// include every subgroup recursively, and mirrored rows do not carry
+			// the field, so exact local equality silently returned nothing.
+			// Refuse locally; the error names --data-source live.
+			q.rowSelecting = append(q.rowSelecting, key)
 		default:
 			q.equality[key] = val
 		}

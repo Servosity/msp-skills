@@ -63,3 +63,31 @@ func TestLocalReadPageSizeIsNotATotal(t *testing.T) {
 		t.Fatalf("--page-size 1 without --all is one page, got %d", n)
 	}
 }
+
+// TestLocalReadRefusesRecursiveGroupFilter (handfixes.json:
+// local-group-filter-refused): ESET's deviceGroupUuid filter includes every
+// subgroup, but the local reader applied it as exact equality on a field the
+// mirrored rows do not carry, so a local (or outage-fallback) read returned
+// an empty, successful result. It must refuse instead.
+func TestLocalReadRefusesRecursiveGroupFilter(t *testing.T) {
+	testenv.Isolate(t)
+	setDefaultDBScopeIdentity("", "", "")
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	db, err := store.OpenWithContext(context.Background(), defaultDBPath(esetCLIName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The patch row names its device's DIRECT group (a Workstations subgroup);
+	// the query names the customer group above it.
+	if err := db.Upsert("device-patches", "p1", json.RawMessage(`{"deviceUuid":"00000000-0000-0000-0000-000000000001","deviceGroupUuid":"00000000-0000-0000-0000-0000000000c2"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveSyncState("device-patches", "", 1); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	out, errOut, err := captureExecuteAll(t, "device-patches", "--device-group-uuid", "00000000-0000-0000-0000-0000000000c1", "--data-source", "local", "--all", "--json")
+	if err == nil {
+		t.Fatalf("a recursive group filter was applied locally and returned: %s\n%s", out, errOut)
+	}
+}

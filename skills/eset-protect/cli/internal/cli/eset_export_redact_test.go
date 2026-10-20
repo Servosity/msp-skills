@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"eset-protect-pp-cli/internal/cliutil/testenv"
@@ -124,5 +125,28 @@ func TestExportDryRunAndTokenOnlyPages(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "PAGE-TWO") {
 		t.Fatalf("export stopped at a token-only page: %q", out)
+	}
+}
+
+// TestExportStopsOnCyclingCursors (export-empty-list-is-zero-records): once
+// empty token-only pages stopped ending an export, a server cycling tokens
+// over empty pages (A, B, A, ...) would page until the 100000-page cap.
+func TestExportStopsOnCyclingCursors(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	var n int32
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if atomic.AddInt32(&n, 1)%2 == 1 {
+			_, _ = io.WriteString(w, `{"nextPageToken":"A"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"nextPageToken":"B"}`)
+	})
+	if _, _, err := captureExecuteAll(t, "export", "devices", "--format", "jsonl", "--no-cache"); err == nil {
+		t.Fatal("cycling cursors did not stop the export")
+	}
+	if got := atomic.LoadInt32(&n); got > 5 {
+		t.Fatalf("export made %d requests before stopping on a cycling cursor", got)
 	}
 }
