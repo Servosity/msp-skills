@@ -633,8 +633,6 @@ Covered command paths:
 - `saas-alerts-cli customers`
 - `saas-alerts-cli customers get`
 - `saas-alerts-cli customers list`
-- `saas-alerts-cli devices`
-- `saas-alerts-cli devices list`
 - `saas-alerts-cli events`
 - `saas-alerts-cli events list`
 - `saas-alerts-cli investigate`

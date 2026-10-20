@@ -192,13 +192,21 @@ func saasEventsCoverageFloor(sinceTS string, lastSynced time.Time, full bool, pr
 	return start
 }
 
-// recordSaasEventsCoverage stores the floor after a completed events sync.
-func recordSaasEventsCoverage(db *store.Store, sinceTS string, lastSynced time.Time, full bool) error {
+// recordSaasEventsCoverage stores the floor after a completed events sync and,
+// for an explicit sync, the watermark the next explicit sync's late-event
+// look-back is anchored to.
+func recordSaasEventsCoverage(db *store.Store, sinceTS string, lastSynced time.Time, full, latestOnly bool, watermark time.Time) error {
 	prev, havePrev, err := db.EventsCoverage()
 	if err != nil {
 		return err
 	}
-	return db.SaveEventsCoverage(saasEventsCoverageFloor(sinceTS, lastSynced, full, prev, havePrev))
+	if err := db.SaveEventsCoverage(saasEventsCoverageFloor(sinceTS, lastSynced, full, prev, havePrev)); err != nil {
+		return err
+	}
+	if latestOnly {
+		return nil
+	}
+	return db.SaveEventsExplicitWatermark(watermark)
 }
 
 // saasSyncFiltered reports whether user query params (--param, --global-param,
@@ -208,11 +216,28 @@ func recordSaasEventsCoverage(db *store.Store, sinceTS string, lastSynced time.T
 // prove the whole resource was enumerated, so it stores what it fetched but
 // must not prune other rows, advance the watermark or record an events
 // coverage floor.
+//
+// A parameter the resource requires (events-fileshare's startDate/endDate, the
+// report resources' organizationIds) is not narrowing: the resource cannot be
+// synced without it, so counting it would make that resource impossible to
+// complete.
 func saasSyncFiltered(p *syncUserParams, resource string, isDependent bool) bool {
 	if p == nil {
 		return false
 	}
-	return (!isDependent && len(p.flatGlobal) > 0) || len(p.trueGlobal) > 0 || len(p.perResource[resource]) > 0
+	required := map[string]bool{}
+	for _, k := range syncResourceRequiredQueryParams(resource) {
+		required[k] = true
+	}
+	narrows := func(m map[string]string) bool {
+		for k := range m {
+			if !required[k] {
+				return true
+			}
+		}
+		return false
+	}
+	return (!isDependent && narrows(p.flatGlobal)) || narrows(p.trueGlobal) || narrows(p.perResource[resource])
 }
 
 // emitSaasFilteredSyncWarning reports a filtered sync that does not count as
@@ -247,10 +272,37 @@ const saasEventsLateAllowance = 6 * time.Hour
 // saasIncrementalSince is the start of an incremental sync. The page-capped
 // automatic refresh (latestOnly) keeps the plain watermark: its one page holds
 // the newest events, and widening it would mark busy stores unfinished on
-// every refresh; the next explicit sync re-reads the allowance.
-func saasIncrementalSince(resource string, watermark time.Time, latestOnly bool) time.Time {
-	if resource == "events" && !latestOnly {
-		return watermark.Add(-saasEventsLateAllowance)
+// every refresh. Because that refresh also moves the watermark, an explicit
+// events sync anchors its look-back to the last explicit sync's watermark
+// when that is older, so a late event behind it is still fetched.
+func saasIncrementalSince(db *store.Store, resource string, watermark time.Time, latestOnly bool) time.Time {
+	if resource != "events" || latestOnly {
+		return watermark
 	}
-	return watermark
+	anchor := watermark
+	if db != nil {
+		if explicit, ok := db.EventsExplicitWatermark(); ok && explicit.Before(anchor) {
+			anchor = explicit
+		}
+	}
+	return anchor.Add(-saasEventsLateAllowance)
+}
+
+// saasRefuseParentKeyOverride rejects a --global-param or --resource-param that
+// replaces the parent key a dependent sync sets for each parent (users'
+// customerId). The sync stamps every returned row with the iterated parent,
+// so an override would fetch one customer's users and store copies of them
+// under every other customer.
+func saasRefuseParentKeyOverride(dep dependentResourceDef, queryParams []dependentPathParamDef, parentRow, params map[string]string) error {
+	for _, qp := range queryParams {
+		want := parentRow[qp.Field]
+		if want == "" {
+			continue
+		}
+		want = dependentParentKeyValue(dep.ParentTable, qp.Field, want)
+		if got := params[qp.Param]; got != want {
+			return fmt.Errorf("refusing to sync %s: a query param sets %s=%s, but the %s sync sets %s to each %s row's id itself (here %s); remove the override", dep.Name, qp.Param, got, dep.Name, qp.Param, dep.ParentTable, want)
+		}
+	}
+	return nil
 }

@@ -421,7 +421,7 @@ func containResolve(ctx context.Context, email, orgID, accountID, dbPath string)
 			return containResolution{}, fmt.Errorf("%s resolves to organization %s / account %s from synced rule triggers, but synced users cannot confirm it is the only Microsoft 365 account with this email: %v", email, r.OrganizationID, r.AccountID, uerr)
 		}
 		if uok && (ur.OrganizationID != r.OrganizationID || ur.AccountID != r.AccountID) {
-			return containResolution{}, fmt.Errorf("%s matches more than one Microsoft 365 account: --org-id %s --account-id %s (synced rule triggers) and --org-id %s --account-id %s (synced users); pick one with --org-id and --account-id", email, r.OrganizationID, r.AccountID, ur.OrganizationID, ur.AccountID)
+			return containResolution{}, fmt.Errorf("%s matches more than one Microsoft 365 account: --org-id %s --account-id %s (synced rule triggers) and --org-id %s --account-id %s (synced users, whose ids are assumed to equal Respond's); they may be two accounts, or one account whose Reports and Respond ids differ; pick one with --org-id and --account-id", email, r.OrganizationID, r.AccountID, ur.OrganizationID, ur.AccountID)
 		}
 		return r, nil
 	}

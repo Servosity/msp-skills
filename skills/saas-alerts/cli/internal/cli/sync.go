@@ -518,7 +518,7 @@ func syncResource(ctx context.Context, c interface {
 	effectiveSince := sinceTS
 	if effectiveSince == "" && !lastSynced.IsZero() && !full {
 		// UTC so the zone renders as "Z"; see the --since resolution above.
-		effectiveSince = saasIncrementalSince(resource, lastSynced, latestOnly).UTC().Format(time.RFC3339) // saas-alerts hand-fix: re-read late-pulled events
+		effectiveSince = saasIncrementalSince(db, resource, lastSynced, latestOnly).UTC().Format(time.RFC3339) // saas-alerts hand-fix: re-read late-pulled events
 	}
 	// Resources whose list endpoint declares no temporal-filter parameter
 	// fall back to plain pagination — sending a synthetic since=... would
@@ -1130,13 +1130,16 @@ func syncResource(ctx context.Context, c interface {
 		// result windows on the next run.
 		finalCursor = ""
 	}
+	if saasSyncFiltered(userParams, resource, false) { // saas-alerts hand-fix: a filtered walk's cursor must not seed a later unfiltered sync
+		finalCursor = ""
+	}
 	stateErr = nil
 	if watermark.IsZero() {
 		stateErr = db.SaveSyncProgress(resource, finalCursor, cachedCount)
 	} else {
 		stateErr = db.SaveSyncStateAt(resource, finalCursor, cachedCount, watermark)
 		if stateErr == nil && resource == "events" && outcome.complete { // saas-alerts hand-fix: record the window a completed events sync covers
-			stateErr = recordSaasEventsCoverage(db, sinceTS, lastSynced, full)
+			stateErr = recordSaasEventsCoverage(db, sinceTS, lastSynced, full, latestOnly, watermark)
 		}
 	}
 	if stateErr != nil {
@@ -2625,7 +2628,7 @@ func urlIDFieldName(field string) bool {
 
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
-		{Name: "users", ParentTable: "customers", ParentIDParam: "customerId", PathTemplate: "/reportApi/api/v1/reports/users", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.customer", PathParams: []dependentPathParamDef{
+		{Name: "users", ParentTable: "customers", ParentIDParam: "customerId", PathTemplate: "/reportApi/api/v1/reports/users", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.parent_id" /* saas-alerts hand-fix: stored user rows carry the injected parent_id, not customer */, PathParams: []dependentPathParamDef{
 			{Param: "customerId", Field: "id"},
 		}},
 	}
@@ -2780,6 +2783,16 @@ func syncOneParent(
 		// Dependent path: --param is skipped (already scoped by the parent path
 		// segment); --global-param and --resource-param still apply.
 		userParams.applyTo(dep.Name, params, true)
+		if err := saasRefuseParentKeyOverride(dep, queryParams, parentRow, params); err != nil { // saas-alerts hand-fix: never store one parent's rows under another
+			outcome.reason = "fetch_error"
+			rep.failure = err
+			if humanFriendly {
+				fmt.Fprintf(os.Stderr, "\n  %s: %v\n", dep.Name, err)
+			} else {
+				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, err))
+			}
+			break
+		}
 
 		data, err := syncGet(ctx, c, dep.Name, dep.ParentTable, path, params)
 		if err != nil {

@@ -55,3 +55,34 @@ func (s *Store) EventsCoverage() (floor time.Time, ok bool, err error) {
 	}
 	return floor, true, nil
 }
+
+const saasEventsExplicitDDL = `CREATE TABLE IF NOT EXISTS saas_events_explicit_watermark (
+	id INTEGER PRIMARY KEY CHECK (id = 1),
+	at TEXT NOT NULL
+)`
+
+// SaveEventsExplicitWatermark records the watermark of the last completed
+// explicit (not page-capped automatic) events sync.
+func (s *Store) SaveEventsExplicitWatermark(at time.Time) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	if _, err := s.db.Exec(saasEventsExplicitDDL); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(`INSERT INTO saas_events_explicit_watermark (id, at) VALUES (1, ?)
+		ON CONFLICT(id) DO UPDATE SET at = excluded.at`, at.UTC().Format(time.RFC3339))
+	return err
+}
+
+// EventsExplicitWatermark returns the last explicit events sync watermark.
+func (s *Store) EventsExplicitWatermark() (time.Time, bool) {
+	var value string
+	if err := s.db.QueryRow(`SELECT at FROM saas_events_explicit_watermark WHERE id = 1`).Scan(&value); err != nil {
+		return time.Time{}, false
+	}
+	at, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return at, true
+}
