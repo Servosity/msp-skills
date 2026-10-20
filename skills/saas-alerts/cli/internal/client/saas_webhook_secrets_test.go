@@ -298,3 +298,34 @@ func TestWebhookTokenBackstopCatchesWhatTheWalkMisses(t *testing.T) {
 		}
 	}
 }
+
+// TestWebhookTokenWithheldFromEveryAnswerShape: a stored token in a 2xx HTML
+// page or a plain-text error on a Webhooks path never reaches the caller.
+func TestWebhookTokenWithheldFromEveryAnswerShape(t *testing.T) {
+	status, ctype, answer := 200, "", ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", ctype)
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key-0000", SaasAlertsApiKey: "test-key-0000"}, 5*time.Second, 0)
+	c.NoCache = true
+	for _, tc := range []struct {
+		status        int
+		ctype, answer string
+	}{
+		{200, "text/html", `<html><head><title>{"token":"test-secret-html"}</title></head><body>x</body></html>`},
+		{400, "text/plain", `bad subscription {"token":"test-secret-text"}`},
+	} {
+		status, ctype, answer = tc.status, tc.ctype, tc.answer
+		data, err := c.Get(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", nil)
+		got := string(data)
+		if err != nil {
+			got += err.Error()
+		}
+		if strings.Contains(got, "test-secret") {
+			t.Fatalf("%d %s leaked: %s", tc.status, tc.ctype, got)
+		}
+	}
+}

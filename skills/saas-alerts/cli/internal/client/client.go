@@ -1427,6 +1427,10 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if err != nil {
 			return nil, 0, unreadableAnswer{fmt.Errorf("decoding response: %w", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))} // saas-alerts hand-fix: error-text-secret-funnel (Content-Encoding is server text)
 		}
+		// saas-alerts hand-fix: webhook-subscription-token-withheld. One point for
+		// every status and shape (JSON, HTML, text, binary-labelled): a Webhooks
+		// answer's tokens are withheld before anything reads the body.
+		respBody = withholdWebhookTokens(path, respBody)
 
 		// Pace to the server-advertised budget when it ships rate-limit
 		// headers (every response, success or 429). This takes priority over
