@@ -232,28 +232,16 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	if strings.Contains(err.Error()+stderr, "--new-batch") {
 		t.Fatalf("the refusal must not suggest --new-batch:\n%v\n%s", err, stderr)
 	}
-	for _, want := range []string{
-		"--resume --include-deleted=false --include-legal-hold=false --yes",
-		"--latest --entities b@contoso.com --sub-sources O365MAIL --yes",
-	} {
-		if !strings.Contains(err.Error()+stderr, want) {
-			t.Fatalf("the refusal should offer %q:\n%v\n%s", want, err, stderr)
-		}
-	}
-	if strings.Contains(stderr, "--entities a@contoso.com") || strings.Contains(stderr, "--entities b@contoso.com --sub-sources O365CALENDAR,") || strings.Contains(stderr, "O365MAIL,O365CALENDAR") {
-		t.Fatalf("a row that may exist must not be offered:\n%s", stderr)
+	// Every row of a ledger from the first build may have been sent (it
+	// saved PLANNED before its creates and FAILED for every error), so
+	// nothing is offered as never created.
+	if !strings.Contains(err.Error()+stderr, "--resume --include-deleted=false --include-legal-hold=false --yes") ||
+		!strings.Contains(err.Error(), "nothing is left to create") || strings.Contains(stderr, "--entities") {
+		t.Fatalf("the refusal should offer only the resume with stated flags:\n%v\n%s", err, stderr)
 	}
 
-	// One of the offered commands goes through and creates only its row.
-	if _, stderr, err := runDL(t, s, "download", "submit", "--account", "acct-1", "--task", "task-1", "--latest",
-		"--entities", "b@contoso.com", "--sub-sources", "O365MAIL", "--yes"); err != nil {
-		t.Fatalf("an offered command was refused: %v\n%s", err, stderr)
-	}
-	if got := s.createdAccounts(); len(got) != 1 || got[0] != "b@contoso.com" {
-		t.Fatalf("the offered command should create exactly b@'s mail, got %v", got)
-	}
-
-	// Stating the include flags resumes the old batch and records them.
+	// Stating the include flags resumes the old batch and records them;
+	// its PLANNED and FAILED rows are held as UNKNOWN, never sent.
 	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", key, "--resume", "--include-deleted=false", "--include-legal-hold=false", "--yes", "--no-reconcile"); err != nil && ExitCode(err) != 6 {
 		t.Fatalf("resume with stated flags: %v\n%s", err, stderr)
 	}
@@ -261,16 +249,13 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	if err != nil || after.IncludeDeleted == nil || after.IncludeLegalHold == nil || *after.IncludeDeleted || *after.IncludeLegalHold {
 		t.Fatalf("the stated flags should be recorded: %+v %v", after, err)
 	}
-	// b@'s mail was created by the offered command, so the resume left it
-	// out; a@'s calendar may exist, so it is UNKNOWN and not sent.
-	if got := s.createdAccounts(); len(got) != 1 {
-		t.Fatalf("want only b@ mail, once, got %v", got)
+	if got := s.createdAccounts(); len(got) != 0 {
+		t.Fatalf("no legacy row may be sent on its own, got creates %v", got)
 	}
-	if r := after.Rows[2]; r.Status != dlSkipped || r.HeldBy == "" || r.HeldBy == key {
-		t.Fatalf("b@'s mail should be SKIPPED in the old batch: %+v", r)
-	}
-	if r := after.Rows[1]; r.Status != dlUnknown {
-		t.Fatalf("a@'s legacy FAILED calendar should be held as UNKNOWN: %+v", r)
+	for _, i := range []int{1, 2} {
+		if r := after.Rows[i]; r.Status != dlUnknown {
+			t.Fatalf("legacy row %d should be held as UNKNOWN: %+v", i, r)
+		}
 	}
 }
 

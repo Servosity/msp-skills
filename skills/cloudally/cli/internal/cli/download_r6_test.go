@@ -675,3 +675,47 @@ func TestRefusedRerunPrintsNoSkippedNotice(t *testing.T) {
 		t.Fatalf("a refused run must not report archives left out:\n%s", stderr)
 	}
 }
+
+// P1-g: the first build saved every row PLANNED before its creates and
+// again only at the end, so a run stopped mid-way left PLANNED rows whose
+// jobs exist. Seeding skipped them, a new batch created them again, the
+// legacy refusal offered them as never created, and a legacy resume sent
+// them without looking. A legacy row is now never treated as unsent.
+func TestLegacyPlannedRowsAreNeverTreatedAsUnsent(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.mu.Lock()
+	s.taskEntities = []string{"a@contoso.com"}
+	// The killed legacy run's create of a@'s mail did reach the portal.
+	s.jobs = append(s.jobs, dlJob{JobID: "job-legacy", Account: "a@contoso.com", SubSource: "O365MAIL", Status: "INPROCESS",
+		Snapshot: 20221231042000, Created: compactAt(time.Now().Add(-time.Hour))})
+	s.mu.Unlock()
+	const key = "20261015-201500-old"
+	writeLegacyLedger(t, key, []downloadRow{
+		{Entity: "a@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042000, Status: dlPlanned},
+		{Entity: "a@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041000, Status: dlPlanned},
+	})
+
+	_, stderr, err := runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com")...)
+	if err == nil || ExitCode(err) != 2 {
+		t.Fatalf("a new batch must be refused while legacy PLANNED rows may exist, got %v\n%s", err, stderr)
+	}
+	_, stderr, _ = runDL(t, s, "download", "submit", "--batch", key, "--resume", "--yes")
+	if strings.Contains(stderr, "never created") {
+		t.Fatalf("legacy PLANNED rows must not be offered as never created:\n%s", stderr)
+	}
+	_, stderr, _ = runDL(t, s, "download", "submit", "--batch", key, "--resume", "--include-deleted=false", "--include-legal-hold=false", "--yes")
+	if n := len(s.createdAccounts()); n != 0 {
+		t.Fatalf("creates = %d, want 0: a legacy PLANNED row may already exist\n%s", n, stderr)
+	}
+	b := mustLoadBatch(t, key)
+	for _, r := range b.Rows {
+		if r.Status != dlUnknown {
+			t.Fatalf("legacy PLANNED rows should be held UNKNOWN after the resume looked: %+v", r)
+		}
+	}
+	if !b.Rows[0].Ambiguous {
+		t.Fatalf("a@'s mail has a listed job that cannot be proved its own: %+v", b.Rows[0])
+	}
+}

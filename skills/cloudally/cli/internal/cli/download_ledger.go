@@ -220,13 +220,30 @@ func ownedRows(b *downloadBatch) int {
 
 // mayExist reports whether a row's export was created or may have been:
 // it was sent and not cleanly refused, or the portal accepted it.
-// legacyFailed reports a FAILED row of a ledger from the first build, which
-// recorded no include flags and wrote FAILED for every create error,
-// timeouts and server errors after the request left included. Nothing in
-// such a row proves the request never reached the portal, so it is treated
-// as possibly created (held as UNKNOWN), never as safe to send again.
-func legacyFailed(b *downloadBatch, r downloadRow) bool {
-	return (b.IncludeDeleted == nil || b.IncludeLegalHold == nil) && r.Status == dlFailed
+// legacyMaybeSent reports a PLANNED or FAILED row of a ledger from the
+// first build, which recorded no include flags. That build saved every row
+// PLANNED before its creates and again only at the end, with no signal
+// handling, so a run stopped mid-way left PLANNED rows whose jobs exist;
+// and it wrote FAILED for every create error, timeouts and server errors
+// after the request left included. Nothing in such a row proves the
+// request never reached the portal: a legacy row is never treated as
+// unsent. It is held as UNKNOWN (seeded so, and converted when the batch
+// is resumed) and matched against the job list before anything is sent.
+func legacyMaybeSent(b *downloadBatch, r downloadRow) bool {
+	return (b.IncludeDeleted == nil || b.IncludeLegalHold == nil) && (r.Status == dlPlanned || r.Status == dlFailed)
+}
+
+// holdLegacyRows turns every legacyMaybeSent row of b into UNKNOWN.
+func holdLegacyRows(b *downloadBatch) int {
+	n := 0
+	for i := range b.Rows {
+		if r := &b.Rows[i]; legacyMaybeSent(b, *r) {
+			r.Detail = "recorded as " + r.Status + " by an older version, which did not record whether this create was sent; it may exist, so it is looked for on the portal and not sent again on its own"
+			r.Status = dlUnknown
+			n++
+		}
+	}
+	return n
 }
 
 func mayExist(r downloadRow) bool {
@@ -309,11 +326,11 @@ func claimNewBatch(b *downloadBatch, newBatch bool) error {
 
 // neverCreatedCommands rebuilds, per mailbox, a submit command limited to
 // the rows a batch never created (never sent, or cleanly refused). An older
-// ledger's FAILED row never counts (legacyFailed).
+// ledger's PLANNED or FAILED row never counts (legacyMaybeSent).
 func neverCreatedCommands(b *downloadBatch) []string {
 	var rows []downloadRow
 	for _, r := range b.Rows {
-		if mayExist(r) || r.Status == dlSkipped || legacyFailed(b, r) {
+		if mayExist(r) || r.Status == dlSkipped || legacyMaybeSent(b, r) {
 			continue
 		}
 		rows = append(rows, r)

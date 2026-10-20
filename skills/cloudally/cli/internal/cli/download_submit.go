@@ -879,6 +879,7 @@ prints the ledger's rows).
 				// Shown in the plan only; the ledger is changed under the
 				// batch lock below.
 				recoverInterruptedRows(batch)
+				holdLegacyRows(batch)
 			}
 			if scope.account == "" {
 				return usageErr(errPortalNeedsAccount)
@@ -1045,8 +1046,14 @@ prints the ledger's rows).
 					}
 					changed := false
 					if b.IncludeDeleted == nil || b.IncludeLegalHold == nil {
-						// An older ledger: record what the operator stated,
-						// in the ledger and on the claims seeded from it.
+						// An older ledger: none of its rows is proved unsent,
+						// so its PLANNED and FAILED rows are held as UNKNOWN
+						// (and looked for before anything is sent). Then
+						// record what the operator stated, in the ledger and
+						// on the claims seeded from it.
+						if n := holdLegacyRows(b); n > 0 {
+							fmt.Fprintf(cmd.ErrOrStderr(), "%d row(s) of batch %s were recorded PLANNED or FAILED by an older version that did not record whether they were sent; they are now UNKNOWN, looked for on the portal, and not sent again on their own\n", n, key)
+						}
 						incDel, incLH := flagIncludeDeleted, flagIncludeLegalHold
 						b.IncludeDeleted, b.IncludeLegalHold = &incDel, &incLH
 						if err := guard.narrowFlags(ctx, b); err != nil {

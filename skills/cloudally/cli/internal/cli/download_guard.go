@@ -823,7 +823,7 @@ func (g *downloadGuard) seedFromLedgers(ctx context.Context) error {
 		paths = append(paths, path)
 		for i := range b.Rows {
 			r := &b.Rows[i]
-			if !mayExist(*r) && !legacyFailed(b, *r) {
+			if !mayExist(*r) && !legacyMaybeSent(b, *r) {
 				continue
 			}
 			ev := seedEvidence{id: rowIdentity(b, r), batchKey: b.BatchKey, scope: b.Scope, label: r.Label, rank: rankUnknown, state: dgUnknown}
