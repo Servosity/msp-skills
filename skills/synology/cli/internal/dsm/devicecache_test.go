@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -34,7 +35,8 @@ func TestDeviceCacheMergesAndIsPrivate(t *testing.T) {
 	if rec["token"] != "sid-1" || rec["synotoken"] != "tok" {
 		t.Fatalf("merge dropped fields: %s", raw)
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	// Windows reports 0666 for every file (ACLs, not mode bits).
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode = %v", fi.Mode().Perm())
 	}
 	if CachedDeviceID(dir, "https://other:5001", "admin") != "" {

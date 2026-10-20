@@ -120,7 +120,7 @@ func TestDSMHandfixLoginRefusesCrossOriginRedirect(t *testing.T) {
 		http.Redirect(w, r, evil.URL+r.URL.RequestURI(), http.StatusTemporaryRedirect)
 	}))
 	defer nas.Close()
-	c := New(&config.Config{BaseURL: nas.URL, SynologyAccount: "admin", SynologyPassword: "hunter2"}, 5*time.Second, 0)
+	c := New(&config.Config{BaseURL: nas.URL, SynologyAccount: "admin", SynologyPassword: "testpass0"}, 5*time.Second, 0)
 	c.NoCache = true
 	if _, err := c.Get(context.Background(), "/webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=list&version=1", nil); err == nil {
 		t.Fatal("login followed a cross-origin redirect")

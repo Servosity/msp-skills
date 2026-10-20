@@ -62,9 +62,9 @@ func TestErrorTextAndStatus(t *testing.T) {
 }
 
 func TestScrub(t *testing.T) {
-	in := `Post "https://nas:5001/webapi/entry.cgi?account=a&passwd=hunter2&otp_code=123456&_sid=abc": dial`
+	in := `Post "https://nas:5001/webapi/entry.cgi?account=a&passwd=testpass0&otp_code=123456&_sid=abc": dial`
 	got := Scrub(in)
-	for _, secret := range []string{"hunter2", "123456", "=abc"} {
+	for _, secret := range []string{"testpass0", "123456", "=abc"} {
 		if strings.Contains(got, secret) {
 			t.Fatalf("Scrub left %q in %q", secret, got)
 		}
@@ -261,7 +261,7 @@ func TestLoginRefusesRedirect(t *testing.T) {
 		http.Redirect(w, r, evil.URL+r.URL.Path, http.StatusTemporaryRedirect)
 	}))
 	defer nas.Close()
-	if _, err := Login(context.Background(), nas.Client(), nas.URL, Credentials{Account: "a", Password: "hunter2"}); err == nil {
+	if _, err := Login(context.Background(), nas.Client(), nas.URL, Credentials{Account: "a", Password: "testpass0"}); err == nil {
 		t.Fatal("login followed a redirect")
 	}
 	if leaked {

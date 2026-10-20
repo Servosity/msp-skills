@@ -290,9 +290,9 @@ func TestFleetURLAndPinGuards(t *testing.T) {
 		t.Fatalf("pin on http:// exit %d, want 2", code)
 	}
 	// The implicit NAS must not store or print a password in SYNOLOGY_BASE_URL.
-	t.Setenv("SYNOLOGY_BASE_URL", "https://admin:hunter2@nas:5001")
+	t.Setenv("SYNOLOGY_BASE_URL", "https://admin:testpass0@nas:5001")
 	out, code := runCLI(t, "fleet", "list", "--json")
-	if code != 10 || strings.Contains(out, "hunter2") {
+	if code != 10 || strings.Contains(out, "testpass0") {
 		t.Fatalf("userinfo base URL: code=%d out=%s", code, out)
 	}
 }
@@ -488,9 +488,9 @@ func TestTriageRejectsMalformedLastResult(t *testing.T) {
 
 func TestWriteDryRunRefusesPasswordInAddress(t *testing.T) {
 	testenv.Isolate(t)
-	t.Setenv("SYNOLOGY_BASE_URL", "http://user:hunter2@127.0.0.1:9")
+	t.Setenv("SYNOLOGY_BASE_URL", "http://user:testpass0@127.0.0.1:9")
 	out, code := runCLI(t, "abb", "backup", "--task-ids", "[5]", "--dry-run", "--json")
-	if code == 0 || strings.Contains(out, "hunter2") {
+	if code == 0 || strings.Contains(out, "testpass0") {
 		t.Fatalf("dry run with a password in the address: code=%d out=%s", code, out)
 	}
 	t.Setenv("SYNOLOGY_BASE_URL", "https://nas.example.com:5001")
@@ -522,11 +522,11 @@ func TestTriageRejectsConflictingDuplicates(t *testing.T) {
 
 func TestDryRunsRefusePasswordInAddress(t *testing.T) {
 	testenv.Isolate(t)
-	if _, code := runCLI(t, "fleet", "add", "x", "--url", "http://user:hunter2@127.0.0.1:9", "--dry-run", "--json"); code == 0 {
+	if _, code := runCLI(t, "fleet", "add", "x", "--url", "http://user:testpass0@127.0.0.1:9", "--dry-run", "--json"); code == 0 {
 		t.Fatal("fleet add --dry-run accepted an address with a password")
 	}
-	t.Setenv("SYNOLOGY_BASE_URL", "http://user:hunter2@127.0.0.1:9")
-	if out, code := runCLI(t, "auth", "login", "--dry-run", "--json"); code == 0 || strings.Contains(out, "hunter2") {
+	t.Setenv("SYNOLOGY_BASE_URL", "http://user:testpass0@127.0.0.1:9")
+	if out, code := runCLI(t, "auth", "login", "--dry-run", "--json"); code == 0 || strings.Contains(out, "testpass0") {
 		t.Fatalf("auth login --dry-run: code=%d out=%s", code, out)
 	}
 }

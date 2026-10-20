@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -397,7 +398,8 @@ func TestRegistryRoundTrip(t *testing.T) {
 	if err := r.Save(path); err != nil {
 		t.Fatal(err)
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	// Windows reports 0666 for every file (ACLs, not mode bits).
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("registry mode = %v", fi.Mode().Perm())
 	}
 	back, _ := LoadRegistry(path)
