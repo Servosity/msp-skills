@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -454,7 +455,11 @@ func TestRetiredNamesSharedByTwoV3Rows(t *testing.T) {
 }
 
 func TestShellQuote(t *testing.T) {
-	if got, want := shellQuote(`Zebra $(rm -rf ~) 'x'`), `'Zebra $(rm -rf ~) '\''x'\'''`; got != want {
+	want := `'Zebra $(rm -rf ~) '\''x'\'''`
+	if runtime.GOOS == "windows" { // the hint targets PowerShell there
+		want = `'Zebra $(rm -rf ~) ''x'''`
+	}
+	if got := shellQuote(`Zebra $(rm -rf ~) 'x'`); got != want {
 		t.Errorf("shellQuote = %s, want %s", got, want)
 	}
 }
