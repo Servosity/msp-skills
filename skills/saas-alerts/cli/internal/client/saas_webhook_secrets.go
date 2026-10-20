@@ -27,10 +27,9 @@ const WebhookTokenWithheld = "[withheld]"
 // value carries a token. Every JSON value in the body is walked (an answer
 // may hold several, one per line); text that does not parse as JSON but holds
 // a "token" key is withheld whole, since its value cannot be found reliably.
-// webhookTokenValue finds a "token" key and the start of its value (a quoted
-// string up to its closing quote, or the next bare word); a bare mention such
-// as `"token" is required` has no colon and is not one.
-var webhookTokenValue = regexp.MustCompile(`(?i)"token"\s*:\s*("[^"]*"?|[^\s,}\]]+)`)
+// webhookTokenValue finds a "token" key with a quoted string value (tokens are
+// strings); `"token" is required` or `"token": must be a string` are not one.
+var webhookTokenValue = regexp.MustCompile(`(?i)"token"\s*:\s*("[^"]*"?)`)
 
 func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	if !strings.Contains(path, "/outgoingWebhookApi/") {
@@ -79,10 +78,20 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 // webhookTokenValueLeft reports whether text, with JSON escapes decoded,
 // still holds a "token" key with a value other than the placeholder.
 func webhookTokenValueLeft(text []byte) bool {
-	for _, m := range webhookTokenValue.FindAllStringSubmatch(jsonUnescape(string(text)), -1) {
-		if v := strings.TrimSpace(m[1]); v != "" && v != "null" && v != `"`+WebhookTokenWithheld+`"` && v != `""` {
-			return true
+	// Escapes are decoded to a fixed point, so a token inside an embedded,
+	// twice-escaped JSON string is seen too. ponytail: capped at 32 levels.
+	view := string(text)
+	for i := 0; i < 32; i++ {
+		for _, m := range webhookTokenValue.FindAllStringSubmatch(view, -1) {
+			if v := strings.TrimSpace(m[1]); v != `"`+WebhookTokenWithheld+`"` && v != `""` {
+				return true
+			}
 		}
+		next := jsonUnescape(view)
+		if next == view {
+			return false
+		}
+		view = next
 	}
 	return false
 }

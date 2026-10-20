@@ -74,3 +74,35 @@ func TestWriteOutcomeUnknownFollowsTheWire(t *testing.T) {
 		t.Fatalf("a refused connection must be a known no: err=%v", err)
 	}
 }
+
+// TestLocalRefusalsAndRejectedTokensAreKnownNo: a write refused before it is
+// sent (the [withheld] placeholder as a token) is notSent, and a Respond
+// token rejection followed by a failed re-mint is a refusal, not unknown.
+func TestLocalRefusalsAndRejectedTokensAreKnownNo(t *testing.T) {
+	c := New(&config.Config{BaseURL: "http://127.0.0.1:1", AuthHeaderVal: "test-key-0000", SaasAlertsApiKey: "test-key-0000"}, time.Second, 0)
+	_, _, err := c.Patch(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions/ch-1", map[string]any{"token": WebhookTokenWithheld})
+	if err == nil || !IsNotSent(err) || WriteOutcomeUnknown(err) {
+		t.Fatalf("a locally refused write: err=%v", err)
+	}
+
+	mints := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == respondAuthPath {
+			mints++
+			if mints > 1 {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(`{"accessToken":"test-minted-token-0001"}`))
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"message":"Access token is invalid"}`))
+	}))
+	defer srv.Close()
+	r := New(&config.Config{BaseURL: srv.URL, SaasAlertsApiKey: "test-key-0000"}, 5*time.Second, 0)
+	_, _, err = r.Post(context.Background(), "/respondApi/api/v1/response-actions/execute", map[string]any{"action": "x"})
+	if err == nil || WriteOutcomeUnknown(err) {
+		t.Fatalf("a rejected token whose re-mint failed must be a known no: err=%v", err)
+	}
+}

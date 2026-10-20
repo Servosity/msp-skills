@@ -48,7 +48,9 @@ All notable changes to this skill are documented here. Format follows
 
 ### Security
 - Webhook subscription delivery tokens are withheld before they are printed, cached,
-  stored or returned over MCP, including in a `token` field of an API error answer.
+  stored or returned over MCP, including in a `token` field of an API error answer. A
+  Webhooks answer in which a token cannot be isolated to its field is withheld whole
+  (the command prints `"[withheld]"`).
 - Tenant values cannot drive the terminal through command output: `--csv`, `--plain`,
   `--quiet` and the human output of the workflow commands drop control characters, and
   JSON output escapes C1 controls.

@@ -1201,7 +1201,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		return verifyShortCircuitEnvelope(method, path), http.StatusOK, nil
 	}
 	if err := rejectUnresolvedPathParams(path, nil); err != nil {
-		return nil, 0, err
+		return nil, 0, notSent{err} // saas-alerts hand-fix: write-outcome-from-wire (refused locally, never sent)
 	}
 	targetURL := c.BaseURL + path
 
@@ -1212,12 +1212,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return nil, 0, fmt.Errorf("marshaling body: %w", err)
+			return nil, 0, notSent{fmt.Errorf("marshaling body: %w", err)}
 		}
 		bodyBytes = b
 	}
 	if err := refuseWithheldWebhookToken(method, path, bodyBytes); err != nil { // saas-alerts hand-fix: never write the [withheld] placeholder as a token
-		return nil, 0, err
+		return nil, 0, notSent{err} // saas-alerts hand-fix: write-outcome-from-wire (refused locally, never sent)
 	}
 
 	// Resolve auth material before the dry-run branch so --dry-run can preview
@@ -1226,7 +1226,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	// not during dry-run.
 	authHeader, err := c.authHeader(ctx)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, notSent{err} // saas-alerts hand-fix: write-outcome-from-wire (refused locally, never sent)
 	}
 
 	// Build the request for dry-run display or actual execution
@@ -1274,9 +1274,8 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	var lastErr error
 	respondReminted := false // saas-alerts hand-fix
 	// saas-alerts hand-fix: write-outcome-from-wire. wrote records whether any
-	// attempt's request reached the wire; an error before that is provably a
-	// request the server never saw (notSent), anything after it may have been
-	// applied.
+	// attempt got a connection; an error before that is provably a request the
+	// server never saw (notSent), anything after it may have been applied.
 	wrote := new(atomic.Bool)
 	sent := func(err error) error {
 		if wrote.Load() {
@@ -1303,7 +1302,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		}
 
 		req, err := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
-			WroteRequest: func(httptrace.WroteRequestInfo) { wrote.Store(true) },
+			// Conservative: once a connection is in hand the request may reach
+			// the server (an HTTP/2 timeout can return before WroteRequest fires).
+			GotConn: func(httptrace.GotConnInfo) { wrote.Store(true) },
 		}), method, targetURL, bodyReader)
 		if err != nil {
 			return nil, 0, sent(fmt.Errorf("creating request: %w", err))
@@ -1545,7 +1546,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if isRespondPath(path) && !respondReminted && respondTokenRejected(resp.StatusCode, respBody) {
 			respondReminted = true
 			if _, terr := c.respondAccessToken(ctx, authHeader, true); terr != nil {
-				return nil, resp.StatusCode, terr
+				// Respond refused the write (token rejected) before the re-mint
+				// failed, so the write is a known "no".
+				return nil, resp.StatusCode, notSent{terr}
 			}
 			continue
 		}

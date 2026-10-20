@@ -287,7 +287,12 @@ func TestWebhookTokenBackstopCatchesWhatTheWalkMisses(t *testing.T) {
 			t.Fatalf("%s leaked: %s", body, out)
 		}
 	}
-	for _, body := range []string{`[{"channelId":"ch-1","token":null}]`, `[{"channelId":"ch-1"}]`} {
+	twice := `{"payload":"{` + bs + `"a` + bs + `":` + bs + `"{` + bs + bs + bs + `"token` + bs + bs + bs + `":` + bs + bs + bs + `"test-secret-twice` + bs + bs + bs + `"}` + bs + `"}"}`
+	if out := string(withholdWebhookTokens(path, []byte(twice))); strings.Contains(out, "test-secret") {
+		t.Fatalf("twice-escaped token leaked: %s", out)
+	}
+	for _, body := range []string{`[{"channelId":"ch-1","token":null}]`, `[{"channelId":"ch-1"}]`,
+		`{"message":"` + bs + `"token` + bs + `": must be a string"}`} {
 		if out := string(withholdWebhookTokens(path, []byte(body))); out != body {
 			t.Fatalf("%s changed: %s", body, out)
 		}
