@@ -511,6 +511,24 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "credentialless-run-never-opens-data-db",
+      "summary": "A run with no credential uses data-nocredential.db, never data.db, so it cannot read an older tenant's cached rows",
+      "why": "The 4.33.5 resolver returns data.db when there is no credential scope, so an MCPB host with unfilled ${user_config.*} placeholders (and CLI/MCP sql/search, restore history) showed an older tenant's data (PR #400 round-4 runtime review). helpers.go and the generated MCP path tests are reprinted, so both need the ledger.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return credentiallessStorePath(dir)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools_test.go",
+          "contains": "\"data-nocredential.db\"",
+          "min_count": 4
+        }
+      ]
     }
   ]
 }
