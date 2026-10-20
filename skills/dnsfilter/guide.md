@@ -275,7 +275,7 @@ Precedence matters in fleets: an ambient per-kind variable such as `DNSFILTER_DA
 
 Relocation is one-way. Unsetting `DNSFILTER_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
-Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `dnsfilter-cli doctor --fail-on warn` to check path and credential-location warnings in automation; it also fails on a token that lacks access (HTTP 403) and on a probe redirected away from the API.
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `dnsfilter-cli doctor --fail-on warn` to check path and credential-location warnings in automation; it also fails on a token that lacks access (HTTP 403), on a probe redirected away from the API or answered with something other than a current-user record, and on an incomplete last sync.
 
 ## Commands
 
@@ -958,7 +958,7 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending
+- **Previewable** - `--dry-run` shows the request without sending (credential values print as `****`)
 - **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
 - **No hidden prompts** - API writes and deletes run immediately; preview them with `--dry-run`. `allow` only writes with `--confirm`; `--yes` is only needed for local `profile delete` and cache purges
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`

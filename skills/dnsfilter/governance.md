@@ -53,7 +53,7 @@ not part of the default sync.
 - **Generated commands run immediately.** Write commands (create, update, delete,
   add or remove a domain from a policy list, an unblock decision) run as soon as
   they are invoked and do not prompt. `--dry-run` is opt-in: it prints the request it
-  would send, without sending. Make your agent's policy: preview, show the exact
+  would send, without sending (credential values print as `****`). Make your agent's policy: preview, show the exact
   command, get approval, then run the write.
 - **`allow` previews by default.** Without `--confirm` it resolves the client's
   policies and prints the plan; nothing is written. `--confirm` also requires
