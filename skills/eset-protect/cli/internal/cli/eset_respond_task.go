@@ -226,6 +226,10 @@ type respondMirror struct {
 	path    string
 	devices []esetDevice
 	groups  []esetGroup
+	// incomplete: the last sync of a resource the run reads did not finish,
+	// so mirrored group membership may be missing devices (hand-fix
+	// respond-wait-needs-complete-membership).
+	incomplete bool
 }
 
 // resolveDevice turns a name or UUID into a target. A UUID is used as is

@@ -285,6 +285,7 @@ func respondLoadMirror(cmd *cobra.Command, flags *rootFlags, job respondJob) (re
 	}
 	defer db.Close()
 	m.present = true
+	m.incomplete = len(esetMirrorCheck(db, resources...).Incomplete) > 0
 	// A --customer run also takes its expected device list from the mirror,
 	// so an unfinished sync is worth a hint even for a group UUID.
 	if needNames || job.customer != "" {
@@ -329,7 +330,10 @@ func respondExecute(cmd *cobra.Command, flags *rootFlags, job respondJob) error 
 		targets.Groups = append(targets.Groups, ref)
 		want.DeviceUUIDs = m.customerDeviceUUIDs(ref.UUID)
 		want.MinRuns = len(want.DeviceUUIDs)
-		want.Unknown = len(want.DeviceUUIDs) == 0
+		// Hand-fix respond-wait-needs-complete-membership: after an
+		// interrupted sync the mirrored member list may miss devices, so
+		// --wait must not report the group task complete.
+		want.Unknown = len(want.DeviceUUIDs) == 0 || m.incomplete
 	}
 
 	body := respondBuildBody(job.action, job.verb, job.scan, targets, time.Now())

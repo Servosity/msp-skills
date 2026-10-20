@@ -129,3 +129,25 @@ func TestGeneratedWriteBodiesKeepNumbersExact(t *testing.T) {
 		t.Fatalf("a JSON-valued flag changed the number before sending: %s", got)
 	}
 }
+
+// TestWriteResponsesKeepNumbersExact (handfixes.json: json-numbers-exact): the
+// generated write commands decoded the response into `any` before building
+// the --json / --agent envelope, so 2^53+1 in an ESET response printed as 2^53.
+func TestWriteResponsesKeepNumbersExact(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"group":{"uuid":"00000000-0000-0000-0000-000000000001","count":`+bigInt+`}}`)
+	})
+	for _, mode := range [][]string{{"--json"}, {"--agent"}, {"--select", "group.count"}} {
+		args := append([]string{"groups", "create", "--group-display-name", "Acme"}, mode...)
+		out, errOut, err := captureExecuteAll(t, args...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, errOut)
+		}
+		if !bytes.Contains(out, []byte(bigInt)) || bytes.Contains(out, []byte("9007199254740992")) {
+			t.Fatalf("%v rounded the response number:\n%s", args, out)
+		}
+	}
+}

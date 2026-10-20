@@ -107,7 +107,7 @@ func newEdrRulesDisableCmd(flags *rootFlags) *cobra.Command {
 					var wrapped struct {
 						Data []map[string]any `json:"data"`
 					}
-					if json.Unmarshal(data, &wrapped) == nil && len(wrapped.Data) > 0 {
+					if esetDecodeExact(data, &wrapped) == nil && len(wrapped.Data) > 0 {
 						if err := printAutoTable(cmd.OutOrStdout(), wrapped.Data); err != nil {
 							fmt.Fprintf(os.Stderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
 						} else {
@@ -180,7 +180,7 @@ func newEdrRulesDisableCmd(flags *rootFlags) *cobra.Command {
 				}
 				if len(filtered) > 0 {
 					var parsed any
-					if err := json.Unmarshal(filtered, &parsed); err == nil {
+					if err := esetDecodeExact(filtered, &parsed); err == nil {
 						if flags.agent {
 							envelope["results"] = parsed
 						} else {

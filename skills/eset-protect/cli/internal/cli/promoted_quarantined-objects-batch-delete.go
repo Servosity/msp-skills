@@ -109,7 +109,7 @@ func newQuarantinedObjectsBatchDeletePromotedCmd(flags *rootFlags) *cobra.Comman
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
+				if esetDecodeExact(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}

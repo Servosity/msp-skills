@@ -65,7 +65,7 @@ func extractSearchResults(data json.RawMessage, responsePaths ...string) []json.
 	}
 	// Try common wrapper paths: data, results, items
 	var wrapped map[string]json.RawMessage
-	if json.Unmarshal(data, &wrapped) == nil {
+	if esetDecodeExact(data, &wrapped) == nil {
 		for _, key := range []string{"data", "results", "items", "records", "entries"} {
 			if inner, ok := wrapped[key]; ok {
 				if json.Unmarshal(inner, &items) == nil {

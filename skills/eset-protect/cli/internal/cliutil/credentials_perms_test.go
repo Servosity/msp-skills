@@ -12,7 +12,6 @@
 package cliutil
 
 import (
-	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -224,17 +223,19 @@ func TestSaveCredentialsVerifiesWrittenFile(t *testing.T) {
 		if err := runCredsPermsCmd(t, "icacls", dataDir, "/grant", "*S-1-5-32-545:(OI)(CI)(R)"); err != nil {
 			t.Skipf("icacls inherited grant failed; skipping environment-sensitive test: %v", err)
 		}
-		err = SaveCredentials(&Credentials{AccessToken: credsSampleReadPermsToken})
-		var permissionErr *CredentialsPermissionError
-		if err == nil || !strings.Contains(err.Error(), "permissions") || !errors.As(err, &permissionErr) {
-			t.Fatalf("SaveCredentials() error = %v, want post-save permission refusal", err)
+		// Hand-fix private-file-dacl-before-write: the file gets a protected
+		// owner-only DACL before the token is written, so it no longer
+		// inherits the Users ACE and the save succeeds with a private file.
+		if err := SaveCredentials(&Credentials{AccessToken: credsSampleReadPermsToken}); err != nil {
+			t.Fatalf("SaveCredentials() under a Users-readable dir = %v, want a private file", err)
 		}
-		if permissionErr.Path != filepath.Join(dataDir, credentialsFileName) {
-			t.Fatalf("permission error path = %q, want %q", permissionErr.Path, filepath.Join(dataDir, credentialsFileName))
+		path := filepath.Join(dataDir, credentialsFileName)
+		if err := VerifyCredsPerms(path); err != nil {
+			t.Fatalf("saved credentials file is not private: %v", err)
 		}
-		data, readErr := os.ReadFile(permissionErr.Path)
+		data, readErr := os.ReadFile(path)
 		if readErr != nil {
-			t.Fatalf("read saved credentials after permission refusal: %v", readErr)
+			t.Fatalf("read saved credentials: %v", readErr)
 		}
 		if !strings.Contains(string(data), credsSampleReadPermsToken) {
 			t.Fatalf("saved credentials do not contain test token: %q", data)

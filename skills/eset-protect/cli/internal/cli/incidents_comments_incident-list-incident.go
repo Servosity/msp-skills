@@ -92,7 +92,7 @@ func newIncidentsCommentsIncidentListIncidentCmd(flags *rootFlags) *cobra.Comman
 			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
-				if json.Unmarshal(outputData, &items) == nil && len(items) > 0 {
+				if esetDecodeExact(outputData, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
 						return err
 					}
