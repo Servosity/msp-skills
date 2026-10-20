@@ -665,8 +665,9 @@ type countWindow struct {
 	counted bool // the count was read before and after
 	delta   int  // how much it grew
 	// outsideUnsettled: at the window's open or close, a download or
-	// restore outside this run was in flight, had an unknown outcome, or
-	// was accepted shortly before the window (it may be counted inside it).
+	// restore outside this run was in flight or had an unknown outcome, or
+	// any claim outside it was made or changed from reconcileDelay before
+	// the window onwards, confirmed or not.
 	outsideUnsettled bool
 	outsideChanged   bool // a download or restore outside this run changed inside the window
 	unreadable       bool // a guard could not be read: treated as activity
@@ -739,9 +740,11 @@ func outsideActivity(ctx context.Context, guard *downloadGuard, account string, 
 	}
 	defer db.Close()
 	var u, c int
+	early, open := isoUTC(since.Add(-reconcileDelay)), isoUTC(since)
 	if err := db.QueryRowContext(ctx, `SELECT
-		COALESCE(SUM(state IN (?, ?) OR updated_at >= ?), 0), COALESCE(SUM(updated_at >= ?), 0) FROM restore_claims`,
-		claimSending, claimUnknown, isoUTC(since.Add(-reconcileDelay)), isoUTC(since)).Scan(&u, &c); err != nil {
+		COALESCE(SUM(state IN (?, ?) OR created_at >= ? OR updated_at >= ?), 0),
+		COALESCE(SUM(created_at >= ? OR updated_at >= ?), 0) FROM restore_claims`,
+		claimSending, claimUnknown, early, early, open, open).Scan(&u, &c); err != nil {
 		return true, true, err
 	}
 	return unsettled || u > 0, changed || c > 0, nil
@@ -846,12 +849,13 @@ it creates every export of the run again; a --new-batch create that is refused
 or never sent leaves the archive held by the earlier batch, as before. Two
 runs never work on one batch at once.
 
-An unfound row is EMPTY only when this run sent it and the portal accepted
-it, the portal's job count grew by exactly the creates this run had
-accepted, every other create this run sent has a known answer, no row of
-the batch it did not send is UNKNOWN, and no other download or restore in
-this state directory was in flight, unknown, accepted just before, or active
-while it ran. Any other unfound row is MISSING (or stays UNKNOWN).
+An unfound row is EMPTY only when this run sent it and the portal accepted it,
+the portal's job count grew by exactly the creates this run had accepted,
+every other create this run sent has a known answer, no row of the batch it
+did not send is UNKNOWN, and no other download or restore in this state
+directory was in flight or unknown, or made or changed any claim (confirmed or
+not) from the reconcile delay before this run's first count read until its
+last. Any other unfound row is MISSING (or stays UNKNOWN).
 
 --timeout bounds each API call, not the run: archives stream for as long as
 they keep arriving, and the reconcile wait is not cut short.

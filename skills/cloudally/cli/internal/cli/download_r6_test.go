@@ -465,7 +465,7 @@ func TestCountActivitySeesOnlyWhatCanMoveTheCount(t *testing.T) {
 			t.Fatal(err)
 		}
 		insertClaim(t, g, "O365MAIL", state, "20221231-000000-other", owner, "")
-		if _, err := g.db.Exec(`UPDATE download_claims SET job_id = ?, updated_at = ?`, jobID, isoUTC(updated)); err != nil {
+		if _, err := g.db.Exec(`UPDATE download_claims SET job_id = ?, created_at = ?, updated_at = ?`, jobID, isoUTC(updated), isoUTC(updated)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -481,8 +481,12 @@ func TestCountActivitySeesOnlyWhatCanMoveTheCount(t *testing.T) {
 		{"accepted long ago", dgCreated, "", "other", long, false, false},
 		{"accepted just before", dgCreated, "", "other", since.Add(-time.Second), true, false},
 		{"settled in the window", dgCreated, "", "other", since.Add(2 * time.Second), true, true},
-		{"refused in the window", dgRejected, "", "other", since.Add(2 * time.Second), false, true},
-		{"confirmed in the window", dgCreated, "job-1", "other", since.Add(2 * time.Second), false, false},
+		{"refused in the window", dgRejected, "", "other", since.Add(2 * time.Second), true, true},
+		// Round 7 P1-a: another run can create and pin a job entirely
+		// inside the window; a confirmed claim is activity too.
+		{"confirmed in the window", dgCreated, "job-1", "other", since.Add(2 * time.Second), true, true},
+		{"confirmed just before", dgCreated, "job-1", "other", since.Add(-time.Second), true, false},
+		{"confirmed long ago", dgCreated, "job-1", "other", long, false, false},
 		{"this run's own", dgUnknown, "", g.run, since.Add(2 * time.Second), false, false},
 	} {
 		set(tc.state, tc.job, tc.owner, tc.updated)
@@ -947,5 +951,37 @@ func TestRolledBackNewBatchCreatePutsTheOriginalClaimBack(t *testing.T) {
 	}
 	if st != dgCreated || superseded != 0 {
 		t.Fatalf("the original claim should be back: %s superseded=%d", st, superseded)
+	}
+}
+
+// Round 7 P1-a, through the real guard SQL: while this run waits, another
+// run creates a job and pins it, entirely between the two count reads. The
+// count grows by one, this run's own create was dropped, and the old
+// activity check skipped confirmed claims, so the dropped row went EMPTY.
+func TestEmptyIsNotInferredWhenAnotherRunCreatesAndPinsInTheWindow(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	g := testGuard(t)
+	s.mu.Lock()
+	s.listCreated = false // this run's create is dropped
+	s.taskEntities = []string{"a@contoso.com"}
+	s.onDashboard = func(call int) {
+		if call != 2 {
+			return
+		}
+		s.dashboardExtra = 1
+		insertClaim(t, g, "O365NOTES", dgCreated, "20221231-000000-other", "other-run", rowLabelPrefix+"00000000000000e1")
+		if _, err := g.db.Exec(`UPDATE download_claims SET job_id = 'job-other' WHERE sub_source = 'O365NOTES'`); err != nil {
+			t.Error(err)
+		}
+	}
+	s.mu.Unlock()
+	_, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...)
+	if err == nil || ExitCode(err) != 6 {
+		t.Fatalf("want exit 6 (MISSING), got %v\n%s", err, stderr)
+	}
+	if r := mustLoadBatch(t, ledgerKeys(t)[0]).Rows[0]; r.Status != dlMissing {
+		t.Fatalf("a dropped create must be MISSING when another run created and pinned a job in the window, got %s", r.Status)
 	}
 }
