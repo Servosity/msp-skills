@@ -18,9 +18,8 @@ func newPoliciesPermissiveModePoliciesUpdateCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "policies-update <id>",
-		Aliases: []string{"create"},
-		Short:   "Update permissive mode value.",
+		Use:   "policies-update <id>",
+		Short: "Update permissive mode value.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

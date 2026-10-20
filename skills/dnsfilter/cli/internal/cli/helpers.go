@@ -198,6 +198,9 @@ func colorEnabled() bool {
 }
 
 func isTerminal(w io.Writer) bool {
+	if u, ok := w.(interface{ Unwrap() io.Writer }); ok {
+		w = u.Unwrap() // c1EscapeWriter around stdout/stderr
+	}
 	if f, ok := w.(*os.File); ok {
 		fi, err := f.Stat()
 		if err != nil {
@@ -1075,7 +1078,7 @@ func classifyHTMLTransportError(err error) error {
 		return classified
 	}
 	if htmlLooksLikeAuthFailure(evidence) {
-		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""))
+		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"))
 	}
 	return apiErr(fmt.Errorf("%w\nhint: the request may have reached a web page or the wrong endpoint", err))
 }
@@ -1103,19 +1106,19 @@ func classifyAPIErrorOnly(err error) error {
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""+
+			"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens"+
 			"\n      Run 'dnsfilter-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your API key."+
-			" Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""+
+			" Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens"+
 			"\n      Run 'dnsfilter-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
-			"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""+
+			"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens"+
 			"\n      Run 'dnsfilter-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 404"):
@@ -3533,6 +3536,7 @@ func writeCSVRows(w io.Writer, items []map[string]any) error {
 func writeCSVRow(w io.Writer, cells []string) {
 	escaped := make([]string, len(cells))
 	for i, cell := range cells {
+		cell = scrubCell(cell)
 		if strings.ContainsAny(cell, ",\"\r\n") {
 			escaped[i] = `"` + strings.ReplaceAll(cell, `"`, `""`) + `"`
 		} else {
@@ -3585,7 +3589,7 @@ func printPlain(w io.Writer, data json.RawMessage, documentedFields ...map[strin
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Fprintln(w, strings.Join(keys, "\t"))
+	fmt.Fprintln(w, scrubCell(strings.Join(keys, "\t")))
 	for _, item := range items {
 		var vals []string
 		for _, k := range keys {
@@ -3618,7 +3622,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 			if v == nil {
 				continue
 			}
-			fmt.Fprintln(w, fmt.Sprint(v))
+			fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))
 		}
 		return nil
 	}
@@ -3633,7 +3637,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 	if trimmed == "" || trimmed == "null" {
 		return nil
 	}
-	fmt.Fprintln(w, trimmed)
+	fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))
 	return nil
 }
 
@@ -3672,7 +3676,7 @@ func quietScalar(v any) string {
 	}
 	switch t := v.(type) {
 	case string:
-		return t
+		return cliutil.ScrubTerminal(t) // one value per line, tenant text
 	case bool:
 		return strconv.FormatBool(t)
 	case float64:
@@ -3728,8 +3732,24 @@ func objectEnvelopeRows(obj map[string]any) ([]map[string]any, bool) {
 	return rows, true
 }
 
+// scrubCell drops terminal control characters (ESC, BEL, C1) from a --csv or
+// --plain value: tenant strings (organization, site and roaming-client names)
+// reach the terminal through these printers. Tab, CR and LF stay for CSV
+// quoting and plainCellValue to handle.
+func scrubCell(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\n' || r == '\r' {
+			return r
+		}
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func plainCellValue(v any) string {
-	s := formatTabularCell(v)
+	s := scrubCell(formatTabularCell(v))
 	s = strings.ReplaceAll(s, "\t", " ")
 	s = strings.ReplaceAll(s, "\r\n", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
@@ -4357,7 +4377,7 @@ func nonJSONPayloadError(data json.RawMessage) error {
 	}
 	if len(trimmed) > 0 && trimmed[0] == '<' {
 		if htmlLooksLikeAuthFailure(trimmed) {
-			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""))
+			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"))
 		}
 		return apiErr(fmt.Errorf("API returned HTML instead of JSON; the request may have reached a web page or the wrong endpoint"))
 	}

@@ -111,8 +111,12 @@ loop is: agent notices friction -> one invocation -> captured -> the
 maintainer sees it.`,
 		Example: `  dnsfilter-cli feedback "docs said exclusive but the boundary is inclusive"
   dnsfilter-cli feedback --stdin < notes.txt
+  Get-Content notes.txt | dnsfilter-cli feedback --stdin   # PowerShell
   dnsfilter-cli feedback list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) { // --dry-run changes nothing locally either
+				return writeDryRun(cmd.OutOrStdout(), flags, "feedback")
+			}
 			var text string
 			if useStdin {
 				data, err := io.ReadAll(cmd.InOrStdin())

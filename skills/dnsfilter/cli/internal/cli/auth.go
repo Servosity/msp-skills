@@ -6,9 +6,11 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/config"
@@ -45,8 +47,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export DNSFILTER_API_KEY=\"your-token-here\"")
-			fmt.Fprintln(w, "  echo \"$TOKEN\" | dnsfilter-cli auth set-token")
+			printKeySetup(w)
 			if !launch {
 				return nil
 			}
@@ -140,8 +141,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export DNSFILTER_API_KEY=\"your-token-here\"")
-				fmt.Fprintf(w, "  echo \"$TOKEN\" | dnsfilter-cli auth set-token\n")
+				printKeySetup(w)
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 
@@ -151,7 +151,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")")
 				}
 			}
 			return nil
@@ -165,9 +165,12 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 		Short: "Save an API token to the credentials file",
 		Long: "Save an API token to the credentials file.\n\n" +
 			"The token is read from stdin so it never appears in process arguments or shell history.",
-		Example: "  echo \"$TOKEN\" | dnsfilter-cli auth set-token\n  dnsfilter-cli auth set-token < token-file",
+		Example: "  echo \"$TOKEN\" | dnsfilter-cli auth set-token\n  dnsfilter-cli auth set-token < token-file\n  Get-Content token-file | dnsfilter-cli auth set-token   # PowerShell",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) { // --dry-run changes nothing locally either
+				return writeDryRun(cmd.OutOrStdout(), flags, "auth set-token")
+			}
 			token, err := readSecretFromStdin(cmd.InOrStdin())
 			if err != nil {
 				return authErr(err)
@@ -206,6 +209,7 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 				return printJSONFiltered(cmd.OutOrStdout(), out, flags)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Token saved to %s\n", savePath)
+			warnAPIKeySchemePrefix(cmd.ErrOrStderr(), token)
 			return nil
 		},
 	}
@@ -230,6 +234,9 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 		Short:   "Clear stored credentials",
 		Example: "  dnsfilter-cli auth logout",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) { // --dry-run changes nothing locally either
+				return writeDryRun(cmd.OutOrStdout(), flags, "auth logout")
+			}
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)
@@ -262,5 +269,33 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout(), "Logged out. Credentials cleared.")
 			return nil
 		},
+	}
+}
+
+// printKeySetup prints the key setup lines for both shells: most MSPs run
+// Windows PowerShell.
+func printKeySetup(w io.Writer) {
+	fmt.Fprintln(w, "  macOS/Linux: export DNSFILTER_API_KEY=\"your-token-here\"")
+	fmt.Fprintln(w, "  PowerShell:  $env:DNSFILTER_API_KEY = \"your-token-here\"")
+	fmt.Fprintln(w, "  Or save it:  echo \"$TOKEN\" | dnsfilter-cli auth set-token   (PowerShell: $TOKEN | dnsfilter-cli auth set-token)")
+}
+
+// apiKeySchemePrefix returns the auth scheme word ("Bearer", "Token") a key
+// was pasted with, or "". DNSFilter's Authorization header value is the API
+// key itself and the CLI sends the key verbatim, so a pasted scheme prefix
+// would travel with it.
+func apiKeySchemePrefix(key string) string {
+	key = strings.TrimSpace(key)
+	for _, scheme := range []string{"Bearer", "Token"} {
+		if len(key) > len(scheme) && strings.EqualFold(key[:len(scheme)], scheme) && (key[len(scheme)] == ' ' || key[len(scheme)] == '\t') {
+			return scheme
+		}
+	}
+	return ""
+}
+
+func warnAPIKeySchemePrefix(w io.Writer, key string) {
+	if scheme := apiKeySchemePrefix(key); scheme != "" {
+		fmt.Fprintf(w, "warning: the key starts with %q; DNSFilter expects the bare API key in the Authorization header and the CLI sends it as-is. Save it again without the %q prefix.\n", scheme+" ", scheme+" ")
 	}
 }

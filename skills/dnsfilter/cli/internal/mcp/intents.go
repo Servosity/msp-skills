@@ -33,6 +33,10 @@ func RegisterIntents(s *server.MCPServer) {
 		opts := []mcplib.ToolOption{
 			mcplib.WithDescription("After a sync, shows every client policy that already allows or blocks the domain or a parent domain."),
 			mcplib.WithOpenWorldHintAnnotation(true),
+			// Hand-wired (handfixes.json: mcp-read-only-tool-hints): the recipe
+			// runs `lists where --agent`, a read of the local store.
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
 		}
 		opts = append(opts, mcplib.WithString("domain", mcplib.Required(), mcplib.Description("Override the recipe's positional domain value.")))
 		s.AddTool(mcplib.NewTool("precedent_check_before_allowing_a_domain", opts...), handlePrecedentCheckBeforeAllowingADomain)

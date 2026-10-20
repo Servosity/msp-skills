@@ -644,7 +644,8 @@ is an information query, not a not-found error.
 Disabling: ` + noLearnEnvVar + `=true returns the empty shape even
 when learnings exist.`,
 		Example: `  QUERY="$(cat /path/to/question.txt)" dnsfilter-cli recall "$QUERY" --agent
-  QUERY="$(cat /path/to/question.txt)" dnsfilter-cli recall "$QUERY" --agent --min-confidence 2`,
+  QUERY="$(cat /path/to/question.txt)" dnsfilter-cli recall "$QUERY" --agent --min-confidence 2
+  $QUERY = Get-Content /path/to/question.txt -Raw; dnsfilter-cli recall $QUERY --agent   # PowerShell`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -978,7 +979,8 @@ undone without dropping the whole DB.
 
 Requires at least one of --resource, --action, or --all.`,
 		Example: `  QUERY="$(cat /path/to/question.txt)" dnsfilter-cli learnings forget "$QUERY" --resource <id>
-  QUERY="$(cat /path/to/question.txt)" dnsfilter-cli learnings forget "$QUERY" --all`,
+  QUERY="$(cat /path/to/question.txt)" dnsfilter-cli learnings forget "$QUERY" --all
+  $QUERY = Get-Content /path/to/question.txt -Raw; dnsfilter-cli learnings forget $QUERY --all   # PowerShell`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()

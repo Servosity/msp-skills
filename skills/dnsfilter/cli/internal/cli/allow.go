@@ -314,12 +314,12 @@ func renderAllow(cmd *cobra.Command, flags *rootFlags, view allowView) error {
 		return printJSONFilteredKeep(cmd.OutOrStdout(), view, flags, "targets", "policy_id", "action", "reason", "result", "applied", "attribution")
 	}
 	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "allow %s for %s (org %s) applied=%v attribution=%s\n", view.FQDN, view.Org.Name, view.Org.ID, view.Applied, view.Attribution)
+	fmt.Fprintf(w, "allow %s for %s (org %s) applied=%v attribution=%s\n", humanText(view.FQDN), humanText(view.Org.Name), humanText(view.Org.ID), view.Applied, humanText(view.Attribution))
 	for _, t := range view.Targets {
-		fmt.Fprintf(w, "  %-5s policy %s %q used by %s: %s %s\n", t.Action, t.PolicyID, t.PolicyName, strings.Join(t.UsedBy, ", "), t.Reason, t.Result)
+		fmt.Fprintf(w, "  %-5s policy %s %q used by %s: %s %s\n", humanText(t.Action), humanText(t.PolicyID), t.PolicyName, humanText(strings.Join(t.UsedBy, ", ")), humanText(t.Reason), humanText(t.Result))
 	}
 	for _, n := range view.Notes {
-		fmt.Fprintf(w, "note: %s\n", n)
+		fmt.Fprintf(w, "note: %s\n", humanText(n))
 	}
 	return nil
 }

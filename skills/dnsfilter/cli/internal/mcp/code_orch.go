@@ -27,6 +27,7 @@ import (
 	"dnsfilter-pp-cli/internal/cli"
 	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/mcp/bound"
+	"dnsfilter-pp-cli/internal/mcp/cobratree"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -58,14 +59,19 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		handleCodeOrchGet,
 	)
 
-	s.AddTool(
-		mcplib.NewTool("dnsfilter_execute",
-			mcplib.WithDescription("Execute one dnsfilter API endpoint by its endpoint_id (from dnsfilter_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by dnsfilter_search (e.g., \"users.list\").")),
-			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
-		),
-		handleCodeOrchExecute,
-	)
+	executeOptions := []mcplib.ToolOption{
+		mcplib.WithDescription("Execute one dnsfilter API endpoint by its endpoint_id (from dnsfilter_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically. A write sends the request: there is no dry-run, and a write refuses any param outside the endpoint's schema."),
+		mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by dnsfilter_search (e.g., \"users.list\").")),
+		mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; declared query params go to the query string; on POST/PUT/PATCH the remaining entries are the JSON body and must be the endpoint's top-level body fields; on DELETE no other entries are accepted; on GET extra entries are sent as query params.")),
+	}
+	// Hand-wired (handfixes.json: mcp-read-only-tool-hints): under the
+	// read-only switch the handler only runs reads that return no credential,
+	// so the tool advertises itself as read-only instead of mcp-go's
+	// destructive default.
+	if cliutil.IsMCPReadOnlyEnv() {
+		executeOptions = append(executeOptions, mcplib.WithReadOnlyHintAnnotation(true), mcplib.WithDestructiveHintAnnotation(false))
+	}
+	s.AddTool(mcplib.NewTool("dnsfilter_execute", executeOptions...), handleCodeOrchExecute)
 }
 
 // codeOrchEndpoint captures the small slice of endpoint metadata the
@@ -3734,6 +3740,24 @@ func codeOrchBlockedByMCPReadOnly(method string) bool {
 	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
 }
 
+// codeOrchReadOnlyRefusal is hand-wired (handfixes.json:
+// mcp-read-only-withholds-credentials): under the read-only switch it refuses
+// every non-GET, every credential-returning endpoint (api-keys reads, the
+// network secret_key endpoints, the roaming client uninstall PIN) and every
+// GET that writes, keyed on the registered path template.
+func codeOrchReadOnlyRefusal(ep *codeOrchEndpoint) string {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return ""
+	}
+	if codeOrchBlockedByMCPReadOnly(ep.Method) {
+		return fmt.Sprintf("refusing %s %s while %s=1", ep.Method, ep.ID, cliutil.MCPReadOnlyEnvVar)
+	}
+	if why := cobratree.ReadOnlyCredentialRefusal(ep.Method, ep.Path); why != "" {
+		return fmt.Sprintf("refusing %s %s while %s=1: %s", ep.Method, ep.ID, cliutil.MCPReadOnlyEnvVar, why)
+	}
+	return ""
+}
+
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
@@ -3745,13 +3769,16 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call dnsfilter_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	if msg := codeOrchReadOnlyRefusal(ep); msg != "" {
+		return mcplib.NewToolResultError(msg), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
 	if params == nil {
 		params = map[string]any{}
+	}
+	if err := codeOrchRefuseUnknownWriteParams(ep, params); err != nil {
+		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
 	c, platformSession, err := newMCPClient(ctx)

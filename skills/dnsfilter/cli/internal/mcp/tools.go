@@ -41,6 +41,10 @@ const (
 
 // RegisterTools registers all API operations as MCP tools.
 func RegisterTools(s *server.MCPServer) {
+	// Hand-wired (handfixes.json: mcp-tool-results-escape-controls,
+	// mcp-read-only-withholds-credentials): outermost middleware, so every
+	// tool result and error passes the one escape/credential funnel.
+	installResultSafety(s)
 	installFreshTenantGate(s)
 	// Code-orchestration mode — the full surface is covered by registry tools
 	// (<api>_search, <api>_get, and <api>_execute). Endpoint-mirror tools are suppressed.
@@ -62,7 +66,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sql",
 			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='agent-local-user-bulk-deletes'.")),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data) and in one typed table per synced resource (policies, networks, organizations, user_agents, ...); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='policies'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -1106,7 +1110,7 @@ func mcpSQLQueryError(queryCtx context.Context, err error) string {
 	}
 	msg := err.Error()
 	if strings.Contains(strings.ToLower(msg), "no such table") {
-		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type, for example resource_type='agent-local-user-bulk-deletes', and read JSON fields with json_extract(data,'$.field').", err)
+		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data) and in one typed table per synced resource, named with underscores (networks, policies, user_agents). Filter resources by resource_type, for example resource_type='policies', and read JSON fields with json_extract(data,'$.field').", err)
 	}
 	return fmt.Sprintf("query failed: %v", err)
 }
@@ -1170,7 +1174,8 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		"tool_count":  len(s.ListTools()),
 		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion dnsfilter-cli binary.",
+		// Hand-wired (handfixes.json: mcp-context-describes-dnsfilter).
+		"tool_surface": "Live API: there are no per-endpoint tools. Find an endpoint with dnsfilter_search, inspect a GET with dnsfilter_get, call it with dnsfilter_execute (endpoint_id plus a params object). Local store: sync (a mirrored CLI command, absent under DNSFILTER_MCP_READ_ONLY) fills it; sql and search read it and never call the API. The DNSFilter workflows (why_blocked, allow, unblocks_triage, agents_drift, agents_stale, lists_where, policy_audit) and the learn/teach tools shell out to the companion dnsfilter-cli binary.",
 		// learn_protocol is generated from the single shared source of
 		// truth (the exported constant internal/learn.RecallFirstProtocol)
 		// also consumed by the CLI agent-context command, so the MCP and
@@ -1552,12 +1557,11 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass page[number] parameter for subsequent pages.",
-			"Control page size with the page[size] parameter (default 100).",
-			"Use updated_at_from for incremental fetches (filter by modification time).",
-			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
-			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
-			"Prefer sql/search over repeated API calls when the data is already synced.",
+			"List endpoints (the .all variants too) page by page number: pass page[number] (starts at 1) and page[size] literally in dnsfilter_execute params, e.g. {\"page[number]\": 2, \"page[size]\": 100}; endpoints that declare page_size also accept it. A param spelled page_number or page is sent as-is and ignored by the API, so you would get page 1 again. Keep paging until a page returns fewer rows than page[size] (sync uses 100).",
+			"updated_at_from/updated_at_to filter only distributors.msps-index and distributors.organizations-index; other lists have no modification-time filter.",
+			"dnsfilter_execute has no dry-run: a POST/PUT/PATCH/DELETE runs live, and a write refuses any param outside the endpoint's schema. Write bodies use the API's wrapper where it has one, e.g. networks.create takes {\"network\": {\"name\": \"...\", \"organization_id\": 1}}.",
+			"sql and search read the local store that sync fills (resources plus one typed table per synced resource); run sync first. Credential fields (network secret_key, API key token) are never stored.",
+			"Under DNSFILTER_MCP_READ_ONLY=1, dnsfilter_execute runs only GETs and refuses the api-keys reads, the network secret_key endpoints and the roaming client uninstall PIN, and every tool result withholds credential-named fields (secret_key, token, client_secret, password, pin).",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.

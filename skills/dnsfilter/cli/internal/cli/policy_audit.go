@@ -155,10 +155,10 @@ Findings: threat_allowlisted (an allow-list entry is now in a security category)
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "%d policies scanned, %d allow-list domains categorized, %d findings\n", view.PoliciesScanned, view.DomainsLooked, len(view.Findings))
 			for _, f := range view.Findings {
-				fmt.Fprintf(w, "  %-6s %-30s policy %s %q: %s\n", f.Severity, f.Kind, f.PolicyID, f.PolicyName, f.Detail)
+				fmt.Fprintf(w, "  %-6s %-30s policy %s %q: %s\n", humanText(f.Severity), humanText(f.Kind), humanText(f.PolicyID), f.PolicyName, humanText(f.Detail))
 			}
 			if view.Note != "" {
-				fmt.Fprintln(w, "note:", view.Note)
+				fmt.Fprintln(w, "note:", humanText(view.Note))
 			}
 			return nil
 		},

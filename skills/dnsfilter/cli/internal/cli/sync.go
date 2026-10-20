@@ -159,13 +159,8 @@ Resource scoping:
 
 			// --full: clear all sync cursors before starting.
 			// Skip under --dry-run: a preview must not mutate sync-state (issue #2935).
-			if full && !c.DryRun {
-				for _, resource := range resources {
-					if err := db.SaveSyncStateAt(resource, "", 0, time.Time{}); err != nil {
-						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
-					}
-				}
-			}
+			// The clear itself runs after every flag is validated (below).
+			clearCursors := full && !c.DryRun
 
 			if cliutil.IsDogfoodEnv() && !cmd.Flags().Changed("max-pages") {
 				maxPages = 1
@@ -187,11 +182,7 @@ Resource scoping:
 					// Skip under --dry-run:
 					// a preview must not mutate sync-state (issue #2935).
 					if !c.DryRun {
-						for _, resource := range resources {
-							if err := db.SaveSyncStateAt(resource, "", 0, time.Time{}); err != nil {
-								return fmt.Errorf("clearing sync state for %s: %w", resource, err)
-							}
-						}
+						clearCursors = true
 					}
 				} else if humanFriendly {
 					fmt.Fprintln(os.Stderr, "warning: --latest-only ignored because --since is set; --since takes precedence")
@@ -227,6 +218,26 @@ Resource scoping:
 			// the writer and trips SQLITE_BUSY despite _busy_timeout.
 			if cliutil.IsVerifyEnv() {
 				concurrency = 1
+			}
+
+			// HAND-FIX(sync-clear-never-marks-complete): clear only after every
+			// flag is validated and only known resource names, through the one
+			// store function that marks the attempt incomplete, so a usage
+			// error, an interrupt or a --resources typo never leaves a
+			// never-walked collection reading as synced.
+			if clearCursors {
+				known := map[string]bool{}
+				for _, r := range knownSyncResourceNames() {
+					known[r] = true
+				}
+				for _, resource := range resources {
+					if !known[resource] || !syncResourceWalksAfterClear(resource, sinceTS, userParams) {
+						continue
+					}
+					if err := db.ClearSyncCursor(resource); err != nil {
+						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
+					}
+				}
 			}
 
 			started := time.Now()
@@ -1106,6 +1117,29 @@ func syncResource(ctx context.Context, c interface {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
 	}
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
+}
+
+// syncResourceWalksAfterClear reports whether syncResource gets past its
+// preflight skips (unknown path, unresolved path keys, missing required query
+// params) for a resource whose cursor and watermark were just cleared. A
+// resource it would skip is not cleared: the clear marks the attempt
+// incomplete and only a walk marks it complete again, so clearing a resource
+// that never walks would leave a row no later sync can complete.
+// HAND-FIX(sync-clear-never-marks-complete)
+func syncResourceWalksAfterClear(resource, sinceTS string, userParams *syncUserParams) bool {
+	path, err := syncResourcePath(resource)
+	if err != nil || unresolvedPathKeyRE.MatchString(path) {
+		return false
+	}
+	effectiveSince := sinceTS
+	if syncResourceSinceParam(resource) == "" {
+		effectiveSince = ""
+	}
+	if effectiveSince != "" {
+		effectiveSince = formatSyncSinceValue(effectiveSince, syncResourceSinceParamFormat(resource))
+	}
+	missing := unfilledRequiredSyncQueryParams(resource, userParams, syncConditionalQueryParams(resource, effectiveSince, syncResourceSortValue(resource)))
+	return len(missing) == 0
 }
 
 // paginationDefaults holds the resolved pagination parameter names and page size.
@@ -2497,9 +2531,11 @@ func parseRestSyncTimestamp(value string) (time.Time, bool) {
 }
 
 func defaultSyncResources() []string {
+	// HAND-FIX(secrets-never-persisted): api-keys is not in the default set.
+	// No local command reads it and its rows carry ApiKey.token (scrubbed by
+	// the store anyway); it stays syncable by name via --resources api-keys.
 	return []string{
 		"agent-local-users",
-		"api-keys",
 		"application-categories",
 		"applications",
 		"block-pages",

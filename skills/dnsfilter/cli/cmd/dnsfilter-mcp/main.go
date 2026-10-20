@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"dnsfilter-pp-cli/internal/cli"
+	"dnsfilter-pp-cli/internal/cliutil"
 	mcptools "dnsfilter-pp-cli/internal/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -117,8 +118,13 @@ func defaultTransport() string {
 	return "stdio"
 }
 
+// requireHTTPCallerToken reads the bearer token through cliutil.EnvOverride
+// (handfixes.json: mcp-http-token-placeholder): an MCPB host that skips the
+// optional user_config prompt leaves the literal ${user_config...} text in the
+// environment, and that text is public in manifest.json, so it must read as
+// no token at all.
 func requireHTTPCallerToken() (string, error) {
-	token := strings.TrimSpace(os.Getenv(httpTokenEnvVar))
+	token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))
 	if token == "" {
 		return "", fmt.Errorf("%s must be set to a non-empty bearer token before starting --transport http", httpTokenEnvVar)
 	}

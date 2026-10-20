@@ -178,6 +178,12 @@ func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
 	defer finalizePlatformInvocation(&flags, &retErr)
+	// Tenant strings reach --json, --agent and pretty-JSON output raw, and
+	// encoding/json leaves UTF-8 C1 controls (CSI, OSC, ST) unescaped; the
+	// wrapper rewrites them as \u00XX so an organization or roaming-client
+	// name cannot drive the terminal. isTerminal unwraps it.
+	rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})
+	rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})
 
 	executedCmd, err := rootCmd.ExecuteC()
 	var journalFailedFlag, journalSuggestedFlag string
@@ -190,9 +196,9 @@ func Execute() (retErr error) {
 	if errors.Is(err, pflag.ErrHelp) {
 		return nil
 	}
-	envelopeWriter := io.Writer(os.Stdout)
+	envelopeWriter := io.Writer(&c1EscapeWriter{w: os.Stdout})
 	if flags.deliverBuf != nil {
-		envelopeWriter = io.MultiWriter(os.Stdout, flags.deliverBuf)
+		envelopeWriter = io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf)
 	}
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
@@ -222,6 +228,15 @@ func Execute() (retErr error) {
 				err = fmt.Errorf("%w\nhint: did you mean --%s?", err, suggestion)
 				journalSuggestedFlag = "--" + suggestion
 			}
+		}
+	}
+	// A failed run still delivers what it printed (or says the sink was not
+	// updated), so a scheduled sink never silently keeps a previous report.
+	if err != nil && !envelopeWritten && flags.deliverBuf != nil {
+		if flags.deliverBuf.Len() == 0 {
+			fmt.Fprintf(os.Stderr, "warning: --deliver: the command failed before printing output; %s:%s was not updated\n", flags.deliverSink.Scheme, flags.deliverSink.Target)
+		} else if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
+			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 		}
 	}
 	if err == nil && flags.deliverBuf != nil {
@@ -350,7 +365,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().StringVar(&flags.dataSource, "data-source", "auto", "Data source for read commands: auto (live with local fallback), live (API only), local (synced data only)")
 	rootCmd.PersistentFlags().DurationVar(&flags.maxAge, "max-age", 30*time.Minute, "Maximum acceptable age of local-store data before a stderr hint suggests sync; 0 disables")
 	rootCmd.PersistentFlags().StringVar(&flags.runProfileName, "profile", "", "Apply values from a saved run profile; this does not select a client (see 'dnsfilter-cli profile list')")
-	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "Select the tenant-gated client profile (env: PRINTING_PRESS_CLIENT_PROFILE)")
+	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "Unused by this connector: no tenant-gated profile source is registered, so the value changes nothing and does not limit which organizations a call can reach (env: PRINTING_PRESS_CLIENT_PROFILE)")
 	if strings.TrimSpace(os.Getenv(mcpBoundProfileEnv)) != "" {
 		if flag := rootCmd.PersistentFlags().Lookup("client-profile"); flag != nil {
 			flag.Hidden = true
@@ -371,17 +386,8 @@ See README.md or the bundled SKILL.md for recipes.`,
 			return err
 		}
 		configureDefaultDBScope(flags.configPath)
-		if flags.deliverSpec != "" {
-			sink, err := ParseDeliverSink(flags.deliverSpec)
-			if err != nil {
-				return err
-			}
-			flags.deliverSink = sink
-			if sink.Scheme != "stdout" && sink.Scheme != "" {
-				flags.deliverBuf = &bytes.Buffer{}
-				cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))
-			}
-		}
+		// A saved profile is applied first, so a --deliver it restores is
+		// wired below like a typed one.
 		if flags.runProfileName != "" {
 			profile, err := GetProfile(flags.runProfileName)
 			if err != nil {
@@ -398,6 +404,31 @@ See README.md or the bundled SKILL.md for recipes.`,
 				return err
 			}
 			appliedProfile = profile
+		}
+		if flags.deliverSpec != "" {
+			// Cobra's completion command captures its writer before this
+			// hook runs, so a delivered completion script would be empty.
+			if strings.Contains(" "+cmd.CommandPath()+" ", " completion ") {
+				return usageErr(fmt.Errorf("--deliver does not apply to completion scripts; redirect stdout instead (for example: %s completion powershell > %s.ps1)", cmd.Root().Name(), cmd.Root().Name()))
+			}
+			sink, err := ParseDeliverSink(flags.deliverSpec)
+			if err != nil {
+				return err
+			}
+			// profile save validates --deliver but records it rather than
+			// performing it (it would overwrite the sink with the save
+			// confirmation).
+			if !isProfileSave(cmd) {
+				flags.deliverSink = sink
+			}
+			if sink.Scheme != "stdout" && sink.Scheme != "" && !isProfileSave(cmd) {
+				flags.deliverBuf = &bytes.Buffer{}
+				w := io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf)
+				cmd.SetOut(w)
+				// help prints through the target command, which inherits
+				// root's writer, so root tees too.
+				cmd.Root().SetOut(w)
+			}
 		}
 		// A saved profile can set dry-run after flag parse. Suppression has to
 		// see that value before any store path is resolved.
@@ -887,4 +918,10 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 		fmt.Fprintln(tw, line)
 	}
 	return tw.Flush()
+}
+
+// isProfileSave reports whether cmd is `profile save`, which records flags
+// such as --deliver rather than acting on them.
+func isProfileSave(cmd *cobra.Command) bool {
+	return cmd.Name() == "save" && cmd.Parent() != nil && cmd.Parent().Name() == "profile"
 }

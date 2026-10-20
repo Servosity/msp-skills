@@ -136,6 +136,1226 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "secrets-never-persisted",
+      "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key and the like, at any depth) before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
+      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "return ScrubPersistedSecrets(s.mergeIncomingResourceDataUnscrubbed(tx, resourceType, id, incoming))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func ScrubPersistedSecrets(data json.RawMessage) json.RawMessage {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "delete(v, key)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if len(words) == 0 || identifierWords[words[len(words)-1]] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "\"secret\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "\"password\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "\"apikey\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "\"token\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"agent-local-users\",\n\t\t\"application-categories\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_test.go",
+          "contains": "func TestSecretsNeverReachTheStoreFile(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_test.go",
+          "contains": "func TestMergeDropsALegacySecret(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncNeverPersistsSecrets(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestDefaultSyncSkipsApiKeys(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-clear-never-marks-complete",
+      "summary": "the --full / --latest-only cursor clears go through store.ClearSyncCursor, which marks the attempt incomplete (never complete), and run only after every flag is validated, only for known resource names, and only for resources that will get past syncResource's preflight",
+      "why": "The generated sync cleared each selected collection with SaveSyncStateAt(resource, \"\", 0, time.Time{}), which writes last_attempt_complete = 1, and did it before --since was parsed. So `sync --full --since bogus` rewrote every row to complete and exited; a kill, timeout or MCP-host SIGTERM during a --full run left every queued, never-walked collection reading complete; and `--full --resources netwrks` left a row for a name that can never sync. mcpStoreStatus (internal/mcp/tools.go) counts last_attempt_complete to tell agents the store is a complete snapshot, so all three read as ready (false-GREEN). ClearSyncCursor (hand-authored internal/store/dnsfilter_sync_state.go) resets cursor, watermark (NULL) and count and writes last_attempt_complete = 0; only the walk's final SaveSyncStateAt after outcome.complete marks a collection complete. The clear now runs after --since parsing, skips names not in knownSyncResourceNames(), and skips a resource syncResourceWalksAfterClear says the walk will skip (domains without fqdns), because a cleared row only becomes complete again through a walk. Precedent: backup-radar sync-clear-never-marks-complete. Proven: SaveSyncStateAt back at the clear site fails TestSyncFullClearLeavesQueuedCollectionIncomplete (users read complete=1 while networks was still in flight); the original pre-validation clear fails TestSyncUsageErrorsLeaveSyncStateUntouched and TestSyncFullDoesNotClearAResourceItWillSkip; dropping the known-name filter or the preflight filter fails the matching test; ClearSyncCursor writing 1 fails TestClearSyncCursorNeverMarksComplete. NOT covered here: internal/cli/channel_workflow.go (workflow archive --full) still clears with s.SaveSyncState(resource, \"\", 0), which stamps now with complete = 1.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/dnsfilter_sync_state.go",
+          "contains": "func (s *Store) ClearSyncCursor(resourceType string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_sync_state.go",
+          "contains": "last_synced_at = NULL, total_count = 0, last_attempt_complete = 0`,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "clearCursors := full && !c.DryRun",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if !known[resource] || !syncResourceWalksAfterClear(resource, sinceTS, userParams) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if err := db.ClearSyncCursor(resource); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func syncResourceWalksAfterClear(resource, sinceTS string, userParams *syncUserParams) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "db.SaveSyncStateAt(resource, \"\", 0, time.Time{})"
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_sync_state_test.go",
+          "contains": "func TestClearSyncCursorNeverMarksComplete(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncUsageErrorsLeaveSyncStateUntouched(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncFullClearLeavesQueuedCollectionIncomplete(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncFullDoesNotClearAResourceItWillSkip(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncResourceWalksAfterClearMatchesPreflight(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "merge-empty-scalar-array-authoritative",
+      "summary": "mergeKeepRicherArray treats an explicit empty array as authoritative when the stored array holds scalars (a cleared allow/block list or category set), and keeps the richer stored copy only for object arrays",
+      "why": "The generated keep-richer merge returned the existing array whenever the incoming one was empty, so a policy whose whitelist_domains or blacklist_categories was cleared in DNSFilter kept the old entries in the mirror forever, and lists where / why-blocked reported a domain as still allowed or blocked. Made by the factory build pane. Proven: restoring the generator's `return existing` fails TestMergeClearedScalarListIsAuthoritative (internal/store/dnsfilter_merge_test.go).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if _, ok := it.(map[string]any); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "if len(incoming) == 0 && len(existing) > 0 {\n\t\treturn existing\n\t}"
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_merge_test.go",
+          "contains": "func TestMergeClearedScalarListIsAuthoritative(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "merge-relationships-authoritative",
+      "summary": "mergeKeepRicherObject replaces each JSON:API relationship the incoming row supplies (a cleared data: null or [] replaces the stored one) while keeping omitted sibling relationships, and an explicit null timestamp (any *_at key, last_sync) clears the stored value",
+      "why": "The generated merge recursed into relationships with keep-richer rules, so a relationship cleared in DNSFilter (a site moved off its policy, data: null; a policies list emptied, data: []) kept the stale link, and an explicit null uninstalled_at / last_sync kept the old timestamp; agents stale and lists where then joined clients to the wrong policy or site and counted uninstalled clients. Note: it is per-relationship replacement, not a wholesale replace of the relationships object (omitted siblings are deliberately kept). Made by the factory build pane. Proven: removing the relationships block fails TestMergePartialRelationshipsKeepSiblings and TestMergeClearedRelationshipsAreAuthoritative; removing the null-timestamp branch fails TestMergeExplicitNullTimestampClears (internal/store/dnsfilter_merge_test.go).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if key == \"relationships\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "incomingRels, isMap := incomingVal.(map[string]any)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if incomingVal == nil && (strings.HasSuffix(key, \"_at\") || key == \"last_sync\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_merge_test.go",
+          "contains": "func TestMergeClearedRelationshipsAreAuthoritative(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_merge_test.go",
+          "contains": "func TestMergePartialRelationshipsKeepSiblings(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_merge_test.go",
+          "contains": "func TestMergeExplicitNullTimestampClears(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.dnsfilter_mcp_http_token} placeholder is refused instead of becoming the secret",
+      "why": "The generated requireHTTPCallerToken read DNSFILTER_MCP_HTTP_TOKEN with os.Getenv. The variable is being declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. Same fix as sophos-central, bitdefender and backup-radar. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv (proven 2026-10-20) and passes with EnvOverride.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector.",
+      "asserts": [
+        {
+          "file": "cli/cmd/dnsfilter-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/dnsfilter-mcp/main.go",
+          "not_contains": "token := strings.TrimSpace(os.Getenv(httpTokenEnvVar))"
+        },
+        {
+          "file": "cli/cmd/dnsfilter-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-tool-hints",
+      "summary": "the precedent_check_before_allowing_a_domain intent is annotated readOnlyHint=true, destructiveHint=false (it runs `lists where --agent`, a local read), and under DNSFILTER_MCP_READ_ONLY dnsfilter_execute is registered with readOnlyHint=true, destructiveHint=false",
+      "why": "The generated intent set only OpenWorldHint, so mcp-go's defaults advertised a local read as readOnlyHint=false, destructiveHint=true; it stays listed in read-only mode, so a read-only server advertised a 'destructive' tool and hosts that honor hints prompted on every precedent check. dnsfilter_execute had no annotations at all, so it advertised destructive even in read-only mode, where its handler only runs GETs that return no credential. Default mode keeps execute destructive (it can DELETE). TestReadOnlyToolHints fails when either the intent annotations or the read-only execute hint are removed (each proven separately 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "mcplib.WithReadOnlyHintAnnotation(true),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "mcplib.WithDestructiveHintAnnotation(false),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "executeOptions = append(executeOptions, mcplib.WithReadOnlyHintAnnotation(true), mcplib.WithDestructiveHintAnnotation(false))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_credentials_test.go",
+          "contains": "func TestReadOnlyToolHints(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-tool-results-escape-controls",
+      "summary": "every MCP tool result and handler error (typed tools, code orchestration, intents and every Cobra-mirror shell-out) passes one server middleware that rewrites C0 controls (except tab and newline), a bare CR, DEL and C1 controls as \\u00XX before the text leaves the server",
+      "why": "Tenant strings (organization, site, policy and agent names, notes, block-page text) reached content[].text verbatim from API JSON, the local store and the companion CLI's stdout, so a name carrying U+009D ... U+009C (an OSC 52 clipboard write) or ESC[8m reached a host that prints results to a terminal. Ported from backup-radar's escaping constructors, but installed as the outermost mcp-go middleware (installResultSafety, first line of RegisterTools) so a tool added by any later registrar and a Go error returned by any handler are covered without per-call-site discipline. The escape is lossless inside JSON strings. TestResultFunnelEscapesEveryTool drives probe tools through the real JSON-RPC dispatch and fails when installResultSafety is removed or when safeResultText stops escaping (both proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the generated RegisterTools should install a result-escaping middleware.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "installResultSafety(s)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "s.Use(resultSafetyMiddleware)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "return escapeTerminalControls(readOnlyCredentialFilter(s))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "if isTerminalControl(r) || (r == '\\r' && (i+1 >= len(s) || s[i+1] != '\\n')) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "return mcplib.NewToolResultError(safeResultText(err.Error())), nil",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety_test.go",
+          "contains": "func TestResultFunnelEscapesEveryTool(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-withholds-credentials",
+      "summary": "with DNSFILTER_MCP_READ_ONLY=1 no MCP tool returns a credential: dnsfilter_execute refuses the api-keys reads, every network secret_key endpoint, the roaming client uninstall PIN and the GET that creates a PSA integration (keyed on the registered path template); the Cobra mirror skips or refuses any command or resource argument naming those paths (tail api-keys); and the result funnel replaces the value of every credential-named field (store.IsSecretKey plus a trailing pin) at any depth of every JSON value in a result, withholds plain text that names one as a CSV/table header or key=value pair, and withholds any text carrying a value it already withheld",
+      "why": "DNSFilter GETs return live credentials: ApiKey.token (/v1/api_keys, /v1/api_keys/{id}), Network.secret_key (the site deployment secret, in every networks list and show), the organization's uninstall PIN (/v1/user_agents/uninstall_pin, annotated mcp:read-only), and EnterpriseConnection options.client_secret. The generated read-only switch only refused non-GET execute calls, so a read-only agent could read all of them through dnsfilter_execute, and `tail api-keys` / `tail networks` printed them through the mirror. GET /v1/psa_integrations/redirect_link creates an integration, a write behind a GET. Networks reads stay available with secret_key replaced by '[withheld: credential]' so a read-only agent still sees site names and ids. Proven over stdio 2026-10-20 against a mock returning secret_key SENTINEL-NET-SECRET: in read-only mode no tools/call result (execute networks.index/all/show, tail networks, sql, search, context) carried the sentinel, the api-keys reads, the uninstall PIN and tail api-keys were refused with zero requests reaching the mock. Each piece fails its test when reverted: the execute refusal (TestReadOnlyExecuteRefusesCredentialEndpoints, TestReadOnlyCredentialRefusalCoversRegistry), the funnel filter (TestReadOnlyResultFunnelWithholdsCredentials), the mirror guard (TestReadOnlyMirrorSkipsCredentialCommands) and the resource-argument guard (TestReadOnlyMirrorRefusesCredentialResourceArgs). Depends on store.IsSecretKey from secrets-never-persisted (one secret-key rule for the store and the MCP funnel).",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the read-only switch should refuse credential-returning reads (a spec x-credential marker) and the MCP result path should redact secret-named fields.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if msg := codeOrchReadOnlyRefusal(ep); msg != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if why := cobratree.ReadOnlyCredentialRefusal(ep.Method, ep.Path); why != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
+          "contains": "func ReadOnlyCredentialRefusal(method, pathTemplate string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
+          "contains": "\"/uninstall_pin\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/read_only_credentials.go",
+          "contains": "\"/v1/psa_integrations/redirect_link\": \"creates a PSA integration\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/walker.go",
+          "contains": "if readOnlyMode && commandCallsCredentialPath(cmd) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "if tok := credentialResourceArg(args); tok != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "out, plain := redactJSONSegments(text)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "if plainTextNamesCredential(plain) || carriesWithheldValue(out) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "if store.IsSecretKey(key) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety.go",
+          "contains": "return strings.HasSuffix(b.String(), \"pin\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_credentials_test.go",
+          "contains": "func TestReadOnlyExecuteRefusesCredentialEndpoints(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_safety_test.go",
+          "contains": "func TestReadOnlyResultFunnelWithholdsCredentials(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/read_only_credentials_test.go",
+          "contains": "func TestReadOnlyMirrorSkipsCredentialCommands(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/read_only_credentials_test.go",
+          "contains": "func TestReadOnlyMirrorRefusesCredentialResourceArgs(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-execute-writes-refuse-unknown-args",
+      "summary": "dnsfilter_execute refuses a POST/PUT/PATCH whose params carry a key that is not a path placeholder, a declared query or header param, or one of the endpoint's top-level body fields, and a DELETE with any key beyond its placeholders and declared query params; GET is unchanged",
+      "why": "SAFETY (backup-radar mcp-writes-refuse-unknown-args, code-orchestration form): the generated handler forwarded every unrecognized POST/PUT/PATCH param into the JSON body and every unrecognized DELETE param into the query string, so an agent passing a CLI spelling such as dry-run or dry_run to preview networks.create or networks.destroy ran it live. The top-level body fields per endpoint (codeOrchWriteBodyKeys, 104 writes) are derived from the body each generated internal/cli command builds; TestCodeOrchWriteBodyKeysMatchCLI re-derives them from internal/cli and fails on drift or on a registry write with no entry. Proven over stdio 2026-10-20: networks.create with dry_run and networks.destroy with dry-run returned 'unknown MCP parameter ... nothing was sent' and the mock received no request; a schema-shaped networks.create reached the mock as {\"network\":{...}}. TestCodeOrchExecuteRefusesUnknownWriteParams fails when the call is removed.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the code-orchestration registry should carry each write's body schema and the execute handler should refuse keys outside it.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if err := codeOrchRefuseUnknownWriteParams(ep, params); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_write_params.go",
+          "contains": "func codeOrchRefuseUnknownWriteParams(ep *codeOrchEndpoint, params map[string]any) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_write_params.go",
+          "contains": "unknown MCP parameter %q on a write tool; use the tool schema's named parameters",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_write_params_test.go",
+          "contains": "func TestCodeOrchWriteBodyKeysMatchCLI(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_credentials_test.go",
+          "contains": "func TestCodeOrchExecuteRefusesUnknownWriteParams(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-context-describes-dnsfilter",
+      "summary": "the MCP context tool describes the real surface: no per-endpoint tools (dnsfilter_search/get/execute), page[number]/page[size] paging passed literally in execute params, updated_at_from only on the two distributors lists, no dry-run on writes, what sync fills and what read-only mode refuses; the sql description and its no-such-table hint name the typed per-resource tables and a synced resource type",
+      "why": "The generated context tool, which tells agents to call it first, claimed 'cursor-based paging' with a page[number] cursor, a default page size of 100, updated_at_from incremental fetches on every list, and 'typed endpoint tools'; the sql description and its no-such-table hint used agent-local-user-bulk-deletes, which sync never fills, and the hint said there is not one SQL table per resource although the store keeps a typed table per synced resource. None hold here: code orchestration suppresses endpoint tools, the registry exposes page[size] as page_size but drops page[number] (an agent sending page_number got page 1 again and trusted it), and updated_at_from exists only on distributors.msps-index and distributors.organizations-index. TestContextToolDescribesDNSFilter checks the paging, dry-run and read-only text and that every tool tool_surface names is registered; it fails when the old paging tip returns.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"tool_surface\": \"Live API: there are no per-endpoint tools.",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"List endpoints (the .all variants too) page by page number: pass page[number] (starts at 1) and page[size] literally in dnsfilter_execute params",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Pagination uses cursor-based paging"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "MCP exposes typed endpoint tools plus a runtime mirror"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "resource_type='agent-local-user-bulk-deletes'"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "not one SQL table per resource"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "and in one typed table per synced resource, named with underscores (networks, policies, user_agents). Filter resources by resource_type, for example resource_type='policies'",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_credentials_test.go",
+          "contains": "func TestContextToolDescribesDNSFilter(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-filesystem-destination-gate",
+      "summary": "The MCP shell-out layer refuses local-file READ flags (--input, --notes-file, --playbook-file, --playbook-notes-file, and a command-local --home) on top of the write-sink names press 4.33.5 already blocks; a tree test fails the build when any shell-out tool still forwards a flag whose usage text names a filesystem path",
+      "why": "Same template defect as quotewerks/connectwise-rmm: tools/list offered teach --playbook-file/--playbook-notes-file, teach_playbook --notes-file/--playbook-file and import --input, each of which reads any file the server account can reach into the learn store, where recall and playbook_list hand it back; teach and teach_playbook stay listed under DNSFILTER_MCP_READ_ONLY. Ported byte-for-byte from skills/quotewerks. Proven 2026-10-20: removing the five names makes TestNoShellOutToolCanDirectAFilesystemPath fail listing import --input, teach --playbook-file, teach --playbook-notes-file, teach-playbook --notes-file and teach-playbook --playbook-file; restored, it passes. import is still listed (without --input; hiding it needs an mcp:hidden annotation in internal/cli/import.go).",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the read-source names and the usage-text rule belong in the generator's blockedDestinationFlags.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"notes-file\":          true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-file\":       true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-notes-file\": true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"input\":               true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+          "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "client-profile-inert",
+      "summary": "--client-profile is kept out of MCP tool schemas (MCP half; the root.go help-text half is recorded by the CLI change)",
+      "why": "No tenant-gated platform source is registered for DNSFilter (registerPlatformSource is never called), so --client-profile changes nothing, yet every mirrored tool offered it and an agent could believe it had scoped itself. Same fix as bitdefender and quotewerks: \"client-profile\" joins blockedRootFlags. TestMirroredToolsOmitInertClientProfile walks the real Cobra tree and fails when the line is removed (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"client-profile\":          true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/client_profile_inert_test.go",
+          "contains": "func TestMirroredToolsOmitInertClientProfile(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-bool-false-reaches-cli",
+      "summary": "cliArgsFromMCP forwards an explicit false as --flag=false, so a bool flag that defaults to true (tail --follow, teach --quiet) can be turned off over MCP",
+      "why": "Found in the 2026-10-20 stdio proof: cliArgsFromMCP dropped every false bool, so tail with follow=false still ran with --follow defaulting to true and polled the API every 10 seconds until the MCP host timed the call out (two hung tail children had to be killed). With the fix tail follow=false returns one poll. TestCliArgsFromMCP_ExplicitFalseReachesCLI fails when the false branch is removed.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: shellout.go.tmpl cliArgsFromMCP should emit --flag=false for an explicit false.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "out = append(out, \"--\"+k+\"=false\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/bool_false_test.go",
+          "contains": "func TestCliArgsFromMCP_ExplicitFalseReachesCLI(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tabular-printers-scrub-terminal",
+      "summary": "--csv, --plain and --quiet output drops terminal control characters (C0, DEL, C1) from values",
+      "why": "Organization, site and roaming-client names, hostnames and policy names come from the account, and the generated printCSV/printPlain/printQuiet/quietScalar wrote them raw, so a name carrying an OSC 52 or CSI sequence could rewrite the operator's terminal or clipboard. Ported from bitdefender (PR #402); same press 4.33.5 template code. TestTabularPrintersScrubTerminalControls fails when the scrub is reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cell = scrubCell(cell)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "s := scrubCell(formatTabularCell(v))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, scrubCell(strings.Join(keys, \"\\t\")))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return cliutil.ScrubTerminal(t)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestTabularPrintersScrubTerminalControls(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "output-escapes-c1-controls",
+      "summary": "stdout and stderr are wrapped in c1EscapeWriter, which rewrites UTF-8 C1 controls (U+0080-U+009F) as \\u00XX; the --deliver and envelope writers use it too, and isTerminal unwraps it",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant organization or roaming-client name in --json, --agent or pretty-JSON output could drive the terminal. The escape keeps JSON valid and lossless. Ported from bitdefender (PR #402). TestExecuteEscapesC1OnStdout runs the real Execute() against a stub whose org name carries C1 CSI/OSC/ST and fails without the wrap; TestIsTerminalUnwrapsC1EscapeWriter fails without the unwrap (human tables would turn into JSON on a TTY). Not covered: raw C0/ESC in stderr error text from generated API-error paths (backup-radar's later termio boundary writer).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "w := io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "envelopeWriter := io.Writer(&c1EscapeWriter{w: os.Stdout})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func (c *c1EscapeWriter) Write(p []byte) (int, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape_test.go",
+          "contains": "func TestExecuteEscapesC1OnStdout(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))"
+        }
+      ]
+    },
+    {
+      "id": "novel-human-output-scrub-terminal",
+      "summary": "the hand-written commands' human output (allow, why-blocked, unblocks triage, policy-audit, agents drift, agents stale, lists where) and the ambiguous --org/--host errors pass every tenant string through humanText (cliutil.ScrubTerminal)",
+      "why": "These printers write org and policy names, agent-reported hostnames and versions, query-log domains and end-user unblock-request domains with %s, and a DNS query name can carry any byte, so ESC ] 52 or a C1 control reached the operator's terminal; the C1 writer does not cover ESC/BEL. %q arguments were already escaped by fmt. Only the arguments were wrapped; the commands' logic (19 Codex rounds) is unchanged. TestNovelHumanOutputScrubsTerminalControls (allow renderer) and TestStaleHumanOutputScrubsAgentHostnames (sync + agents stale --human-friendly) fail when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/human_text.go",
+          "contains": "func humanText(s string) string { return cliutil.ScrubTerminal(s) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "humanText(view.FQDN), humanText(view.Org.Name), humanText(view.Org.ID), view.Applied, humanText(view.Attribution))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "humanText(h.Time), humanText(h.FQDN), h.PolicyName, h.MethodName, humanText(h.Source))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "humanText(g.Hint), humanText(g.Domain), g.Requests",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "humanText(f.Severity), humanText(f.Kind), humanText(f.PolicyID), f.PolicyName, humanText(f.Detail))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "humanText(r.OrgName), r.Agents, r.BehindLatest",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "humanText(a.Reason), humanText(a.AgeBucket), humanText(a.Hostname), humanText(a.AgentVersion), humanText(a.LastSync))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "humanText(r.List), humanText(r.Entry), humanText(r.OrgName), humanText(r.PolicyID), r.PolicyName",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "names = append(names, fmt.Sprintf(\"%s (%s)\", humanText(o.str(\"name\")), humanText(o.ID)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "names = append(names, fmt.Sprintf(\"%s (id %s)\", humanText(a.str(\"hostname\")), humanText(a.ID)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestStaleHumanOutputScrubsAgentHostnames(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "no-create-alias-on-non-create-commands",
+      "summary": "the generator's hidden 'create' alias is removed from the 7 POST commands that do not create (api-keys revoke, suppress-license-warning, distributors msps-cancel, domains suggest-threat, permissive-mode policies-update, unblock-requests decision, user-agents dequeue-uninstall); it stays on the 5 that do (collection-create, csv-exports-create, network-create, organization-create, networks-generate)",
+      "why": "The press gives a POST command it cannot name a 'create' alias. On these 7 it meant 'distributors create' cancelled an MSP and every sub-organization, 'permissive-mode create' changed whether policies block, and 'decision create' approved an unblock request, so a human approving a 'create' could approve something else and a name-keyed agent deny rule was bypassable. Same class as bitdefender and td-synnex. TestCreateAliasOnlyOnCreates walks the tree and fails if any non-create command carries the alias.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/api-keys_revoke_api-keys.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/current-user_user-organization-ui-settings-suppress-license-warning.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/distributors_msps-cancel.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/domains_suggest-threat.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/policies_permissive-mode_policies-update.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/unblock-requests_decision_unblock-requests.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/user-agents_dequeue-uninstall.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestCreateAliasOnlyOnCreates(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor's api row is ERROR when the probe path 404s (base_url is not the DNSFilter API root), WARN when it serves a web page or a 5xx, and names the probe path instead of '/'; the remedy names base_url and DNSFILTER_BASE_URL for both shells",
+      "why": "check_doctor_truth.py --slug dnsfilter failed the wrong-base state: a base_url aimed at a web UI (app shell at /, 404 everywhere else) reported 'reachable (HTTP 404 at /)', a health claim for a broken install, mislabelled with '/' when the probe was /v1/current_user. The credential probe was already correct. After the fix check_doctor_truth passes; TestDoctorAPIVerdictTracksReality covers wrong-base, web page and healthy states.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "} else if status == 404 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"api\"] = fmt.Sprintf(\"ERROR the host answered but %s is not there - base_url is not the DNSFilter API root. %s\", healthPath, doctorBaseURLRemedy)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"api\"] = fmt.Sprintf(\"WARN the host serves a web page at %s, not the DNSFilter API. %s\", healthPath, doctorBaseURLRemedy)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "reachable (HTTP %d at /)"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "reachable (HTML body at %s)"
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict_test.go",
+          "contains": "func TestDoctorAPIVerdictTracksReality(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-values-count-as-typed",
+      "summary": "ApplyProfileToFlags marks every flag it applies as Changed, so a profile value behaves like a typed one",
+      "why": "SAFETY. Generated commands gate on Changed() (body fields are sent only when the flag changed), and the press template set a profile's value without marking it Changed, so a saved value silently behaved differently from typing it. Ported from backup-radar (Codex round 15, P1), fixed for the whole class in ApplyProfileToFlags. TestApplyProfileMarksFlagsChanged fails when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "\t\tflag.Changed = true\n\t}\n\treturn nil\n}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestApplyProfileMarksFlagsChanged(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-output-mode-groups",
+      "summary": "a typed output-mode flag (json/csv/plain/quiet/agent) or projection (compact/select) wins over every profile value in its group",
+      "why": "ApplyProfileToFlags overlaid by flag name only, so a typed --csv lost to a profile's --json, contradicting 'explicit flags override profile values'. Ported from backup-radar (adversarial round 12). TestApplyProfileTypedOutputModeWins fails when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "for _, group := range [][]string{{\"json\", \"csv\", \"plain\", \"quiet\", \"agent\"}, {\"compact\", \"select\"}} {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "if reserved[name] || typedGroup[name] || credentialLikeRunProfileFlag(name) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestApplyProfileTypedOutputModeWins(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-never-authorizes-writes",
+      "summary": "write authorizations (allow --confirm, --force, --yes) are never applied from a run profile (a stderr warning names the ignored flag) and profile save refuses to store them; --dry-run, typed or from a profile, still wins over a typed --confirm",
+      "why": "SAFETY, DNSFilter-specific. allow previews by default and writes only with --confirm --note. profile save cannot capture allow's local flags, but ApplyProfileToFlags applies any name in profiles.json, so a hand-edited or tool-written profile with confirm=true turned `allow ... --profile nightly` into a live allow-list write the user never typed (and force=true would skip the threat-category refusal); a saved --yes skipped profile delete's confirmation. Proved against a request-logging stub: a profile carrying confirm+note made zero POSTs and printed the warning; typed --confirm --note made exactly one POST. TestApplyProfileNeverAppliesWriteAuthorization, TestAllowProfileCannotConfirmAWrite, TestProfileSaveRefusesWriteAuthorization and TestAllowDryRunBeatsConfirm cover it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "case \"confirm\", \"force\", \"yes\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "\t\tif writeAuthorizingRunProfileFlag(name) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "if fl.Changed && writeAuthorizingRunProfileFlag(fl.Name) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestAllowProfileCannotConfirmAWrite(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestAllowDryRunBeatsConfirm(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-after-profile",
+      "summary": "a saved profile is applied before --deliver is wired, so a --deliver the profile restores is honoured",
+      "why": "The press template wired the deliver sink before applying --profile, so `profile save nightly --deliver file:out` then `<cmd> --profile nightly` delivered nothing. Ported from backup-radar (Codex round 14). Proved with the built binary: a profile-restored --deliver wrote the 63-byte export. TestDeliverAfterProfile fails when the order is reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "\t\t\tappliedProfile = profile\n\t\t}\n\t\tif flags.deliverSpec != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver_capture_test.go",
+          "contains": "func TestDeliverAfterProfile(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-on-failure",
+      "summary": "a failed command still delivers what it printed (or warns the sink was not updated); profile save validates --deliver and records it without performing it",
+      "why": "The template delivered only on success, so a failed scheduled run left the previous run's report in the sink with no notice, and `profile save ... --deliver file:x` overwrote x with the save confirmation. Ported from backup-radar (adversarial round 12/13). TestDeliverOnFailure (doctor --fail-on error delivers its report; an early failure warns) and TestDeliverAfterProfile (profile save leaves the sink untouched) fail when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err != nil && !envelopeWritten && flags.deliverBuf != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "return cmd.Name() == \"save\" && cmd.Parent() != nil && cmd.Parent().Name() == \"profile\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if sink.Scheme != \"stdout\" && sink.Scheme != \"\" && !isProfileSave(cmd) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "unprojected.selectFields, unprojected.compact = \"\", false",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver_capture_test.go",
+          "contains": "func TestDeliverOnFailure(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-writes-through-cmd-out",
+      "summary": "--deliver captures every command's output: export, tail, agent-context and version write through cmd.OutOrStdout(), root tees for help, and completion refuses --deliver",
+      "why": "The press template wrote export (bufio.NewWriter(os.Stdout)), tail and agent-context (json.NewEncoder(os.Stdout)) and version (fmt.Printf) to the process stdout, bypassing the --deliver buffer (empty files) and, for export and tail, the C1 escape writer (tenant data reached the terminal raw). Help prints through the target command, which inherits root's writer. Ported from backup-radar (Codex rounds 9/12, adversarial round 11); tail added here. Proved with the built binary: export 63 bytes, help 4978, version, agent-context 302694 bytes delivered. TestDeliverCapturesEveryWriter (export, tail, version, agent-context, help) and TestDeliverRefusedOnCompletion fail when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "writer = bufio.NewWriter(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agent_context.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/version.go",
+          "contains": "fmt.Fprintf(cmd.OutOrStdout(), \"%s %s\\n\", cmd.Root().Name(), version)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.Root().SetOut(w)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "--deliver does not apply to completion scripts; redirect stdout instead",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "not_contains": "bufio.NewWriter(os.Stdout)"
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "not_contains": "json.NewEncoder(os.Stdout)"
+        },
+        {
+          "file": "cli/internal/cli/deliver_capture_test.go",
+          "contains": "func TestDeliverCapturesEveryWriter(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-guards-local-mutations",
+      "summary": "--dry-run changes nothing locally: export -o, feedback, auth set-token, auth logout and profile delete return the dry-run preview",
+      "why": "These five commands ignored --dry-run (typed or from a profile): export truncated its -o file, feedback wrote (and could POST), set-token overwrote the key, logout deleted credentials, profile delete deleted. Ported from backup-radar (adversarial round 12). TestDryRunGuardsLocalMutations fails when any one guard is reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if outputFile != \"\" && !dryRunOK(flags) {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"auth set-token\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"auth logout\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"profile delete\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"feedback\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestDryRunGuardsLocalMutations(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-hints-windows-twin",
+      "summary": "every CLI auth error hint names the PowerShell form beside the POSIX export line (helpers.go x5, doctor.go x2, auth.go status expiry, client.go placeholder refusal)",
+      "why": "Nine press-template hints told a Windows user to run `export DNSFILTER_API_KEY=...`, which PowerShell rejects; most MSPs run Windows. The three in internal/mcp/tools.go are the MCP agent's scope. TestAuthHintsCarryPowerShellTwin scans the CLI packages and fails on any POSIX-only export hint.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "(PowerShell: $env:DNSFILTER_API_KEY = \\\"your-token-here\\\")",
+          "code_only": true,
+          "min_count": 5
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "(PowerShell: $env:DNSFILTER_API_KEY = \\\"your-token-here\\\")",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "(PowerShell: $env:DNSFILTER_API_KEY = \\\"your-token-here\\\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "(PowerShell: $env:DNSFILTER_API_KEY = \\\"<your-token-here>\\\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestAuthHintsCarryPowerShellTwin(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-setup-windows-twin",
+      "summary": "auth setup and unauthenticated auth status print the key setup for macOS/Linux and PowerShell (printKeySetup)",
+      "why": "Both printed only `export DNSFILTER_API_KEY=...` and a POSIX echo pipe. Ported from backup-radar (Codex round 17). TestAuthSetupPrintsBothShells fails when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "fmt.Fprintln(w, \"  PowerShell:  $env:DNSFILTER_API_KEY = \\\"your-token-here\\\"\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "printKeySetup(w)",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestAuthSetupPrintsBothShells(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "help-examples-windows-twin",
+      "summary": "auth set-token and feedback examples carry the PowerShell form of their `< file` redirect; recall and learnings forget carry the PowerShell form of their `QUERY=\"$(cat ...)\"` line",
+      "why": "PowerShell rejects `<` (reserved operator) and the POSIX `VAR=$(...) cmd` prefix; `Get-Content file | ...` and `$QUERY = Get-Content file -Raw; ...` are the twins. Ported from backup-radar (adversarial round 14); the teach.go examples are the same class. TestHelpExamplesCarryPowerShellTwin walks every command's Example and fails on a POSIX-only construct without a PowerShell line.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Get-Content token-file | dnsfilter-cli auth set-token   # PowerShell",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "Get-Content notes.txt | dnsfilter-cli feedback --stdin   # PowerShell",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "$QUERY = Get-Content /path/to/question.txt -Raw; dnsfilter-cli recall $QUERY --agent   # PowerShell",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "$QUERY = Get-Content /path/to/question.txt -Raw; dnsfilter-cli learnings forget $QUERY --all   # PowerShell",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/windows_twin_test.go",
+          "contains": "func TestHelpExamplesCarryPowerShellTwin(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "api-key-scheme-prefix-warning",
+      "summary": "a key stored with a pasted 'Bearer ' or 'Token ' prefix makes doctor's auth row WARN and auth set-token print a warning; the key is still sent verbatim",
+      "why": "DNSFilter's spec says the Authorization header value is the API key itself and the CLI sends the stored key as-is (raw-api-key-authorization-header), so a key pasted as 'Bearer eyJ...' travels with the prefix and doctor used to report auth 'configured' with only a bare 401 on the credential row. The CLI does not strip it (it cannot know DNSFILTER never accepts the scheme form); it names the cause. TestDoctorWarnsOnSchemePrefixedKey fails when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if scheme := apiKeySchemePrefix(cfg.DnsfilterApiKey); scheme != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "warnAPIKeySchemePrefix(cmd.ErrOrStderr(), token)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "func apiKeySchemePrefix(key string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict_test.go",
+          "contains": "func TestDoctorWarnsOnSchemePrefixedKey(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "client-profile-inert-cli",
+      "summary": "--client-profile help says it is unused by this connector and does not limit which organizations a call can reach; the credential-flag refusal no longer points at it",
+      "why": "No tenant-gated client profile source is registered for DNSFilter (no registerPlatformSource call; registeredPlatformSource stays nil), so the flag and PRINTING_PRESS_CLIENT_PROFILE change nothing, but the generated help said 'Select the tenant-gated client profile' and profile save's credential refusal said 'use --client-profile with exact external references', so an agent could believe it had scoped itself to one client. Same class as bitdefender; keeping it out of MCP schemas is the MCP agent's change. TestClientProfileFlagDocumentedInert fails when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Unused by this connector: no tenant-gated profile source is registered, so the value changes nothing and does not limit which organizations a call can reach",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "not_contains": "use --client-profile with exact external references"
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestClientProfileFlagDocumentedInert(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agents-stale-nothing-checked",
+      "summary": "agents stale reports nothing-checked (a stderr hint and no all-clear) when --org matches no installed roaming client, instead of an empty healthy result",
+      "why": "Build-pane fix (cli-factory/dnsfilter): computeStale counts the clients that passed the org filter, so a filter matching nothing (or an empty mirror) is told apart from a healthy fleet. A regen of the novel file is preserved by construction, but the behavior is load-bearing for honest output. TestStaleOrgFilterMatchingNothingScansZero and TestStaleNoAllClearOnEmptyMirror fail when the counter is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "if scanned == 0 && len(agents) > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "fmt.Fprintf(cmd.ErrOrStderr(), \"hint: no installed roaming client in the local mirror matches --org %q; nothing was checked\\n\", orgFilter)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "\t\tscanned++\n",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_logic_test.go",
+          "contains": "func TestStaleOrgFilterMatchingNothingScansZero(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unblocks-triage-instant-compare",
+      "summary": "unblocks triage compares request timestamps as instants across UTC offsets (09:00-05:00 is later than 12:00Z), using text only to break a same-instant tie",
+      "why": "Build-pane fix: a string compare ordered 2026-10-14T09:00:00-05:00 before 2026-10-14T12:00:00Z, so the oldest-attempt and age were wrong whenever the API mixed offsets. TestAttemptBeforeComparesInstants and TestTriageOldestAttemptIsOrderIndependent fail when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "case okA && okB && !ta.Equal(tb):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unblocks_triage.go",
+          "contains": "return ta.Before(tb)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_logic_test.go",
+          "contains": "func TestAttemptBeforeComparesInstants(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "raw-api-key-authorization-header",
+      "summary": "the Authorization header carries the raw API key: Config.AuthHeader returns DNSFILTER_API_KEY verbatim with no Bearer prefix",
+      "why": "DNSFilter's spec: 'The header value is the API key itself. For example: Authorization: eyJ...'. A regen with a Bearer-style auth preference would prefix the key and every call would 401 while build and unit tests stay green. Verified with the built binary against a request-logging stub (every request carried Authorization: test-key). TestAuthHeaderIsTheRawAPIKey (config) and the healthy case of TestDoctorAPIVerdictTracksReality fail when a prefix is added.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "token := c.DnsfilterApiKey",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "\tif c.DnsfilterApiKey == \"\" {\n\t\treturn \"\"\n\t}\n\treturn token\n",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "not_contains": "\"Bearer \" + token"
+        },
+        {
+          "file": "cli/internal/config/auth_header_test.go",
+          "contains": "func TestAuthHeaderIsTheRawAPIKey(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "root-brand-casing",
+      "summary": "the root command's Long text says \"DNSFilter CLI\" (the vendor's casing), not the generator's \"Dnsfilter CLI\"",
+      "why": "Build-pane fix: the press title-cases the slug for the root help line, so `dnsfilter-cli --help` opened with \"Dnsfilter CLI\". A regen from the unchanged spec restores it while go build and go test stay green. TestRootHelpBrandCasing fails when reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Long: `DNSFilter CLI",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "Dnsfilter CLI"
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestRootHelpBrandCasing(t *testing.T) {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

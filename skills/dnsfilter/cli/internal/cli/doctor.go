@@ -132,6 +132,10 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	return false
 }
 
+// doctorBaseURLRemedy names the setting to fix when base_url is not the
+// DNSFilter API root.
+const doctorBaseURLRemedy = "Set base_url in the config file or DNSFILTER_BASE_URL (PowerShell: $env:DNSFILTER_BASE_URL = \"https://api.dnsfilter.com\") to https://api.dnsfilter.com, or unset it to use that default."
+
 func newDoctorCmd(flags *rootFlags) *cobra.Command {
 	var failOn string
 	cmd := &cobra.Command{
@@ -197,15 +201,18 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
 						report["auth"] = "not configured"
-						report["auth_hint"] = "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""
+						report["auth_hint"] = "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"
 						report["auth_key_url"] = "https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens"
 					} else {
 						authConfigured = true
 						report["auth"] = "configured"
 						report["auth_source"] = authSource
+						if scheme := apiKeySchemePrefix(cfg.DnsfilterApiKey); scheme != "" {
+							report["auth"] = fmt.Sprintf("WARN configured, but the key starts with %q: DNSFilter expects the bare API key in the Authorization header and the CLI sends it as-is; save it again without the prefix", scheme+" ")
+						}
 						if expiresAt, _, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok && expired {
 							report["auth"] = "ERROR token expired at " + expiresAt
-							report["auth_hint"] = "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\""
+							report["auth_hint"] = "Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")"
 						}
 					}
 				}
@@ -281,7 +288,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						if vendor := looksLikeDoctorInterstitial(reachBody); vendor != "" {
 							report["api"] = fmt.Sprintf("blocked by %s interstitial — the configured transport reached the wall. Try a different network, wait for the IP-level rate limit to clear, or check that the browser-chrome transport is bound correctly.", vendor)
 						} else if doctorBodyLooksLikeHTML(reachBody) {
-							report["api"] = fmt.Sprintf("reachable (HTML body at %s)", healthPath)
+							report["api"] = fmt.Sprintf("WARN the host serves a web page at %s, not the DNSFilter API. %s", healthPath, doctorBaseURLRemedy)
 						} else {
 							report["api"] = "reachable"
 						}
@@ -293,8 +300,12 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						status := reachAPIErr.StatusCode
 						if vendor := looksLikeDoctorInterstitial([]byte(reachAPIErr.Body)); vendor != "" {
 							report["api"] = fmt.Sprintf("blocked by %s interstitial (HTTP %d) — the configured transport reached the wall.", vendor, status)
+						} else if status == 404 {
+							report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the DNSFilter API root. %s", healthPath, doctorBaseURLRemedy)
+						} else if status >= 500 {
+							report["api"] = fmt.Sprintf("WARN the host answered HTTP %d at %s", status, healthPath)
 						} else {
-							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
+							report["api"] = fmt.Sprintf("reachable (HTTP %d at %s)", status, healthPath)
 						}
 					default:
 						// Network-level failure: DNS, connection refused, TLS,

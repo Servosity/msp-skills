@@ -19,7 +19,6 @@ func newCurrentUserUserOrganizationUiSettingsSuppressLicenseWarningCmd(flags *ro
 
 	cmd := &cobra.Command{
 		Use:         "user-organization-ui-settings-suppress-license-warning",
-		Aliases:     []string{"create"},
 		Short:       "Returns the suppression date and relevant information.",
 		Example:     "  dnsfilter-cli current-user user-organization-ui-settings-suppress-license-warning",
 		Args:        cobra.NoArgs,

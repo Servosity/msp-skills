@@ -156,16 +156,16 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 			for _, c := range view.Categories {
 				cats = append(cats, c.Name)
 			}
-			fmt.Fprintf(w, "%s for %s (org %s)  categories: %s\n", view.FQDN, view.Org.Name, view.Org.ID, strings.Join(cats, ", "))
+			fmt.Fprintf(w, "%s for %s (org %s)  categories: %s\n", humanText(view.FQDN), humanText(view.Org.Name), humanText(view.Org.ID), humanText(strings.Join(cats, ", ")))
 			for _, d := range view.Deployments {
-				fmt.Fprintf(w, "  %-8s %-14s %s via %s\n    -> %s: %s\n", strings.ToUpper(d.Verdict.Decision), d.Kind, d.Name, d.Via, d.Verdict.Rule, d.Verdict.Detail)
+				fmt.Fprintf(w, "  %-8s %-14s %s via %s\n    -> %s: %s\n", humanText(strings.ToUpper(d.Verdict.Decision)), humanText(d.Kind), humanText(d.Name), humanText(d.Via), humanText(d.Verdict.Rule), humanText(d.Verdict.Detail))
 			}
-			fmt.Fprintf(w, "recent blocked hits (%s): %d\n", flagSince, len(view.RecentHits))
+			fmt.Fprintf(w, "recent blocked hits (%s): %d\n", humanText(flagSince), len(view.RecentHits))
 			for _, h := range view.RecentHits {
-				fmt.Fprintf(w, "  %s %s policy=%q method=%q %s\n", h.Time, h.FQDN, h.PolicyName, h.MethodName, h.Source)
+				fmt.Fprintf(w, "  %s %s policy=%q method=%q %s\n", humanText(h.Time), humanText(h.FQDN), h.PolicyName, h.MethodName, humanText(h.Source))
 			}
 			for _, n := range view.Notes {
-				fmt.Fprintf(w, "note: %s\n", n)
+				fmt.Fprintf(w, "note: %s\n", humanText(n))
 			}
 			return nil
 		},

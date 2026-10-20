@@ -118,10 +118,10 @@ Coverage comes from each request's already_covered field (policy list or org/MSP
 				return nil
 			}
 			for _, g := range view.Groups {
-				fmt.Fprintf(w, "%-24s %-30s requests=%-3d age=%dh threat=%v allowed=%v orgs=%s\n", g.Hint, g.Domain, g.Requests, g.AgeHours, g.IsThreat, g.AlreadyAllowed, strings.Join(g.Orgs, ", "))
+				fmt.Fprintf(w, "%-24s %-30s requests=%-3d age=%dh threat=%v allowed=%v orgs=%s\n", humanText(g.Hint), humanText(g.Domain), g.Requests, g.AgeHours, g.IsThreat, g.AlreadyAllowed, humanText(strings.Join(g.Orgs, ", ")))
 			}
 			if view.Note != "" {
-				fmt.Fprintln(w, "note:", view.Note)
+				fmt.Fprintln(w, "note:", humanText(view.Note))
 			}
 			return nil
 		},

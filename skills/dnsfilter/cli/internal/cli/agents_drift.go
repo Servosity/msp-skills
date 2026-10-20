@@ -102,7 +102,7 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			}
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "channel %s (%s), latest %s, %d roaming clients scanned\n", view.Channel, view.ChannelSource, formatDriftLatest(view.Latest), view.AgentsScanned)
+			fmt.Fprintf(w, "channel %s (%s), latest %s, %d roaming clients scanned\n", humanText(view.Channel), humanText(view.ChannelSource), humanText(formatDriftLatest(view.Latest)), view.AgentsScanned)
 			switch {
 			case view.AgentsScanned == 0:
 				// Zero scanned is not an all-clear: the mirror may be unsynced
@@ -112,10 +112,10 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				fmt.Fprintln(w, "No client org has roaming clients behind the latest release.")
 			}
 			for _, r := range view.Orgs {
-				fmt.Fprintf(w, "  %-30s agents=%-4d behind=%-4d bad=%-4d no-known-release=%-4d version-unknown=%-4d versions=%s\n", r.OrgName, r.Agents, r.BehindLatest, r.OnBadVersion, r.UnknownLatest, r.VersionUnknown, strings.Join(r.BehindVersions, ","))
+				fmt.Fprintf(w, "  %-30s agents=%-4d behind=%-4d bad=%-4d no-known-release=%-4d version-unknown=%-4d versions=%s\n", humanText(r.OrgName), r.Agents, r.BehindLatest, r.OnBadVersion, r.UnknownLatest, r.VersionUnknown, humanText(strings.Join(r.BehindVersions, ",")))
 			}
 			if view.Note != "" {
-				fmt.Fprintln(w, "note:", view.Note)
+				fmt.Fprintln(w, "note:", humanText(view.Note))
 			}
 			return nil
 		},

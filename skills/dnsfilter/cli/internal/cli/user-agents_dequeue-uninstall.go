@@ -19,7 +19,6 @@ func newUserAgentsDequeueUninstallCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "dequeue-uninstall",
-		Aliases:     []string{"create"},
 		Short:       "Removes user agent from uninstall queue.",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "user-agents.dequeue-uninstall", "pp:method": "POST", "pp:path": "/v1/user_agents/dequeue_uninstall", "pp:requires-input": "true"},

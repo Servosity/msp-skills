@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -118,25 +119,65 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 	reserved := map[string]bool{
 		"profile": true, "client-profile": true, "config": true, "home": true, "help": true,
 	}
+	lookup := func(name string) *pflag.Flag {
+		if f := cmd.Flags().Lookup(name); f != nil {
+			return f
+		}
+		return cmd.InheritedFlags().Lookup(name)
+	}
+	// Output modes and projections are mutually exclusive groups, so a typed
+	// member of a group wins over every profile value in that group, not
+	// only the same-named one (a typed --csv beats a profile's --json).
+	typedGroup := map[string]bool{}
+	for _, group := range [][]string{{"json", "csv", "plain", "quiet", "agent"}, {"compact", "select"}} {
+		for _, n := range group {
+			if f := lookup(n); f != nil && f.Changed {
+				for _, m := range group {
+					typedGroup[m] = true
+				}
+				break
+			}
+		}
+	}
 	for name, value := range profile.Values {
-		if reserved[name] || credentialLikeRunProfileFlag(name) {
+		if reserved[name] || typedGroup[name] || credentialLikeRunProfileFlag(name) {
 			continue
 		}
-		flag := cmd.Flags().Lookup(name)
-		if flag == nil {
-			flag = cmd.InheritedFlags().Lookup(name)
-		}
+		flag := lookup(name)
 		if flag == nil {
 			continue
 		}
 		if flag.Changed {
 			continue
 		}
+		// A write authorization (allow --confirm, --force, --yes) is never
+		// taken from a profile: it must be typed on the run that writes, so
+		// a profile (or a hand-edited profiles.json) cannot turn a preview
+		// into a write.
+		if writeAuthorizingRunProfileFlag(name) {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: run profile %q sets --%s; write authorizations are never applied from a profile, type it on the command line\n", profile.Name, name)
+			continue
+		}
 		if err := flag.Value.Set(value); err != nil {
 			return fmt.Errorf("applying profile value %s=%q: %w", name, value, err)
 		}
+		// Commands gate on Changed() (they send a field, or take a guarded
+		// path, only when the flag changed), so a profile value must count
+		// as typed or a saved --dry-run behaves differently from a typed one.
+		flag.Changed = true
 	}
 	return nil
+}
+
+// writeAuthorizingRunProfileFlag reports flags that authorize a write or
+// bypass a safety refusal. They are neither saved into nor applied from a run
+// profile.
+func writeAuthorizingRunProfileFlag(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "confirm", "force", "yes":
+		return true
+	}
+	return false
 }
 
 func credentialLikeRunProfileFlag(name string) bool {
@@ -217,9 +258,16 @@ captured: they control profile/config resolution and would never apply).`,
 			// would store values that never take effect.
 			skip := map[string]bool{"profile": true, "client-profile": true, "config": true, "home": true, "help": true, "description": true}
 			credentialFlags := []string{}
+			writeFlags := []string{}
 			visit := func(fl *pflag.Flag) {
 				if fl.Changed && credentialLikeRunProfileFlag(fl.Name) {
 					credentialFlags = append(credentialFlags, fl.Name)
+					return
+				}
+				if fl.Changed && writeAuthorizingRunProfileFlag(fl.Name) {
+					if !slices.Contains(writeFlags, fl.Name) { // persistent flags are visited twice
+						writeFlags = append(writeFlags, fl.Name)
+					}
 					return
 				}
 				if fl.Changed && !skip[fl.Name] {
@@ -230,7 +278,11 @@ captured: they control profile/config resolution and would never apply).`,
 			cmd.Flags().VisitAll(visit)
 			if len(credentialFlags) > 0 {
 				sort.Strings(credentialFlags)
-				return fmt.Errorf("run profiles may not store credential-like flags: %s; use --client-profile with exact external references", strings.Join(credentialFlags, ", "))
+				return fmt.Errorf("run profiles may not store credential-like flags: %s; set the API key with auth set-token or DNSFILTER_API_KEY instead", strings.Join(credentialFlags, ", "))
+			}
+			if len(writeFlags) > 0 {
+				sort.Strings(writeFlags)
+				return usageErr(fmt.Errorf("run profiles may not store write authorizations: --%s; type them on each run that should write", strings.Join(writeFlags, ", --")))
 			}
 			if len(values) == 0 {
 				return fmt.Errorf("no non-default flags set - pass at least one flag to save into %q", name)
@@ -244,7 +296,11 @@ captured: they control profile/config resolution and would never apply).`,
 				return err
 			}
 			if flags.asJSON {
-				return printJSONFiltered(cmd.OutOrStdout(), s.Profiles[name], flags)
+				// --select/--compact are being recorded, not applied, so they
+				// do not project the confirmation.
+				unprojected := *flags
+				unprojected.selectFields, unprojected.compact = "", false
+				return printJSONFiltered(cmd.OutOrStdout(), s.Profiles[name], &unprojected)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "saved profile %q with %d values\n", name, len(values))
 			return nil
@@ -365,6 +421,9 @@ func newProfileDeleteCmd(flags *rootFlags) *cobra.Command {
   dnsfilter-cli profile delete old-profile --yes --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) { // --dry-run changes nothing locally either
+				return writeDryRun(cmd.OutOrStdout(), flags, "profile delete")
+			}
 			name := args[0]
 			s, err := loadProfileStore()
 			if err != nil {

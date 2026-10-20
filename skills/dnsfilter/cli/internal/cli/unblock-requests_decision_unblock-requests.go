@@ -22,9 +22,8 @@ func newUnblockRequestsDecisionUnblockRequestsCmd(flags *rootFlags) *cobra.Comma
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "unblock-requests <id>",
-		Aliases: []string{"create"},
-		Short:   "Applies an admin's decision to a pending unblock request and returns the updated row so the grid can refresh in place",
+		Use:   "unblock-requests <id>",
+		Short: "Applies an admin's decision to a pending unblock request and returns the updated row so the grid can refresh in place",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

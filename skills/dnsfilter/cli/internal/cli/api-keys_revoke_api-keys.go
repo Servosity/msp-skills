@@ -17,9 +17,8 @@ func newApiKeysRevokeApiKeysCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "api-keys <id>",
-		Aliases: []string{"create"},
-		Short:   "Revokes the api key for the user.",
+		Use:   "api-keys <id>",
+		Short: "Revokes the api key for the user.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -96,13 +96,13 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 				return nil
 			}
 			if len(rows) == 0 {
-				fmt.Fprintf(w, "No roaming clients silent for more than %s or unprotected.\n", olderThan)
+				fmt.Fprintf(w, "No roaming clients silent for more than %s or unprotected.\n", humanText(olderThan))
 				return nil
 			}
 			for _, r := range rows {
-				fmt.Fprintf(w, "%s (%d)\n", r.OrgName, r.Count)
+				fmt.Fprintf(w, "%s (%d)\n", humanText(r.OrgName), r.Count)
 				for _, a := range r.Agents {
-					fmt.Fprintf(w, "  %-12s %-10s %-24s %-10s last_sync=%s\n", a.Reason, a.AgeBucket, a.Hostname, a.AgentVersion, a.LastSync)
+					fmt.Fprintf(w, "  %-12s %-10s %-24s %-10s last_sync=%s\n", humanText(a.Reason), humanText(a.AgeBucket), humanText(a.Hostname), humanText(a.AgentVersion), humanText(a.LastSync))
 				}
 			}
 			return nil

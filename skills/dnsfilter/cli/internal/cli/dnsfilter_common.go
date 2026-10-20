@@ -219,7 +219,7 @@ func matchOrg(orgs []jaRes, ref string) (jaRes, error) {
 	if len(partial) > 1 {
 		names := make([]string, 0, len(partial))
 		for _, o := range partial {
-			names = append(names, fmt.Sprintf("%s (%s)", o.str("name"), o.ID))
+			names = append(names, fmt.Sprintf("%s (%s)", humanText(o.str("name")), humanText(o.ID)))
 		}
 		return jaRes{}, usageErr(fmt.Errorf("--org %q matches several organizations: %s; pass the organization id", ref, strings.Join(names, ", ")))
 	}
@@ -556,7 +556,7 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 			bc.Deployments = append(bc.Deployments, d)
 		}
 		if len(bc.Deployments) == 0 {
-			return nil, usageErr(fmt.Errorf("--host %q matches no installed roaming client in %s", host, bc.Org.Name))
+			return nil, usageErr(fmt.Errorf("--host %q matches no installed roaming client in %s", host, humanText(bc.Org.Name)))
 		}
 	} else {
 		for _, id := range sortedKeys(sites) {
@@ -731,7 +731,7 @@ func matchHosts(agents []jaRes, host string) ([]jaRes, error) {
 					names = append(names, fmt.Sprintf("and %d more", len(tier)-10))
 					break
 				}
-				names = append(names, fmt.Sprintf("%s (id %s)", a.str("hostname"), a.ID))
+				names = append(names, fmt.Sprintf("%s (id %s)", humanText(a.str("hostname")), humanText(a.ID)))
 			}
 			return nil, usageErr(fmt.Errorf("--host %q matches several roaming clients (%s); pass one roaming-client id as --host", host, strings.Join(names, ", ")))
 		}

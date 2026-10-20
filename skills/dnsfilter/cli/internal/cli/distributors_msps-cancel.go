@@ -18,9 +18,8 @@ func newDistributorsMspsCancelCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "msps-cancel <id>",
-		Aliases: []string{"create"},
-		Short:   "Cancels the specified MSP parent organization and all of its sub-organizations.",
+		Use:   "msps-cancel <id>",
+		Short: "Cancels the specified MSP parent organization and all of its sub-organizations.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

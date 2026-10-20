@@ -21,7 +21,6 @@ func newDomainsSuggestThreatCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "suggest-threat",
-		Aliases:     []string{"create"},
 		Short:       "Mark a FQDN to verify its threat categorization. Request example: `/v1/domains/suggest_threat?",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "domains.suggest-threat", "pp:method": "POST", "pp:path": "/v1/domains/suggest_threat", "pp:requires-input": "true"},

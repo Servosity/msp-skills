@@ -1986,6 +1986,15 @@ func isSQLiteBusy(err error) bool {
 // write is incoming as-is. Callers apply the result to both the generic
 // resources blob and the typed-table projection.
 func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
+	// HAND-FIX(secrets-never-persisted): every resource write (Upsert, each
+	// typed Upsert<X>, UpsertBatch and the live/mutation write-through) stores
+	// the value returned here in the generic blob, its FTS row and the typed
+	// table, so this is the one funnel that keeps secrets off disk. Scrubbing
+	// the merged value also drops a secret a merge would carry over.
+	return ScrubPersistedSecrets(s.mergeIncomingResourceDataUnscrubbed(tx, resourceType, id, incoming))
+}
+
+func (s *Store) mergeIncomingResourceDataUnscrubbed(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
 	var existing string
 	err := tx.QueryRow(
 		`SELECT data FROM resources WHERE resource_type = ? AND id = ?`,

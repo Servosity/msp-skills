@@ -74,11 +74,11 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 			}
 			w := cmd.OutOrStdout()
 			if len(rows) == 0 {
-				fmt.Fprintf(w, "No synced policy lists %s or a parent domain.\n", normalizeDomain(args[0]))
+				fmt.Fprintf(w, "No synced policy lists %s or a parent domain.\n", humanText(normalizeDomain(args[0])))
 				return nil
 			}
 			for _, r := range rows {
-				fmt.Fprintf(w, "%-5s %-28s %-24s policy %s %q sites=%d roaming=%d global=%v\n", r.List, r.Entry, r.OrgName, r.PolicyID, r.PolicyName, r.Sites, r.RoamingClients, r.IsGlobal)
+				fmt.Fprintf(w, "%-5s %-28s %-24s policy %s %q sites=%d roaming=%d global=%v\n", humanText(r.List), humanText(r.Entry), humanText(r.OrgName), humanText(r.PolicyID), r.PolicyName, r.Sites, r.RoamingClients, r.IsGlobal)
 			}
 			return nil
 		},

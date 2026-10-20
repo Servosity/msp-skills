@@ -1641,7 +1641,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export DNSFILTER_API_KEY=<your-token-here> or echo \"$TOKEN\" | dnsfilter-cli auth set-token")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export DNSFILTER_API_KEY=<your-token-here> (PowerShell: $env:DNSFILTER_API_KEY = \"<your-token-here>\") or echo \"$TOKEN\" | dnsfilter-cli auth set-token")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

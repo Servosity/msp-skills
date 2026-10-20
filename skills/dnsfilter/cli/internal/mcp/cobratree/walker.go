@@ -33,6 +33,10 @@ func RegisterAll(s *server.MCPServer, root *cobra.Command, cliPath func() (strin
 		if readOnlyMode && !mirrorAllowedWhenMCPReadOnly(cmd) {
 			return
 		}
+		// Hand-wired (handfixes.json: mcp-read-only-withholds-credentials).
+		if readOnlyMode && commandCallsCredentialPath(cmd) {
+			return
+		}
 
 		toolName := availableToolName(s, toolNameForPath(path))
 		if toolName == "" {

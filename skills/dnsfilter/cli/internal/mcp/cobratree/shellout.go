@@ -17,6 +17,7 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func boundedToolResultError(message string) *mcplib.CallToolResult {
@@ -105,6 +106,13 @@ func mirroredMCPReadOnlyRefusal(cmd *cobra.Command, args map[string]any) string 
 	}
 	if !mirrorAllowedWhenMCPReadOnly(cmd) {
 		return fmt.Sprintf("refusing %s while %s=1", path, cliutil.MCPReadOnlyEnvVar)
+	}
+	// Hand-wired (handfixes.json: mcp-read-only-withholds-credentials).
+	if commandCallsCredentialPath(cmd) {
+		return fmt.Sprintf("refusing %s while %s=1: it returns or manages a credential", path, cliutil.MCPReadOnlyEnvVar)
+	}
+	if tok := credentialResourceArg(args); tok != "" {
+		return fmt.Sprintf("refusing %s %s while %s=1: it returns or manages a credential", path, tok, cliutil.MCPReadOnlyEnvVar)
 	}
 	for name := range readOnlyUnlessFlagNames(cmd) {
 		if _, ok := args[name]; ok {
@@ -240,6 +248,98 @@ var blockedDestinationFlags = map[string]bool{
 	"output-dir":   true,
 	"output-file":  true,
 	"receipt-file": true,
+	// Hand-wired (handfixes.json: mcp-filesystem-destination-gate): local-file
+	// READ sources. Forwarded, they let a tool call load any file this account
+	// can reach (credentials included) into the learn store, where recall and
+	// playbook_list hand it back; teach and teach_playbook stay listed under
+	// the read-only switch.
+	"home":                true,
+	"input":               true,
+	"notes-file":          true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
+}
+
+// filesystemPathFlagPhrases are usage-string fragments that mark a flag as
+// naming a filesystem location the server account would read or write.
+// Matching the usage TEXT rather than the flag NAME is deliberate: generated
+// API body fields named like paths go to the vendor API and never touch this
+// account's disk, while a genuine local-filesystem flag spells out that it
+// takes a file or directory path.
+var filesystemPathFlagPhrases = []string{
+	"file path",
+	"path to ",
+	"database path",
+	"output directory",
+	"audit directory",
+	"directory path",
+	"store path",
+	"mirror path",
+	"receipt destination",
+	"root directory for",
+}
+
+// vendorAPIPathFlags are flags whose usage text trips isFilesystemPathFlag but
+// which name a location in the VENDOR's world, keyed "<command path> --<flag>"
+// with the reason as the value. Listing exceptions here instead of loosening
+// the phrase list keeps a newly generated local-path flag failing the build.
+var vendorAPIPathFlags = map[string]string{}
+
+// isFilesystemPathFlag reports whether flag's own description says it names a
+// filesystem location.
+func isFilesystemPathFlag(flag *pflag.Flag) bool {
+	if flag == nil {
+		return false
+	}
+	usage := strings.ToLower(flag.Usage)
+	for _, phrase := range filesystemPathFlagPhrases {
+		if strings.Contains(usage, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+// UnblockedFilesystemPathFlags reports every flag reachable through a shell-out
+// MCP tool whose usage text names a filesystem location and which the
+// per-command blocked set does not refuse. It walks the command set RegisterAll
+// registers, so endpoint and framework commands stay out of scope. A non-empty
+// result means a tool caller can still direct a read or write on this
+// account's filesystem.
+func UnblockedFilesystemPathFlags(root *cobra.Command) []string {
+	if root == nil {
+		return nil
+	}
+	found := map[string]bool{}
+	walk(root, nil, func(cmd *cobra.Command, path []string) {
+		switch classify(cmd) {
+		case commandHidden, commandEndpoint, commandGroup, commandFramework:
+			return
+		}
+		if !cmd.Runnable() {
+			return
+		}
+		blocked := blockedStructuredArgsForCommand(cmd)
+		check := func(flag *pflag.Flag) {
+			if flag == nil || flag.Hidden || flag.Deprecated != "" || blocked[flag.Name] {
+				return
+			}
+			if isFilesystemPathFlag(flag) {
+				key := cmd.CommandPath() + " --" + flag.Name
+				if _, ok := vendorAPIPathFlags[key]; !ok {
+					found[key] = true
+				}
+			}
+		}
+		cmd.NonInheritedFlags().VisitAll(check)
+		cmd.InheritedFlags().VisitAll(check)
+	})
+	out := make([]string, 0, len(found))
+	for name := range found {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // confirmationBypassYesFlag is the root flag that skips a command's own
@@ -263,6 +363,7 @@ var blockedRootFlags = map[string]bool{
 	"audit-dir":               true,
 	"base-url":                true,
 	"client":                  true,
+	"client-profile":          true, // hand-fix (handfixes.json: client-profile-inert): no platform source is registered, so the flag is inert; keep it out of tool schemas
 	"config":                  true,
 	confirmationBypassYesFlag: true,
 	"deliver":                 true,
@@ -295,6 +396,12 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 		case bool:
 			if tv {
 				out = append(out, "--"+k)
+			} else {
+				// Hand-wired (handfixes.json: mcp-bool-false-reaches-cli): an
+				// explicit false must reach flags that default to true
+				// (tail --follow, teach --quiet); dropping it made
+				// tail follow=false poll the API until the host timed out.
+				out = append(out, "--"+k+"=false")
 			}
 		case float64:
 			out = append(out, "--"+k+"="+strconv.FormatFloat(tv, 'f', -1, 64))
