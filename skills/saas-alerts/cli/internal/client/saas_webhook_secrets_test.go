@@ -234,3 +234,19 @@ func TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked(t *testing.T) {
 		t.Fatalf("key at the cut leaked a prefix: %s", msg[len(msg)-60:])
 	}
 }
+
+// TestPartnerKeyInA200HTMLTitleIsMasked: a 200 HTML page whose title quotes
+// the partner key does not carry it into the "expected JSON" error.
+func TestPartnerKeyInA200HTMLTitleIsMasked(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><head><title>Signed in as test-key-SECRET-0000</title></head><body>portal</body></html>`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key-SECRET-0000", SaasAlertsApiKey: "test-key-SECRET-0000"}, 5*time.Second, 0)
+	c.NoCache = true
+	_, err := c.Get(context.Background(), "/reportApi/api/v1/customers", nil)
+	if err == nil || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("key in an HTML title leaked: %v", err)
+	}
+}

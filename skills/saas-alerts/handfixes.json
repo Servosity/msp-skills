@@ -320,8 +320,8 @@
     },
     {
       "id": "error-body-secrets-masked-decoded-precut",
-      "summary": "every credential the client masks (partner API key, Respond access tokens, the request's webhook tokens of 8+ characters) is masked in API and Respond-mint error text before the 4096-byte cut, in the decoded keys and string values of a single-JSON-value body (catching \\\" \\/ \\u002B escapes) and then raw, URL-encoded and path-encoded; maskCredentialText still runs after the cut for HTML-title echoes; both passes share one credential list (credentialSecrets)",
-      "why": "maskCredentialText replaced raw and URL-encoded forms only, after the body was cut, so a JSON-escaped echo of the partner key or a Respond token, or one straddling the 4096-byte cut, leaked into CLI and MCP errors (Codex round 10, 2026-10-20, P1; the webhook-token instance was Codex round 9 and adversarial round 13). Fixed for the class, not per secret. TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked fails with the pre-cut pass limited to webhook tokens, TestRespondTokenAndKeyEchoedEscapedAreMasked fails with the mint path's pre-cut pass removed, and TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled (all proven 2026-10-20).",
+      "summary": "every credential the client masks (partner API key, Respond access tokens, the request's webhook tokens of 8+ characters) is masked in API and Respond-mint error text before the 4096-byte cut, in the decoded keys and string values of a single-JSON-value body (catching \\\" \\/ \\u002B escapes) and then raw, URL-encoded and path-encoded; maskCredentialText still runs after the cut for HTML-title echoes; both passes share one credential list (credentialSecrets); the 2xx 'expected JSON, API returned HTML' summary is masked as well",
+      "why": "maskCredentialText replaced raw and URL-encoded forms only, after the body was cut, so a JSON-escaped echo of the partner key or a Respond token, or one straddling the 4096-byte cut, leaked into CLI and MCP errors (Codex round 10, 2026-10-20, P1; the webhook-token instance was Codex round 9 and adversarial round 13). Fixed for the class, not per secret. TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked fails with the pre-cut pass limited to webhook tokens, TestRespondTokenAndKeyEchoedEscapedAreMasked fails with the mint path's pre-cut pass removed, and TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled (all proven 2026-10-20). The 2xx HTML-summary error was the one remaining response-to-error-text site with no mask; TestPartnerKeyInA200HTMLTitleIsMasked fails with it removed (proven 2026-10-20).",
       "status": "active",
       "asserts": [
         {
@@ -372,6 +372,16 @@
         {
           "file": "cli/internal/client/respond_token_test.go",
           "contains": "func TestRespondTokenAndKeyEchoedEscapedAreMasked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.maskCredentialText(summary, authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestPartnerKeyInA200HTMLTitleIsMasked(",
           "code_only": true
         }
       ]

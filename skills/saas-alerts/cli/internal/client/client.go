@@ -1439,7 +1439,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			}
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, authHeader)) // saas-alerts hand-fix: an HTML title can echo a credential
 				}
 			}
 			return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens never leave the client
