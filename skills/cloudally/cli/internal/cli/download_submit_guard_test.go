@@ -17,8 +17,8 @@ import (
 	"cloudally-pp-cli/internal/cliutil/testenv"
 )
 
-// submitArgs is a new --latest batch for the stub's task.
-func submitArgs(extra ...string) []string {
+// downloadSubmitArgs is a new --latest batch for the stub's task.
+func downloadSubmitArgs(extra ...string) []string {
 	return append([]string{"download", "submit", "--account", "acct-1", "--task", "task-1", "--latest", "--yes", "--json"}, extra...)
 }
 
@@ -54,7 +54,7 @@ func TestDownloadSubmitHasNoWholeRunDeadline(t *testing.T) {
 			ledgersAtFirstCreate = len(ledgerKeys(t)) + 1000
 		}
 	}
-	_, stderr, err := runDL(t, s, submitArgs("--timeout", "1s")...)
+	_, stderr, err := runDL(t, s, downloadSubmitArgs("--timeout", "1s")...)
 	if err != nil {
 		t.Fatalf("a batch whose reconcile wait outlasts --timeout must finish: %v\n%s", err, stderr)
 	}
@@ -84,7 +84,7 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
-	if _, stderr, err := runDL(t, s, submitArgs("--no-reconcile")...); err != nil {
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...); err != nil {
 		t.Fatalf("first run: %v\n%s", err, stderr)
 	}
 	first := ledgerKeys(t)
@@ -92,7 +92,7 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 		t.Fatalf("first run: creates=%d ledgers=%v", n, first)
 	}
 
-	_, _, err := runDL(t, s, submitArgs("--no-reconcile")...)
+	_, _, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...)
 	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "--batch "+first[0]+" --resume --yes") || !strings.Contains(err.Error(), "--new-batch") {
 		t.Fatalf("an identical re-run must be refused with the resume command, got %v", err)
 	}
@@ -100,16 +100,16 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 		t.Fatalf("a refused re-run created %d / wrote %d ledgers", n-4, len(ledgerKeys(t))-1)
 	}
 	// A different filter is a different command.
-	if _, stderr, err := runDL(t, s, submitArgs("--no-reconcile", "--sub-sources", "O365MAIL")...); err != nil {
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--sub-sources", "O365MAIL")...); err != nil {
 		t.Fatalf("a different sub-source filter should run: %v\n%s", err, stderr)
 	}
 	if n := len(s.createdAccounts()); n != 6 {
 		t.Fatalf("creates after the filtered run = %d, want 6", n)
 	}
-	if _, _, err := runDL(t, s, submitArgs("--new-batch", "--resume", "--batch", first[0])...); err == nil || ExitCode(err) != 2 {
+	if _, _, err := runDL(t, s, downloadSubmitArgs("--new-batch", "--resume", "--batch", first[0])...); err == nil || ExitCode(err) != 2 {
 		t.Fatalf("--new-batch with --resume: want exit 2, got %v", err)
 	}
-	if _, stderr, err := runDL(t, s, submitArgs("--no-reconcile", "--new-batch")...); err != nil {
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--new-batch")...); err != nil {
 		t.Fatalf("--new-batch: %v\n%s", err, stderr)
 	}
 	if n := len(s.createdAccounts()); n != 10 || len(ledgerKeys(t)) != 3 {
@@ -121,11 +121,11 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	s2 := newDLStub(t)
 	s2.taskEntities = []string{"c@contoso.com"}
 	s2.createCode["c@contoso.com"] = 401
-	if _, _, err := runDL(t, s2, submitArgs("--no-reconcile")...); err == nil {
+	if _, _, err := runDL(t, s2, downloadSubmitArgs("--no-reconcile")...); err == nil {
 		t.Fatal("a run whose creates were all refused should not exit 0")
 	}
 	delete(s2.createCode, "c@contoso.com")
-	if _, stderr, err := runDL(t, s2, submitArgs("--no-reconcile")...); err != nil {
+	if _, stderr, err := runDL(t, s2, downloadSubmitArgs("--no-reconcile")...); err != nil {
 		t.Fatalf("an earlier batch with only refused creates must not block: %v\n%s", err, stderr)
 	}
 }
@@ -218,7 +218,7 @@ func TestDownloadSubmitRerunGuardHoldsAcrossProcesses(t *testing.T) {
 	s.mu.Lock()
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
 	s.mu.Unlock()
-	args := submitArgs("--no-reconcile")
+	args := downloadSubmitArgs("--no-reconcile")
 	res := runChildren(t, s, 700*time.Millisecond, 0, args, args)
 	codes := map[int]int{}
 	for _, r := range res {
@@ -235,7 +235,7 @@ func TestDownloadSubmitRerunGuardHoldsAcrossProcesses(t *testing.T) {
 	}
 
 	// --new-batch in both: two batches in the same second, both kept.
-	res = runChildren(t, s, 0, 0, submitArgs("--no-reconcile", "--new-batch"), submitArgs("--no-reconcile", "--new-batch"))
+	res = runChildren(t, s, 0, 0, downloadSubmitArgs("--no-reconcile", "--new-batch"), downloadSubmitArgs("--no-reconcile", "--new-batch"))
 	for _, r := range res {
 		if r.code != 0 {
 			t.Fatalf("--new-batch runs should both succeed: %+v", res)
@@ -280,7 +280,7 @@ func TestDownloadSubmitResumeKeepsIncludeFlags(t *testing.T) {
 	s := newDLStub(t)
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
 	s.createCode["b@contoso.com"] = 401
-	if _, _, err := runDL(t, s, submitArgs("--no-reconcile", "--include-deleted", "--include-legal-hold")...); err == nil {
+	if _, _, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--include-deleted", "--include-legal-hold")...); err == nil {
 		t.Fatal("b@ was refused, so the first run should not exit 0")
 	}
 	keys := ledgerKeys(t)
