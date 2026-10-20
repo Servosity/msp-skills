@@ -1,5 +1,5 @@
 {
-  "count": 81,
+  "count": 82,
   "connectors": [
     {
       "slug": "abnormal",
@@ -121,6 +121,17 @@
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
       "url": "/skills/axcient/"
+    },
+    {
+      "slug": "backup-radar",
+      "display_name": "Backup Radar",
+      "tagline": "Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/backup-radar/"
     },
     {
       "slug": "betterstack",

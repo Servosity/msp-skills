@@ -1,0 +1,1902 @@
+{
+  "slug": "backup-radar",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/fortinet/regen.sh.",
+  "handfixes": [
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "sid, err := windows.StringToSid(alias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if len(fields) != 6 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auto-refresh-real-paths",
+      "summary": "auto_refresh registry keys the v2 sub-resources under their real command paths (backups filters|inactive|retired)",
+      "why": "The press registers v2 sub-resources under hyphenated sync names (backups-filters, backups-inactive, backups-retired) that are not command paths, so those reads never refreshed in --data-source auto. Carried from the library's .printing-press-patches/auto-refresh-real-paths.json.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auto_refresh.go",
+          "contains": "\"backup-radar-cli backups filters\":         {\"backups-filters\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auto_refresh.go",
+          "contains": "\"backup-radar-cli backups inactive\":        {\"backups-inactive\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auto_refresh.go",
+          "contains": "\"backup-radar-cli backups retired\":         {\"backups-retired\"},",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "backups-list-date-cache",
+      "summary": "backups list --date caches under the backups-day collection, not as the current state of every listed backup",
+      "why": "A dated list read (a past day's view) was cached as the current state of every listed backup, so check and unwatched read a stale day as today. Library patch backups-list-date-cache.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/backups_list.go",
+          "contains": "backupsListCache(cmd)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "v2-subresource-cache-names",
+      "summary": "backups inactive/retired/filters/overview/get cache under their own collections (backups-inactive, backups-retired, backups-filters, backups-overview, backups-day)",
+      "why": "The press used resource type \"backups\" for these sub-commands, so inactive and retired rows were cached as active backups and offline reads served the wrong rows (unwatched reported retired backups as live). Library patch v2-subresource-cache-names.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/backups_inactive.go",
+          "contains": "\"backups-inactive\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/backups_retired.go",
+          "contains": "\"backups-retired\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/backups_filters.go",
+          "contains": "\"backups-filters\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/backups_overview.go",
+          "contains": "\"backups-overview\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/backups_get.go",
+          "contains": "\"backups-day\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "manifest-key-optional",
+      "summary": "both API keys are optional on every surface: manifest.json user_config, server.json, .printing-press.json auth_env_var_specs (library) and the MCP context tool's auth block",
+      "why": "Either key alone powers its own commands (v3: health, devices, ingest, retire, push; v2: the backups reads). The press marked both required and pointed the v2 key at ScalePad docs; lock promote regenerates manifest.json from .printing-press.json, so in the library the fix lives in auth_env_var_specs. The MCP context tool still said required: true for both until onboarding. check_env_schema.py enforces manifest/server.json agreement.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"title\": \"ScalePad API key (v3)\""
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "\"required\": true"
+        },
+        {
+          "file": "server.json",
+          "not_contains": "\"isRequired\": true"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"required\":    false, // HAND-FIX(manifest-key-optional): either key alone powers its own commands",
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "\"description\": \"Set to your API credential.\","
+        }
+      ]
+    },
+    {
+      "id": "mcp-body-json-array",
+      "summary": "the typed MCP body_json handler accepts JSON arrays (backups_ingest takes a root array)",
+      "why": "The typed MCP handler only accepted objects, so backups_ingest could never succeed over MCP. Library patch mcp-body-json-array. Adversarial round 13 (Opus, 2026-10-19, P2): a body_json that was not a non-empty string (a raw array, \"\", null) or was omitted was dropped and backups_ingest POSTed {} live; both now return isError with nothing sent.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "_, isArr := parsed.([]any)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if !isMap && !isArr {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "body_json must be a non-empty string holding the JSON request body",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "body_json is required: pass the JSON request body as a string",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-import-hidden",
+      "summary": "import is hidden from MCP",
+      "why": "import --input reads a local file and echoes invalid lines in errors, so an MCP caller could read local files through it. Library patch mcp-import-hidden; same class as mcp-teach-file-flags.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-typed-writes",
+      "summary": "BACKUP_RADAR_MCP_READ_ONLY hides the typed write tools backups_ingest and backups_retire",
+      "why": "The read-only switch only filtered mirrored Cobra commands; the typed endpoint write tools stayed registered, so read-only mode could still ingest and retire. Proven with tools/list: 41 tools by default, 34 with the switch (backups_ingest, backups_retire, sync, export, learnings_forget, learnings_reject, workflow_archive gone). Library patch mcp-read-only-typed-writes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if !cliutil.IsMCPReadOnlyEnv() {",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-retire-destructive",
+      "summary": "the MCP backups_retire tool carries destructiveHint=true",
+      "why": "The template keys the hint on HTTP method (POST = non-destructive); retire removes backups from monitoring and can close PSA tickets. Library patch mcp-retire-destructive.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "mcplib.WithDestructiveHintAnnotation(true), // HAND-FIX(mcp-retire-destructive),",
+          "code_only": false
+        }
+      ]
+    },
+    {
+      "id": "mcp-teach-file-flags",
+      "summary": "teach --playbook-file/--playbook-notes-file and teach-playbook --playbook-file/--notes-file are declared mcp:write-flags, so MCP callers cannot name them",
+      "why": "Those flags read any local file into the learn store, which recall echoes back, and the teach tools stay on in MCP read-only mode, so an MCP caller could read e.g. the config holding the API key. Fleet risk flagged from the build pane; connectwise-rmm blocked --notes-file/--playbook-file/--input the same way. Proven: tools/call teach_playbook with playbook-file and notes-file answers 'unknown MCP parameters' and the sentinel file content never reaches the MCP home. coverage diff --devices and push --from carry the same annotation (push is also mcp:hidden).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "\"mcp:write-flags\":     \"playbook-file,playbook-notes-file\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "contains": "\"mcp:write-flags\":     \"notes-file,playbook-file\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage_diff.go",
+          "contains": "\"mcp:write-flags\": \"devices,csv,plain,quiet\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/push.go",
+          "contains": "\"mcp:write-flags\": \"from\", \"mcp:hidden\": \"true\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "retire-stdin-dry-run",
+      "summary": "backups retire --stdin --dry-run sets dry_run in the body; the help example no longer passes --dry-run true",
+      "why": "The retire body flag --dry-run shadows the global one and was ignored for stdin bodies, so a preview sent a real retire. Library patch retire-stdin-dry-run.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/backups_retire.go",
+          "contains": "if cmd.Flags().Changed(\"dry-run\") && jsonBody != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/backups_retire.go",
+          "contains": "jsonBody[\"dry_run\"] = bodyDryRun",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "store-replace-snapshot-resources",
+      "summary": "Backup Radar rows replace stored rows (their nulls carry meaning) while per-day history is unioned by date and capped at 366 days (radar_merge.go)",
+      "why": "The generic keep-richer merge kept stale device_id/client_id/history after the API nulled them (unmapped devices vanished from unwatched); a plain replace erased synced history on short list reads. Stored history is capped at maxHistoryDays = 366 so a year-long store does not grow without bound. Library patch store-replace-snapshot-resources plus the build-pane fixes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "return mergeRadarSnapshot(resourceType, json.RawMessage(existing), incoming)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if radarSnapshotResources[resourceType] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/radar_merge.go",
+          "contains": "const maxHistoryDays = 366",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/radar_merge.go",
+          "contains": "merged = merged[:maxHistoryDays]",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-prune-snapshots",
+      "summary": "an un-narrowed plain sync prunes rows the API stopped returning; a sync resumed from a saved cursor never prunes",
+      "why": "Plain sync never deleted rows, so a backup retired via the v3 API stayed in check/stale for v3-only users until sync --full. These collections are re-fetched whole each sync, but pruning still requires a proven complete walk from page one. Library patches sync-prune-snapshots and sync-prune-resume.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "prune := (full || !narrowed) && !noPrune && !paramNarrowed",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if prune && flatReconcilable && (full || existingCursor == \"\") {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tier-routing-cache-key",
+      "summary": "the response-cache key hashes the per-request tier (v2) credential",
+      "why": "The cache key hashed only the v3 credential, so two v2 keys could share cached v2 responses (cross-tenant). Library patch tier-routing-cache-key.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "key += \"|tier_auth=\" + hex.EncodeToString(tierHash[:8])",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tier-routing-copylocks",
+      "summary": "Client.platformLimiterMu is a *sync.Mutex so WithTier's struct copy shares it",
+      "why": "x-tier-routing emits WithTier (next := *c) while Client held a value sync.Mutex; go vet copylocks fails the build gate. Library patch tier-routing-copylocks.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "platformLimiterMu *sync.Mutex",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tier-routing-default-header",
+      "summary": "the default (v3) tier sets x-api-key with a literal header name",
+      "why": "Behavior-identical; the press tier branch only emits req.Header.Set(authInfo.Name, ...), which dogfood's auth-protocol check cannot recognize (shipcheck FAIL). Library patch tier-routing-default-header.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "req.Header.Set(\"x-api-key\", authHeader)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "v2-key-envoverride",
+      "summary": "the v2 key is read through cliutil.EnvOverride in the client and in doctor",
+      "why": "An unfilled Claude Desktop setting (the literal ${user_config.backup_radar_v2_api_key}) was sent as ApiKey and counted as configured. Library patch v2-key-envoverride.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "tierValue0 := cliutil.EnvOverride(\"BACKUP_RADAR_V2_API_KEY\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if cliutil.EnvOverride(\"BACKUP_RADAR_V2_API_KEY\") != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "radar-same-named-clients-never-merge",
+      "summary": "coverage diff, scorecard and timeline key devices by name AND Backup Radar company, so two companies' same-named devices (or same-named ScalePad clients) never merge; stale rows carry client_id and by_client groups on (client_id, name)",
+      "why": "Two ScalePad clients can share a display name, and so can two Backup Radar companies; keying on the name alone merged their devices, lent monitored status across clients in coverage diff, collapsed scorecard rows and merged timeline machines. Build-pane fix carried into the ledger. Codex + adversarial round 4 (2026-10-19, P2): stale's by_client counted adjacent rows by display name, so two ScalePad clients both named Acme merged into one group and the rows carried no client id. StaleRow now carries the ScalePad client_id for mapped devices and groupStaleByClient keys on (client_id, name); rows without an id (unmapped, v2-only) still group by name. TestStaleCarriesClientIDForSameNamedClients and TestGroupStaleByClientKeepsSameNamedClientsApart prove it. Codex round 12 (2026-10-19): (P2) stale's by_client merged v2-only rows (no client_id) from different Backup Radar companies mapped to same-named ScalePad clients; those rows now group on br_company, and stale rows carry br_company.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "k := norm(name) + \"\\x1f\" + norm(company)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "k := norm(firstNonEmpty(j.BRCompany, j.Client)) + \"\\x1f\" + norm(j.Device)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/scorecard.go",
+          "contains": "if seen[strings.ToLower(c.Client)] > 1 && c.ClientID != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "ClientID      string         `json:\"client_id,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "ClientID: d.Client.ClientID, BRDeviceID: d.BRDeviceID, BRCompany: d.Client.BRCompanyName, Device: d.Name(), Job: d.BRJobName, Source: \"v3\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "func groupStaleByClient(rows []radar.StaleRow) []staleClient {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "k := [2]string{r.ClientID, r.Client}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale_test.go",
+          "contains": "func TestGroupStaleByClientKeepsSameNamedClientsApart(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar_test.go",
+          "contains": "func TestStaleCarriesClientIDForSameNamedClients(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "k = [2]string{\"br:\" + brCompany, r.Client}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale_windows_twin_test.go",
+          "contains": "func TestGroupStaleByClientV2OnlyKeepsCompaniesApart(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "radar-days-window-ends-on-newest-synced-day",
+      "summary": "--days N in scorecard and timeline covers N calendar days ending on the newest synced tenant day, not on the local clock",
+      "why": "The newest synced history date is the tenant's date at the last sync; anchoring the window on the local clock dropped a day whenever sync lagged or time zones differed, so a 90-day scorecard scored 89 days. Build-pane fix.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "func (s Snapshot) newestDay(now time.Time, which int) time.Time {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "win := newDayWindow(s.newestDay(now, histHealth), days)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "win := newDayWindow(s.newestDay(now, histDevices|histBackups), days)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "push-never-merges-case-variant-names",
+      "summary": "push groups rows by the exact client/device/job names and rejects record keys that differ only in case and disagree",
+      "why": "The API receives names as given, so 'Acme' and 'ACME' are two clients in Backup Radar; a case-folded grouping would post one client's results under the other's entry, and a JSONL record with both 'Client' and 'client' would silently drop one value. Build-pane fix.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/radar/ingest.go",
+          "contains": "k := r.Client + \"\\x1f\" + r.Device + \"\\x1f\" + r.Job",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/ingest.go",
+          "contains": "return nil, nil, fmt.Errorf(\"keys %q and %q differ only in case and disagree\", prev, k)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor probes each configured key (GET /clients/health with the v3 key, GET /backups/overview with the v2 key via WithTier) and reports valid/rejected/not verified per key; the v2 probe runs even when the v3 host is unreachable; either key alone is a configured install; a web page at / is not 'reachable'",
+      "why": "The 4.33.5 doctor called any HTTP response to GET / reachable and printed 'present, not verified' for the credential, so a base_url aimed at a web UI and a rejected key both rendered healthy; it also reported 'ERROR missing required: BACKUP_RADAR_API_KEY' for a v2-only install that works. check_doctor_truth.py failed 4 assertions before this fix and passes after. See issue #282. Adversarial round 1 (2026-10-19) added: the v2 key must be probed independently of v3 reachability (a v2-only install with an unreachable v3 host used to get 'skipped' and no credentials_v2 row).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeKeys(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "doctorV3ProbePath = \"/clients/health\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "doctorV2ProbePath = \"/backups/overview\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "report[\"credentials_v2\"] = doctorProbeOne(ctx, c.WithTier(\"v2\"), bin, \"v2 key\", doctorV2ProbePath, doctorV2ProbeCmd, doctorV2BodyHasCounts, report, false)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeKeys(cmd.Context(), c, \"backup-radar-cli\", report, reachErr == nil || errors.As(reachErr, &reachAPIErr))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "authEnvRequiredMissing = append(authEnvRequiredMissing, \"BACKUP_RADAR_API_KEY\", \"BACKUP_RADAR_V2_API_KEY\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "configured, authSource = true, \"env:BACKUP_RADAR_V2_API_KEY (v2 only)\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s`"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "report[\"api\"] = \"reachable (HTML body at /)\""
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "case v3 && !v3Reachable:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "report[\"credentials\"] = \"skipped (API unreachable)\""
+        }
+      ]
+    },
+    {
+      "id": "tabular-printers-scrub-terminal",
+      "summary": "--csv, --plain and --quiet output drops terminal control characters (C0, DEL, C1) from values",
+      "why": "Company, device and job names and notes come from the tenant, and the generated printCSV/printPlain/printQuiet wrote them raw, so a name carrying an OSC 52 or CSI sequence could rewrite the terminal or the clipboard. Ported from bitdefender (PR #402); same template code in every 4.33.5 sibling.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cell = scrubCell(cell)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "s := scrubCell(formatTabularCell(v))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, scrubCell(strings.Join(keys, \"\\t\")))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return cliutil.ScrubTerminal(t)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "output-escapes-c1-controls",
+      "summary": "every terminal write in every package goes through the shared escaping writers in internal/termio (stdoutW()/stderrW() in internal/cli; termio.Stderr() in client, store, config, learn, cliutil, platform and the MCP main); the writer rewrites UTF-8 C1, lone 8-bit C1 bytes, raw C0/DEL (except tab, newline, CR before newline) as \\u00XX, passes through exactly the CLI's own SGR colors (allowedSGR) and isTerminal unwraps it",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant device name in --json, --agent or the default pretty-JSON output could drive the terminal. The escape keeps JSON valid and lossless. Ported from bitdefender (PR #402). c1_escape_test.go proves the round trip and the terminal detection. Codex round 2 (2026-10-19, P1): an ambiguous-client error embedded raw tenant names with an OSC 52 sequence on stderr, so the writer now also escapes C0 and DEL at the boundary (JSON never carries a raw C0 byte, so JSON output is unchanged); TestC1EscapeWriterNeutralisesC0Controls proves ESC/BEL/NUL/DEL never reach the terminal. Codex round 3 (2026-10-19, P1): the generated sync, backups ingest and --deliver error paths wrote with fmt.Fprintf(os.Stderr, ...) and bypassed the writer, so an OSC 52 sequence in an HTTP 400 body reached the terminal; all 88 direct writes in internal/cli now go through stderrW()/stdoutW(), the two instances resolve os.Stdout/os.Stderr per write (tests that swap the stream still capture) and TestNoDirectTerminalWrites fails on any new direct write. Live proof: a stub 400 body carrying ESC ] 52 ; c ; ... BEL came out on stderr as \\u001b]52;c;VEVTVA==\\u0007 with zero raw control bytes. Adversarial round 3 (2026-10-19, P2): escaping every ESC also rewrote the CLI's own SGR color codes, so doctor --human-friendly on a real TTY printed literal \\u001b[32mOK text; the writer now passes through exactly SGR (ESC '[' then only digits and ';' then 'm', parameter list capped), which can only change text style, and escapes every other ESC (OSC title/clipboard, cursor and screen CSI, DCS, APC, unterminated). TestC1EscapeWriterKeepsSGRColorsOnly proves both sides; live under script(1) doctor --human-friendly emits real ESC[32m with zero literal \\u001b. Codex + adversarial round 4 (2026-10-19, P1): the client package's dry-run printer (and its retry notes), the store, config, learn, cliutil and platform warnings and the MCP main wrote to os.Stderr directly, outside the guard's internal/cli glob, so `backups ingest --stdin --dry-run` re-emitted a JSON-escaped C1 OSC 52 from a tenant name raw on the preview step the docs prescribe. The writer now lives in the leaf package internal/termio and every package writes through termio.Stderr(); TestNoDirectTerminalWrites walks the whole module (every package except termio). Round 4 P2s closed in the same pass: the SGR pass-through is an allowlist of the six sequences the color helpers emit (ESC[0m, 1m, 31m, 32m, 33m, 1;31m), so a tenant ESC[8m or ESC[38;5;196m is escaped; a bare CR (not before newline) is escaped as \\u000d so a server message cannot overwrite the warning line; lone 8-bit 0x80-0x9F bytes from a non-UTF-8 body are escaped (8-bit terminals act on them); incomplete UTF-8 at the end of a Write is held for the next one. Live proofs: ingest --stdin --dry-run with client_name C\\u009d52;c;QQ==\\u009c prints \\u009d on stderr with zero raw C1 bytes; a retire partialFailureError message carrying CR, ESC[8m and OSC 52 prints \\u000d, \\u001b[8m, \\u001b]52 with no raw lone CR; doctor --human-friendly under script(1) still emits real ESC[32m.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func stdoutW() io.Writer { return termio.Stdout() }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func stderrW() io.Writer { return termio.Stderr() }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "func (c *Writer) Write(p []byte) (int, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "func isRawC0(b byte) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "func sgrSequenceLen(p []byte) int {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "if allowedSGR[string(p[:i+1])] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "buf = append(buf, `\\u000d`...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "if r == utf8.RuneError && size == 1 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "stderrEsc = &Writer{stream: func() io.Writer { return os.Stderr }}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio_test.go",
+          "contains": "func TestC1EscapeWriterKeepsJSONValidAndTerminalSafe(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio_test.go",
+          "contains": "func TestC1EscapeWriterNeutralisesC0Controls(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio_test.go",
+          "contains": "func TestC1EscapeWriterKeepsOnlyTheCLIsOwnSGR(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetOut(stdoutW())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetErr(stderrW())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "w := io.MultiWriter(stdoutW(), flags.deliverBuf)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "enc := json.NewEncoder(termio.Stderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "os.Stderr"
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/cmd/backup-radar-mcp/main.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/backups_ingest.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "fmt.Fprintf(os.Stderr,"
+        },
+        {
+          "file": "cli/internal/cli/no_direct_stream_writes_test.go",
+          "contains": "func TestNoDirectTerminalWrites(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/no_direct_stream_writes_test.go",
+          "contains": "root := filepath.Join(\"..\", \"..\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.backup_radar_mcp_http_token} placeholder is refused",
+      "why": "The generated requireHTTPCallerToken read BACKUP_RADAR_MCP_HTTP_TOKEN with os.Getenv. The variable is an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. Same fix as sophos-central and bitdefender. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/cmd/backup-radar-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/backup-radar-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-context-paging-truth",
+      "summary": "the MCP context tool's query_tips describe the real paging (v3 cursor/next_cursor/page_size; v2 Page/Size with Total/TotalPages) instead of the template's generic Page/Size boilerplate",
+      "why": "The generated context tool told agents every list pages with Page and Size (default 100); the v3 lists page with a cursor, so an agent following the tip sent invalid params and trusted a first page as complete.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"v3 lists (health_list, devices_list) page with a cursor: pass next_cursor from the previous response as cursor; page_size controls the page.",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "\"Pagination uses cursor-based paging. Pass Page parameter for subsequent pages.\","
+        }
+      ]
+    },
+    {
+      "id": "x-text-osv-floor",
+      "summary": "golang.org/x/text is pinned at v0.42.0 (>= 0.41.0)",
+      "why": "osv flags golang.org/x/text v0.39.0 for GO-2026-5970 and GO-2026-6629; the press go.mod template emits v0.39.0, so a reprint reintroduces it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/go.mod",
+          "contains": "golang.org/x/text v0.42.0"
+        }
+      ]
+    },
+    {
+      "id": "manifest-mcp-name-not-pp",
+      "summary": "manifest.json names the MCP server and its entry point backup-radar-mcp, not backup-radar-pp-mcp, and pins version 0.1.0",
+      "why": "onboard copies manifest.json from the press source on every run, which carries the -pp-mcp name (the .mcpb would point at a binary the release build never emits) and the press version 4.33.5. Both are fixed in the onboard source copy; this entry notices a re-vendor from an unfixed library.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"entry_point\": \"bin/backup-radar-mcp\""
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "backup-radar-pp-mcp"
+        }
+      ]
+    },
+    {
+      "id": "install-env-declared-on-every-channel",
+      "summary": "every variable the binaries read (both API keys, BASE_URL, MCP_READ_ONLY, MCP_HTTP_TOKEN, USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE) is declared on all three install channels: manifest.json, server.json and mcp-install.md, with both keys optional and the optional values blank in the manual blocks",
+      "why": "manifest.json, server.json and mcp-install.md are regenerated by /msp-skills-publish. The generated set declared only the two keys, marked both required in server.json, and mcp-install.md omitted the rest. check_env_schema.py reported 7 findings before and passes after. The ChatGPT section requires a gateway that signs ChatGPT in with OAuth and adds the bearer, because ChatGPT connectors cannot send the fixed bearer token the HTTP transport requires (same as cisco-duo; adversarial round 7 dropped the service-token example ChatGPT cannot use).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"BACKUP_RADAR_BASE_URL\": \"${user_config.backup_radar_base_url}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"BACKUP_RADAR_MCP_HTTP_TOKEN\": \"${user_config.backup_radar_mcp_http_token}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"BACKUP_RADAR_MCP_READ_ONLY\": \"${user_config.backup_radar_mcp_read_only}\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"BACKUP_RADAR_BASE_URL\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"BACKUP_RADAR_MCP_HTTP_TOKEN\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"BACKUP_RADAR_MCP_HTTP_TOKEN\": \"\"",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "BACKUP_RADAR_MCP_HTTP_TOKEN=<a long random value> backup-radar-mcp --transport http"
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "You need a gateway in front that signs ChatGPT in with OAuth and adds the bearer header"
+        }
+      ]
+    },
+    {
+      "id": "docs-doctor-and-key-truth",
+      "summary": "guide.md and README.md say doctor probes each key, and the guide's troubleshooting lines carry Windows twins ($env:) beside the export forms; doctor's human output prints the v2 key verdict row (Credentials (v2 key)) next to the v3 one",
+      "why": "The press re-renders guide.md on every generate with 'reports whether each API key is set (it does not validate them)' and macOS-only export lines; the README template says the same about doctor. Both are wrong after doctor-verdict-tracks-reality and the Windows-first docs rule. Codex round 5 (2026-10-19, P1): the generated human-readable doctor output listed only the fixed template keys, so credentials_v2 was JSON-only and a rejected v2 key showed nothing on a terminal while the docs promise a verdict per key; the row is now in the human check list (ERROR rejected renders FAIL, valid renders OK). Live: BACKUP_RADAR_V2_API_KEY=bad doctor prints 'FAIL Credentials (v2 key): ERROR rejected (HTTP 401 ...)'.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "guide.md",
+          "contains": "reports `valid`, `rejected` or `not verified` per key"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "it does not validate them"
+        },
+        {
+          "file": "guide.md",
+          "contains": "$env:BACKUP_RADAR_API_KEY = \"<key>\""
+        },
+        {
+          "file": "README.md",
+          "contains": "then probes each configured key against the API"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "Printing Press CLI"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "only reports whether the v2 key is set"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "the v2 key is checked for presence only"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "{\"credentials_v2\", \"Credentials (v2 key)\"},",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-accepts-true-yes",
+      "summary": "BACKUP_RADAR_MCP_READ_ONLY enables read-only mode for 1, true, yes and on (case-insensitive, trimmed, placeholder-aware), not only the literal 1",
+      "why": "The generated IsMCPReadOnlyEnv compared the raw value to \"1\". The .mcpb exposes the switch as a free-text user_config field, so an operator typing true or yes got all 41 tools including backups_retire with no warning: a safety switch failing open on a natural input (adversarial round 1, 2026-10-19). EnvOverride also keeps an unresolved ${user_config...} placeholder from counting. TestMCPReadOnlyEnvAcceptsTruthyValues fails when the comparison goes back to == \"1\". manifest.json, server.json, mcp-install.md, governance.md and the CHANGELOG say 1, true or yes. The generated cobratree TestMCPReadOnlySwitch/other_values asserted the old literal-1 semantics and is updated to the new contract.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "case \"1\", \"true\", \"yes\", \"on\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "not_contains": "return os.Getenv(MCPReadOnlyEnvVar) == \"1\""
+        },
+        {
+          "file": "cli/internal/cliutil/mcp_read_only_test.go",
+          "contains": "func TestMCPReadOnlyEnvAcceptsTruthyValues(",
+          "code_only": true
+        },
+        {
+          "file": "manifest.json",
+          "contains": "Set to 1, true or yes to hide the backups_ingest and backups_retire tools"
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout_test.go",
+          "contains": "if s.ListTools()[\"purge\"] != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout_test.go",
+          "not_contains": "for _, value := range []string{\"\", \"true\", \"yes\", \"0\", \"TRUE\"} {"
+        }
+      ]
+    },
+    {
+      "id": "radar-human-output-scrub-terminal",
+      "summary": "the novel human-output paths (printRadarTable for check/unwatched/stale/coverage diff, the scorecard and timeline line printers, and their notes/warnings) drop terminal control characters from tenant strings",
+      "why": "Codex review round 1 (2026-10-19, P1): a stored device name containing an OSC 52 sequence (ESC ] 52 ; c ; ... BEL) survived `check --human-friendly` unchanged, so a tenant-controlled name could rewrite the operator's clipboard; the C1 writer only covers U+0080-U+009F and the generated table scrubber (cliutil.ScrubTerminal) is not on these hand-written paths. scrubRadarText drops C0, DEL and C1, turns newlines into spaces and strips tabs so a cell cannot open a new column. TestPrintRadarTableScrubsTerminalControls fails when the scrub is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/radar_local.go",
+          "contains": "fmt.Fprintln(tw, scrubRadarCells(r))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/radar_local.go",
+          "contains": "func scrubRadarText(s string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/radar_local.go",
+          "not_contains": "fmt.Fprintln(tw, strings.Join(r, \"\\t\"))"
+        },
+        {
+          "file": "cli/internal/cli/scorecard.go",
+          "contains": "scrubRadarText(d.Device), scrubRadarText(d.Job), d.BadDays, d.Days)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "scrubRadarText(j.Client), scrubRadarText(j.Device), scrubRadarText(j.Job)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/radar_local_scrub_test.go",
+          "contains": "func TestPrintRadarTableScrubsTerminalControls(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "names = append(names, fmt.Sprintf(\"%q (client id %s)\", c.Client, c.ClientID))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-tool-results-escape-controls",
+      "summary": "every MCP tool result and error text, typed and Cobra-mirror alike, is built through an escaping constructor (mcpResultText/mcpResultError in internal/mcp, escapedToolResultText/escapedToolResultError/escapedTextContent in cobratree), which rewrite C0 controls (except tab, newline, CR), DEL and C1 controls as \\u00XX (termio.EscapeString) before the text leaves the server",
+      "why": "Codex round 3 (2026-10-19, P1): the typed endpoint tools returned API JSON verbatim, so a client name carrying U+009D ... U+009C (an OSC 52 clipboard write) reached content[].text and the stdio frame raw; a host that prints results to a terminal would execute it. The Cobra-mirror tools were already covered by the companion CLI's output writer. The escape is lossless (a JSON decode restores the original values) and TestToolHandlersUseEscapingConstructors fails if any handler calls mcplib.NewToolResultText/NewToolResultError directly. Live proof: health_list against a stub whose client name carries U+009D/U+009C answered with \\u009d/\\u009c escapes and no raw C1 byte on the wire. Adversarial round 4 (2026-10-19, P2): the 25 Cobra-mirror tools and the intent built results with mcplib.NewToolResultText/Error(bound.Text(...)) in cobratree/shellout.go and relied on the child CLI's writer, which passes the CLI's own SGR, so a mirrored `export` error against a 400 body carrying ESC[8m returned the raw sequence. cobratree now has its own escaping constructors, the escape lives in termio.EscapeString (one implementation for both packages), and TestToolHandlersUseEscapingConstructors scans every internal/mcp sub-package for direct mcplib constructor calls, NewTextContent included. Codex round 5 (2026-10-19, P1): EscapeString exempted CR, so a provider error message with a bare CR passed through mcpResultError could overwrite a line on a host that prints results to a terminal; a CR not followed by LF is now escaped as \\u000d (CRLF passes).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/result_escape.go",
+          "contains": "func mcpResultText(s string) *mcplib.CallToolResult {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_escape.go",
+          "contains": "return mcplib.NewToolResultText(escapeTerminalControls(s))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "mcplib.NewToolResultText("
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "mcplib.NewToolResultError("
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "not_contains": "mcplib.NewToolResultError("
+        },
+        {
+          "file": "cli/internal/mcp/result_escape_test.go",
+          "contains": "func TestToolHandlersUseEscapingConstructors(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/result_escape.go",
+          "contains": "func escapeTerminalControls(s string) string { return termio.EscapeString(s) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "func EscapeString(s string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/result_escape.go",
+          "contains": "return mcplib.NewToolResultText(termio.EscapeString(s))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "return escapedToolResultError(bound.Text(message))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "toolResult := escapedToolResultText(bound.Text(result.Stdout))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "not_contains": "mcplib.NewToolResultText("
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "not_contains": "mcplib.NewTextContent("
+        },
+        {
+          "file": "cli/internal/mcp/result_escape_test.go",
+          "contains": "sub, _ := filepath.Glob(\"*/*.go\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "(r == '\\r' && (i+1 >= len(s) || s[i+1] != '\\n'))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "import-array-body-endpoints",
+      "summary": "import wraps each JSONL object row in a one-element array for write endpoints whose body is a root array (POST /backups), posts array rows as given and refuses scalar rows",
+      "why": "Codex round 4 (2026-10-19, P1): the generated import posted each JSONL line as a bare object to resourceWritePath(resource), but the only writable resource, backups, is POST /backups whose request body is `type: array` of BackupEntry, so the README's `import` (post backup results) could never succeed: every row answered 400. resourceWriteArrayBodies names the array endpoints and importPayload wraps object rows (array rows pass through, anything else is refused with a warning). Live proof against a stub: `import backups --input rows.jsonl` sent two POST /backups requests whose bodies start with `[`. TestImportPayloadWrapsObjectsForArrayEndpoints covers the three row shapes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "var resourceWriteArrayBodies = map[string]bool{",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "func importPayload(resource string, line []byte) (any, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "body, err := importPayload(resource, []byte(line))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "not_contains": "var body map[string]any"
+        },
+        {
+          "file": "cli/internal/cli/stale_test.go",
+          "contains": "func TestImportPayloadWrapsObjectsForArrayEndpoints(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-intent-read-only-hints",
+      "summary": "the morning_triage_for_agents intent is annotated readOnlyHint=true and destructiveHint=false (it runs `check --agent`, a local read)",
+      "why": "Adversarial round 4 (2026-10-19, P2): the generated intent set only OpenWorldHint, so mcp-go's defaults advertised a local read as readOnlyHint=false, destructiveHint=true; it stays listed under BACKUP_RADAR_MCP_READ_ONLY=1, so a read-only server advertised a 'destructive' tool and hosts that honor the hint prompted on every morning triage. A reprint from an unfixed press restores the defaults.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "mcplib.WithReadOnlyHintAnnotation(true),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/intents.go",
+          "contains": "mcplib.WithDestructiveHintAnnotation(false),",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "examples-quote-positionals",
+      "summary": "the generated profile command examples quote their positional profile names",
+      "why": "Codex round 5 (2026-10-19, P2): the press emits `profile save my-defaults` style examples with bare positionals while every authored example in this connector quotes them (the convention check_cli_claims reads most reliably); the generated Example strings and the SKILL.md profile section now quote the names. Cosmetic; a reprint restores the bare form.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "backup-radar-cli profile save \"my-defaults\" --json --compact",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "backup-radar-cli profile delete \"my-defaults\" --yes",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-routes-v2-tier",
+      "summary": "export routes the v2 backups resource to the v2 host the way sync does",
+      "why": "Adversarial round 6 (Opus, 2026-10-19, P2): export built a default (v3) client, so `export backups` sent GET /backups to the v3 host, where /backups is the POST ingest path; it never read a backup. A reprint drops the routing line.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "c = syncClientForResource(c, resource)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-progress-redraw",
+      "summary": "sync --human-friendly redraws its progress line through termio.Progress (CLI-owned CR, escaped text)",
+      "why": "Adversarial round 6 (Opus, 2026-10-19, P2): the escaping writer rewrites a bare CR as \\u000d, so the generated `\\r  devices: N synced` progress lines printed literal \\u000d on every human-friendly sync. termio.Progress emits the CLI's own CR and escapes the text, so tenant data still cannot carry a CR. A reprint restores the raw \\r writes through stderrW().",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "termio.Progress(\"  %s: %d synced [%.1f req/s]\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "\"\\r  %s: %d synced"
+        },
+        {
+          "file": "cli/internal/termio/termio.go",
+          "contains": "\"\\r\"+EscapeString(fmt.Sprintf(format, args...))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-skips-keyless-tier",
+      "summary": "with exactly one key set, sync, auto-refresh and workflow archive skip the other generation's resources instead of walking that host unauthenticated",
+      "why": "Adversarial round 6 (Opus, 2026-10-19, P2): either key alone is a supported install, but sync still walked the other host with no key, got 401 per resource and reported them as failed (`sync --strict` exited non-zero on a correct single-key setup). The keyless generation is now skipped with a note (sync_skipped event in JSON); an explicit --resources list of only keyless resources errors naming the missing key. A reprint drops syncSplitByKey. Adversarial round 7 (Opus, 2026-10-19): the split now runs before the --full / --latest-only / archive state clears (P1: those clears marked a skipped collection complete, so reports read zero rows as checked), keeps unknown names for the normal unknown-resource error, and counts a refused stored v3 credential as present so sync --strict still fails. Adversarial round 8 (Opus, 2026-10-19): the skip notes start with `warning:` so the MCP workflow_archive result carries them. Adversarial round 15 (Opus, 2026-10-19, P2): a selection of only keyless resources is an auth error (exit 4), and workflow archive's per-resource error lines start with warning: so the MCP result carries them (Codex round 20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func syncSplitByKey(c *client.Client, resources []string) (kept, skipped []string, need string)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if kept, skipped, need := syncSplitByKey(c, resources); len(skipped) > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auto_refresh.go",
+          "contains": "resources, _, _ = syncSplitByKey(c, resources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "syncSplitByKey(c, resources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "(c.Config.AuthHeader() == \"\" && !c.Config.HasCredentialRefusals())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if known[r] && (syncResourceTiers[r] == \"v2\") == v2Missing {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_split_test.go",
+          "contains": "func TestSyncSplitByKey(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "\"warning: skipped %s: %s is not set (either key alone is supported)\\n\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return authErr(fmt.Errorf(\"%s need %s, which is not set",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "\"warning: %s: error: %v\\n\", resource, res.Err)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "stale-hint-windows-twin",
+      "summary": "the stale preview hint and docs carry the PowerShell twin (Select-Object -First 1, PowerShell quoting on Windows)",
+      "why": "Adversarial round 6 (Opus, 2026-10-19, P2): the only documented way to preview a stale retire was `| head -n 1 |` with POSIX quoting, printed to every user by the stale `next` hint; most MSPs run Windows, where head does not exist. Adversarial round 7 (Opus, 2026-10-19): PowerShell also closes a single-quoted string on U+2018-U+201B, so psQuote doubles those too.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "return \"Select-Object -First 1\"",
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "Select-Object -First 1 | backups retire --stdin"
+        },
+        {
+          "file": "guide.md",
+          "contains": "Select-Object -First 1 | backups retire --stdin"
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "\"\\u2019\", \"\\u2019\\u2019\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "stale-retire-body-collisions",
+      "summary": "stale flags retire bodies that match more than one stale backup (JSON note, human warning) and rows carry br_device_id and backup_id",
+      "why": "Adversarial round 6 (Opus, 2026-10-19, P2): two unmapped backups sharing company, device and job names got the identical name-pinned body with no note, and the retire endpoint (case-insensitive name match) would retire both. Each such row now says the body matches all N backups, and rows carry br_device_id to tell them apart. Adversarial round 7 (Opus, 2026-10-19): the human table now prints a warning line too. Codex round 7: v2 rows carry backup_id.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "bodies[bodyKey(*r.RetireRequest)]; n > 1",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar_test.go",
+          "contains": "func TestStaleBodyCollisionAndTimelineDayIdentity(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "a.row.BackupID = b.BackupID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "warning: some retire bodies match more than one stale backup",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "timeline-day-identity",
+      "summary": "timeline day rows carry br_company and br_device_id",
+      "why": "Adversarial round 6 (Opus, 2026-10-19, P2): day rows carried only date, client, device and job, so two same-named clients with the same device/job produced identity-less duplicate day rows.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/radar/radar.go",
+          "contains": "BRCompany: j.BRCompany, BRDeviceID: j.BRDeviceID",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "stale-bodies-ascii-dedup",
+      "summary": "stale --bodies prints each distinct retire body once, as ASCII-only JSON, and says how many backups share a body",
+      "why": "Adversarial round 7 (Opus, 2026-10-19): --bodies emitted raw UTF-8, which a PowerShell pipe re-encodes through the console code page (5.1: ASCII), turning a non-ASCII name into ?? so the name-matched retire matched nothing; and two backups sharing names printed the identical body twice with no warning. JSON \\uXXXX escapes round-trip through any code page. Adversarial round 8 (Opus, 2026-10-19): the dedupe key is the case-insensitive identity the endpoint matches on (radar.RetireBodyKey), and the notices start with `warning:` so the MCP shell-out (which forwards only hint:/warning: stderr lines) carries them to agents. Codex round 9 (P2): the warning keys on the row's collision note, which Stale computes before --limit, so `--bodies --limit 1` still warns when the printed body's twin was cut off.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "cmd.OutOrStdout().Write(asciiJSON(buf.Bytes()))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "k := radar.RetireBodyKey(*r.RetireRequest)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale_windows_twin_test.go",
+          "contains": "func TestPSQuoteAndASCIIBodies(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "shared = shared || r.RetireNote != \"\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "\"warning: some retire bodies match more than one stale backup (same company, device and job names); each body is printed once",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-clear-never-marks-complete",
+      "summary": "the --full / --latest-only / workflow archive cursor clears mark a collection incomplete (store.ClearSyncCursor), never complete",
+      "why": "Adversarial round 8 (Opus, 2026-10-19): the generated clears wrote last_attempt_complete=1 (archive also stamped now) for every collection before walking any of them, so a usage error, Ctrl-C, SIGTERM from an MCP host or an archive --timeout left never-walked collections reading as synced with zero rows; check, unwatched and stale then dropped their not-synced notes (false-GREEN). The clear now resets cursor and watermark and marks the attempt incomplete; the walk's own final save marks it complete. A reprint restores SaveSyncStateAt / SaveSyncState at the clear sites. Adversarial round 9 (Opus, 2026-10-19, P2): sync now clears only after every flag is validated (an invalid --since or a date param no longer rewrites sync_state) and only known resource names (a --resources typo no longer leaves a row that can never complete, which made MCP search/sql report an incomplete store forever). Adversarial round 10 (P2): TestSyncUsageErrorsLeaveSyncStateUntouched runs the real command with --since bogus, a date param and a --resources typo and fails if sync_state changes, so the placement and the known-name filter are pinned (mutation-tested: dropping the filter or clearing before validation both fail it).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) ClearSyncCursor(resourceType string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "last_synced_at = excluded.last_synced_at, total_count = 0, last_attempt_complete = 0`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "db.ClearSyncCursor(resource); err != nil",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "db.SaveSyncStateAt(resource, \"\", 0, time.Time{})"
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "s.ClearSyncCursor(resource); err != nil",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "s.SaveSyncState(resource, \"\", 0)"
+        },
+        {
+          "file": "cli/internal/store/clear_sync_cursor_test.go",
+          "contains": "func TestClearSyncCursorNeverMarksComplete(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "clearCursors := full && !c.DryRun",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if !known[resource] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_clear_order_test.go",
+          "contains": "func TestSyncUsageErrorsLeaveSyncStateUntouched(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-keeps-refused-v3-verdict",
+      "summary": "doctor keeps the refused verdict for a stored v3 key that was not loaded (Credentials, API and Env Vars rows) instead of reporting not set / unreachable",
+      "why": "Codex round 8 (2026-10-19, P2): doctor.go records `refused: credential present but not loaded` for a group/world-readable credentials.toml, then doctorProbeKeys overwrote it with `INFO BACKUP_RADAR_API_KEY not set` (v2 key present) or `no API key is configured`, telling the user to set a key they already have instead of fixing the file mode. Adversarial round 9 (Opus, 2026-10-19, P2): the API row said `unreachable ... set BACKUP_RADAR_BASE_URL` though nothing was sent, and the Env Vars row said to set a key the user already has; both now name the refusal.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "refused := !v3 && c != nil && c.Config != nil && c.Config.HasCredentialRefusals()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "case refused:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if credentialRefused && cfg.AuthHeader() == \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "} else if credentialRefused {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "\"not checked: the stored v3 key was refused, so no request was sent (see auth_refusals)\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-writes-through-cmd-out",
+      "summary": "--deliver captures every command's output (export, agent-context, version, help: the deliver writer is set on the executing command AND root); completion refuses --deliver",
+      "why": "Codex round 9 (2026-10-19, P1): the press template writes export (bufio.NewWriter(os.Stdout)) and agent-context (json.NewEncoder(os.Stdout)) to the process stdout, bypassing the writer --deliver swaps in, so `export devices --deliver file:out.jsonl` and `agent-context --deliver file:...` delivered empty files while SKILL.md promises every command supports output delivery. Proved: the pre-fix build wrote 0 bytes, the fixed build 33 KB / 38 KB. cmd.OutOrStdout() is root's escaping writer (plus the deliver buffer), so terminal escaping is unchanged. Codex round 12 (2026-10-19): version printed through fmt.Printf (P1, same class), now cmd.OutOrStdout(). Cobra's built-in completion captures its writer before --deliver is wired, so it refuses --deliver with a redirect hint and SKILL.md scopes the claim to every command except completion. Adversarial round 11 (Opus, P1): `help <cmd> --deliver file:x` delivered an empty file because Cobra's help prints through the target command, which inherits root's writer; root now tees too. A 76-invocation sweep found no other bypass.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "writer = bufio.NewWriter(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agent_context.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "not_contains": "bufio.NewWriter(stdoutW())"
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "not_contains": "bufio.NewWriter(os.Stdout)"
+        },
+        {
+          "file": "cli/internal/cli/version.go",
+          "contains": "fmt.Fprintf(cmd.OutOrStdout(), \"%s %s\\n\", cmd.Root().Name(), version)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "--deliver does not apply to completion scripts; redirect stdout instead",
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "Every command except `completion` accepts `--deliver <sink>`"
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.Root().SetOut(w)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "skill-teach-example-resource-type",
+      "summary": "the SKILL.md integrated teach + playbook example passes the required --resource-type",
+      "why": "Codex round 11 (2026-10-19, P1): the press-generated SKILL.md example `teach --query ... --resource <id> --playbook-file ...` omits --resource-type, which teach requires (teach.go returns exit 2 before saving the learning or the playbook), so an agent following the documented one-call form recorded nothing. The same template text ships in other connectors' SKILL.md; a re-onboard re-vendors SKILL.md and drops this line.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "  --query \"$QUERY\" \\\n  --resource-type <type> \\\n  --resource <id> \\\n  --playbook-file"
+        }
+      ]
+    },
+    {
+      "id": "agent-context-either-key",
+      "summary": "agent-context lists both API keys as optional, each scoped to its own commands",
+      "why": "Codex round 12 (2026-10-19): (P2) agent discovery marked BACKUP_RADAR_API_KEY required with a generic description and omitted BACKUP_RADAR_V2_API_KEY, so an agent reading it would refuse a supported v2-only install.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/agent_context.go",
+          "contains": "Name:        \"BACKUP_RADAR_V2_API_KEY\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agent_context.go",
+          "not_contains": "Description: \"Set to your API credential.\","
+        }
+      ]
+    },
+    {
+      "id": "deliver-after-profile",
+      "summary": "a saved profile is applied before --deliver is wired, so a --deliver the profile restores is honoured",
+      "why": "Codex round 14 (2026-10-19, P1): the press template wired the deliver sink before applying --profile, so `profile save nightly --deliver file:out.txt` then `<cmd> --profile nightly` delivered a 38-byte stub instead of the output (proved before/after: 38 bytes vs a byte-identical 38998). Same round: SKILL.md now says the --help and --version flags print to stdout only (Cobra handles them before any hook), while the help and version commands deliver.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err := ApplyProfileToFlags(cmd, profile); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "the `--help` and `--version` flags print to stdout only"
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "\t\t\tappliedProfile = profile\n\t\t}\n\t\tif flags.deliverSpec != \"\" {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "profile-values-count-as-typed",
+      "summary": "ApplyProfileToFlags marks every flag it applies as Changed, so a profile value behaves like a typed one",
+      "why": "Codex round 15 (2026-10-19, P1, safety): commands gate on Changed(); `backups retire` sends dry_run only when --dry-run changed. The press template set a profile's value without marking it Changed, so `profile save \"preview\" --dry-run` then `backups retire ... --profile preview` POSTed a body WITHOUT dry_run and retired live (proved against a stub: before dry_run omitted, after dry_run=true). Fixed for the whole class in ApplyProfileToFlags rather than per command.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "\t\tflag.Changed = true\n\t}\n\treturn nil\n}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestApplyProfileMarksFlagsChanged(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-writes-refuse-unknown-args",
+      "summary": "the typed MCP write tools (backups_ingest, backups_retire) refuse any argument outside their schema",
+      "why": "Adversarial round 12 (Opus class sweep, 2026-10-19): (P1, safety) makeAPIHandler forwarded unknown POST arguments into the body (retire) or dropped them under body_json (ingest), so an agent passing the CLI spelling `dry-run: true` to backups_retire retired live and backups_ingest posted. Proved: `dry-run` now returns isError with nothing posted; `dry_run` still previews. governance.md says read tools forward extras as query parameters and write tools refuse them.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "unknown MCP parameter %q on a write tool; use the tool schema's named parameters",
+          "code_only": true
+        },
+        {
+          "file": "governance.md",
+          "contains": "the write tools (`backups_ingest`, `backups_retire`) refuse any argument outside"
+        }
+      ]
+    },
+    {
+      "id": "profile-output-mode-groups",
+      "summary": "a typed output-mode flag (json/csv/plain/quiet/agent) or projection (compact/select) wins over every profile value in its group",
+      "why": "Adversarial round 12 (Opus class sweep, 2026-10-19): (P1) ApplyProfileToFlags overlaid by flag name only, so a typed --csv lost to a profile's --json in 9 of 20 combinations, contradicting 'explicit flags always win over profile values'. Proved: typed --csv/--plain with a --json profile print CSV/plain.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "for _, group := range [][]string{{\"json\", \"csv\", \"plain\", \"quiet\", \"agent\"}, {\"compact\", \"select\"}} {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile_changed_test.go",
+          "contains": "func TestApplyProfileTypedOutputModeWins(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-on-failure",
+      "summary": "a failed command still delivers what it printed (or warns the sink was not updated); profile save records --deliver without performing it",
+      "why": "Adversarial round 12 (Opus class sweep, 2026-10-19): (P2) the template delivered only on success, so a half-failed push or a retire partial failure left the previous run's report in the sink with no notice; and `profile save ... --deliver file:x` overwrote x with the save confirmation (or POSTed it to a webhook). Proved: a partial-failure retire delivers 538 bytes; profile save leaves the sink untouched. Adversarial round 13 (Opus, 2026-10-19, P2): profile save still validates --deliver (an unknown sink is refused at save time instead of on every scheduled run) and only skips the wiring; its --json confirmation is not projected by the --select/--compact it records (that exited 2 after saving). Codex round 19 (P1): SKILL.md now states the profile save exception to the every-command delivery claim.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err != nil && !envelopeWritten && flags.deliverBuf != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "return cmd.Name() == \"save\" && cmd.Parent() != nil && cmd.Parent().Name() == \"profile\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if sink.Scheme != \"stdout\" && sink.Scheme != \"\" && !isProfileSave(cmd) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "unprojected.selectFields, unprojected.compact = \"\", false",
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "`profile save` validates a `--deliver` sink and records it for later `--profile` runs"
+        }
+      ]
+    },
+    {
+      "id": "dry-run-guards-local-mutations",
+      "summary": "--dry-run changes nothing locally: export -o, feedback, auth set-token, auth logout and profile delete return the dry-run preview",
+      "why": "Adversarial round 12 (Opus class sweep, 2026-10-19): (P2) these five commands ignored --dry-run (typed or from a profile): export truncated its -o file, feedback wrote and POSTed, set-token overwrote the key, logout deleted credentials, profile delete deleted. Proved each is a no-op under --dry-run now.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if outputFile != \"\" && !dryRunOK(flags) {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"auth set-token\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"auth logout\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"profile delete\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"feedback\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-setup-windows-twin",
+      "summary": "auth setup and unauthenticated auth status print the key setup for macOS/Linux and PowerShell",
+      "why": "Codex round 17 (2026-10-19, P1): both printed only `export BACKUP_RADAR_API_KEY=...` and a POSIX echo pipe; most MSPs run Windows PowerShell. printKeySetup prints both shells' lines and names the v2 key.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "PowerShell:  $env:BACKUP_RADAR_API_KEY = \\\"your-token-here\\\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "printKeySetup(w)",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "set it in the environment the same way (auth set-token stores only the v3 key)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-hints-windows-twin",
+      "summary": "every press auth error hint names the PowerShell form beside the POSIX export line",
+      "why": "Codex round 17 class sweep (2026-10-19): after auth setup/status, 11 more press-template hints (helpers.go x5, mcp/tools.go x3, auth.go, client.go x2 including the v2 placeholder refusal) told a Windows user to run `export BACKUP_RADAR_API_KEY=...`. Each now carries `(PowerShell: $env:... = ...)`. A reprint restores the POSIX-only strings.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "(PowerShell: $env:BACKUP_RADAR_API_KEY = \\\"your-token-here\\\")",
+          "min_count": 5,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "(PowerShell: $env:BACKUP_RADAR_API_KEY = \\\"your-token-here\\\")",
+          "min_count": 3,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "(PowerShell: $env:BACKUP_RADAR_V2_API_KEY = \\\"<your-token>\\\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "(PowerShell: $env:BACKUP_RADAR_API_KEY = \\\"<your-token-here>\\\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "radar-human-notes",
+      "summary": "stale, unwatched, scorecard and timeline print the not-synced note on a terminal (and stale --bodies warns), as check does",
+      "why": "Codex round 18 (2026-10-19): (P1) their human output dropped Sources.Note, so a health-only sync printed `No backups silent for 30+ days` with no sign that backups were never synced, contradicting README's promise that each report says which collections it skipped. Proved with --human-friendly on a health-only store. Adversarial round 14 (Opus, 2026-10-19): (P1) timeline was left out: its human output never printed the note, and the no-match path printed only the match note; stale --bodies now prints a warning: line (forwarded over MCP) when collections are missing.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "func printSourcesNote(w io.Writer, note string) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "printSourcesNote(cmd.OutOrStdout(), view.Sources.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unwatched.go",
+          "contains": "printSourcesNote(cmd.OutOrStdout(), view.Sources.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/scorecard.go",
+          "contains": "printSourcesNote(cmd.ErrOrStderr(), view.Sources.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "printSourcesNote(out, view.Sources.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "printSourcesNote(cmd.ErrOrStderr(), view.Sources.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "fmt.Fprintln(cmd.ErrOrStderr(), \"warning: \"+scrubRadarText(view.Sources.Note))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-status-either-key",
+      "summary": "auth status treats the v2 key alone as authenticated (v2 only), not `no credentials configured` exit 4",
+      "why": "Codex round 18 (2026-10-19): (P2) a supported v2-only install reported authenticated:false and exited 4. Proved: v2-only exits 0 with source `env:BACKUP_RADAR_V2_API_KEY (v2 only; ...)`; no key still exits 4. Adversarial round 14 (Opus, 2026-10-19): (P2) auth logout now notes a still-set BACKUP_RADAR_V2_API_KEY, so it no longer says 'Logged out' while auth status reports authenticated. Adversarial round 15 (Opus, 2026-10-19, P2): logout names both keys when both are still set.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if !authed && !credentialRefused && cliutil.EnvOverride(\"BACKUP_RADAR_V2_API_KEY\") != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "stillSet = append(stillSet, \"BACKUP_RADAR_V2_API_KEY\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "radar-machine-modes",
+      "summary": "check, unwatched, stale, scorecard, timeline and coverage diff refuse --csv, --plain and --quiet; SKILL.md says so and notes their --json view is bare (envelope under --agent)",
+      "why": "Adversarial round 14 (Opus, 2026-10-19): (P1) those modes dropped the not-synced note and printed a shape that changed with the data (`check --csv` printed `(no rows)` on a store whose backups never synced; `unwatched --quiet` printed the skipped-reason list as if it were findings; `stale --quiet` printed the --days value). Refusing is honest; --json, --agent and the human table carry the note. Adversarial round 15 (Opus, 2026-10-19, P2): the refused modes are also dropped from the six MCP tools' schemas (mcp:write-flags), so a schema-following agent is never offered them.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "func refuseTabularModes(flags *rootFlags, name string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/check.go",
+          "contains": "if err := refuseTabularModes(flags, \"check\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unwatched.go",
+          "contains": "if err := refuseTabularModes(flags, \"unwatched\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "if err := refuseTabularModes(flags, \"stale\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/scorecard.go",
+          "contains": "if err := refuseTabularModes(flags, \"scorecard\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "if err := refuseTabularModes(flags, \"timeline\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage_diff.go",
+          "contains": "if err := refuseTabularModes(flags, \"coverage diff\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "refuse `--csv`, `--plain` and `--quiet` with a usage error"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "return their view bare under `--json`"
+        },
+        {
+          "file": "cli/internal/cli/check.go",
+          "contains": "\"mcp:write-flags\": \"csv,plain,quiet\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/unwatched.go",
+          "contains": "\"mcp:write-flags\": \"csv,plain,quiet\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/stale.go",
+          "contains": "\"mcp:write-flags\": \"csv,plain,quiet\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/scorecard.go",
+          "contains": "\"mcp:write-flags\": \"csv,plain,quiet\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "\"mcp:write-flags\": \"csv,plain,quiet\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage_diff.go",
+          "contains": "\"mcp:write-flags\": \"devices,csv,plain,quiet\"}",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "v2-key-required-locally",
+      "summary": "a live v2 command with no BACKUP_RADAR_V2_API_KEY fails locally (exit 4) naming the v2 key with both shells' forms; a dry-run still previews",
+      "why": "Adversarial round 14 (Opus, 2026-10-19): (P2) it sent a keyless request to api.backupradar.com and the 401 hint led with the v3 key (now with a ready-to-paste PowerShell line for the wrong key). Proved: exit 4, 0 v2 requests sent; --dry-run exits 0.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "var ErrMissingV2Key = errors.New(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return requestAuth{}, fmt.Errorf(\"%w: set it with export BACKUP_RADAR_V2_API_KEY=<your-token>",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "errors.Is(err, client.ErrMissingV2Key)",
+          "code_only": true
+        },
+        {
+          "file": "guide.md",
+          "contains": "which is not set\" (exit 4) on backups list or another v2 command"
+        }
+      ]
+    },
+    {
+      "id": "help-examples-windows-twin",
+      "summary": "auth set-token and feedback examples carry the PowerShell form of their `< file` redirect; the timeline --live message no longer says `export it`",
+      "why": "Adversarial round 14 (Opus, 2026-10-19): (P2) PowerShell rejects `<` (reserved operator); `Get-Content file | ...` is the twin. Also in SKILL.md's feedback section.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Get-Content token-file | backup-radar-cli auth set-token   # PowerShell",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "Get-Content notes.txt | backup-radar-cli feedback --stdin   # PowerShell",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "set it in the environment or drop --live",
+          "code_only": true
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "Get-Content notes.txt | backup-radar-cli feedback --stdin   # PowerShell"
+        }
+      ]
+    },
+    {
+      "id": "push-auth-exit-code",
+      "summary": "push maps a 401/403 chunk rejection to exit 4 with the ScalePad key hint, like backups ingest",
+      "why": "Adversarial round 14 (Opus, 2026-10-19): (P2) every chunk failure was exit 5 (API error), so an agent branching on exit 4 to re-prompt for the key treated a rejected key as transient. Proved: exit 4 with the hint.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/push.go",
+          "contains": "if apiErrResp != nil && (apiErrResp.StatusCode == 401 || apiErrResp.StatusCode == 403) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "timeline-human-tags-note",
+      "summary": "timeline's human job line labels tags and prints the job's Backup Radar note",
+      "why": "Adversarial round 14 (Opus, 2026-10-19): (P2) docs describe timeline 'with tickets, tags and notes'; the human line printed tags unlabeled and never the note (only --json had it).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "fmt.Fprintf(out, \"    note: %s\\n\", scrubRadarText(j.Note))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/timeline.go",
+          "contains": "last_success=%s tags=%s\\n",
+          "code_only": true
+        }
+      ]
+    }
+  ]
+}

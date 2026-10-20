@@ -1,0 +1,77 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/backup-radar-mcp",
+  "title": "Backup Radar MCP",
+  "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/backup-radar/backup-radar-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/backup-radar"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/backup-radar-v0.1.0/backup-radar-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BACKUP_RADAR_API_KEY",
+          "description": "Optional. ScalePad API key for the v3 commands (health, devices, backups ingest, backups retire, push) and the check, unwatched, scorecard, timeline and stale answers that depend on them. Create one in ScalePad: API tab, New API key (requires an active Administrator user). https://developer.scalepad.com/docs/getting-started",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BACKUP_RADAR_V2_API_KEY",
+          "description": "Optional. Backup Radar API key for the read-only v2 commands (backups list, get, results, filters, inactive, retired, overview). Set it if you use the Backup Radar API v2; either key alone powers its own commands.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BACKUP_RADAR_BASE_URL",
+          "description": "Optional. The ScalePad Backup Radar v3 API root. Leave blank for the US default https://api.scalepad.com/backup-radar/v3; set https://eu.api.scalepad.com/backup-radar/v3 for EU data residency. The v2 API always uses https://api.backupradar.com.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.scalepad.com/backup-radar/v3"
+        },
+        {
+          "name": "BACKUP_RADAR_MCP_READ_ONLY",
+          "description": "Optional. Set to 1, true or yes to hide the backups_ingest and backups_retire tools and the sync, export, learnings_forget, learnings_reject and workflow_archive mirrors. Read tools still write local state: the response cache and learning entries.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BACKUP_RADAR_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BACKUP_RADAR_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to ScalePad and Backup Radar. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
