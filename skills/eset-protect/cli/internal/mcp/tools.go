@@ -714,7 +714,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	}
 
 	limit := 25
-	if v, ok := args["limit"].(float64); ok && v > 0 {
+	if v, ok := argPositive(args, "limit"); ok {
 		limit = int(v)
 	}
 

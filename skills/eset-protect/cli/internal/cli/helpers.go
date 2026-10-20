@@ -2953,9 +2953,19 @@ func handleBinaryResponseDelivery(cmd *cobra.Command, flags *rootFlags, data jso
 	if flags == nil || flags.deliverSink.Scheme != "file" {
 		return false, nil
 	}
-	raw, contentType := binaryDeliverPayload(data)
-	if err := Deliver(flags.deliverSink, raw, flags.compact); err != nil {
-		return true, err
+	// Hand-fix binary-delivery-byte-exact: Deliver masks anything that is not a
+	// binary envelope, so handing it the already-unwrapped bytes ran text
+	// masking over a quarantine sample. Decoded bytes go to the file as is.
+	raw, contentType, isBinary := unwrapBinaryDeliverBody(data)
+	var deliverErr error
+	if isBinary {
+		deliverErr = deliverFile(flags.deliverSink.Target, raw)
+	} else {
+		raw = data
+		deliverErr = Deliver(flags.deliverSink, raw, flags.compact)
+	}
+	if deliverErr != nil {
+		return true, deliverErr
 	}
 	flags.deliverBuf = nil
 	if flags.quiet {
@@ -3069,13 +3079,13 @@ func compactFields(data json.RawMessage, documentedFields ...map[string]bool) js
 func compactFieldsKeep(data json.RawMessage, keep []string, documentedFields ...map[string]bool) json.RawMessage {
 	// Try array first
 	var items []map[string]any
-	if err := json.Unmarshal(data, &items); err == nil {
+	if err := esetDecodeExact(data, &items); err == nil {
 		return compactListFields(items, keep, documentedFields...)
 	}
 
 	// Single object — use blocklist
 	var obj map[string]any
-	if err := json.Unmarshal(data, &obj); err == nil {
+	if err := esetDecodeExact(data, &obj); err == nil {
 		return compactObjectFields(obj, keep, documentedFields...)
 	}
 
@@ -3206,7 +3216,7 @@ func isCompactPresenceFlagName(name string) bool {
 
 func isCompactMarkerScalar(value any) bool {
 	switch v := value.(type) {
-	case nil, bool, float64:
+	case nil, bool, float64, json.Number: // json.Number: hand-fix json-numbers-exact
 		return true
 	case string:
 		return compactMarkerStringOK(v)
@@ -3383,7 +3393,7 @@ func compactListFields(items []map[string]any, keep []string, documentedFields .
 // display density, not whether a field carries agent-useful payload.
 func isCompactScalar(v any) bool {
 	switch v.(type) {
-	case nil, bool, float64, string:
+	case nil, bool, float64, json.Number, string: // json.Number: hand-fix json-numbers-exact
 		return true
 	default:
 		return false
@@ -3468,7 +3478,7 @@ func compactObjectArrayValue(v any, keep []string, documentedFields ...map[strin
 	}
 	compactedRaw := compactListFields(items, keep, documentedFields...)
 	var compacted any
-	if err := json.Unmarshal(compactedRaw, &compacted); err != nil {
+	if err := esetDecodeExact(compactedRaw, &compacted); err != nil {
 		return nil, false
 	}
 	return compacted, true
@@ -3600,7 +3610,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 		return nil
 	}
 	var scalars []any
-	if err := json.Unmarshal(data, &scalars); err == nil {
+	if err := esetDecodeExact(data, &scalars); err == nil {
 		for _, v := range scalars {
 			if m, ok := v.(map[string]any); ok {
 				if s := quietRowValue(m); s != "" {
@@ -3616,7 +3626,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 		return nil
 	}
 	var obj map[string]any
-	if err := json.Unmarshal(data, &obj); err == nil {
+	if err := esetDecodeExact(data, &obj); err == nil {
 		if v := quietRowValue(obj); v != "" {
 			fmt.Fprintln(w, v)
 		}
@@ -3683,11 +3693,11 @@ func quietScalar(v any) string {
 func tabularObjectRows(data json.RawMessage) ([]map[string]any, bool) {
 	projected := unwrapSingleKeyArray(collectionItemsForOutput(data, ""))
 	var items []map[string]any
-	if err := json.Unmarshal(projected, &items); err == nil && (len(items) > 0 || bytes.HasPrefix(bytes.TrimSpace(projected), []byte("["))) {
+	if err := esetDecodeExact(projected, &items); err == nil && (len(items) > 0 || bytes.HasPrefix(bytes.TrimSpace(projected), []byte("["))) {
 		return items, true
 	}
 	var obj map[string]any
-	if err := json.Unmarshal(projected, &obj); err != nil || len(obj) == 0 {
+	if err := esetDecodeExact(projected, &obj); err != nil || len(obj) == 0 {
 		return nil, false
 	}
 	if rows, ok := objectEnvelopeRows(obj); ok {
@@ -3833,7 +3843,7 @@ func printOutput(w io.Writer, data json.RawMessage, asJSON bool) error {
 
 	// Try to detect if response is an array
 	var items []map[string]any
-	if err := json.Unmarshal(data, &items); err == nil && len(items) > 0 {
+	if err := esetDecodeExact(data, &items); err == nil && len(items) > 0 {
 		if err := printAutoTable(w, items); err != nil {
 			return err
 		}
@@ -3846,7 +3856,7 @@ func printOutput(w io.Writer, data json.RawMessage, asJSON bool) error {
 
 	// Single object - pretty print
 	var obj map[string]any
-	if err := json.Unmarshal(data, &obj); err == nil {
+	if err := esetDecodeExact(data, &obj); err == nil {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(obj)

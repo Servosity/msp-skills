@@ -3026,8 +3026,9 @@ func fingerprintScalar(value any) (any, bool) {
 //   - Objects merge recursively; incoming keys go through the same policy
 //     rather than wholesale replacement.
 //   - A container (object/array) is never replaced by a scalar or null.
-//   - An incoming empty array does not replace a non-empty existing array
-//     (list omitted the collection vs sent a new one).
+//   - An incoming empty array, object or string that is PRESENT replaces the
+//     existing value (hand-fix explicit-empty-replaces: ESET emits
+//     unpopulated fields, so present-and-empty is authoritative).
 //   - Object arrays match by the same identity stack as ExtractResourceID
 //     (configured / dotted override, generic id, resource-scoped suffix)
 //     plus item-local suffix keys (currency_code, accountId) and sku.
@@ -3081,6 +3082,13 @@ func mergeKeepRicherValue(resourceType string, existing, incoming any) any {
 		}
 		return incoming
 	}
+	// Hand-fix explicit-empty-replaces: ESET Connect (gRPC-gateway) emits
+	// unpopulated fields, so a present [], {} or "" is authoritative (a device
+	// whose activeProducts became [] lost its protection). Only an omitted key
+	// is a thinner representation, and mergeKeepRicherObject keeps those.
+	if isJSONEmpty(incoming) {
+		return incoming
+	}
 	existingObj, existingIsObj := existing.(map[string]any)
 	incomingObj, incomingIsObj := incoming.(map[string]any)
 	if existingIsObj && incomingIsObj {
@@ -3092,9 +3100,6 @@ func mergeKeepRicherValue(resourceType string, existing, incoming any) any {
 		return mergeKeepRicherArray(resourceType, existingArr, incomingArr)
 	}
 	if isJSONContainer(existing) && !isJSONContainer(incoming) {
-		return existing
-	}
-	if isJSONEmpty(incoming) && !isJSONEmpty(existing) {
 		return existing
 	}
 	return incoming
@@ -3116,9 +3121,6 @@ func mergeKeepRicherObject(resourceType string, existing, incoming map[string]an
 }
 
 func mergeKeepRicherArray(resourceType string, existing, incoming []any) []any {
-	if len(incoming) == 0 && len(existing) > 0 {
-		return existing
-	}
 	existingByID := indexObjectArrayByIdentity(resourceType, existing)
 	if len(existingByID) == 0 {
 		return incoming

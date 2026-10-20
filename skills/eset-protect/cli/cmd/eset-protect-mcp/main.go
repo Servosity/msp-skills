@@ -54,6 +54,8 @@ func main() {
 		"ESET PROTECT",
 		version,
 		server.WithToolCapabilities(false),
+		// Hand-fix json-numbers-exact: tool arguments keep big integers.
+		server.WithToolHandlerMiddleware(mcptools.ExactArguments),
 	)
 
 	mcptools.RegisterTools(s)

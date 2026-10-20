@@ -1405,7 +1405,7 @@ const (
 )
 
 func codeOrchSearchLimit(args map[string]any) int {
-	if v, ok := args["limit"].(float64); ok && v > 0 {
+	if v, ok := argPositive(args, "limit"); ok {
 		if v > float64(codeOrchSearchMaxLimit) {
 			return codeOrchSearchMaxLimit
 		}

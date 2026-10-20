@@ -87,13 +87,6 @@ func unwrapBinaryDeliverBody(body []byte) (raw []byte, contentType string, ok bo
 	return client.UnwrapBinaryResponse(body)
 }
 
-func binaryDeliverPayload(body []byte) (raw []byte, contentType string) {
-	if raw, contentType, ok := unwrapBinaryDeliverBody(body); ok {
-		return raw, contentType
-	}
-	return body, ""
-}
-
 type binaryDeliverReceipt struct {
 	Delivered   bool   `json:"delivered"`
 	Sink        string `json:"sink"`

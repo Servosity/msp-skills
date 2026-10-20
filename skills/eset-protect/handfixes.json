@@ -4127,8 +4127,8 @@
     },
     {
       "id": "json-numbers-exact",
-      "summary": "write bodies and exports keep every JSON number byte for byte: import posts each line as map[string]json.RawMessage, the generated --stdin bodies and JSON-valued flags decode through esetDecodeExact (json.Number), single-record JSON export encodes the RawMessage, and JSONL export compacts each record onto one line",
-      "why": "Press 4.33.5 decoded write bodies into map[string]any / any, so an integer above 2^53 (9007199254740993) reached the API as 9007199254740992 with exit 0: import (Codex round 2 P1, reproduced), single-record `export <res> <id> --format json` (Codex round 2 P1), and the same class in 34 generated write commands (41 call sites: --stdin bodies and JSON-valued flags such as device-tasks create --task-action-params). JSONL export kept a pretty-printed record's newlines, so its output could not be re-imported (Codex P2). TestImportExportKeepNumbersExact failed with import.go reverted, with export.go reverted, and with only exportJSONLine removed; TestGeneratedWriteBodiesKeepNumbersExact failed with groups_create.go reverted (--stdin) and with device-tasks_create.go reverted (JSON flag).",
+      "summary": "write bodies and exports keep every JSON number byte for byte: import posts each line as map[string]json.RawMessage, the generated --stdin bodies and JSON-valued flags decode through esetDecodeExact (json.Number), single-record JSON export encodes the RawMessage, and JSONL export compacts each record onto one line; the MCP server re-decodes every tool call's wire arguments with json.Number (ExactArguments middleware), and the --compact/--agent, --csv/--plain and --quiet output paths decode with esetDecodeExact",
+      "why": "Press 4.33.5 decoded write bodies into map[string]any / any, so an integer above 2^53 (9007199254740993) reached the API as 9007199254740992 with exit 0: import (Codex round 2 P1, reproduced), single-record `export <res> <id> --format json` (Codex round 2 P1), and the same class in 34 generated write commands (41 call sites: --stdin bodies and JSON-valued flags such as device-tasks create --task-action-params). JSONL export kept a pretty-printed record's newlines, so its output could not be re-imported (Codex P2). TestImportExportKeepNumbersExact failed with import.go reverted, with export.go reverted, and with only exportJSONLine removed; TestGeneratedWriteBodiesKeepNumbersExact failed with groups_create.go reverted (--stdin) and with device-tasks_create.go reverted (JSON flag). Codex round 3 found the same class on two more surfaces: MCP eset-protect_execute (mcp-go fills Params.Arguments with plain json.Unmarshal; reproduced on the built binary over stdio, the POSTed body carried ...992 before the fix and ...993 after) and --compact (implied by --agent), --csv and --plain output. TestExecuteKeepsBigIntegers drives ExactArguments(handleCodeOrchExecute) with a wire-decoded request and keeps the bare handler as the rounding control; TestEveryOutputModeKeepsBigIntegers is the oracle across devices list/get in default, --json, --compact, --agent, --select, --csv and --plain, and failed in --compact, --agent, --csv and --plain before the helpers.go change.",
       "status": "active",
       "asserts": [
         {
@@ -4355,6 +4355,89 @@
           "file": "cli/internal/cli/web-address-rules_domains_web-address-rules-update.go",
           "contains": "esetDecodeExact(stdinData, &jsonBody)",
           "code_only": true
+        },
+        {
+          "file": "cli/cmd/eset-protect-mcp/main.go",
+          "contains": "server.WithToolHandlerMiddleware(mcptools.ExactArguments),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/eset_exact_args.go",
+          "contains": "dec.UseNumber()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if v, ok := argPositive(args, \"limit\"); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if v, ok := argPositive(args, \"limit\"); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "case nil, bool, float64, json.Number:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "case nil, bool, float64, json.Number, string:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if err := esetDecodeExact(compactedRaw, &compacted); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if err := esetDecodeExact(projected, &obj); err != nil || len(obj) == 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if err := esetDecodeExact(data, &scalars); err == nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "if err := json.Unmarshal(data, &items); err == nil {\n\t\treturn compactListFields("
+        }
+      ]
+    },
+    {
+      "id": "explicit-empty-replaces",
+      "summary": "the store's keep-richer merge lets a PRESENT empty array, object or string replace the stored value; only an omitted key keeps it",
+      "why": "The generated merge kept a device's old activeProducts/deployedComponents when a re-sync (including sync --full) returned activeProducts: [], so fleet health and fleet gaps still counted a newly unprotected device as protected (Codex round 3 P1). ESET Connect (gRPC-gateway) emits unpopulated fields, so present-and-empty is authoritative. TestExplicitEmptyReplacesMirroredValue failed with store.go reverted (`an explicit empty activeProducts kept the old products`) and also checks an omitted key still keeps the stored value.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\tif isJSONEmpty(incoming) {\n\t\treturn incoming\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "\tif len(incoming) == 0 && len(existing) > 0 {\n\t\treturn existing\n\t}"
+        }
+      ]
+    },
+    {
+      "id": "binary-delivery-byte-exact",
+      "summary": "a binary download delivered with --deliver file: is written byte for byte; only non-binary payloads go through Deliver's text masking",
+      "why": "handleBinaryResponseDelivery unwrapped the binary envelope and passed the raw bytes to Deliver, which then saw no envelope and ran secrets.MaskBytes over a quarantine sample, rewriting any registered-secret bytes (or replacing the payload with the withheld message) while the receipt reported the original byte count (Codex round 3 P1). TestBinaryDeliverIsNotMasked failed with helpers.go and deliver.go reverted; TestBinaryDownloadsAreByteExact still passes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "deliverErr = deliverFile(flags.deliverSink.Target, raw)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "not_contains": "func binaryDeliverPayload("
         }
       ]
     }
