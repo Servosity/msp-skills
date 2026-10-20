@@ -259,20 +259,26 @@ func Forced(ctx context.Context) bool {
 
 // maxFailedSegmentDecodes bounds the embedded-JSON scan on text that is not
 // one JSON stream (a capped, truncated stdout; a result full of stray
-// brackets), so it cannot go quadratic.
+// brackets), so it cannot go quadratic. A text whose scan runs out of budget
+// with a '{' or '[' left unexamined is withheld whole, as the store scrub
+// withholds such a value: its remaining JSON keys were never judged.
 const maxFailedSegmentDecodes = 256
 
 // redactJSONSegments returns text with every decodable JSON object or array
 // redacted, plus the concatenated non-JSON remainder for the plain-text check.
-// After a failed decode the scan moves one byte on, so the complete records
-// inside a truncated container are still decoded and redacted one by one.
+// When the decode budget runs out with JSON left unexamined it returns the
+// placeholder and no remainder: the text is withheld whole (fail closed), in
+// Raw, Final and a string value alike. After a failed decode the scan moves
+// one byte on, so the complete records inside a truncated container are still
+// decoded and redacted one by one. The placeholder text is skipped, never
+// decoded, so already-withheld values never spend the budget.
 func redactJSONSegments(text string) (string, string) {
 	var out, plain strings.Builder
 	failures := 0
 	i := 0
 	for i < len(text) {
 		j := strings.IndexAny(text[i:], "{[")
-		if j < 0 || failures >= maxFailedSegmentDecodes {
+		if j < 0 {
 			out.WriteString(text[i:])
 			plain.WriteString(text[i:])
 			break
@@ -281,6 +287,17 @@ func redactJSONSegments(text string) (string, string) {
 		out.WriteString(text[i:start])
 		plain.WriteString(text[i:start])
 		plain.WriteByte(' ')
+		if strings.HasPrefix(text[start:], WithheldFieldPlaceholder) {
+			out.WriteString(WithheldFieldPlaceholder)
+			plain.WriteString(WithheldFieldPlaceholder)
+			i = start + len(WithheldFieldPlaceholder)
+			continue
+		}
+		if failures >= maxFailedSegmentDecodes {
+			// Hand-wired (handfixes.json: secrets-never-persisted): the rest
+			// was never decoded, so its JSON keys were never judged.
+			return WithheldFieldPlaceholder, ""
+		}
 		dec := json.NewDecoder(strings.NewReader(text[start:]))
 		dec.UseNumber()
 		var v any

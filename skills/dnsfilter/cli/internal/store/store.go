@@ -149,6 +149,13 @@ func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 	// stay visible. immutable=1 is only the retry when that open cannot
 	// create the WAL index.
 	if err != nil && ctx.Err() == nil && readOnlyOpenNeedsImmutableFallback(err) {
+		// HAND-FIX(read-only-open-never-hides-wal): immutable=1 reads the
+		// main file only, so committed WAL frames (or a hot rollback journal)
+		// beside it would be silently ignored: stale rows and a stale
+		// complete flag. Such a store is refused with the condition named.
+		if journal, pending := sqliteJournalPending(dbPath); pending {
+			return nil, fmt.Errorf("opening database (read-only): %w; %s holds committed changes the main file does not, and a read-only open here cannot apply them (it cannot create the -shm index or roll back the journal), so the read would be stale: run a writable command such as 'dnsfilter-cli sync' or checkpoint the database first", err, journal)
+		}
 		db, err = openReadOnlySQLite(ctx, dsn+"&immutable=1")
 	}
 	if err != nil {
@@ -156,6 +163,23 @@ func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(2)
 	return &Store{db: db, path: dbPath}, nil
+}
+
+// sqliteJournalPending reports a non-empty -wal or -journal file beside
+// dbPath (or one that cannot be checked): changes the main file alone does
+// not hold. A directory at that path holds none. It returns that path.
+// HAND-FIX(read-only-open-never-hides-wal)
+func sqliteJournalPending(dbPath string) (string, bool) {
+	for _, path := range []string{dbPath + "-wal", dbPath + "-journal"} {
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil || info.Mode().IsRegular() && info.Size() > 0 {
+			return path, true
+		}
+	}
+	return "", false
 }
 
 // sql.Open is lazy, and driver init is a no-op once any connection has
@@ -6438,12 +6462,32 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 }
 
 func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage) (int, int, int, error) {
+	return s.upsertBatchDetailed(resourceType, items, nil)
+}
+
+// UpsertBatchStoredIDs is UpsertBatchDetailed that also returns the bare id
+// (BareResourceID of the storage key) of every row it stored under
+// resourceType, exactly as the writer keyed it: after an ID-bearing envelope
+// ({"result":{"id":"7"}}) is unwrapped, a parent key appended, or a
+// fingerprint taken. Sync's reconcile keeps exactly these rows, so its seen
+// set can never diverge from what was stored. On an error it returns no ids.
+// HAND-FIX(sync-seen-ids-are-stored-ids)
+func (s *Store) UpsertBatchStoredIDs(resourceType string, items []json.RawMessage) ([]string, int, int, int, error) {
+	var ids []string
+	stored, extractFailures, typedFailures, err := s.upsertBatchDetailed(resourceType, items, &ids)
+	if err != nil {
+		ids = nil
+	}
+	return ids, stored, extractFailures, typedFailures, err
+}
+
+func (s *Store) upsertBatchDetailed(resourceType string, items []json.RawMessage, storedIDs *[]string) (int, int, int, error) {
 	// HAND-FIX(action-response-stored-on-parent): a secret_key or revoke
 	// write-through carries the parent network / api key record, so it is
 	// stored on the parent's partition instead of a child table whose parent
 	// key it can never fill.
 	if parent, moved, kept := splitActionResponseItems(resourceType, items); len(moved) > 0 {
-		return s.upsertActionResponse(resourceType, parent, moved, kept)
+		return s.upsertActionResponse(resourceType, parent, moved, kept, storedIDs)
 	}
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
@@ -6453,11 +6497,17 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	}
 	defer tx.Rollback()
 
-	var stored, skippedCount, extractFailures, typedFailures int
+	var stored, skippedCount, extractFailures, typedFailures, nonObjects int
 	for i, item := range items {
 		obj, err := DecodeJSONObject(item)
 		if err != nil {
+			// HAND-FIX(sync-non-object-item-is-incomplete): an item that is
+			// not a JSON object (42, "x", [1]) is a row the API returned that
+			// was not stored, so it counts as an extract failure: sync must not
+			// certify the walk complete and prune the rows it stands for.
 			skippedCount++
+			extractFailures++
+			nonObjects++
 			continue
 		}
 		// Templated IDField wins; generic fallback list runs second when
@@ -6497,6 +6547,9 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			return 0, extractFailures, typedFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, storageID, err)
 		}
 		stored++
+		if storedIDs != nil {
+			*storedIDs = append(*storedIDs, BareResourceID(storageID))
+		}
 
 		// Backfill the typed child table's NOT NULL scope column from the item's
 		// own parent reference when the dependent-sync path injection is absent
@@ -6612,7 +6665,7 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	// Partial misses still surface through extractFailures so sync can emit
 	// a structured primary_key_unresolved anomaly without spamming stderr for
 	// write-through cache batches that did persist useful rows.
-	if extractFailures > 0 && stored == 0 && len(items) > 0 {
+	if extractFailures > nonObjects && stored == 0 && len(items) > 0 {
 		fmt.Fprintf(cliutil.Stderr(), "warning: %d/%d %s items returned but not cached locally (no extractable ID field; offline lookup against these rows will be incomplete; live queries unaffected)\n", skippedCount, len(items), resourceType)
 	}
 	if err := tx.Commit(); err != nil {

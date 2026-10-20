@@ -176,7 +176,9 @@ func scrubSecretValue(value any) (any, bool) {
 const maxNestedJSONDepth = 8
 
 // maxFailedSegmentDecodes bounds the embedded-JSON scan of one string value
-// (a value full of stray brackets), so it cannot go quadratic.
+// (a value full of stray brackets), so it cannot go quadratic. A value whose
+// scan runs out of budget with a '{' or '[' still unexamined is withheld
+// whole (fail closed): its remaining JSON keys were never judged.
 const maxFailedSegmentDecodes = 256
 
 // WithheldValuePlaceholder replaces a string value that names a credential
@@ -284,9 +286,12 @@ func scrubSecretString(s string, depth int) (any, bool) {
 
 // scrubEmbeddedJSON scrubs every decodable JSON object or array inside text
 // and returns the rewritten text, the non-JSON remainder (for the text
-// check) and whether anything was scrubbed. After a failed decode the scan
-// moves one byte on, so the complete records inside a truncated container
-// are still found.
+// check) and whether anything was scrubbed. When the decode budget runs out
+// with a '{' or '[' left unexamined, the rewritten text is the placeholder
+// (changed, with no remainder): the value is withheld whole. After a failed
+// decode the scan moves one byte on, so the complete records inside a
+// truncated container are still found. The placeholder text is skipped,
+// never decoded, so withheld values never spend the budget.
 func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
 	var out, plain strings.Builder
 	changed := false
@@ -294,7 +299,7 @@ func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
 	i := 0
 	for i < len(text) {
 		j := strings.IndexAny(text[i:], "{[")
-		if j < 0 || failures >= maxFailedSegmentDecodes {
+		if j < 0 {
 			out.WriteString(text[i:])
 			plain.WriteString(text[i:])
 			break
@@ -303,6 +308,17 @@ func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
 		out.WriteString(text[i:start])
 		plain.WriteString(text[i:start])
 		plain.WriteByte(' ')
+		if strings.HasPrefix(text[start:], WithheldValuePlaceholder) {
+			out.WriteString(WithheldValuePlaceholder)
+			plain.WriteString(WithheldValuePlaceholder)
+			i = start + len(WithheldValuePlaceholder)
+			continue
+		}
+		if failures >= maxFailedSegmentDecodes {
+			// HAND-FIX(secrets-never-persisted): the rest was never decoded,
+			// so a JSON key in it ({"p a s s w o r d":"x"}) was never judged.
+			return WithheldValuePlaceholder, "", true
+		}
 		dec := json.NewDecoder(strings.NewReader(text[start:]))
 		dec.UseNumber()
 		var v any
@@ -354,12 +370,36 @@ func isLabelWordByte(c byte) bool {
 // tableSplitRE splits a CSV, TSV, pipe or column-aligned table row.
 var tableSplitRE = regexp.MustCompile(`\s*[,;\t|]\s*|\s{2,}`)
 
-// tableCellRE is one bare identifier, the only shape a header cell takes.
+// tableCellRE is one bare identifier (token, uninstall_pin, PIN2), a header
+// cell that names its column on its own.
 var tableCellRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*$`)
 
-// tableLabelRE is a header cell of two to five words (API Key, Network
-// secret key, Roaming Client Uninstall PIN).
-var tableLabelRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*(?: [A-Za-z0-9_.\-]+){1,4}$`)
+// tableLabelRE is a header cell of label words (API Key, Network secret key,
+// Roaming Client Uninstall PIN), optionally followed by one bracketed
+// qualifier (Uninstall PIN (HQ), API Key [prod]). There is no length or word
+// limit: a long header still heads its column.
+var tableLabelRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*(?: [A-Za-z0-9_.\-]+)*(?: [(\[][^()\[\]]*[)\]])?$`)
+
+// plistEntryRE is a property-list entry: <key>NAME</key> and the value
+// element after it, read up to the next tag (or the end of a cut preview).
+// DNSFilter's macOS roaming-client deployment writes the site secret key this
+// way (<key>NKEY</key><string>...</string>), with no separator for the pair
+// rule to see.
+var plistEntryRE = regexp.MustCompile(`(?i)<key\s*>([^<]*)</key\s*>\s*<(?:string|integer|real|data|date)\s*>([^<]*)`)
+
+// plistNamesSecret reports a property-list entry whose key names a secret
+// (KeyNamesSecret) and whose value is not exempt (exemptPairValue).
+func plistNamesSecret(text string) bool {
+	if !strings.Contains(text, "<") {
+		return false
+	}
+	for _, m := range plistEntryRE.FindAllStringSubmatch(text, -1) {
+		if KeyNamesSecret(strings.TrimSpace(m[1])) && !exemptPairValue(strings.TrimSpace(m[2])) {
+			return true
+		}
+	}
+	return false
+}
 
 // textNamesSecret is the store's text rule on a raw string value; see
 // TextNamesSecret.
@@ -369,19 +409,21 @@ func textNamesSecret(text string) bool {
 
 // TextNamesSecret reports whether text names a secret key in a shape that
 // can carry its value: a name=value / name: value pair whose value is not
-// exactly empty, true, false, null or the placeholder (SecretPairInText), or
-// a header row of a table that has at least one more line (a single line
-// such as "Top Secret, Finance" is a name, not a table). text is RAW: the
-// pair rule runs on it and on each level of JSON string escaping undone (up
-// to maxUnescapeRounds), so a key spelled tok\u0065n in a cut-off JSON blob
-// is still read as token; the table rule reads the fully unescaped text.
+// exactly empty, true, false, null or the placeholder (SecretPairInText), a
+// property-list entry (<key>NKEY</key><string>...</string>), or a header row
+// of a table that has at least one more line (a single line such as "Top
+// Secret, Finance" is a name, not a table). text is RAW: the pair and
+// property-list rules run on it and on each level of JSON string escaping
+// undone (up to maxUnescapeRounds), so a key spelled tok\u0065n in a cut-off
+// JSON blob is still read as token; the table rule reads the fully unescaped
+// text.
 // There is no exception for this CLI's own environment variable names.
 func TextNamesSecret(text string) bool {
 	// The pair rule reads the text at every escape level, raw included: a
 	// value's quote boundary is only right at the level it was written in,
 	// and a key's name may only show once escaping is undone.
 	for round := 0; ; round++ {
-		if SecretPairInText(text) {
+		if SecretPairInText(text) || plistNamesSecret(text) {
 			return true
 		}
 		if !strings.Contains(text, "\\") {
@@ -417,16 +459,22 @@ func TextNamesSecret(text string) bool {
 		nextIsRow := -1 // unknown until a spaced label needs it
 		for _, c := range cells {
 			c = strings.Trim(c, `"' `)
-			if len(c) > 64 {
+			if c == "" {
 				continue
 			}
-			if tableCellRE.MatchString(c) && IsSecretKey(c) {
+			// HAND-FIX(secrets-never-persisted): no length guard runs before
+			// the secret check (a 70-byte ..._secret_key header was skipped).
+			// An identifier cell is judged as a JSON key is (token,
+			// uninstall_pin, PIN2, NKEY).
+			if tableCellRE.MatchString(c) && KeyNamesSecret(c) {
 				return true
 			}
-			// A spaced label (API Key) heads a column only in a table: the
-			// next non-empty line is a delimited row too. Its cell count is
-			// not compared, since a quoted comma in a CSV row adds cells.
-			if tableLabelRE.MatchString(c) && labelNamesSecret(c) {
+			// A spaced label (API Key, Uninstall PIN (HQ), PIN2 Code) is
+			// judged as a text label (the label must name the secret, so
+			// Password Policy does not) and heads a column only in a table:
+			// the next non-empty line is a delimited row too. Its cell count
+			// is not compared, since a quoted comma in a CSV row adds cells.
+			if tableLabelRE.MatchString(c) && textLabelNamesSecret(c) {
 				if nextIsRow < 0 {
 					nextIsRow = 0
 					if j := nextRow[i]; j >= 0 && len(tableSplitRE.Split(strings.TrimSpace(lines[j]), -1)) >= 2 {
@@ -452,6 +500,12 @@ func TextNamesSecret(text string) bool {
 func KeyNamesSecret(key string) bool {
 	return IsSecretKey(key) || TextNamesSecret(key+": x")
 }
+
+// textLabelNamesSecret reports whether label, read as the text before a
+// separator (label: x), names a secret by the label rule with its qualifiers
+// and glued boundaries (API Key, Uninstall PIN (HQ), PIN2 Code); it is the
+// label half of KeyNamesSecret, so Password Policy does not.
+func textLabelNamesSecret(label string) bool { return TextNamesSecret(label + ": x") }
 
 // KeyCarriesSecret reports whether a JSON object key's own text holds a
 // labelled credential with a value ("Uninstall PIN: 4821", "token=X"): the
@@ -496,6 +550,169 @@ func labelNamesSecret(label string) bool {
 	return false
 }
 
+// gluedSecretLabel reports whether the label word w, read after the label
+// words prev (the run so far; the last two count, as in labelNamesSecret),
+// holds a secret name glued to a digit or punctuation inside the word: PIN2,
+// PIN.2, "PIN." before a qualifier, uninstall_pin_2, PIN-, API-Key2. The
+// scanner reads such a word whole, since a key name is one word
+// (uninstall_pin, X-Api-Key, api.key), so without this the secret name never
+// ends and the punctuation after it never arms. A glued boundary is a letter
+// followed by a digit, or by '.', '_' or '-' that is not followed by a letter;
+// those between letters join a compound name that the word rule judges whole
+// (token_type, pin_code_enabled, secret_key_id, api-keys.index). A word whose
+// last word is an identifier (token.id, pin2_id) is a reference, never a
+// secret. Linear in len(w): each boundary is judged from running state (the
+// folded prefix, whether it holds a secret fragment, where its last word
+// starts), never by re-reading the prefix.
+func gluedSecretLabel(prev []string, w string) bool {
+	if lw := keyWords(w); len(lw) == 0 || identifierWords[lw[len(lw)-1]] {
+		return false
+	}
+	if len(prev) > 2 {
+		prev = prev[len(prev)-2:]
+	}
+	// For the key/keys rule (API Key2, Network secret key.v2): prev's last k
+	// words, folded (only the tail a fragment can span into w), whether they
+	// name a secret on their own, and their last key word.
+	type joinedPrev struct {
+		tail   string
+		secret bool
+		lastKW string
+	}
+	var jp [3]joinedPrev
+	for k := 1; k <= len(prev); k++ {
+		words := keyWords(strings.Join(prev[len(prev)-k:], "_"))
+		f := strings.Join(words, "")
+		if len(f) > maxSecretFragmentLen {
+			f = f[len(f)-maxSecretFragmentLen:]
+		}
+		jp[k] = joinedPrev{tail: f, secret: containsSecretFragment(strings.Join(words, "")) || hasSecretWord(words)}
+		if len(words) > 0 {
+			jp[k].lastKW = shortKeyWord([]byte(words[len(words)-1]))
+		}
+	}
+	folded := make([]byte, 0, len(w))
+	fragSeen, wordSeen := false, false // folded holds a secret fragment / a secret word
+	kwStart := 0                       // where the current key word of folded starts
+	prevKW, firstKW := "", ""          // the key word before the current one; w's first
+	endKW := func() {
+		if kwStart < len(folded) {
+			kw := shortKeyWord(folded[kwStart:])
+			wordSeen = wordSeen || secretWordPair(prevKW, kw)
+			if firstKW == "" {
+				firstKW = kw
+			}
+			prevKW = kw
+		}
+		kwStart = len(folded)
+	}
+	for p := 0; p < len(w); p++ {
+		c := w[p]
+		if p > 0 && isASCIILetter(w[p-1]) && gluedBoundary(w, p) {
+			// IsSecretKey and labelNamesSecret on w[:p], from running state.
+			if lastKW := shortKeyWord(folded[kwStart:]); !identifierWords[lastKW] {
+				if fragSeen || wordSeen || secretWordPair(prevKW, lastKW) || hasSecretSuffix(folded) {
+					return true
+				}
+				if lastKW == "key" || lastKW == "keys" {
+					first := firstKW
+					if first == "" {
+						first = lastKW
+					}
+					head := folded
+					if len(head) > maxSecretFragmentLen {
+						head = head[:maxSecretFragmentLen]
+					}
+					for k := 1; k <= len(prev); k++ {
+						if jp[k].secret || secretWordPair(jp[k].lastKW, first) || containsSecretFragment(jp[k].tail+string(head)) {
+							return true
+						}
+					}
+				}
+			}
+		}
+		switch {
+		case c >= 'A' && c <= 'Z':
+			if p > 0 && (w[p-1] >= 'a' && w[p-1] <= 'z' || w[p-1] >= '0' && w[p-1] <= '9') {
+				endKW() // a camelCase boundary, as in keyWords
+			}
+			folded = append(folded, c+('a'-'A'))
+		case c >= 'a' && c <= 'z' || c >= '0' && c <= '9':
+			folded = append(folded, c)
+		default:
+			endKW()
+			continue
+		}
+		fragSeen = fragSeen || endsWithSecretFragment(folded)
+	}
+	return false
+}
+
+// shortKeyWord is a key word as compared against the special word lists
+// (identifierWords, secretKeyWords, key/keys), all at most five letters; a
+// longer word matches none of them and is returned as "-", so the comparison
+// stays constant time however long the word is.
+func shortKeyWord(kw []byte) string {
+	if len(kw) > 5 {
+		return "-"
+	}
+	return string(kw)
+}
+
+// secretInstructionRun reports a label run that is a secret label followed by
+// "with" (Set your API key with:), the CLI's own instruction shape; "with" is
+// never a qualifier (labelPrepositions).
+func secretInstructionRun(run []string) bool {
+	n := len(run)
+	return n >= 2 && strings.EqualFold(run[n-1], "with") && labelNamesSecret(strings.Join(run[:n-1], " "))
+}
+
+// gluedBoundary reports whether w[p] ends the secret name before it: a digit,
+// or a '.', '_' or '-' that no letter follows ("PIN." then a space, PIN.2,
+// PIN_2, PIN-). Between letters those join a compound name (api-keys.index,
+// token_type, pin-code-enabled), which the word rule judges whole.
+func gluedBoundary(w string, p int) bool {
+	switch c := w[p]; {
+	case c >= '0' && c <= '9':
+		return true
+	case c == '.', c == '_', c == '-':
+		return p+1 == len(w) || !isASCIILetter(w[p+1])
+	}
+	return false
+}
+
+func isASCIILetter(c byte) bool { return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' }
+
+// maxSecretFragmentLen is the length of the longest secretKeyFragments entry.
+const maxSecretFragmentLen = 10
+
+func containsSecretFragment(folded string) bool {
+	for _, f := range secretKeyFragments {
+		if strings.Contains(folded, f) {
+			return true
+		}
+	}
+	return false
+}
+
+func endsWithSecretFragment(folded []byte) bool {
+	for _, f := range secretKeyFragments {
+		if bytes.HasSuffix(folded, []byte(f)) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSecretSuffix(folded []byte) bool {
+	for _, s := range secretKeySuffixes {
+		if bytes.HasSuffix(folded, []byte(s)) {
+			return true
+		}
+	}
+	return false
+}
+
 // SecretPairInText reports whether text holds a secret label followed by a
 // separator (= or :) and a value that is not exempt (pairCarriesValue). One
 // linear pass, no window: a separator is labelled when the one to three
@@ -509,10 +726,12 @@ func labelNamesSecret(label string) bool {
 // value, a string in a result), where quotes are prose (an inch mark 19" or a
 // quoted name), so nothing else ends a qualifier. An escaped line break (\n)
 // is text at its level (UNC paths such as \\dc01\netlogon); the unescape
-// rounds supply the real breaks. A secret word followed by another word is a
-// different label (Password Policy: strict is kept). It reads text at one
-// escape level, as given, and never unescapes; TextNamesSecret runs it on
-// every level of raw text.
+// rounds supply the real breaks. Punctuation or a digit glued inside the word
+// counts the same (PIN2, PIN.2, "PIN." then HQ; see gluedSecretLabel). A
+// secret word followed by another word is a different label (Password Policy:
+// strict is kept), and so is a compound name (token_type, api-keys.index). It
+// reads text at one escape level, as given, and never unescapes;
+// TextNamesSecret runs it on every level of raw text.
 func SecretPairInText(text string) bool { return secretPairScan(text, scanPlain) }
 
 // SecretPairInJSONText is SecretPairInText for text that is JSON as a whole
@@ -564,13 +783,22 @@ func secretPairScan(text string, mode int) bool {
 	// joined: the next word continues the run (only spaces since a word).
 	runSecret, pending, armed, clean, joined := false, false, false, false, false
 	// open[d]: a JSON string d levels down is open (JSON mode only);
-	// armedDepth: the deepest open string when the qualifier armed (-1: none).
+	// armedDepth: the deepest open string when the latest qualifier armed
+	// (-1: none).
 	var open [maxJSONDepth]bool
 	armedDepth := -1
-	arm := func() {
+	// armedIn: bit d+1 is set while an arming made with depth d deepest open
+	// is in force. A later arming never replaces an earlier one: each ends
+	// only where its own string closes, so re-arming cannot narrow the scope.
+	var armedIn uint16
+	// armedByGlue: the segment is armed only by a glued boundary (PIN2,
+	// "PIN." then a space), which a later secret instruction supersedes.
+	armedByGlue := false
+	armAt := func(glued bool) {
 		if !pending || mode == scanLabelOnly {
 			return
 		}
+		armedByGlue = glued && (!armed || armedByGlue)
 		armed, armedDepth = true, -1
 		for d := maxJSONDepth - 1; d >= 0; d-- {
 			if open[d] {
@@ -578,7 +806,9 @@ func secretPairScan(text string, mode int) bool {
 				break
 			}
 		}
+		armedIn |= 1 << uint(armedDepth+1)
 	}
+	arm := func() { armAt(false) }
 	for i := 0; i < len(text); {
 		c := text[i]
 		switch {
@@ -598,16 +828,24 @@ func secretPairScan(text string, mode int) bool {
 			if !joined {
 				run = run[:0]
 			}
+			// HAND-FIX(secrets-never-persisted): a secret name glued to a
+			// digit or punctuation inside the word (PIN2, PIN.2, "PIN." then
+			// a qualifier) names the secret and arms the segment, as the same
+			// punctuation would after a space.
+			glued := gluedSecretLabel(run, w)
 			if run = append(run, w); len(run) > 3 {
 				run = append(run[:0], run[1:]...)
 			}
-			runSecret = labelNamesSecret(strings.Join(run, " "))
+			runSecret = glued || labelNamesSecret(strings.Join(run, " "))
 			pending, clean, joined = runSecret, true, true
+			if glued {
+				armAt(true)
+			}
 			i = j
 			continue
 		case c == ' ' || c == '\t':
 		case c == '\n' || c == '\r':
-			armed, pending, joined = false, false, false
+			armed, pending, joined, armedIn = false, false, false, 0
 		case c == '\\' || c == '"':
 			k := 0
 			for i+k < len(text) && text[i+k] == '\\' {
@@ -623,8 +861,9 @@ func secretPairScan(text string, mode int) bool {
 				spaced := i > 0 && (text[i-1] == ' ' || text[i-1] == '\t')
 				if d := quoteDepth(k); mode != scanPlain && d >= 0 {
 					if open[d] {
+						armedIn &^= 1 << uint(d+1)
 						if armed && armedDepth == d {
-							armed = false
+							armed = armedIn != 0 // an earlier arming may still be in force
 						}
 						for e := d; e < maxJSONDepth; e++ {
 							open[e] = false
@@ -660,6 +899,16 @@ func secretPairScan(text string, mode int) bool {
 			arm()
 			pending, joined = false, false
 		case c == ':' || c == '=':
+			if clean && (!armed || armedByGlue) && secretInstructionRun(run) {
+				// "Set your API key with: export ..." says how to set the
+				// secret, not its value, so a glued arming ("check your API
+				// key. Set your API key with: ...") does not reach it: the
+				// separator is not labelled, the arming ends, and the pairs in
+				// its value are judged on their own. An arming by any other
+				// punctuation still labels it.
+				armed, runSecret, pending, clean, joined, armedIn = false, false, false, false, false, 0
+				break
+			}
 			labelled := armed || clean && runSecret
 			if labelled && pairCarriesValue(text[i+1:]) {
 				return true
@@ -984,6 +1233,31 @@ var secretKeySuffixes = []string{
 	"pins",
 }
 
+// secretKeyWords match only as a whole key word (keyWords): nkey is
+// DNSFilter's roaming-client deployment property for the site secret key
+// (msiexec ... NKEY="...", a macOS plist <key>NKEY</key>), and as a fragment it
+// would match monkey and donkey. "n" then "key" (nKey) is its camelCase
+// spelling. No DNSFilter spec property is matched.
+var secretKeyWords = map[string]bool{"nkey": true, "nkeys": true}
+
+// secretWordPair reports whether key word kw, after key word prev, is a
+// secret word.
+func secretWordPair(prev, kw string) bool {
+	return secretKeyWords[kw] || prev == "n" && (kw == "key" || kw == "keys")
+}
+
+// hasSecretWord reports whether words holds a secret word (secretWordPair).
+func hasSecretWord(words []string) bool {
+	prev := ""
+	for _, w := range words {
+		if secretWordPair(prev, w) {
+			return true
+		}
+		prev = w
+	}
+	return false
+}
+
 // identifierWords end a key that names a reference to a secret-bearing
 // object rather than the secret itself: api_keys_id (the parent key every
 // revoke row carries), secretKeyId, token_uuid.
@@ -991,7 +1265,9 @@ var identifierWords = map[string]bool{"id": true, "ids": true, "uuid": true, "uu
 
 // IsSecretKey reports whether a JSON object key names a secret. Case, '_',
 // '-' and any other non-alphanumeric separators are ignored; a key whose last
-// word is id, ids, uuid or uuids is an identifier, not a secret.
+// word is id, ids, uuid or uuids is an identifier, not a secret. A key
+// matches a fragment anywhere, a suffix at its end, or a whole secret word
+// (NKEY, site_nkey; not monkey).
 func IsSecretKey(key string) bool {
 	words := keyWords(key)
 	if len(words) == 0 || identifierWords[words[len(words)-1]] {
@@ -1008,7 +1284,7 @@ func IsSecretKey(key string) bool {
 			return true
 		}
 	}
-	return false
+	return hasSecretWord(words)
 }
 
 // keyWords splits a key into lower-case words on every non-alphanumeric rune

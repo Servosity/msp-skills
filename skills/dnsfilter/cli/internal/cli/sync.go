@@ -788,7 +788,8 @@ func syncResource(ctx context.Context, c interface {
 				break
 			}
 			// Single object response - try to store as-is
-			if err := upsertSingleObject(db, resource, data); err != nil {
+			singletonID, err := upsertSingleObjectStoredID(db, resource, data)
+			if err != nil {
 				if !humanFriendly {
 					fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
 				}
@@ -797,16 +798,10 @@ func syncResource(ctx context.Context, c interface {
 			totalCount++
 			// HAND-FIX(sync-singleton-joins-seen-ids): the stored object is
 			// the whole collection, so a full sync's reconcile must keep it
-			// (it was deleted right after being stored). The id is resolved
-			// as upsertSingleObject resolves it.
+			// (it was deleted right after being stored). The id is the one
+			// upsertSingleObject stored it under.
 			if flatReconcilable {
-				if o, derr := store.DecodeJSONObject(data); derr == nil {
-					id := extractID(resource, o)
-					if id == "" {
-						id = resource
-					}
-					seenIDs = append(seenIDs, id)
-				}
+				seenIDs = append(seenIDs, singletonID)
 			}
 			// Single-object resources are fully enumerated by definition.
 			outcome.complete = true
@@ -821,7 +816,7 @@ func syncResource(ctx context.Context, c interface {
 		// outcomes are classified precisely: all items rejected by ID extraction,
 		// partial primary-key misses, typed projection failures, and rows that
 		// extracted cleanly but still failed to land.
-		stored, extractFailures, typedFailures, err := upsertResourceBatch(db, resource, items)
+		storedIDs, stored, extractFailures, typedFailures, err := upsertResourceBatch(db, resource, items)
 		if err != nil {
 			if !humanFriendly {
 				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
@@ -887,18 +882,13 @@ func syncResource(ctx context.Context, c interface {
 
 		totalCount += stored
 		atomic.AddInt64(&progressCount, int64(stored))
-		// Collect seen IDs for flat tenant-scoped reconcile. extractID resolves
-		// the primary key the same way UpsertBatch does, so seenIDs match stored
-		// row IDs. Only non-empty IDs are tracked; reconcile never deletes a row
-		// whose ID was seen this run.
+		// Collect seen IDs for flat tenant-scoped reconcile.
+		// HAND-FIX(sync-seen-ids-are-stored-ids): they are the ids the writer
+		// stored (an unwrapped {"result":{"id":..}} envelope included), never
+		// re-derived from the raw items, so reconcile can never delete a row
+		// this walk just stored.
 		if flatReconcilable {
-			for _, it := range items {
-				if o, derr := store.DecodeJSONObject(it); derr == nil {
-					if id := extractID(resource, o); id != "" {
-						seenIDs = append(seenIDs, id)
-					}
-				}
-			}
+			seenIDs = append(seenIDs, storedIDs...)
 		}
 		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && fetchedThisPage >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(resource, path)...) {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
@@ -928,8 +918,9 @@ func syncResource(ctx context.Context, c interface {
 		// warning per paginated resource would mask real sync_anomaly /
 		// sync_error output in the same stream.
 		if maxPages > 0 && pagesFetched >= maxPages {
-			truncatedByCap := resourceSupportsPagination(resource) && hasMore
-			truncatedByCap = truncatedByCap && !shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit)
+			// HAND-FIX(sync-short-page-follows-continuation): a continuation
+			// on a short page still truncates.
+			truncatedByCap := resourceSupportsPagination(resource) && !syncPageEndsWalk(hasMore, nextCursor)
 			capResumed := false
 			if truncatedByCap {
 				capExitCursor = nextCursor
@@ -966,8 +957,7 @@ func syncResource(ctx context.Context, c interface {
 				outcome.reason = "max_pages_cap"
 			} else if paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {
 				outcome.reason = "cursor_unavailable"
-			} else if !hasMore ||
-				shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, capPageLimit) {
+			} else if syncPageEndsWalk(hasMore, nextCursor) {
 				outcome.complete = true
 			} else {
 				outcome.reason = "max_pages_cap"
@@ -1003,7 +993,7 @@ func syncResource(ctx context.Context, c interface {
 			outcome.reason = "cursor_unavailable"
 			break
 		}
-		if !hasMore || shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit) {
+		if syncPageEndsWalk(hasMore, nextCursor) {
 			outcome.complete = true
 			break
 		}
@@ -1343,8 +1333,28 @@ type paginationDefaults struct {
 	limit          int
 }
 
-func shortPageEndsPagination(cursorType string, fetched, limit int) bool {
-	return cursorType != "cursor" && cursorType != "page_token" && fetched < limit
+// syncPageEndsWalk reports whether a fetched page ends the walk: nothing on
+// it says there is more. An explicit continuation (a next cursor or link,
+// has_more: true, or a full page the page/offset fallback advances) is always
+// followed, also on a short page: a short page ends the walk only when no
+// continuation is present (a short page with no signal already reports
+// hasMore false). HAND-FIX(sync-short-page-follows-continuation)
+func syncPageEndsWalk(hasMore bool, nextCursor string) bool {
+	return !hasMore && nextCursor == ""
+}
+
+// explicitJSONBool reads raw as a JSON boolean literal only: a has_more of
+// null, a string or a number is unknown, never a proven false (json.Unmarshal
+// of null into a bool succeeds and leaves false).
+// HAND-FIX(sync-has-more-null-is-unknown)
+func explicitJSONBool(raw json.RawMessage) (bool, bool) {
+	switch strings.TrimSpace(string(raw)) {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	}
+	return false, false
 }
 
 // paginationEndUnprovable is true when pagination is declared, the page is
@@ -2352,7 +2362,8 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	hasMoreKeys := []string{"has_more", "hasMore", "has_next", "hasNext", "next_page"}
 	for _, key := range hasMoreKeys {
 		if raw, ok := envelope[key]; ok {
-			if err := json.Unmarshal(raw, &hasMore); err == nil {
+			if v, ok := explicitJSONBool(raw); ok {
+				hasMore = v
 				break
 			}
 		}
@@ -2416,8 +2427,7 @@ func envelopeExplicitHasMore(envelope map[string]json.RawMessage) (bool, bool) {
 		if !ok {
 			continue
 		}
-		var hasMore bool
-		if json.Unmarshal(raw, &hasMore) == nil {
+		if hasMore, ok := explicitJSONBool(raw); ok {
 			return hasMore, true
 		}
 	}
@@ -2482,9 +2492,12 @@ type discriminatorDispatch struct {
 
 var discriminatorDispatchers = map[string]discriminatorDispatch{}
 
-func upsertResourceBatch(db *store.Store, resource string, items []json.RawMessage) (int, int, int, error) {
+// upsertResourceBatch also returns the bare id of every row it stored, as the
+// store keyed it (HAND-FIX(sync-seen-ids-are-stored-ids)): reconcile's seen
+// set is built from these, never re-derived from the raw items.
+func upsertResourceBatch(db *store.Store, resource string, items []json.RawMessage) ([]string, int, int, int, error) {
 	if _, ok := discriminatorDispatchers[resource]; !ok {
-		return db.UpsertBatchDetailed(resource, items)
+		return db.UpsertBatchStoredIDs(resource, items)
 	}
 
 	grouped := map[string][]json.RawMessage{}
@@ -2500,17 +2513,21 @@ func upsertResourceBatch(db *store.Store, resource string, items []json.RawMessa
 		grouped[target] = append(grouped[target], item)
 	}
 
+	var storedIDs []string
 	var stored, extractFailures, typedFailures int
 	for _, target := range order {
-		targetStored, targetExtractFailures, targetTypedFailures, err := db.UpsertBatchDetailed(target, grouped[target])
+		targetIDs, targetStored, targetExtractFailures, targetTypedFailures, err := db.UpsertBatchStoredIDs(target, grouped[target])
 		if err != nil {
-			return stored, extractFailures + targetExtractFailures, typedFailures + targetTypedFailures, err
+			return nil, stored, extractFailures + targetExtractFailures, typedFailures + targetTypedFailures, err
+		}
+		if target == resource {
+			storedIDs = append(storedIDs, targetIDs...)
 		}
 		stored += targetStored
 		extractFailures += targetExtractFailures
 		typedFailures += targetTypedFailures
 	}
-	return stored, extractFailures, typedFailures, nil
+	return storedIDs, stored, extractFailures, typedFailures, nil
 }
 
 func resolveDiscriminatedResource(resource string, obj map[string]any) string {
@@ -2530,12 +2547,21 @@ func resolveDiscriminatedResource(resource string, obj map[string]any) string {
 
 // upsertSingleObject stores a non-array API response as a single record.
 func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) error {
+	_, err := upsertSingleObjectStoredID(db, resource, data)
+	return err
+}
+
+// upsertSingleObjectStoredID is upsertSingleObject that also returns the bare
+// id it stored the record under: a typed writer keys it by
+// store.ResolveStorageID, the generic writer by id
+// (HAND-FIX(sync-seen-ids-are-stored-ids)).
+func upsertSingleObjectStoredID(db *store.Store, resource string, data json.RawMessage) (string, error) {
 	if !json.Valid(bytes.TrimSpace(data)) || isJSONNull(data) {
-		return fmt.Errorf("%s response is not JSON; refusing to store a non-JSON body", resource)
+		return "", fmt.Errorf("%s response is not JSON; refusing to store a non-JSON body", resource)
 	}
 	obj, err := store.DecodeJSONObject(data)
 	if err != nil {
-		return fmt.Errorf("%s response is not a JSON object: %w", resource, err)
+		return "", fmt.Errorf("%s response is not a JSON object: %w", resource, err)
 	}
 
 	resource = resolveDiscriminatedResource(resource, obj)
@@ -2544,90 +2570,91 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 	if id == "" {
 		id = resource
 	}
+	typedID := store.ResolveStorageID(resource, obj)
 
 	switch resource {
 	case "agent-local-user-bulk-deletes":
-		return db.UpsertAgentLocalUserBulkDeletes(data)
+		return typedID, db.UpsertAgentLocalUserBulkDeletes(data)
 	case "agent-local-users":
-		return db.UpsertAgentLocalUsers(data)
+		return typedID, db.UpsertAgentLocalUsers(data)
 	case "api-keys":
-		return db.UpsertApiKeys(data)
+		return typedID, db.UpsertApiKeys(data)
 	case "revoke":
-		return db.UpsertRevoke(data)
+		return typedID, db.UpsertRevoke(data)
 	case "application-categories":
-		return db.UpsertApplicationCategories(data)
+		return typedID, db.UpsertApplicationCategories(data)
 	case "applications":
-		return db.UpsertApplications(data)
+		return typedID, db.UpsertApplications(data)
 	case "billing":
-		return db.UpsertBilling(data)
+		return typedID, db.UpsertBilling(data)
 	case "block-pages":
-		return db.UpsertBlockPages(data)
+		return typedID, db.UpsertBlockPages(data)
 	case "categories":
-		return db.UpsertCategories(data)
+		return typedID, db.UpsertCategories(data)
 	case "collections_users":
-		return db.UpsertCollectionsUsers(data)
+		return typedID, db.UpsertCollectionsUsers(data)
 	case "current-user":
-		return db.UpsertCurrentUser(data)
+		return typedID, db.UpsertCurrentUser(data)
 	case "dashboards":
-		return db.UpsertDashboards(data)
+		return typedID, db.UpsertDashboards(data)
 	case "dictionary":
-		return db.UpsertDictionary(data)
+		return typedID, db.UpsertDictionary(data)
 	case "distributors":
-		return db.UpsertDistributors(data)
+		return typedID, db.UpsertDistributors(data)
 	case "domains":
-		return db.UpsertDomains(data)
+		return typedID, db.UpsertDomains(data)
 	case "enterprise-connections":
-		return db.UpsertEnterpriseConnections(data)
+		return typedID, db.UpsertEnterpriseConnections(data)
 	case "invoices":
-		return db.UpsertInvoices(data)
+		return typedID, db.UpsertInvoices(data)
 	case "ip-addresses":
-		return db.UpsertIpAddresses(data)
+		return typedID, db.UpsertIpAddresses(data)
 	case "mac-addresses":
-		return db.UpsertMacAddresses(data)
+		return typedID, db.UpsertMacAddresses(data)
 	case "networks":
-		return db.UpsertNetworks(data)
+		return typedID, db.UpsertNetworks(data)
 	case "lan_ips":
-		return db.UpsertLanIps(data)
+		return typedID, db.UpsertLanIps(data)
 	case "secret_key":
-		return db.UpsertSecretKey(data)
+		return typedID, db.UpsertSecretKey(data)
 	case "subnets":
-		return db.UpsertSubnets(data)
+		return typedID, db.UpsertSubnets(data)
 	case "batch_update":
-		return db.UpsertBatchUpdate(data)
+		return typedID, db.UpsertBatchUpdate(data)
 	case "notes_notes":
-		return db.UpsertNotesNotes(data)
+		return typedID, db.UpsertNotesNotes(data)
 	case "organizations":
-		return db.UpsertOrganizations(data)
+		return typedID, db.UpsertOrganizations(data)
 	case "organizations_users":
-		return db.UpsertOrganizationsUsers(data)
+		return typedID, db.UpsertOrganizationsUsers(data)
 	case "policies":
-		return db.UpsertPolicies(data)
+		return typedID, db.UpsertPolicies(data)
 	case "permissive_mode":
-		return db.UpsertPermissiveMode(data)
+		return typedID, db.UpsertPermissiveMode(data)
 	case "policy-ips":
-		return db.UpsertPolicyIps(data)
+		return typedID, db.UpsertPolicyIps(data)
 	case "scheduled-policies":
-		return db.UpsertScheduledPolicies(data)
+		return typedID, db.UpsertScheduledPolicies(data)
 	case "scheduled-reports":
-		return db.UpsertScheduledReports(data)
+		return typedID, db.UpsertScheduledReports(data)
 	case "unblock-requests":
-		return db.UpsertUnblockRequests(data)
+		return typedID, db.UpsertUnblockRequests(data)
 	case "decision":
-		return db.UpsertDecision(data)
+		return typedID, db.UpsertDecision(data)
 	case "user-agent-bulk-deletes":
-		return db.UpsertUserAgentBulkDeletes(data)
+		return typedID, db.UpsertUserAgentBulkDeletes(data)
 	case "user-agent-bulk-updates":
-		return db.UpsertUserAgentBulkUpdates(data)
+		return typedID, db.UpsertUserAgentBulkUpdates(data)
 	case "user-agent-releases":
-		return db.UpsertUserAgentReleases(data)
+		return typedID, db.UpsertUserAgentReleases(data)
 	case "user-agents":
-		return db.UpsertUserAgents(data)
+		return typedID, db.UpsertUserAgents(data)
 	case "update_settings":
-		return db.UpsertUpdateSettings(data)
+		return typedID, db.UpsertUpdateSettings(data)
 	case "users":
-		return db.UpsertUsers(data)
+		return typedID, db.UpsertUsers(data)
 	default:
-		return db.Upsert(resource, id, data)
+		return id, db.Upsert(resource, id, data)
 	}
 }
 
@@ -3353,7 +3380,11 @@ func syncOneParent(
 
 		for i, item := range items {
 			var obj map[string]json.RawMessage
-			if err := json.Unmarshal(item, &obj); err == nil {
+			// HAND-FIX(sync-non-object-item-is-incomplete): a null child decodes
+			// to a nil map (writing parent_id into it panicked); like any
+			// non-object item it goes to the store unchanged, which counts it
+			// as an extract failure, so this parent's walk is not complete.
+			if err := json.Unmarshal(item, &obj); err == nil && obj != nil {
 				obj["parent_id"] = parentIDJSON
 				if _, ok := obj[parentFKKey]; !ok {
 					obj[parentFKKey] = parentIDJSON
@@ -3374,7 +3405,7 @@ func syncOneParent(
 			}
 		}
 
-		stored, extractFailures, typedFailures, err := upsertResourceBatch(db, dep.Name, items)
+		storedIDs, stored, extractFailures, typedFailures, err := upsertResourceBatch(db, dep.Name, items)
 		if err != nil {
 			outcome.reason = "upsert_error"
 			rep.failure = fmt.Errorf("upserting batch for %s parent %s: %w", dep.Name, parentID, err)
@@ -3420,17 +3451,12 @@ func syncOneParent(
 			}
 			break
 		}
-		// seenIDs carries BARE entity ids; extractID resolves the PK the same
-		// way UpsertBatch does. ReconcilePartition compares these against the
-		// stored keys via BareResourceID, so parent-keyed (NUL-composite)
-		// dependents reconcile correctly without composite seen ids here.
-		for _, it := range items {
-			if o, derr := store.DecodeJSONObject(it); derr == nil {
-				if id := extractID(dep.Name, o); id != "" {
-					seenIDs = append(seenIDs, id)
-				}
-			}
-		}
+		// seenIDs carries BARE entity ids.
+		// HAND-FIX(sync-seen-ids-are-stored-ids): they are the ids the writer
+		// stored (BareResourceID of each storage key), which
+		// ReconcilePartition compares against the stored keys via
+		// BareResourceID, so they cannot diverge.
+		seenIDs = append(seenIDs, storedIDs...)
 		if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(dep.Name, path)...) {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, dep.Name, parentID)
 		}
@@ -3440,7 +3466,7 @@ func syncOneParent(
 			// HAND-FIX(sync-resumed-walk-warns): a page that already ends the
 			// listing is a complete walk even when the page cap fired on it,
 			// as in the flat walk.
-			if !resourceSupportsPagination(dep.Name) || (!paginationEndUnprovable(true, nextCursor, len(items), pageSize.limit, data, responsePathForResource(dep.Name, path)...) && (!hasMore || shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit))) {
+			if !resourceSupportsPagination(dep.Name) || (!paginationEndUnprovable(true, nextCursor, len(items), pageSize.limit, data, responsePathForResource(dep.Name, path)...) && syncPageEndsWalk(hasMore, nextCursor)) {
 				outcome.complete = true
 				break
 			}
@@ -3475,7 +3501,7 @@ func syncOneParent(
 			outcome.reason = "cursor_unavailable"
 			break
 		}
-		if !hasMore || shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit) {
+		if syncPageEndsWalk(hasMore, nextCursor) {
 			outcome.complete = true
 			break
 		}

@@ -73,11 +73,13 @@ func foldJSONAPIType(t string) string {
 // child rows on resourceType, summing the counts. It runs before
 // UpsertBatchDetailed takes the write lock; neither recursive call can split
 // again (parent is not a listed child, and no kept row is typed as the parent).
-func (s *Store) upsertActionResponse(resourceType, parent string, moved, kept []json.RawMessage) (int, int, int, error) {
-	stored, extractFailures, typedFailures, err := s.UpsertBatchDetailed(parent, moved)
+// storedIDs (may be nil) receives only the ids stored under resourceType: a
+// moved row lives in the parent's partition, not this one.
+func (s *Store) upsertActionResponse(resourceType, parent string, moved, kept []json.RawMessage, storedIDs *[]string) (int, int, int, error) {
+	stored, extractFailures, typedFailures, err := s.upsertBatchDetailed(parent, moved, nil)
 	if err != nil || len(kept) == 0 {
 		return stored, extractFailures, typedFailures, err
 	}
-	keptStored, keptExtract, keptTyped, err := s.UpsertBatchDetailed(resourceType, kept)
+	keptStored, keptExtract, keptTyped, err := s.upsertBatchDetailed(resourceType, kept, storedIDs)
 	return stored + keptStored, extractFailures + keptExtract, typedFailures + keptTyped, err
 }
