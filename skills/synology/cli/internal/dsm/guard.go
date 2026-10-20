@@ -243,24 +243,57 @@ func newResponseMasker(secrets []string) *responseMasker {
 	return m
 }
 
-// decodedStages is the value as stored and at every stage of decoding it
-// (entities and percent escapes), computed only when there is something to
-// decode. A secret is compared at every stage, never only at the fixed
-// point: a secret that itself contains an escape (pw%2Fab) echoed once more
-// encoded (pw%252Fab) equals the secret one stage in, not at the end.
-func decodedStages(s string) []string {
-	if strings.ContainsAny(s, "%&") {
-		return DecodeStages(s)
+// decodeSteps are the single decoding steps an answer's text can carry: HTML
+// entities (named or numeric), percent escapes in either hex case, and the
+// form encoding's '+' for a space. Each is its own step, never fused with
+// another, so every intermediate text is its own state: a secret that
+// itself contains an escape (pw%2Fab) echoed once more encoded (pw%252Fab),
+// or entity-encoded (pw&#37;2Fab), equals the secret part-way, not at the end.
+var decodeSteps = []func(string) string{
+	html.UnescapeString,
+	func(s string) string { return pctEscape.ReplaceAllStringFunc(s, decodePct) },
+	func(s string) string { return strings.ReplaceAll(s, "+", " ") },
+}
+
+// maxDecodedStates bounds the search below. Every step shortens the text or
+// removes a '+', so the reachable set is finite and normally a handful of
+// texts; a value that exceeds the bound is treated as carrying a secret.
+const maxDecodedStates = 256
+
+// decodedStates returns s and every text reachable from it by any sequence of
+// decodeSteps, and false when the search hit maxDecodedStates (the caller
+// then fails closed).
+func decodedStates(s string) ([]string, bool) {
+	if !strings.ContainsAny(s, "%&+") {
+		return []string{s}, true
 	}
-	return []string{s}
+	seen := map[string]bool{s: true}
+	states := []string{s}
+	for i := 0; i < len(states); i++ {
+		for _, step := range decodeSteps {
+			next := step(states[i])
+			if next == states[i] || seen[next] {
+				continue
+			}
+			if len(seen) >= maxDecodedStates {
+				return states, false
+			}
+			seen[next] = true
+			states = append(states, next)
+		}
+	}
+	return states, true
 }
 
 // maskString masks secrets in one decoded string value: replaced whole when
-// any decoding stage of it is exactly a secret (any length), otherwise
-// maskInside.
+// any decoding of it is exactly a secret (any length), otherwise maskInside.
 func (m *responseMasker) maskString(s string) string {
-	for _, stage := range decodedStages(strings.TrimSpace(s)) {
-		if m.exact[strings.TrimSpace(stage)] {
+	states, complete := decodedStates(strings.TrimSpace(s))
+	if !complete {
+		return ResponseMask
+	}
+	for _, state := range states {
+		if m.exact[strings.TrimSpace(state)] {
 			return ResponseMask
 		}
 	}
@@ -279,7 +312,11 @@ func (m *responseMasker) maskInside(s string) string {
 	// Any other encoding (lower-case percent escapes, nested entities, a
 	// mix): if what a reader would see still carries a secret, the whole
 	// value goes.
-	for _, decoded := range decodedStages(out) {
+	states, complete := decodedStates(out)
+	if !complete && len(m.sub) > 0 {
+		return ResponseMask
+	}
+	for _, decoded := range states {
 		for _, v := range m.sub {
 			if strings.Contains(decoded, v) {
 				return ResponseMask

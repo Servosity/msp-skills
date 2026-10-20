@@ -2314,6 +2314,26 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "json-flag-usage-exit",
+      "summary": "a JSON flag that does not parse (--task-ids on abb backup/cancel, --additional on the promoted list commands) is a usage error, exit 2, as SKILL.md documents",
+      "why": "The generated commands return a plain error for an unparseable JSON flag, which isCobraUsageError did not recognise, so `abb backup --task-ids not-json` exited 1 (Codex round 4). One classifier rule covers every generated JSON flag. TestInvalidJSONFlagIsUsageError fails with the rule removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "(strings.HasPrefix(msg, \"--\") && strings.Contains(msg, \" must be valid JSON: \"))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/json_flag_usage_test.go",
+          "contains": "func TestInvalidJSONFlagIsUsageError(t *testing.T)",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     }
   ]
 }

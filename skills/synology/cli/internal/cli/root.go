@@ -309,7 +309,9 @@ func isCobraUsageError(err error) bool {
 		strings.HasPrefix(msg, `required flag "`) ||
 		strings.HasPrefix(msg, `required flag(s) "`) ||
 		strings.HasPrefix(msg, "flag needs an argument:") ||
-		strings.HasPrefix(msg, `invalid argument "`)
+		strings.HasPrefix(msg, `invalid argument "`) ||
+		// HAND-FIX(json-flag-usage-exit): a JSON flag that does not parse is a usage error (exit 2).
+		(strings.HasPrefix(msg, "--") && strings.Contains(msg, " must be valid JSON: "))
 }
 
 func newRootCmd(flags *rootFlags) *cobra.Command {

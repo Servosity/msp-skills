@@ -268,6 +268,12 @@ func Scrub(text string) string {
 
 var pctEscape = regexp.MustCompile(`%[0-9a-fA-F]{2}`)
 
+// decodePct decodes one %XX escape (either hex case).
+func decodePct(m string) string {
+	b, _ := hex.DecodeString(m[1:])
+	return string(b)
+}
+
 // errRedirectRefused is what errors.Is matches for a refused redirect
 // (*RedirectError).
 var errRedirectRefused = errors.New("refusing to follow a redirect")
@@ -381,10 +387,7 @@ func Decoded(s string) string {
 func DecodeStages(s string) []string {
 	stages := []string{s}
 	for {
-		d := pctEscape.ReplaceAllStringFunc(html.UnescapeString(s), func(m string) string {
-			b, _ := hex.DecodeString(m[1:])
-			return string(b)
-		})
+		d := pctEscape.ReplaceAllStringFunc(html.UnescapeString(s), decodePct)
 		if d == s {
 			return stages
 		}
