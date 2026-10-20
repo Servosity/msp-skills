@@ -1308,6 +1308,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "dnsfilter",
+      "source": "./skills/dnsfilter",
+      "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "dnsfilter",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

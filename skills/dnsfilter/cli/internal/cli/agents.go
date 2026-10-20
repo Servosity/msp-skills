@@ -1,0 +1,25 @@
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Novel command scaffold. Implement the RunE body before shipping.
+// generate --force preserves implemented bodies; untouched TODO scaffolds may refresh.
+// pp:data-source auto
+// Supported strategies: auto, local, live, or computed. Change this default deliberately.
+
+package cli
+
+import (
+	"github.com/spf13/cobra"
+)
+
+func newNovelAgentsCmd(flags *rootFlags) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:         "agents",
+		Short:       "Roaming client fleet views: agent version drift and silent or unprotected clients",
+		Example:     "  dnsfilter-cli agents drift --bad-version 3.1.0 --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
+		RunE:        parentNoSubcommandRunE(flags),
+	}
+	addNovelCommandIfAbsent(cmd, newNovelAgentsDriftCmd(flags))
+	addNovelCommandIfAbsent(cmd, newNovelAgentsStaleCmd(flags))
+	return cmd
+}

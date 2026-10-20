@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "dnsfilter-mcp",
+  "display_name": "DNSFilter",
+  "version": "0.1.0",
+  "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/dnsfilter-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/dnsfilter-mcp",
+      "args": [],
+      "env": {
+        "DNSFILTER_API_KEY": "${user_config.dnsfilter_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "dnsfilter_api_key": {
+      "type": "string",
+      "title": "DNSFILTER_API_KEY",
+      "description": "Sets DNSFILTER_API_KEY for the DNSFilter MCP server. Get a credential from https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T16:56:18.962099Z",
+    "spec_checksum": "sha256:ba94f3fc7d32cd3cf1fac1c4ce47c8f333790a6b731bd1ddde20f1ed5846a963",
+    "spec_format": "openapi3"
+  }
+}

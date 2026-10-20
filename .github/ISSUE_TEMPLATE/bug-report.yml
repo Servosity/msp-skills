@@ -49,6 +49,7 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - dnsfilter
         - domotz
         - fortinet
         - google-workspace

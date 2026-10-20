@@ -717,6 +717,29 @@
         "issue_url": null
       }
     },
+    "dnsfilter": {
+      "system": "DNSFilter DNS security and content filtering (MSP and client organizations)",
+      "status": "beta",
+      "cli_binary": "dnsfilter-cli",
+      "mcp_binary": "dnsfilter-mcp",
+      "vendor": "DNSFilter",
+      "vendor_trademark_owner": "DNSFilter, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "DNSFilter",
+      "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
+      "has_video": true,
+      "cli_hash": "sha256:042c5fc66e374e6e78c0bd52d13e7d6c2b37e81c204e8ef87ac5d26ecbe444c1",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "domotz": {
       "system": "Domotz network monitoring and device discovery platform",
       "status": "beta",

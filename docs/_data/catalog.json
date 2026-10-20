@@ -1,5 +1,5 @@
 {
-  "count": 81,
+  "count": 82,
   "connectors": [
     {
       "slug": "abnormal",
@@ -308,6 +308,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/datto-rmm/"
+    },
+    {
+      "slug": "dnsfilter",
+      "display_name": "DNSFilter",
+      "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/dnsfilter/"
     },
     {
       "slug": "domotz",

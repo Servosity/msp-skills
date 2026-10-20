@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-16",
+  "generated_at": "2026-10-20",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -599,6 +599,26 @@
       "verification": "awaiting",
       "category": "RMM",
       "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask."
+    },
+    {
+      "name": "dnsfilter",
+      "system": "DNSFilter DNS security and content filtering (MSP and client organizations)",
+      "status": "beta",
+      "skill_path": "skills/dnsfilter",
+      "cli_binary": "dnsfilter-cli",
+      "mcp_binary": "dnsfilter-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "DNSFilter",
+      "vendor_trademark_owner": "DNSFilter, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dnsfilter/install.sh)",
+      "install_mcp_doc": "skills/dnsfilter/mcp-install.md",
+      "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client."
     },
     {
       "name": "domotz",
