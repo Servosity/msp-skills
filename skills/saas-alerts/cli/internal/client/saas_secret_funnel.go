@@ -6,9 +6,13 @@
 package client
 
 import (
+	"bytes"
+	"encoding/json"
 	"html"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf16"
 )
 
 // echoWithheldText replaces the text of an answer that quotes back a credential.
@@ -16,40 +20,50 @@ import (
 // withheld 400 still classifies as the API error it was.
 const echoWithheldText = "[response text withheld: it repeated a secret value this CLI sent]"
 
-// echoesCredential reports whether body quotes back a credential this client
-// holds (the partner key, Respond access tokens) or one of extra (the request's
-// webhook tokens), as written or in any mix of JSON escapes, percent-encoding
-// (either case) and HTML entities, decoded repeatedly so nested encodings are
-// caught. It reads the whole body before any cut or summary, and callers then
-// withhold the whole text instead of guessing where a secret starts and ends,
-// so no cut point and no partial match can leave part of a secret behind.
-// Values under 8 characters are skipped; maskCredentialText still replaces
-// them as written.
-func (c *Client) echoesCredential(body []byte, extra ...string) bool {
+// funnelSecrets lists the values the funnel looks for: every credential this
+// client holds (credentialSecrets: the partner key, Respond access tokens) and
+// extra (the request's webhook tokens). Values under 8 characters are skipped;
+// maskCredentialText still replaces them as written.
+func (c *Client) funnelSecrets(extra ...string) []string {
 	var secrets []string
 	for _, s := range c.credentialSecrets(extra...) {
 		if len(s) >= 8 {
 			secrets = append(secrets, s)
 		}
 	}
-	if len(secrets) == 0 || len(body) == 0 {
+	return secrets
+}
+
+// echoesCredential reports whether body quotes back a funnel secret. It reads
+// the whole body before any cut or summary, and callers then withhold the whole
+// text instead of guessing where a secret starts and ends, so no cut point and
+// no partial match can leave part of a secret behind.
+func (c *Client) echoesCredential(body []byte, extra ...string) bool {
+	return echoesAny(string(body), c.funnelSecrets(extra...))
+}
+
+// echoesAny reports whether view contains one of secrets as written or after
+// any mix of dropping unprintable characters, JSON escapes, percent-encoding
+// (either case) and HTML entities, decoded until nothing changes.
+func echoesAny(view string, secrets []string) bool {
+	if len(secrets) == 0 || view == "" {
 		return false
 	}
-	contains := func(view string) bool {
+	contains := func(v string) bool {
 		for _, s := range secrets {
-			if strings.Contains(view, s) {
+			if strings.Contains(v, s) {
 				return true
 			}
 		}
 		return false
 	}
-	view := string(body)
 	if contains(view) {
 		return true
 	}
-	// ponytail: 4 rounds of the three decoders covers any realistic nesting; a
-	// fifth level of encoding would slip through.
-	for round := 0; round < 4; round++ {
+	// Every decoder only shortens the text or leaves it alone, so this reaches
+	// a fixed point. ponytail: capped at 32 rounds, so pathological input stays
+	// linear-ish; 32 nested encodings of one echo would slip through.
+	for round := 0; round < 32; round++ {
 		before := view
 		for _, decode := range []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString} {
 			view = decode(view)
@@ -62,6 +76,58 @@ func (c *Client) echoesCredential(body []byte, extra ...string) bool {
 		}
 	}
 	return false
+}
+
+// withholdEchoedValues keeps a successful answer that quotes back a funnel
+// secret from reaching output, the cache or the store: each JSON string (key
+// or value) that echoes one is replaced whole by WebhookTokenWithheld; if the
+// echo cannot be pinned to single strings, or the answer is not one JSON
+// value, the whole answer is withheld.
+func (c *Client) withholdEchoedValues(body json.RawMessage, extra ...string) json.RawMessage {
+	secrets := c.funnelSecrets(extra...)
+	if !echoesAny(string(body), secrets) {
+		return body
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var v any
+	if dec.Decode(&v) == nil && len(bytes.TrimSpace(body[dec.InputOffset():])) == 0 {
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		if enc.Encode(withholdEchoedStrings(v, secrets)) == nil {
+			if out := bytes.TrimRight(buf.Bytes(), "\n"); !echoesAny(string(out), secrets) {
+				return json.RawMessage(out)
+			}
+		}
+	}
+	whole, _ := json.Marshal(echoWithheldText)
+	return whole
+}
+
+func withholdEchoedStrings(v any, secrets []string) any {
+	switch t := v.(type) {
+	case string:
+		if echoesAny(t, secrets) {
+			return WebhookTokenWithheld
+		}
+		return t
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			if echoesAny(k, secrets) {
+				k = WebhookTokenWithheld
+			}
+			out[k] = withholdEchoedStrings(val, secrets)
+		}
+		return out
+	case []any:
+		for i, val := range t {
+			t[i] = withholdEchoedStrings(val, secrets)
+		}
+		return t
+	}
+	return v
 }
 
 // dropUnprintable deletes invalid UTF-8 and control characters, as the error
@@ -100,6 +166,16 @@ func jsonUnescape(s string) string {
 			case 'u':
 				if i+6 <= len(s) {
 					if r, err := strconv.ParseUint(s[i+2:i+6], 16, 32); err == nil {
+						// A UTF-16 surrogate pair is two escapes for one character.
+						if utf16.IsSurrogate(rune(r)) && i+12 <= len(s) && s[i+6] == '\\' && s[i+7] == 'u' {
+							if r2, err := strconv.ParseUint(s[i+8:i+12], 16, 32); err == nil {
+								if d := utf16.DecodeRune(rune(r), rune(r2)); d != unicode.ReplacementChar {
+									b.WriteRune(d)
+									i += 11
+									continue
+								}
+							}
+						}
 						b.WriteRune(rune(r))
 						i += 5
 						continue

@@ -7,6 +7,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -18,8 +19,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"saas-alerts-pp-cli/internal/config"
+	"saas-alerts-pp-cli/internal/platform"
 )
 
 // funnelBS is a backslash, built at run time so no escape sequence in this
@@ -29,8 +32,8 @@ var funnelBS = string(rune(92))
 // funnelEncodings are the ways a server might quote a secret back.
 var funnelEncodings = map[string]func(string) string{
 	"raw":            func(s string) string { return s },
-	"json-all-upper": func(s string) string { return funnelEach(s, func(r rune) string { return fmt.Sprintf(`\u%04X`, r) }) },
-	"json-all-lower": func(s string) string { return funnelEach(s, func(r rune) string { return fmt.Sprintf(`\u%04x`, r) }) },
+	"json-all-upper": func(s string) string { return funnelUTF16(s, "u%04X") },
+	"json-all-lower": func(s string) string { return funnelUTF16(s, "u%04x") },
 	"json-special": func(s string) string {
 		return strings.NewReplacer(funnelBS, funnelBS+funnelBS, `"`, funnelBS+`"`, "/", funnelBS+"/", "+", funnelBS+"u002B", "<", funnelBS+"u003c", ">", funnelBS+"u003e", "&", funnelBS+"u0026", "=", funnelBS+"u003d").Replace(s)
 	},
@@ -42,16 +45,33 @@ var funnelEncodings = map[string]func(string) string{
 	"html-decimal":  func(s string) string { return funnelEach(s, func(r rune) string { return fmt.Sprintf("&#%d;", r) }) },
 	"html-hex":      func(s string) string { return funnelEach(s, func(r rune) string { return fmt.Sprintf("&#x%x;", r) }) },
 	"json-of-pct":   func(s string) string { return strings.ReplaceAll(funnelBytes(s, "%%%02X"), "%", funnelBS+"u0025") },
+	"pct-5-deep": func(s string) string {
+		head := fmt.Sprintf("%%%02X", s[0])
+		for i := 0; i < 4; i++ {
+			head = url.QueryEscape(head)
+		}
+		return head + s[1:]
+	},
 	// The display deletes control characters and invalid UTF-8; an echo split
 	// by one must not come out joined.
 	"ctrl-split": func(s string) string { return s[:3] + "\x01" + s[3:] },
 	"utf8-split": func(s string) string { return s[:3] + "\xff" + s[3:] },
 	"json-entity-split": func(s string) string {
-		return funnelEach(s[:3], func(r rune) string { return fmt.Sprintf(funnelBS+"u%04X", r) }) + "&#1;" + funnelEach(s[3:], func(r rune) string { return fmt.Sprintf(funnelBS+"u%04X", r) })
+		return funnelUTF16(s[:3], "u%04X") + "&#1;" + funnelUTF16(s[3:], "u%04X")
 	},
 	"pct-of-html": func(s string) string {
 		return url.QueryEscape(funnelEach(s, func(r rune) string { return fmt.Sprintf("&#%d;", r) }))
 	},
+}
+
+// funnelUTF16 escapes every UTF-16 unit, as a JSON encoder does (an astral
+// character becomes a surrogate pair).
+func funnelUTF16(s, format string) string {
+	var b strings.Builder
+	for _, u := range utf16.Encode([]rune(s)) {
+		b.WriteString(funnelBS + fmt.Sprintf(format, u))
+	}
+	return b.String()
 }
 
 func funnelEach(s string, f func(rune) string) string {
@@ -89,7 +109,7 @@ func TestErrorTextNeverCarriesASecret(t *testing.T) {
 	defer srv.Close()
 	const marker = "Q7zXw"
 	key := marker + "Key+ab/cd=ef!(gh)*ij~kl"
-	tokens := []string{marker + `Tok+ab/cd="ef"<gh>&ij`, marker + "Tok-é€ñ-0000-unicode"}
+	tokens := []string{marker + `Tok+ab/cd="ef"<gh>&ij`, marker + "Tok-é€ñ-0000-unicode", marker + "Tok-" + string(rune(0x1F600)) + "-0000-astral"}
 	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: key, SaasAlertsApiKey: key}, 5*time.Second, 0)
 	c.NoCache = true
 
@@ -234,5 +254,59 @@ func TestWithheldNoticeIsNotAnAuthError(t *testing.T) {
 		if strings.Contains(strings.ToLower(echoWithheldText), w) {
 			t.Fatalf("withheld notice contains auth word %q: %s", w, echoWithheldText)
 		}
+	}
+}
+
+// TestSuccessfulAnswerNeverCarriesASecret: a 2xx JSON answer that quotes back
+// a secret (raw or escaped) has that string withheld before it reaches the
+// caller, and so the cache, the store and MCP; other fields survive.
+func TestSuccessfulAnswerNeverCarriesASecret(t *testing.T) {
+	answer := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	const key = "Q7zXwKey-succ+ab/cd-0000"
+	const tok = "Q7zXwTok-succ+ab/cd-0000"
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: key, SaasAlertsApiKey: key}, 5*time.Second, 0)
+	c.NoCache = true
+	for _, enc := range []func(string) string{funnelEncodings["raw"], funnelEncodings["json-special"], funnelEncodings["pct-all-lower"]} {
+		answer = `{"id":"keep-me","message":"created for ` + enc(tok) + `","note":"key ` + enc(key) + `"}`
+		data, _, err := c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": tok})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(funnelNormalize(string(data)), "Q7zX") || !strings.Contains(string(data), "keep-me") {
+			t.Fatalf("success answer: %s", data)
+		}
+	}
+}
+
+// TestRateLimitRequestIDIsFunnelled: a 429's request-id header is server text.
+func TestRateLimitRequestIDIsFunnelled(t *testing.T) {
+	const key = "Q7zXwKey-429+ab/cd-0000"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-ID", url.QueryEscape(key))
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: key, SaasAlertsApiKey: key}, 5*time.Second, 0)
+	c.NoCache = true
+	// A write is not replayed after a 429, so it returns the typed error at once.
+	_, _, err := c.Post(context.Background(), "/reportApi/api/v1/customers", map[string]any{"name": "x"})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	var rl *platform.RateLimitedError
+	if !errors.As(err, &rl) {
+		t.Fatalf("want a RateLimitedError, got %T: %v", err, err)
+	}
+	if strings.Contains(funnelNormalize(rl.RequestID), "Q7zX") {
+		t.Fatalf("request id leaked: %q", rl.RequestID)
+	}
+	if strings.Contains(funnelNormalize(err.Error()), "Q7zX") {
+		t.Fatalf("429 error leaked: %v", err)
 	}
 }

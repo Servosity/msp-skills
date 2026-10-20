@@ -1445,7 +1445,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))
 				}
 			}
-			return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens never leave the client
+			return c.withholdEchoedValues(withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), append(requestWebhookTokens(path, bodyBytes), authHeader)...), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens and echoed secrets never leave the client
 		}
 
 		if !binaryResponse {
@@ -1509,7 +1509,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			}
 			return nil, resp.StatusCode, &platform.RateLimitedError{
 				EndpointClass: endpointClass, Attempts: attempt + 1,
-				RetryAfter: wait, RequestID: requestID,
+				RetryAfter: wait, RequestID: c.funnelText(requestID, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: a request-id header is server text
 				Cause: &cliutil.RateLimitError{
 					URL:        apiErr.Path,
 					RetryAfter: wait,
