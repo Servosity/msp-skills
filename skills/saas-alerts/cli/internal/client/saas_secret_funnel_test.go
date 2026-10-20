@@ -62,6 +62,7 @@ var funnelEncodings = map[string]func(string) string{
 	// by one must not come out joined.
 	"ctrl-split": func(s string) string { return s[:3] + "\x01" + s[3:] },
 	"utf8-split": func(s string) string { return s[:3] + "\xff" + s[3:] },
+	"tag-split":  func(s string) string { return s[:3] + "<b>" + s[3:] + "</b>" },
 	// A format character (soft hyphen) the HTML-title display drops, percent-encoded.
 	"cf-split-pct": func(s string) string { return s[:3] + url.QueryEscape(string(rune(0xAD))+s[3:]) },
 	"json-entity-split": func(s string) string {

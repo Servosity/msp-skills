@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf16"
@@ -88,7 +89,7 @@ func echoesAny(view string, secrets []string) bool {
 }
 
 // funnelDecoders are the decodings every secret check looks through.
-var funnelDecoders = []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString}
+var funnelDecoders = []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString, stripTags}
 
 // anyDecodedView reports whether match holds for view or for any view the
 // funnel decoders produce, decoding until nothing changes. Every decoder only
@@ -164,6 +165,18 @@ func withholdEchoedStrings(v any, secrets []string) any {
 		return t
 	}
 	return v
+}
+
+// htmlTag matches one markup tag.
+var htmlTag = regexp.MustCompile(`<[^<>]*>`)
+
+// stripTags deletes markup tags, as an HTML page's title summary does, so a
+// value split from its key by a tag is seen joined.
+func stripTags(s string) string {
+	if !strings.Contains(s, "<") {
+		return s
+	}
+	return htmlTag.ReplaceAllString(s, "")
 }
 
 // dropUnprintable deletes invalid UTF-8, control and format (Cf) characters,

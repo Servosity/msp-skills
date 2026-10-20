@@ -324,6 +324,7 @@ func TestWebhookTokenWithheldFromEveryAnswerShape(t *testing.T) {
 		{200, "text/html", `<html><head><title>&quot;token&quot;:&quot;test-secret-entity&quot;</title></head><body>x</body></html>`},
 		{200, "text/html", `<html><head><title>"token":&nbsp;"test-secret-nbsp"</title></head><body>x</body></html>`},
 		{400, "text/html", `<html><head><title>"token":<b>"test-secret-tag"</b></title></head><body>x</body></html>`},
+		{400, "text/html", "<html><head><title>" + strings.Repeat("x", 121) + `"token":<b>"test-secret-tag-cut-by-the-title-limit"</b></title></head><body>x</body></html>`},
 		{400, "text/plain", "bad {\"token\":" + string(rune(0xA0)) + "\"test-secret-nbsp-text\"}"},
 		{400, "text/html", `<html><head><title>&quot;token&quot;:&quot;test-secret-entity&quot;</title></head><body>x</body></html>`},
 	} {
