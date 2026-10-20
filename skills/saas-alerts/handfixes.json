@@ -652,8 +652,8 @@
     },
     {
       "id": "select-keeps-sync-state",
-      "summary": "--select on triage, cross-tenant, investigate and coverage (and their missing-store envelopes) always keeps synced and note (plus unsynced_resources for investigate and coverage)",
-      "why": "An agent following the documented `coverage --select customers.customer_name,customers.flags --agent` lost the partial/unsynced signal from stdout (adversarial review round 2, 2026-10-20). The existing --select tests now assert the kept keys.",
+      "summary": "--select on triage, cross-tenant, investigate and coverage (and their missing-store envelopes) always keeps synced and note (plus unsynced_resources for investigate and coverage); and synced:false's note is also written to stderr as 'warning: synced: false: ...', so --csv, --plain and --quiet (which print only rows) still say the result is partial",
+      "why": "An agent following the documented `coverage --select customers.customer_name,customers.flags --agent` lost the partial/unsynced signal from stdout (adversarial review round 2, 2026-10-20). The existing --select tests now assert the kept keys. Codex round 5 (2026-10-20, P1): `triage --since 7d --csv` over a 1-day store printed (no rows) with no warning. TestSaasTabularOutputKeepsTheWarning fails with the warning disabled (proven 2026-10-20).",
       "status": "active",
       "asserts": [
         {
@@ -669,6 +669,26 @@
         {
           "file": "cli/internal/cli/coverage.go",
           "contains": "saasSelectKeepsSyncState(flags, \"synced\", \"note\", \"unsynced_resources\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "fmt.Fprintf(cmd.ErrOrStderr(), \"warning: synced: false: %s\\n\", note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "saasWarnIncomplete(cmd, result.Synced, result.Note)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_incomplete_test.go",
+          "contains": "func TestSaasTabularOutputKeepsTheWarning(",
           "code_only": true
         }
       ]
@@ -834,6 +854,11 @@
         {
           "file": "cli/internal/cli/saas_sync_respond.go",
           "contains": "return prune && len(syncResourceRequiredQueryParams(resource)) == 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "`{\"event\":\"reconcile_skipped\",\"resource\":\"%s\",\"reason\":\"scoped_resource\"}`",
           "code_only": true
         }
       ]
@@ -1004,6 +1029,23 @@
           "file": "cli/internal/cli/saas_sync_events_safety_test.go",
           "contains": "func TestSaasParentKeyOverrideRefused(",
           "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "workflow-archive-full-no-premature-watermark",
+      "summary": "workflow archive --full clears each resource with SaveSyncStateAt(resource, \"\", 0, time.Time{}) (a zero watermark, like sync --full) instead of SaveSyncState, which stamped last_synced_at=now and complete before anything was fetched",
+      "why": "If the archive's events walk then failed, a later page-capped auto-refresh started from that premature watermark, finished, and triage reported synced:true with events missing (adversarial review round 7, 2026-10-20, P2; the template is shared, so check other connectors). Verified e2e: a failed archive --full leaves events and customers at 0001-01-01 with last_attempt_complete=0.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "if err := s.SaveSyncStateAt(resource, \"\", 0, time.Time{}); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "if err := s.SaveSyncState(resource, \"\", 0); err != nil {"
         }
       ]
     }

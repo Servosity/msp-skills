@@ -133,3 +133,24 @@ func TestSaasListRefreshAfterFullSyncStaysSynced(t *testing.T) {
 		t.Errorf("synced=%v note=%q, want true and no note", got.Synced, got.Note)
 	}
 }
+
+// TestSaasTabularOutputKeepsTheWarning: --csv/--plain/--quiet print only rows,
+// so synced:false must reach stderr.
+func TestSaasTabularOutputKeepsTheWarning(t *testing.T) {
+	saasIsolate(t)
+	dbPath := saasSeedFixtureStore(t)
+	rw, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rw.SaveSyncProgress("events", "100", 100); err != nil {
+		t.Fatal(err)
+	}
+	rw.Close()
+	for _, format := range []string{"--csv", "--plain", "--quiet"} {
+		_, stderr, _ := saasRunCLI(t, "triage", "--db", dbPath, format)
+		if !strings.Contains(stderr, "warning: synced: false: the last events sync did not finish") {
+			t.Errorf("triage %s: stderr %q has no completeness warning", format, stderr)
+		}
+	}
+}

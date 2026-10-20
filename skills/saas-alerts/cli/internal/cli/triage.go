@@ -155,7 +155,8 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderTriageHuman(cmd, result)
 			}
-			saasSelectKeepsSyncState(flags, "synced", "note") // saas-alerts hand-fix
+			saasWarnIncomplete(cmd, result.Synced, result.Note) // saas-alerts hand-fix: tabular output drops the envelope
+			saasSelectKeepsSyncState(flags, "synced", "note")   // saas-alerts hand-fix
 			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, saasTriageKeep...)
 		},
 	}

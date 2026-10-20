@@ -834,6 +834,16 @@ func saasApplyWindowGap(db *store.Store, now time.Time, window time.Duration, sy
 	}
 }
 
+// saasWarnIncomplete writes synced:false's note to stderr, so --csv, --plain
+// and --quiet (which print only the rows) and a narrowed --select still say a
+// result is partial or unsynced. JSON keeps it in the envelope too.
+func saasWarnIncomplete(cmd *cobra.Command, synced bool, note string) {
+	if synced || note == "" {
+		return
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "warning: synced: false: %s\n", note)
+}
+
 // saasSelectKeepsSyncState makes --select keep the completeness fields, so a
 // narrowed result can never drop the signal that it is partial or unsynced.
 func saasSelectKeepsSyncState(flags *rootFlags, fields ...string) {

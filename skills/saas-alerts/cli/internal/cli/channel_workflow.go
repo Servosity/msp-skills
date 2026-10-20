@@ -110,7 +110,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			// since filter, not cursor reset. Mirrors newSyncCmd's pattern.
 			if full {
 				for _, resource := range resources {
-					if err := s.SaveSyncState(resource, "", 0); err != nil {
+					if err := s.SaveSyncStateAt(resource, "", 0, time.Time{}); err != nil { // saas-alerts hand-fix: never stamp a fresh watermark before the walk (mirrors sync --full)
 						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
 					}
 				}

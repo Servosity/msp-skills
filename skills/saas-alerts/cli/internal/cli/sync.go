@@ -1019,7 +1019,10 @@ func syncResource(ctx context.Context, c interface {
 		}
 		emitSaasFilteredSyncWarning(syncEvents, resource)
 	}
-	prune = saasPruneAllowed(resource, prune) // saas-alerts hand-fix: a resource that needs scoping params is never enumerated whole, so never whole-table pruned
+	if prune && !saasPruneAllowed(resource, prune) { // saas-alerts hand-fix: a resource that needs scoping params is never enumerated whole, so never whole-table pruned
+		fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","reason":"scoped_resource"}`+"\n", resource)
+	}
+	prune = saasPruneAllowed(resource, prune)
 
 	// Flat reconcile: prune local rows the API no longer returns, gated on a
 	// proven-complete sync.

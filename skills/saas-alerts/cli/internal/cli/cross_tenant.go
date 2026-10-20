@@ -133,7 +133,8 @@ func newNovelCrossTenantCmd(flags *rootFlags) *cobra.Command {
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderCrossTenantHuman(cmd, result)
 			}
-			saasSelectKeepsSyncState(flags, "synced", "note") // saas-alerts hand-fix
+			saasWarnIncomplete(cmd, result.Synced, result.Note) // saas-alerts hand-fix: tabular output drops the envelope
+			saasSelectKeepsSyncState(flags, "synced", "note")   // saas-alerts hand-fix
 			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, saasCrossTenantKeep...)
 		},
 	}

@@ -268,6 +268,7 @@ func newNovelInvestigateCmd(flags *rootFlags) *cobra.Command {
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderInvestigateHuman(cmd, result)
 			}
+			saasWarnIncomplete(cmd, result.Synced, result.Note)                     // saas-alerts hand-fix: tabular output drops the envelope
 			saasSelectKeepsSyncState(flags, "synced", "note", "unsynced_resources") // saas-alerts hand-fix
 			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, saasInvestigateKeep...)
 		},
