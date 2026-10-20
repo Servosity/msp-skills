@@ -350,6 +350,7 @@ func newTeachCmd(flags *rootFlags, learnCfg *entities.Config) *cobra.Command {
 		Annotations: map[string]string{
 			"pp:typed-exit-codes": "0,2",
 			"mcp:local-write":     "true",
+			"mcp:write-flags":     "playbook-file playbook-notes-file",
 			"pp:happy-args":       "--query=find items in category;--resource-type=items;--resource=GROUP-category",
 		},
 		Long: `Record one or more "this query -> this resource" mappings so the next

@@ -411,6 +411,29 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "mcp-no-local-file-inputs",
+      "summary": "import is CLI-only and the teach/teach-playbook file flags are refused over MCP, so no MCP tool reads or writes a local file the caller names",
+      "why": "Under CLOUDALLY_MCP_READ_ONLY=1, teach_playbook --notes-file read credentials.toml and playbook_list returned the access token (PR #400 round-2 runtime review); import --input read any JSONL file and POSTed a create per line. teach.go, teach_playbook.go and import.go are generated (fleet-wide 4.33.5 template), so a reprint drops these annotations. TestMCPLocalFileFlagsBlocked walks every MCP-visible command and fails on any unblocked file/path flag.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "\"mcp:write-flags\":     \"playbook-file playbook-notes-file\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "contains": "\"mcp:write-flags\":     \"notes-file playbook-file\",",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

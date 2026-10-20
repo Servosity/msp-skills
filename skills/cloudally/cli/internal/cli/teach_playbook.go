@@ -50,6 +50,7 @@ func newTeachPlaybookCmd(flags *rootFlags, learnCfg *entities.Config) *cobra.Com
 		Annotations: map[string]string{
 			"pp:typed-exit-codes": "0,2",
 			"mcp:local-write":     "true",
+			"mcp:write-flags":     "notes-file playbook-file",
 			"pp:happy-args":       "--query=find items in category;--notes=example playbook note",
 		},
 		Long: `Stores a structured CLI command sequence (with entity slots) and/or

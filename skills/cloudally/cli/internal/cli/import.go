@@ -36,6 +36,9 @@ but do not stop the import.`,
   # Import from stdin
   cat data.jsonl | cloudally-cli import <resource> --input -`,
 		Args: cobra.ExactArgs(1),
+		// CLI only: over MCP it would read a local JSONL file and POST a
+		// create per line with no plan or confirmation.
+		Annotations: map[string]string{"mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resource := args[0]
 			path, err := resourceWritePath(resource)

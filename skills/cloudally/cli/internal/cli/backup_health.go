@@ -353,6 +353,11 @@ func newBackupHealthCmd(flags *rootFlags) *cobra.Command {
 			if scanned == 0 {
 				return errHealthNotSynced(resource)
 			}
+			// A filter that matches nothing (a mistyped --account) must not
+			// print [] that reads as "this customer is healthy".
+			if inScope == 0 && (flagAccount != "" || flagSource != "") {
+				return notFoundErr(fmt.Errorf("no synced %s rows match --account %q --source %q", resource, flagAccount, flagSource))
+			}
 			if skipped > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: skipped %d row(s) that did not decode as backup statuses\n", skipped)
 			}
@@ -385,7 +390,7 @@ func newBackupHealthCmd(flags *rootFlags) *cobra.Command {
 				if rows == nil {
 					rows = []healthRow{}
 				}
-				return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
+				return printJSONFilteredKeep(cmd.OutOrStdout(), rows, flags, "error", "faq_link")
 			}
 			if len(rows) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "no stale or failing entities found")
