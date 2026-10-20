@@ -33,9 +33,10 @@ live command, `fleet add --check`, `fleet sync`, `abb triage`, `doctor`) the CLI
 asks the address for `SYNO.API.Info` without credentials. Only a host that
 answers the way DSM does gets the account and password; anything else (a
 mistyped address, the client's router, a web page, a redirect) fails with "not
-a DSM WebAPI ... the password was not sent". Redirects are never followed, so a
-DSM that redirects `http://` to `https://` must be registered by its `https://`
-address.
+a DSM WebAPI ... the password was not sent". No DSM request ever follows a
+redirect (DSM's WebAPI never redirects), so a DSM that redirects `http://` to
+`https://` must be registered by its `https://` address. The probe proves the
+host is a DSM, not that it is the NAS you meant: check each address you register.
 
 **What is written to disk.** Passwords and one-time codes are never written. The
 CLI does cache, per NAS, the DSM session id, the SynoToken and the two-factor
@@ -44,9 +45,13 @@ owner-only (mode 0600) on macOS and Linux. On Windows the data directory sits
 under your user profile (`%USERPROFILE%\.local\share\synology-cli`), which
 Windows already limits to your account, SYSTEM and Administrators; keep it there
 rather than under `C:\ProgramData` or a shared folder, or lock a relocated one
-with `icacls <dir> /inheritance:r /grant:r "%USERNAME%:(OI)(CI)F"`. `export` shows
+with `icacls <dir> /inheritance:r /grant:r "${env:USERNAME}:(OI)(CI)F"` in
+PowerShell (`"%USERNAME%:(OI)(CI)F"` in cmd.exe). `export` shows
 secret-named fields (passwords, tokens, encrypted share passwords) as
-`[redacted]`, as the local store and the response cache do. Anyone who can read
+`[redacted]`, as the local store and the response cache do; and if a NAS answer
+ever carries one of the CLI's own secret values (the password, a one-time code,
+the trusted-device token, the session id or SynoToken), every output, the cache,
+the store and exports show `[redacted]` in its place. Anyone who can read
 the session file can act as the CLI's DSM
 session until it expires, and the trusted-device token spares a future login the
 second factor. `synology-cli auth logout` forgets the cached session and
@@ -62,17 +67,20 @@ trusted devices in DSM.
 that exact certificate and refuse any other, which is the recommended path.
 `--insecure` on one fleet NAS and `SYNOLOGY_SKIP_TLS_VERIFY=1` trust any
 certificate and expose the password to anyone on the network path: use them only
-on a network you control. A plain `http://` address (DSM's port 5000) is accepted
-with a warning, because it sends the password and session in clear text; a
+on a network you control. A plain `http://` address (DSM's port 5000) is accepted,
+but every login over it prints a warning on stderr and `doctor` reports its
+Transport row as WARN, because it sends the password and session in clear text; a
 certificate pin on an `http://` address is refused rather than sending the
 password unprotected. When a NAS renews its certificate (a DSM self-signed
 renewal, or Let's Encrypt every 90 days or so), the pin stops matching and every
 call to that NAS fails with "the NAS certificate does not match the pinned
 SHA-256 fingerprint", naming the fingerprint the NAS presented. Check that
-fingerprint in DSM (Control Panel > Security > Certificate), then re-pin:
-`synology-cli fleet add <name> --pin-cert` for a registered NAS (keeps its
-address, settings and mirrored history) or a new `SYNOLOGY_TLS_FINGERPRINT` for
-a single NAS.
+fingerprint in DSM (Control Panel > Security > Certificate), then re-pin with
+the value you checked: `synology-cli fleet add <name> --tls-fingerprint <sha256>`
+for a registered NAS (keeps its address, settings and mirrored history) or a new
+`SYNOLOGY_TLS_FINGERPRINT` for a single NAS. A pin mismatch is also what an
+interception looks like, so never re-pin with `--pin-cert` (which trusts
+whatever certificate is presented) without that check.
 
 ## Default-safe behavior
 

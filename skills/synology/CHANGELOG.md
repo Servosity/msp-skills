@@ -29,3 +29,10 @@ All notable changes to this skill are documented here. Format follows
 - `abb backup` and `abb cancel` to start or cancel a backup, previewable with
   `--dry-run`; `SYNOLOGY_MCP_READ_ONLY=1` removes every write tool from the MCP
   server.
+- Credential safety: the DSM password goes only to an address that answers
+  SYNO.API.Info as DSM, never across a redirect; logins over plain `http://`
+  warn on stderr and in `doctor`; secret values and secret-named fields are
+  masked in output, the response cache, the local store and exports.
+- Operator-only registry: `fleet add` and `fleet remove` are CLI commands, not
+  MCP tools, and `fleet add <name> --tls-fingerprint <sha256>` re-pins a NAS
+  whose certificate was renewed, keeping its history.

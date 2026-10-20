@@ -20,7 +20,7 @@ faqs:
   - q: "Our NAS accounts use two-factor sign-in. Does that work?"
     a: "Yes. Run the first login with a fresh code in SYNOLOGY_OTP_CODE (or SYNOLOGY_<NAME>_OTP_CODE for a fleet NAS). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session (owner-only on macOS and Linux) and sends on later logins, so the code is not needed again."
   - q: "My NAS uses DSM's self-signed certificate. Will it connect?"
-    a: "Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM and run `synology-cli fleet add <name> --pin-cert` again; it keeps the address and mirrored history."
+    a: "Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM, then re-pin with that value: `synology-cli fleet add <name> --tls-fingerprint <sha256>` keeps the address and mirrored history."
   - q: "Can it change my clients' NAS units?"
     a: "Three commands act on a NAS: `abb backup` starts a backup, `abb cancel` cancels a running one, and `session logout` ends the CLI's own DSM session. Each sends immediately unless you add --dry-run. Everything else reads. Set SYNOLOGY_MCP_READ_ONLY=1 and the MCP server drops every command that is not read-only."
   - q: "Is my Synology data safe?"
@@ -93,16 +93,16 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/syno
 
 [rafalr100/synology-mcp](https://github.com/rafalr100/synology-mcp) is a general-purpose DSM server with 71 tools for one NAS, covering files, storage, users, packages and Hyper Backup, with power controls off unless you enable them. [cmeans/mcp-synology](https://github.com/cmeans/mcp-synology) covers File Station, system health, Download Station and Synology Photos, with one config and login per NAS. Neither covers Active Backup for Business. This one is built for it: `fleet sync` logs in to every client NAS you register and mirrors Active Backup jobs, per-device runs and storage health into one local database, so `fleet status`, `abb failures` and `abb stale` answer across every client in one query. A NAS that did not sync reads as not synced, never as OK.
 
-Synology's AI Console brings AI models into Synology's own apps (drafting and summarising in MailPlus and Office, AI search in Drive); it does not answer questions about backups. Active Insight, Synology's cloud monitoring service, offers MSP delegation and alerts on abnormal events per host. This adds the per-device Active Backup answers an MSP asks every morning (failed runs, devices with no recent success, which task protects a machine), across every client NAS, in the AI agent you already use.
+Synology's AI Console brings AI models into Synology's own apps (drafting and summarising in MailPlus and Office, AI search in Drive); it does not answer questions about backups. Active Insight, Synology's cloud monitoring service, offers MSP delegation, storage pool status and capacity forecasts, Hyper Backup monitoring and alerts on abnormal events per host; ActiveProtect Manager centrally manages NAS units running Active Backup for Business but needs an ActiveProtect appliance. This adds the per-device Active Backup answers an MSP asks every morning (failed runs, devices with no recent success, which task protects a machine), across every client NAS, in the AI agent you already use.
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
 ## The pain this closes
 
-- Active Backup for Business has no multi-client console: an MSP with almost a hundred client NAS units reported that per-NAS email notifications had become unmanageable and that nothing alerts on a backup that has not run for days.
-- SNMP does not help: Synology's MIBs do not expose backup state, so an RMM cannot see whether last night's Active Backup jobs succeeded.
+- Without an ActiveProtect appliance, Active Backup for Business has no multi-client console: an MSP with almost a hundred client NAS units reported that per-NAS email notifications had become unmanageable and that nothing alerts on a backup that has not run for days.
+- SNMP does not help: DSM's MIBs do not expose backup state, so an RMM cannot see whether last night's Active Backup jobs succeeded.
 - The workarounds are SSH scripts that read Active Backup's internal SQLite files on every NAS, or a custom dashboard someone has to build and keep running.
-- Storage problems hide on the same boxes: a degraded pool, a disk with bad SMART status or a volume about to fill is one Storage Manager screen per client.
+- Storage problems hide on the same boxes: without Active Insight, a degraded pool, a disk with bad SMART status or a volume about to fill is one Storage Manager screen per client.
 - Finding which task protects one machine, and when it last backed up, means knowing which client's NAS to log in to first.
 
 ## Install
@@ -173,7 +173,7 @@ Yes. Run the first login with a fresh code in SYNOLOGY_OTP_CODE (or SYNOLOGY_<NA
 
 ### My NAS uses DSM's self-signed certificate. Will it connect?
 
-Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM and run `synology-cli fleet add <name> --pin-cert` again; it keeps the address and mirrored history.
+Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM, then re-pin with that value: `synology-cli fleet add <name> --tls-fingerprint <sha256>` keeps the address and mirrored history.
 
 ### Can it change my clients' NAS units?
 

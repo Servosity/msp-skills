@@ -31,7 +31,7 @@ synology-cli abb backup --help
 synology-cli abb backup --task-ids '[5]' --dry-run --agent
 ```
 
-`abb backup`, `abb cancel` and `session logout` act on the NAS immediately with no confirmation prompt; preview with `--dry-run` first. `fleet add` and `fleet remove` change only the local registry.
+`abb backup`, `abb cancel` and `session logout` act on the NAS immediately with no confirmation prompt; preview with `--dry-run` first. `fleet add` and `fleet remove` are operator-only CLI commands, not MCP tools: `fleet add` decides which URL a NAS password is sent to (`--check` logs in once), and `fleet remove` deletes that NAS's mirrored history.
 
 ## Novel Command Data Sources
 

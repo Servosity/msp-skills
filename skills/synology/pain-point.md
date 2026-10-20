@@ -22,11 +22,14 @@ less ideal for use as an MSP", "mostly because of their lack of central
 management"
 ([Lawrence Systems forum, Jan 2023](https://forums.lawrencesystems.com/t/synology-active-backup-for-business-review-2023/16543)).
 
-Synology has since added MSP delegation to Active Insight, its cloud monitoring
-service. The per-device questions an MSP asks every morning are still one
-web UI per client: which machines failed last night, which have had no good
-backup in three days, which task protects this laptop, and is any client's
-storage pool degraded or about to fill.
+Synology's own tools cover part of this. Active Insight, its cloud monitoring
+service, can be delegated to an MSP and watches storage pool status, volume
+capacity forecasts and Hyper Backup across hosts. ActiveProtect Manager centrally
+manages NAS units running Active Backup for Business, but it needs an
+ActiveProtect appliance as the management server. For an MSP with an ordinary
+NAS at each client, the per-device Active Backup questions asked every morning
+are still one web UI per client: which machines failed last night, which have
+had no good backup in three days, and which task protects this laptop.
 
 ## What this skill does about it
 

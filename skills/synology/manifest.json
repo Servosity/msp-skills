@@ -82,7 +82,7 @@
     "synology_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server (optional)",
-      "description": "Leave blank (or 0, false, no, off) for the full tool set. Any other value, for example 1, true or yes, turns on read-only mode: the tools that start or cancel a backup or end the DSM session (abb_backup, abb_cancel, session_logout) and every tool that changes local state (sync, fleet_sync, fleet_add, fleet_remove, export, teach, learnings and playbook writes) are removed.",
+      "description": "Leave blank (or 0, false, no, off) for the full tool set. Any other value, for example 1, true or yes, turns on read-only mode: the tools that start or cancel a backup or end the DSM session (abb_backup, abb_cancel, session_logout) and every tool that changes local state (sync, fleet_sync, export, teach, learnings and playbook writes) are removed. fleet add, fleet remove and tail are CLI only in every mode.",
       "required": false,
       "default": ""
     },
