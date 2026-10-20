@@ -9,7 +9,7 @@
     {
       "instead": "Building a year-end export per mailbox and per sub-source in the portal, then racing 60-second download links one archive at a time",
       "say": "Plan year-end archives of every mailbox as they stood on December 31st in the customer's timezone, and show me the plan first.",
-      "cli": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run"
+      "cli": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5"
     },
     {
       "instead": "Clicking into every customer account in the partner portal to look for red backup statuses",
@@ -42,11 +42,11 @@
       "command": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01"
     },
     {
-      "question": "Archive every mailbox as it stood on December 31st in the customer's own timezone.",
-      "command": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes"
+      "question": "Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone.",
+      "command": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5"
     },
     {
-      "question": "Download every finished year-end archive to disk, one folder per mailbox and sub-source.",
+      "question": "Download every finished year-end archive into an existing folder (create it first), one folder per mailbox and sub-source.",
       "command": "cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12"
     },
     {

@@ -169,8 +169,8 @@ cloudally-cli doctor
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
 | Restore every mailbox on the task to October 1st | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01`, then the same flags on `restore submit` plus `--yes` once the human confirms the plan |
-| Archive every mailbox as it stood on December 31st, in the customer's timezone | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes` |
-| Download every finished archive to disk | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12` |
+| Archive every mailbox as it stood on December 31st, in the customer's timezone | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5`, then the same command plus `--yes` once the human confirms the plan |
+| Download every finished archive into an existing folder (create it first: `mkdir archives`) | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12` |
 | What did we restore for this customer since September? | `cloudally-cli restore history --account 5f1c2a --since 2026-09-01` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating, and how CloudAlly behaves), see [AGENTS.md](./AGENTS.md).

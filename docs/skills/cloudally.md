@@ -58,7 +58,7 @@ Ask your AI to restore or download every CloudAlly mailbox as it stood on a past
 
 **Instead of** Building a year-end export per mailbox and per sub-source in the portal, then racing 60-second download links one archive at a time
 **just ask:** *"Plan year-end archives of every mailbox as they stood on December 31st in the customer's timezone, and show me the plan first."*
-<sub>Your agent runs: <code>cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run</code></sub>
+<sub>Your agent runs: <code>cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5</code></sub>
 
 **Instead of** Clicking into every customer account in the partner portal to look for red backup statuses
 **just ask:** *"Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed?"*
@@ -73,8 +73,8 @@ Ask your AI to restore or download every CloudAlly mailbox as it stood on a past
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox on this task be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
 | Plan, then restore every mailbox on the task to October 1st. | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01` |
-| Archive every mailbox as it stood on December 31st in the customer's own timezone. | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes` |
-| Download every finished year-end archive to disk, one folder per mailbox and sub-source. | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12` |
+| Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone. | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5` |
+| Download every finished year-end archive into an existing folder (create it first), one folder per mailbox and sub-source. | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12` |
 | What did we restore for this customer since September? | `cloudally-cli restore history --account 5f1c2a --since 2026-09-01` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/cloudally/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/cloudally/guide.md).

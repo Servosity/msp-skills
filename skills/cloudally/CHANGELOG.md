@@ -46,7 +46,8 @@ All notable changes to this skill are documented here. Format follows
   uses it; `--resume`
   keeps the batch's target account and options; `--new-batch` is the only
   override.
-- Downloads: owner-only files and folders, no write through a link or over an
+- Downloads: owner-only files and folders on macOS and Linux (on Windows they
+  inherit the `--dest` folder's permissions), no write through a link or over an
   existing file, https links to public addresses only, size-checked bodies,
   ambiguous creates recorded as UNKNOWN, a download guard (`download-guard.db`)
   that creates each archive once across batches and runs, the include flags
