@@ -406,7 +406,9 @@ arguments or shell history. Every request also needs CLOUDALLY_CLIENT_ID and
 CLOUDALLY_CLIENT_SECRET.`,
 		Example: `  cloudally-cli auth login
   cloudally-cli auth login --email backups@contoso.com --password-stdin < password-file
-  cloudally-cli auth login --partner --email you@example.com --password-stdin < password-file`,
+  cloudally-cli auth login --partner --email you@example.com --password-stdin < password-file
+  # Windows PowerShell has no '<' redirection:
+  Get-Content password-file | cloudally-cli auth login --partner --email you@example.com --password-stdin`,
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

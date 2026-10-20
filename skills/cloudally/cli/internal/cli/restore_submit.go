@@ -176,9 +176,11 @@ func newRestoreSubmitCmd(flags *rootFlags) *cobra.Command {
 		Use:   "submit",
 		Short: "Submit one restore per mailbox per date and record the batch in the local ledger",
 		Long: strings.Trim(`
-Use this command to submit many restores for one task and record them in the ledger.
-Do NOT use it for a single mailbox; use 'recovery restore' instead. Do NOT use it to
-preview only; use 'restore plan' or --dry-run instead.
+Use this command for every restore an agent sends, one mailbox or many, on one task:
+it records each in the ledger and the restore guard. For a single mailbox pass
+--entities <mailbox>; do NOT use 'recovery restore', which sends at once with no plan,
+ledger, guard or confirmation. To preview, run 'restore plan', or this command without
+--yes (it lists each mailbox and the backup it resolves to and sends nothing).
 
 Every real submission needs --yes, also with --agent, --no-input, or no terminal.
 Without --yes the command prints what it would submit (rows, entities, dates, scope,

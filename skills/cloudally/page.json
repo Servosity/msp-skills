@@ -26,7 +26,7 @@
   ],
   "outcomes": [
     {
-      "question": "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed?",
+      "question": "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributor_accounts-backup-statuses first.)",
       "command": "cloudally-cli backup health --stale-days 2 --group-by account"
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "q": "Why does a December 31st download hold December 30th?",
-      "a": "CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern, for example) and --on-date then means the customer's own calendar day."
+      "a": "CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern in winter; -4 during daylight saving time) and --on-date then means the customer's own calendar day."
     },
     {
       "q": "Is my CloudAlly data safe?",

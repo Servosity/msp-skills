@@ -20,7 +20,7 @@ faqs:
   - q: "Can it change or delete my customers' backups?"
     a: "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint at once (including recovery restore and tasks delete) and download_link returns live links."
   - q: "Why does a December 31st download hold December 30th?"
-    a: "CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern, for example) and --on-date then means the customer's own calendar day."
+    a: "CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern in winter; -4 during daylight saving time) and --on-date then means the customer's own calendar day."
   - q: "Is my CloudAlly data safe?"
     a: "Your data stays on your machine. The CLI, MCP server and local store are all local, the MCP server runs over stdio unless you start it with --transport http, and download links are minted and streamed in one step rather than stored. Credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
@@ -69,7 +69,7 @@ Ask your AI to restore or download every CloudAlly mailbox as it stood on a past
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --group-by account` |
+| Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributor_accounts-backup-statuses first.) | `cloudally-cli backup health --stale-days 2 --group-by account` |
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox on this task be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
 | Plan, then restore every mailbox on the task to October 1st. | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01` |
@@ -166,7 +166,7 @@ It can, because CloudAlly's API can: restores write back into live mailboxes, an
 
 ### Why does a December 31st download hold December 30th?
 
-CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern, for example) and --on-date then means the customer's own calendar day.
+CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern in winter; -4 during daylight saving time) and --on-date then means the customer's own calendar day.
 
 ### Is my CloudAlly data safe?
 

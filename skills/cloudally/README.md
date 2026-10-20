@@ -156,6 +156,8 @@ Get-Content password-file | cloudally-cli auth login --partner --password-stdin
 cloudally-cli doctor
 ```
 
+Windows PowerShell 5.1 sends piped text as ASCII. For a password with non-ASCII characters, run `$OutputEncoding = [System.Text.UTF8Encoding]::new($false)` first, or set `$env:CLOUDALLY_PARTNER_PASSWORD` and run `cloudally-cli auth login --partner`.
+
 `$env:` lasts only for that window; use `setx` or System Properties > Environment Variables to keep the key pair.
 
 `auth login --partner` saves the access and refresh tokens (never printed) and the CLI refreshes them on its own. The partner login reaches every customer and is what past backup dates, downloads and `backup health` need. To work inside one company only, set `CLOUDALLY_EMAIL` and `CLOUDALLY_PASSWORD` and run `cloudally-cli auth login` instead. `doctor` then makes one authenticated read (`GET /v2/user`), so it reports whether the token actually works, not just whether one is set.
@@ -165,7 +167,7 @@ cloudally-cli doctor
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| Which mailboxes across all my customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --group-by account` |
+| Which mailboxes across all my customers have not backed up in two days, or failed? | `cloudally-cli sync --resources distributor_accounts-backup-statuses`, then `cloudally-cli backup health --stale-days 2 --group-by account` (it reads the synced feed) |
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
 | Restore every mailbox on the task to October 1st | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01`, then the same flags on `restore submit` plus `--yes` once the human confirms the plan |
@@ -221,7 +223,7 @@ It can, because CloudAlly's API can: restores write back into live mailboxes, an
 
 ### Why does a December 31st download hold December 30th?
 
-CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `--utc-offset` to `download submit` (`-5` for US Eastern) and `--on-date` then means the customer's own calendar day.
+CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `--utc-offset` to `download submit` (`-5` for US Eastern in winter, `-4` during daylight saving time) and `--on-date` then means the customer's own calendar day.
 
 ### What does it cost?
 
