@@ -18,6 +18,7 @@ import (
 
 	"synology-pp-cli/internal/cliutil"
 	"synology-pp-cli/internal/cliutil/testenv"
+	"synology-pp-cli/internal/dsm/dsmtest"
 )
 
 // fakeDSMCall is one request the fake NAS received after login.
@@ -44,6 +45,9 @@ func newFakeDSM(t *testing.T, taskName string) *fakeDSM {
 	t.Helper()
 	f := &fakeDSM{}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_ = r.ParseForm()
 		if r.Form.Get("api") == "SYNO.API.Auth" && r.Form.Get("method") == "login" {
 			if r.Form.Get("account") != "msp-admin" || r.Form.Get("passwd") != "s3cretpw" {

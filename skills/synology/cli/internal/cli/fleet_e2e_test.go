@@ -20,6 +20,7 @@ import (
 	"synology-pp-cli/internal/cliutil"
 	"synology-pp-cli/internal/cliutil/testenv"
 	"synology-pp-cli/internal/dsm"
+	"synology-pp-cli/internal/dsm/dsmtest"
 	"synology-pp-cli/internal/fleet"
 )
 
@@ -56,6 +57,9 @@ func fakeABBNAS(t *testing.T) *httptest.Server {
  "disks":[{"id":"sata1","name":"Drive 1","device":"/dev/sata1","temp":38,"status":"normal","smart_status":"normal"}]}`,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_ = r.ParseForm()
 			if r.PostForm.Get("account") != "msp-admin" || r.PostForm.Get("passwd") != "s3cret" {
@@ -307,6 +311,9 @@ func TestTriageValidatesRowsAndNotesNewerSuccess(t *testing.T) {
 	}
 	for name, res := range results {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if dsmtest.ServeAPIInfo(w, r) {
+				return
+			}
 			if r.Method == http.MethodPost {
 				_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 				return
@@ -341,6 +348,9 @@ func TestTriageRejectsRowsWithoutTaskOrStart(t *testing.T) {
 		"no time_start": `{"results":[{"result_id":3,"task_id":8,"status":4,"job_action":1},{"result_id":1,"task_id":8,"status":4,"job_action":1,"time_start":100}]}`,
 	} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if dsmtest.ServeAPIInfo(w, r) {
+				return
+			}
 			if r.Method == http.MethodPost {
 				_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 				return
@@ -370,6 +380,9 @@ func TestTriageTrimmedNumbersAndZeroStart(t *testing.T) {
 	}
 	for name, tc := range cases {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if dsmtest.ServeAPIInfo(w, r) {
+				return
+			}
 			if r.Method == http.MethodPost {
 				_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 				return
@@ -414,6 +427,9 @@ func TestTriageRejectsFutureSuccess(t *testing.T) {
 	res := fmt.Sprintf(`{"results":[{"result_id":5,"task_id":8,"status":2,"job_action":1,"time_start":%d},
  {"result_id":3,"task_id":8,"status":4,"job_action":1,"time_start":300}]}`, future)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -447,6 +463,9 @@ func TestFleetAddFailedCheckRollsBack(t *testing.T) {
 func TestTriageWithoutEndTimeReadsLogToNextRun(t *testing.T) {
 	res := `{"results":[{"result_id":3,"task_id":8,"status":4,"job_action":1,"time_start":300}]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -469,6 +488,9 @@ func TestTriageWithoutEndTimeReadsLogToNextRun(t *testing.T) {
 
 func TestTriageRejectsMalformedLastResult(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -503,6 +525,9 @@ func TestTriageRejectsConflictingDuplicates(t *testing.T) {
 	res := `{"results":[{"result_id":9,"task_id":8,"status":2,"job_action":1,"time_start":500,"time_end":600},
  {"result_id":9,"task_id":8,"status":4,"job_action":1,"time_start":300,"time_end":400}]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -533,6 +558,9 @@ func TestDryRunsRefusePasswordInAddress(t *testing.T) {
 
 func TestTriageLastResultOwnedByAnotherTask(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -552,6 +580,9 @@ func TestTriageLastResultOwnedByAnotherTask(t *testing.T) {
 
 func TestTriageRejectsListingShortOfTotal(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -571,6 +602,9 @@ func TestTriageRejectsListingShortOfTotal(t *testing.T) {
 
 func TestTriageCountsDistinctRuns(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -591,6 +625,9 @@ func TestTriageCountsDistinctRuns(t *testing.T) {
 
 func TestTriageCountsOnlyThisTasksBackups(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -619,6 +656,9 @@ func TestTriageRejectsNonPositiveScan(t *testing.T) {
 
 func TestTriageTaskIDBeatsNumericName(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -683,6 +723,9 @@ func TestAuthLogoutDryRunChangesNothing(t *testing.T) {
 
 func TestTriageRejectsSharedLastResult(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -703,6 +746,9 @@ func TestTriageRejectsSharedLastResult(t *testing.T) {
 
 func TestTriageChecksOtherTasksClaimsAgainstListing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -723,6 +769,9 @@ func TestTriageChecksOtherTasksClaimsAgainstListing(t *testing.T) {
 
 func TestTriageChecksUnselectedTaskOwnership(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return

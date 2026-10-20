@@ -212,6 +212,46 @@ func APIName(pathOrURL string) string {
 	return ""
 }
 
+// operationKeys select which DSM operation a request runs (api, method,
+// version) or carry its session (_sid, SynoToken). On DSM every operation is
+// a GET on one CGI path selected by these keys, so a parameter that set one
+// would turn a read into a write: `sync --param api=SYNO.ActiveBackup.Task
+// --global-param method=backup` (or the same three arguments on the MCP sync
+// tool) started a backup.
+var operationKeys = map[string]bool{"api": true, "method": true, "version": true, "_sid": true, "synotoken": true}
+
+// CheckOperationParams refuses a request whose extra parameters would change
+// the operation its spec path selects: a key that selects the operation or
+// session (compared case-insensitively), a key the path itself fixes, or an
+// operation key the path carries twice (a query appended to the path). Every
+// request the CLI and the fleet layer send passes this one rule; nothing is
+// sent when it fails.
+func CheckOperationParams(path string, params map[string]string) error {
+	fixed := url.Values{}
+	if _, rawQuery, ok := strings.Cut(path, "?"); ok {
+		fixed, _ = url.ParseQuery(rawQuery)
+	}
+	for k, vs := range fixed {
+		if operationKeys[strings.ToLower(k)] && len(vs) > 1 {
+			return fmt.Errorf("refused: the request names its DSM %q more than once; a parameter may not re-select the operation (nothing was sent)", k)
+		}
+	}
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if operationKeys[strings.ToLower(k)] {
+			return fmt.Errorf("refused: parameter %q selects the DSM operation or session, which the command fixes; it cannot be set by a flag, --param or an MCP argument (nothing was sent)", k)
+		}
+		if _, ok := fixed[k]; ok {
+			return fmt.Errorf("refused: parameter %q is fixed by this command's DSM call and cannot be overridden (nothing was sent)", k)
+		}
+	}
+	return nil
+}
+
 // secretPattern matches a credential-bearing parameter with a plain or
 // URL-encoded "=" (an SSO return URL carries "%26_sid%3D..."), up to the next
 // plain or encoded "&". It over-masks rather than under-masks.
@@ -245,8 +285,11 @@ func describeTransport(err error) string {
 		certErr *tls.CertificateVerificationError
 		hostErr x509.HostnameError
 		authErr x509.UnknownAuthorityError
+		pinErr  *PinMismatchError
 	)
 	switch {
+	case errors.As(err, &pinErr):
+		return fmt.Sprintf("the NAS certificate does not match the pinned SHA-256 fingerprint (the NAS presented %s); %s", pinErr.Presented, PinMismatchHint)
 	case errors.Is(err, context.DeadlineExceeded):
 		return "the request timed out"
 	case errors.Is(err, context.Canceled):
@@ -344,6 +387,13 @@ func PlaceholderOrigin(raw string) bool {
 }
 
 // Login performs SYNO.API.Auth login against baseURL (scheme://host:port).
+//
+// No credential leaves the process until the host proves it is a DSM WebAPI:
+// ProbeDSM asks it for SYNO.API.Info without credentials first, so a
+// mistyped address (the client's router on :5001, a proxy, a web server)
+// gets an unauthenticated GET and never the account and password. Every
+// login in this CLI (auth login, every live command, fleet add --check,
+// fleet sync, doctor) comes through here.
 func Login(ctx context.Context, hc *http.Client, baseURL string, creds Credentials) (Session, error) {
 	if err := CheckOrigin(baseURL); err != nil {
 		return Session{}, err
@@ -354,12 +404,24 @@ func Login(ctx context.Context, hc *http.Client, baseURL string, creds Credentia
 	if !creds.Complete() {
 		return Session{}, errors.New("DSM login needs SYNOLOGY_ACCOUNT and SYNOLOGY_PASSWORD (or the fleet entry's account/password env vars)")
 	}
+	if err := ProbeDSM(ctx, hc, baseURL); err != nil {
+		var notDSM *NotDSMError
+		if errors.As(err, &notDSM) {
+			return Session{}, fmt.Errorf("DSM login refused: %w; the password was not sent - check SYNOLOGY_BASE_URL (or the fleet entry's --url)", err)
+		}
+		return Session{}, fmt.Errorf("DSM login: %w; the password was not sent", err)
+	}
+	return login(ctx, hc, baseURL, creds)
+}
+
+// login sends the credential form to a host ProbeDSM accepted.
+func login(ctx context.Context, hc *http.Client, baseURL string, creds Credentials) (Session, error) {
 	if creds.DeviceID != "" && creds.OTPCode != "" {
 		// Prefer the trusted-device token; fall back to the one-time code only
 		// when DSM no longer accepts the token (403/404: code required/rejected).
 		withToken := creds
 		withToken.OTPCode = ""
-		s, err := Login(ctx, hc, baseURL, withToken)
+		s, err := login(ctx, hc, baseURL, withToken)
 		var de *Error
 		if err == nil || !errors.As(err, &de) || (de.Code != 403 && de.Code != 404) {
 			return s, err
@@ -476,6 +538,13 @@ func (c *Client) Get(ctx context.Context, path string, params url.Values) (json.
 		return nil, fmt.Errorf("invalid DSM path %q: %w", path, err)
 	}
 	api := u.Query().Get("api")
+	flat := map[string]string{}
+	for k, vs := range params {
+		flat[k] = strings.Join(vs, ",")
+	}
+	if err := CheckOperationParams(path, flat); err != nil {
+		return nil, err
+	}
 	for attempt := 0; ; attempt++ {
 		sess, err := c.session(ctx)
 		if err != nil {

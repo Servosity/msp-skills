@@ -402,7 +402,7 @@ Resource scoping:
 	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages to fetch per resource (0 = unlimited; cap-hit emits a sync_warning event)")
 	cmd.Flags().BoolVar(&latestOnly, "latest-only", false, "Refresh head of each resource only; clears resume cursor and caps pages at 1. Mutually exclusive with --since (--since wins).")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any per-resource failure (default: only critical failures or all-resource failure exit non-zero).")
-	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state.")
+	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state. DSM operation keys (api, method, version, _sid, SynoToken) and keys the request already fixes are refused.") // HAND-FIX(dsm-params-keep-operation)
 	cmd.Flags().StringArrayVar(&resourceParamFlags, "resource-param", nil, "Per-resource extra query param (repeatable, resource:key=value). Wins over --param and --global-param when keys conflict.")
 	cmd.Flags().StringArrayVar(&globalParamFlags, "global-param", nil, "Extra query param to inject into every sync request including dependent path-scoped calls (repeatable, key=value). Use when an API requires a scope on every call regardless of path nesting.")
 
@@ -2005,10 +2005,12 @@ func parseRestSyncTimestamp(value string) (time.Time, bool) {
 }
 
 func defaultSyncResources() []string {
+	// HAND-FIX(sync-skips-live-log): the DSM system log is a live stream whose
+	// items (time, level, descr, who, logtype) carry no id, so syncing it
+	// aborted every run as a critical failure; read it with the log command.
 	return []string{
 		"folder",
 		"group",
-		"log",
 		"package",
 		"user",
 	}
@@ -2018,10 +2020,9 @@ func defaultSyncResources() []string {
 // flat resources plus any parent-child dependents. Used by --resource-param
 // validation to reject misspellings before they become silent no-ops.
 func knownSyncResourceNames() []string {
-	names := []string{
+	names := []string{ // HAND-FIX(sync-skips-live-log)
 		"folder",
 		"group",
-		"log",
 		"package",
 		"user",
 	}
@@ -2052,8 +2053,7 @@ func syncResourcePath(resource string) (string, error) {
 	paths := map[string]string{ // #nosec G101 -- endpoint paths, not credentials.
 		"folder":  "/webapi/entry.cgi?api=SYNO.Core.Share&method=list&version=1",
 		"group":   "/webapi/entry.cgi?api=SYNO.Core.Group&method=list&version=1",
-		"log":     "/webapi/entry.cgi?api=SYNO.Core.SyslogClient.Log&method=list&version=1",
-		"package": "/webapi/entry.cgi?api=SYNO.Core.Package&method=list&version=2",
+		"package": "/webapi/entry.cgi?api=SYNO.Core.Package&method=list&version=2", // HAND-FIX(sync-skips-live-log): no log path
 		"user":    "/webapi/entry.cgi?api=SYNO.Core.User&method=list&version=1",
 	}
 	if p, ok := paths[resource]; ok {

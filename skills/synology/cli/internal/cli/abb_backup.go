@@ -48,8 +48,8 @@ func newAbbBackupCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("--task-ids must be valid JSON: %w", err)
 				}
 			}
-			if dryRunOK(flags) { // HAND-FIX(dsm-dry-run): nothing is sent; one dry-run object
-				return dsmDryRun(cmd, flags, "abb backup")
+			if dryRunOK(flags) { // HAND-FIX(dsm-dry-run): nothing is sent; the preview names the request
+				return dsmDryRun(cmd, flags, "abb backup", map[string]string{"task_ids": formatCLIParamValue(flagTaskIds)})
 			}
 			path := "/webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup&version=1&trigger_type=1"
 			c, err := flags.newClient()

@@ -93,7 +93,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"folder", "group", "log", "package", "user"}
+			resources := []string{"folder", "group", "package", "user"} // HAND-FIX(sync-skips-live-log)
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]

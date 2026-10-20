@@ -7,10 +7,8 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -23,15 +21,10 @@ import (
 // remedy tells the operator the fix and not only the symptom.
 const doctorBaseURLEnv = "SYNOLOGY_BASE_URL"
 
-// doctorAPIInfoPath is DSM's unauthenticated API discovery call. Every DSM
-// answers it with {"success":true,"data":{...}}; a web page, a proxy or any
-// other server does not.
-const doctorAPIInfoPath = "/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=SYNO.API.Auth"
-
-// doctorCredentialProbePath is a cheap authenticated read every DSM account
-// can make, so a valid login is proven end to end (login plus a call that
-// carries the session).
-const doctorCredentialProbePath = "/webapi/entry.cgi?api=SYNO.DSM.Info&method=getinfo&version=2"
+// doctorSessionProbePath is a cheap authenticated read every DSM account can
+// make, so a valid login is proven end to end (login plus a call that carries
+// the session).
+const doctorSessionProbePath = "/webapi/entry.cgi?api=SYNO.DSM.Info&method=getinfo&version=2"
 
 // doctorDSMVerdict replaces the generated reachability and credential checks.
 //
@@ -100,45 +93,28 @@ func doctorDSMVerdict(ctx context.Context, flags *rootFlags, cfg *config.Config,
 		return
 	}
 	defer func() { _ = c.Logout(context.WithoutCancel(ctx)) }()
-	_, err = c.Get(ctx, doctorCredentialProbePath, nil)
+	_, err = c.Get(ctx, doctorSessionProbePath, nil)
 	setCred(doctorClassifyLogin(c, err))
 }
 
-// doctorProbeDSMAPI asks the host for SYNO.API.Info without credentials and
-// reports whether it answered as DSM.
+// doctorProbeDSMAPI reports the host's answer to dsm.ProbeDSM, the same
+// unauthenticated SYNO.API.Info check dsm.Login runs before it sends any
+// password: doctor and every login share one rule for "this is a DSM".
 func doctorProbeDSMAPI(ctx context.Context, hc *http.Client, origin string) (bool, string) {
 	wrongHost := fmt.Sprintf("point %s at the NAS's DSM address, for example https://<nas>:5001", doctorBaseURLEnv)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(origin, "/")+doctorAPIInfoPath, nil)
-	if err != nil {
-		return false, "ERROR " + err.Error()
-	}
-	resp, err := hc.Do(req)
-	if err != nil {
-		return false, "ERROR unreachable: " + dsm.DescribeTransport(err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return false, "ERROR unreachable: the response could not be read"
-	}
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Sprintf("ERROR the host answered HTTP %d for SYNO.API.Info, which DSM answers with HTTP 200 - %s is not a DSM WebAPI; %s", resp.StatusCode, doctorBaseURLEnv, wrongHost)
-	}
-	if doctorBodyLooksLikeHTML(body) {
-		return false, "ERROR the host answered SYNO.API.Info with an HTML page, not DSM's WebAPI; " + wrongHost
-	}
-	data, code, failed := dsm.Envelope(body)
+	err := dsm.ProbeDSM(ctx, hc, origin)
+	var notDSM *dsm.NotDSMError
 	switch {
-	case failed:
-		return false, fmt.Sprintf("ERROR DSM refused SYNO.API.Info (%s); %s", dsm.ErrorText(code, "SYNO.API.Info"), wrongHost)
-	case data == nil:
-		return false, "ERROR the host answered SYNO.API.Info without DSM's {\"success\":true,\"data\":...} envelope - not a DSM WebAPI; " + wrongHost
+	case err == nil:
+		return true, "reachable (DSM WebAPI answered SYNO.API.Info)"
+	case errors.As(err, &notDSM):
+		return false, fmt.Sprintf("ERROR %s - %s is not a DSM WebAPI; %s", notDSM.Reason, doctorBaseURLEnv, wrongHost)
+	case errors.Is(err, dsm.ErrCertificatePinMismatch):
+		// Its own verdict: the NAS answered, with a certificate other than the
+		// pinned one (usually a renewal), so this is not "unreachable".
+		return false, "ERROR certificate pin mismatch: " + err.Error()
 	}
-	var apis map[string]json.RawMessage
-	if json.Unmarshal(data, &apis) != nil {
-		return false, "ERROR the host answered SYNO.API.Info with an unexpected payload - not a DSM WebAPI; " + wrongHost
-	}
-	return true, "reachable (DSM WebAPI answered SYNO.API.Info)"
+	return false, "ERROR unreachable: " + err.Error()
 }
 
 // doctorClassifyLogin turns the login-plus-read outcome into a verdict. Every

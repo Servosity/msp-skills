@@ -18,12 +18,16 @@ import (
 	"synology-pp-cli/internal/cliutil/testenv"
 	"synology-pp-cli/internal/config"
 	"synology-pp-cli/internal/dsm"
+	"synology-pp-cli/internal/dsm/dsmtest"
 )
 
 func dsmFake(t *testing.T) (*httptest.Server, *int32, *int32) {
 	t.Helper()
 	var logins, expireNext int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_ = r.ParseForm()
 			if r.PostForm.Get("passwd") != "pw" {
@@ -117,6 +121,9 @@ func TestDSMHandfixLoginRefusesCrossOriginRedirect(t *testing.T) {
 	}))
 	defer evil.Close()
 	nas := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		http.Redirect(w, r, evil.URL+r.URL.RequestURI(), http.StatusTemporaryRedirect)
 	}))
 	defer nas.Close()
@@ -134,6 +141,9 @@ func TestDSMHandfixMalformedPinRefusesTLS(t *testing.T) {
 	testenv.Isolate(t)
 	t.Setenv("SYNOLOGY_TLS_FINGERPRINT", "not-a-fingerprint")
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 	}))
 	defer srv.Close()
@@ -158,6 +168,9 @@ func TestDSMHandfixDataRedirectIsRefused(t *testing.T) {
 	}))
 	defer evil.Close()
 	nas := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s1","synotoken":"tok"}}`))
 			return
@@ -291,6 +304,9 @@ func TestDSMHandfixEnsureSnapshotFailsInsteadOfStaleSID(t *testing.T) {
 func TestDSMHandfixHTMLDiagnosticMasksSID(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SECRETSID","synotoken":"tok"}}`))
 			return
@@ -310,6 +326,9 @@ func TestDSMHandfixHTMLDiagnosticMasksSID(t *testing.T) {
 func TestDSMHandfixReadWithoutDataIsAnError(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s1","synotoken":"tok"}}`))
 			return
@@ -332,6 +351,9 @@ func TestDSMHandfixReadWithoutDataIsAnError(t *testing.T) {
 func TestDSMHandfixBinaryContentTypeStillValidated(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s1","synotoken":"tok"}}`))
 			return
@@ -352,6 +374,9 @@ func TestDSMHandfixBinaryContentTypeStillValidated(t *testing.T) {
 func TestDSMHandfixWriteNeedsSuccessEnvelope(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s1","synotoken":"tok"}}`))
 			return
@@ -385,6 +410,9 @@ func TestDSMHandfixEmptyAccountNeverReusesAnotherSession(t *testing.T) {
 func TestDSMHandfixDiagnosticsMaskSynoToken(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDVALUE1","synotoken":"TOKENVALUE1"}}`))
 			return
@@ -404,6 +432,9 @@ func TestDSMHandfixDiagnosticsMaskSynoToken(t *testing.T) {
 func TestDSMHandfixMasksBeforeTruncatingAndJSONEscapes(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDVALUE2","synotoken":"TOKENVALUE2LONGSECRET"}}`))
 			return
@@ -432,6 +463,9 @@ func TestDSMHandfixMasksBeforeTruncatingAndJSONEscapes(t *testing.T) {
 func TestDSMHandfixMasksHTMLEntityAndDoubleEncodedSecrets(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDVALUE3","synotoken":"TOK3"}}`))
 			return
@@ -451,6 +485,9 @@ func TestDSMHandfixMasksHTMLEntityAndDoubleEncodedSecrets(t *testing.T) {
 func TestDSMHandfixMasksNestedEntitiesAndLowercaseEscapes(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDVALUE4","synotoken":"TOK4"}}`))
 			return
@@ -472,6 +509,9 @@ func TestDSMHandfixMasksNestedEntitiesAndLowercaseEscapes(t *testing.T) {
 func TestDSMHandfixHTMLAndProxyBodiesAreNotShown(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDVALUE5","synotoken":"TOK5"}}`))
 			return
@@ -497,6 +537,9 @@ func TestDSMHandfixErrorCodesAreMasked(t *testing.T) {
 	testenv.Isolate(t)
 	const pw = "987654321035"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			if r.URL.Query().Get("fail") == "1" || r.Header.Get("X-Fail") == "1" {
 				_, _ = w.Write([]byte(`{"success":false,"error":{"code":` + pw + `}}`))
@@ -516,6 +559,9 @@ func TestDSMHandfixErrorCodesAreMasked(t *testing.T) {
 	}
 	// A login failure whose code echoes the password.
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_, _ = w.Write([]byte(`{"success":false,"error":{"code":` + pw + `}}`))
 	}))
 	defer bad.Close()
@@ -529,6 +575,9 @@ func TestDSMHandfixErrorCodesAreMasked(t *testing.T) {
 func TestDSMHandfixNoResponseHeaderTextInDiagnostics(t *testing.T) {
 	testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDVALUE38","synotoken":"TOK38"}}`))
 			return

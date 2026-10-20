@@ -6,10 +6,13 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 	"sort"
 	"strings"
+
+	"synology-pp-cli/internal/cliutil"
 )
 
 // printReportJSON writes a fleet/abb report (a slice of row structs, or one
@@ -26,7 +29,46 @@ import (
 // ok:false. These rows are already curated summaries; a field the report
 // declares is never noise.
 func printReportJSON(w io.Writer, v any, flags *rootFlags) error {
+	if flags != nil && flags.quiet && flags.selectFields == "" {
+		// --quiet prints one identity per row (the NAS, task or host the row
+		// is about), declared by each report type; the generic quiet printer
+		// picked the first sorted scalar and printed "true".
+		if ids, ok := reportIdentities(v); ok {
+			for _, id := range ids {
+				if _, err := fmt.Fprintln(w, cliutil.ScrubTerminal(id)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
 	return printJSONFilteredKeep(w, v, flags, reportKeepFields(v)...)
+}
+
+// reportIdentity is implemented by every fleet/abb report row type: the one
+// value --quiet prints for the row.
+type reportIdentity interface{ ReportIdentity() string }
+
+// reportIdentities returns each row's identity when v is a report row, or a
+// slice of rows, whose type declares one.
+func reportIdentities(v any) ([]string, bool) {
+	if r, ok := v.(reportIdentity); ok {
+		return []string{r.ReportIdentity()}, true
+	}
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() || (rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array) {
+		return nil, false
+	}
+	if !rv.Type().Elem().Implements(reflect.TypeOf((*reportIdentity)(nil)).Elem()) {
+		return nil, false
+	}
+	out := make([]string, 0, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		if id := rv.Index(i).Interface().(reportIdentity).ReportIdentity(); id != "" {
+			out = append(out, id)
+		}
+	}
+	return out, true
 }
 
 // reportKeepFields returns the JSON names of every field declared by the

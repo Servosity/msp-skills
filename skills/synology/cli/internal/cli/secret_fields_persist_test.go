@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"synology-pp-cli/internal/dsm/dsmtest"
 )
 
 // TestSyncAndLiveReadsNeverPersistSecretFields drives the real pipeline: sync
@@ -33,6 +35,9 @@ func TestSyncAndLiveReadsNeverPersistSecretFields(t *testing.T) {
 		"SYNO.ActiveBackup.Setting/list": `{"settings":{"smtp_password":"` + sentinel + `"}}`,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_ = r.ParseForm()
 		key := r.Form.Get("api") + "/" + r.Form.Get("method")
 		switch {

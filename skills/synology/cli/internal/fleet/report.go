@@ -128,6 +128,10 @@ type Failure struct {
 	Note       string `json:"note,omitempty"`
 }
 
+// ReportIdentity is what --quiet prints for the row: the task, or the NAS
+// for a row about the whole NAS (not synced, ABB missing).
+func (f Failure) ReportIdentity() string { return firstNonEmpty(f.TaskName, f.NAS) }
+
 // Failures lists tasks whose newest backup run inside the window did not
 // succeed, scheduled tasks with no backup run in the window (running tasks are
 // skipped), and NAS units whose mirror is not fresh.
@@ -279,6 +283,10 @@ type StaleDevice struct {
 	Note        string `json:"note,omitempty"`
 }
 
+// ReportIdentity is what --quiet prints for the row: the device's host name,
+// or the NAS for a row about the whole NAS.
+func (d StaleDevice) ReportIdentity() string { return firstNonEmpty(d.HostName, d.NAS) }
+
 // Stale lists devices whose last successful (or partially successful, which
 // still produced a restore point) backup is older than the threshold. A
 // running task does not hide a device: the age decides, and running is shown.
@@ -383,6 +391,9 @@ type HealthIssue struct {
 	DaysToFull *float64 `json:"days_to_full,omitempty"`
 	TakenAt    int64    `json:"taken_at,omitempty"`
 }
+
+// ReportIdentity is what --quiet prints for the row: the NAS with the issue.
+func (h HealthIssue) ReportIdentity() string { return h.NAS }
 
 // Health checks each NAS's newest storage snapshot against the thresholds.
 func Health(ctx context.Context, db Querier, nasList []NAS, fullPct float64, diskTemp int64, now time.Time, maxSyncAge time.Duration) ([]HealthIssue, error) {
@@ -549,6 +560,9 @@ type NASStatus struct {
 	Note         string   `json:"note,omitempty"`
 }
 
+// ReportIdentity is what --quiet prints for the row: the NAS.
+func (n NASStatus) ReportIdentity() string { return n.NAS }
+
 // Status builds the one-row-per-NAS rollup from the other reports.
 func Status(ctx context.Context, db Querier, nasList []NAS, since time.Time, staleAfter time.Duration, fullPct float64, diskTemp int64, now time.Time, maxSyncAge time.Duration) ([]NASStatus, error) {
 	states, err := LoadSyncStates(ctx, db)
@@ -667,6 +681,10 @@ type DeviceMatch struct {
 	LastAttemptT int64       `json:"last_attempt_at,omitempty"`
 }
 
+// ReportIdentity is what --quiet prints for the row: the device's host name,
+// or the NAS for a row about the whole NAS.
+func (d DeviceMatch) ReportIdentity() string { return firstNonEmpty(d.HostName, d.NAS) }
+
 // FindDevice returns protected devices on the given NAS units whose host name
 // contains query (case-insensitive), with each one's last success and recent
 // runs. A NAS whose mirror is not fresh gets a nas_not_synced row: "not found"
@@ -771,6 +789,19 @@ type TrendRow struct {
 	P90Sec         int64   `json:"p90_duration_sec"`
 	LastSec        *int64  `json:"last_duration_sec"` // null: the newest completed run has no end time
 	Overrun        bool    `json:"overrun"`
+}
+
+// ReportIdentity is what --quiet prints for the row: the task or device
+// (Key), or the NAS for a row about the whole NAS.
+func (r TrendRow) ReportIdentity() string { return firstNonEmpty(r.Key, r.NAS) }
+
+func firstNonEmpty(vs ...string) string {
+	for _, v := range vs {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // Trend aggregates backup runs since a time, per task (byDevice=false, from

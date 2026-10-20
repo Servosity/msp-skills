@@ -56,7 +56,10 @@ func newLogPromotedCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("limit") || flagLimit != 0 {
 				params["limit"] = formatCLIParamValue(flagLimit)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "log", true, path, params, nil, "", cmd.ErrOrStderr())
+			// HAND-FIX(sync-skips-live-log): the system log is read live only; its
+			// items carry no id, so sync never stores them and a write-through
+			// only printed a "not cached locally" warning on every call.
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "log", true, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

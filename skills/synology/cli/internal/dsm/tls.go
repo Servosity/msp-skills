@@ -55,7 +55,7 @@ func ApplyTLS(cfg *tls.Config, pin string, skip bool) error {
 			}
 			sum := sha256.Sum256(rawCerts[0])
 			if hex.EncodeToString(sum[:]) != pin {
-				return fmt.Errorf("NAS certificate fingerprint %s does not match the pinned %s", hex.EncodeToString(sum[:]), pin)
+				return &PinMismatchError{Presented: hex.EncodeToString(sum[:]), Pinned: pin}
 			}
 			return nil
 		}
@@ -66,6 +66,29 @@ func ApplyTLS(cfg *tls.Config, pin string, skip bool) error {
 	}
 	return nil
 }
+
+// ErrCertificatePinMismatch is what errors.Is matches for a NAS certificate
+// that is not the pinned one.
+var ErrCertificatePinMismatch = errors.New("the NAS certificate does not match the pinned SHA-256 fingerprint")
+
+// PinMismatchError is a NAS that presented a certificate other than the
+// pinned one: a renewed certificate (DSM's self-signed one, or Let's Encrypt
+// every ~90 days) or another host. Both fingerprints are hex SHA-256 digests
+// computed here, never text the server chose.
+type PinMismatchError struct {
+	Presented, Pinned string
+}
+
+func (e *PinMismatchError) Error() string {
+	return fmt.Sprintf("NAS certificate fingerprint %s does not match the pinned %s", e.Presented, e.Pinned)
+}
+
+// Is makes errors.Is(err, ErrCertificatePinMismatch) true.
+func (e *PinMismatchError) Is(target error) bool { return target == ErrCertificatePinMismatch }
+
+// PinMismatchHint is the remedy every surface (transport errors, fleet sync
+// rows, live commands, doctor) prints for a pin mismatch.
+const PinMismatchHint = "if the NAS renewed its certificate, re-pin it: 'synology-cli fleet add <name> --pin-cert' for a registered NAS (keeps its URL, settings and mirror), or set SYNOLOGY_TLS_FINGERPRINT to the new fingerprint after checking it in DSM (Control Panel > Security > Certificate)"
 
 // RefuseAllTLS returns a config that fails every TLS handshake with err: a
 // pin the operator asked for but mistyped must not silently fall back to

@@ -22,11 +22,15 @@ func newTailCmd(flags *rootFlags) *cobra.Command {
 	var interval time.Duration
 	var follow bool
 
+	// HAND-FIX(mcp-hides-tail): tail polls until interrupted (--follow
+	// defaults to true), so an MCP tools/call never returned and hung an
+	// unattended agent; mcp:hidden keeps this terminal streaming command
+	// off the MCP surface.
 	cmd := &cobra.Command{
 		Use:         "tail [resource]",
 		Short:       "Stream live changes by polling the API at regular intervals",
 		Args:        cobra.RangeArgs(0, 1),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "mcp:hidden": "true", "pp:no-error-path-probe": "true"},
 		Long: `Tail streams live data changes by polling the API at configurable intervals.
 Changes are emitted as NDJSON to stdout for piping to other tools.
 Gracefully shuts down on SIGTERM/SIGINT.

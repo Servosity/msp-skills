@@ -365,7 +365,7 @@ func RegisterTools(s *server.MCPServer) {
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
 		mcplib.NewTool("search",
-			mcplib.WithDescription("Full-text search across all synced data in the local sync store that synology-cli sync fills: shared folders, groups, the DSM system log, packages and users. ABB jobs and storage health are not in it; they live in the fleet mirror (fleet_status, abb_failures, abb_stale, abb_device, fleet_health)."),
+			mcplib.WithDescription("Full-text search across all synced data in the local sync store that synology-cli sync fills: shared folders, groups, packages and users (the DSM system log is not synced; read it live with log_list). ABB jobs and storage health are not in it; they live in the fleet mirror (fleet_status, abb_failures, abb_stale, abb_device, fleet_health)."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
 			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -376,8 +376,8 @@ func RegisterTools(s *server.MCPServer) {
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
 		mcplib.NewTool("sql",
-			mcplib.WithDescription("Run read-only SQL against local database: the sync store that synology-cli sync fills (shared folders, groups, the DSM system log, packages and users). ABB jobs and storage health are not in this store; use the fleet report tools."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data) with resource_type folder, group, log, package or user; read fields with json_extract, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='user'.")),
+			mcplib.WithDescription("Run read-only SQL against local database: the sync store that synology-cli sync fills (shared folders, groups, packages and users; the DSM system log is read live with log_list, never stored). ABB jobs and storage health are not in this store; use the fleet report tools."),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data) with resource_type folder, group, package or user; read fields with json_extract, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='user'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -1227,7 +1227,7 @@ func mcpSQLQueryError(queryCtx context.Context, err error) string {
 	}
 	msg := err.Error()
 	if strings.Contains(strings.ToLower(msg), "no such table") {
-		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type (folder, group, log, package or user), for example resource_type='user', and read JSON fields with json_extract(data,'$.field'). ABB jobs and storage health are in the fleet mirror, not this store: use the fleet_status, abb_failures, abb_stale, abb_device and fleet_health tools.", err)
+		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type (folder, group, package or user), for example resource_type='user', and read JSON fields with json_extract(data,'$.field'). ABB jobs and storage health are in the fleet mirror, not this store: use the fleet_status, abb_failures, abb_stale, abb_device and fleet_health tools.", err)
 	}
 	return fmt.Sprintf("query failed: %v", err)
 }
@@ -1293,7 +1293,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		// tool_surface tells agents which surface a capability lives on.
 		// HAND-FIX(mcp-context-describes-dsm): the generated text described a
 		// cursor-paged CRM API with a full sync and search over every resource.
-		"tool_surface": "Endpoint tools call one NAS (SYNOLOGY_BASE_URL) live. Every DSM operation is an HTTP GET on /webapi/entry.cgi (query.cgi for session_apis) selected by its api= and method= parameters; the CLI logs in with SYNOLOGY_ACCOUNT and SYNOLOGY_PASSWORD and keeps the session. abb_backup and abb_cancel start or cancel backups and session_logout ends the session: they refuse any argument the tool does not declare. Read tools refuse an argument that would override api, method or version. The fleet tools (fleet_status, fleet_health, abb_failures, abb_stale, abb_device, abb_trend) shell out to synology-cli and read the local fleet mirror that fleet_sync fills by logging in to every NAS registered with fleet_add; they return an error result that still carries the report rows when they found something (exit 6). why_did_a_task_fail (abb triage) is a live read of one NAS.",
+		"tool_surface": "Endpoint tools call one NAS (SYNOLOGY_BASE_URL) live. Every DSM operation is an HTTP GET on /webapi/entry.cgi (query.cgi for session_apis) selected by its api= and method= parameters; the CLI logs in with SYNOLOGY_ACCOUNT and SYNOLOGY_PASSWORD and keeps the session. abb_backup and abb_cancel start or cancel backups and session_logout ends the session: they refuse any argument the tool does not declare. Read tools refuse an argument that would override api, method or version. The fleet tools (fleet_status, fleet_health, abb_failures, abb_stale, abb_device, abb_trend) shell out to synology-cli and read the local fleet mirror that fleet_sync fills by logging in to every NAS the operator registered with the CLI command synology-cli fleet add; they return an error result that still carries the report rows when they found something (exit 6). why_did_a_task_fail (abb triage) is a live read of one NAS. Registry administration is operator-only: fleet add and fleet remove are CLI commands, not MCP tools, so no tool call chooses which address a NAS login (or which password) is sent to; fleet_sync and abb_triage reach only registered NAS units. tail is a terminal streaming command and is not an MCP tool.",
 		// learn_protocol is generated from the single shared source of
 		// truth (the exported constant internal/learn.RecallFirstProtocol)
 		// also consumed by the CLI agent-context command, so the MCP and
@@ -1360,11 +1360,10 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"endpoints":   []string{"task_status", "tasks"},
 			},
 			{
+				// HAND-FIX(sync-skips-live-log): a live stream, never synced.
 				"name":        "log",
-				"description": "DSM system log",
+				"description": "DSM system log (read live with log_list; not synced, so not in sql or search)",
 				"endpoints":   []string{"list"},
-				"syncable":    true,
-				"searchable":  true,
 			},
 			{
 				"name":        "package",
@@ -1401,7 +1400,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			"DSM lists page with offset and limit (abb_logs, abb_results, group_list, user_list; log_list uses start and limit). abb_logs and abb_results default to limit 200 and abb_result_detail to 500; a list that returns exactly limit rows may have more, so request the next offset. abb_tasks, the storage tools and the system tools return everything in one call.",
 			"filter parameters take a JSON object, for example {'status':4} on abb_results for failed runs or {'task_id':5} on abb_tasks.",
 			"For fleet questions (which backups failed, which devices are stale, which NAS has a degraded volume), run fleet_sync first, then fleet_status, abb_failures, abb_stale or fleet_health. A NAS whose last good sync is older than the max-sync-age argument (26h by default) reads as not synced, never as OK.",
-			"The sql and search tools read only the generic sync store (synology-cli sync): shared folders, groups, the DSM system log, packages and users. They never contain ABB jobs or storage health.",
+			"The sql and search tools read only the generic sync store (synology-cli sync): shared folders, groups, packages and users. They never contain ABB jobs, storage health or the DSM system log (read it live with log_list).",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.

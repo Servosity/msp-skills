@@ -20,8 +20,8 @@ func newSessionLogoutCmd(flags *rootFlags) *cobra.Command {
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "session.logout", "pp:method": "GET", "pp:path": "/webapi/entry.cgi?api=SYNO.API.Auth&method=logout&version=6"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dryRunOK(flags) { // HAND-FIX(dsm-dry-run): nothing is sent; one dry-run object
-				return dsmDryRun(cmd, flags, "session logout")
+			if dryRunOK(flags) { // HAND-FIX(dsm-dry-run): nothing is sent; the preview names the request
+				return dsmDryRun(cmd, flags, "session logout", nil)
 			}
 			path := "/webapi/entry.cgi?api=SYNO.API.Auth&method=logout&version=6"
 			c, err := flags.newClient()

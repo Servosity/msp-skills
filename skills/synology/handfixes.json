@@ -233,8 +233,8 @@
     },
     {
       "id": "dsm-dry-run",
-      "summary": "abb backup, abb cancel and session logout (DSM write calls are GETs on entry.cgi) answer --dry-run with the standard {dry_run:true, action} object via writeDryRun; nothing is sent",
-      "why": "The generated GET-mutation template wraps the client's dry-run sentinel in the provenance envelope ({meta, results:{dry_run:true}}), which fails the live dogfood dry-run JSON contract (missing top-level dry_run:true) and so the Phase 5 gate.",
+      "summary": "abb backup, abb cancel and session logout (DSM write calls are GETs on entry.cgi) answer --dry-run without sending anything, with a preview that names the exact request: the standard {dry_run, action, would} keys (would = the request line, for example GET https://<nas>:5001/webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup&task_ids=%5B5%5D&trigger_type=1&version=1) plus a request object (http_method, nas origin, path, api, api_method, version, params incl. task_ids); the password, sid and SynoToken are never printed",
+      "why": "The generated GET-mutation template wraps the client's dry-run sentinel in the provenance envelope ({meta, results:{dry_run:true}}), which fails the live dogfood dry-run JSON contract (missing top-level dry_run:true) and so the Phase 5 gate. Fix round 1: the preview said only {\"would\":\"run abb backup; no changes made\"} (no NAS, DSM call or task ids), so the person approving it saw nothing; dsmDryRun now takes the call site's params and reads the request from the command's own pp:method/pp:path annotations. TestDSMWriteDryRunNamesTheRequest fails with the old preview restored.",
       "status": "active",
       "spec_encode_followup": "press: give GET-shaped mutations (RPC APIs) the same dry-run short-circuit as POST mutations",
       "asserts": [
@@ -258,19 +258,31 @@
         },
         {
           "file": "cli/internal/cli/abb_backup.go",
-          "contains": "return dsmDryRun(cmd, flags, \"abb backup\")",
+          "contains": "return dsmDryRun(cmd, flags, \"abb backup\", map[string]string{\"task_ids\": formatCLIParamValue(flagTaskIds)})",
           "min_count": 1,
           "code_only": true
         },
         {
           "file": "cli/internal/cli/abb_cancel.go",
-          "contains": "return dsmDryRun(cmd, flags, \"abb cancel\")",
+          "contains": "return dsmDryRun(cmd, flags, \"abb cancel\", map[string]string{\"task_ids\": formatCLIParamValue(flagTaskIds)})",
           "min_count": 1,
           "code_only": true
         },
         {
           "file": "cli/internal/cli/session_logout.go",
-          "contains": "return dsmDryRun(cmd, flags, \"session logout\")",
+          "contains": "return dsmDryRun(cmd, flags, \"session logout\", nil)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_common.go",
+          "contains": "method, path := cmd.Annotations[\"pp:method\"], cmd.Annotations[\"pp:path\"]",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dsm_dry_run_preview_test.go",
+          "contains": "func TestDSMWriteDryRunNamesTheRequest(",
           "min_count": 1,
           "code_only": true
         }
@@ -844,7 +856,7 @@
     },
     {
       "id": "mcp-context-describes-dsm",
-      "summary": "the MCP context tool, the search/sql tool descriptions and the sql no-such-table hint describe DSM truthfully: GET operations selected by api=/method=, offset/limit paging with the real defaults, the fleet mirror filled by fleet_sync, sql/search covering only the generic sync store (folder, group, log, package, user), archetype infrastructure, no developer-platform playbook, real auth env descriptions",
+      "summary": "the MCP context tool, the search/sql tool descriptions and the sql no-such-table hint describe DSM truthfully: GET operations selected by api=/method=, offset/limit paging with the real defaults, the fleet mirror filled by fleet_sync, sql/search covering only the generic sync store (folder, group, package, user; the DSM system log is read live with log_list and is neither syncable nor searchable), registry administration (fleet add/remove) named as CLI-only and tail as not an MCP tool, archetype infrastructure, no developer-platform playbook, real auth env descriptions",
       "why": "The generated context tool (`call this first`) told agents lists page with a cursor (default 100), marked abb, storage and system searchable although sync never stores them, pointed the sql tool and its no-such-table hint at resource_type='abb' rows that never exist, described SYNOLOGY_PASSWORD/DEVICE_ID/OTP_CODE as `Set during initial auth setup.` and shipped a developer-platform archetype and playbook. Same class bitdefender and backup-radar fixed. TestMCPContextDescribesDSM fails with the old archetype or the cursor tip restored.",
       "status": "active",
       "asserts": [
@@ -885,6 +897,34 @@
         {
           "file": "cli/internal/mcp/context_truth_test.go",
           "contains": "func TestMCPContextDescribesDSM(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "group, log, package"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "groups, the DSM system log, packages"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "registered with fleet_add"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "Registry administration is operator-only: fleet add and fleet remove are CLI commands, not MCP tools",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "\"description\": \"DSM system log\","
+        },
+        {
+          "file": "cli/internal/mcp/operator_only_tools_test.go",
+          "contains": "func TestMCPContextNeverListsTheLiveLogAsSynced(",
           "min_count": 1,
           "code_only": true
         }
@@ -1400,7 +1440,7 @@
     },
     {
       "id": "doctor-verdict-tracks-reality",
-      "summary": "doctor refuses the placeholder address and names SYNOLOGY_BASE_URL, proves the host is a DSM WebAPI with an unauthenticated SYNO.API.Info call before any password is sent, then logs in and makes one authenticated SYNO.DSM.Info read, reporting valid / rejected (DSM 4xx) / two-factor code needed / scope-limited; the auth row counts SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD as configured",
+      "summary": "doctor refuses the placeholder address and names SYNOLOGY_BASE_URL, proves the host is a DSM WebAPI with dsm.ProbeDSM (the unauthenticated SYNO.API.Info check dsm.Login itself runs before every credential POST, so doctor and every login share one rule) before any password is sent; a certificate pin mismatch is its own verdict, then logs in and makes one authenticated SYNO.DSM.Info read, reporting valid / rejected (DSM 4xx) / two-factor code needed / scope-limited; the auth row counts SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD as configured",
       "why": "The generated doctor called any answer to GET / reachable (DSM's own login page included: `reachable (HTML body at /)`) and, with SYNOLOGY_ACCOUNT/PASSWORD set, printed no credentials row and auth `not configured`; check_doctor_truth failed 5 assertions on the shipped tree, and the generated probe POSTed the password to a JSON or HTML host that is not DSM. The gate's generic stub does not speak DSM's {success,data} envelope or carry an account login, so its healthy fixture is honestly reported as not a DSM WebAPI; with the generic GET / probe gone from doctor.go the gate passes on its expired, wrong-base and placeholder checks. TestDoctorVerdictTracksReality drives a DSM-faithful stub in both directions (valid, wrong password, 2FA, non-DSM JSON, HTML, no login, placeholder) and asserts the password never reaches a non-DSM host; it fails with the generated probe restored.",
       "status": "active",
       "asserts": [
@@ -1426,7 +1466,31 @@
         },
         {
           "file": "cli/internal/cli/doctor_verdict.go",
-          "contains": "const doctorAPIInfoPath = \"/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=SYNO.API.Auth\"",
+          "contains": "err := dsm.ProbeDSM(ctx, hc, origin)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/probe.go",
+          "contains": "const APIInfoProbePath = \"/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=SYNO.API.Auth\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/dsm.go",
+          "contains": "if err := ProbeDSM(ctx, hc, baseURL); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/probe_test.go",
+          "contains": "func TestLoginProbesBeforeSendingPassword(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/login_probe_test.go",
+          "contains": "func TestCredentialPathsNeverSendThePasswordToANonDSMHost(",
           "min_count": 1,
           "code_only": true
         },
@@ -1580,6 +1644,208 @@
         {
           "file": "cli/internal/client/secret_cache_test.go",
           "contains": "func TestResponseCacheNeverStoresSecretFields(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-registry-admin-and-tail-hidden",
+      "summary": "fleet add, fleet remove (registry administration) and tail are never MCP tools (mcp:hidden), in full and read-only mode; fleet_sync stays exposed and reaches only operator-registered NAS units",
+      "why": "fleet_add took url and env-prefix from the agent, so {url: attacker, env-prefix: SYNOLOGY, check: true} (or a later fleet_sync) POSTed SYNOLOGY_PASSWORD, or any <prefix>_PASSWORD in the server's env, to a host the agent chose; fleet_remove let an agent drop a client NAS from monitoring. Measured on the shipped binaries: the attacker host received the password. tail defaults to --follow and polls forever, so an MCP tools/call never returned and hung an unattended agent (no result in 20 s). fleet_add/fleet_remove are hand-written (fleet_registry.go); tail.go is generated. TestMCPOmitsOperatorOnlyAndStreamingTools and TestMCPFleetSyncReachesOnlyRegisteredNAS fail with any of the three annotations removed.",
+      "status": "active",
+      "spec_encode_followup": "press: an x-mcp-hidden (or streaming) marker for follow/poll commands so tail is never mirrored",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "\"mcp:read-only\": \"true\", \"mcp:hidden\": \"true\", \"pp:no-error-path-probe\": \"true\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_registry.go",
+          "contains": "\"mcp:hidden\": \"true\"",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/operator_only_tools_test.go",
+          "contains": "func TestMCPOmitsOperatorOnlyAndStreamingTools(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/operator_only_tools_test.go",
+          "contains": "func TestMCPFleetSyncReachesOnlyRegisteredNAS(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-params-keep-operation",
+      "summary": "no flag, --param/--global-param/--resource-param or MCP argument may re-select the DSM operation (api, method, version), the session (_sid, SynoToken) or another key the spec path fixes: dsm.CheckOperationParams runs in the generated client before the dry run and before any login, and in the fleet dsm.Client",
+      "why": "Every DSM operation is a GET on one CGI path selected by api=/method=. Measured on the shipped binaries: `sync --resources folder --param api=SYNO.ActiveBackup.Task --param method=backup --param task_ids=[8]` started a backup, and the MCP sync tool did the same with {param: api=..., global-param: method=backup, resource-param: folder:task_ids=[8]}. The sweep's endpoint_args_guard covered only the typed endpoint tools. TestSyncParamsCannotReselectTheDSMOperation and TestMCPSyncCannotReselectTheDSMOperation fail with the client check removed.",
+      "status": "active",
+      "spec_encode_followup": "press: treat RPC-selector query keys fixed in a path (api/method/version) as reserved in the generated client",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if err := dsm.CheckOperationParams(path, params); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "HAND-FIX(dsm-params-keep-operation)",
+          "min_count": 1,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/dsm/dsm.go",
+          "contains": "func CheckOperationParams(path string, params map[string]string) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_param_operation_test.go",
+          "contains": "func TestSyncParamsCannotReselectTheDSMOperation(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/operator_only_tools_test.go",
+          "contains": "func TestMCPSyncCannotReselectTheDSMOperation(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "DSM operation keys (api, method, version, _sid, SynoToken) and keys the request already fixes are refused.",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-pin-mismatch-named-not-retried",
+      "summary": "a NAS certificate that does not match the pin is its own error kind (dsm.PinMismatchError / ErrCertificatePinMismatch): transport errors, fleet sync rows, live commands and doctor say 'the NAS certificate does not match the pinned SHA-256 fingerprint' with the presented fingerprint and the re-pin remedy, and the generated client does not retry it",
+      "why": "A pin mismatch read as 'the request failed (connection error or malformed response)', so a NAS that renewed its certificate (DSM self-signed renewal, Let's Encrypt every ~90 days) silently broke every sync; a live call over a cached session retried it three times with back-off (7 s) before failing. TestPinMismatchIsNamedEverywhere, TestPinMismatchIsItsOwnErrorKind and TestPinMismatchIsNotRetried fail with the description or the no-retry check removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "!errors.Is(transportErr, dsm.ErrCertificatePinMismatch)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "HAND-FIX(dsm-pin-mismatch-not-retried)",
+          "min_count": 1,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/dsm/dsm.go",
+          "contains": "case errors.As(err, &pinErr):",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/pin_mismatch_test.go",
+          "contains": "func TestPinMismatchIsNotRetried(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-skips-live-log",
+      "summary": "sync (and workflow archive) store folder, group, package and user; the DSM system log (SYNO.Core.SyslogClient.Log) is not a sync resource and the log command reads it live only (no write-through, --data-source local refused)",
+      "why": "SyslogClient.Log items (time, level, descr, who, logtype) carry no id, so the log resource aborted as critical and `sync` exited 1 on every run against a real DSM shape (workflow archive too); the incomplete sync_state then made every MCP sql/search answer say the latest sync was incomplete, and the live log command printed a 'not cached locally' warning on every call. TestSyncSucceedsOnRealDSMShapes fails with log restored to the sync defaults, the workflow list or the log command's auto strategy.",
+      "status": "active",
+      "spec_encode_followup": "press: an x-pp-sync: false (live stream) resource marker for list endpoints without a primary key",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "\"group\",\n\t\t\"log\",\n\t\t\"package\","
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "\"log\":     \"/webapi/entry.cgi?api=SYNO.Core.SyslogClient.Log&method=list&version=1\","
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "[]string{\"folder\", \"group\", \"log\", \"package\", \"user\"}"
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "resources := []string{\"folder\", \"group\", \"package\", \"user\"}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_log.go",
+          "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"log\", true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_live_log_test.go",
+          "contains": "func TestSyncSucceedsOnRealDSMShapes(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-redacts-secret-fields",
+      "summary": "export (to --output or stdout) passes every record through cliutil.RedactSecretFields, the funnel the store and response cache use: secret-named values (passwd, enc_passwd, repo_password, smtp_password, ...) read [redacted]",
+      "why": "export --output wrote DSM answers as they came, unlike the store and the cache (secret-fields-never-persisted). Measured with the sentinel mock: users.jsonl carried user passwd/password and share enc_passwd. TestExportNeverWritesSecretFields fails with the per-record redaction removed. The single-item branch is redacted too; no resource declares a single-item path today, so it is unreachable.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "item = cliutil.RedactSecretFields(item)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "data = cliutil.RedactSecretFields(data)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export_redaction_test.go",
+          "contains": "func TestExportNeverWritesSecretFields(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-no-agent-chosen-file-reads",
+      "summary": "the MCP teach and teach_playbook tools do not take --playbook-file, --playbook-notes-file or --notes-file (dropped from the schema and refused via mcp:write-flags); MCP agents use the inline --playbook-json / --playbook-notes / --notes; the CLI keeps the file flags",
+      "why": "Found auditing the MCP surface for 'the caller chooses where a credential or client data goes': teach_playbook {notes-file: <any path>} read the file into the learn store and playbook_list returned it verbatim (measured with a sentinel file), so an agent could read the CLI's config (SYNOLOGY_PASSWORD) or session file (sid, SynoToken) and carry it anywhere. mcp:write-flags is the press's only annotation that drops a flag from the MCP schema and refuses it as an argument; the flags here are read sources. TestMCPTeachNeverReadsAnAgentChosenFile fails with either annotation removed.",
+      "status": "active",
+      "spec_encode_followup": "press: an mcp:read-flags (agent-chosen read source) annotation, and drop *-file read flags from mirrored learn tools by default",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "\"mcp:write-flags\":     \"playbook-file,playbook-notes-file\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "contains": "\"mcp:write-flags\":     \"playbook-file,notes-file\",",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/operator_only_tools_test.go",
+          "contains": "func TestMCPTeachNeverReadsAnAgentChosenFile(",
           "min_count": 1,
           "code_only": true
         }

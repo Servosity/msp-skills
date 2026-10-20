@@ -1228,6 +1228,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	if err := rejectUnresolvedPathParams(path, nil); err != nil {
 		return nil, 0, err
 	}
+	// HAND-FIX(dsm-params-keep-operation): no flag, --param or MCP argument may
+	// re-select the DSM operation (api/method/version), the session or a key
+	// the spec path fixes; refused before the dry run and before any login.
+	if err := dsm.CheckOperationParams(path, params); err != nil {
+		return nil, 0, err
+	}
 	targetURL := c.BaseURL + path
 
 	var bodyBytes []byte
@@ -1461,7 +1467,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// timeout). Back off before retrying — same exponential schedule as
 			// the 5xx path below — so a brief outage does not burn every attempt
 			// in a tight loop. ctx cancellation breaks out of the wait at once.
-			if attempt < maxRetries && canRetryAmbiguousFailure && !isPermanentDNSError(transportErr) {
+			// HAND-FIX(dsm-pin-mismatch-not-retried): a certificate that is not the
+			// pinned one stays that way; retrying only delays the re-pin hint.
+			if attempt < maxRetries && canRetryAmbiguousFailure && !isPermanentDNSError(transportErr) && !errors.Is(transportErr, dsm.ErrCertificatePinMismatch) {
 				wait := time.Duration(math.Pow(2, float64(attempt))) * time.Second
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr

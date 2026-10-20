@@ -127,6 +127,9 @@ large datasets as it has no memory pressure.`,
 				}
 				if singleItem {
 					count = 1
+					// HAND-FIX(export-redacts-secret-fields): an export is a copy of NAS
+					// data on disk (or piped to one); it gets the store's redaction.
+					data = cliutil.RedactSecretFields(data)
 					if format == "jsonl" {
 						if _, err := fmt.Fprintln(writer, string(data)); err != nil {
 							return fmt.Errorf("writing export: %w", err)
@@ -144,6 +147,7 @@ large datasets as it has no memory pressure.`,
 					if limit > 0 && count >= limit {
 						break
 					}
+					item = cliutil.RedactSecretFields(item) // HAND-FIX(export-redacts-secret-fields)
 					if format == "jsonl" {
 						if _, err := fmt.Fprintln(writer, string(item)); err != nil {
 							return fmt.Errorf("writing export: %w", err)

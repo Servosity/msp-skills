@@ -47,9 +47,13 @@ func newTeachPlaybookCmd(flags *rootFlags, learnCfg *entities.Config) *cobra.Com
 		// `cli-printing-press verify` scores the Execute cell honestly.
 		// mcp:local-write: the only writes land in the CLI's own local
 		// learn store, so MCP hosts see destructive=false + openWorld=false.
+		// HAND-FIX(mcp-no-agent-chosen-file-reads): --playbook-file and
+		// --notes-file read any local path into the learn store that
+		// playbook_list returns; MCP agents use --playbook-json/--notes.
 		Annotations: map[string]string{
 			"pp:typed-exit-codes": "0,2",
 			"mcp:local-write":     "true",
+			"mcp:write-flags":     "playbook-file,notes-file",
 			"pp:happy-args":       "--query=find items in category;--notes=example playbook note",
 		},
 		Long: `Stores a structured CLI command sequence (with entity slots) and/or

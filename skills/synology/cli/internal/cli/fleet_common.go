@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,10 +48,40 @@ func redactErr(c *dsm.Client, err error) error {
 	return errors.New(c.Redact(err.Error()))
 }
 
+// dsmDryRunRequest is the exact request a DSM write command would send.
+type dsmDryRunRequest struct {
+	HTTPMethod string            `json:"http_method"`
+	NAS        string            `json:"nas"`
+	Path       string            `json:"path"`
+	API        string            `json:"api"`
+	APIMethod  string            `json:"api_method"`
+	Version    string            `json:"version"`
+	Params     map[string]string `json:"params"`
+	Session    string            `json:"session"`
+	Note       string            `json:"note,omitempty"`
+}
+
+// dsmDryRunResult keeps the standard dry-run keys (dry_run, action, would)
+// and adds the request, so the person approving a backup start, a cancel or
+// a logout sees which NAS, which DSM call and which task ids it would hit.
+type dsmDryRunResult struct {
+	DryRun  bool             `json:"dry_run"`
+	Action  string           `json:"action"`
+	Would   string           `json:"would"`
+	Request dsmDryRunRequest `json:"request"`
+}
+
+// dsmDryRunSession says what is added to the request when it is sent; the
+// values themselves (password, sid, SynoToken) are never printed.
+const dsmDryRunSession = "the CLI's DSM session is added when sent (_sid query parameter and X-SYNO-TOKEN header); not shown"
+
 // dsmDryRun answers --dry-run for a generated DSM write command
-// (HAND-FIX(dsm-dry-run)) with the standard dry-run object, sending nothing.
-// An address carrying a user or password is refused even in a preview.
-func dsmDryRun(cmd *cobra.Command, flags *rootFlags, action string) error {
+// (HAND-FIX(dsm-dry-run)), sending nothing. The preview names the exact
+// request: the HTTP method and spec path from the command's own pp:method and
+// pp:path annotations, the NAS origin from SYNOLOGY_BASE_URL and every
+// parameter the command would add (params, for example task_ids). An address
+// carrying a user or password is refused even in a preview.
+func dsmDryRun(cmd *cobra.Command, flags *rootFlags, action string, params map[string]string) error {
 	c, err := flags.newClient()
 	if err != nil {
 		return err
@@ -57,7 +89,66 @@ func dsmDryRun(cmd *cobra.Command, flags *rootFlags, action string) error {
 	if err := dsm.CheckOrigin(c.BaseURL); err != nil {
 		return configErr(err)
 	}
-	return writeDryRun(cmd.OutOrStdout(), flags, action)
+	method, path := cmd.Annotations["pp:method"], cmd.Annotations["pp:path"]
+	if method == "" || path == "" {
+		return fmt.Errorf("%s: no declared request to preview (pp:method/pp:path missing); nothing was sent", action)
+	}
+	if err := dsm.CheckOperationParams(path, params); err != nil {
+		return usageErr(err)
+	}
+	base, err := url.Parse(strings.TrimSpace(c.BaseURL))
+	if err != nil {
+		return configErr(errors.New("SYNOLOGY_BASE_URL is not a URL"))
+	}
+	origin := base.Scheme + "://" + base.Host
+	target, err := url.Parse(origin + path)
+	if err != nil {
+		return fmt.Errorf("%s: the declared path is not a URL", action)
+	}
+	q := target.Query()
+	req := dsmDryRunRequest{HTTPMethod: method, NAS: origin, Path: target.Path,
+		API: q.Get("api"), APIMethod: q.Get("method"), Version: q.Get("version"),
+		Params: map[string]string{}, Session: dsmDryRunSession}
+	for k := range q {
+		if k != "api" && k != "method" && k != "version" {
+			req.Params[k] = q.Get(k)
+		}
+	}
+	for k, v := range params {
+		if v != "" { // the live GET drops an empty value too
+			q.Set(k, v)
+			req.Params[k] = v
+		}
+	}
+	target.RawQuery = cliutil.EncodeQuery(q)
+	if dsm.PlaceholderOrigin(origin) {
+		req.Note = "SYNOLOGY_BASE_URL is the example placeholder; set it to your NAS before running this for real"
+	}
+	res := dsmDryRunResult{DryRun: true, Action: action, Would: method + " " + target.String(), Request: req}
+	w := cmd.OutOrStdout()
+	if flags != nil && flags.asJSON {
+		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(false)
+		return enc.Encode(res)
+	}
+	keys := make([]string, 0, len(req.Params))
+	for k := range req.Params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var p strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&p, " %s=%s", k, req.Params[k])
+	}
+	if p.Len() == 0 {
+		p.WriteString(" (none)")
+	}
+	fmt.Fprintf(w, "dry-run: would %s (%s; nothing was sent)\n", res.Would, action)
+	fmt.Fprintf(w, "  NAS:        %s\n  DSM call:   %s method=%s version=%s\n  parameters:%s\n  session:    %s\n", req.NAS, req.API, req.APIMethod, req.Version, p.String(), dsmDryRunSession)
+	if req.Note != "" {
+		fmt.Fprintf(w, "  note:       %s\n", req.Note)
+	}
+	return nil
 }
 
 // fleetNAS returns the registered NAS units. With an empty registry it falls

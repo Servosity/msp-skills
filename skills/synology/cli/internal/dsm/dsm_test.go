@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"synology-pp-cli/internal/dsm/dsmtest"
 )
 
 func TestEnvelope(t *testing.T) {
@@ -87,6 +89,9 @@ func fakeNAS(t *testing.T, expireFirst bool) (*httptest.Server, *int32) {
 	var logins int32
 	var dataCalls int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.URL.Path != "/webapi/entry.cgi" {
 			http.NotFound(w, r)
 			return
@@ -179,6 +184,9 @@ func TestClientCallSurfacesDSMError(t *testing.T) {
 
 func TestGetRejectsNonEnvelope(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -201,6 +209,9 @@ func TestGetRejectsNonEnvelope(t *testing.T) {
 func TestLoginFallsBackFromRejectedDeviceTokenToOTP(t *testing.T) {
 	var forms []url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_ = r.ParseForm()
 		forms = append(forms, r.PostForm)
 		switch {
@@ -226,6 +237,9 @@ func TestReloginUsesDeviceTokenNotSpentOTP(t *testing.T) {
 	var logins []url.Values
 	expired := true
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_ = r.ParseForm()
 			logins = append(logins, r.PostForm)
@@ -258,6 +272,9 @@ func TestLoginRefusesRedirect(t *testing.T) {
 	}))
 	defer evil.Close()
 	nas := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		http.Redirect(w, r, evil.URL+r.URL.Path, http.StatusTemporaryRedirect)
 	}))
 	defer nas.Close()
@@ -376,6 +393,9 @@ func TestTransportErrorsDropRedirectURL(t *testing.T) {
 	evil := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer evil.Close()
 	nas := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDSECRET34","synotoken":"TOKSECRET34"}}`))
 			return
@@ -394,6 +414,9 @@ func TestTransportErrorsDropRedirectURL(t *testing.T) {
 
 func TestRedactCoversEveryCredentialUsed(t *testing.T) {
 	nas := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"SIDSECRET35","synotoken":"TOKSECRET35","did":"NEWDEVICE35"}}`))
 	}))
 	defer nas.Close()

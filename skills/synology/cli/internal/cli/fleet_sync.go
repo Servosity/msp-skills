@@ -34,6 +34,9 @@ type fleetSyncRow struct {
 	DurationMS   int64    `json:"duration_ms"`
 }
 
+// ReportIdentity is what --quiet prints for the row.
+func (r fleetSyncRow) ReportIdentity() string { return r.NAS }
+
 func newNovelFleetSyncCmd(flags *rootFlags) *cobra.Command {
 	var nasName, dbPath, window string
 	var full bool

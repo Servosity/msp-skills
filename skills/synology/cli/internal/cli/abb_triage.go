@@ -42,6 +42,14 @@ type triageReport struct {
 	Note     string         `json:"note,omitempty"`
 }
 
+// ReportIdentity is what --quiet prints: the task.
+func (r triageReport) ReportIdentity() string {
+	if r.TaskName != "" {
+		return r.TaskName
+	}
+	return strconv.FormatInt(r.TaskID, 10)
+}
+
 func newNovelAbbTriageCmd(flags *rootFlags) *cobra.Command {
 	var nasName string
 	var scan, detailLimit int

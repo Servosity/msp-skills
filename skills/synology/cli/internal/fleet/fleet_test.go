@@ -22,6 +22,7 @@ import (
 	"synology-pp-cli/internal/cliutil"
 	"synology-pp-cli/internal/cliutil/testenv"
 	"synology-pp-cli/internal/dsm"
+	"synology-pp-cli/internal/dsm/dsmtest"
 	"synology-pp-cli/internal/store"
 )
 
@@ -88,6 +89,9 @@ func fakeDSM(t *testing.T, healthy bool) *httptest.Server {
 		data["SYNO.Storage.CGI.Storage/load_info"] = strings.Replace(data["SYNO.Storage.CGI.Storage/load_info"], `"attention"`, `"normal"`, 1)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -352,6 +356,9 @@ func TestTrendOverrun(t *testing.T) {
 
 func TestFetchWithoutABB(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -376,6 +383,9 @@ func TestFetchWithoutABB(t *testing.T) {
 
 func TestFetchLoginFailureAborts(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		_, _ = w.Write([]byte(`{"success":false,"error":{"code":400}}`))
 	}))
 	defer srv.Close()
@@ -598,6 +608,9 @@ func TestResultCursorRefetchesRunningJobs(t *testing.T) {
 
 func TestFetchRejectsNonEnvelopeAndShapeDrift(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
@@ -788,6 +801,9 @@ func TestURLChangeIsNotFresh(t *testing.T) {
 func TestFetchTruncationAndTransferFailureCommitNoHistory(t *testing.T) {
 	page := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) {
+			return
+		}
 		if r.Method == http.MethodPost {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sid":"s","synotoken":"t"}}`))
 			return
