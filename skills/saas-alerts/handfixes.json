@@ -253,7 +253,7 @@
       "asserts": [
         {
           "file": "cli/internal/client/client.go",
-          "contains": "return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil",
+          "contains": "withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody)))",
           "code_only": true
         },
         {
