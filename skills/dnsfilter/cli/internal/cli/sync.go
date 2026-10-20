@@ -3920,6 +3920,9 @@ func syncDependentResource(ctx context.Context, c interface {
 	if humanFriendly {
 		fmt.Fprintf(stderrW(), "\n")
 	}
+	if latestOnly && coverageReason == "max_pages_cap" {
+		coverageReason = "latest_only" // --latest-only asked for the head page only
+	}
 	attemptComplete := parentCoverageComplete && reportedParents == len(parentRows) && completeParents == len(parentRows)
 	// HAND-FIX(sync-complete-means-whole-fleet): children of an incomplete
 	// parent collection cover only the parents it holds.
@@ -3958,9 +3961,6 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 	}
 	if !attemptComplete {
-		if latestOnly && coverageReason == "max_pages_cap" {
-			coverageReason = "latest_only"
-		}
 		msg := fmt.Sprintf("%s sync incomplete (%s); completion watermark was not advanced", dep.Name, coverageReason)
 		if syncScopedByRequest(coverageReason) {
 			if !humanFriendly {

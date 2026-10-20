@@ -31,6 +31,8 @@ func TestFinalWithholdsUndecodablePreview(t *testing.T) {
 		`{\"data\": [{\"id\": 2, \"name\": \"Site 0002\", \"secret_key\": \"NETSECRET-0002`,
 		`{"data": [{"id": 2, "pin": 4938`,
 		"id,name,secret_key\n1,Site 0001,NETSECRET-0001\n2,Site 00",
+		// A tenant string that only starts like JSON still gets the plain rule.
+		"{ Rack: 19\" cabinet\nUninstall PIN for \"HQ\" laptops: NETSECRET-77",
 	}
 	for _, p := range leaky {
 		got := Final(envelope(p))
@@ -44,6 +46,9 @@ func TestFinalWithholdsUndecodablePreview(t *testing.T) {
 	kept := []string{
 		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": "` + WithheldFieldPlaceholder + `", "has_secret_key": true}, {"id": 2, "name": "Site 0002", "secret_key": null, "x": "y`,
 		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": `,
+		// Ordinary records in a preview never withhold it (its complete
+		// records are redacted as JSON; a qualifier ends with its string).
+		`{"data": [{"id": 1, "name": "Site 0001"}, {"id": 7, "name": "Office of the Secretary of State", "status": "active"}, {"id": 8, "name": "Spin (cycling studio)", "organization_id": 7}, {"id": 9, "name": "Site`,
 	}
 	for _, p := range kept {
 		if got := Final(envelope(p)); !strings.Contains(got, "Site 0001") {

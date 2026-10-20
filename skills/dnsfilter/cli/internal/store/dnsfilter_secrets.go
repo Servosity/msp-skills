@@ -456,19 +456,57 @@ func labelNamesSecret(label string) bool {
 // whitespace between them allowed) name a secret (labelNamesSecret), or when
 // earlier in the same segment a secret label was followed by a qualifier,
 // however long: punctuation or a digit (PIN (Acme), password #2, PIN - HQ,
-// PIN, HQ, PIN [Acme], password#2) or a preposition (PIN for Acme laptops).
-// Real double quotes (an even backslash run before them) are tracked as JSON
-// strings: a qualifier armed inside a string ends where that string closes,
-// so an org named "Office of the Secretary of State" arms nothing past its
-// own value, while a quoted name inside a plain-text qualifier ("HQ") does
-// not end it. A double quote arms only when it opens a string after a space
-// (a key's quote sits right against its label), an escaped one is a literal
-// character, and a single quote is punctuation ('Main Office' arms). A segment also ends at a real line break; an
-// escaped one (\n) is text at this level (UNC paths such as \\dc01\netlogon),
-// and the unescape rounds supply the real breaks. A secret word followed by
-// another word is a different label (Password Policy: strict is kept). It reads text at one escape level, as given, and never unescapes;
-// TextNamesSecret runs it on every level of raw text.
-func SecretPairInText(text string) bool {
+// PIN, HQ, PIN [Acme], password#2), a preposition (PIN for Acme laptops), or
+// an opening quote after a space (PIN "Acme" (laptops)). A segment ends at a
+// real line break only: this is the rule for text anyone can write (a stored
+// value, a string in a result), where quotes are prose (an inch mark 19" or a
+// quoted name), so nothing else ends a qualifier. An escaped line break (\n)
+// is text at its level (UNC paths such as \\dc01\netlogon); the unescape
+// rounds supply the real breaks. A secret word followed by another word is a
+// different label (Password Policy: strict is kept). It reads text at one
+// escape level, as given, and never unescapes; TextNamesSecret runs it on
+// every level of raw text.
+func SecretPairInText(text string) bool { return secretPairScan(text, scanPlain) }
+
+// SecretPairInJSONText is SecretPairInText for text that is JSON as a whole
+// (the read-only MCP filter's pass over a result it decoded and re-encoded):
+// quotes are tracked as JSON strings at every nesting level (a quote after
+// 2^d-1 backslashes delimits a string d levels down, JSON in a string in a
+// string), so a qualifier armed inside a string ends where that string
+// closes: an org named "Office of the Secretary of State" arms nothing past
+// its own value, in a result or in a bounded preview of one. Never use it on
+// text anyone can write (one stray quote would invert the phase); the plain
+// rule still runs on every string value and on the non-JSON remainder.
+func SecretPairInJSONText(text string) bool { return secretPairScan(text, scanJSON) }
+
+// SecretLabelPairInText is the label-only form: a separator counts only when
+// a secret label is right before it (no qualifier arming). It is for text
+// whose quote structure was destroyed by undoing escapes, where only a key
+// name hidden by escaping (tok\u0065n=) is new.
+func SecretLabelPairInText(text string) bool { return secretPairScan(text, scanLabelOnly) }
+
+// Scan modes for secretPairScan.
+const (
+	scanPlain = iota
+	scanJSON
+	scanLabelOnly
+)
+
+// maxJSONDepth bounds the JSON-in-string nesting levels the JSON scan tracks.
+const maxJSONDepth = 8
+
+// quoteDepth is the nesting level a quote after k backslashes delimits
+// (0, 1, 3, 7 ... backslashes: level 0, 1, 2, 3), or -1 for a literal quote.
+func quoteDepth(k int) int {
+	for d := 0; d < maxJSONDepth; d++ {
+		if k == 1<<d-1 {
+			return d
+		}
+	}
+	return -1
+}
+
+func secretPairScan(text string, mode int) bool {
 	if !strings.ContainsAny(text, ":=") {
 		return false
 	}
@@ -478,12 +516,20 @@ func SecretPairInText(text string) bool {
 	// clean: only whitespace, quotes and backslashes since the last word.
 	// joined: the next word continues the run (only spaces since a word).
 	runSecret, pending, armed, clean, joined := false, false, false, false, false
-	// inString: inside a double-quoted string; armedInString: the qualifier
-	// was armed inside the string that is open.
-	inString, armedInString := false, false
+	// open[d]: a JSON string d levels down is open (JSON mode only);
+	// armedDepth: the deepest open string when the qualifier armed (-1: none).
+	var open [maxJSONDepth]bool
+	armedDepth := -1
 	arm := func() {
-		if pending {
-			armed, armedInString = true, inString
+		if !pending || mode == scanLabelOnly {
+			return
+		}
+		armed, armedDepth = true, -1
+		for d := maxJSONDepth - 1; d >= 0; d-- {
+			if open[d] {
+				armedDepth = d
+				break
+			}
 		}
 	}
 	for i := 0; i < len(text); {
@@ -515,48 +561,50 @@ func SecretPairInText(text string) bool {
 		case c == ' ' || c == '\t':
 		case c == '\n' || c == '\r':
 			armed, pending, joined = false, false, false
-		case c == '\\':
-			k := 1
+		case c == '\\' || c == '"':
+			k := 0
 			for i+k < len(text) && text[i+k] == '\\' {
 				k++
 			}
-			switch {
-			case i+k < len(text) && text[i+k] == '"' && k%2 == 1:
-				// An escaped quote is a literal character at this level: it
-				// neither opens nor closes a string. After a space it is a
-				// quoted qualifier one level down (PIN \"Acme\" (laptops)).
-				if i > 0 && (text[i-1] == ' ' || text[i-1] == '\t') {
+			if i+k < len(text) && text[i+k] == '"' {
+				// A quote after a secret label and a space opens a quoted
+				// qualifier (PIN "Acme" (laptops): x); a key's quote sits
+				// right against its label ("password":), so it never arms.
+				// In JSON text the quote also opens or closes a string at
+				// its nesting level, and closing the string a qualifier was
+				// armed in ends it.
+				spaced := i > 0 && (text[i-1] == ' ' || text[i-1] == '\t')
+				if d := quoteDepth(k); mode != scanPlain && d >= 0 {
+					if open[d] {
+						if armed && armedDepth == d {
+							armed = false
+						}
+						for e := d; e < maxJSONDepth; e++ {
+							open[e] = false
+						}
+					} else {
+						if spaced {
+							arm()
+						}
+						open[d] = true
+					}
+				} else if spaced {
 					arm()
 				}
 				pending, joined = false, false
-				k++
-			case i+k < len(text) && text[i+k] == '"':
-				// An even run escapes itself; the quote case handles the
-				// real quote that follows.
-			case k%2 == 1 && i+k < len(text) && text[i+k] == 't':
-				k++ // an escaped tab is whitespace
-			default:
-				// Literal backslashes (a path, an escaped line break read
-				// as text): punctuation.
-				arm()
-				pending, clean, joined = false, false, false
+				i += k + 1
+				continue
 			}
+			if k%2 == 1 && i+k < len(text) && text[i+k] == 't' {
+				i += k + 1 // an escaped tab is whitespace
+				continue
+			}
+			// Literal backslashes (a path, an escaped line break read as
+			// text): punctuation.
+			arm()
+			pending, clean, joined = false, false, false
 			i += k
 			continue
-		case c == '"':
-			// A real double quote opens or closes a JSON string. An opening
-			// quote after a secret label and a space is a quoted qualifier
-			// (PIN "Acme" (laptops): x); a key's quote sits right against its
-			// label ("password":), so it never arms, whatever the string
-			// phase.
-			if inString && armed && armedInString {
-				armed = false
-			}
-			if !inString && i > 0 && (text[i-1] == ' ' || text[i-1] == '\t') {
-				arm()
-			}
-			inString = !inString
-			pending, joined = false, false
 		case c == '\'':
 			arm()
 			pending, joined = false, false

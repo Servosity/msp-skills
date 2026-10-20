@@ -428,15 +428,23 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		// A word after the secret word that is not a qualifier is another label.
 		"Password Policy: strict", "Password Policy 2: strict", "public key: ssh-ed25519", "Token Expiry Policy: 90 days",
 		"Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")",
-		// A qualifier never reaches past the end of its JSON string.
+	} {
+		if TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = true, want false", text)
+		}
+	}
+	// In JSON text (the read-only filter's pass over a whole result), a
+	// qualifier never reaches past the end of its JSON string. The plain rule
+	// is stricter on purpose: a stored value that holds such text is withheld.
+	for _, text := range []string{
 		`{"id":1,"name":"Office of the Secretary of State","status":"active"}`,
 		`{"block_page_message":"Ask the front desk for the Wi-Fi password at check-in.","block_org_name":"Acme"}`,
 		`{"name":"Spin (cycling studio)","organization_id":7}`,
 		`{"note":"Unblocked so staff can reset password for payroll portal","fqdn":"payroll.example"}`,
 		`[{"id":7,"name":"Secretary of State Office","industry":"gov"},{"id":8,"name":"Acme"}]`,
 	} {
-		if TextNamesSecret(text) {
-			t.Errorf("TextNamesSecret(%q) = true, want false", text)
+		if SecretPairInJSONText(text) {
+			t.Errorf("SecretPairInJSONText(%q) = true, want false", text)
 		}
 	}
 	for _, text := range []string{
@@ -462,6 +470,9 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		`Local admin password for \\dc01\netlogon: hunter2`, `svc_backup password on \\nas\records: hunter2`,
 		`Uninstall PIN for \\srv\new-hires laptops: 482923`, `{"note":"Admin password for \\\\dc01\\netlogon: hunter2"}`,
 		`PIN "Acme" (laptops): 482915`, `Admin password "Main Office" backup: hunter2`, `{"note":"PIN \"Acme\" (laptops): 482915"}`,
+		// A stray quote earlier in a plain value (an inch mark) changes nothing.
+		"Rack: 19\" cabinet\nUninstall PIN for \"HQ\" laptops: 482915", `Monitor 27" wide. Admin password for "Main Office" laptops: hunter2`,
+		`5'10" tall. PIN for "HQ": 4821`, `Unclosed " quote. Uninstall PIN for "HQ", branch: 551234`,
 		// Semicolon tables and long spaced headers.
 		"Site;Network Secret Key;Address\nHQ;abc123;1 Main", "Site;secret_key;Address\nHQ;abc123;1 Main",
 		"Site,Roaming Client Uninstall PIN\nHQ,482915",

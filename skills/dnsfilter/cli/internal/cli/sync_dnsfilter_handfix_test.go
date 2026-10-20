@@ -842,9 +842,11 @@ func TestSyncDependentParentGenerationIsCaptured(t *testing.T) {
 	syncHFRunOK(t, "sync", "--resources", "networks", "--resource-param", "networks:organization_id=1", "--db", dbPath)
 	syncHFWantComplete(t, dbPath, "networks", 0, "narrowed networks walk")
 	// A requested scope does not hide an uncertified parent collection.
-	out, err := syncHFRun("sync", "--resources", "lan_ips", "--global-param", "foo=1", "--db", dbPath)
-	if err == nil || !strings.Contains(out, "parent_collection_incomplete") {
-		t.Fatalf("a scoped lan_ips walk under an incomplete parent succeeded (err=%v):\n%s", err, out)
+	for _, scope := range [][]string{{"--global-param", "foo=1"}, {"--latest-only"}} {
+		out, err := syncHFRun(append([]string{"sync", "--resources", "lan_ips", "--db", dbPath}, scope...)...)
+		if err == nil || !strings.Contains(out, "parent_collection_incomplete") {
+			t.Fatalf("a %v lan_ips walk under an incomplete parent succeeded (err=%v):\n%s", scope, err, out)
+		}
 	}
 	racing.Store(true)
 	syncHFRun("sync", "--resources", "lan_ips", "--db", dbPath)

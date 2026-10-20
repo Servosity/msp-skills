@@ -288,6 +288,7 @@ func redactValue(value any) (any, bool) {
 		return v, changed
 	case string:
 		trimmed := strings.TrimSpace(v)
+		jsonLike := trimmed != "" && strings.ContainsAny(trimmed[:1], "{[")
 		if trimmed != "" && strings.ContainsAny(trimmed[:1], "{[\"") {
 			// JSON only if the WHOLE string is exactly one JSON value
 			// (Decoder.More is not an EOF test: {"ok":1}} token=S would pass).
@@ -304,7 +305,13 @@ func redactValue(value any) (any, bool) {
 		// written in: token="\",SECRET" carries a value there and looks empty
 		// once unescaped); then the complete records inside it are redacted
 		// and the rule runs over what is not JSON.
-		if store.TextNamesSecret(v) {
+		// A string that starts like JSON but is not one value (a bounded
+		// preview cut mid-record) skips the whole-string plain-text pass: its
+		// complete records are redacted as JSON below, and the rest still gets
+		// the plain-text rule, so an ordinary record ("Office of the Secretary
+		// of State","status":...) does not withhold the preview.
+		// Hand-wired (handfixes.json: secrets-never-persisted).
+		if !jsonLike && store.TextNamesSecret(v) {
 			return WithheldFieldPlaceholder, true
 		}
 		inner, plain := redactJSONSegments(v)
@@ -407,14 +414,18 @@ func rawJSONClean(raw string) bool {
 // textNamesCredential is the text rule for a result text, built only from the
 // store's exported rule: store.TextNamesSecret over the non-JSON remainder (a
 // secret pair at every escape level, raw included, or a CSV/table header once
-// escaping is undone), plus one MCP-only widening: the secret-pair check over
-// the WHOLE (redacted) text at its raw level and fully unescaped, so a pair
-// whose value is itself JSON (token=["S"]) is caught. The header part is not
+// escaping is undone), plus one MCP-only widening: the JSON-aware secret-pair
+// check over the WHOLE (redacted) text at its raw level, so a pair whose value
+// is itself JSON (token=["S"]) is caught, and the label-only check once fully
+// unescaped (a key name hidden by escaping; unescaping destroys the quote
+// structure a qualifier check needs). The plain
+// remainder keeps the plain-text rule, so a stray quote there cannot invert
+// the JSON pass into missing it. The header part is not
 // run over the whole text: a pretty-printed JSON result is not a table. A
 // string VALUE gets the store's full rule over the whole string first (see
 // redactValue).
 func textNamesCredential(whole, plain string) bool {
-	return store.TextNamesSecret(plain) || store.SecretPairInText(whole) || store.SecretPairInText(store.UnescapeForTextRule(whole))
+	return store.TextNamesSecret(plain) || store.SecretPairInJSONText(whole) || store.SecretLabelPairInText(store.UnescapeForTextRule(whole))
 }
 
 var (
