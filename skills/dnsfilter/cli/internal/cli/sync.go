@@ -795,6 +795,19 @@ func syncResource(ctx context.Context, c interface {
 				return syncResult{Resource: resource, Err: err, Duration: time.Since(started)}
 			}
 			totalCount++
+			// HAND-FIX(sync-singleton-joins-seen-ids): the stored object is
+			// the whole collection, so a full sync's reconcile must keep it
+			// (it was deleted right after being stored). The id is resolved
+			// as upsertSingleObject resolves it.
+			if flatReconcilable {
+				if o, derr := store.DecodeJSONObject(data); derr == nil {
+					id := extractID(resource, o)
+					if id == "" {
+						id = resource
+					}
+					seenIDs = append(seenIDs, id)
+				}
+			}
 			// Single-object resources are fully enumerated by definition.
 			outcome.complete = true
 			break

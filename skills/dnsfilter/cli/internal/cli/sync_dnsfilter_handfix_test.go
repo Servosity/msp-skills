@@ -1163,14 +1163,57 @@ func TestSyncFullPrunesOrphanedDependentPartitions(t *testing.T) {
 		t.Fatalf("first walk stored %d lan_ips, want 2", n)
 	}
 	networks = []string{"2"}
-	syncHFRunOK(t, full...)
-	if n := count(); n != 1 {
-		t.Fatalf("a complete --full walk kept the LAN IPs of a deleted network: %d rows, want 1", n)
+	// --no-prune and a walk without --full never delete, even when a
+	// parent row is already gone (pruned by an earlier networks-only run).
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
 	}
-	syncHFRunOK(t, append(append([]string(nil), full[:4]...), "--no-prune", "--db", dbPath)...)
+	if n, err := db.ReconcileAll("networks", []string{"2"}, reconcileTypedTable("networks"), store.CascadeJunctionsFor("networks")); err != nil || n != 1 {
+		t.Fatalf("removing network 3: deleted %d (%v)", n, err)
+	}
+	db.Close()
+	for _, args := range [][]string{
+		{"sync", "--full", "--no-prune", "--resources", "lan_ips", "--db", dbPath},
+		{"sync", "--resources", "lan_ips", "--db", dbPath},
+	} {
+		syncHFRunOK(t, args...)
+		if n := count(); n != 2 {
+			t.Fatalf("%v pruned the orphaned LAN IPs: %d rows, want 2", args, n)
+		}
+	}
+	outFull, errFull := syncHFRun(full...)
+	if n := count(); errFull != nil || n != 1 {
+		t.Fatalf("a complete --full walk kept the LAN IPs of a deleted network: %d rows, want 1 (err=%v):\n%s", n, errFull, outFull)
+	}
 	networks = nil
 	syncHFRunOK(t, full...)
 	if n := count(); n != 0 {
 		t.Fatalf("a complete --full walk over no networks kept %d LAN IPs, want 0", n)
+	}
+}
+
+// A singleton response is the whole collection: a --full sync stores it and
+// its reconcile keeps it (it was deleted right after being stored).
+func TestSyncFullKeepsASingletonResponse(t *testing.T) {
+	testenv.Isolate(t)
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		if path == "/v1/distributors/distributors" {
+			return `{"id":1,"name":"Distributor"}`, true
+		}
+		return "", false
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	out, err := syncHFRun("sync", "--full", "--resources", "distributors", "--db", dbPath)
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	db, err := store.OpenReadOnly(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if n, _ := db.Count("distributors"); n != 1 {
+		t.Fatalf("a --full sync of a singleton kept %d rows, want 1:\n%s", n, out)
 	}
 }

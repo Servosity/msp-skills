@@ -440,3 +440,37 @@ func TestRefusedIdentityIsAnExtractFailure(t *testing.T) {
 		t.Fatalf("stored=%d extractFailures=%d err=%v, want 1 stored and 2 extract failures", stored, extractFailures, err)
 	}
 }
+
+// Nesting deeper than the scrub decodes, or escaping deeper than the text
+// rule unescapes, fails closed: a \u-escaped PIN label JSON-encoded 1 to 15
+// times never survives the store scrub or the read-only filter's text rule.
+func TestDeepEncodingFailsClosed(t *testing.T) {
+	bs := string(rune(92))
+	inner := `{"` + bs + "u0050" + bs + "u0049" + bs + "u004e" + `":"482915"}`
+	if !strings.Contains(inner, bs+"u0050") {
+		t.Fatal("fixture lost its escapes")
+	}
+	s := inner
+	for n := 1; n <= 15; n++ {
+		b, err := json.Marshal(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s = string(b)
+		row := `{"id":"1","note":` + s + `}`
+		if out := ScrubPersistedSecrets(json.RawMessage(row)); bytes.Contains(out, []byte("482915")) {
+			t.Fatalf("encoded %d times: the PIN survived the scrub (%d bytes kept)", n, len(out))
+		}
+	}
+	deep := bs + "u0050" + bs + "u0049" + bs + "u004e: 482915" // PIN, \u-escaped
+	for i := 0; i < maxUnescapeRounds+1; i++ {
+		b, _ := json.Marshal(deep)
+		deep = strings.Trim(string(b), `"`)
+	}
+	if !TextNamesSecret("note " + deep) {
+		t.Fatal("escaping deeper than the unescape rounds was read as clean")
+	}
+	if TextNamesSecret(`UNC \\dc01\netlogon and C:\Users\x`) {
+		t.Fatal("an ordinary backslash path was withheld")
+	}
+}

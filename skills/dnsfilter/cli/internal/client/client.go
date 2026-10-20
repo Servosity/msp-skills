@@ -1548,25 +1548,29 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				}
 				return env, resp.StatusCode, nil
 			}
+			out := sanitizeJSONResponse(respBody)
+			// Hand-wired (handfixes.json: read-only-refuses-non-json): the
+			// read-only filters read JSON keys, so under the switch a 2xx
+			// body that is not JSON (XML, CSV, plain text, HTML) is refused
+			// in the one funnel every MCP tool and the companion CLI share,
+			// before any summary: an HTML title summary strips the tags
+			// that named a credential.
+			if cliutil.IsMCPReadOnlyEnv() && len(bytes.TrimSpace(out)) > 0 && !json.Valid(out) {
+				return nil, 0, fmt.Errorf("refusing %s %s while %s is set: the response is not JSON, so it cannot be checked for credentials", method, path, cliutil.MCPReadOnlyEnvVar)
+			}
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
 					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
 				}
-			}
-			out := sanitizeJSONResponse(respBody)
-			// Hand-wired (handfixes.json: read-only-refuses-non-json): the
-			// read-only filters read JSON keys, so under the switch a 2xx
-			// body that is not JSON (XML, CSV, plain text) is refused in the
-			// one funnel every MCP tool and the companion CLI share.
-			if cliutil.IsMCPReadOnlyEnv() && len(bytes.TrimSpace(out)) > 0 && !json.Valid(out) {
-				return nil, 0, fmt.Errorf("refusing %s %s while %s is set: the response is not JSON, so it cannot be checked for credentials", method, path, cliutil.MCPReadOnlyEnvVar)
 			}
 			return json.RawMessage(out), resp.StatusCode, nil
 		}
 
 		// An error body no rule can read (a NUL byte, not UTF-8: UTF-16,
 		// gzip) is summarized, never shown, in every mode.
-		if !bodyIsText(respBody) {
+		rawBodyLen, bodyNotText := len(respBody), !bodyIsText(respBody)
+		bodyReadsLikeAuth := !bodyNotText && cliutil.LooksLikeAuthError(string(respBody))
+		if bodyNotText {
 			respBody = []byte(fmt.Sprintf("(%d-byte response body that is not UTF-8 text; not shown)", len(respBody)))
 		}
 		if !binaryResponse {
@@ -1577,8 +1581,14 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		// Hand-wired (handfixes.json: read-only-refuses-non-json): under the
 		// read-only switch an error body that is not JSON (XML, HTML, plain
 		// text) is summarized too, since only JSON keys can be checked.
-		if cliutil.IsMCPReadOnlyEnv() && len(bytes.TrimSpace(respBody)) > 0 && !json.Valid(respBody) {
-			bodyText = fmt.Sprintf("(%d-byte non-JSON error body; not shown while %s is set)", len(respBody), cliutil.MCPReadOnlyEnvVar)
+		// The size and the auth signal come from the raw body, so a plain-text
+		// 400 auth error keeps its remedy.
+		if cliutil.IsMCPReadOnlyEnv() && !bodyNotText && len(bytes.TrimSpace(respBody)) > 0 && !json.Valid(respBody) {
+			note := ""
+			if bodyReadsLikeAuth {
+				note = " that reads like an authentication failure"
+			}
+			bodyText = fmt.Sprintf("(%d-byte non-JSON error body%s; not shown while %s is set)", rawBodyLen, note, cliutil.MCPReadOnlyEnvVar)
 		}
 		if resp.StatusCode == http.StatusForbidden {
 			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody)

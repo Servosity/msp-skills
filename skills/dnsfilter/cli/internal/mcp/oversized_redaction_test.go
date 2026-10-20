@@ -83,7 +83,7 @@ func runFakeCLI(mode string) int {
 		// (mcp-auth-errors-keep-remedy).
 		key := "your-token-here"
 		if mode == "auth-real-key" {
-			key = "9f8e7d6c5b4a3f2e1d0c"
+			key = "XX00XX00XX00XX00XX00"
 		}
 		if mode == "auth403" {
 			fmt.Fprintf(os.Stderr, "Error: GET /v1/networks/all returned HTTP 403: {\"errors\": [{\"detail\": \"Forbidden\"}]}\nhint: permission denied. Your credentials are valid but lack access to this resource.\n      Check that your credentials have the required permissions and match the API's expected auth scheme.\n      Set your API key with: export DNSFILTER_API_KEY=\"%s\" (PowerShell: $env:DNSFILTER_API_KEY = \"%s\")\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens\n", key, key)

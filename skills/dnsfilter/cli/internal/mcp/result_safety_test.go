@@ -209,7 +209,7 @@ func TestReadOnlyFilterKeepsAuthHintReadable(t *testing.T) {
 	if got := redact.Final(hint); got != hint {
 		t.Fatalf("auth hint with the documentation placeholder was withheld: %q", got)
 	}
-	real := strings.ReplaceAll(hint, "your-token-here", "9f8e7d6c5b4a3f2e1d0c")
+	real := strings.ReplaceAll(hint, "your-token-here", "XX00XX00XX00XX00XX00")
 	if got := redact.Final(real); got != redact.WithheldBlockMessage {
 		t.Fatalf("auth hint with a real-looking key was not withheld: %q", got)
 	}

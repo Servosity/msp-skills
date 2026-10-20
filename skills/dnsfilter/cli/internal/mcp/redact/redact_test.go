@@ -26,8 +26,8 @@ func TestFinalWithholdsUndecodablePreview(t *testing.T) {
 		return string(b)
 	}
 	leaky := []string{
-		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": "NETSECRET-0001-a8f3"}, {"id": 2, "name": "Site 0002", "secret_key": "NETSEC`,
-		`{"data": [{"id": 1, "secret_key": "NETSECRET-0001-a8f3"}, {"id": 2, "name": "Site 0002", "secret_key": "NETSEC`,
+		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": "NETSECRET-0001-XXXX"}, {"id": 2, "name": "Site 0002", "secret_key": "NETSEC`,
+		`{"data": [{"id": 1, "secret_key": "NETSECRET-0001-XXXX"}, {"id": 2, "name": "Site 0002", "secret_key": "NETSEC`,
 		`{\"data\": [{\"id\": 2, \"name\": \"Site 0002\", \"secret_key\": \"NETSECRET-0002`,
 		`{"data": [{"id": 2, "pin": 4938`,
 		"id,name,secret_key\n1,Site 0001,NETSECRET-0001\n2,Site 00",
@@ -71,7 +71,7 @@ func TestFinalWithholdsUndecodablePreview(t *testing.T) {
 // redacted one by one and never withheld as a block.
 func TestRawRedactsCompleteRecordsInTruncatedText(t *testing.T) {
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
-	in := `{"data":[{"id":1,"name":"Site 0001","secret_key":"NETSECRET-0001-a8f3"},{"id":2,"name":"Site 0002","secret_key":"NETSECRET-0002-a8f3"},{"id":3,"na`
+	in := `{"data":[{"id":1,"name":"Site 0001","secret_key":"NETSECRET-0001-XXXX"},{"id":2,"name":"Site 0002","secret_key":"NETSECRET-0002-XXXX"},{"id":3,"na`
 	got := Raw(in)
 	if strings.Contains(got, "NETSECRET-0001") || strings.Contains(got, "NETSECRET-0002") {
 		t.Fatalf("complete records were not redacted: %s", got)

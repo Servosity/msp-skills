@@ -278,7 +278,7 @@ func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {
 		"literal prefix (Codex)":                         `{"meta":"password=true!SNTNL-11"}`,
 		"null prefix":                                    `{"meta":"token: null-SNTNL-12"}`,
 		"placeholder prefix":                             `{"meta":` + q("pin="+WithheldValuePlaceholder+"SNTNL-13") + `}`,
-		"literal prefix in blob":                         `{"meta":` + q(`{"a":1,"token":"false.SNTNL-14`) + `}`,
+		"literal prefix in blob":                         `{"meta":` + q(`{"a":1,"token":"false.SNTNLSNTNL`) + `}`,
 		"value on the next line":                         `{"meta":` + q("secret_key:\n  SNTNL-15") + `}`,
 		"quoted value starting with a delimiter (Codex)": `{"meta":"password=\",SNTNL-16\""}`,
 		"quoted literal prefix":                          `{"meta":"token='true,SNTNL-17'"}`,

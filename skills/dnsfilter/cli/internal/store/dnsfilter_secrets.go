@@ -243,6 +243,13 @@ func scrubSecretString(s string, depth int) (any, bool) {
 		if textNamesSecret(s) {
 			return WithheldValuePlaceholder, true
 		}
+		// JSON nested deeper than the scrub decodes is withheld whole: its
+		// keys were never judged.
+		if trimmed := strings.TrimSpace(s); trimmed != "" && strings.ContainsAny(trimmed[:1], "{[\"") {
+			if _, ok := decodeSingleJSON([]byte(trimmed)); ok {
+				return WithheldValuePlaceholder, true
+			}
+		}
 		return s, false
 	}
 	trimmed := strings.TrimSpace(s)
@@ -377,12 +384,15 @@ func TextNamesSecret(text string) bool {
 		if SecretPairInText(text) {
 			return true
 		}
-		if round >= maxUnescapeRounds || !strings.Contains(text, "\\") {
+		if !strings.Contains(text, "\\") {
 			break
 		}
 		next := unescapeOneLevel(text)
 		if next == text {
 			break
+		}
+		if round >= maxUnescapeRounds {
+			return true // escaping deeper than the rule reads: fail closed
 		}
 		text = next
 	}

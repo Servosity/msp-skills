@@ -287,6 +287,11 @@ func SaveCredentials(creds *Credentials) error {
 	if err != nil {
 		return err
 	}
+	return SaveCredentialsAt(path, creds)
+}
+
+// SaveCredentialsAt writes creds to path (0600, parent 0700).
+func SaveCredentialsAt(path string, creds *Credentials) error {
 	data, err := toml.Marshal(credentialsFileFrom(creds)) // #nosec G117 -- credentials are intentionally persisted to a 0600 private file.
 	if err != nil {
 		return fmt.Errorf("marshaling credentials: %w", err)
@@ -309,6 +314,11 @@ func RemoveCredentials() error {
 	if err != nil {
 		return err
 	}
+	return RemoveCredentialsAt(path)
+}
+
+// RemoveCredentialsAt deletes the credentials file at path (absent is fine).
+func RemoveCredentialsAt(path string) error {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("removing credentials: %w", err)
 	}

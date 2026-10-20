@@ -98,6 +98,13 @@ func TestReadOnlyBodiesTheFiltersCannotRead(t *testing.T) {
 		case "/v1/networks/45":
 			w.Header().Set("Content-Type", "text/csv")
 			_, _ = w.Write([]byte("secret_key\nZQ"))
+		case "/v1/networks/24":
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<html><title><secret_key>ZQ</secret_key></title></html>`))
+		case "/v1/networks/25":
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("missing api key"))
 		case "/v1/networks/22":
 			w.Header().Set("Content-Type", "application/xml")
 			w.WriteHeader(http.StatusUnprocessableEntity)
@@ -122,7 +129,7 @@ func TestReadOnlyBodiesTheFiltersCannotRead(t *testing.T) {
 		t.Fatalf("a UTF-16 error body was shown: %v", err)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
-	for _, p := range []string{"/v1/networks/40", "/v1/networks/45"} {
+	for _, p := range []string{"/v1/networks/40", "/v1/networks/45", "/v1/networks/24"} {
 		if data, err := c.Get(context.Background(), p, nil); err == nil || !strings.Contains(err.Error(), "not JSON") {
 			t.Fatalf("%s: read-only mode returned a non-JSON body: %s %v", p, data, err)
 		}
@@ -132,6 +139,12 @@ func TestReadOnlyBodiesTheFiltersCannotRead(t *testing.T) {
 	}
 	if _, err := c.Get(context.Background(), "/v1/networks/22", nil); err == nil || strings.Contains(err.Error(), "ZQ") || !strings.Contains(err.Error(), "non-JSON error body") {
 		t.Fatalf("read-only mode showed a non-JSON error body: %v", err)
+	}
+	if _, err := c.Get(context.Background(), "/v1/networks/25", nil); err == nil || !strings.Contains(err.Error(), "(15-byte non-JSON error body that reads like an authentication failure") || !cliutil.LooksLikeAuthError(err.Error()) {
+		t.Fatalf("a plain-text 400 auth error lost its auth signal under read-only: %v", err)
+	}
+	if _, err := c.Get(context.Background(), "/v1/networks/21", nil); err == nil || !strings.Contains(err.Error(), "not UTF-8 text") || strings.Contains(err.Error(), "non-JSON error body") {
+		t.Fatalf("a non-text error body was summarized twice under read-only: %v", err)
 	}
 	if _, err := c.Get(context.Background(), "/v1/networks/23", nil); err == nil || !strings.Contains(err.Error(), "name is invalid") {
 		t.Fatalf("read-only mode hid a JSON error body: %v", err)
