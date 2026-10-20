@@ -204,6 +204,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - runZero (Security) - ask "Which of our assets are most exposed right now?" - Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/runzero/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
+- SaaS Alerts (Security) - ask "What fired across every customer in the last 24 hours, critical first?" - Triage alerts across every customer tenant, clear the Respond approval queue, and contain a compromised account.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/saas-alerts/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/saas-alerts/install.sh)
 - Salesbuildr (CRM) - ask "Which sent or approved quotes are aging, and how much is at risk?" - Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)

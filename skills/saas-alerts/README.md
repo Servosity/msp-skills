@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/saas-alerts/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+All four SaaS Alerts APIs (Reports, Manage, Respond and Webhooks) in one CLI and MCP server, plus cross-customer alert triage, the Respond approval queue sorted by deadline, and preview-first account containment. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -140,30 +140,41 @@ Set the credentials the CLI needs (from your SaaS Alerts portal):
 SAAS_ALERTS_API_KEY=<value> saas-alerts-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+`doctor` checks config, paths and API reachability, and sends the key to the Reports API's partner profile endpoint, so a rejected key shows up as a `Credentials: invalid` row. It exits 0 even then, so scripts should add `--fail-on error`. The Respond access token is minted on the first Respond call, not by `doctor`; `saas-alerts-cli respond status` confirms Respond works end to end.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `saas-alerts-cli ...` |
-
--->
+| What fired across every customer in the last 24 hours, critical first? | `saas-alerts-cli triage --since 24h --min-severity medium` |
+| Which Respond triggers expire or auto-ignore soonest? | `saas-alerts-cli rule-triggers queue --expiring-within 2h` |
+| Is one IP address hitting two or more of my customers? | `saas-alerts-cli cross-tenant --by ip --since 24h --min-customers 2` |
+| Everything on this one account: events, country hops, Respond triggers, devices | `saas-alerts-cli investigate "jane.doe@example.com" --since 7d` |
+| Which customers went silent, lost their Respond connection or have no Respond rules? | `saas-alerts-cli coverage --silent 72h` |
+| Why did SaaS Alerts tickets stop arriving? Is a webhook disabled? | `saas-alerts-cli subscriptions health` |
+| Reject every pending trigger from this noisy rule (preview first) | `saas-alerts-cli rule-triggers decide --decision reject --rule <rule-id> --remarks "false positive"` |
+| Which inbox rules exist at this customer? | `saas-alerts-cli reports mailbox-rules --organization-ids <customer-id>` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most SaaS Alerts integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most SaaS Alerts integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which of my 80 customers had a critical alert overnight, and is the same IP behind more than one of them".
 
-This skill syncs SaaS Alerts into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs customers, events, users and Respond triggers into a **local SQLite store**, so `triage`, `cross-tenant`, `investigate` and `coverage` answer across every customer in one local query, and say `synced: false` instead of an empty all-clear when the data was never synced. It covers all four SaaS Alerts APIs with one partner key: it mints the Respond access token itself (Respond answers "Only secure origins are allowed" to a call that carries only the API key), works the Respond queue by deadline with `rule-triggers queue`, and previews every change `rule-triggers decide` and `contain` would make until you add `--confirm`.
+
+[WYRE-AI's saas-alerts-mcp](https://github.com/WYRE-AI/saas-alerts-mcp), which also backs the SaaS Alerts plugin in their msp-claude-plugins marketplace, exposes the SaaS Alerts External Partner API as 30 tools across customers, events, users, devices, billing, scheduled reports and partner settings, with no Respond, suppression or webhook tools. This one adds Respond, suppressions and webhooks, and runs on your machine with your own key. It complements the SaaS Alerts dashboard rather than replacing it: the dashboard stays the place to configure monitoring, review alerts and set up Respond.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+SaaS Alerts' Respond module is on a clock. The Respond API documents that a manual approval "will auto expire when the rule triggers again or 12 hours whichever is earlier", and the SaaS Alerts help center ([Analyzing a Respond trigger](https://help.saasalerts.kaseya.com/help/Content/How-To/analyzing-a-respond-trigger.htm)) says a failed remediation is reminded every 15 minutes and automatically ignored after the third reminder. Across many customers, the hard part is knowing which decision lapses first. Scripts that try to help hit a second credential: Respond wants a short-lived access token minted from the partner key, and a call without it fails with "Only secure origins are allowed". In the r/msp thread ["Kaseya Saas Alerts API"](https://www.reddit.com/r/msp/comments/1p9dbc1/kaseya_saas_alerts_api/) MSPs spent weeks on that error, suspecting CORS, before finding they had to POST to the auth endpoint first. And the alert volume is real: MSP reviewers of SaaS Alerts on [G2](https://www.g2.com/products/saas-alerts/reviews) describe a flood of notifications until the configuration is tuned and false positives you learn to filter out over time.
+
+- `saas-alerts-cli triage --since 24h` - one severity-ordered digest across every customer, grouped by customer, account and event type.
+- `saas-alerts-cli rule-triggers queue --expiring-within 2h` - pending and failed Respond triggers by how soon they expire or auto-ignore, with the actions an approval would fire.
+- `saas-alerts-cli cross-tenant --by ip` - a source address, network or country hitting two or more customers, minus each customer's own whitelist.
+- `saas-alerts-cli coverage` - customers that went silent, lost their Respond connection or have no Respond rules.
+- `saas-alerts-cli contain "jane.doe@example.com"` - block sign-in, expire sessions and reset the password for one Microsoft 365 account, previewed first.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -171,7 +182,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The SaaS Alerts MCP server runs locally, but it speaks HTTP natively: start it with `saas-alerts-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The SaaS Alerts MCP server runs locally, but it speaks HTTP natively: start it with `saas-alerts-mcp --transport http` and `SAAS_ALERTS_MCP_HTTP_TOKEN` set (it serves `http://127.0.0.1:7777/mcp` by default and requires that token as a bearer header) and put it behind an HTTPS gateway that ChatGPT can sign in to with OAuth and that adds that bearer header (ChatGPT connectors do not send a fixed one). No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -183,14 +194,39 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my SaaS Alerts data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite store sits in a directory under your user account and holds your customers' account emails, sign-in IPs and event details, so treat it like any other copy of that data. Each webhook subscription's delivery token is withheld before it is printed, cached or stored. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Where do I get the SaaS Alerts API key?
+
+In the SaaS Alerts dashboard, open Settings > API and click Show Api Key (you may need to agree to the API Policy first). Set it as SAAS_ALERTS_API_KEY. That one partner key reaches the Reports, Manage and Webhooks APIs, and the CLI exchanges it for the Respond access token on first use, so there is no second credential to paste.
+
+### Why does the Respond API answer "Only secure origins are allowed"?
+
+That is what Respond returns when a call carries the api_key but no access token. Respond needs a short-lived token minted from the partner key with POST /respondApi/api/v1/auth. This connector mints it on the first Respond call, sends it on every Respond request, keeps it in memory for that process only, and mints a fresh one once if Respond rejects it.
+
+### Can the AI block a user or approve Respond actions by itself?
+
+Only if you let it. contain, rule-triggers decide and subscriptions health --reenable preview by default and change nothing until you add --confirm. The generated commands (rule-triggers approve, response-actions execute, customers delete and the rest) send as soon as they run, so preview them with --dry-run, which sends nothing. Over MCP, set SAAS_ALERTS_MCP_READ_ONLY=1 for an agent that should only read: saas-alerts_execute then runs GET endpoints only and the three workflow writers refuse --confirm.
+
+### Do Respond triggers expire?
+
+Yes. The Respond API documents that a manual approval expires after 12 hours or when the rule triggers again, whichever is earlier, and the SaaS Alerts help center says a failed remediation is automatically ignored after the third 15-minute reminder. rule-triggers queue lists pending and failed triggers by that deadline, with the actions an approval would fire, and rule-triggers decide skips expired or superseded triggers unless you pass --include-expired.
+
+### Why does triage say synced: false?
+
+triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events`. When the data they need was never synced they say synced: false with a note, so an empty result is never presented as an all-clear.
+
+### Does contain work for Google Workspace accounts?
+
+No. Respond response actions run against Microsoft 365 only, so contain refuses a Google Workspace or other non-Microsoft account, and stops when an email matches more than one Microsoft 365 account. The API returns no job id for an action, so contain reports each job match as best-effort and always says verified: false; check the account in the Microsoft 365 admin center.
+
+### Has it been tested against a live SaaS Alerts tenant?
+
+Not yet. Every endpoint traces to SaaS Alerts' published API specs and the Respond token exchange was checked against the live API without a key, but no partner has run it against real data yet. One known gap until then: a partially rejected sync is reported as a warning, so sync --strict can still exit 0 when some pages were refused; read the sync_warning events. Run it, and tell us what you find.
+
+### Does it replace the SaaS Alerts dashboard?
+
+No. The dashboard stays best for configuring monitoring, reviewing individual alerts and setting up Respond. This skill answers the across-every-customer questions and runs reviewed actions from your AI agent.
 
 ### What does it cost?
 
@@ -198,17 +234,16 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `triage`, `investigate`, `cross-tenant`, `coverage`, `rule-triggers queue`, `subscriptions health`, `rule-triggers decide` and `contain` (without `--confirm`), `customers list`, `events list`, `events query`, `users`, `reports customers`, `reports mfa-microsoft`, `reports mailbox-rules`, `rules list`, `rule-triggers list`, `suppressions list`, `subscriptions list` | Allow |
+| Account response | `contain --confirm`, `rule-triggers decide --confirm`, `rule-triggers approve`, `rule-triggers reject`, `rule-triggers ignore`, `rule-triggers manually-remediate`, `response-actions execute` | Human-in-the-loop, explicit confirmation. These lock real people out. |
+| Detection and Respond config | `customers set-whitelists`, `customers set-account-whitelists`, `suppressions create`, `suppressions update`, `suppressions delete`, `rules update`, `rules draft`, `rules duplicate`, `rule-templates use`, `iocs update`, `respond enable`, `application-connections connect`, `subscriptions create`, `subscriptions update`, `subscriptions health --reenable --confirm`, `webhook-domains verify` | Preview with `--dry-run`, then a human-approved write. The whitelist commands replace the customer's list, so read it first. |
+| Write (routine) | `devices map`, `devices unmap`, `psa map`, `psa map-suggested`, `customers create`, `customers update`, `reports scheduled-create`, `reports update-branding`, `subscriptions test-event`, `files upload` | Preview with `--dry-run`, then a reviewed write |
+| Credential and access | `files url` (returns a signed link to the stored file), `auth set-token`, `auth logout` | Human-in-the-loop only |
+| Destructive and outbound | `respond disable`, `customers delete`, `rules delete`, `application-connections delete`, `subscriptions delete`, `webhook-domains delete`, `webhook-queue delete`, `reports scheduled-delete`, `files delete`, `reports send-email`, `import` | Human-in-the-loop only, explicit confirmation |
 
--->
-
-The strongest control is the **scope you grant the SaaS Alerts credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+`rule-triggers decide`, `contain` and `subscriptions health --reenable` preview until you add `--confirm`; every other write runs as soon as it is invoked, so preview with `--dry-run`. SaaS Alerts documents no read-only or per-customer key, so the strongest control is the MCP read-only switch: set `SAAS_ALERTS_MCP_READ_ONLY=1` and `saas-alerts_execute` runs GET endpoints only while the three workflow writers refuse `--confirm`. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
@@ -218,4 +253,4 @@ Beta. Validated against the SaaS Alerts API surface and being validated with MSP
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-20._

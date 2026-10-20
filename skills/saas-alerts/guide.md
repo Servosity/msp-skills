@@ -27,7 +27,7 @@ If `--version` reports "command not found" after install, the install step did n
 
 ### Pre-built binary
 
-Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=saas-alerts). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=saas-alerts). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`. On Windows, take the Windows build; if PowerShell reports the downloaded file as blocked, run `Unblock-File <binary>.exe`.
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
@@ -98,7 +98,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Authentication
 
-Create the key in SaaS Alerts under Settings > API (Show key under Manage API) and export it as SAAS_ALERTS_API_KEY. The same key works for the Reports, Manage, and Webhooks APIs. Respond calls need an extra access token: the CLI exchanges your key for one via POST /respondApi/api/v1/auth on first use, sends it as the accesstoken header, and re-mints it once if Respond rejects it. If every call returns 401 Access denied, ask SaaS Alerts support to enable the REST API for your account. EU-instance partners can point SAAS_ALERTS_BASE_URL at their host.
+Create the key in SaaS Alerts under Settings > API (Show key under Manage API) and export it as SAAS_ALERTS_API_KEY. The same key works for the Reports, Manage, and Webhooks APIs. Respond calls need an extra access token: the CLI exchanges your key for one via POST /respondApi/api/v1/auth on first use, sends it as the accesstoken header, and re-mints it once if Respond rejects it. If every call returns 401 Access denied, ask SaaS Alerts support to enable the REST API for your account. SaaS Alerts publishes only the US API host; if your account is on another SaaS Alerts instance, set SAAS_ALERTS_BASE_URL to that host.
 
 ## Quick Start
 

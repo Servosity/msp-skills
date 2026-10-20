@@ -1653,7 +1653,7 @@
       "display_name": "SaaS Alerts",
       "tagline": "Triage alerts across every customer tenant, clear the Respond approval queue, and contain a compromised account.",
       "has_video": true,
-      "cli_hash": "sha256:6f03a63f29d80a503fb778ffef0cd5b05f2342208eaa3e5d8ebd3877e6c8aea9",
+      "cli_hash": "sha256:847a72259f344c6c13e248d17f4ec6312a24d99afe5b9a65beacfd24452f0833",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

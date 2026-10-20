@@ -1,6 +1,6 @@
 ---
 name: saas-alerts
-description: "Covers the SaaS Alerts Reports, Manage, Respond, and Webhooks APIs with one partner key, mints the Respond access token for you, and adds cross-tenant triage and a Respond approval queue with deadlines. Trigger phrases: `what fired overnight in SaaS Alerts`, `triage SaaS Alerts critical alerts`, `approve pending Respond triggers`, `investigate this user in SaaS Alerts`, `re-enable SaaS Alerts webhooks`, `use saas-alerts`, `run saas-alerts`."
+description: "Use when the user asks about SaaS Alerts across their customers: what fired overnight, critical first; which Respond triggers expire or auto-ignore soonest and what approving them would do; approving, rejecting or ignoring Respond triggers in bulk; whether one IP, ASN or country is hitting several customers; everything about one suspicious account; which customers went silent or lost Respond; webhook (PSA ticket) feed health; or containing a compromised Microsoft 365 account. Covers the Reports, Manage, Respond and Webhooks APIs with one partner key and mints the Respond access token itself. Trigger phrases: `what fired overnight in SaaS Alerts`, `triage SaaS Alerts critical alerts`, `approve pending Respond triggers`, `investigate this user in SaaS Alerts`, `re-enable SaaS Alerts webhooks`, `use saas-alerts`, `run saas-alerts`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "SaaS Alerts"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/saas-alerts/install.ps1
 ---
 
-# SaaS Alerts  -  Printing Press CLI
+# SaaS Alerts CLI
 
 ## Prerequisites: Install the CLI
 
@@ -456,7 +456,7 @@ Lists disabled subscriptions, unsent queue depth, and unverified domains; add --
 
 ## Auth Setup
 
-Create the key in SaaS Alerts under Settings > API (Show key under Manage API) and export it as SAAS_ALERTS_API_KEY. The same key works for the Reports, Manage, and Webhooks APIs. Respond calls need an extra access token: the CLI exchanges your key for one via POST /respondApi/api/v1/auth on first use, sends it as the accesstoken header, and re-mints it once if Respond rejects it. If every call returns 401 Access denied, ask SaaS Alerts support to enable the REST API for your account. EU-instance partners can point SAAS_ALERTS_BASE_URL at their host.
+Create the key in SaaS Alerts under Settings > API (Show key under Manage API) and export it as SAAS_ALERTS_API_KEY. The same key works for the Reports, Manage, and Webhooks APIs. Respond calls need an extra access token: the CLI exchanges your key for one via POST /respondApi/api/v1/auth on first use, sends it as the accesstoken header, and re-mints it once if Respond rejects it. If every call returns 401 Access denied, ask SaaS Alerts support to enable the REST API for your account. SaaS Alerts publishes only the US API host; if your account is on another SaaS Alerts instance, set SAAS_ALERTS_BASE_URL to that host.
 
 Run `saas-alerts-cli doctor` to verify setup.
 
