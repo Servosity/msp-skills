@@ -5473,7 +5473,7 @@
     {
       "id": "dependents-not-mirrored",
       "summary": "sync mirrors no parent-keyed dependents: dependentResourceDefs returns nil, so device_groups_devices (members of every device group) and runs (runs of every device task) are read live only",
-      "why": "Codex rounds 8 and 9 found three defects in the generated per-parent fan-out: its reconcile scope named fields no child row carries (\"$.device-group\" / \"$.device-task\"), a deleted parent's children were never cascaded, and the dependent table was stamped complete without proving the parent table's coverage (a --max-pages-capped device-groups sync left an undercounted child table with no hint). Nothing in this connector reads those tables: customer attribution uses devices.parentGroupUuid and respond reads task runs live; the fan-out also cost one request per group and per task on every sync. `device-groups devices groups-list-member` and `device-tasks runs` still read them live. TestDependentsAreNotMirrored failed with sync.go reverted (the sync fanned out to /v1/device_groups/<id>/devices and /v1/device_tasks/<id>/runs).",
+      "why": "Codex rounds 8 and 9 found three defects in the generated per-parent fan-out: its reconcile scope named fields no child row carries (\"$.device-group\" / \"$.device-task\"), a deleted parent's children were never cascaded, and the dependent table was stamped complete without proving the parent table's coverage (a --max-pages-capped device-groups sync left an undercounted child table with no hint). Nothing in this connector reads those tables: customer attribution uses devices.parentGroupUuid and respond reads task runs live; the fan-out also cost one request per group and per task on every sync. `device-groups devices groups-list-member` and `device-tasks runs` still read them live. TestDependentsAreNotMirrored failed with sync.go reverted (the sync fanned out to /v1/device_groups/<id>/devices and /v1/device_tasks/<id>/runs). The sync Long help and --resources flag help no longer describe a parent-to-dependents cascade (adversarial round 6 P2).",
       "status": "active",
       "asserts": [
         {
@@ -5484,13 +5484,17 @@
         {
           "file": "cli/internal/cli/sync.go",
           "not_contains": "GenericScopeJSONPath: \"$.device-group\""
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "Naming a parent also runs its parent-keyed dependents"
         }
       ]
     },
     {
       "id": "credentials-path-follows-config",
-      "summary": "the Config remembers which credentials file Load read (an explicit --config's colocated data/credentials.toml unless Load fell back to the global file) and SaveTokens, the save lock and rollback, ClearTokens (auth logout) and auth's save-path message all use it",
-      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back).",
+      "summary": "an explicit --config writes only its own colocated data/credentials.toml (SaveTokens, the token mint, the save lock and rollback, auth logout, auth's save-path message), even when it reads the default login because it has no credentials of its own; doctor probes the file the config read, and logout says when the default login still applies",
+      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back). Adversarial round 6: when the explicit config had no credentials of its own, Load fell back to the global file and pointed writes there too, so `--config tenantB auth set-token` (or the password-grant mint) overwrote the default tenant's token and `--config tenantB auth logout` deleted it. Reads keep the generated fallback (three generated tests pin it: a --config used only for settings still uses the default login); writes no longer follow it (TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal failed when the fallback reset credentialsPath). doctor's credentials-location probe now checks the file the config read (CredentialsReadPath) instead of always the global file.",
       "status": "active",
       "asserts": [
         {
@@ -5511,6 +5515,21 @@
         {
           "file": "cli/internal/cli/auth.go",
           "contains": "if path, err := cfg.CredentialsPath(); err == nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if ok && creds != nil && creds.HasValues() && explicitConfigFile {\n\t\t\t\t\tcfg.usesDefaultCredentials = true\n\t\t\t\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "credsPresent, err = cliutil.CredentialsFileHasValuesAt(readPath)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if cfg.UsesDefaultCredentials() {",
           "code_only": true
         }
       ]

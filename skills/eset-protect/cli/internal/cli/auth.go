@@ -244,16 +244,29 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.
+			// credentials-path-follows-config: logout under an explicit config
+			// clears only that config's file; say so when it was using the
+			// default login.
+			defaultNote := ""
+			if cfg.UsesDefaultCredentials() {
+				defaultNote = "this --config has no credentials of its own and uses the default login, which logout under --config does not clear; run auth logout without --config to clear it"
+			}
 			if flags.asJSON {
 				out := map[string]any{"cleared": true}
 				if envStillSet != "" {
 					out["note"] = envStillSet + " env var is still set"
+				} else if defaultNote != "" {
+					out["note"] = defaultNote
 				}
 				return printJSONFiltered(cmd.OutOrStdout(), out, flags)
 			}
 
 			if envStillSet != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Config cleared. Note: %s env var is still set.\n", envStillSet)
+				return nil
+			}
+			if defaultNote != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Cleared this config's credentials. Note: %s.\n", defaultNote)
 				return nil
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "Logged out. Credentials cleared.")

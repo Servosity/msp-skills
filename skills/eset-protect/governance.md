@@ -36,7 +36,11 @@ Where the credentials live is your choice:
   are cached in `credentials.toml` in the CLI's data directory (`doctor` prints
   the path), for that region and user, so the next command does not sign in
   again. `auth logout`
-  clears them. `auth set-token` saves a token you pipe in on stdin.
+  clears them. `auth set-token` saves a token you pipe in on stdin. With an
+  explicit `--config`, tokens are written to `data/credentials.toml` next to
+  that config file and `auth logout --config ...` clears only that file; a
+  config with no credentials of its own reads the default login, which
+  `auth logout` without `--config` clears.
 - **Token pinning.** A request that carries the token is refused unless it goes
   to an `*.eset.systems` host or to the base URL you configured, and token
   requests never follow redirects, so a flag that rewrites a URL (for example

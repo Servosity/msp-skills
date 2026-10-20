@@ -40,18 +40,22 @@ type Config struct {
 	// an explicit --config's colocated data/credentials.toml unless Load fell
 	// back to the global file; "" means the global file (hand-fix
 	// credentials-path-follows-config).
-	credentialsPath     string
-	AccessToken         string          `toml:"access_token"`
-	RefreshToken        string          `toml:"refresh_token"`
-	TokenExpiry         time.Time       `toml:"token_expiry"`
-	ClientID            string          `toml:"client_id"`
-	ClientSecret        string          `toml:"client_secret"`
-	Path                string          `toml:"-"`
-	envOverrides        map[string]bool `toml:"-"`
-	fileConfig          *Config         `toml:"-"`
-	EsetProtectUsername string          `toml:"protect_username"`
-	EsetProtectPassword string          `toml:"protect_password"`
-	EsetProtectToken    string          `toml:"protect_token"`
+	credentialsPath string
+	// usesDefaultCredentials: an explicit config with no credentials of its
+	// own read the global file (the generated fallback). Its writes still go
+	// to credentialsPath, never the global file.
+	usesDefaultCredentials bool
+	AccessToken            string          `toml:"access_token"`
+	RefreshToken           string          `toml:"refresh_token"`
+	TokenExpiry            time.Time       `toml:"token_expiry"`
+	ClientID               string          `toml:"client_id"`
+	ClientSecret           string          `toml:"client_secret"`
+	Path                   string          `toml:"-"`
+	envOverrides           map[string]bool `toml:"-"`
+	fileConfig             *Config         `toml:"-"`
+	EsetProtectUsername    string          `toml:"protect_username"`
+	EsetProtectPassword    string          `toml:"protect_password"`
+	EsetProtectToken       string          `toml:"protect_token"`
 	// TemplateVars holds the runtime values for {placeholder} markers in
 	// BaseURL and the request path (e.g. Shopify's {shop}/{version}). Populated
 	// at Load() time from env vars; consumed by the client's buildURL helper.
@@ -170,8 +174,8 @@ func Load(configPath string) (*Config, error) {
 					return nil, err
 				}
 				ok = status.Loaded
-				if ok && creds != nil && creds.HasValues() {
-					cfg.credentialsPath = "" // the global file is the one in use
+				if ok && creds != nil && creds.HasValues() && explicitConfigFile {
+					cfg.usesDefaultCredentials = true
 				}
 				if status.Refusal != nil {
 					cfg.addCredentialRefusal(*status.Refusal)
@@ -805,8 +809,24 @@ func (c *Config) ClearTokens() error {
 	return c.save()
 }
 
-// CredentialsPath is the credentials file this Config reads and writes
-// (hand-fix credentials-path-follows-config).
+// UsesDefaultCredentials reports that an explicit config with no credentials
+// of its own is using the default (global) login.
+func (c *Config) UsesDefaultCredentials() bool { return c != nil && c.usesDefaultCredentials }
+
+// CredentialsReadPath is the credentials file Load read: the global file
+// when an explicit config fell back to the default login, else
+// CredentialsPath.
+func (c *Config) CredentialsReadPath() (string, error) {
+	if c.UsesDefaultCredentials() {
+		return cliutil.CredentialsFilePath()
+	}
+	return c.CredentialsPath()
+}
+
+// CredentialsPath is the credentials file this Config writes (hand-fix
+// credentials-path-follows-config): an explicit config's own colocated file,
+// even when it read the default login, so set-token, the token mint and
+// logout never overwrite or delete another configuration's credentials.
 func (c *Config) CredentialsPath() (string, error) {
 	if c != nil && c.credentialsPath != "" {
 		return c.credentialsPath, nil

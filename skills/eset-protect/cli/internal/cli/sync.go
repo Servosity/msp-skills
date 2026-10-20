@@ -143,14 +143,10 @@ Exit codes & warnings:
   non-zero when every selected resource failed, regardless of --strict.
 
 Resource scoping:
-  --resources runs the named top-level resources, plus any parent-keyed
-  dependent whose own name is listed OR whose parent table is listed.
-  Naming a parent therefore cascades to its dependents (so "sync this
-  parent and its children" works without listing every nested resource
-  by hand). There is no flag today to suppress the cascade for a named
-  parent. To run a dependent without re-syncing its parent, list only
-  the dependent by name; the parent table must already be populated
-  from a prior sync.`,
+  --resources runs exactly the named resources. Per-parent lists (the
+  devices in one group, the runs of one device task) are not mirrored;
+  read them live with 'device-groups devices groups-list-member <groupUuid>'
+  and 'device-tasks runs device-tasks-list-task <taskUuid>'.`,
 		Example: `  # Sync all resources
   eset-protect-cli sync
   # Sync specific resources only
@@ -535,7 +531,7 @@ Resource scoping:
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&resources, "resources", nil, "Comma-separated resource types to sync. Naming a parent also runs its parent-keyed dependents (see Long help for scoping).")
+	cmd.Flags().StringSliceVar(&resources, "resources", nil, "Comma-separated resource types to sync (see Long help for scoping).")
 	cmd.Flags().BoolVar(&full, "full", false, "Full resync (ignore previous checkpoint)")
 	cmd.Flags().BoolVar(&noPrune, "no-prune", false, "Disable deletion reconciliation on --full (by default a full sync prunes local rows the API no longer returns after a complete walk)")
 	cmd.Flags().StringVar(&since, "since", "", "Incremental sync duration (e.g. 7d, 24h, 1w, 30m)")

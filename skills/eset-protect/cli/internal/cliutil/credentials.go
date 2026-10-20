@@ -232,6 +232,16 @@ func loadCredentialsWithStatus(path string, rejectInvalid bool) (*Credentials, C
 	return &creds, status, nil
 }
 
+// CredentialsFileHasValuesAt reports whether the credentials file at path
+// holds values (handfixes.json: credentials-path-follows-config).
+func CredentialsFileHasValuesAt(path string) (bool, error) {
+	creds, status, err := loadCredentialsWithStatus(path, false)
+	if err != nil || !status.Loaded {
+		return false, err
+	}
+	return creds.HasValues(), nil
+}
+
 func CredentialsFileHasValues() (bool, error) {
 	creds, ok, err := LoadCredentials()
 	if err != nil || !ok {

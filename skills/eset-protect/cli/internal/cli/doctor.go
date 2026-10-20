@@ -611,7 +611,12 @@ func collectCredentialsLocationReport(report map[string]any, cfg *config.Config)
 	}
 
 	locations := []string{}
-	credsPresent, err := cliutil.CredentialsFileHasValues()
+	// credentials-path-follows-config: probe the file this config read.
+	credsPresent := false
+	readPath, err := cfg.CredentialsReadPath()
+	if err == nil {
+		credsPresent, err = cliutil.CredentialsFileHasValuesAt(readPath)
+	}
 	if err == nil && credsPresent {
 		locations = append(locations, "credentials file")
 	}

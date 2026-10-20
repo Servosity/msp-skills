@@ -117,3 +117,46 @@ func TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal(t *testing.T) {
 		t.Fatalf("logout under an inline-credentials config deleted the global credentials: %v", err)
 	}
 }
+
+// TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal
+// (credentials-path-follows-config): an explicit config with no credentials
+// of its own reads the default login (the generated fallback), but set-token,
+// the token mint and logout wrote and deleted that GLOBAL file, so
+// `--config tenantB auth set-token` replaced the default tenant's token.
+func TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal(t *testing.T) {
+	isolateCredentials(t)
+	if err := cliutil.SaveCredentials(&cliutil.Credentials{AccessToken: "token-global"}); err != nil {
+		t.Fatal(err)
+	}
+	globalPath, err := cliutil.CredentialsFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(t.TempDir(), "tenantB", "config.toml")
+	if err := cliutil.AtomicWritePrivateFile(configPath, []byte(""), 0o600, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AccessToken != "token-global" || !cfg.UsesDefaultCredentials() {
+		t.Fatalf("tenant B should read the default login: token %q, uses default %v", cfg.AccessToken, cfg.UsesDefaultCredentials())
+	}
+	if err := cfg.SaveTokens("", "", "token-b", "", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(globalPath); !strings.Contains(string(got), "token-global") || strings.Contains(string(got), "token-b") {
+		t.Fatalf("tenant B's save rewrote the default credentials: %q", got)
+	}
+	colocated, _ := cliutil.CredentialsFilePathForConfig(configPath)
+	if got, _ := os.ReadFile(colocated); !strings.Contains(string(got), "token-b") {
+		t.Fatalf("tenant B's token did not land in its own file: %q", got)
+	}
+	if err := cfg.ClearTokens(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(globalPath); err != nil {
+		t.Fatalf("logout under tenant B deleted the default credentials: %v", err)
+	}
+}

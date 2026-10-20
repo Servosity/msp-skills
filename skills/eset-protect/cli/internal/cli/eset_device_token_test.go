@@ -53,7 +53,7 @@ func deviceTokenFakeESET(t *testing.T) {
 func runTokenRoot(t *testing.T, args ...string) string {
 	t.Helper()
 	cmd := RootCmd()
-	var out, errOut bytes.Buffer
+	var out, errOut lockedBuffer // sync workers write concurrently
 	cmd.SetOut(&out)
 	cmd.SetErr(&errOut)
 	cmd.SetArgs(args)
