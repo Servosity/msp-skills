@@ -181,6 +181,8 @@ func TestCodeOrchExecuteRefusesUnknownWriteParams(t *testing.T) {
 		{"networks.update", map[string]any{"id": 7, "network": map[string]any{"name": "y"}, "dry-run": true}, "dry-run"},
 		{"networks.destroy", map[string]any{"id": 7, "dry-run": true}, "dry-run"},
 		{"networks.destroy", map[string]any{"id": 7, "confirm": false}, "confirm"},
+		// A GET that writes (it creates a PSA integration) is a write too.
+		{"psa-integrations.redirect-link", map[string]any{"organization_id": 5, "psa_name": "connectwise", "dry_run": true}, "dry_run"},
 	}
 	for _, tc := range cases {
 		frame := callToolWire(t, s, "dnsfilter_execute", map[string]any{"endpoint_id": tc.id, "params": tc.params})
@@ -188,7 +190,7 @@ func TestCodeOrchExecuteRefusesUnknownWriteParams(t *testing.T) {
 			t.Fatalf("%s with %q was not refused: %s", tc.id, tc.bad, frame)
 		}
 	}
-	for _, method := range []string{"POST ", "PATCH ", "DELETE "} {
+	for _, method := range []string{"POST ", "PATCH ", "DELETE ", "GET /v1/psa_integrations"} {
 		if got := m.requests(method); len(got) != 0 {
 			t.Fatalf("a refused write reached the API: %v", got)
 		}

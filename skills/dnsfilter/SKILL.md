@@ -608,8 +608,8 @@ Run `dnsfilter-cli doctor` to verify setup.
 ## Safety for agents
 
 - **Read freely:** `why-blocked`, `unblocks triage`, `agents drift`, `agents stale`, `lists where`, `policy-audit`, and list/get commands, except the credential reads below.
-- **Plan before a policy change:** run `allow` without `--confirm` and show the plan; only add `--confirm --note "<ticket>"` after the user approves. Preview every generated write (`policies add-whitelist-domain`, `policies update`, `unblock-requests decision unblock-requests`, deletes) with `--dry-run` first: they send as soon as they run.
-- **Credential reads are human-only:** `networks index`, `networks show`, `networks all`, `networks msp` and `networks msp-all` return each site's `secret_key`; `api-keys index` and `api-keys show` return tokens; `user-agents uninstall-pin` returns the uninstall PIN; `psa-integrations` is a GET that creates a PSA integration and returns its link. Do not run them unless the user asks for that secret or that integration.
+- **Plan before a policy change:** run `allow` without `--confirm` and show the plan; only add `--confirm --note "<ticket>"` after the user approves. Preview every generated write (`policies add-whitelist-domain`, `policies update`, `unblock-requests decision unblock-requests`, deletes) with `--dry-run` first: they send as soon as they run. Moving a site, subnet, MAC address or roaming client to another policy or schedule (`networks update`, `user-agents update` and their bulk forms), adding bypass domains, or disabling a roaming client changes filtering too: get approval as for a policy change.
+- **Credential reads are human-only:** `networks index`, `networks show`, `networks all`, `networks msp` and `networks msp-all` return each site's `secret_key`; `api-keys index` and `api-keys show` return tokens; `user-agents uninstall-pin` returns the uninstall PIN; `tail` and `export` of `networks` or `api-keys` print the same secrets; `psa-integrations` is a GET that creates a PSA integration and returns its link. Do not run them unless the user asks for that secret or that integration.
 - **MCP:** the generic `dnsfilter_execute` tool can call any endpoint, deletes included, with no dry-run. With `DNSFILTER_MCP_READ_ONLY=1` the server drops writes and `allow`, runs GET endpoints only, and withholds the secrets above. See [governance.md](./governance.md).
 
 ## Agent Mode
@@ -965,7 +965,7 @@ Parse `$ARGUMENTS`:
 
 ## Direct Use
 
-1. Check if installed: `which dnsfilter-cli`
+1. Check if installed: `which dnsfilter-cli` (PowerShell: `Get-Command dnsfilter-cli`)
    If not found, offer to install (see Prerequisites at the top of this skill).
 2. Match the user query to the best command from the Unique Capabilities and Command Reference above.
 3. Execute with the `--agent` flag:

@@ -113,6 +113,16 @@ func TestCodeOrchRefuseUnknownWriteParamsUnit(t *testing.T) {
 	if err := codeOrchRefuseUnknownWriteParams(index, map[string]any{"anything": 1}); err != nil {
 		t.Fatalf("GET extras must stay query params: %v", err)
 	}
+	redirect := findCodeOrchEndpoint("psa-integrations.redirect-link")
+	if redirect == nil || !redirect.Mutating {
+		t.Fatal("psa-integrations.redirect-link creates a PSA integration and must be Mutating")
+	}
+	if err := codeOrchRefuseUnknownWriteParams(redirect, map[string]any{"organization_id": 5, "psa_name": "x"}); err != nil {
+		t.Fatalf("declared params on a GET that writes refused: %v", err)
+	}
+	if err := codeOrchRefuseUnknownWriteParams(redirect, map[string]any{"organization_id": 5, "dry_run": true}); err == nil {
+		t.Fatal("dry_run accepted on a GET that writes")
+	}
 	// domains.suggest-threat declares query params on a POST: both the public
 	// and wire names are accepted.
 	if err := codeOrchRefuseUnknownWriteParams(suggest, map[string]any{"fqdn": "a.example", "notes": "x"}); err != nil {

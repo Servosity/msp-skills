@@ -419,11 +419,6 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		`$env:DNSFILTER_API_KEY="<value>"; $env:DNSFILTER_MCP_HTTP_TOKEN="<long-random-value>"; dnsfilter-mcp --transport http`,
 		"export DNSFILTER_API_KEY=<token> on macOS / Linux, $env:DNSFILTER_API_KEY = \"<token>\" in PowerShell",
 		"authentication failed: HTTP 401\nhint: check your API key.\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"\n      In PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\" (the bare token, no Bearer prefix)",
-		"Credentials:\n  stored in IT Glue",
-		"Uninstall PIN:\nask the NOC",
-		"Rotate the token:\nnext quarter",
-		"password:\n  stored in the vault since March",
-		"Uninstall PIN:\nNOC",
 		"Site,Notes\nCall support, reset password",
 	} {
 		if TextNamesSecret(text) {
@@ -433,6 +428,15 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 	for _, text := range []string{
 		"password:\n  hunter2", "token:\n\n    abc123", "  pin:\n    \"4938\"", "API Key: configured",
 		"DNSFILTER_API_KEY=your-token-here2", `token="<value>x"`, "API Key: <value>z",
+		// A value on the next line counts at any indent and any word count
+		// (fail closed: prose after a label that ends its line is withheld).
+		"Uninstall PIN:\n482915", "Router admin password:\nP4ss-word!", "VPN token:\n  Bearer eyJhbGciOi",
+		"wifi password:\n  hunter2 # rotate monthly", "admin password:\n  - hunter2", "password:\rhunter2",
+		"\tpassword:\n\thunter2", "password:\n  correct horse battery staple", "API Key:\r\nsk-live-abc123",
+		"Network secret key:\nAbC123xyz789", `{"note":"password:\n  correct horse battery staple"}`,
+		"Credentials:\n  stored in IT Glue", "Uninstall PIN:\nask the NOC", "Rotate the token:\nnext quarter",
+		// A quoted comma in a CSV row adds cells; a spaced secret header still counts.
+		"Site,Network Secret Key,Address\nHQ,abc123,\"1 Main St, Springfield\"", "Site | Network Secret Key\nHQ | abc | extra",
 	} {
 		if !TextNamesSecret(text) {
 			t.Errorf("TextNamesSecret(%q) = false, want true", text)

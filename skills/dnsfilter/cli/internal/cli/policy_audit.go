@@ -38,8 +38,10 @@ type auditView struct {
 	UnclassifiedCategories []string       `json:"unclassified_categories,omitempty"`
 	Findings               []auditFinding `json:"findings"`
 	Note                   string         `json:"note,omitempty"`
-	CatalogEmpty           bool           `json:"catalog_empty,omitempty"`        // categories/all listed nothing: no security status is known
-	UnknownCategoryIDs     []string       `json:"unknown_category_ids,omitempty"` // blocked category ids (policies, baseline) not in the catalog
+	CatalogEmpty           bool           `json:"catalog_empty,omitempty"`          // categories/all listed nothing: no security status is known
+	NoSecurityCategories   bool           `json:"no_security_categories,omitempty"` // the catalog flags no category security=true: nothing was checked as a threat
+	NoPolicies             bool           `json:"no_policies,omitempty"`            // no policy was listed: nothing was audited
+	UnknownCategoryIDs     []string       `json:"unknown_category_ids,omitempty"`   // blocked category ids (policies, baseline) not in the catalog
 }
 
 // ponytail: bulk_lookup takes a comma-separated fqdns list; 50 per call keeps URLs short.
@@ -57,7 +59,7 @@ Do NOT use this command to look up one domain across the fleet; use 'lists where
 
 Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups.
 Global (MSP-shared) policies are audited too, with or without --org; their findings carry is_global=true, and each policy is scanned once however many client orgs share it.
-A catalog category without a boolean security flag is never treated as safe: it is listed in unclassified_categories and the note, and the audit is not an all-clear. The same holds for an empty category catalog (catalog_empty) and for blocked category ids the catalog does not contain (unknown_category_ids).`,
+A catalog category without a boolean security flag is never treated as safe: it is listed in unclassified_categories and the note, and the audit is not an all-clear. The same holds for an empty category catalog (catalog_empty), a catalog with no security category (no_security_categories), no listed policies (no_policies) and blocked category ids the catalog does not contain (unknown_category_ids).`,
 		Example: strings.Trim(`
   dnsfilter-cli policy-audit --agent
   dnsfilter-cli policy-audit --org 'Acme Dental' --baseline 1201`, "\n"),
@@ -170,7 +172,18 @@ A catalog category without a boolean security flag is never treated as safe: it 
 				view.UnknownCategoryIDs = ids
 				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d blocked category ids are not in the category catalog (%s); their security status is unknown, so this audit is not an all-clear.", len(ids), strings.Join(ids, ", ")))
 			}
-			if ids, labels := unclassifiedCategories(cats); len(ids) > 0 {
+			unclassifiedIDs, unclassifiedLabels := unclassifiedCategories(cats)
+			// (An unclassified category already makes the audit not an
+			// all-clear, with its own note.)
+			if len(cats) > 0 && len(unclassifiedIDs) == 0 && !anySecurityCategory(cats) {
+				view.NoSecurityCategories = true
+				view.Note = strings.TrimSpace(view.Note + " No category in the category catalog is flagged as a security category, so blocked security categories and threat-categorized allow-list entries were not checked, and this audit is not an all-clear.")
+			}
+			if len(policies) == 0 {
+				view.NoPolicies = true
+				view.Note = strings.TrimSpace(view.Note + " No policies were listed (check --org and the API key's scope), so nothing was audited and this audit is not an all-clear.")
+			}
+			if ids, labels := unclassifiedIDs, unclassifiedLabels; len(ids) > 0 {
 				view.UnclassifiedCategories = ids
 				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d categories in the category catalog have no boolean security flag (%s); they were not checked as security categories, so this audit is not an all-clear.", len(ids), strings.Join(labels, ", ")))
 			}
@@ -201,6 +214,16 @@ A catalog category without a boolean security flag is never treated as safe: it 
 	cmd.Flags().StringVar(&baselineID, "baseline", "", "Policy id whose blocked categories and safety flags every policy should match")
 	cmd.Flags().IntVar(&maxLookups, "max-lookups", 500, "Maximum distinct allow-list domains to re-categorize")
 	return cmd
+}
+
+// anySecurityCategory reports whether the catalog flags any category security=true.
+func anySecurityCategory(cats []jaRes) bool {
+	for _, c := range cats {
+		if c.boolean("security") {
+			return true
+		}
+	}
+	return false
 }
 
 // unclassifiedCategories returns the catalog categories whose security flag

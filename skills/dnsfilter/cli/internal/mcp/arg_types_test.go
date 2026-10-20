@@ -60,6 +60,12 @@ func TestToolArgumentsMustHaveTheirDeclaredType(t *testing.T) {
 		{"dnsfilter_execute", map[string]any{"endpoint_id": "organizations.promote-to-msp", "params": true}, "must be a JSON object, not a boolean"},
 		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": nil}, `needs the path parameter "id"`},
 		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy"}, `needs the path parameter "id"`},
+		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": nil}}, `path parameter "id" must be a non-empty string or a number`},                    // null
+		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": ""}}, `path parameter "id" must be a non-empty string or a number`},                     // empty
+		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": " "}}, `path parameter "id" must be a non-empty string or a number`},                    // blank
+		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": []any{"7"}}}, `path parameter "id" must be a non-empty string or a number`},             // array
+		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": map[string]any{"a": 1}}}, `path parameter "id" must be a non-empty string or a number`}, // object
+		{"dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": true}}, `path parameter "id" must be a non-empty string or a number`},                   // bool
 		{"dnsfilter_execute", map[string]any{"endpoint_id": nil}, "is required and cannot be null"},
 		{"tail", map[string]any{"resource": "networks", "follow": "false"}, `"follow" for tail must be a JSON boolean, not a string`},
 		{"search", map[string]any{"query": "x", "limit": "25"}, "must be a JSON number, not a string"},
@@ -82,7 +88,8 @@ func TestToolArgumentsMustHaveTheirDeclaredType(t *testing.T) {
 	// endpoint without placeholders is the same as no params).
 	callToolWire(t, s, "dnsfilter_execute", map[string]any{"endpoint_id": "organizations.promote-to-msp", "params": nil})
 	callToolWire(t, s, "dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": 7}})
-	if got := sent(); len(got) != 2 || got[0] != "POST /v1/organizations/promote_to_msp" || got[1] != "DELETE /v1/networks/7" {
+	callToolWire(t, s, "dnsfilter_execute", map[string]any{"endpoint_id": "networks.destroy", "params": map[string]any{"id": "8"}})
+	if got := sent(); len(got) != 3 || got[0] != "POST /v1/organizations/promote_to_msp" || got[1] != "DELETE /v1/networks/7" || got[2] != "DELETE /v1/networks/8" {
 		t.Fatalf("correctly typed calls did not run: %v", got)
 	}
 }

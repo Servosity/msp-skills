@@ -667,6 +667,40 @@ func TestSyncResumedWalkIsIncomplete(t *testing.T) {
 	}
 }
 
+// A walk a page cap stopped is not reported done, and a --param scoped walk
+// succeeds but says it is not a complete snapshot (sync_complete with
+// complete=false), matching last_attempt_complete=0.
+func TestSyncIncompleteWalksNeverReportDone(t *testing.T) {
+	testenv.Isolate(t)
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		if path != "/v1/user_agents/all" {
+			return "", false
+		}
+		page := 1
+		if p := q.Get("page[number]"); p != "" {
+			fmt.Sscan(p, &page)
+		}
+		return syncHFAgents(100, page), true // a full page 1: a continuation exists
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	out, _ := syncHFRun("sync", "--full", "--resources", "user-agents", "--max-pages", "1", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "user-agents", 0, "walk capped at one page")
+	if strings.Contains(out, `{"event":"sync_complete","resource":"user-agents"`) || !strings.Contains(out, `"warned":1`) || !strings.Contains(out, "sync --full --resources user-agents") {
+		t.Fatalf("a capped walk reported the collection done:\n%s", out)
+	}
+	out = func() string {
+		o, err := syncHFRun("sync", "--full", "--resources", "user-agents", "--resource-param", "user-agents:organization_id=1", "--db", dbPath)
+		if err != nil {
+			t.Fatalf("scoped sync: %v\n%s", err, o)
+		}
+		return o
+	}()
+	syncHFWantComplete(t, dbPath, "user-agents", 0, "scoped walk")
+	if !strings.Contains(out, `"complete":false`) || !strings.Contains(out, `"reason":"param_scoped"`) {
+		t.Fatalf("a scoped walk did not say it is not a complete snapshot:\n%s", out)
+	}
+}
+
 // A plain sync stores the global (MSP-shared) policies: the policies list
 // request always carries include_global_policies=true, which is a built-in
 // default and not a narrowing param, so the collection is complete and

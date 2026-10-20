@@ -192,6 +192,7 @@ func TestPolicyAuditUnclassifiedCategoryIsNotAllClear(t *testing.T) {
 func TestPolicyAuditUnknownCatalogIsNotAllClear(t *testing.T) {
 	testenv.Isolate(t)
 	catalog := ""
+	policies := `{"id":"10","attributes":{"name":"Std","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[60,99],"allow_unknown_domains":false}}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if p := r.URL.Query().Get("page[number]"); p != "" && p != "1" {
 			fmt.Fprint(w, `{"data":[]}`)
@@ -201,7 +202,7 @@ func TestPolicyAuditUnknownCatalogIsNotAllClear(t *testing.T) {
 		case "/v1/categories/all":
 			fmt.Fprintf(w, `{"data":[%s]}`, catalog)
 		case "/v1/policies/all":
-			fmt.Fprint(w, `{"data":[{"id":"10","attributes":{"name":"Std","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[60,99],"allow_unknown_domains":false}}]}`)
+			fmt.Fprintf(w, `{"data":[%s]}`, policies)
 		default:
 			t.Errorf("unexpected request %s", r.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -245,5 +246,17 @@ func TestPolicyAuditUnknownCatalogIsNotAllClear(t *testing.T) {
 	catalog += `,{"id":"99","attributes":{"name":"Custom","security":false}}`
 	if v, human = audit(); v.CatalogEmpty || len(v.UnknownCategoryIDs) != 0 || v.Note != "" || human != "1 policies scanned, 0 allow-list domains categorized, 0 findings\n" {
 		t.Fatalf("a fully known catalog must keep the plain output: %+v\n%q", v, human)
+	}
+	// A catalog that flags nothing as security checked nothing as a threat.
+	catalog = `{"id":"60","attributes":{"name":"Malware","security":false}},{"id":"99","attributes":{"name":"Custom","security":false}}`
+	if v, human = audit(); !v.NoSecurityCategories || !strings.Contains(human, "note: No category in the category catalog is flagged as a security category") {
+		t.Fatalf("a catalog with no security category was an all-clear: %+v\n%s", v, human)
+	}
+
+	// No listed policies: nothing was audited.
+	catalog = `{"id":"60","attributes":{"name":"Malware","security":true}}`
+	policies = ""
+	if v, human = audit(); !v.NoPolicies || !strings.Contains(human, "note: No policies were listed") {
+		t.Fatalf("no policies was an all-clear: %+v\n%s", v, human)
 	}
 }

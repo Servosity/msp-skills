@@ -132,11 +132,13 @@ var codeOrchWriteBodyKeys = map[string][]string{
 // ran it live. Path placeholders, declared query and header params are
 // accepted under their public or wire names; on POST/PUT/PATCH the remaining
 // keys must be the endpoint's top-level body fields; on DELETE nothing else is
-// accepted. GET is unchanged (extra params stay query params). An endpoint
-// missing from codeOrchWriteBodyKeys accepts no body field (fail closed).
+// accepted. A GET that writes (Mutating, e.g. psa-integrations.redirect-link,
+// which creates a PSA integration) is held to the DELETE rule; a read GET is
+// unchanged (extra params stay query params). An endpoint missing from
+// codeOrchWriteBodyKeys accepts no body field (fail closed).
 func codeOrchRefuseUnknownWriteParams(ep *codeOrchEndpoint, params map[string]any) error {
 	method := strings.ToUpper(ep.Method)
-	if method == "GET" || len(params) == 0 {
+	if (method == "GET" && !ep.Mutating) || len(params) == 0 {
 		return nil
 	}
 	allowed := map[string]bool{}
@@ -149,7 +151,7 @@ func codeOrchRefuseUnknownWriteParams(ep *codeOrchEndpoint, params map[string]an
 			allowed[b.WireName] = true
 		}
 	}
-	if method != "DELETE" {
+	if method != "DELETE" && method != "GET" {
 		if ep.BodyIsArray {
 			allowed["body"] = true
 		}

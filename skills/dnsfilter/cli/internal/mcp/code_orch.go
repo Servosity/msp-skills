@@ -2463,7 +2463,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "organization_id", WireName: "organization_id"}, {PublicName: "psa_name", WireName: "psa_name"}},
 		HeaderParams:   []codeOrchParamBinding{},
-		Mutating:       false,
+		Mutating:       true, // Hand-wired (handfixes.json: get-that-writes-is-a-write): this GET creates a PSA integration.
 		keywords:       codeOrchKeywords("psa-integrations", "redirect-link", "Creates a new PSA integration, if one does not exist and returns the redirect link.", "/v1/psa_integrations/redirect_link"),
 	},
 	{
@@ -3790,6 +3790,32 @@ func codeOrchFillTemplateParams(path string, bindings []codeOrchParamBinding, pa
 	return path
 }
 
+// codeOrchPathParamRefusal refuses a path parameter given as anything but a
+// non-blank string or a number. An absent one is left to the unfilled
+// placeholder check (a binding default may fill it).
+func codeOrchPathParamRefusal(ep *codeOrchEndpoint, params map[string]any) string {
+	names := append([]string{}, ep.Positional...)
+	for _, b := range ep.TemplateParams {
+		names = append(names, b.PublicName, b.WireName)
+	}
+	for _, name := range names {
+		v, ok := params[name]
+		if name == "" || !ok {
+			continue
+		}
+		switch x := v.(type) {
+		case float64, json.Number:
+			continue
+		case string:
+			if strings.TrimSpace(x) != "" {
+				continue
+			}
+		}
+		return fmt.Sprintf("%s path parameter %q must be a non-empty string or a number; nothing was sent", ep.ID, name)
+	}
+	return ""
+}
+
 // codeOrchResolvedPathRefusal refuses, under the read-only switch, a request
 // whose RESOLVED path (placeholders filled and percent-encoded, query split
 // off) reaches a credential endpoint, whatever the registered template was.
@@ -3838,6 +3864,13 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
+	// Hand-wired (handfixes.json: mcp-tools-refuse-undeclared-arguments): a
+	// path parameter must be a non-blank string or a number; null, "", an
+	// array, object or boolean used to be sent as /networks/null,
+	// /networks/ or /networks/%5B...%5D.
+	if msg := codeOrchPathParamRefusal(ep, params); msg != "" {
+		return mcplib.NewToolResultError(msg), nil
+	}
 	path := ep.Path
 	for _, p := range ep.Positional {
 		if v, ok := params[p]; ok && strings.Contains(path, "{"+p+"}") {

@@ -36,9 +36,17 @@ func newPsaIntegrationsPromotedCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("psa-name") || flagPsaName != "" {
 				params["psa_name"] = formatCLIParamValue(flagPsaName)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "psa-integrations", false, path, params, nil, "", cmd.ErrOrStderr())
+			// Hand-wired (handfixes.json: get-that-writes-is-a-write): this GET
+			// creates a PSA integration, so it is sent as a write (never the
+			// response cache or the local mirror; the verify-mode write guard
+			// and --dry-run apply).
+			data, err := c.GetMutating(cmd.Context(), path, params)
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
+			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
+			if isDryRunResponse(c.IsDryRun(), data) {
+				prov = attachFreshness(DataProvenance{Source: "dry-run"}, flags)
 			}
 			outputData := data
 			// Print provenance to stderr for human-facing output only.

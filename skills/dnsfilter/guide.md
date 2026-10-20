@@ -995,7 +995,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `dnsfilter-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $DNSFILTER_API_KEY`
+- Run `dnsfilter-cli auth status` to see which credential source is in use (it never prints the key)
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the resource's `index` or `all` command (e.g. `dnsfilter-cli organizations all`) to see available items

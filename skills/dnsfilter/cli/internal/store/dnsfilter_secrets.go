@@ -389,9 +389,10 @@ func TextNamesSecret(text string) bool {
 			if tableCellRE.MatchString(c) && IsSecretKey(c) {
 				return true
 			}
-			// A spaced label (API Key) heads a column only in a real table:
-			// the next non-empty line has the same number of cells.
-			if tableLabelRE.MatchString(c) && labelNamesSecret(c) && nextRowCells(lines[i+1:]) == len(cells) {
+			// A spaced label (API Key) heads a column only in a table: the
+			// next non-empty line is a delimited row too. Its cell count is
+			// not compared, since a quoted comma in a CSV row adds cells.
+			if tableLabelRE.MatchString(c) && labelNamesSecret(c) && nextRowCells(lines[i+1:]) >= 2 {
 				return true
 			}
 		}
@@ -447,25 +448,11 @@ func SecretPairInText(text string) bool {
 		if !labelNamesSecret(text[m[2]:m[3]]) {
 			continue
 		}
-		if pairCarriesValueAt(text[m[1]:], lineIndent(text, m[2])) {
+		if pairCarriesValue(text[m[1]:]) {
 			return true
 		}
 	}
 	return false
-}
-
-// lineIndent is the indentation (spaces and tabs) of the line holding
-// text[at], a line starting after a newline or an escaped newline (\n).
-func lineIndent(text string, at int) int {
-	start := strings.LastIndexByte(text[:at], '\n') + 1
-	if j := strings.LastIndex(text[:at], `\n`); j+2 > start && j >= 0 {
-		start = j + 2
-	}
-	n := 0
-	for start+n < len(text) && (text[start+n] == ' ' || text[start+n] == '\t') {
-		n++
-	}
-	return n
 }
 
 // maxUnescapeRounds bounds how many levels of JSON string escaping the text
@@ -562,19 +549,14 @@ func hexByteVal(c byte) byte {
 //     surrounding whitespace removed), or an unclosed quote followed by
 //     nothing but delimiters.
 func pairCarriesValue(rest string) bool {
-	return pairCarriesValueAt(rest, 0)
-}
-
-// pairCarriesValueAt is pairCarriesValue for a key whose line is indented by
-// keyIndent. A value that starts on a later line counts only in YAML block
-// form: the next non-empty line is indented deeper than the key's line and
-// is a single token or a quoted string (password:\n  hunter2). Prose on the
-// next line (Credentials:\n  stored in IT Glue, Rotate the token:\nnext
-// quarter) is not a value.
-func pairCarriesValueAt(rest string, keyIndent int) bool {
+	// Fail closed: a value that starts on a later line (password:\nhunter2,
+	// Uninstall PIN:\n482915, YAML block form at any indent) is judged like
+	// a same-line value, so prose after a label that ends its line is
+	// withheld too. A credential written on the next line is the common
+	// shape; telling it from prose by indent or word count leaked it.
 	rest = skipInlineSpace(rest)
 	if line, ok := afterNewline(rest); ok {
-		return nextLineCarriesValue(line, keyIndent)
+		rest = skipInlineSpace(line)
 	}
 	if rest == "" {
 		return false
@@ -639,43 +621,6 @@ func afterNewline(s string) (string, bool) {
 			return s, broke
 		}
 	}
-}
-
-// nextLineCarriesValue judges the first non-empty line after a separator
-// that ended its own line.
-func nextLineCarriesValue(rest string, keyIndent int) bool {
-	indent := 0
-	for indent < len(rest) && (rest[indent] == ' ' || rest[indent] == '\t') {
-		indent++
-	}
-	if indent <= keyIndent {
-		return false
-	}
-	line := rest[indent:]
-	if i := strings.IndexAny(line, "\r\n"); i >= 0 {
-		line = line[:i]
-	}
-	if i := strings.Index(line, `\n`); i >= 0 {
-		line = line[:i]
-	}
-	if i := strings.Index(line, `\r`); i >= 0 {
-		line = line[:i]
-	}
-	line = strings.TrimRight(line, " \t")
-	if line == "" {
-		return false
-	}
-	n := 0
-	for n < len(line) && line[n] == '\\' {
-		n++
-	}
-	if n < len(line) && (line[n] == '"' || line[n] == '\'') {
-		return pairCarriesValueAt(line, keyIndent)
-	}
-	if strings.ContainsAny(line, " \t") {
-		return false // several words: a sentence, not a scalar value
-	}
-	return !exemptPairValue(line)
 }
 
 // quotedValue scans s, the text after an opening quote q that was written

@@ -140,7 +140,7 @@
     {
       "id": "secrets-never-persisted",
       "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key, a trailing pin such as uninstall_pin, and the like, at any depth, including inside JSON encoded in a string value) and withholds a string value that still names one as key=value text or a table header, before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
-      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted. Codex round 3 (P1) / adversarial round 5 (P2): the text rule ran secretPairRE on the raw string and never undid JSON escaping, so a string field holding a cut-off (undecodable) JSON blob with a \\u-escaped key name persisted the secret (ScrubPersistedSecrets of a meta string {\"a\":1,\"tok\\\\u0065n\":\"SECRET\" returned it unchanged; reproduced end to end through sync and read-only MCP sql substr). textNamesSecret now runs on UnescapeForTextRule(text), which undoes JSON string escaping one level per round up to 6 levels (\\u0065 in either hex case, \\\", \\\\, \\n, \\t, \\/), the same rule as the read-only MCP redactor's unescapeForTextRule (200,000 random strings gave identical output), so the store scrub is never narrower than MCP output and the redactor can call store.UnescapeForTextRule. The property generator now also spells token/secret_key/pin with \\u-escaped characters (upper and lower hex) as document keys, in JSON-in-string, in cut-off blobs (once and twice quoted) and in name=value text; it fails on the previous code (seed 20261020 case 22, a twice-quoted cut-off blob with p\\\\u0069n) and with the unescape call removed. Codex round 4 (P1): the text rule's exemptions matched a prefix, so a value that STARTS with an exempt literal passed: {\"meta\":\"password=true!SENTINEL42\"} survived unchanged (null-, false. and \"[withheld: credential]secret\" likewise, and a value on the next line after an empty separator, YAML-style token:\\n  SECRET, counted as empty). Every exemption now matches exactly: pairValueEmpty exempts only nothing at all, a delimiter that ends an empty value (, ; & } ] )), or a value token that is exactly true, false, null or the placeholder followed by the end of the text or a delimiter (whitespace , ; & \" ' } ] )); newlines after the separator are skipped like spaces, so the next line is read as the value. The rule is exported for the read-only MCP redactor: TextNamesSecret(raw text) undoes JSON escaping and runs the pair and table rules; SecretPairInText(already-unescaped text) is the pair rule alone (no DNSFILTER_ environment-name exception). The property generator now emits values starting with true/false/null/the placeholder and continuing into a sentinel (plain and in cut-off blobs) and next-line values; it fails on the previous code (seed 20261020 case 22, \"pin\":\"true!SNTNL24\") and with the literal check back to a bare prefix; TestSecretPairExemptionsAreExact pins both sides. Codex round 5 (P1): quoted values lost their quote boundary before the exemption checks (the separator's trailing quotes were trimmed), so a roaming-client meta of password=\",SECRET\" read as an empty value and survived into SQLite and read-only MCP. Value extraction is now one tokenizer, pairCarriesValue, and every exemption applies to the value it extracts: spaces and newlines after the separator are skipped; a value opening with a quote (or a quote escaped at that level, \\\") runs to the matching closing quote with backslash escapes honored, or to the end of the text when unclosed; a closed quoted value followed by anything but the end or a delimiter runs on and carries a value; any other value runs to the first delimiter (the placeholder is matched whole); a value is exempt only when it is exactly empty, true, false, null or the placeholder (quoted content compared with its quotes and surrounding whitespace removed), or an unclosed quote followed only by delimiters (a preview cut right after the separator). TextNamesSecret runs the pair rule on the raw text and on each level of JSON escaping undone, because a quote boundary is only right at the level it was written in (token=\"\\\",SECRET\" is a value at its own level and looks empty once unescaped). The property generator now emits quoted values whose content starts with a delimiter, a literal, the placeholder or an escaped quote, closed or unclosed, plain and in cut-off blobs; it fails on the previous code (seed 20261020 case 19, x password:'null,SNTNL19) and with each tokenizer rule reverted (quotes trimmed again, pair rule only on fully unescaped text, closed quoted value never running on); TestPairValueTokenizer pins both sides. Round 8 (adversarial R7 P1, Codex R6 P1, adversarial R7 P2): (1) the CLI's own auth hints (export DNSFILTER_API_KEY=\"your-token-here\" and the PowerShell twin in helpers.go, auth.go, doctor.go and mcp/tools.go; DNSFILTER_API_KEY=<your-token-here> in client.go; <token>, <value> and <long-random-value> in the README, guide and mcp-install docs) made read-only MCP withhold every 401/403 error block; those five documentation placeholders are now exempt on an exact match of the extracted value only, quoted or not, like WithheldValuePlaceholder (12 CLI/doc strings flip to kept, none flip to withheld). (2) Spaced credential labels were missed (\"API Key: SECRET\", \"Network secret key: SECRET\" reached SQLite): the pair regex now captures up to three words before the separator and labelNamesSecret treats the whitespace like _ or -: the last word names a secret, or it is key/keys and the last two or three words together do (API Key, Secret Key, Network secret key; not Password Policy, public key, the key); a header cell of two or three such words heads a secret column when the next non-empty line has the same number of cells. (3) A value on the next line counts only in YAML block form: the next non-empty line is indented deeper than the key's line and is a single token or a quoted string (password:\\n  hunter2 withheld; Credentials:\\n  stored in IT Glue, Uninstall PIN:\\nask the NOC and Rotate the token:\\nnext quarter kept). Proven: each rule reverted alone fails the extended property test, the pinned cases or TestTextRuleKeepsPlaceholdersAndProse.",
+      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted. Codex round 3 (P1) / adversarial round 5 (P2): the text rule ran secretPairRE on the raw string and never undid JSON escaping, so a string field holding a cut-off (undecodable) JSON blob with a \\u-escaped key name persisted the secret (ScrubPersistedSecrets of a meta string {\"a\":1,\"tok\\\\u0065n\":\"SECRET\" returned it unchanged; reproduced end to end through sync and read-only MCP sql substr). textNamesSecret now runs on UnescapeForTextRule(text), which undoes JSON string escaping one level per round up to 6 levels (\\u0065 in either hex case, \\\", \\\\, \\n, \\t, \\/), the same rule as the read-only MCP redactor's unescapeForTextRule (200,000 random strings gave identical output), so the store scrub is never narrower than MCP output and the redactor can call store.UnescapeForTextRule. The property generator now also spells token/secret_key/pin with \\u-escaped characters (upper and lower hex) as document keys, in JSON-in-string, in cut-off blobs (once and twice quoted) and in name=value text; it fails on the previous code (seed 20261020 case 22, a twice-quoted cut-off blob with p\\\\u0069n) and with the unescape call removed. Codex round 4 (P1): the text rule's exemptions matched a prefix, so a value that STARTS with an exempt literal passed: {\"meta\":\"password=true!SENTINEL42\"} survived unchanged (null-, false. and \"[withheld: credential]secret\" likewise, and a value on the next line after an empty separator, YAML-style token:\\n  SECRET, counted as empty). Every exemption now matches exactly: pairValueEmpty exempts only nothing at all, a delimiter that ends an empty value (, ; & } ] )), or a value token that is exactly true, false, null or the placeholder followed by the end of the text or a delimiter (whitespace , ; & \" ' } ] )); newlines after the separator are skipped like spaces, so the next line is read as the value. The rule is exported for the read-only MCP redactor: TextNamesSecret(raw text) undoes JSON escaping and runs the pair and table rules; SecretPairInText(already-unescaped text) is the pair rule alone (no DNSFILTER_ environment-name exception). The property generator now emits values starting with true/false/null/the placeholder and continuing into a sentinel (plain and in cut-off blobs) and next-line values; it fails on the previous code (seed 20261020 case 22, \"pin\":\"true!SNTNL24\") and with the literal check back to a bare prefix; TestSecretPairExemptionsAreExact pins both sides. Codex round 5 (P1): quoted values lost their quote boundary before the exemption checks (the separator's trailing quotes were trimmed), so a roaming-client meta of password=\",SECRET\" read as an empty value and survived into SQLite and read-only MCP. Value extraction is now one tokenizer, pairCarriesValue, and every exemption applies to the value it extracts: spaces and newlines after the separator are skipped; a value opening with a quote (or a quote escaped at that level, \\\") runs to the matching closing quote with backslash escapes honored, or to the end of the text when unclosed; a closed quoted value followed by anything but the end or a delimiter runs on and carries a value; any other value runs to the first delimiter (the placeholder is matched whole); a value is exempt only when it is exactly empty, true, false, null or the placeholder (quoted content compared with its quotes and surrounding whitespace removed), or an unclosed quote followed only by delimiters (a preview cut right after the separator). TextNamesSecret runs the pair rule on the raw text and on each level of JSON escaping undone, because a quote boundary is only right at the level it was written in (token=\"\\\",SECRET\" is a value at its own level and looks empty once unescaped). The property generator now emits quoted values whose content starts with a delimiter, a literal, the placeholder or an escaped quote, closed or unclosed, plain and in cut-off blobs; it fails on the previous code (seed 20261020 case 19, x password:'null,SNTNL19) and with each tokenizer rule reverted (quotes trimmed again, pair rule only on fully unescaped text, closed quoted value never running on); TestPairValueTokenizer pins both sides. Round 8 (adversarial R7 P1, Codex R6 P1, adversarial R7 P2): (1) the CLI's own auth hints (export DNSFILTER_API_KEY=\"your-token-here\" and the PowerShell twin in helpers.go, auth.go, doctor.go and mcp/tools.go; DNSFILTER_API_KEY=<your-token-here> in client.go; <token>, <value> and <long-random-value> in the README, guide and mcp-install docs) made read-only MCP withhold every 401/403 error block; those five documentation placeholders are now exempt on an exact match of the extracted value only, quoted or not, like WithheldValuePlaceholder (12 CLI/doc strings flip to kept, none flip to withheld). (2) Spaced credential labels were missed (\"API Key: SECRET\", \"Network secret key: SECRET\" reached SQLite): the pair regex now captures up to three words before the separator and labelNamesSecret treats the whitespace like _ or -: the last word names a secret, or it is key/keys and the last two or three words together do (API Key, Secret Key, Network secret key; not Password Policy, public key, the key); a header cell of two or three such words heads a secret column when the next non-empty line has the same number of cells. (3) A value on the next line counts only in YAML block form: the next non-empty line is indented deeper than the key's line and is a single token or a quoted string (password:\\n  hunter2 withheld; Credentials:\\n  stored in IT Glue, Uninstall PIN:\\nask the NOC and Rotate the token:\\nnext quarter kept). Proven: each rule reverted alone fails the extended property test, the pinned cases or TestTextRuleKeepsPlaceholdersAndProse. Round 8 / Codex round 7 (2026-10-20): the round-7 attempt to keep prose after a label that ends its line (judging a next-line value by indent and word count) leaked the common shape of a credential written on the next line ('Uninstall PIN:\\n482915', 'password:\\n  correct horse battery staple'); a value that starts on a later line is now judged exactly like a same-line value, so the rule fails closed (prose after a line-ending label is withheld, by design). A spaced secret header (API Key) heads a table when the next non-empty line is a delimited row of any width, since a quoted comma in a CSV row adds cells. TestTextRuleKeepsPlaceholdersAndProse fails on 16 inputs against the previous rule.",
       "status": "active",
       "asserts": [
         {
@@ -348,27 +348,17 @@
         },
         {
           "file": "cli/internal/store/dnsfilter_secrets.go",
-          "contains": "if tableLabelRE.MatchString(c) && labelNamesSecret(c) && nextRowCells(lines[i+1:]) == len(cells) {",
+          "contains": "if tableLabelRE.MatchString(c) && labelNamesSecret(c) && nextRowCells(lines[i+1:]) >= 2 {",
           "code_only": true
         },
         {
           "file": "cli/internal/store/dnsfilter_secrets.go",
-          "contains": "if pairCarriesValueAt(text[m[1]:], lineIndent(text, m[2])) {",
+          "contains": "if pairCarriesValue(text[m[1]:]) {",
           "code_only": true
         },
         {
           "file": "cli/internal/store/dnsfilter_secrets.go",
-          "contains": "return nextLineCarriesValue(line, keyIndent)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/store/dnsfilter_secrets.go",
-          "contains": "if indent <= keyIndent {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/store/dnsfilter_secrets.go",
-          "contains": "if strings.ContainsAny(line, \" \\t\") {",
+          "contains": "rest = skipInlineSpace(line)",
           "code_only": true
         },
         {
@@ -2682,28 +2672,48 @@
     },
     {
       "id": "sync-resumed-walk-warns",
-      "summary": "a sync walk resumed from a saved cursor (after an interrupt or a --max-pages cap) that reaches the end of the listing reports a sync_warning (reason resumed_from_cursor) and a human warning line naming `dnsfilter-cli sync --full --resources <name>`, instead of \"(done)\" and sync_complete",
-      "why": "After sync-complete-means-whole-fleet, a walk resumed from a saved cursor records the collection incomplete (it saw only the pages after the cursor), but the run still printed `<name>: N synced (done)` and emitted sync_complete with no hint, so an operator or agent read a complete collection. The resumed walk now returns a warning result with the remedy: JSON mode emits {\"event\":\"sync_warning\",\"reason\":\"resumed_from_cursor\",...} and no sync_complete for that resource, human mode prints `<name>: warning: walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources <name>' to complete it`. As for every all-warned run, a sync whose only resource warned exits non-zero (\"completed with warnings but no successful syncs\"). Proven: removing the branch fails TestSyncResumedWalkIsIncomplete (no warning, sync_complete emitted).",
+      "summary": "a flat sync walk that is not a complete snapshot never reports (done) or sync_complete: a truncated walk (resumed cursor, --max-pages cap, stuck or unavailable cursor) warns with the --full remedy; a walk scoped by --param or --since succeeds but says complete=false",
+      "why": "After sync-complete-means-whole-fleet, a walk resumed from a saved cursor records the collection incomplete (it saw only the pages after the cursor), but the run still printed `<name>: N synced (done)` and emitted sync_complete with no hint, so an operator or agent read a complete collection. The resumed walk now returns a warning result with the remedy: JSON mode emits {\"event\":\"sync_warning\",\"reason\":\"resumed_from_cursor\",...} and no sync_complete for that resource, human mode prints `<name>: warning: walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources <name>' to complete it`. As for every all-warned run, a sync whose only resource warned exits non-zero (\"completed with warnings but no successful syncs\"). Proven: removing the branch fails TestSyncResumedWalkIsIncomplete (no warning, sync_complete emitted). Codex round 7 (P1, 2026-10-20): only resumed_from_cursor warned; `sync --full --resources networks --max-pages 1` on a multi-page fleet left last_attempt_complete=0 yet emitted sync_complete and printed (done). Every incomplete reason now goes through syncIncompleteMessage; param_scoped and incremental_window walks covered what was asked, so they count as successes (no exit-code change) but emit sync_complete with complete=false and a human 'not a complete snapshot' line. TestSyncIncompleteWalksNeverReportDone fails against the previous sync.go.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "if outcome.reason == \"resumed_from_cursor\" {",
+          "contains": "msg := syncIncompleteMessage(resource, outcome.reason)",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "fmt.Fprintln(syncEvents, syncWarningJSON(resource, \"\", 0, \"resumed_from_cursor\", msg))",
+          "contains": "func syncIncompleteMessage(resource, reason string) string {",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "msg := fmt.Sprintf(\"walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources %s' to complete it\", resource)",
+          "contains": "return \"walk resumed from a saved cursor, so the collection is not complete yet; \" + finish",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "fmt.Fprintln(syncEvents, syncWarningJSON(resource, \"\", 0, outcome.reason, msg))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if outcome.reason == \"param_scoped\" || outcome.reason == \"incremental_window\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return syncResult{Resource: resource, Count: cachedCount, Partial: msg, Duration: time.Since(started)}",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
           "contains": "func TestSyncResumedWalkIsIncomplete(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncIncompleteWalksNeverReportDone(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -2933,7 +2943,7 @@
         },
         {
           "file": "cli/internal/cli/policy_audit.go",
-          "contains": "if ids, labels := unclassifiedCategories(cats); len(ids) > 0 {",
+          "contains": "unclassifiedIDs, unclassifiedLabels := unclassifiedCategories(cats)",
           "code_only": true
         },
         {
@@ -2944,6 +2954,11 @@
         {
           "file": "cli/internal/cli/policy_audit_test.go",
           "contains": "func TestPolicyAuditUnclassifiedCategoryIsNotAllClear(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "if ids, labels := unclassifiedIDs, unclassifiedLabels; len(ids) > 0 {",
           "code_only": true
         }
       ]
@@ -3024,7 +3039,7 @@
     {
       "id": "mcp-tools-refuse-undeclared-arguments",
       "summary": "every MCP tool (dnsfilter_execute, dnsfilter_get, dnsfilter_search, sql, search, context, the recipe intent and every Cobra-tree mirror, including tools added later) refuses a call whose top-level arguments name a key outside the tool's declared input schema, or are not a JSON object, before the tenant gate or any handler runs; read tools are refused too (one rule, nothing to decide per tool); an argument whose declared type is object, array, number, integer or boolean must arrive as that JSON type (no coercion), a required argument cannot be null, and dnsfilter_execute refuses a path placeholder left unfilled",
-      "why": "Codex round 5 (2026-10-20, P1): unknown-argument validation looked only inside dnsfilter_execute's params object, and mcp-go does not validate arguments against the declared schema, so {\"endpoint_id\":\"networks.destroy\",\"params\":{\"id\":7},\"dry_run\":true} silently ignored the preview flag and sent DELETE /v1/networks/7. The same held for every typed tool and the intent (the mirror tools already refused unknown names in shellOutToCLI). installArgumentGate is one server middleware, inside the result funnel and before the tenant gate. Proven over stdio against a mock: the previous binary sent DELETE /v1/networks/7 for the top-level dry_run, PATCH /v1/networks/7 for a top-level confirm, and ran sql and the intent with dry-run / force ignored; the fixed binary refused all of them with nothing sent, and the plain networks.destroy still ran. TestEveryToolRefusesUndeclaredTopLevelArguments sends dry_run / dry-run / confirm / force (whichever a tool does not declare) to every registered tool and requires a refusal with no API request and no companion CLI run; without the gate it fails for context, dnsfilter_execute (the DELETE reached the mock), dnsfilter_get, dnsfilter_search, sql, search and the intent. TestArgumentGateKeepsDeclaredArguments keeps declared arguments (allow's own --confirm/--force/--dry-run, execute's inner params) and fails if non-object arguments are accepted. Round 11 (2026-10-20, Codex R6 P1): a declared-but-mistyped argument was still coerced: params given as the STRING \"{\\\"dry_run\\\":true}\" (or an array, number or boolean) failed the handler's type assertion and became {}, so organizations.promote-to-msp sent the live POST. argumentTypeRefusal now checks every declared non-string type (and null for required properties), and an unfilled {placeholder} in dnsfilter_execute's path is refused before the client is called (the client already refused it as 'unresolved path parameter'; this names the missing key). Proven over stdio: the previous binary sent POST /v1/organizations/promote_to_msp for params as a string and as an array and ran tail with follow \"false\"; the fixed binary refused all three with nothing sent, while correctly typed calls still ran. TestToolArgumentsMustHaveTheirDeclaredType fails when argumentTypeRefusal is dropped (seven cases not refused) or the placeholder guard is dropped.",
+      "why": "Codex round 5 (2026-10-20, P1): unknown-argument validation looked only inside dnsfilter_execute's params object, and mcp-go does not validate arguments against the declared schema, so {\"endpoint_id\":\"networks.destroy\",\"params\":{\"id\":7},\"dry_run\":true} silently ignored the preview flag and sent DELETE /v1/networks/7. The same held for every typed tool and the intent (the mirror tools already refused unknown names in shellOutToCLI). installArgumentGate is one server middleware, inside the result funnel and before the tenant gate. Proven over stdio against a mock: the previous binary sent DELETE /v1/networks/7 for the top-level dry_run, PATCH /v1/networks/7 for a top-level confirm, and ran sql and the intent with dry-run / force ignored; the fixed binary refused all of them with nothing sent, and the plain networks.destroy still ran. TestEveryToolRefusesUndeclaredTopLevelArguments sends dry_run / dry-run / confirm / force (whichever a tool does not declare) to every registered tool and requires a refusal with no API request and no companion CLI run; without the gate it fails for context, dnsfilter_execute (the DELETE reached the mock), dnsfilter_get, dnsfilter_search, sql, search and the intent. TestArgumentGateKeepsDeclaredArguments keeps declared arguments (allow's own --confirm/--force/--dry-run, execute's inner params) and fails if non-object arguments are accepted. Round 11 (2026-10-20, Codex R6 P1): a declared-but-mistyped argument was still coerced: params given as the STRING \"{\\\"dry_run\\\":true}\" (or an array, number or boolean) failed the handler's type assertion and became {}, so organizations.promote-to-msp sent the live POST. argumentTypeRefusal now checks every declared non-string type (and null for required properties), and an unfilled {placeholder} in dnsfilter_execute's path is refused before the client is called (the client already refused it as 'unresolved path parameter'; this names the missing key). Proven over stdio: the previous binary sent POST /v1/organizations/promote_to_msp for params as a string and as an array and ran tail with follow \"false\"; the fixed binary refused all three with nothing sent, while correctly typed calls still ran. TestToolArgumentsMustHaveTheirDeclaredType fails when argumentTypeRefusal is dropped (seven cases not refused) or the placeholder guard is dropped. Round 8 (P2, 2026-10-20): a path parameter given as null, \"\", blank, an array, object or boolean was still substituted (DELETE /v1/networks/null, /v1/networks/, /v1/networks/%5B...%5D); codeOrchPathParamRefusal now refuses anything but a non-blank string or a number before the path is built. Six new cases in TestToolArgumentsMustHaveTheirDeclaredType fail without it.",
       "status": "active",
       "spec_encode_followup": "Press-side: the generated MCP server should enable input-schema validation (or install an equivalent middleware) so no tool silently ignores an argument.",
       "asserts": [
@@ -3082,6 +3097,16 @@
           "file": "cli/internal/mcp/arg_types_test.go",
           "contains": "func TestToolArgumentsMustHaveTheirDeclaredType(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if msg := codeOrchPathParamRefusal(ep, params); msg != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "func codeOrchPathParamRefusal(ep *codeOrchEndpoint, params map[string]any) string {",
+          "code_only": true
         }
       ]
     },
@@ -3111,7 +3136,7 @@
     {
       "id": "policy-audit-unknown-category-catalog",
       "summary": "policy-audit is not an all-clear when the category catalog cannot vouch for security status: an empty /v1/categories/all sets catalog_empty=true with a note that blocked security categories and threat-categorized allow-list entries were not checked; otherwise blocked-category ids (from the audited policies and the --baseline) missing from the catalog are listed in unknown_category_ids with a note. Both fields are omitted when the catalog is complete, so that output is unchanged. The help text says so.",
-      "why": "Adversarial review R7 P2 (2026-10-20): with /v1/categories/all returning an empty list, or a policy blocking category ids the catalog lacks, policy-audit printed '1 policies scanned, 0 allow-list domains categorized, 0 findings' and no note, although no category's security status was known (an empty catalog means no security category exists to check against). Proven 2026-10-20: disabling both reports (the HEAD behavior) fails TestPolicyAuditUnknownCatalogIsNotAllClear with catalog_empty=false note=\"\"; disabling the unknown-id report alone fails it with unknown=[] note=\"\"; a fully known catalog keeps the plain '1 policies scanned, 0 allow-list domains categorized, 0 findings' line (asserted exactly). E2E against a mock: HEAD 8cbc53189 printed only that line for both an empty catalog and a policy blocking [60,99] with only 60 in the catalog; the fixed binary adds the empty-catalog note (catalog_empty true) and 'note: 1 blocked category ids are not in the category catalog (99); ...' (unknown_category_ids [\"99\"]).",
+      "why": "Adversarial review R7 P2 (2026-10-20): with /v1/categories/all returning an empty list, or a policy blocking category ids the catalog lacks, policy-audit printed '1 policies scanned, 0 allow-list domains categorized, 0 findings' and no note, although no category's security status was known (an empty catalog means no security category exists to check against). Proven 2026-10-20: disabling both reports (the HEAD behavior) fails TestPolicyAuditUnknownCatalogIsNotAllClear with catalog_empty=false note=\"\"; disabling the unknown-id report alone fails it with unknown=[] note=\"\"; a fully known catalog keeps the plain '1 policies scanned, 0 allow-list domains categorized, 0 findings' line (asserted exactly). E2E against a mock: HEAD 8cbc53189 printed only that line for both an empty catalog and a policy blocking [60,99] with only 60 in the catalog; the fixed binary adds the empty-catalog note (catalog_empty true) and 'note: 1 blocked category ids are not in the category catalog (99); ...' (unknown_category_ids [\"99\"]). Round 8 (P2, 2026-10-20): a non-empty catalog with no category flagged security=true, and an empty policy list, also printed '0 findings' with no note; both now set a flag (no_security_categories, no_policies) and a not-an-all-clear note.",
       "status": "active",
       "asserts": [
         {
@@ -3137,6 +3162,80 @@
         {
           "file": "cli/internal/cli/policy_audit_test.go",
           "contains": "func TestPolicyAuditUnknownCatalogIsNotAllClear(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "if len(cats) > 0 && len(unclassifiedIDs) == 0 && !anySecurityCategory(cats) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "view.NoSecurityCategories = true",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "view.NoPolicies = true",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "get-that-writes-is-a-write",
+      "summary": "GET /v1/psa_integrations/redirect_link (it creates a PSA integration) is sent as a write on every path: the CLI command uses GetMutating (no response cache, no local mirror, verify-mode write guard and --dry-run apply), the MCP registry marks it Mutating, and dnsfilter_execute refuses an undeclared param such as dry_run on it",
+      "why": "Adversarial round 8 and Codex round 7 (both P1, 2026-10-20): the promoted psa-integrations command read through resolveReadWithStrategyAndResponsePath (ordinary GET transport, response cache, auto data source), so PRINTING_PRESS_VERIFY=1 without LIVE_HTTP still sent it; the MCP registry entry had Mutating=false; and codeOrchRefuseUnknownWriteParams returned early for every GET, so dnsfilter_execute psa-integrations.redirect-link with dry_run:true sent GET ...?dry_run=true live, contradicting governance.md. A Mutating GET is now held to the DELETE rule (declared path, query and header params only). TestPSAIntegrationsSentAsAWrite (CLI) and the psa-integrations cases in TestCodeOrchExecuteRefusesUnknownWriteParams / TestCodeOrchRefuseUnknownWriteParamsUnit fail when the fix is reverted.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/promoted_psa-integrations.go",
+          "contains": "data, err := c.GetMutating(cmd.Context(), path, params)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "QueryParams:    []codeOrchParamBinding{{PublicName: \"organization_id\", WireName: \"organization_id\"}, {PublicName: \"psa_name\", WireName: \"psa_name\"}},\n\t\tHeaderParams:   []codeOrchParamBinding{},\n\t\tMutating:       true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_write_params.go",
+          "contains": "if (method == \"GET\" && !ep.Mutating) || len(params) == 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_write_params.go",
+          "contains": "if method != \"DELETE\" && method != \"GET\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/template_class_fixes_test.go",
+          "contains": "func TestPSAIntegrationsSentAsAWrite(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_write_params_test.go",
+          "contains": "t.Fatal(\"dry_run accepted on a GET that writes\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "config-env-base-url-never-persisted",
+      "summary": "a DNSFILTER_BASE_URL override applies to the current process only: saving the config (auth set-token, auth logout, token refresh) writes the base URL the config file held, never the override",
+      "why": "Adversarial round 8 (P2, 2026-10-20): `printf 'tok\\n' | DNSFILTER_BASE_URL=http://127.0.0.1:9/evil dnsfilter-cli auth set-token` wrote base_url = 'http://127.0.0.1:9/evil' into config.toml, so every later call, including ones with DNSFILTER_BASE_URL empty, sent the saved token there, while mcp-install.md says an empty value means api.dnsfilter.com. Load now records the file's base URL when the env override replaces it, and persisted() writes that. Press template behavior (config.go.tmpl); likely fleet-wide. TestEnvBaseURLNeverPersisted fails against the previous config.go.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.baseURLOverridden, cfg.fileBaseURL = true, cfg.BaseURL",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if c.baseURLOverridden {\n\t\tbaseURL = c.fileBaseURL\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/base_url_override_test.go",
+          "contains": "func TestEnvBaseURLNeverPersisted(t *testing.T) {",
           "code_only": true
         }
       ]

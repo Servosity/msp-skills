@@ -28,6 +28,11 @@ type Config struct {
 	// credential-source fallback below reports where config-stored
 	// credentials actually live. Unexported: never persisted.
 	configOwner string
+	// HAND-FIX(config-env-base-url-never-persisted): the base URL the config
+	// file holds when DNSFILTER_BASE_URL overrides it for this process only;
+	// a save writes this back, never the override.
+	baseURLOverridden bool
+	fileBaseURL       string
 	// legacySourcePath records the legacy config path when Load fell
 	// back to it. Used by save() to scrub credential fields from the
 	// old location after relocation. Unexported: never persisted.
@@ -209,6 +214,7 @@ func Load(configPath string) (*Config, error) {
 
 	// Base URL override (used by printing-press verify to point at mock/test servers)
 	if v := cliutil.EnvOverride("DNSFILTER_BASE_URL"); v != "" {
+		cfg.baseURLOverridden, cfg.fileBaseURL = true, cfg.BaseURL
 		cfg.BaseURL = v
 	}
 	return cfg, nil
@@ -808,8 +814,12 @@ type persistedConfig struct {
 }
 
 func (c *Config) persisted() persistedConfig {
+	baseURL := c.BaseURL
+	if c.baseURLOverridden {
+		baseURL = c.fileBaseURL
+	}
 	return persistedConfig{
-		BaseURL: c.BaseURL,
+		BaseURL: baseURL,
 		Headers: c.Headers,
 	}
 }

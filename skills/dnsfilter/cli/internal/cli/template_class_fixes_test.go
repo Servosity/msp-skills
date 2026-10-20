@@ -254,3 +254,44 @@ func TestPSAIntegrationsNotReadOnly(t *testing.T) {
 		t.Fatalf("unexpected path %q", cmd.Annotations["pp:path"])
 	}
 }
+
+// TestPSAIntegrationsSentAsAWrite: the GET that creates a PSA integration goes
+// out as a write: the verify-mode write guard and --dry-run stop it, and a
+// repeat is sent again rather than answered from the response cache.
+func TestPSAIntegrationsSentAsAWrite(t *testing.T) {
+	testenv.Isolate(t)
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/psa_integrations/redirect_link" {
+			hits++
+		}
+		fmt.Fprint(w, `{"data":{"redirect_link":"https://psa.example/x"}}`)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "test-key")
+	run := func(extra ...string) {
+		t.Helper()
+		cmd := RootCmd()
+		cmd.SetArgs(append([]string{"psa-integrations", "--organization-id", "5", "--psa-name", "connectwise", "--json"}, extra...))
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("psa-integrations %v: %v\n%s", extra, err, out.String())
+		}
+	}
+	t.Setenv("PRINTING_PRESS_VERIFY", "1")
+	t.Setenv("PRINTING_PRESS_VERIFY_LIVE_HTTP", "")
+	run()
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	run("--dry-run")
+	if hits != 0 {
+		t.Fatalf("verify mode or --dry-run sent the PSA integration GET %d times", hits)
+	}
+	run()
+	run()
+	if hits != 2 {
+		t.Fatalf("a repeat was answered from the cache: %d requests, want 2", hits)
+	}
+}

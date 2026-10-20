@@ -46,6 +46,10 @@ type syncResult struct {
 	Warn             error
 	IntegrityFailure bool
 	Duration         time.Duration
+	// Partial is set when the walk covered exactly what was asked (a --param
+	// scope or a --since window) but the collection is not a complete
+	// snapshot. HAND-FIX(sync-resumed-walk-warns)
+	Partial string
 }
 
 const syncWatermarkOverlap = time.Second
@@ -306,7 +310,11 @@ Resource scoping:
 					warnCount++
 				} else {
 					if humanFriendly {
-						fmt.Fprintf(stderrW(), "  %s: %d synced (done)\n", res.Resource, res.Count)
+						if res.Partial != "" {
+							fmt.Fprintf(stderrW(), "  %s: %d synced (not a complete snapshot: %s)\n", res.Resource, res.Count, res.Partial)
+						} else {
+							fmt.Fprintf(stderrW(), "  %s: %d synced (done)\n", res.Resource, res.Count)
+						}
 					}
 					totalSynced += res.Count
 					successCount++
@@ -1152,27 +1160,55 @@ func syncResource(ctx context.Context, c interface {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
 	}
 
-	// HAND-FIX(sync-resumed-walk-warns): a walk resumed from a saved cursor
-	// (after an interrupt or a --max-pages cap) reached the end of the listing
-	// but saw only the pages after the cursor, so the collection is still
-	// incomplete. Say so and how to finish it, instead of "(done)" and
-	// sync_complete.
-	if outcome.reason == "resumed_from_cursor" {
-		msg := fmt.Sprintf("walk resumed from a saved cursor, so the collection is not complete yet; run 'dnsfilter-cli sync --full --resources %s' to complete it", resource)
+	if reconcileErr != nil {
+		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
+	}
+
+	// HAND-FIX(sync-resumed-walk-warns): any walk that is not a complete
+	// snapshot (resumed from a saved cursor, capped by --max-pages, a stuck
+	// or unavailable cursor, a --param scope, a --since window with no
+	// complete walk behind it) warns with its reason and how to finish it,
+	// instead of "(done)" and sync_complete. last_attempt_complete is 0 for
+	// all of them, so the report now says what the mirror records.
+	if !outcome.complete {
+		msg := syncIncompleteMessage(resource, outcome.reason)
+		if outcome.reason == "param_scoped" || outcome.reason == "incremental_window" {
+			// The walk covered what was asked, so it succeeds, but it is
+			// never reported as a complete snapshot.
+			if !humanFriendly {
+				ev, _ := json.Marshal(map[string]any{"event": "sync_complete", "resource": resource, "total": cachedCount, "duration_ms": time.Since(started).Milliseconds(), "complete": false, "reason": outcome.reason, "message": msg})
+				fmt.Fprintln(syncEvents, string(ev))
+			}
+			return syncResult{Resource: resource, Count: cachedCount, Partial: msg, Duration: time.Since(started)}
+		}
 		if !humanFriendly {
-			fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", 0, "resumed_from_cursor", msg))
+			fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", 0, outcome.reason, msg))
 		}
 		return syncResult{Resource: resource, Count: cachedCount, Warn: errors.New(msg), Duration: time.Since(started)}
 	}
 
-	if !humanFriendly && reconcileErr == nil {
+	if !humanFriendly {
 		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, cachedCount, time.Since(started).Milliseconds())
 	}
-
-	if reconcileErr != nil {
-		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
-	}
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
+}
+
+// syncIncompleteMessage says why a flat walk is not a complete snapshot and
+// how to complete it.
+// HAND-FIX(sync-resumed-walk-warns)
+func syncIncompleteMessage(resource, reason string) string {
+	finish := fmt.Sprintf("run 'dnsfilter-cli sync --full --resources %s' to complete it", resource)
+	switch reason {
+	case "resumed_from_cursor":
+		return "walk resumed from a saved cursor, so the collection is not complete yet; " + finish
+	case "param_scoped":
+		return "walk was scoped by --param, so the collection is not a complete snapshot; " + finish + " without --param"
+	case "incremental_window":
+		return "walk covered only the --since window and no complete walk is recorded, so the collection is not complete; " + finish
+	case "":
+		reason = "incomplete"
+	}
+	return fmt.Sprintf("walk stopped before the end of the listing (%s), so the collection is not complete; %s (add --max-pages 0 if a page cap stopped it)", reason, finish)
 }
 
 // syncResourceWalksAfterClear reports whether syncResource gets past its
