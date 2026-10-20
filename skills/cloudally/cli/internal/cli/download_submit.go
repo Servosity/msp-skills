@@ -791,13 +791,13 @@ ERROR) is JOB_FAILED, and a resume creates it once more.
 Every archive (account, task, mailbox, sub-source, snapshot, format and both
 include flags) is claimed in one download guard in the state directory right
 before its create, so no two batches or runs can create the same archive. A
-new batch creates only the archives no other batch has created; the others
-are SKIPPED and named, and 'download fetch --batch' lists them with the
-holding batch's fetch command. A new batch is refused only while another
-batch's create of one of its archives is still unsettled (UNKNOWN or being
-sent), with that batch's resume command. The batch key is printed, and the
-ledger saved, before the first create. --new-batch is the only override: it
-creates every export of the run again. Two runs never work on one batch at
+new batch creates only the archives no other batch has created; the others are
+SKIPPED and named, and this batch's 'download fetch --batch' collects them
+through the holding batch's confirmed jobs. A new batch is refused only while
+another batch's create of one of its archives is still unsettled (UNKNOWN or
+being sent), with that batch's resume command. The batch key is printed, and
+the ledger saved, before the first create. --new-batch is the only override:
+it creates every export of the run again. Two runs never work on one batch at
 once.
 
 An unfound row is EMPTY only when this run sent it and the portal accepted
@@ -1438,8 +1438,8 @@ func printBatchNotices(w io.Writer, batch *downloadBatch) {
 			holders[r.HeldBy]++
 		}
 		for _, k := range sortedKeysInt(holders) {
-			fmt.Fprintf(w, "%d archive(s) are held by batch %s and were not created here; collect them with: cloudally-cli download fetch --account %s --batch %s --dest <folder> --year <year>\n",
-				holders[k], k, batch.AccountID, k)
+			fmt.Fprintf(w, "%d archive(s) are held by batch %s and were not created here; this batch's fetch collects them through it: cloudally-cli download fetch --account %s --batch %s --dest <folder> --year <year>\n",
+				holders[k], k, batch.AccountID, batch.BatchKey)
 		}
 	}
 }
