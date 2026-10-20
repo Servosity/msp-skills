@@ -77,6 +77,20 @@ func runFakeCLI(mode string) int {
 		fmt.Fprint(os.Stderr, "Error: upstream returned ")
 		_, _ = os.Stderr.Write(bigNetworksBody())
 		return 1
+	case "auth401", "auth403", "auth-real-key":
+		// The companion CLI's own 401/403 output (captured from dnsfilter-cli
+		// 2026-10-20), and the same hint carrying a real-looking key
+		// (mcp-auth-errors-keep-remedy).
+		key := "your-token-here"
+		if mode == "auth-real-key" {
+			key = "9f8e7d6c5b4a3f2e1d0c"
+		}
+		if mode == "auth403" {
+			fmt.Fprintf(os.Stderr, "Error: GET /v1/networks/all returned HTTP 403: {\"errors\": [{\"detail\": \"Forbidden\"}]}\nhint: permission denied. Your credentials are valid but lack access to this resource.\n      Check that your credentials have the required permissions and match the API's expected auth scheme.\n      Set your API key with: export DNSFILTER_API_KEY=\"%s\" (PowerShell: $env:DNSFILTER_API_KEY = \"%s\")\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens\n", key, key)
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: GET /v1/networks/all returned HTTP 401: {\"errors\": [{\"detail\": \"Unauthorized\"}]}\nhint: check your API key. Set your API key with: export DNSFILTER_API_KEY=\"%s\" (PowerShell: $env:DNSFILTER_API_KEY = \"%s\")\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens\n      Run 'dnsfilter-cli doctor' to check auth status.\n", key, key)
+		}
+		return 4
 	case "marker":
 		// Proves a mirror tool ran: the argument-gate test asserts this file
 		// never appears (mcp-tools-refuse-undeclared-arguments).

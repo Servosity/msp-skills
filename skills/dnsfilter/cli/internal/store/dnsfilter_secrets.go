@@ -328,13 +328,17 @@ func encodeCompactJSON(v any) (string, bool) {
 // secretPairRE finds the name and separator of name=value / name: value pairs
 // in text, tolerating the escaped quotes of JSON quoted inside a string; the
 // caller checks that a value follows.
-var secretPairRE = regexp.MustCompile(`([A-Za-z][A-Za-z0-9_.\-]*)(?:\\*["'])?\s*[:=]`)
+var secretPairRE = regexp.MustCompile(`((?:[A-Za-z][A-Za-z0-9_.\-]*[ \t]+){0,2}[A-Za-z][A-Za-z0-9_.\-]*)(?:\\*["'])?\s*[:=]`)
 
 // tableSplitRE splits a CSV, TSV, pipe or column-aligned table row.
 var tableSplitRE = regexp.MustCompile(`\s*[,\t|]\s*|\s{2,}`)
 
 // tableCellRE is one bare identifier, the only shape a header cell takes.
 var tableCellRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*$`)
+
+// tableLabelRE is a header cell of two or three words (API Key, Network
+// secret key).
+var tableLabelRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.\-]*(?: [A-Za-z0-9_.\-]+){1,2}$`)
 
 // textNamesSecret is the store's text rule on a raw string value; see
 // TextNamesSecret.
@@ -372,16 +376,59 @@ func TextNamesSecret(text string) bool {
 	if len(lines) < 2 {
 		return false
 	}
-	for _, line := range lines {
+	for i, line := range lines {
 		cells := tableSplitRE.Split(strings.TrimSpace(line), -1)
 		if len(cells) < 2 {
 			continue
 		}
 		for _, c := range cells {
 			c = strings.Trim(c, `"' `)
-			if len(c) <= 64 && tableCellRE.MatchString(c) && IsSecretKey(c) {
+			if len(c) > 64 {
+				continue
+			}
+			if tableCellRE.MatchString(c) && IsSecretKey(c) {
 				return true
 			}
+			// A spaced label (API Key) heads a column only in a real table:
+			// the next non-empty line has the same number of cells.
+			if tableLabelRE.MatchString(c) && labelNamesSecret(c) && nextRowCells(lines[i+1:]) == len(cells) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// nextRowCells counts the cells of the first non-empty line in lines.
+func nextRowCells(lines []string) int {
+	for _, l := range lines {
+		if l = strings.TrimSpace(l); l != "" {
+			return len(tableSplitRE.Split(l, -1))
+		}
+	}
+	return 0
+}
+
+// labelNamesSecret reports whether a label of one to three space-separated
+// words names a secret: its last word does (token, Client Secret, Uninstall
+// PIN), or its last word is "key"/"keys" and the last two or three words
+// together do (API Key, Secret Key, Network secret key), whitespace counting
+// like _ or -. "Password Policy", "public key" and "the key" do not.
+func labelNamesSecret(label string) bool {
+	words := strings.Fields(label)
+	if len(words) == 0 {
+		return false
+	}
+	last := words[len(words)-1]
+	if IsSecretKey(last) {
+		return true
+	}
+	if lw := keyWords(last); len(lw) == 0 || (lw[len(lw)-1] != "key" && lw[len(lw)-1] != "keys") {
+		return false
+	}
+	for k := 2; k <= 3 && k <= len(words); k++ {
+		if IsSecretKey(strings.Join(words[len(words)-k:], "_")) {
+			return true
 		}
 	}
 	return false
@@ -397,14 +444,28 @@ func SecretPairInText(text string) bool {
 		return false
 	}
 	for _, m := range secretPairRE.FindAllStringSubmatchIndex(text, -1) {
-		if !IsSecretKey(text[m[2]:m[3]]) {
+		if !labelNamesSecret(text[m[2]:m[3]]) {
 			continue
 		}
-		if pairCarriesValue(text[m[1]:]) {
+		if pairCarriesValueAt(text[m[1]:], lineIndent(text, m[2])) {
 			return true
 		}
 	}
 	return false
+}
+
+// lineIndent is the indentation (spaces and tabs) of the line holding
+// text[at], a line starting after a newline or an escaped newline (\n).
+func lineIndent(text string, at int) int {
+	start := strings.LastIndexByte(text[:at], '\n') + 1
+	if j := strings.LastIndex(text[:at], `\n`); j+2 > start && j >= 0 {
+		start = j + 2
+	}
+	n := 0
+	for start+n < len(text) && (text[start+n] == ' ' || text[start+n] == '\t') {
+		n++
+	}
+	return n
 }
 
 // maxUnescapeRounds bounds how many levels of JSON string escaping the text
@@ -501,7 +562,20 @@ func hexByteVal(c byte) byte {
 //     surrounding whitespace removed), or an unclosed quote followed by
 //     nothing but delimiters.
 func pairCarriesValue(rest string) bool {
-	rest = strings.TrimLeft(rest, " \t\r\n")
+	return pairCarriesValueAt(rest, 0)
+}
+
+// pairCarriesValueAt is pairCarriesValue for a key whose line is indented by
+// keyIndent. A value that starts on a later line counts only in YAML block
+// form: the next non-empty line is indented deeper than the key's line and
+// is a single token or a quoted string (password:\n  hunter2). Prose on the
+// next line (Credentials:\n  stored in IT Glue, Rotate the token:\nnext
+// quarter) is not a value.
+func pairCarriesValueAt(rest string, keyIndent int) bool {
+	rest = skipInlineSpace(rest)
+	if line, ok := afterNewline(rest); ok {
+		return nextLineCarriesValue(line, keyIndent)
+	}
 	if rest == "" {
 		return false
 	}
@@ -533,6 +607,75 @@ func pairCarriesValue(rest string) bool {
 		end++
 	}
 	return !exemptPairValue(rest[:end])
+}
+
+// skipInlineSpace drops leading spaces, tabs and escaped tabs (\t).
+func skipInlineSpace(s string) string {
+	for {
+		switch {
+		case strings.HasPrefix(s, " "), strings.HasPrefix(s, "\t"):
+			s = s[1:]
+		case strings.HasPrefix(s, `\t`):
+			s = s[2:]
+		default:
+			return s
+		}
+	}
+}
+
+// afterNewline reports whether s starts with a line break (CR, LF, or one
+// escaped as \r / \n at this level) and returns the text after the run of
+// blank lines that follows.
+func afterNewline(s string) (string, bool) {
+	broke := false
+	for {
+		t := skipInlineSpace(s)
+		switch {
+		case strings.HasPrefix(t, "\r"), strings.HasPrefix(t, "\n"):
+			s, broke = t[1:], true
+		case strings.HasPrefix(t, `\r`), strings.HasPrefix(t, `\n`):
+			s, broke = t[2:], true
+		default:
+			return s, broke
+		}
+	}
+}
+
+// nextLineCarriesValue judges the first non-empty line after a separator
+// that ended its own line.
+func nextLineCarriesValue(rest string, keyIndent int) bool {
+	indent := 0
+	for indent < len(rest) && (rest[indent] == ' ' || rest[indent] == '\t') {
+		indent++
+	}
+	if indent <= keyIndent {
+		return false
+	}
+	line := rest[indent:]
+	if i := strings.IndexAny(line, "\r\n"); i >= 0 {
+		line = line[:i]
+	}
+	if i := strings.Index(line, `\n`); i >= 0 {
+		line = line[:i]
+	}
+	if i := strings.Index(line, `\r`); i >= 0 {
+		line = line[:i]
+	}
+	line = strings.TrimRight(line, " \t")
+	if line == "" {
+		return false
+	}
+	n := 0
+	for n < len(line) && line[n] == '\\' {
+		n++
+	}
+	if n < len(line) && (line[n] == '"' || line[n] == '\'') {
+		return pairCarriesValueAt(line, keyIndent)
+	}
+	if strings.ContainsAny(line, " \t") {
+		return false // several words: a sentence, not a scalar value
+	}
+	return !exemptPairValue(line)
 }
 
 // quotedValue scans s, the text after an opening quote q that was written
@@ -581,13 +724,26 @@ func onlyDelimiters(s string) bool {
 	return true
 }
 
+// documentationPlaceholders are the values this CLI prints next to a secret
+// name in its own auth hints and docs (export DNSFILTER_API_KEY=
+// "your-token-here", DNSFILTER_MCP_HTTP_TOKEN=<long-random-value>). A real
+// credential never equals one of them, so, like WithheldValuePlaceholder,
+// they are exempt on an exact match of the extracted value only.
+var documentationPlaceholders = map[string]bool{
+	"your-token-here":     true,
+	"<your-token-here>":   true,
+	"<token>":             true,
+	"<value>":             true,
+	"<long-random-value>": true,
+}
+
 // exemptPairValue reports whether an extracted value carries nothing.
 func exemptPairValue(v string) bool {
 	switch v {
 	case "", "true", "false", "null", WithheldValuePlaceholder:
 		return true
 	}
-	return false
+	return documentationPlaceholders[v]
 }
 
 // isValueDelimiter reports whether c ends a value token in key=value text.

@@ -38,6 +38,8 @@ type auditView struct {
 	UnclassifiedCategories []string       `json:"unclassified_categories,omitempty"`
 	Findings               []auditFinding `json:"findings"`
 	Note                   string         `json:"note,omitempty"`
+	CatalogEmpty           bool           `json:"catalog_empty,omitempty"`        // categories/all listed nothing: no security status is known
+	UnknownCategoryIDs     []string       `json:"unknown_category_ids,omitempty"` // blocked category ids (policies, baseline) not in the catalog
 }
 
 // ponytail: bulk_lookup takes a comma-separated fqdns list; 50 per call keeps URLs short.
@@ -55,7 +57,7 @@ Do NOT use this command to look up one domain across the fleet; use 'lists where
 
 Findings: threat_allowlisted (an allow-list entry is now in a security category), security_category_not_blocked, unknown_domains_allowed, allow_list_only, and with --baseline, baseline_category_missing / baseline_flag_differs. Allow-list entries are re-categorized live through the bulk domain lookup, capped by --max-lookups.
 Global (MSP-shared) policies are audited too, with or without --org; their findings carry is_global=true, and each policy is scanned once however many client orgs share it.
-A catalog category without a boolean security flag is never treated as safe: it is listed in unclassified_categories and the note, and the audit is not an all-clear.`,
+A catalog category without a boolean security flag is never treated as safe: it is listed in unclassified_categories and the note, and the audit is not an all-clear. The same holds for an empty category catalog (catalog_empty) and for blocked category ids the catalog does not contain (unknown_category_ids).`,
 		Example: strings.Trim(`
   dnsfilter-cli policy-audit --agent
   dnsfilter-cli policy-audit --org 'Acme Dental' --baseline 1201`, "\n"),
@@ -161,6 +163,13 @@ A catalog category without a boolean security flag is never treated as safe: it 
 			}
 			view.PoliciesScanned = len(policies)
 			view.Findings = auditPolicies(policies, cats, domainCats, baseline)
+			if len(cats) == 0 {
+				view.CatalogEmpty = true
+				view.Note = strings.TrimSpace(view.Note + " The category catalog returned no categories, so no category's security status is known: blocked security categories and threat-categorized allow-list entries were not checked, and this audit is not an all-clear.")
+			} else if ids := unknownBlockedCategories(policies, cats, baseline); len(ids) > 0 {
+				view.UnknownCategoryIDs = ids
+				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d blocked category ids are not in the category catalog (%s); their security status is unknown, so this audit is not an all-clear.", len(ids), strings.Join(ids, ", ")))
+			}
 			if ids, labels := unclassifiedCategories(cats); len(ids) > 0 {
 				view.UnclassifiedCategories = ids
 				view.Note = strings.TrimSpace(view.Note + fmt.Sprintf(" %d categories in the category catalog have no boolean security flag (%s); they were not checked as security categories, so this audit is not an all-clear.", len(ids), strings.Join(labels, ", ")))
@@ -211,6 +220,27 @@ func unclassifiedCategories(cats []jaRes) (ids, labels []string) {
 		labels = append(labels, fmt.Sprintf("%s (%s)", byCat[id], id))
 	}
 	return ids, labels
+}
+
+// unknownBlockedCategories returns the blocked-category ids of the audited
+// policies and the baseline that the category catalog does not contain.
+func unknownBlockedCategories(policies, cats []jaRes, baseline *jaRes) []string {
+	known := byID(cats)
+	unknown := map[string]bool{}
+	check := func(p jaRes) {
+		for _, id := range p.strs("blacklist_categories") {
+			if _, ok := known[id]; !ok {
+				unknown[id] = true
+			}
+		}
+	}
+	for _, p := range policies {
+		check(p)
+	}
+	if baseline != nil {
+		check(*baseline)
+	}
+	return sortedKeys(unknown)
 }
 
 // unresolvedCategoryDomains counts looked-up domains with a category id the

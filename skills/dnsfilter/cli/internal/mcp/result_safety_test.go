@@ -202,16 +202,19 @@ func TestReadOnlyResultFunnelWithholdsCredentials(t *testing.T) {
 // env var with a placeholder, which is not a credential field.
 func TestReadOnlyFilterKeepsAuthHintReadable(t *testing.T) {
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
-	// One text rule with the store (no exemption for this CLI's own
-	// environment variable names): an assignment such as the auth hint's
-	// export DNSFILTER_API_KEY="your-token-here" is a credential pair and the
-	// block is withheld under read-only.
+	// One text rule with the store: the CLI's documentation placeholder
+	// (your-token-here) is exempt on an exact value match, so the auth hint
+	// stays readable, while the same hint with a real-looking key is withheld.
 	hint := `HTTP 401: Set your API key with: export DNSFILTER_API_KEY="your-token-here" (PowerShell: $env:DNSFILTER_API_KEY = "your-token-here")`
-	if got := redact.Final(hint); got != redact.WithheldBlockMessage {
-		t.Fatalf("auth hint with an API key assignment was not withheld: %q", got)
+	if got := redact.Final(hint); got != hint {
+		t.Fatalf("auth hint with the documentation placeholder was withheld: %q", got)
 	}
-	if got := redact.Final("HTTP 401: authentication failed; check DNSFILTER_API_KEY"); got == redact.WithheldBlockMessage {
-		t.Fatalf("an env var NAME alone was withheld: %q", got)
+	real := strings.ReplaceAll(hint, "your-token-here", "9f8e7d6c5b4a3f2e1d0c")
+	if got := redact.Final(real); got != redact.WithheldBlockMessage {
+		t.Fatalf("auth hint with a real-looking key was not withheld: %q", got)
+	}
+	if got := redact.Final(strings.ReplaceAll(hint, `"your-token-here"`, `"your-token-here2"`)); got != redact.WithheldBlockMessage {
+		t.Fatalf("a value that only starts with the placeholder was exempt: %q", got)
 	}
 	refusal := "refusing GET api-keys.index while DNSFILTER_MCP_READ_ONLY=1: it returns or manages a credential"
 	if got := redact.Final(refusal); got != refusal {

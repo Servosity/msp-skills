@@ -149,7 +149,23 @@ func (g *secretGen) textValue(depth int) string {
 	pair := func() string {
 		return []string{"token=", "pin: ", "secret_key=", "Token:"}[g.r.Intn(4)] + g.sentinel()
 	}
-	switch g.r.Intn(15) {
+	switch g.r.Intn(17) {
+	case 15:
+		// A spaced credential label (API Key, Network secret key ...), in
+		// key=value / key: value text or as a table header.
+		label := []string{"API Key", "Secret Key", "Network secret key", "Client Secret", "Access Token", "Uninstall PIN", "Private Key", "Shared Key", "api key", "SECRET KEY"}[g.r.Intn(10)]
+		if g.r.Intn(3) == 0 {
+			return "Site,Name," + label + "\nHQ,x," + g.sentinel()
+		}
+		return "note " + label + []string{": ", "=", " : ", ":"}[g.r.Intn(4)] + g.sentinel()
+	case 16:
+		// A YAML block value: the next line, indented deeper than the key.
+		indent := []string{"", "  ", "\t"}[g.r.Intn(3)]
+		v := g.sentinel()
+		if g.r.Intn(3) == 0 {
+			v = `"` + v + `"`
+		}
+		return indent + g.secretKeyName() + ":\n" + indent + "    " + v
 	case 13:
 		// A quoted value whose content begins with a delimiter, a literal,
 		// the placeholder or an escaped quote, closed or not.
@@ -270,6 +286,12 @@ func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {
 		"unclosed quote":                                 `{"meta":"token=\";SNTNL-20"}`,
 		"empty quotes run on":                            `{"meta":` + q(`token=""SNTNL-21`) + `}`,
 		"escaped quote then a delimiter":                 `{"meta":` + q(`token="`+"\\"+`",SNTNL-22"`) + `}`,
+		"spaced label API Key":                           `{"meta":"API Key: SNTNL-23"}`,
+		"spaced label 3 words":                           `{"meta":"Network secret key: SNTNL-24"}`,
+		"spaced label with =":                            `{"meta":"Secret Key = SNTNL-25"}`,
+		"spaced table header":                            `{"meta":` + q("Site,API Key\nHQ,SNTNL-26") + `}`,
+		"yaml block, deeper key":                         `{"meta":` + q("  password:\n    SNTNL-27") + `}`,
+		"yaml block, quoted value":                       `{"meta":` + q("token:\n  \"SNTNL-28\"") + `}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
 		if bytes.Contains(out, []byte(sentinelPrefix)) || !json.Valid(out) {
@@ -382,6 +404,38 @@ func TestPairValueTokenizer(t *testing.T) {
 	for _, text := range empty {
 		if TextNamesSecret(text) {
 			t.Errorf("TextNamesSecret(%q) = true, want false (no value)", text)
+		}
+	}
+}
+
+// The CLI's own documentation placeholders next to a secret name, and prose
+// whose next line is not a YAML block value, carry no credential.
+func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
+	for _, text := range []string{
+		`export DNSFILTER_API_KEY="your-token-here"`,
+		`$env:DNSFILTER_API_KEY = "your-token-here" (the bare token, no Bearer prefix)`,
+		`set a real token with: export DNSFILTER_API_KEY=<your-token-here> (PowerShell: $env:DNSFILTER_API_KEY = "<your-token-here>")`,
+		`DNSFILTER_API_KEY=<value> dnsfilter-cli doctor`,
+		`$env:DNSFILTER_API_KEY="<value>"; $env:DNSFILTER_MCP_HTTP_TOKEN="<long-random-value>"; dnsfilter-mcp --transport http`,
+		"export DNSFILTER_API_KEY=<token> on macOS / Linux, $env:DNSFILTER_API_KEY = \"<token>\" in PowerShell",
+		"authentication failed: HTTP 401\nhint: check your API key.\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"\n      In PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\" (the bare token, no Bearer prefix)",
+		"Credentials:\n  stored in IT Glue",
+		"Uninstall PIN:\nask the NOC",
+		"Rotate the token:\nnext quarter",
+		"password:\n  stored in the vault since March",
+		"Uninstall PIN:\nNOC",
+		"Site,Notes\nCall support, reset password",
+	} {
+		if TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = true, want false", text)
+		}
+	}
+	for _, text := range []string{
+		"password:\n  hunter2", "token:\n\n    abc123", "  pin:\n    \"4938\"", "API Key: configured",
+		"DNSFILTER_API_KEY=your-token-here2", `token="<value>x"`, "API Key: <value>z",
+	} {
+		if !TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = false, want true", text)
 		}
 	}
 }

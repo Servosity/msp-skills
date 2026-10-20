@@ -3846,6 +3846,14 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 	}
 	path = codeOrchFillTemplateParams(path, ep.TemplateParams, params)
+	// Hand-wired (handfixes.json: mcp-tools-refuse-undeclared-arguments): a
+	// placeholder left unfilled (params missing, null, or without the key)
+	// would send a request to the literal {id} path; refuse it instead.
+	if i := strings.Index(path, "{"); i >= 0 {
+		if j := strings.Index(path[i:], "}"); j > 0 {
+			return mcplib.NewToolResultError(fmt.Sprintf("%s needs the path parameter %q in params; nothing was sent", ep.ID, path[i+1:i+j])), nil
+		}
+	}
 
 	hdrs := make(map[string]string, len(ep.HeaderOverrides)+len(ep.HeaderParams))
 	for k, v := range ep.HeaderOverrides {

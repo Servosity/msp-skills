@@ -186,3 +186,64 @@ func TestPolicyAuditUnclassifiedCategoryIsNotAllClear(t *testing.T) {
 		t.Fatalf("human output lacks the unclassified-category note:\n%s", human)
 	}
 }
+
+// An empty category catalog, or a blocked category id the catalog lacks,
+// leaves security status unknown: "0 findings" with no note was an all-clear.
+func TestPolicyAuditUnknownCatalogIsNotAllClear(t *testing.T) {
+	testenv.Isolate(t)
+	catalog := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p := r.URL.Query().Get("page[number]"); p != "" && p != "1" {
+			fmt.Fprint(w, `{"data":[]}`)
+			return
+		}
+		switch r.URL.Path {
+		case "/v1/categories/all":
+			fmt.Fprintf(w, `{"data":[%s]}`, catalog)
+		case "/v1/policies/all":
+			fmt.Fprint(w, `{"data":[{"id":"10","attributes":{"name":"Std","organization_id":1,"is_global_policy":false,"whitelist_domains":[],"blacklist_categories":[60,99],"allow_unknown_domains":false}}]}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	t.Cleanup(func() { humanFriendly = false })
+	run := func(args ...string) string {
+		humanFriendly = false
+		cmd := RootCmd()
+		cmd.SetArgs(append(args, "--rate-limit", "0"))
+		var out, errOut bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&errOut)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("%v: %v\n%s%s", args, err, out.String(), errOut.String())
+		}
+		return out.String()
+	}
+	audit := func() (auditView, string) {
+		var v auditView
+		if err := json.Unmarshal([]byte(run("policy-audit", "--json")), &v); err != nil {
+			t.Fatal(err)
+		}
+		return v, run("policy-audit", "--human-friendly")
+	}
+
+	v, human := audit()
+	if !v.CatalogEmpty || len(v.Findings) != 0 || !strings.Contains(v.Note, "returned no categories") || !strings.Contains(human, "note: The category catalog returned no categories") {
+		t.Fatalf("empty catalog not reported: catalog_empty=%v note=%q\n%s", v.CatalogEmpty, v.Note, human)
+	}
+
+	catalog = `{"id":"60","attributes":{"name":"Malware","security":true}}`
+	v, human = audit()
+	if v.CatalogEmpty || strings.Join(v.UnknownCategoryIDs, ",") != "99" || !strings.Contains(human, "note: 1 blocked category ids are not in the category catalog (99)") {
+		t.Fatalf("blocked id missing from the catalog not reported: unknown=%v note=%q\n%s", v.UnknownCategoryIDs, v.Note, human)
+	}
+
+	catalog += `,{"id":"99","attributes":{"name":"Custom","security":false}}`
+	if v, human = audit(); v.CatalogEmpty || len(v.UnknownCategoryIDs) != 0 || v.Note != "" || human != "1 policies scanned, 0 allow-list domains categorized, 0 findings\n" {
+		t.Fatalf("a fully known catalog must keep the plain output: %+v\n%q", v, human)
+	}
+}

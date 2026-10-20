@@ -135,8 +135,8 @@ func TestFailureDetailCaptureCapInsideValue(t *testing.T) {
 }
 
 // TestStderrHintSelectionAfterRedaction: a hint line is selected only from
-// stderr that was redacted whole, so a value whose key sits on the line
-// before the hint never reaches the hints block.
+// stderr that was redacted whole, so a value whose credential header sits on
+// the line before the hint never reaches the hints block.
 func TestStderrHintSelectionAfterRedaction(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper")
@@ -145,7 +145,9 @@ func TestStderrHintSelectionAfterRedaction(t *testing.T) {
 	secret := cutSecret(777)
 	dir := t.TempDir()
 	errFile := filepath.Join(dir, "stderr.txt")
-	if err := os.WriteFile(errFile, []byte("client_secret:\nhint: "+secret+"\n"), 0o600); err != nil {
+	// A table whose header names a credential column: the hint-looking row
+	// carries the secret, and only the whole text shows it is a credential.
+	if err := os.WriteFile(errFile, []byte("id,client_secret\nhint: ,"+secret+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	bin := filepath.Join(dir, "helper.sh")

@@ -139,7 +139,14 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 			}
 		}
 	}
-	for name, value := range profile.Values {
+	writes := commandWritesTenant(cmd)
+	names := make([]string, 0, len(profile.Values))
+	for name := range profile.Values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := profile.Values[name]
 		if reserved[name] || typedGroup[name] || credentialLikeRunProfileFlag(name) {
 			continue
 		}
@@ -158,6 +165,14 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: run profile %q sets --%s; write authorizations are never applied from a profile, type it on the command line\n", profile.Name, name)
 			continue
 		}
+		// On a command that writes to DNSFilter a profile supplies only the
+		// allowlisted output and transport flags. A denylist kept missing
+		// flags (a profile's include-global reached a shared global policy),
+		// so every other value, each local flag included, must be typed.
+		if writes && !profileSafeOnTenantWrite[name] {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: run profile %q sets --%s; %s writes to DNSFilter, so a profile only supplies output and transport flags, type it on the command line\n", profile.Name, name, cmd.CommandPath())
+			continue
+		}
 		if err := flag.Value.Set(value); err != nil {
 			return fmt.Errorf("applying profile value %s=%q: %w", name, value, err)
 		}
@@ -170,12 +185,62 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 }
 
 // writeAuthorizingRunProfileFlag reports flags that authorize a write or
-// bypass a safety refusal. They are neither saved into nor applied from a run
+// bypass a safety refusal, plus the root flags that only change how a write's
+// outcome is judged. They are neither saved into nor applied from a run
 // profile.
 func writeAuthorizingRunProfileFlag(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "confirm", "force", "yes":
+	case "confirm", "force", "yes", "idempotent", "ignore-missing", "allow-partial-failure":
 		return true
+	}
+	return false
+}
+
+// profileSafeOnTenantWrite is the allowlist of flags a run profile may supply
+// to a command that writes to DNSFilter. Each one only shapes the CLI's own
+// output, where that output goes, or request transport; none can change what
+// is written, to which organization or policy, or whether the write is sent
+// (dry-run can only stop it). Excluded on purpose: every command-local flag
+// (target, scope, body and scan flags such as --org, --host, --since,
+// --include-global, --note, --max-scan-pages), --data-source (it can switch
+// where targets are resolved from), and the write-outcome flags refused above.
+var profileSafeOnTenantWrite = map[string]bool{
+	// output format and projection
+	"json": true, "csv": true, "plain": true, "quiet": true, "compact": true, "select": true,
+	"agent": true, "no-color": true, "human-friendly": true,
+	// where the CLI's own report goes (a local file, stdout or webhook), never the API
+	"deliver": true, "receipt": true, "receipt-file": true, "audit-dir": true,
+	// transport and local caches
+	"timeout": true, "rate-limit": true, "no-cache": true, "max-age": true,
+	// interaction and local learning; dry-run can only prevent the write
+	"no-input": true, "no-learn": true, "dry-run": true,
+}
+
+// tenantWritingGETPaths are GET endpoints that change DNSFilter state.
+var tenantWritingGETPaths = map[string]bool{
+	"/v1/psa_integrations/redirect_link": true, // creates a PSA integration
+}
+
+// commandWritesTenant reports commands that can change DNSFilter state: every
+// generated endpoint whose method is not GET, HEAD or OPTIONS, the GETs that
+// write, and the hand-written writers allow and import.
+func commandWritesTenant(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	switch strings.ToUpper(strings.TrimSpace(cmd.Annotations["pp:method"])) {
+	case "", "GET", "HEAD", "OPTIONS":
+	default:
+		return true
+	}
+	if tenantWritingGETPaths[cmd.Annotations["pp:path"]] {
+		return true
+	}
+	if p := cmd.Parent(); p != nil && p.Parent() == nil {
+		switch cmd.Name() {
+		case "allow", "import":
+			return true
+		}
 	}
 	return false
 }
@@ -282,7 +347,7 @@ captured: they control profile/config resolution and would never apply).`,
 			}
 			if len(writeFlags) > 0 {
 				sort.Strings(writeFlags)
-				return usageErr(fmt.Errorf("run profiles may not store write authorizations: --%s; type them on each run that should write", strings.Join(writeFlags, ", --")))
+				return usageErr(fmt.Errorf("run profiles may not store write authorizations or write-outcome flags: --%s; type them on each run that should write", strings.Join(writeFlags, ", --")))
 			}
 			if len(values) == 0 {
 				return fmt.Errorf("no non-default flags set - pass at least one flag to save into %q", name)
