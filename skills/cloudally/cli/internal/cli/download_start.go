@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"cloudally-pp-cli/internal/client"
 	"cloudally-pp-cli/internal/cliutil"
-	"cloudally-pp-cli/internal/portal"
 	"github.com/spf13/cobra"
 )
 
@@ -51,6 +51,8 @@ type downloadStartOutput struct {
 	Format       string `json:"format"`
 	Destination  string `json:"destination"`
 	JobLabel     string `json:"job_label,omitempty"`
+	// BatchKey is the one-archive batch the create is recorded under.
+	BatchKey string `json:"batch_key,omitempty"`
 }
 
 // Archive formats 'download start' can ask for. CLOUDALLY_S3 is the
@@ -194,31 +196,39 @@ is not used.
 			}
 			// The documented recovery/export endpoint answers 200 with an
 			// empty body and creates nothing, so the job is created the
-			// way the portal does it.
+			// way the portal does it, through the same machinery as
+			// 'download submit': a batch of one archive, claimed in the
+			// download guard before the create, so running the same
+			// command twice never creates a second job.
 			sess, err := openPortalSession(ctx, c, scope, flagPortalURL)
 			if err != nil {
 				return err
 			}
-			if err := sess.StartDownload(ctx, portal.DownloadRequest{
-				Entity: portal.Entity{
-					TaskID:    flagTask,
-					AccountID: ent.Entity,
-					ExtID:     string(ent.ExtID),
-				},
-				Source:           sourceForDownload(flagSource, task.Source),
-				DateRaw:          row.ResolvedRaw,
-				Format:           format,
-				JobLabel:         flagLabel,
-				IncludeDeleted:   flagIncludeDeleted,
-				IncludeLegalHold: flagIncludeLegalHold,
-			}); err != nil {
-				// A failure after the request left may still have created
-				// the job, so running this again could make a second one.
-				if errors.Is(err, portal.ErrOutcomeUnknown) {
-					return fmt.Errorf("%w; the download job may have been created anyway: check 'cloudally-cli download list --account %s' before running this again", err, scope.account)
-				}
+			batch := startBatch(scope, flagTask, task.Source, ent, sourceForDownload(flagSource, task.Source), requested.text, row,
+				format, flagLabel, flagIncludeDeleted, flagIncludeLegalHold)
+			guard, err := openDownloadGuard(ctx)
+			if err != nil {
 				return err
 			}
+			defer guard.Close()
+			if err := guard.seedFromLedgers(ctx); err != nil {
+				return usageErr(err)
+			}
+			if err := refuseHeldArchives(ctx, cmd, guard, batch); err != nil {
+				return err
+			}
+			if err := withBatchLock(batch.BatchKey, func() error {
+				if err := claimNewBatch(batch, false); err != nil {
+					return err
+				}
+				return runDownloadBatch(ctx, cmd, sess, guard, batch, []*downloadRow{&batch.Rows[0]}, 1, false, false)
+			}); err != nil {
+				return err
+			}
+			if err := startOutcome(batch, scope); err != nil {
+				return err
+			}
+			out.BatchKey = batch.BatchKey
 			out.Source = sourceForDownload(flagSource, task.Source)
 			out.JobLabel = flagLabel
 			return printDownloadStart(cmd, flags, out, scope)
@@ -308,12 +318,13 @@ func printDownloadStart(cmd *cobra.Command, flags *rootFlags, out downloadStartO
 		return printJSONFiltered(cmd.OutOrStdout(), out, flags)
 	}
 	w := cmd.OutOrStdout()
-	tenantf(w, "download job created for %s\n", out.Entity)
+	tenantf(w, "download job created for %s (batch %s)\n", out.Entity, out.BatchKey)
 	tenantf(w, "  backup:  %s (%d), from %s\n", out.Resolved, out.ResolvedRaw, out.DateSource)
 	fmt.Fprintf(w, "  format:  %s\n", out.Format)
 	fmt.Fprintf(w, "\nThe API does not return the job id, so find it with:\n")
 	fmt.Fprintf(w, "  cloudally-cli download list --account %s\n", scope.account)
 	fmt.Fprintf(w, "then follow it with 'download watch' and get the link with 'download link'.\n")
+	fmt.Fprintf(w, "Running this command again will not create a second job; confirm this one with: cloudally-cli download submit --batch %s --resume --yes\n", out.BatchKey)
 	return nil
 }
 
@@ -331,4 +342,44 @@ func printDownloadStartDryRun(cmd *cobra.Command, flags *rootFlags, scope restor
 			"path": scope.exportPath(), "task": taskID, "entity": entity,
 			"requested": requested.text, "format": format, "destination": downloadDestinationOwned,
 		})
+}
+
+// startBatch is the one-archive batch 'download start' records its create
+// under.
+func startBatch(scope restoreScope, taskID, taskSource string, ent taskEntity, source, requested string, row planRow, format, label string, includeDeleted, includeLegalHold bool) *downloadBatch {
+	now := time.Now()
+	incDel, incLH := includeDeleted, includeLegalHold
+	b := &downloadBatch{
+		BatchKey: newBatchKey(now, scope.account), Scope: scope.kind(), AccountID: scope.account,
+		TaskID: taskID, Source: taskSource, OnDate: requested, Timezone: "UTC", Format: format,
+		IncludeDeleted: &incDel, IncludeLegalHold: &incLH,
+		EntityFilter:    []string{strings.ToLower(strings.TrimSpace(ent.Entity))},
+		SubSourceFilter: []string{strings.ToUpper(strings.TrimSpace(source))},
+		CreatedAt:       isoUTC(now),
+		Rows: []downloadRow{{
+			Entity: ent.Entity, EntityStatus: ent.Status, ExtID: string(ent.ExtID), SubSource: source,
+			SnapshotRaw: row.ResolvedRaw, Snapshot: row.Resolved, BatchID: row.BatchID, Status: dlPlanned,
+			// An operator's --label is sent as the job label, and is what
+			// the job is recognised by afterwards.
+			Label: strings.TrimSpace(label),
+		}},
+	}
+	b.RerunKey = rerunIdentity(b.Scope, b.AccountID, b.TaskID, b.OnDate, b.Format, b.EntityFilter, b.SubSourceFilter, incDel, incLH)
+	return b
+}
+
+// startOutcome turns the one row's result into the command's answer.
+func startOutcome(b *downloadBatch, scope restoreScope) error {
+	r := b.Rows[0]
+	switch r.Status {
+	case dlRequested:
+		return nil
+	case dlUnknown:
+		return fmt.Errorf("the create's outcome is unknown (%s). Batch %s holds this archive, so running this again will not create a second job; check 'cloudally-cli download list --account %s', then confirm it with: cloudally-cli download submit --batch %s --resume --yes",
+			tenantText(r.Detail), b.BatchKey, scope.account, b.BatchKey)
+	case dlSkipped:
+		return usageErr(fmt.Errorf("%s; nothing was sent", tenantText(r.Detail)))
+	default:
+		return fmt.Errorf("the portal did not create the download job: %s", tenantText(r.Detail))
+	}
 }

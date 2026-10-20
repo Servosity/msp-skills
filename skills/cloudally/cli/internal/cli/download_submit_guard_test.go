@@ -115,13 +115,13 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	if n := len(s.createdAccounts()); n != 4 || len(ledgerKeys(t)) != 1 {
 		t.Fatalf("a refused re-run created %d / wrote %d ledgers", n-4, len(ledgerKeys(t))-1)
 	}
-	// A narrower selection of the same archives is refused too: they are
-	// all held by the first batch.
-	if _, _, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err == nil || ExitCode(err) != 2 {
-		t.Fatalf("a narrower run over held archives must be refused, got %v", err)
+	// A narrower selection of the same archives creates none of them: the
+	// first batch created them all, so each is SKIPPED, and that settles.
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err != nil {
+		t.Fatalf("a narrower run over created archives should settle with them SKIPPED: %v\n%s", err, stderr)
 	}
-	if n := len(s.createdAccounts()); n != 4 || len(ledgerKeys(t)) != 1 {
-		t.Fatalf("after the narrower run: creates=%d ledgers=%d, want 4 and 1", n, len(ledgerKeys(t)))
+	if n := len(s.createdAccounts()); n != 4 || len(ledgerKeys(t)) != 2 {
+		t.Fatalf("after the narrower run: creates=%d ledgers=%d, want 4 and 2", n, len(ledgerKeys(t)))
 	}
 	if _, _, err := runDL(t, s, downloadSubmitArgs("--new-batch", "--resume", "--batch", first[0])...); err == nil || ExitCode(err) != 2 {
 		t.Fatalf("--new-batch with --resume: want exit 2, got %v", err)
@@ -129,7 +129,7 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--new-batch")...); err != nil {
 		t.Fatalf("--new-batch: %v\n%s", err, stderr)
 	}
-	if n := len(s.createdAccounts()); n != 8 || len(ledgerKeys(t)) != 2 {
+	if n := len(s.createdAccounts()); n != 8 || len(ledgerKeys(t)) != 3 {
 		t.Fatalf("--new-batch should create every export again: creates=%d ledgers=%d", n, len(ledgerKeys(t)))
 	}
 

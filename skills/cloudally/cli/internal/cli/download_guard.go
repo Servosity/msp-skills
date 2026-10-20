@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -248,7 +249,15 @@ func openDownloadGuard(ctx context.Context) (*downloadGuard, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	return &downloadGuard{g}, nil
+	dg := &downloadGuard{g}
+	// A run killed between a create and recording its answer leaves its
+	// claim IN_FLIGHT. Every opener (submit, start, fetch) turns those into
+	// UNKNOWN first, so later confirmations and failures land on them.
+	if err := dg.recoverAbandoned(ctx); err != nil {
+		dg.Close()
+		return nil, fmt.Errorf("recovering abandoned claims in %s: %w", path, err)
+	}
+	return dg, nil
 }
 
 // liveClaims returns the identity's live claims, other batches' first. With
@@ -322,6 +331,12 @@ func (g *downloadGuard) conflict(ctx context.Context, id downloadIdentity, batch
 	return nil, nil
 }
 
+// sameFlags reports whether two identities name the same include flags
+// exactly, an unrecorded flag matching only another unrecorded one.
+func sameFlags(a, b downloadIdentity) bool {
+	return a.IncludeDeleted == b.IncludeDeleted && a.IncludeLegalHold == b.IncludeLegalHold
+}
+
 // downloadOwner is the batch a claim is made for.
 type downloadOwner struct {
 	batchKey, label, scope string
@@ -359,6 +374,10 @@ func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner do
 			switch {
 			case c.State == dgInFlight:
 				return errDownloadClaimed{claim: c}
+			case newBatch && !sameFlags(c.downloadIdentity, id):
+				// A claim whose include flags were never recorded may be a
+				// different archive from this one: it stays live (and keeps
+				// blocking the archives it may be) and does not block this.
 			case newBatch:
 				if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET superseded = 1, superseded_by = ?, updated_at = ? WHERE id = ?`, owner.batchKey, now, c.ID); err != nil {
 					return err
@@ -417,29 +436,173 @@ func (g *downloadGuard) settle(ctx context.Context, claimID int64, rowStatus str
 		state = dgCreated
 	}
 	return g.inTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ? AND owner_run = ?`,
+		res, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ? AND owner_run = ?`,
 			state, isoUTC(time.Now()), claimID, g.run)
-		return err
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil || n != 1 {
+			return fmt.Errorf("the download guard no longer holds claim %d for this run (%d rows); its answer was not recorded there", claimID, n)
+		}
+		return nil
 	})
 }
 
-// pin records the portal job a batch confirmed as its archive.
+// recoverAbandoned turns every IN_FLIGHT claim whose run has ended into
+// UNKNOWN, so a later confirmation or failure can be recorded against it.
+// claim does the same for one identity; this covers the rest before a
+// reconcile reads them.
+func (g *downloadGuard) recoverAbandoned(ctx context.Context) error {
+	return g.inTx(ctx, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT id, owner_run FROM download_claims WHERE state = ? AND superseded = 0`, dgInFlight)
+		if err != nil {
+			return err
+		}
+		var dead []int64
+		for rows.Next() {
+			var id int64
+			var owner string
+			if err := rows.Scan(&id, &owner); err != nil {
+				rows.Close()
+				return err
+			}
+			if !g.ownerAlive(guardClaim{OwnerRun: owner}) {
+				dead = append(dead, id)
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		now := isoUTC(time.Now())
+		for _, id := range dead {
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ? AND state = ?`, dgUnknown, now, id, dgInFlight); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// pin records the portal job a batch confirmed as its archive. The job is
+// verified, so the record always lands somewhere:
+//
+//   - the batch's own live claim (an abandoned IN_FLIGHT one is recovered
+//     first) becomes CREATED with the job pinned, and must be exactly one
+//     row;
+//   - when another batch already holds the archive with a pinned job, the
+//     archive is confirmed held and nothing changes;
+//   - otherwise the confirmed job outranks any unconfirmed claim: those are
+//     superseded and a pinned claim is recorded for this batch.
+//
+// A claim another live run is sending right now is an error.
 func (g *downloadGuard) pin(ctx context.Context, id downloadIdentity, batchKey, jobID string) error {
 	return g.inTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, job_id = ?, updated_at = ?
-			WHERE `+identityWhere+` AND batch_key = ? AND superseded = 0 AND state IN ('UNKNOWN', 'CREATED')`,
-			append([]any{dgCreated, jobID, isoUTC(time.Now())}, append(id.args(), batchKey)...)...)
+		now := isoUTC(time.Now())
+		live, err := g.liveClaims(ctx, tx, id, batchKey)
+		if err != nil {
+			return err
+		}
+		var own *downloadClaim
+		var others []downloadClaim
+		for i := range live {
+			c := live[i]
+			if c.State == dgInFlight && !g.ownerAlive(guardClaim{OwnerRun: c.OwnerRun}) {
+				c.State = dgUnknown
+			}
+			switch {
+			case c.State == dgInFlight:
+				return errDownloadClaimed{claim: c}
+			case c.BatchKey == batchKey:
+				own = &c
+			case c.State == dgCreated && c.JobID != "":
+				return nil
+			default:
+				others = append(others, c)
+			}
+		}
+		if own != nil {
+			res, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, job_id = ?, updated_at = ? WHERE id = ? AND superseded = 0`,
+				dgCreated, jobID, now, own.ID)
+			if err != nil {
+				return err
+			}
+			if n, err := res.RowsAffected(); err != nil || n != 1 {
+				return fmt.Errorf("pinning job %s: the download guard's claim %d did not take the update (%d rows)", jobID, own.ID, n)
+			}
+			return nil
+		}
+		generation := 1
+		for _, c := range others {
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET superseded = 1, superseded_by = ?, updated_at = ? WHERE id = ?`, batchKey, now, c.ID); err != nil {
+				return err
+			}
+			generation = max(generation, c.Generation+1)
+		}
+		if last, err := g.lastClaim(ctx, tx, id); err != nil {
+			return err
+		} else if last != nil {
+			generation = max(generation, last.Generation+1)
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO download_claims
+			(account_id, task_id, entity, sub_source, snapshot, format, include_deleted, include_legal_hold,
+			 generation, state, batch_key, job_id, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id.Account, id.Task, id.Entity, id.SubSource, id.Snapshot, id.Format, id.IncludeDeleted, id.IncludeLegalHold,
+			generation, dgCreated, batchKey, jobID, now, now)
 		return err
 	})
 }
 
-// hold marks a batch's unconfirmed claim UNKNOWN: its job cannot be told
-// apart from another export. A pinned claim is left as it is.
+// hold records that a batch's archive cannot be told apart from another
+// export: it may exist. The batch's own unconfirmed claim (an abandoned
+// IN_FLIGHT one included) becomes UNKNOWN and must be exactly one row; a
+// confirmed one is left alone; when another batch holds the archive that
+// already blocks a second create; with no claim at all an UNKNOWN one is
+// recorded for this batch.
 func (g *downloadGuard) hold(ctx context.Context, id downloadIdentity, batchKey string) error {
 	return g.inTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ?
-			WHERE `+identityWhere+` AND batch_key = ? AND superseded = 0 AND state = 'CREATED' AND job_id = ''`,
-			append([]any{dgUnknown, isoUTC(time.Now())}, append(id.args(), batchKey)...)...)
+		now := isoUTC(time.Now())
+		live, err := g.liveClaims(ctx, tx, id, batchKey)
+		if err != nil {
+			return err
+		}
+		var own *downloadClaim
+		heldElsewhere := false
+		for i := range live {
+			c := live[i]
+			if c.State == dgInFlight && !g.ownerAlive(guardClaim{OwnerRun: c.OwnerRun}) {
+				c.State = dgUnknown
+			}
+			if c.BatchKey == batchKey {
+				own = &c
+			} else {
+				heldElsewhere = true
+			}
+		}
+		switch {
+		case own != nil && own.State == dgCreated && own.JobID != "":
+			return nil
+		case own != nil && own.State == dgInFlight:
+			return errDownloadClaimed{claim: *own}
+		case own != nil:
+			res, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ? AND superseded = 0`, dgUnknown, now, own.ID)
+			if err != nil {
+				return err
+			}
+			if n, err := res.RowsAffected(); err != nil || n != 1 {
+				return fmt.Errorf("holding claim %d: the download guard did not take the update (%d rows)", own.ID, n)
+			}
+			return nil
+		case heldElsewhere:
+			return nil
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO download_claims
+			(account_id, task_id, entity, sub_source, snapshot, format, include_deleted, include_legal_hold,
+			 generation, state, batch_key, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+			id.Account, id.Task, id.Entity, id.SubSource, id.Snapshot, id.Format, id.IncludeDeleted, id.IncludeLegalHold,
+			dgUnknown, batchKey, now, now)
 		return err
 	})
 }
@@ -458,8 +621,12 @@ func (g *downloadGuard) jobFailed(ctx context.Context, jobID string) (*downloadC
 			return err
 		}
 		if c.State == dgCreated {
-			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ?`, dgJobFailed, isoUTC(time.Now()), c.ID); err != nil {
+			res, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ?`, dgJobFailed, isoUTC(time.Now()), c.ID)
+			if err != nil {
 				return err
+			}
+			if n, err := res.RowsAffected(); err != nil || n != 1 {
+				return fmt.Errorf("marking job %s failed: the download guard did not take the update (%d rows)", jobID, n)
 			}
 			c.State = dgJobFailed
 		}
@@ -467,6 +634,102 @@ func (g *downloadGuard) jobFailed(ctx context.Context, jobID string) (*downloadC
 		return nil
 	})
 	return out, err
+}
+
+// jobReplaced reports whether the claim pinned to jobID has been
+// superseded, or failed and been created again since: the job is history
+// and nothing remains to be done about it.
+func (g *downloadGuard) jobReplaced(ctx context.Context, jobID string) (bool, error) {
+	var id, superseded int64
+	var c downloadClaim
+	err := g.db.QueryRowContext(ctx, `SELECT id, superseded, account_id, task_id, entity, sub_source, snapshot, format, include_deleted, include_legal_hold, state
+		FROM download_claims WHERE job_id = ? ORDER BY id DESC LIMIT 1`, jobID).Scan(&id, &superseded,
+		&c.Account, &c.Task, &c.Entity, &c.SubSource, &c.Snapshot, &c.Format, &c.IncludeDeleted, &c.IncludeLegalHold, &c.State)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if superseded == 1 {
+		return true, nil
+	}
+	if c.State != dgJobFailed {
+		return false, nil
+	}
+	var later int
+	err = g.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM download_claims
+		WHERE account_id = ? AND task_id = ? AND entity = ? AND sub_source = ? AND snapshot = ? AND format = ?
+		AND include_deleted = ? AND include_legal_hold = ? AND id > ? AND superseded = 0 AND state IN ('IN_FLIGHT', 'UNKNOWN', 'CREATED')`,
+		c.Account, c.Task, c.Entity, c.SubSource, c.Snapshot, c.Format, c.IncludeDeleted, c.IncludeLegalHold, id).Scan(&later)
+	return later > 0, err
+}
+
+// otherActivity reports whether any batch other than batchKey claimed or
+// settled anything since since. The portal's job count is account-wide, so
+// such activity makes that count say nothing about this batch alone.
+func (g *downloadGuard) otherActivity(ctx context.Context, batchKey string, since time.Time) (bool, error) {
+	var n int
+	err := g.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM download_claims WHERE batch_key <> ? AND updated_at >= ?`,
+		batchKey, isoUTC(since.Add(-time.Second))).Scan(&n)
+	return n > 0, err
+}
+
+// narrowFlags records include flags an older ledger did not have on its
+// seeded claims, once that batch's resume has stated them. Where a claim
+// with exactly those flags is already live, the unrecorded one is
+// superseded rather than duplicated.
+func (g *downloadGuard) narrowFlags(ctx context.Context, b *downloadBatch) error {
+	deleted, hold := flagValue(b.IncludeDeleted), flagValue(b.IncludeLegalHold)
+	if deleted == flagNotRecorded || hold == flagNotRecorded {
+		return nil
+	}
+	return g.inTx(ctx, func(tx *sql.Tx) error {
+		now := isoUTC(time.Now())
+		rows, err := tx.QueryContext(ctx, `SELECT `+downloadClaimColumns+` FROM download_claims
+			WHERE batch_key = ? AND superseded = 0 AND (include_deleted = -1 OR include_legal_hold = -1)`, b.BatchKey)
+		if err != nil {
+			return err
+		}
+		var seeded []downloadClaim
+		for rows.Next() {
+			c, err := scanDownloadClaim(rows)
+			if err != nil {
+				rows.Close()
+				return err
+			}
+			seeded = append(seeded, c)
+		}
+		rows.Close()
+		for _, c := range seeded {
+			exact := c.downloadIdentity
+			if exact.IncludeDeleted == flagNotRecorded {
+				exact.IncludeDeleted = deleted
+			}
+			if exact.IncludeLegalHold == flagNotRecorded {
+				exact.IncludeLegalHold = hold
+			}
+			var clash int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM download_claims
+				WHERE account_id = ? AND task_id = ? AND entity = ? AND sub_source = ? AND snapshot = ? AND format = ?
+				AND include_deleted = ? AND include_legal_hold = ? AND id <> ? AND superseded = 0 AND state IN ('IN_FLIGHT', 'UNKNOWN', 'CREATED')`,
+				exact.Account, exact.Task, exact.Entity, exact.SubSource, exact.Snapshot, exact.Format,
+				exact.IncludeDeleted, exact.IncludeLegalHold, c.ID).Scan(&clash); err != nil {
+				return err
+			}
+			if clash > 0 {
+				if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET superseded = 1, superseded_by = ?, updated_at = ? WHERE id = ?`, b.BatchKey, now, c.ID); err != nil {
+					return err
+				}
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET include_deleted = ?, include_legal_hold = ?, updated_at = ? WHERE id = ?`,
+				exact.IncludeDeleted, exact.IncludeLegalHold, now, c.ID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // labels returns every job label the guard knows, mapped to the claim's
@@ -488,11 +751,46 @@ func (g *downloadGuard) labels(ctx context.Context) (map[string]downloadIdentity
 	return out, rows.Err()
 }
 
-// seedFromLedgers imports, once per ledger file, every archive any JSON
-// batch ledger records as created or possibly created, so an archive made
-// before the guard existed, or by a build without it, still blocks a second
-// create. Ledgers are read, never changed. A ledger that cannot be read
-// fails the run closed.
+// neverSent reports whether a create's error text proves the request never
+// reached the portal: it failed while connecting, or before it was built.
+func neverSent(detail string) bool {
+	d := strings.ToLower(detail)
+	for _, marker := range []string{"dial tcp", "dial udp", "no such host", "connection refused", "network is unreachable",
+		"proxyconnect", "download needs", "unknown archive format"} {
+		if strings.Contains(d, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// seedEvidence is what one ledger row says about one archive.
+type seedEvidence struct {
+	id                     downloadIdentity
+	batchKey, scope, label string
+	jobID                  string
+	rank                   int
+	state                  string
+}
+
+// Evidence ranks: a confirmed job outranks an accepted create, which
+// outranks a create whose outcome is unknown.
+const (
+	rankUnknown = 1
+	rankCreated = 2
+	rankPinned  = 3
+)
+
+// seedFromLedgers imports every archive the JSON batch ledgers record as
+// created or possibly created, once per ledger file, so an archive made
+// before the guard existed, or by a build without it, still blocks a
+// second create. Ledgers are read, never changed, and one that cannot be
+// read fails the run closed.
+//
+// Evidence about one archive from several ledgers is merged, never decided
+// by which ledger was read first: everything not yet imported is gathered,
+// applied strongest first, and merged with what the guard already holds
+// (mergeEvidence). A confirmed job from any batch wins.
 func (g *downloadGuard) seedFromLedgers(ctx context.Context) error {
 	dir, err := batchDir()
 	if err != nil {
@@ -505,6 +803,8 @@ func (g *downloadGuard) seedFromLedgers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	var paths []string
+	var evidence []seedEvidence
 	for _, e := range entries {
 		key, ok := strings.CutSuffix(e.Name(), ".json")
 		if !ok || validBatchKey(key) != nil {
@@ -522,46 +822,122 @@ func (g *downloadGuard) seedFromLedgers(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("batch ledger %s cannot be read (%v), so the archives it records cannot be checked; nothing was sent. Fix or move that file, then run again", path, err)
 		}
-		if err := g.inTx(ctx, func(tx *sql.Tx) error {
-			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM seeded_ledgers WHERE path = ?`, path).Scan(&seen); err != nil || seen > 0 {
+		paths = append(paths, path)
+		// The first build wrote FAILED for every create error, timeouts and
+		// server errors after the request left included. A ledger without
+		// recorded include flags is from before that was fixed.
+		legacy := b.IncludeDeleted == nil || b.IncludeLegalHold == nil
+		for i := range b.Rows {
+			r := &b.Rows[i]
+			if !mayExist(*r) && !(legacy && r.Status == dlFailed && !neverSent(r.Detail)) {
+				continue
+			}
+			ev := seedEvidence{id: rowIdentity(b, r), batchKey: b.BatchKey, scope: b.Scope, label: r.Label, rank: rankUnknown, state: dgUnknown}
+			switch {
+			case r.Status == dlCreated && r.JobID != "":
+				ev.rank, ev.state, ev.jobID = rankPinned, dgCreated, r.JobID
+			case r.Status == dlEmpty, r.Status == dlCreated, r.Status == dlMissing, r.AcceptedAt != "":
+				ev.rank, ev.state = rankCreated, dgCreated
+			}
+			evidence = append(evidence, ev)
+		}
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	sort.SliceStable(evidence, func(i, j int) bool {
+		if evidence[i].rank != evidence[j].rank {
+			return evidence[i].rank > evidence[j].rank
+		}
+		return evidence[i].batchKey < evidence[j].batchKey
+	})
+	if err := g.inTx(ctx, func(tx *sql.Tx) error {
+		now := isoUTC(time.Now())
+		for _, ev := range evidence {
+			if err := g.mergeEvidence(ctx, tx, ev, now); err != nil {
 				return err
 			}
-			now := isoUTC(time.Now())
-			imported := 0
-			for i := range b.Rows {
-				r := &b.Rows[i]
-				if !mayExist(*r) {
-					continue
-				}
-				id := rowIdentity(b, r)
-				live, err := g.liveClaims(ctx, tx, id, b.BatchKey)
-				if err != nil {
-					return err
-				}
-				if len(live) > 0 {
-					continue
-				}
-				state, jobID := dgUnknown, ""
-				switch {
-				case r.Status == dlCreated && r.JobID != "":
-					state, jobID = dgCreated, r.JobID
-				case r.Status == dlEmpty, r.Status == dlCreated, r.Status == dlMissing, r.AcceptedAt != "":
-					state = dgCreated
-				}
-				if _, err := tx.ExecContext(ctx, `INSERT INTO download_claims
-					(account_id, task_id, entity, sub_source, snapshot, format, include_deleted, include_legal_hold,
-					 generation, state, batch_key, job_id, label, scope, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
-					id.Account, id.Task, id.Entity, id.SubSource, id.Snapshot, id.Format, id.IncludeDeleted, id.IncludeLegalHold,
-					state, b.BatchKey, jobID, r.Label, b.Scope, now, now); err != nil {
-					return err
-				}
-				imported++
+		}
+		for _, path := range paths {
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO seeded_ledgers (path, imported, seeded_at) VALUES (?, ?, ?)`, path, len(evidence), now); err != nil {
+				return err
 			}
-			_, err := tx.ExecContext(ctx, `INSERT INTO seeded_ledgers (path, imported, seeded_at) VALUES (?, ?, ?)`, path, imported, now)
-			return err
-		}); err != nil {
-			return fmt.Errorf("seeding the download guard %s from %s: %w; nothing was sent", g.path, path, err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("seeding the download guard %s from the batch ledgers: %w; nothing was sent", g.path, err)
+	}
+	return nil
+}
+
+// mergeEvidence folds one ledger row's evidence into the live claims for
+// its archive:
+//
+//   - no live claim: the evidence becomes one;
+//   - a confirmed (pinned) claim holds: nothing changes;
+//   - pinned evidence outranks unconfirmed claims: they are superseded and
+//     the pinned claim recorded;
+//   - unconfirmed evidence from another batch than the unconfirmed claim's:
+//     either batch's create may exist, so the claim becomes UNKNOWN (no
+//     batch creates it again on its own) under the lower batch key, which
+//     does not depend on the order ledgers were read;
+//   - unconfirmed evidence from the claim's own batch keeps the stronger
+//     state.
+func (g *downloadGuard) mergeEvidence(ctx context.Context, tx *sql.Tx, ev seedEvidence, now string) error {
+	live, err := g.liveClaims(ctx, tx, ev.id, ev.batchKey)
+	if err != nil {
+		return err
+	}
+	var unconfirmed []downloadClaim
+	for _, c := range live {
+		if c.State == dgInFlight && !g.ownerAlive(guardClaim{OwnerRun: c.OwnerRun}) {
+			c.State = dgUnknown
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ?`, dgUnknown, now, c.ID); err != nil {
+				return err
+			}
+		}
+		switch {
+		case c.State == dgInFlight:
+			return nil
+		case c.State == dgCreated && c.JobID != "":
+			return nil
+		default:
+			unconfirmed = append(unconfirmed, c)
+		}
+	}
+	insert := func(generation int) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO download_claims
+			(account_id, task_id, entity, sub_source, snapshot, format, include_deleted, include_legal_hold,
+			 generation, state, batch_key, job_id, label, scope, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			ev.id.Account, ev.id.Task, ev.id.Entity, ev.id.SubSource, ev.id.Snapshot, ev.id.Format, ev.id.IncludeDeleted, ev.id.IncludeLegalHold,
+			generation, ev.state, ev.batchKey, ev.jobID, ev.label, ev.scope, now, now)
+		return err
+	}
+	if len(unconfirmed) == 0 {
+		return insert(1)
+	}
+	if ev.rank == rankPinned {
+		generation := 1
+		for _, c := range unconfirmed {
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET superseded = 1, superseded_by = ?, updated_at = ? WHERE id = ?`, ev.batchKey, now, c.ID); err != nil {
+				return err
+			}
+			generation = max(generation, c.Generation+1)
+		}
+		return insert(generation)
+	}
+	for _, c := range unconfirmed {
+		switch {
+		case c.BatchKey != ev.batchKey:
+			owner := min(c.BatchKey, ev.batchKey)
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, batch_key = ?, updated_at = ? WHERE id = ?`, dgUnknown, owner, now, c.ID); err != nil {
+				return err
+			}
+		case ev.state == dgCreated && c.State == dgUnknown:
+			if _, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, updated_at = ? WHERE id = ?`, dgCreated, now, c.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -212,6 +212,37 @@ const (
 	fetchSkippedHeld = "HELD_BY_OTHER_BATCH"
 )
 
+// snapshotOnDay reports whether a compact snapshot falls on day
+// (yyyyMMdd) in the account's timezone, offset from UTC the way 'download
+// submit --utc-offset' reads it: the UTC instant plus the offset.
+func snapshotOnDay(raw int64, day string, offset time.Duration) bool {
+	if offset == 0 {
+		snap := fmt.Sprintf("%d", raw)
+		return len(snap) >= 8 && snap[:8] == day
+	}
+	t, err := cadate.ParseCompact(raw)
+	if err != nil {
+		return false
+	}
+	return t.UTC().Add(offset).Format("20060102") == day
+}
+
+// expiredArchiveAdvice explains a confirmed archive whose job the portal no
+// longer lists. A resume never re-creates a confirmed archive, so a new
+// export of it is a person's decision, made after looking at the job list.
+func expiredArchiveAdvice(b *downloadBatch, r downloadRow, account string) string {
+	msg := fmt.Sprintf("the batch's confirmed job %s is no longer listed on the portal: it finished with nothing to download, or the portal expired the archive. A resume does not create it again. Check 'cloudally-cli download list --account %s'", r.JobID, account)
+	if b == nil {
+		return msg
+	}
+	cmds := submitCommandsFor(b, []downloadRow{r})
+	if len(cmds) == 0 {
+		return msg
+	}
+	cmd := strings.TrimSuffix(cmds[0], " --yes") + " --new-batch --yes"
+	return msg + "; if the archive is still needed, a person can decide to create a new export of it with: " + cmd
+}
+
 // failedJobAdvice marks a job that finished without an archive as
 // JOB_FAILED in the download guard and in the ledger of the batch that
 // confirmed it, and says how that batch creates it once more. A job no
@@ -300,6 +331,7 @@ type archiveRecord struct {
 func newDownloadFetchCmd(flags *rootFlags) *cobra.Command {
 	var scope restoreScope
 	var flagDest, flagPortalURL, flagBatch, flagYear, flagOnDate string
+	var flagUTCOffset float64
 	var flagEntities []string
 	var flagDryRun bool
 
@@ -431,6 +463,7 @@ later.
 			// and it is more precise than a date filter for a year.
 			var want map[string]bool
 			var batchRows []downloadRow
+			var batchLedger *downloadBatch
 			if key := strings.TrimSpace(flagBatch); key != "" {
 				b, berr := loadBatch(key)
 				if berr != nil {
@@ -445,7 +478,7 @@ later.
 						want[id] = true
 					}
 				}
-				batchRows = b.Rows
+				batchRows, batchLedger = b.Rows, b
 				if len(b.Rows) == 0 {
 					return usageErr(fmt.Errorf("--batch %s has no rows", key))
 				}
@@ -454,6 +487,7 @@ later.
 			// year's folder. Without this, a leftover job from another
 			// date would be filed under the wrong year.
 			var wantDay string
+			offset := time.Duration(flagUTCOffset * float64(time.Hour))
 			if d := strings.TrimSpace(flagOnDate); d != "" {
 				t, _, derr := cadate.ParseUserDate(d)
 				if derr != nil {
@@ -476,7 +510,7 @@ later.
 					continue
 				}
 				if wantDay != "" {
-					if snap := fmt.Sprintf("%d", job.SnapshotDate); len(snap) < 8 || snap[:8] != wantDay {
+					if !snapshotOnDay(job.SnapshotDate, wantDay, offset) {
 						continue
 					}
 				}
@@ -487,6 +521,14 @@ later.
 					// A job that has stopped without becoming ready never
 					// will; only a running one is worth waiting for.
 					if exportJobFinished(job.Status) {
+						// A failed job its batch has already created again
+						// (or that --new-batch replaced) is history, not a
+						// failure of this run.
+						if guard != nil {
+							if replaced, rerr := guard.jobReplaced(ctx, job.JobID); rerr == nil && replaced {
+								continue
+							}
+						}
 						out.Status, out.Detail = fetchFailed, failedJobAdvice(ctx, guard, job)
 					} else {
 						out.Status, out.Detail = fetchNotReady, "job status is "+job.Status
@@ -608,7 +650,7 @@ later.
 				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
 					continue
 				}
-				if snap := fmt.Sprintf("%d", r.SnapshotRaw); wantDay != "" && (len(snap) < 8 || snap[:8] != wantDay) {
+				if wantDay != "" && !snapshotOnDay(r.SnapshotRaw, wantDay, offset) {
 					continue
 				}
 				out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID}
@@ -623,8 +665,10 @@ later.
 					out.Status = fetchMissing
 					out.Detail = fmt.Sprintf("a job of this mailbox, sub-source and snapshot is listed but cannot be proved to be this batch's; collect every archive of that snapshot with: cloudally-cli download fetch --account %s --dest <folder> --year <year> --on-date %s --entities %s", scope.account, snapshotDay(r.SnapshotRaw), r.Entity)
 				case r.Status == dlCreated:
+					// --resume never re-creates a confirmed archive, so the
+					// way back, if one is wanted, is a person's decision.
 					out.Status = fetchMissing
-					out.Detail = fmt.Sprintf("the batch's confirmed job %s is no longer listed on the portal (it finished with nothing to download, or expired); 'download list' shows what is there", r.JobID)
+					out.Detail = expiredArchiveAdvice(batchLedger, r, scope.account)
 				case r.Status == dlRequested || r.Status == dlUnknown:
 					// Not confirmed yet. Confirming sends nothing that may
 					// already exist.
@@ -649,6 +693,8 @@ later.
 	cmd.Flags().StringVar(&flagYear, "year", "", "Folder name for this set, for example 2022")
 	cmd.Flags().StringVar(&flagOnDate, "on-date", "",
 		"Only archives of this backup date, as YYYY-MM-DD. Strongly recommended: without it, a job from any other date would be filed under this year")
+	cmd.Flags().Float64Var(&flagUTCOffset, "utc-offset", 0,
+		"The account's offset from UTC in hours, as given to 'download submit --utc-offset'. --on-date is then that calendar day in the account's own timezone; 0 reads it as the UTC day")
 	cmd.Flags().StringSliceVar(&flagEntities, "entities", nil, "Only these mailboxes")
 	cmd.Flags().BoolVar(&flagDryRun, "plan-only", false, "List what would be downloaded without writing anything")
 	cmd.Flags().StringVar(&flagBatch, "batch", "",

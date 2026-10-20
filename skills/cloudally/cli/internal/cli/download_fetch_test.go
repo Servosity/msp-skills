@@ -74,6 +74,16 @@ type dlStub struct {
 	// countCreates makes the jobs dashboard count every create, as if each
 	// one made a job.
 	countCreates bool
+	// dashboardExtra adds jobs the dashboard counts that no create of
+	// this test made (another export or restore on the account).
+	dashboardExtra int
+	// onDashboard runs on each dashboard read, numbered from 1.
+	onDashboard    func(call int)
+	dashboardCalls int
+	// deferCreate answers a create with WAIT and a reqId to poll, and
+	// pollCode is the HTTP status the poll then gets (0 means success).
+	deferCreate bool
+	pollCode    int
 
 	api, portal, storage *httptest.Server
 }
@@ -213,6 +223,15 @@ func (s *dlStub) portalServer() *httptest.Server {
 			// The live portal's answer to a job id or an unknown chunk.
 			_, _ = w.Write([]byte(`{"success":false,"status":"The download link has expired.","statusCode":400}`))
 		case "startRestoreOrDownload":
+			if r.URL.Query().Get("reqId") != "" {
+				// A poll for a deferred create's answer, not a new create.
+				if s.pollCode != 0 {
+					w.WriteHeader(s.pollCode)
+					return
+				}
+				writeEnvelope(w, map[string]any{"needRedirect": false})
+				return
+			}
 			raw, _ := io.ReadAll(r.Body)
 			var body map[string]any
 			_ = json.Unmarshal(raw, &body)
@@ -231,6 +250,10 @@ func (s *dlStub) portalServer() *httptest.Server {
 				w.WriteHeader(code)
 				return
 			}
+			if s.deferCreate {
+				_, _ = w.Write([]byte(`{"success":true,"result":"WAIT","id":"req-1"}`))
+				return
+			}
 			if s.listCreated {
 				sub, _ := body["source"].(string)
 				date, _ := body["date"].(float64)
@@ -243,9 +266,13 @@ func (s *dlStub) portalServer() *httptest.Server {
 			}
 			writeEnvelope(w, map[string]any{"needRedirect": false})
 		case "getJobsDasboard":
-			total := 0
+			s.dashboardCalls++
+			if s.onDashboard != nil {
+				s.onDashboard(s.dashboardCalls)
+			}
+			total := s.dashboardExtra
 			if s.countCreates {
-				total = len(s.creates)
+				total += len(s.creates)
 			}
 			writeEnvelope(w, map[string]any{"total": total, "dashboardElements": []any{}})
 		default:

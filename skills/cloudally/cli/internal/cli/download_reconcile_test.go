@@ -206,13 +206,15 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	const key = "20261015-201500-acct"
 	writeLegacyLedger(t, key, []downloadRow{
 		{Entity: "a@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042000, Status: dlCreated, JobID: "job-a"},
-		{Entity: "a@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041000, Status: dlFailed},
+		// Refused before it left this machine, so it was never created.
+		{Entity: "a@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041000, Status: dlFailed,
+			Detail: "portal: POST startRestoreOrDownload: dial tcp 10.0.0.1:443: connect: connection refused"},
 		{Entity: "b@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042001, Status: dlPlanned},
 		{Entity: "b@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041001, Status: dlRequested},
 	})
 
 	_, stderr0, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...)
-	if err == nil || ExitCode(err) != 2 || !strings.Contains(stderr0, "batch "+key+" already holds") {
+	if err == nil || ExitCode(err) != 2 || !strings.Contains(stderr0, "batch "+key+" holds") {
 		t.Fatalf("the same submit after an upgrade must be refused by the old ledger, got %v\n%s", err, stderr0)
 	}
 	if strings.Contains(err.Error()+stderr0, "--new-batch") {

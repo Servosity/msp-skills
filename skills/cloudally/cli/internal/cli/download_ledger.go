@@ -281,13 +281,17 @@ func claimNewBatch(b *downloadBatch, newBatch bool) error {
 }
 
 // neverCreatedCommands rebuilds, per mailbox, a submit command limited to
-// the rows a batch never created (never sent, or cleanly refused).
+// the rows a batch never created (never sent, or cleanly refused). An older
+// ledger's FAILED row counts only when its error proves the request never
+// left: that build wrote FAILED for timeouts and server errors too.
 func neverCreatedCommands(b *downloadBatch) []string {
+	legacy := b.IncludeDeleted == nil || b.IncludeLegalHold == nil
 	var rows []downloadRow
 	for _, r := range b.Rows {
-		if !mayExist(r) && r.Status != dlSkipped {
-			rows = append(rows, r)
+		if mayExist(r) || r.Status == dlSkipped || (legacy && r.Status == dlFailed && !neverSent(r.Detail)) {
+			continue
 		}
+		rows = append(rows, r)
 	}
 	return submitCommandsFor(b, rows)
 }
