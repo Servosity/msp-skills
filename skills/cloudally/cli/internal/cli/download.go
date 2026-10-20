@@ -156,6 +156,13 @@ the URL and can be run again to mint a fresh one.
 	cmd.AddCommand(newDownloadListCmd(flags))
 	cmd.AddCommand(newDownloadWatchCmd(flags))
 	cmd.AddCommand(newDownloadLinkCmd(flags))
+	// Errors reach the terminal through the root's printer, so each
+	// subcommand's error text is scrubbed on the way out.
+	for _, sub := range cmd.Commands() {
+		if sub.RunE != nil {
+			sub.RunE = scrubRunE(sub.RunE)
+		}
+	}
 	return cmd
 }
 
@@ -197,7 +204,7 @@ func newDownloadListCmd(flags *rootFlags) *cobra.Command {
 					fmt.Fprintln(cmd.OutOrStdout(), "no download (export) jobs on this account")
 					return nil
 				}
-				return printRestoreTable(cmd.OutOrStdout(), downloadJobHeaders, downloadJobRowsAsMaps(rows))
+				return printRestoreTable(cmd.OutOrStdout(), downloadJobHeaders, tenantCells(downloadJobRowsAsMaps(rows)))
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
 		},
@@ -218,9 +225,13 @@ func newDownloadLinkCmd(flags *rootFlags) *cobra.Command {
 		Use:   "link",
 		Short: "Mint the download link for a finished download (export) job",
 		Long: strings.Trim(`
-Mints a download link for an export job and reports when that link expires.
+Mints a download link for each file of an export job and reports when each
+link expires. A zip export is one file, so it gets one link; a PST export
+split into chunks gets one link per chunk.
 
-The link comes from the customer portal's service layer, so this needs a
+Links are minted per file, from the file's export data id, the same way
+'download fetch' mints them: the portal refuses a link asked for by the job
+id. The link comes from the customer portal's service layer, so this needs a
 partner login and --account. The portal mints a fresh link on every call, so
 running this again after a link expires produces a working one for as long as
 CloudAlly retains the export itself.
@@ -273,7 +284,7 @@ the command says so rather than implying the link is durable.
 				}
 				if !j.Ready() {
 					return fmt.Errorf("export job %s is %s, not %s; follow it with 'download watch --account %s --job %s'",
-						flagJob, j.Status, portal.StatusReadyForDownload, scope.account, flagJob)
+						flagJob, tenantText(j.Status), portal.StatusReadyForDownload, scope.account, flagJob)
 				}
 				job = j
 			}
@@ -283,20 +294,15 @@ the command says so rather than implying the link is durable.
 				return err
 			}
 			out := downloadLinkOutput{JobID: flagJob, Entity: job.Account, Status: job.Status}
-			if flagFiles {
-				files, ferr := sess.DownloadFiles(ctx, flagJob)
-				if ferr != nil {
-					return ferr
-				}
-				for _, f := range files {
-					out.Files = append(out.Files, downloadFileOut(f))
-				}
-			} else {
-				link, lerr := sess.DownloadURL(ctx, flagJob)
-				if lerr != nil {
-					return lerr
-				}
-				out.Files = append(out.Files, downloadFileOut(portal.DownloadFile{DownloadURL: link}))
+			// Both modes list the job's files and mint each link from that
+			// file's export data id. A listing row carries no link, and a
+			// link asked for with the job id fails as "expired".
+			files, ferr := mintDownloadLinks(ctx, sess, flagJob)
+			if ferr != nil {
+				return ferr
+			}
+			for _, f := range files {
+				out.Files = append(out.Files, downloadFileOut(f))
 			}
 			if len(out.Files) == 0 {
 				return notFoundErr(fmt.Errorf("export job %s produced no downloadable files", flagJob))
@@ -306,11 +312,34 @@ the command says so rather than implying the link is durable.
 	}
 	addRestoreScopeFlags(cmd, &scope)
 	cmd.Flags().StringVar(&flagJob, "job", "", "Export job id to mint a link for (from 'download list')")
-	cmd.Flags().BoolVar(&flagFiles, "files", false, "List every file the job produced with a link each, instead of the single job link")
+	cmd.Flags().BoolVar(&flagFiles, "files", false, "Accepted for compatibility: every file the job produced is always listed with a link each")
 	cmd.Flags().BoolVar(&flagSkipStatusCheck, "skip-status-check", false, "Mint the link without first confirming the job is ready")
 	cmd.Flags().StringVar(&flagPortalURL, "portal-url", portal.DefaultBaseURL, portalURLFlagHelp)
 	_ = cmd.Flags().MarkHidden("portal-url")
 	return cmd
+}
+
+// mintDownloadLinks lists an export job's files and mints a link for each
+// from its export data id, the path 'download fetch' uses against the live
+// portal.
+func mintDownloadLinks(ctx context.Context, sess *portal.Session, jobID string) ([]portal.DownloadFile, error) {
+	files, err := sess.DownloadFiles(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]portal.DownloadFile, 0, len(files))
+	for _, f := range files {
+		if strings.TrimSpace(f.ExportDataID) == "" {
+			return nil, fmt.Errorf("export job %s lists %q with no export data id, so no link can be minted for it", jobID, tenantText(f.FileName))
+		}
+		link, err := sess.DownloadURL(ctx, f.ExportDataID)
+		if err != nil {
+			return nil, err
+		}
+		f.DownloadURL = link
+		out = append(out, f)
+	}
+	return out, nil
 }
 
 // downloadLinkOutput is what 'download link' prints.
@@ -354,26 +383,26 @@ func printDownloadLink(cmd *cobra.Command, flags *rootFlags, out downloadLinkOut
 		return printJSONFiltered(cmd.OutOrStdout(), out, flags)
 	}
 	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "export job %s", out.JobID)
+	tenantf(w, "export job %s", out.JobID)
 	if out.Entity != "" {
-		fmt.Fprintf(w, " (%s)", out.Entity)
+		tenantf(w, " (%s)", out.Entity)
 	}
 	fmt.Fprintln(w)
 	for _, f := range out.Files {
 		fmt.Fprintln(w)
 		if f.FileName != "" {
-			fmt.Fprintf(w, "  file:    %s", f.FileName)
+			tenantf(w, "  file:    %s", f.FileName)
 			if f.Size != "" {
-				fmt.Fprintf(w, "  (%s)", f.Size)
+				tenantf(w, "  (%s)", f.Size)
 			}
 			fmt.Fprintln(w)
 		}
-		fmt.Fprintf(w, "  link:    %s\n", f.URL)
+		tenantf(w, "  link:    %s\n", f.URL)
 		switch {
 		case f.ExpiryKnown && f.ValidFor != "":
-			fmt.Fprintf(w, "  expires: %s (valid for %s from when it was minted)\n", f.ExpiresAt, f.ValidFor)
+			tenantf(w, "  expires: %s (valid for %s from when it was minted)\n", f.ExpiresAt, f.ValidFor)
 		case f.ExpiryKnown:
-			fmt.Fprintf(w, "  expires: %s\n", f.ExpiresAt)
+			tenantf(w, "  expires: %s\n", f.ExpiresAt)
 		default:
 			fmt.Fprintln(w, "  expires: not stated in the link; treat it as short lived and confirm before quoting a deadline")
 		}
@@ -438,7 +467,7 @@ script can gate the link step on it.
 				}
 				row := downloadJobRowFrom(job)
 				if wantsHumanTable(cmd.OutOrStdout(), flags) {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s\n", isoUTC(time.Now()), row.Status, row.Entity)
+					tenantf(cmd.OutOrStdout(), "%s  %s  %s\n", isoUTC(time.Now()), row.Status, row.Entity)
 				}
 				if exportJobFinished(job.Status) || flagOnce {
 					if !wantsHumanTable(cmd.OutOrStdout(), flags) {
@@ -455,7 +484,7 @@ script can gate the link step on it.
 					case flagOnce:
 						return nil
 					default:
-						return fmt.Errorf("export job %s finished as %s, not %s", flagJob, job.Status, portal.StatusReadyForDownload)
+						return fmt.Errorf("export job %s finished as %s, not %s", flagJob, tenantText(job.Status), portal.StatusReadyForDownload)
 					}
 				}
 				select {

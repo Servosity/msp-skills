@@ -170,7 +170,7 @@ is not used.
 				return err
 			}
 			if row.Status != planOK {
-				return notFoundErr(fmt.Errorf("%s has no usable backup for %s: %s", ent.Entity, requested.text, row.Detail))
+				return notFoundErr(fmt.Errorf("%s has no usable backup for %s: %s", tenantText(ent.Entity), requested.text, tenantText(row.Detail)))
 			}
 
 			out := downloadStartOutput{
@@ -288,11 +288,11 @@ func exportBody(taskID, source string, ent taskEntity, dateRaw int64, format str
 // printDownloadStartConfirmation shows what a real run would create.
 func printDownloadStartConfirmation(w io.Writer, out downloadStartOutput, scope restoreScope) {
 	fmt.Fprintf(w, "download start would create 1 download job; nothing has been created\n")
-	fmt.Fprintf(w, "  account:  %s\n", out.AccountID)
-	fmt.Fprintf(w, "  task:     %s (%s)\n", out.BackupTaskID, out.Source)
-	fmt.Fprintf(w, "  mailbox:  %s (%s)\n", out.Entity, out.EntityStatus)
-	fmt.Fprintf(w, "  asked:    %s\n", out.Requested)
-	fmt.Fprintf(w, "  backup:   %s (%d), from %s\n", out.Resolved, out.ResolvedRaw, out.DateSource)
+	tenantf(w, "  account:  %s\n", out.AccountID)
+	tenantf(w, "  task:     %s (%s)\n", out.BackupTaskID, out.Source)
+	tenantf(w, "  mailbox:  %s (%s)\n", out.Entity, out.EntityStatus)
+	tenantf(w, "  asked:    %s\n", out.Requested)
+	tenantf(w, "  backup:   %s (%d), from %s\n", out.Resolved, out.ResolvedRaw, out.DateSource)
 	fmt.Fprintf(w, "  format:   %s into CloudAlly storage, for download\n", out.Format)
 	fmt.Fprintf(w, "\nadd --yes to create it, then follow it with: cloudally-cli download watch --account %s --job <job id>\n", scope.account)
 }
@@ -303,8 +303,8 @@ func printDownloadStart(cmd *cobra.Command, flags *rootFlags, out downloadStartO
 		return printJSONFiltered(cmd.OutOrStdout(), out, flags)
 	}
 	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "download job created for %s\n", out.Entity)
-	fmt.Fprintf(w, "  backup:  %s (%d), from %s\n", out.Resolved, out.ResolvedRaw, out.DateSource)
+	tenantf(w, "download job created for %s\n", out.Entity)
+	tenantf(w, "  backup:  %s (%d), from %s\n", out.Resolved, out.ResolvedRaw, out.DateSource)
 	fmt.Fprintf(w, "  format:  %s\n", out.Format)
 	fmt.Fprintf(w, "\nThe API does not return the job id, so find it with:\n")
 	fmt.Fprintf(w, "  cloudally-cli download list --account %s\n", scope.account)

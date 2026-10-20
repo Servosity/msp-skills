@@ -5,6 +5,7 @@ package portal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -56,6 +57,11 @@ type DownloadRequest struct {
 	IncludeDeleted   bool
 	IncludeLegalHold bool
 }
+
+// ErrNeedsPortalRedirect is returned when the portal answers a create with
+// a redirect to an interactive step. The job was not created, so the row is
+// a clean refusal rather than an unknown outcome.
+var ErrNeedsPortalRedirect = errors.New("portal: the download needs interactive authorisation in the portal before it can run")
 
 // startResponse is what the create call returns. A redirect means the portal
 // wants the operator to complete something interactively, which a headless
@@ -137,7 +143,7 @@ func (s *Session) StartDownload(ctx context.Context, req DownloadRequest) error 
 		return nil
 	}
 	if resp.NeedRedirect {
-		return fmt.Errorf("portal: the download needs interactive authorisation in the portal before it can run")
+		return ErrNeedsPortalRedirect
 	}
 	return nil
 }
