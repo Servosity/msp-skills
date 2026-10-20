@@ -182,6 +182,12 @@ func fetchAndEmit(ctx context.Context, c interface {
 
 	items, _, _ := extractResourcePage(data, config)
 	if items == nil {
+		// HAND-FIX(export-unreadable-collection-refused): a list response
+		// whose collection is null or missing is an error, never one event
+		// carrying the envelope as if it were a record.
+		if err := exportCollectionUnreadable(data, config); err != nil {
+			return fmt.Errorf("decoding response: %w", err)
+		}
 		event := map[string]any{
 			"event":     "data",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),

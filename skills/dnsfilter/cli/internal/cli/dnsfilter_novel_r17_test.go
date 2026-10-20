@@ -184,6 +184,8 @@ func whyBlockedRoutes(sched, policies, logs string) map[string]string {
 		"/v1/scheduled_policies/300":     sched,
 		"/v1/domains/user_lookup":        fixtureLookupOK,
 		"/v1/traffic_reports/query_logs": logs,
+		// Round 18: without --host the org's roaming clients are listed too.
+		"/v1/user_agents/all": `{"data":[]}`,
 	}
 }
 

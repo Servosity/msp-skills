@@ -28,6 +28,9 @@ type queryLogHit struct {
 	MethodName string   `json:"method_name"`
 	Categories []string `json:"categories"`
 	Source     string   `json:"source"`
+	// fqdnUnreadable marks an entry whose fqdn is null, missing or not a
+	// string: it can be neither matched nor ruled out.
+	fqdnUnreadable bool
 }
 
 type whyBlockedView struct {
@@ -57,9 +60,9 @@ func newNovelWhyBlockedCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to change a policy; use 'allow' instead.
 Do NOT use this command to find every client whose allow or block lists contain a domain; use 'lists where' instead.
 
-Each site (or, with --host, roaming client) is evaluated against the policy it uses right now: a scheduled policy's current 15-minute slot is resolved in the schedule's timezone, and a roaming client without its own assignment inherits its site's. Rules follow DNSFilter's documented policy order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories; a policy attribute that is absent, null or unreadable makes that deployment's verdict unknown, never allowed. Recent blocked query-log hits (exact domain match) name the policy that actually applied.
+Each site, and the org's roaming clients that carry a policy or scheduled policy of their own (one row per distinct assignment), or with --host the one roaming client, is evaluated against the policy it uses right now: a scheduled policy's current 15-minute slot is resolved in the schedule's timezone, and a roaming client without its own assignment inherits its site's. Rules follow DNSFilter's documented policy order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories; a policy attribute or assignment link that is absent, null or unreadable makes that deployment's verdict unknown, never allowed (unless every value of the attribute gives the same verdict). Recent blocked query-log hits (exact domain match) name the policy that actually applied.
 
-The top-level decision is blocked (a deployment's policy or a recent hit blocks it), not_blocked (every deployment was evaluated as allowed, no site is missing from the scan, and the full query-log scan found no hit), or unknown; blocked is true or false to match, and null when the decision is unknown.
+The top-level decision is blocked (a deployment's policy or a recent hit blocks it), not_blocked (every deployment was evaluated as allowed, no site or roaming client is missing from the scan, and the full query-log scan, every page it names included, found no hit and no entry with an unreadable fqdn), or unknown; blocked is true or false to match, and null when the decision is unknown.
 
 Not evaluated (not exposed by the policy API): user, collection and LAN-subnet policy assignments, the org/MSP Universal Allow and Block Lists, and AppAware application rules. When a hit's policy is not one of the site or roaming-client policies, the output says so.`,
 		Example: strings.Trim(`
@@ -129,13 +132,13 @@ Not evaluated (not exposed by the policy API): user, collection and LAN-subnet p
 			}
 			view.BlockingPolicyIDs = make([]string, 0)
 			hitCount, logComplete := 0, false
-			if hits, complete, err := fetchBlockedHits(ctx, c, bc.Org.ID, bc.FQDN, agentIDs, since, now); err != nil {
+			if hits, gap, err := fetchBlockedHits(ctx, c, bc.Org.ID, bc.FQDN, agentIDs, since, now); err != nil {
 				view.Notes = append(view.Notes, fmt.Sprintf("query log unavailable: %v", err))
 			} else {
-				if !complete {
-					view.Notes = append(view.Notes, fmt.Sprintf("query-log scan stopped after %d pages; older hits may name other blocking policies", queryLogScanPages))
+				if gap != "" {
+					view.Notes = append(view.Notes, gap)
 				}
-				hitCount, logComplete = len(hits), complete
+				hitCount, logComplete = len(hits), gap == ""
 				view.RecentHits = hits
 				if len(view.RecentHits) > maxHits {
 					view.RecentHits = view.RecentHits[:maxHits]
@@ -260,7 +263,10 @@ func parseQueryLogHits(raw []byte) ([]queryLogHit, error) {
 			if src == "" {
 				src = r.str("network_name")
 			}
-			hits = append(hits, queryLogHit{Time: r.str("time"), Result: r.str("result"), FQDN: r.str("fqdn"), PolicyID: r.str("policy_id"), PolicyName: r.str("policy_name"), MethodName: r.str("method_name"), Categories: r.strs("categories_names"), Source: src})
+			// HAND-FIX(query-log-unreadable-fqdn): fqdn must be a non-empty
+			// string; policy_id (an integer in the spec) is read as an id.
+			fqdn, fqdnOK := r.strKnown("fqdn")
+			hits = append(hits, queryLogHit{Time: r.str("time"), Result: r.str("result"), FQDN: fqdn, PolicyID: r.idAttr("policy_id"), PolicyName: r.str("policy_name"), MethodName: r.str("method_name"), Categories: r.strs("categories_names"), Source: src, fqdnUnreadable: !fqdnOK})
 		}
 	}
 	return hits, nil

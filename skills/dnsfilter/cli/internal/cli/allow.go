@@ -51,9 +51,9 @@ func newNovelAllowCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to find out why a domain is blocked; use 'why-blocked' instead.
 Do NOT use this command to work through the queue of end-user unblock requests; use 'unblocks triage' instead.
 
-Without --confirm the command resolves and prints the plan; nothing is written. With --confirm (and --note) it adds the domain via add_whitelist_domain (one policy) or the bulk allow-list endpoint (several), then re-reads each policy and exits 6 if any target failed.
+Without --confirm the command resolves and prints the plan; nothing is written. With --confirm (and --note) it adds the domain via add_whitelist_domain (one policy) or the bulk allow-list endpoint (several), then re-reads each policy and exits 6 if any target failed, or if nothing was written because every candidate was left for review.
 
-Targets are the policies that blocked this exact domain in recent query-log hits for the org (--since window); when there are no hits, the site (or --host roaming client) assignments are used instead and the output says attribution=assignment. Then only an assigned policy whose evaluation blocks the domain is a target: one that already allows it is a noop, and one whose verdict is unknown (an unreadable policy attribute, unknown categories, an unverified parent-domain entry) gets action review and is never written. Refused unless --force: a domain in a security (threat) category or in a category this key cannot resolve. Skipped: global policies unless --include-global, policies whose can_edit is not true, policies whose allow list is unreadable, and deployments whose current scheduled-policy slot cannot be resolved.`,
+Targets are the policies that blocked this exact domain in recent query-log hits for the org (--since window); when there are no hits, the assignments of the org's sites and of its roaming clients that carry their own (or of the --host roaming client) are used instead and the output says attribution=assignment. Then only an assigned policy whose evaluation blocks the domain is a target: one that already allows it is a noop, and one whose verdict is unknown (an unreadable policy attribute, unknown categories, an unverified parent-domain entry) gets action review and is never written. Refused unless --force: a domain in a security (threat) category or in a category this key cannot resolve. Skipped: global policies unless --include-global, policies whose can_edit is not true, policies whose allow list is unreadable, a non-global policy that does not belong to the org (its organization_id names another org, or it names none and is not in the org's policy list), and deployments whose current scheduled-policy slot or assignment cannot be resolved.`,
 		Example: strings.Trim(`
   dnsfilter-cli allow example.com --org 'Acme Dental' --note 'TKT-4821'
   dnsfilter-cli allow example.com --org 'Acme Dental' --note 'TKT-4821' --confirm --agent`, "\n"),
@@ -119,20 +119,26 @@ Targets are the policies that blocked this exact domain in recent query-log hits
 					agentIDs = append(agentIDs, d.ID)
 				}
 			}
-			hits, complete, err := fetchBlockedHits(ctx, c, bc.Org.ID, bc.FQDN, agentIDs, since, now)
+			hits, gap, err := fetchBlockedHits(ctx, c, bc.Org.ID, bc.FQDN, agentIDs, since, now)
 			if err != nil {
 				// A partial scan must not pick targets: fall back to assignments
 				// entirely, exactly as the note says.
 				hits = nil
 				bc.Notes = append(bc.Notes, fmt.Sprintf("query log unavailable, using assignments: %v", err))
-			} else if !complete {
-				bc.Notes = append(bc.Notes, fmt.Sprintf("query-log scan stopped after %d pages; attribution may be incomplete", queryLogScanPages))
+			} else if gap != "" {
+				bc.Notes = append(bc.Notes, gap+"; attribution may be incomplete")
 			}
 			blockedBy := map[string][]string{}
+			unattributed := 0
 			for _, h := range hits {
 				if h.PolicyID != "" {
 					blockedBy[h.PolicyID] = appendUnique(blockedBy[h.PolicyID], "query-log source "+h.Source)
+				} else {
+					unattributed++
 				}
+			}
+			if unattributed > 0 {
+				bc.Notes = append(bc.Notes, fmt.Sprintf("%d recent blocked hits name no readable policy, so the policy that blocked them is unknown and is not a target", unattributed))
 			}
 			for id := range blockedBy {
 				if _, err := ensurePolicy(ctx, c, bc.Policies, id); err != nil {
@@ -150,6 +156,19 @@ Targets are the policies that blocked this exact domain in recent query-log hits
 				for _, d := range bc.Deployments {
 					if d.PolicyID == "" {
 						view.Targets = append(view.Targets, allowTarget{UsedBy: []string{d.Kind + " " + d.Name}, Action: "skip", Reason: "effective policy unresolved (" + d.Via + ")"})
+					}
+				}
+				if len(bc.Gaps) > 0 {
+					view.Notes = append(view.Notes, "the deployment set may be incomplete ("+strings.Join(bc.Gaps, "; ")+"), so a policy that blocks the domain for this org may not be a target")
+				}
+			}
+			// HAND-FIX(allow-target-belongs-to-org): a policy named by a
+			// historical query-log hit was written after it moved to another
+			// client's organization.
+			for i := range view.Targets {
+				if t := &view.Targets[i]; t.Action == "add" {
+					if reason := foreignPolicyReason(bc, t.PolicyID); reason != "" {
+						t.Action, t.Reason = "skip", reason
 					}
 				}
 			}
@@ -185,6 +204,12 @@ Targets are the policies that blocked this exact domain in recent query-log hits
 			if failed > 0 {
 				return partialFailureErr(fmt.Errorf("%d of %d allow-list writes did not take effect", failed, len(toAdd)))
 			}
+			// HAND-FIX(allow-all-review-exits-nonzero): --confirm with every
+			// candidate left for review wrote nothing and exited 0, so
+			// automation read success while the domain stayed blocked.
+			if flagConfirm && len(toAdd) == 0 && review > 0 {
+				return partialFailureErr(fmt.Errorf("nothing was written: %d policies could not be ruled out as blocking %s (action review), so the domain may still be blocked", review, bc.FQDN))
+			}
 			return nil
 		},
 	}
@@ -197,6 +222,38 @@ Targets are the policies that blocked this exact domain in recent query-log hits
 	cmd.Flags().BoolVar(&flagIncludeGlobal, "include-global", false, "Also edit global policies, which can be shared across client orgs")
 	cmd.Flags().IntVar(&maxScanPages, "max-scan-pages", 5, "Maximum 100-row pages of sites or roaming clients to scan")
 	return cmd
+}
+
+// foreignPolicyReason is why a planned write must not touch policy id ("" when
+// it may). A non-global policy is written only when its organization_id (or
+// organization relationship) is this org, or it names none readable but the
+// org-scoped policy list returned it; a global policy is governed by
+// --include-global (planAllowTargets).
+func foreignPolicyReason(bc *blockContext, id string) string {
+	p := bc.Policies[id]
+	if global, ok := p.boolKnown("is_global_policy"); ok && global {
+		return ""
+	}
+	org, known := policyOrg(p)
+	switch {
+	case known && !sameID(org, bc.Org.ID):
+		return fmt.Sprintf("policy belongs to organization %s, not %s (it may have moved since the query-log hit); not written", org, bc.Org.ID)
+	case !known && !bc.Listed[id]:
+		return "policy names no readable organization and is not in this organization's policy list, so it cannot be confirmed to belong to it; not written"
+	}
+	return ""
+}
+
+// policyOrg returns the organization a policy names: organization_id, else
+// relationships.organization. known is false when neither is readable.
+func policyOrg(p jaRes) (string, bool) {
+	if id := p.idAttr("organization_id"); id != "" {
+		return id, true
+	}
+	if id, known := p.relRef("organization"); known && id != "" {
+		return id, true
+	}
+	return "", false
 }
 
 func hasBool(r jaRes, key string) bool {

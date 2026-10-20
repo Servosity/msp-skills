@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/url"
 	"os"
@@ -84,30 +85,42 @@ func decodeJA(raw json.RawMessage) ([]jaRes, error) {
 	return out, nil
 }
 
+// idString reads a resource id: a string, or a whole non-negative number.
+// HAND-FIX(novel-strict-ids): a fractional (60.9), negative or non-numeric
+// value is unreadable (""), never truncated into another id ("60").
 func idString(v any) string {
 	switch t := v.(type) {
 	case string:
 		return t
 	case float64:
-		return strconv.FormatInt(int64(t), 10)
+		if t < 0 || t != math.Trunc(t) || math.IsInf(t, 0) {
+			return ""
+		}
+		return strconv.FormatFloat(t, 'f', -1, 64)
 	case json.Number:
-		return t.String()
+		if s := t.String(); isDigits(s) {
+			return s
+		}
 	case int:
-		return strconv.Itoa(t)
+		if t >= 0 {
+			return strconv.Itoa(t)
+		}
 	}
 	return ""
 }
 
+// str returns a string attribute ("" when absent, null or not a JSON
+// string). HAND-FIX(novel-strict-ids): a number is not coerced into text,
+// so agent_version 999 or domain 4821 is unreadable, not "999" or "4821".
+// Integer-typed ids (organization_id, policy_id) are read with idAttr.
 func (r jaRes) str(k string) string {
-	switch t := r.Attrs[k].(type) {
-	case string:
-		return t
-	case nil:
-		return ""
-	default:
-		return idString(t)
-	}
+	s, _ := r.Attrs[k].(string)
+	return s
 }
+
+// idAttr returns an id-valued attribute (organization_id, policy_id): a
+// string or a whole non-negative number, "" otherwise.
+func (r jaRes) idAttr(k string) string { return idString(r.Attrs[k]) }
 
 func (r jaRes) boolean(k string) bool { b, _ := r.Attrs[k].(bool); return b }
 
@@ -133,10 +146,27 @@ func (r jaRes) boolKnown(k string) (bool, bool) {
 	return b, ok
 }
 
-// strsKnown returns a list attribute's readable entries; ok is false when the
-// attribute is absent, null or not a list, or any entry is null, empty or not
-// a scalar (that entry is dropped, so the list is incomplete).
+// strsKnown returns a string-list attribute's readable entries (domain
+// lists); ok is false when the attribute is absent, null or not a list, or
+// any entry is not a non-empty JSON string (that entry is dropped, so the
+// list is incomplete). HAND-FIX(novel-strict-ids): a number in a domain list
+// is unreadable, not a domain.
 func (r jaRes) strsKnown(k string) ([]string, bool) {
+	arr, ok := r.Attrs[k].([]any)
+	out := make([]string, 0, len(arr))
+	for _, it := range arr {
+		if s, isStr := it.(string); isStr && s != "" {
+			out = append(out, s)
+		} else {
+			ok = false
+		}
+	}
+	return out, ok
+}
+
+// idsKnown is strsKnown for a list of ids (blacklist_categories): every entry
+// must be an id idString reads (a string, or a whole non-negative number).
+func (r jaRes) idsKnown(k string) ([]string, bool) {
 	arr, ok := r.Attrs[k].([]any)
 	out := make([]string, 0, len(arr))
 	for _, it := range arr {
@@ -166,11 +196,42 @@ func joinNotes(notes ...string) string {
 	return strings.Join(kept, " ")
 }
 
-// relID returns relationships.<name>.data.id ("" when absent or null).
+// relID returns relationships.<name>.data.id ("" when absent, null or
+// unreadable). A caller that would fall back on "" reads relRef instead.
 func (r jaRes) relID(name string) string {
-	rel, _ := r.Rels[name].(map[string]any)
-	data, _ := rel["data"].(map[string]any)
-	return idString(data["id"])
+	id, _ := r.relRef(name)
+	return id
+}
+
+// relRef returns relationships.<name>.data.id. HAND-FIX(novel-relationship-linkage-unknown):
+// relID read {"data":{"id":null}} as "no assignment", so a site kept its
+// direct policy under an unreadable schedule and a roaming client fell back
+// to its site. known is false when the relationship is present but its
+// linkage cannot be read (not an object, no data member, data not an object,
+// or an id that is null or not an id); an absent relationship, a null one or
+// data null is a known absence ("", true).
+func (r jaRes) relRef(name string) (id string, known bool) {
+	raw, present := r.Rels[name]
+	if !present || raw == nil {
+		return "", true
+	}
+	rel, isObj := raw.(map[string]any)
+	if !isObj {
+		return "", false
+	}
+	data, hasData := rel["data"]
+	if !hasData {
+		return "", false
+	}
+	if data == nil {
+		return "", true
+	}
+	m, isObj := data.(map[string]any)
+	if !isObj {
+		return "", false
+	}
+	id = idString(m["id"])
+	return id, id != ""
 }
 
 // relIDs returns relationships.<name>.data[].id.
@@ -208,11 +269,24 @@ func decodeJAList(raw json.RawMessage) ([]jaRes, error) {
 	return decodeJA(raw)
 }
 
-// fetchAllPages walks a V1 `page[number]` list until a short page or maxPages.
-// truncated reports that maxPages stopped the walk with more data likely.
+// novelWalkPageLimit bounds a walk that has no --max-scan-pages cap.
+const novelWalkPageLimit = 10000
+
+// fetchAllPages walks a V1 `page[number]` list until a page with no
+// continuation that is short, or maxPages. truncated reports that maxPages
+// stopped the walk with more data likely. HAND-FIX(novel-walk-follows-continuation):
+// a short page ended the walk even when it named a next page, so later sites,
+// policies or organizations were never read and verdicts were certified.
 func fetchAllPages(ctx context.Context, c *client.Client, path string, params map[string]string, maxPages int) (items []jaRes, truncated bool, err error) {
 	items = make([]jaRes, 0)
-	for page := 1; maxPages <= 0 || page <= maxPages; page++ {
+	page := 1
+	for fetched := 0; ; fetched++ {
+		if maxPages > 0 && fetched >= maxPages {
+			return items, true, nil
+		}
+		if fetched >= novelWalkPageLimit {
+			return items, false, fmt.Errorf("decoding response: %s still names more rows after %d pages; the walk stopped without reaching the end", path, novelWalkPageLimit)
+		}
 		p := map[string]string{"page[number]": strconv.Itoa(page), "page[size]": strconv.Itoa(dnsfilterPageSize)}
 		for k, v := range params {
 			p[k] = v
@@ -226,11 +300,96 @@ func fetchAllPages(ctx context.Context, c *client.Client, path string, params ma
 			return items, false, err
 		}
 		items = append(items, batch...)
-		if len(batch) < dnsfilterPageSize {
+		next, more, err := listPageContinuation(raw, page)
+		if err != nil {
+			return items, false, fmt.Errorf("decoding response: %s page %d: %w", path, page, err)
+		}
+		switch {
+		case more && len(batch) == 0:
+			return items, false, fmt.Errorf("decoding response: %s page %d lists no rows but says more follow, so the rest of the list is unknown", path, page)
+		case !more && len(batch) < dnsfilterPageSize:
 			return items, false, nil
 		}
+		page = next
 	}
-	return items, true, nil
+}
+
+// listPageContinuation reads the explicit continuation one list page
+// carries, the signals sync follows (syncPageEndsWalk): a next link or cursor
+// (links.next, next_cursor, ...) or has_more true, plus meta.current_page
+// below meta.total_pages. more reports any of them; next is the page the walk
+// reads next (page+1). A continuation a page-number walk cannot follow (an
+// opaque cursor, a link that names no page, or names a page other than the
+// next one) is an error: the rest of the list is unknown, never empty.
+func listPageContinuation(raw json.RawMessage, page int) (next int, more bool, err error) {
+	next = page + 1
+	var env map[string]json.RawMessage
+	if json.Unmarshal(raw, &env) != nil {
+		return next, false, nil // a bare list carries no continuation
+	}
+	cursor, hasMore := extractPaginationFromEnvelope(env, "page[number]", "")
+	if cursor == "" && linkNextPresent(env) {
+		if cursor = linkNextPage(env); cursor == "" {
+			return next, true, fmt.Errorf("the page names a next link this walk cannot follow, so the rest of the list is unknown")
+		}
+	}
+	if cursor != "" {
+		n, convErr := strconv.Atoi(cursor)
+		switch {
+		case convErr != nil:
+			return next, true, fmt.Errorf("the page names continuation %q, which is not a page number, so the rest of the list is unknown", cursor)
+		case n != next:
+			return next, true, fmt.Errorf("the page names page %d after page %d, so the walk cannot prove it read every page", n, page)
+		}
+		return next, true, nil
+	}
+	return next, hasMore || metaPagesRemain(env), nil
+}
+
+// linkNextPresent reports a links.next (or _links.next) that is not null or "".
+func linkNextPresent(env map[string]json.RawMessage) bool {
+	for _, key := range []string{"links", "_links"} {
+		var links map[string]json.RawMessage
+		if json.Unmarshal(env[key], &links) != nil {
+			continue
+		}
+		if raw, ok := links["next"]; ok {
+			if s := strings.TrimSpace(string(raw)); s != "null" && s != `""` {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// linkNextPage returns the page number a links.next URL carries as a plain
+// page parameter ("?page=2"), "" when it carries none.
+func linkNextPage(env map[string]json.RawMessage) string {
+	for _, key := range []string{"links", "_links"} {
+		var links map[string]json.RawMessage
+		if json.Unmarshal(env[key], &links) != nil {
+			continue
+		}
+		if u, err := url.Parse(paginationLinkURL(links["next"])); err == nil {
+			if n := u.Query().Get("page"); isDigits(n) {
+				return n
+			}
+		}
+	}
+	return ""
+}
+
+// metaPagesRemain reports meta.current_page below meta.total_pages (the
+// unblock-request list's pagination metadata).
+func metaPagesRemain(env map[string]json.RawMessage) bool {
+	var meta struct {
+		Current *float64 `json:"current_page"`
+		Total   *float64 `json:"total_pages"`
+	}
+	if json.Unmarshal(env["meta"], &meta) != nil || meta.Current == nil || meta.Total == nil {
+		return false
+	}
+	return *meta.Current < *meta.Total
 }
 
 // resolveOrg accepts a numeric organization id or a name (exact, then unique
@@ -246,8 +405,11 @@ func resolveOrg(ctx context.Context, c *client.Client, ref string) (jaRes, error
 		if err != nil || len(orgs) == 0 {
 			return jaRes{}, fmt.Errorf("organization %s not found", ref)
 		}
-		if orgs[0].ID == "" {
-			orgs[0].ID = ref
+		// HAND-FIX(resolve-org-identity): only the requested organization may
+		// scope a verdict or a write; a response that names another (or no)
+		// organization is not that organization.
+		if len(orgs) != 1 || !sameID(orgs[0].ID, ref) {
+			return jaRes{}, fmt.Errorf("organization %s: the response does not identify that organization (got id %q)", ref, humanText(orgs[0].ID))
 		}
 		return orgs[0], nil
 	}
@@ -256,6 +418,15 @@ func resolveOrg(ctx context.Context, c *client.Client, ref string) (jaRes, error
 		return jaRes{}, err
 	}
 	return matchOrg(orgs, ref)
+}
+
+// sameID reports two ids naming the same resource: equal text, or the same
+// decimal number ("7" and "07"). An empty id matches nothing.
+func sameID(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	return a == b || (isDigits(a) && isDigits(b) && compareDigits(a, b) == 0)
 }
 
 func matchOrg(orgs []jaRes, ref string) (jaRes, error) {
@@ -461,13 +632,41 @@ func validVersionIdents(s string) bool {
 	return true
 }
 
-// isUninstalled covers every uninstall marker the spec documents.
+// isUninstalled covers every uninstall marker the spec documents; it is true
+// only for a readable one (uninstallState).
 func isUninstalled(a jaRes) bool {
+	uninstalled, _ := uninstallState(a)
+	return uninstalled
+}
+
+// uninstallState reads a roaming client's uninstall markers.
+// HAND-FIX(uninstalled-at-must-parse): any non-empty uninstalled_at
+// ("not-a-date", 0) excluded a client from agents stale, agents drift and
+// lists where. uninstalled is true only for status uninstalled /
+// uninstalled_from_client, agent_state uninstalled, or an uninstalled_at
+// that parses as a timestamp. known is false when no marker proves it and
+// uninstalled_at is present but unreadable: such a client is kept (treated
+// as installed) and flagged, never silently excluded.
+func uninstallState(a jaRes) (uninstalled, known bool) {
 	switch a.str("status") {
 	case "uninstalled", "uninstalled_from_client":
-		return true
+		return true, true
 	}
-	return a.str("uninstalled_at") != "" || a.str("agent_state") == "uninstalled"
+	if a.str("agent_state") == "uninstalled" {
+		return true, true
+	}
+	switch v := a.Attrs["uninstalled_at"].(type) {
+	case nil:
+		return false, true
+	case string:
+		if v == "" {
+			return false, true
+		}
+		if _, ok := parseSyncTime(v); ok {
+			return true, true
+		}
+	}
+	return false, false
 }
 
 // orgMembership applies --org (an org id, or a case-insensitive substring of
@@ -478,11 +677,16 @@ func isUninstalled(a jaRes) bool {
 // callers report it instead of filtering it away. With no filter every client
 // matches.
 func orgMembership(a jaRes, netOrg map[string]string, orgByID map[string]jaRes, filter string) (orgID string, match, known bool) {
-	orgID, linked := netOrg[a.relID("network")]
+	// An unreadable site link is unknown membership, never "no site".
+	netID, netKnown := a.relRef("network")
+	linked := false
+	if netID != "" {
+		orgID, linked = netOrg[netID]
+	}
 	if filter == "" {
 		return orgID, true, true
 	}
-	if !linked || orgID == "" {
+	if !netKnown || !linked || orgID == "" {
 		return orgID, false, false
 	}
 	if orgID == filter {
@@ -592,6 +796,12 @@ type incompleteMirrorResult struct {
 		// clients with no assignment of their own whose site is missing from
 		// the mirror: their policy, and so the impact counts, are unknown.
 		UnplacedRoamingClients int `json:"unplaced_roaming_clients,omitempty"`
+		// MissingPolicies (lists where) names policies a site, roaming
+		// client or schedule slot uses that the mirror's policies lack.
+		MissingPolicies []string `json:"missing_policies,omitempty"`
+		// UnreadableAssignments (lists where) counts sites and roaming
+		// clients whose policy, scheduled-policy or site link is unreadable.
+		UnreadableAssignments int `json:"unreadable_assignments,omitempty"`
 	} `json:"meta"`
 	Results any `json:"results"`
 }
@@ -696,14 +906,18 @@ type categoryRef struct {
 }
 
 type deployment struct {
-	Kind              string `json:"kind"` // site or roaming_client
+	// Kind is site, roaming_client (--host), or roaming_clients: the org's
+	// roaming clients that share one assignment of their own (no --host).
+	Kind              string `json:"kind"`
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	PolicyID          string `json:"policy_id"`
 	PolicyName        string `json:"policy_name"`
 	Via               string `json:"via"`
 	ScheduledPolicyID string `json:"scheduled_policy_id,omitempty"`
-	NetworkID         string `json:"-"`
+	// Clients counts the roaming clients a roaming_clients row stands for.
+	Clients   int    `json:"clients,omitempty"`
+	NetworkID string `json:"-"`
 }
 
 type blockContext struct {
@@ -715,8 +929,11 @@ type blockContext struct {
 	// categories" cannot be trusted.
 	CategoriesKnown bool
 	Policies        map[string]jaRes
-	Deployments     []deployment
-	Notes           []string
+	// Listed holds the ids the org-scoped policy list returned (Policies
+	// also caches policies read one by one, e.g. from a query-log hit).
+	Listed      map[string]bool
+	Deployments []deployment
+	Notes       []string
 	// Gaps name reasons the deployment set may be missing sites (a capped
 	// site scan, sites with no organization link); each is also a note, and
 	// any gap rules out an all-clear.
@@ -735,7 +952,7 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 	if err != nil {
 		return nil, err
 	}
-	bc := &blockContext{FQDN: normalizeDomain(fqdn), Org: orgRef{ID: org.ID, Name: org.str("name")}, Policies: map[string]jaRes{}, Notes: []string{attributionNote}}
+	bc := &blockContext{FQDN: normalizeDomain(fqdn), Org: orgRef{ID: org.ID, Name: org.str("name")}, Policies: map[string]jaRes{}, Listed: map[string]bool{}, Notes: []string{attributionNote}}
 
 	policies, _, err := fetchAllPages(ctx, c, "/v1/policies/all", map[string]string{"organization_id": org.ID, "include_global_policies": "true"}, 0)
 	if err != nil {
@@ -743,6 +960,9 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 	}
 	for _, p := range policies {
 		bc.Policies[p.ID] = p
+		if p.ID != "" {
+			bc.Listed[p.ID] = true
+		}
 	}
 
 	networks, truncated, err := fetchAllPages(ctx, c, "/v1/networks/all", nil, maxPages)
@@ -782,9 +1002,11 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 			if name == "" {
 				name = a.str("hostname")
 			}
-			d := deployment{Kind: "roaming_client", ID: a.ID, Name: name, PolicyID: a.relID("policy"), ScheduledPolicyID: a.relID("scheduled_policy"), NetworkID: a.relID("network"), Via: "roaming client policy"}
-			// A client with no own assignment inherits its site's policy or schedule.
-			if d.PolicyID == "" && d.ScheduledPolicyID == "" {
+			d := deployment{Kind: "roaming_client", ID: a.ID, Name: name, NetworkID: a.relID("network"), Via: "roaming client policy"}
+			own := assignmentOf(a, &d, "roaming client's")
+			// A client with no own assignment inherits its site's policy or
+			// schedule; an unreadable own assignment never falls back.
+			if own == assignmentNone {
 				site, ok := sites[d.NetworkID]
 				if !ok && d.NetworkID != "" {
 					if raw, err := c.GetNoCache(ctx, "/v1/networks/"+url.PathEscape(d.NetworkID), nil); err == nil {
@@ -795,8 +1017,10 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 					}
 				}
 				if ok {
-					d.PolicyID, d.ScheduledPolicyID = site.relID("policy"), site.relID("scheduled_policy")
 					d.Via = fmt.Sprintf("inherited from site %q", site.str("name"))
+					if assignmentOf(site, &d, "") == assignmentUnknown {
+						d.Via += ", whose policy assignment is unreadable"
+					}
 				}
 			}
 			bc.Deployments = append(bc.Deployments, d)
@@ -807,8 +1031,11 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 	} else {
 		for _, id := range sortedKeys(sites) {
 			n := sites[id]
-			bc.Deployments = append(bc.Deployments, deployment{Kind: "site", ID: n.ID, Name: n.str("name"), PolicyID: n.relID("policy"), ScheduledPolicyID: n.relID("scheduled_policy"), NetworkID: n.ID, Via: "site policy"})
+			d := deployment{Kind: "site", ID: n.ID, Name: n.str("name"), NetworkID: n.ID, Via: "site policy"}
+			assignmentOf(n, &d, "site's")
+			bc.Deployments = append(bc.Deployments, d)
 		}
+		addOrgRoamingClients(ctx, c, bc, org.ID, sites, maxPages)
 		if len(bc.Deployments) == 0 {
 			bc.Notes = append(bc.Notes, "no sites found for this organization; pass --host to check a roaming client")
 		}
@@ -862,6 +1089,117 @@ func resolveBlockContext(ctx context.Context, c *client.Client, fqdn, orgRefStr,
 	return bc, nil
 }
 
+type assignmentKind int
+
+const (
+	assignmentNone    assignmentKind = iota // no policy or scheduled policy of its own
+	assignmentSet                           // a readable policy and/or scheduled policy
+	assignmentUnknown                       // a relationship that is present but unreadable
+)
+
+// assignmentOf copies r's policy and scheduled-policy relationships into d.
+// HAND-FIX(novel-relationship-linkage-unknown): an unreadable one leaves d
+// with no policy, so its verdict is unknown, and (when whose is set) says so
+// in Via; it never reads as "no assignment", which would fall back to a
+// direct policy or the site's.
+func assignmentOf(r jaRes, d *deployment, whose string) assignmentKind {
+	pol, polKnown := r.relRef("policy")
+	sched, schedKnown := r.relRef("scheduled_policy")
+	if !polKnown || !schedKnown {
+		d.PolicyID, d.ScheduledPolicyID = "", ""
+		if whose != "" {
+			d.Via = whose + " policy assignment is unreadable"
+		}
+		return assignmentUnknown
+	}
+	d.PolicyID, d.ScheduledPolicyID = pol, sched
+	if pol == "" && sched == "" {
+		return assignmentNone
+	}
+	return assignmentSet
+}
+
+// addOrgRoamingClients adds, without --host, the org's roaming clients that
+// carry an assignment of their own. HAND-FIX(why-blocked-org-roaming-clients):
+// only sites were evaluated, so a roaming client whose own policy or
+// scheduled policy (which outranks its site's) blocks the domain was never
+// examined and not_blocked was certified. The org's roaming clients are
+// listed (bounded by --max-scan-pages); those on one of the org's sites with
+// an assignment of their own become one roaming_clients deployment per
+// distinct assignment (an unreadable assignment is its own row with no
+// policy, so its verdict is unknown). A client inheriting its site's
+// assignment is covered by that site's row. A failed or capped scan, and a
+// client whose site cannot be read, are gaps.
+func addOrgRoamingClients(ctx context.Context, c *client.Client, bc *blockContext, orgID string, sites map[string]jaRes, maxPages int) {
+	agents, truncated, err := fetchAllPages(ctx, c, "/v1/user_agents/all", map[string]string{"organization_id": orgID}, maxPages)
+	if err != nil {
+		bc.Notes = append(bc.Notes, fmt.Sprintf("roaming clients could not be listed (%v), so no roaming client's own policy assignment was evaluated; pass --host to check one", err))
+		bc.Gaps = append(bc.Gaps, "roaming clients not listed")
+		return
+	}
+	if truncated {
+		bc.Notes = append(bc.Notes, fmt.Sprintf("roaming-client scan stopped at --max-scan-pages=%d; a roaming client beyond it may carry its own policy assignment; raise it or pass --host", maxPages))
+		bc.Gaps = append(bc.Gaps, "roaming-client scan capped")
+	}
+	type group struct {
+		d     deployment
+		names []string
+	}
+	groups := map[string]*group{}
+	unplaced := 0
+	for _, a := range agents {
+		if isUninstalled(a) {
+			continue
+		}
+		netID, netKnown := a.relRef("network")
+		if !netKnown || netID == "" {
+			unplaced++
+			continue
+		}
+		if _, onSite := sites[netID]; !onSite {
+			// Not on a site this org's scan verified (a capped scan or an
+			// unlinked site is already a gap).
+			continue
+		}
+		d := deployment{Kind: "roaming_clients", Via: "roaming clients' own policy"}
+		kind := assignmentOf(a, &d, "roaming clients'")
+		if kind == assignmentNone {
+			continue
+		}
+		key := d.PolicyID + "|" + d.ScheduledPolicyID
+		if kind == assignmentUnknown {
+			key = "?"
+		}
+		g := groups[key]
+		if g == nil {
+			g = &group{d: d}
+			groups[key] = g
+		}
+		name := a.str("friendly_name")
+		if name == "" {
+			name = a.str("hostname")
+		}
+		if name == "" {
+			name = a.ID
+		}
+		g.d.Clients++
+		g.names = append(g.names, name)
+	}
+	for _, key := range sortedKeys(groups) {
+		g := groups[key]
+		shown := g.names[:min(3, len(g.names))]
+		g.d.Name = strings.Join(shown, ", ")
+		if len(g.names) > len(shown) {
+			g.d.Name += fmt.Sprintf(" and %d more", len(g.names)-len(shown))
+		}
+		bc.Deployments = append(bc.Deployments, g.d)
+	}
+	if unplaced > 0 {
+		bc.Notes = append(bc.Notes, fmt.Sprintf("%d roaming clients name no readable site, so their policy was not evaluated; pass --host to check one", unplaced))
+		bc.Gaps = append(bc.Gaps, "roaming clients without a readable site")
+	}
+}
+
 // rejectExtraArgs refuses positional arguments beyond max. A boolean flag
 // followed by a separate value (`--confirm false`) parses as the flag plus a
 // stray positional; silently ignoring it would turn "false" into true.
@@ -881,8 +1219,11 @@ func resolveHost(ctx context.Context, c *client.Client, orgID, host string, site
 	// directly when it is not among the scanned ones. known is false when the
 	// site could not be read, which is never treated as "not in the org".
 	siteInOrg := func(a jaRes) (in, known bool) {
-		netID := a.relID("network")
-		if _, ok := sites[netID]; ok {
+		netID, netKnown := a.relRef("network")
+		if !netKnown {
+			return false, false // an unreadable site link is unknown, not "no site"
+		}
+		if _, ok := sites[netID]; ok && netID != "" {
 			return true, true
 		}
 		if netID == "" {
@@ -1144,40 +1485,124 @@ func lookupRecordHost(l jaRes) string {
 
 // fetchBlockedHits returns every recent query-log hit for exactly fqdn within
 // the page cap (callers trim for display; attribution uses them all),
-// optionally scoped to roaming clients. complete is false when the cap stopped
-// the walk before a short page proved the log exhausted.
-func fetchBlockedHits(ctx context.Context, c *client.Client, orgID, fqdn string, agentIDs []string, since time.Duration, now time.Time) (hits []queryLogHit, complete bool, err error) {
+// optionally scoped to roaming clients. gap is "" only when the scan proved
+// the log exhausted; otherwise it says why the attribution is incomplete (the
+// cap stopped the walk, or entries carry no readable fqdn).
+// HAND-FIX(novel-walk-follows-continuation): a short page ended the scan even
+// when data.page named a next page or cursor. HAND-FIX(query-log-unreadable-fqdn):
+// an entry with a null, missing or mistyped fqdn was dropped as a non-match,
+// and the log was certified complete.
+func fetchBlockedHits(ctx context.Context, c *client.Client, orgID, fqdn string, agentIDs []string, since time.Duration, now time.Time) (hits []queryLogHit, gap string, err error) {
 	hits = make([]queryLogHit, 0)
+	pageParams := map[string]string{"page[number]": "1"}
+	unreadable := 0
+	unreadableGap := func() string {
+		if unreadable == 0 {
+			return ""
+		}
+		return fmt.Sprintf("%d query-log entries carry no readable fqdn, so they cannot be ruled out as blocks of %s", unreadable, fqdn)
+	}
 	for page := 1; page <= queryLogScanPages; page++ {
 		params := map[string]string{
 			"organization_id": orgID,
 			"fqdn":            fqdn,
 			"result":          "blocked",
 			"from":            now.Add(-since).UTC().Format("2006-01-02T15:04:05Z"),
-			"page[number]":    strconv.Itoa(page),
 			"page[size]":      strconv.Itoa(dnsfilterPageSize),
+		}
+		for k, v := range pageParams {
+			params[k] = v
 		}
 		if len(agentIDs) > 0 {
 			params["agent_ids"] = strings.Join(agentIDs, ",")
 		}
 		raw, err := c.GetNoCache(ctx, "/v1/traffic_reports/query_logs", params)
 		if err != nil {
-			return hits, false, err
+			return hits, "", err
 		}
 		batch, err := parseQueryLogHits(raw)
 		if err != nil {
-			return hits, false, fmt.Errorf("query log: %w", err)
+			return hits, "", fmt.Errorf("query log: %w", err)
 		}
 		for _, h := range batch {
-			if normalizeDomain(h.FQDN) == fqdn {
+			switch {
+			case h.fqdnUnreadable:
+				unreadable++
+			case normalizeDomain(h.FQDN) == fqdn:
 				hits = append(hits, h)
 			}
 		}
-		if len(batch) < dnsfilterPageSize {
-			return hits, true, nil
+		next, more, err := queryLogContinuation(raw, page)
+		if err != nil {
+			return hits, "", fmt.Errorf("query log: page %d: %w", page, err)
+		}
+		if !more {
+			if len(batch) < dnsfilterPageSize {
+				return hits, unreadableGap(), nil
+			}
+			next = map[string]string{"page[number]": strconv.Itoa(page + 1)}
+		}
+		if maps.Equal(next, pageParams) {
+			return hits, "", fmt.Errorf("query log: page %d names itself as the next page, so the scan cannot advance", page)
+		}
+		pageParams = next
+	}
+	gap = fmt.Sprintf("query-log scan stopped after %d pages; older hits may name other blocking policies", queryLogScanPages)
+	if u := unreadableGap(); u != "" {
+		gap += "; " + u
+	}
+	return hits, gap, nil
+}
+
+// queryLogContinuation reads where the next query-log page starts: the
+// spec's data.page (next page number, or a cursor and cursor_offset), or the
+// list continuations listPageContinuation reads. A continuation the scan
+// cannot follow is an error.
+func queryLogContinuation(raw json.RawMessage, page int) (next map[string]string, more bool, err error) {
+	var env struct {
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(raw, &env) != nil {
+		return nil, false, fmt.Errorf("response has no data object")
+	}
+	if rawPage, ok := env.Data["page"]; ok && !rawJSONNull(rawPage) {
+		var pg map[string]any
+		if json.Unmarshal(rawPage, &pg) != nil {
+			return nil, true, fmt.Errorf("data.page is not an object, so the continuation is unknown")
+		}
+		if v, ok := pg["cursor"]; ok && v != nil {
+			cursor, isStr := v.(string)
+			if !isStr {
+				return nil, true, fmt.Errorf("data.page.cursor is not a string, so the continuation is unknown")
+			}
+			if cursor != "" {
+				next = map[string]string{"page[cursor]": cursor}
+				if off, ok := pg["cursor_offset"]; ok && off != nil {
+					s := idString(off)
+					if s == "" {
+						return nil, true, fmt.Errorf("data.page.cursor_offset is not a whole number, so the continuation is unknown")
+					}
+					next["page[cursor_offset]"] = s
+				}
+				return next, true, nil
+			}
+		}
+		if v, ok := pg["next"]; ok && v != nil {
+			n, convErr := strconv.Atoi(idString(v))
+			switch {
+			case convErr != nil:
+				return nil, true, fmt.Errorf("data.page.next is not a page number, so the continuation is unknown")
+			case n != page+1:
+				return nil, true, fmt.Errorf("data.page.next names page %d after page %d", n, page)
+			}
+			return map[string]string{"page[number]": strconv.Itoa(n)}, true, nil
 		}
 	}
-	return hits, false, nil
+	n, more, err := listPageContinuation(raw, page)
+	if err != nil || !more {
+		return nil, more, err
+	}
+	return map[string]string{"page[number]": strconv.Itoa(n)}, true, nil
 }
 
 type verdict struct {
@@ -1236,51 +1661,79 @@ func evaluateLists(fqdn string, policy jaRes, cats []categoryRef, categoriesKnow
 	unreadable := func(attr string) verdict {
 		return verdict{"unknown", "policy_attribute_unavailable", fmt.Sprintf("policy %q does not carry a readable %s, so the rules from it on cannot be evaluated", policy.str("name"), attr)}
 	}
+	// HAND-FIX(evaluate-policy-unknown-attribute-agreement): the verdict was
+	// unknown at the first unreadable attribute even when every value of it
+	// gives the same one (a block-list entry blocks whether or not
+	// allow_list_only is set). either evaluates the rest of the chain, the
+	// outcome when the attribute does not decide; when that agrees with
+	// decided, the outcome when it does, the verdict stands.
+	either := func(attr string, decided verdict, rest func() verdict) verdict {
+		v := rest()
+		if v.Decision == decided.Decision && v.Decision != "unknown" {
+			v.Detail += fmt.Sprintf(" (%s is unreadable, but every value of it gives this verdict)", attr)
+			return v
+		}
+		return unreadable(attr)
+	}
+	categoryRules := func() verdict {
+		blockedCats, catsKnown := policy.idsKnown("blacklist_categories")
+		blocked := map[string]bool{}
+		for _, id := range blockedCats {
+			blocked[id] = true
+		}
+		for _, cat := range cats {
+			if blocked[cat.ID] {
+				return verdict{"blocked", "category", fmt.Sprintf("category %q (%s) is blocked by policy %q", cat.Name, cat.ID, policy.str("name"))}
+			}
+		}
+		if !catsKnown && len(cats) > 0 {
+			return unreadable("blacklist_categories")
+		}
+		return verdict{"allowed", "no_matching_rule", fmt.Sprintf("no list entry or blocked category in policy %q matches", policy.str("name"))}
+	}
+	uncategorizedRules := func() verdict {
+		if !categoriesKnown {
+			return verdict{"unknown", "categorization_unavailable", fmt.Sprintf("no list entry in policy %q matches and the domain's categories could not be read", policy.str("name"))}
+		}
+		if len(cats) == 0 {
+			blocksUnknown := verdict{"blocked", "uncategorized", fmt.Sprintf("domain has no category and policy %q blocks unknown domains", policy.str("name"))}
+			allowUnknown, known := policy.boolKnown("allow_unknown_domains")
+			if !known {
+				return either("allow_unknown_domains", blocksUnknown, categoryRules)
+			}
+			if !allowUnknown {
+				return blocksUnknown
+			}
+		}
+		return categoryRules()
+	}
+	blockListRules := func() verdict {
+		blockList, blockKnown := policy.strsKnown("blacklist_domains")
+		if e := listed(blockList, blockParents); e != "" {
+			return verdict{"blocked", "block_list", fmt.Sprintf("%q on policy %q", e, policy.str("name"))}
+		}
+		if !blockKnown {
+			return either("blacklist_domains", verdict{Decision: "blocked"}, uncategorizedRules)
+		}
+		return uncategorizedRules()
+	}
+	allowListOnlyRules := func() verdict {
+		onlyAllowList := verdict{"blocked", "allow_list_only", fmt.Sprintf("policy %q only allows allow-listed domains", policy.str("name"))}
+		listOnly, listOnlyKnown := policy.boolKnown("allow_list_only")
+		if !listOnlyKnown {
+			return either("allow_list_only", onlyAllowList, blockListRules)
+		}
+		if listOnly {
+			return onlyAllowList
+		}
+		return blockListRules()
+	}
 	allowList, allowKnown := policy.strsKnown("whitelist_domains")
 	if e := listed(allowList, allowParents); e != "" {
 		return verdict{"allowed", "allow_list", fmt.Sprintf("%q on policy %q", e, policy.str("name"))}
 	}
 	if !allowKnown {
-		return unreadable("whitelist_domains")
+		return either("whitelist_domains", verdict{Decision: "allowed"}, allowListOnlyRules)
 	}
-	listOnly, listOnlyKnown := policy.boolKnown("allow_list_only")
-	if !listOnlyKnown {
-		return unreadable("allow_list_only")
-	}
-	if listOnly {
-		return verdict{"blocked", "allow_list_only", fmt.Sprintf("policy %q only allows allow-listed domains", policy.str("name"))}
-	}
-	blockList, blockKnown := policy.strsKnown("blacklist_domains")
-	if e := listed(blockList, blockParents); e != "" {
-		return verdict{"blocked", "block_list", fmt.Sprintf("%q on policy %q", e, policy.str("name"))}
-	}
-	if !blockKnown {
-		return unreadable("blacklist_domains")
-	}
-	if !categoriesKnown {
-		return verdict{"unknown", "categorization_unavailable", fmt.Sprintf("no list entry in policy %q matches and the domain's categories could not be read", policy.str("name"))}
-	}
-	if len(cats) == 0 {
-		allowUnknown, known := policy.boolKnown("allow_unknown_domains")
-		if !known {
-			return unreadable("allow_unknown_domains")
-		}
-		if !allowUnknown {
-			return verdict{"blocked", "uncategorized", fmt.Sprintf("domain has no category and policy %q blocks unknown domains", policy.str("name"))}
-		}
-	}
-	blockedCats, catsKnown := policy.strsKnown("blacklist_categories")
-	blocked := map[string]bool{}
-	for _, id := range blockedCats {
-		blocked[id] = true
-	}
-	for _, cat := range cats {
-		if blocked[cat.ID] {
-			return verdict{"blocked", "category", fmt.Sprintf("category %q (%s) is blocked by policy %q", cat.Name, cat.ID, policy.str("name"))}
-		}
-	}
-	if !catsKnown && len(cats) > 0 {
-		return unreadable("blacklist_categories")
-	}
-	return verdict{"allowed", "no_matching_rule", fmt.Sprintf("no list entry or blocked category in policy %q matches", policy.str("name"))}
+	return allowListOnlyRules()
 }

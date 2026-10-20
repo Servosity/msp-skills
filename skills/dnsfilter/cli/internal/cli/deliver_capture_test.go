@@ -49,6 +49,12 @@ func executeArgs(t *testing.T, args ...string) (string, string, error) {
 func TestDeliverCapturesEveryWriter(t *testing.T) {
 	home := testenv.Isolate(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A list endpoint answers with a list (tail refuses a list response
+		// whose collection is not one); the show endpoint with one object.
+		if strings.HasSuffix(r.URL.Path, "/all") {
+			fmt.Fprint(w, `{"data":[{"id":"1","attributes":{"name":"Acme Dental"}}]}`)
+			return
+		}
 		fmt.Fprint(w, `{"data":{"id":"1","attributes":{"name":"Acme Dental"}}}`)
 	}))
 	t.Cleanup(srv.Close)

@@ -461,7 +461,10 @@ func TestListsWhereScheduleReplacesDirectPolicy(t *testing.T) {
 	seedMirror(t, db, map[string][]string{
 		"organizations": {mirrorOrg},
 		"policies": {mirrorPolicy,
-			`{"id":"20","attributes":{"name":"Sched","is_global_policy":false,"whitelist_domains":["example.com"],"blacklist_domains":[]},"relationships":{"organization":{"data":{"id":"1"}}}}`},
+			`{"id":"20","attributes":{"name":"Sched","is_global_policy":false,"whitelist_domains":["example.com"],"blacklist_domains":[]},"relationships":{"organization":{"data":{"id":"1"}}}}`,
+			// Round 18: site 51's policy must be in the mirror, or lists where
+			// cannot rule the domain out of it (missing_policies).
+			`{"id":"11","attributes":{"name":"Annex","is_global_policy":false,"whitelist_domains":[],"blacklist_domains":[]},"relationships":{"organization":{"data":{"id":"1"}}}}`},
 		"scheduled-policies": {`{"id":"8","attributes":{"name":"Always 20","timezone":"UTC","policy_ids":` + scheduleSlots(20, 20) + `}}`},
 		"networks": {`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"10"}},"policies":{"data":[{"id":"10"}]},"scheduled_policy":{"data":{"id":"8"}}}}`,
 			`{"id":"51","attributes":{"name":"Annex"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"11"}},"policies":{"data":[{"id":"10"}]}}}`},

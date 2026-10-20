@@ -51,7 +51,7 @@ func newNovelUnblocksTriageCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to diagnose a block reported by phone or ticket with no unblock request; use 'why-blocked' instead.
 Do NOT use this command to apply an allow; use 'allow' instead.
 
-Coverage comes from each request's already_covered field (policy list or org/MSP Universal Allow List, evaluated by DNSFilter at call time), read for up to --max-coverage-checks requests. Requests with no domain are grouped under an empty domain ((unknown domain) in the table) whose hint is always review. Hints follow a fixed rule: threat category -> deny; any request whose threat status is missing (threat_unknown) -> review; every request in the group confirmed covered by its own coverage record -> resolve-already-allowed; otherwise review. A queue page with no readable request list is an error, never an empty queue. The unblock queue only has data when the account has unblock requests enabled. Apply a decision with 'unblock-requests decision unblock-requests <id> --decision <allow|deny|resolve-already-allowed>'.`,
+Coverage comes from each request's already_covered field (policy list or org/MSP Universal Allow List, evaluated by DNSFilter at call time), read for up to --max-coverage-checks requests. Requests with no domain (or a domain that is not a string) are grouped under an empty domain ((unknown domain) in the table) whose hint is always review. Hints follow a fixed rule: threat category -> deny; any request whose threat status is missing (threat_unknown) -> review; every request in the group confirmed covered by its own coverage record -> resolve-already-allowed; otherwise review. A queue page with no readable request list is an error, never an empty queue. The unblock queue only has data when the account has unblock requests enabled. Apply a decision with 'unblock-requests decision unblock-requests <id> --decision <allow|deny|resolve-already-allowed>'.`,
 		Example: strings.Trim(`
   dnsfilter-cli unblocks triage --agent
   dnsfilter-cli unblocks triage --org 'Acme Dental'`, "\n"),
@@ -168,6 +168,8 @@ func groupUnblockRequests(requests []jaRes, coverage map[string]map[string]any, 
 		// HAND-FIX(unblocks-triage-unknown-domain-not-dropped): a pending
 		// request with no usable domain is still pending; it groups under
 		// the empty domain (hint review), never vanishes into an all-clear.
+		// str() reads only a JSON string (novel-strict-ids), so a mistyped
+		// domain such as 4821 joins that group instead of becoming "4821".
 		domain := normalizeDomain(r.str("domain"))
 		g := groups[domain]
 		if g == nil {

@@ -341,7 +341,8 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 	baseUnknown := make([]string, 0)
 	if baseline != nil {
 		var ok bool
-		if baseBlocked, ok = baseline.strsKnown("blacklist_categories"); !ok {
+		// blacklist_categories holds ids: a fractional 60.9 is unreadable, never category 60.
+		if baseBlocked, ok = baseline.idsKnown("blacklist_categories"); !ok {
 			baseUnknown = append(baseUnknown, "blacklist_categories")
 		}
 		for _, f := range baselineFlags {
@@ -355,7 +356,7 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 	}
 	for _, p := range policies {
 		add := func(kind, sev, detail string) {
-			out = append(out, auditFinding{PolicyID: p.ID, PolicyName: p.str("name"), OrgID: p.str("organization_id"), IsGlobal: p.boolean("is_global_policy"), Kind: kind, Severity: sev, Detail: detail})
+			out = append(out, auditFinding{PolicyID: p.ID, PolicyName: p.str("name"), OrgID: p.idAttr("organization_id"), IsGlobal: p.boolean("is_global_policy"), Kind: kind, Severity: sev, Detail: detail})
 		}
 		unknown := make([]string, 0)
 		allowList, ok := p.strsKnown("whitelist_domains")
@@ -370,7 +371,7 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 				}
 			}
 		}
-		blockedList, blockedKnown := p.strsKnown("blacklist_categories")
+		blockedList, blockedKnown := p.idsKnown("blacklist_categories")
 		if !blockedKnown {
 			unknown = append(unknown, "blacklist_categories")
 		}
@@ -436,7 +437,7 @@ func auditPolicies(policies, cats []jaRes, domainCats map[string][]string, basel
 		}
 	}
 	if len(baseUnknown) > 0 {
-		out = append(out, auditFinding{PolicyID: baseline.ID, PolicyName: baseline.str("name"), OrgID: baseline.str("organization_id"), IsGlobal: baseline.boolean("is_global_policy"), Kind: "baseline_attributes_unknown", Severity: "medium", Detail: fmt.Sprintf("the --baseline policy has absent, null or unreadable %s; drift on them was not compared", strings.Join(baseUnknown, ", "))})
+		out = append(out, auditFinding{PolicyID: baseline.ID, PolicyName: baseline.str("name"), OrgID: baseline.idAttr("organization_id"), IsGlobal: baseline.boolean("is_global_policy"), Kind: "baseline_attributes_unknown", Severity: "medium", Detail: fmt.Sprintf("the --baseline policy has absent, null or unreadable %s; drift on them was not compared", strings.Join(baseUnknown, ", "))})
 	}
 	rank := map[string]int{"high": 0, "medium": 1, "info": 2}
 	sort.SliceStable(out, func(i, j int) bool { return rank[out[i].Severity] < rank[out[j].Severity] })

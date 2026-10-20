@@ -26,9 +26,12 @@ type driftOrgRow struct {
 	// MembershipUnknown counts clients --org could neither match nor rule
 	// out (site or org missing from the mirror); they are grouped under
 	// "(org membership unknown)".
-	MembershipUnknown int      `json:"membership_unknown"`
-	BehindVersions    []string `json:"behind_versions"`
-	SampleHosts       []string `json:"sample_hosts"`
+	MembershipUnknown int `json:"membership_unknown"`
+	// TypeUnknown counts clients --agent-type could neither match nor rule
+	// out (agent_type absent, null or not a string); they are not compared.
+	TypeUnknown    int      `json:"type_unknown"`
+	BehindVersions []string `json:"behind_versions"`
+	SampleHosts    []string `json:"sample_hosts"`
 }
 
 type driftView struct {
@@ -59,7 +62,7 @@ func newNovelAgentsDriftCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for roaming-client agent version questions (who is behind the latest release, who is on a specific bad version) across every client org.
 Do NOT use this command for roaming clients that stopped checking in or lost protection; use 'agents stale' instead.
 
-The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first); the release feed is read live on every run, because the vendor publishes it as a current "latest per agent type, architecture, channel and white label" snapshot and a mirrored copy would keep withdrawn releases after a rollback. Latest is the highest non-white-label release in the chosen channel (default stable) per agent type, across architectures; an in-channel release whose version cannot be compared makes that type's latest unknown, and a client version that cannot be compared (e.g. "999unknown") counts as version_unknown, never current. Roaming clients map to an org through their site (network); with --org, a client whose site or org is missing from the mirror is counted under (org membership unknown) as membership_unknown instead of being dropped. --data-source local and live are both rejected: the fleet is always the local mirror and the release feed is always live.`,
+The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first); the release feed is read live on every run, because the vendor publishes it as a current "latest per agent type, architecture, channel and white label" snapshot and a mirrored copy would keep withdrawn releases after a rollback. Latest is the highest non-white-label release in the chosen channel (default stable) per agent type, across architectures; an in-channel release whose version cannot be compared, or a release whose release_channels cannot be read and that could be newer, makes that type's latest unknown, and a client version that cannot be compared (e.g. "999unknown", or a number instead of a string) counts as version_unknown, never current. With --agent-type, a client whose agent_type cannot be read is counted as type_unknown, never dropped. Roaming clients map to an org through their site (network); with --org, a client whose site or org is missing from the mirror is counted under (org membership unknown) as membership_unknown instead of being dropped. --data-source local and live are both rejected: the fleet is always the local mirror and the release feed is always live.`,
 		Example: strings.Trim(`
   dnsfilter-cli agents drift --agent
   dnsfilter-cli agents drift --bad-version 3.1.0 --agent-type windows`, "\n"),
@@ -161,6 +164,9 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				if r.MembershipUnknown > 0 {
 					fmt.Fprintf(w, " membership-unknown=%d", r.MembershipUnknown)
 				}
+				if r.TypeUnknown > 0 {
+					fmt.Fprintf(w, " type-unknown=%d", r.TypeUnknown)
+				}
 				fmt.Fprintln(w)
 			}
 			if view.Note != "" {
@@ -245,9 +251,15 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 	// release whose version cannot be ordered could be the latest one, so its
 	// agent type has no known latest release.
 	incomparable := map[string]bool{}
+	// HAND-FIX(agents-drift-unknown-release-channel): a release whose
+	// release_channels holds an unreadable entry was read as outside the
+	// channel. Its versions are kept per agent type, and once latest is known
+	// one that could be newer makes that type's latest unknown.
+	channelUnknown := map[string][]string{}
 	for _, r := range releases {
 		inChannel := false
-		for _, ch := range releaseChannels(r) {
+		channels, channelsKnown := releaseChannels(r)
+		for _, ch := range channels {
 			if ch == view.Channel {
 				inChannel = true
 			}
@@ -258,6 +270,10 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		if r.boolean("white_label") {
 			continue
 		}
+		if !inChannel && !channelsKnown && t != "" {
+			channelUnknown[t] = append(channelUnknown[t], r.str("agent_version"))
+			continue
+		}
 		if inChannel && t != "" && !isComparableVersion(r.str("agent_version")) {
 			incomparable[t] = true
 			continue
@@ -265,6 +281,17 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		if inChannel && t != "" && compareSemver(r.str("agent_version"), view.Latest[t]) > 0 {
 			view.Latest[t] = r.str("agent_version")
 		}
+	}
+	unknownChannelTypes := map[string]bool{}
+	for t, versions := range channelUnknown {
+		for _, v := range versions {
+			if !isComparableVersion(v) || view.Latest[t] == "" || compareSemver(v, view.Latest[t]) > 0 {
+				unknownChannelTypes[t] = true
+			}
+		}
+	}
+	for t := range unknownChannelTypes {
+		delete(view.Latest, t)
 	}
 	for t := range incomparable {
 		delete(view.Latest, t)
@@ -277,8 +304,11 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		if isUninstalled(a) {
 			continue
 		}
-		t := strings.ToLower(a.str("agent_type"))
-		if o.AgentType != "" && t != strings.ToLower(o.AgentType) {
+		// HAND-FIX(agents-drift-unknown-agent-type): --agent-type dropped a
+		// client whose agent_type is unreadable; it is counted as type_unknown.
+		t, typeKnown := a.strKnown("agent_type")
+		t = strings.ToLower(t)
+		if o.AgentType != "" && typeKnown && t != strings.ToLower(o.AgentType) {
 			continue
 		}
 		orgID, match, known := orgMembership(a, netOrg, orgByID, o.Org)
@@ -311,6 +341,11 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 		if !known {
 			row.MembershipUnknown++
 		}
+		if o.AgentType != "" && !typeKnown {
+			row.TypeUnknown++
+			continue
+		}
+		// agent_version must be a JSON string: str() never turns 999 into "999".
 		ver := a.str("agent_version")
 		if ver == "" || !isComparableVersion(ver) {
 			row.VersionUnknown++
@@ -337,7 +372,7 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 	for _, r := range rows {
 		// Orgs whose clients have no known latest release (an agent type the
 		// feed does not list) are reported too, so coverage gaps stay visible.
-		if r.BehindLatest > 0 || r.OnBadVersion > 0 || r.UnknownLatest > 0 || r.VersionUnknown > 0 || r.MembershipUnknown > 0 {
+		if r.BehindLatest > 0 || r.OnBadVersion > 0 || r.UnknownLatest > 0 || r.VersionUnknown > 0 || r.MembershipUnknown > 0 || r.TypeUnknown > 0 {
 			sort.Slice(r.BehindVersions, func(i, j int) bool { return compareSemver(r.BehindVersions[i], r.BehindVersions[j]) < 0 })
 			view.Orgs = append(view.Orgs, *r)
 		}
@@ -355,10 +390,25 @@ func computeDrift(agents, releases, networks, orgs []jaRes, o driftOptions) drif
 	switch {
 	case len(incomparable) > 0:
 		view.Note = fmt.Sprintf("the release feed lists an agent_version that cannot be compared for agent type(s) %s in channel %s, so their latest release is unknown", strings.Join(sortedKeys(incomparable), ", "), view.Channel)
-	case len(view.Latest) == 0:
+	case len(view.Latest) == 0 && len(unknownChannelTypes) == 0:
 		view.Note = "the release feed lists no non-white-label release for channel " + view.Channel
 	}
+	if len(unknownChannelTypes) > 0 {
+		view.Note = joinNotes(view.Note, fmt.Sprintf("The release feed lists a release for agent type(s) %s whose release_channels cannot be read and that could be newer, so their latest release in channel %s is unknown.", strings.Join(sortedKeys(unknownChannelTypes), ", "), view.Channel))
+	}
+	if n := driftTypeUnknown(view.Orgs); n > 0 {
+		view.Note = joinNotes(view.Note, fmt.Sprintf("%d roaming client(s) report no readable agent_type, so --agent-type %q can neither match nor rule them out; they are counted as type_unknown and not compared.", n, o.AgentType))
+	}
 	return view
+}
+
+// driftTypeUnknown totals the clients --agent-type could not place.
+func driftTypeUnknown(rows []driftOrgRow) int {
+	n := 0
+	for _, r := range rows {
+		n += r.TypeUnknown
+	}
+	return n
 }
 
 // driftMembershipUnknown totals the clients --org could not place.
@@ -370,19 +420,29 @@ func driftMembershipUnknown(rows []driftOrgRow) int {
 	return n
 }
 
-// releaseChannels returns the channel values a release is published to.
-func releaseChannels(r jaRes) []string {
-	arr, _ := r.Attrs["release_channels"].([]any)
+// releaseChannels returns the channel values a release is published to;
+// known is false when release_channels is not a list or any entry is not a
+// channel object with a non-empty value (or a non-empty string).
+func releaseChannels(r jaRes) (channels []string, known bool) {
+	arr, known := r.Attrs["release_channels"].([]any)
 	out := make([]string, 0, len(arr))
 	for _, it := range arr {
 		switch t := it.(type) {
 		case map[string]any:
 			if v, _ := t["value"].(string); v != "" {
 				out = append(out, strings.ToLower(v))
+			} else {
+				known = false
 			}
 		case string:
-			out = append(out, strings.ToLower(t))
+			if t != "" {
+				out = append(out, strings.ToLower(t))
+			} else {
+				known = false
+			}
+		default:
+			known = false
 		}
 	}
-	return out
+	return out, known
 }

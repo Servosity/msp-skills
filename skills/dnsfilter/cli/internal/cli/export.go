@@ -28,7 +28,14 @@ func newExportCmd(flags *rootFlags) *cobra.Command {
 		Short: "Export data to JSONL or JSON for backup, migration, or analysis",
 		Long: `Export paginated API data to a local file. Supports JSONL (one JSON object
 per line, streaming-friendly) and JSON (array). JSONL is recommended for
-large datasets as it has no memory pressure.`,
+large datasets as it has no memory pressure.
+
+A list page whose collection is null or missing, or that names a next page
+the export cannot follow, fails the export instead of producing a partial
+one; with --output the previous file is kept. The --output file is written
+to a temporary file that must pass the same private-file check as the
+credentials file (exports of networks carry site secret keys) before it
+replaces the destination.`,
 		Example: `  # Export all items as JSONL (streaming, recommended for large datasets)
   dnsfilter-cli export <resource> --format jsonl --output data.jsonl
 
@@ -183,6 +190,12 @@ large datasets as it has no memory pressure.`,
 				}
 				items, nextCursor, hasMore := extractResourcePage(data, config)
 				if items == nil {
+					// HAND-FIX(export-unreadable-collection-refused): a list
+					// response whose collection is null or missing was exported
+					// as one record and replaced the previous backup.
+					if err := exportCollectionUnreadable(data, config); err != nil {
+						return apiErr(fmt.Errorf("export %s page %d: %w; refusing an incomplete export", resource, page+1, err))
+					}
 					items = []json.RawMessage{data}
 				}
 				for _, item := range items {
@@ -198,6 +211,23 @@ large datasets as it has no memory pressure.`,
 					}
 					count++
 				}
+				// HAND-FIX(export-follows-continuation): a short page ended the
+				// export even when it named a next page (links.next), so the
+				// backup silently lost the rest. A continuation is followed; one
+				// the export cannot follow refuses the backup.
+				more := false
+				if (config.paginationType == "" || config.paginationType == "page") && !(limit > 0 && count >= limit) {
+					_, m, cerr := listPageContinuation(data, page+1)
+					switch {
+					case cerr != nil:
+						return apiErr(fmt.Errorf("export %s page %d: %w; refusing an incomplete export", resource, page+1, cerr))
+					case m && config.paginationType == "":
+						return apiErr(fmt.Errorf("export %s: the response names a next page, but this resource's list has no page parameter to follow it; refusing an incomplete export", resource))
+					case m && len(items) == 0:
+						return apiErr(fmt.Errorf("export %s page %d lists no rows but says more follow; refusing an incomplete export", resource, page+1))
+					}
+					more = m
+				}
 
 				if config.paginationType == "" || len(items) == 0 || (limit > 0 && count >= limit) {
 					break
@@ -211,7 +241,7 @@ large datasets as it has no memory pressure.`,
 				if stop {
 					break
 				}
-				if config.limitParam != "" && !hasMore {
+				if config.limitParam != "" && !hasMore && !more {
 					requested, _ := strconv.Atoi(params[config.limitParam])
 					if requested > 0 && len(items) < requested {
 						break
@@ -270,6 +300,46 @@ func withExportListDefaults(resource string, params map[string]string) map[strin
 	return params
 }
 
+// exportCollectionUnreadable says why a response that extractResourcePage
+// found no list in is not a single record to export whole: it is null or a
+// scalar, its declared collection (responsePath) is not a list, or its data
+// member is neither a list nor an object. nil means a record.
+func exportCollectionUnreadable(data json.RawMessage, config resourceReadConfig) error {
+	var v any
+	if json.Unmarshal(data, &v) != nil {
+		return fmt.Errorf("the response is not JSON, so its rows are unknown")
+	}
+	m, isObj := v.(map[string]any)
+	switch {
+	case !isObj:
+		return fmt.Errorf("the response is %s, not a collection, so its rows are unknown", exportJSONKind(v))
+	case config.responsePath != "":
+		return fmt.Errorf("the response carries no %q list, so its rows are unknown", config.responsePath)
+	}
+	if d, ok := m["data"]; ok {
+		if _, isObj := d.(map[string]any); !isObj {
+			return fmt.Errorf("the response's data is %s, not a list or a record, so its rows are unknown", exportJSONKind(d))
+		}
+	}
+	return nil
+}
+
+func exportJSONKind(v any) string {
+	switch v.(type) {
+	case nil:
+		return "null"
+	case string:
+		return "a string"
+	case float64:
+		return "a number"
+	case bool:
+		return "a boolean"
+	case []any:
+		return "a list"
+	}
+	return "an object"
+}
+
 // exportOutput is an --output file being written. HAND-FIX(export-output-atomic-replace):
 // the export goes to a private temp file in the destination's directory and
 // replaces path only on success, so a failed export never truncates the
@@ -294,15 +364,38 @@ func openExportOutput(path string) (*exportOutput, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating output file: %w", err)
 	}
+	// HAND-FIX(export-output-private-file-check): os.CreateTemp's 0600 does
+	// not restrict an inherited Windows ACL, and an export (networks) can
+	// carry site secret keys. The empty temp file must pass the guard the
+	// credentials writer uses before anything is written into it.
+	if err := exportPrivateFileCheck(f.Name()); err != nil {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+		return nil, err
+	}
 	return &exportOutput{file: f, path: path}, nil
 }
 
-// commit closes the temp file and renames it over path.
+// exportPrivateFileCheck runs cliutil.SavedCredentialsPermsCheck on the
+// export's temporary file.
+func exportPrivateFileCheck(tmp string) error {
+	if err := cliutil.SavedCredentialsPermsCheck(tmp); err != nil {
+		return fmt.Errorf("refusing to write the export: its file would be readable by other accounts (%v); exports can carry secrets such as site secret keys, so write it to a directory only you can read", err)
+	}
+	return nil
+}
+
+// commit closes the temp file, checks it is still private, and renames it
+// over path, so an owner-only backup is never replaced by a broader file.
 func (o *exportOutput) commit() error {
 	tmp := o.file.Name()
 	if err := o.file.Close(); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("closing export file: %w", err)
+	}
+	if err := exportPrivateFileCheck(tmp); err != nil {
+		_ = os.Remove(tmp)
+		return err
 	}
 	if err := os.Rename(tmp, o.path); err != nil {
 		_ = os.Remove(tmp)

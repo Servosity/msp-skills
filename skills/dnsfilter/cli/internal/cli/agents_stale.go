@@ -24,6 +24,9 @@ type staleAgent struct {
 	LastSync     string `json:"last_sync"`
 	Reason       string `json:"reason"` // silent, unprotected, bypassed, never_synced, state_unknown, membership_unknown
 	AgeBucket    string `json:"age_bucket"`
+	// UninstallUnknown marks a client whose uninstalled_at is present but
+	// not a readable timestamp: it is kept and checked as installed.
+	UninstallUnknown bool `json:"uninstall_unknown,omitempty"`
 }
 
 // staleCollections is every collection the stale scan joins: clients, their
@@ -46,7 +49,7 @@ func newNovelAgentsStaleCmd(flags *rootFlags) *cobra.Command {
 		Long: `Use this command for roaming clients that are silent (last_sync older than --older-than) or not protected (unprotected, bypassed, or no known protection state: only "protected" counts as healthy) across every client org.
 Do NOT use this command for version drift after an agent release; use 'agents drift' instead.
 
-Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first. Uninstalled clients are excluded. With --org, a client whose site or org is missing from the mirror (or names no organization) can be neither matched nor ruled out, so it is listed with reason membership_unknown under (org membership unknown), whatever its health.`,
+Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first. Uninstalled clients are excluded; only a readable marker counts, so a client whose uninstalled_at is not a timestamp is kept, checked as installed and flagged uninstall_unknown. With --org, a client whose site or org is missing from the mirror (or names no organization) can be neither matched nor ruled out, so it is listed with reason membership_unknown under (org membership unknown), whatever its health.`,
 		Example: strings.Trim(`
   dnsfilter-cli agents stale --older-than 7d --agent
   dnsfilter-cli agents stale --org 'Acme Dental'`, "\n"),
@@ -158,7 +161,10 @@ func computeStale(agents, networks, orgs []jaRes, orgFilter string, window time.
 	orgByID := byID(orgs)
 	rows := map[string]*staleOrgRow{}
 	for _, a := range agents {
-		if isUninstalled(a) {
+		// HAND-FIX(uninstalled-at-must-parse): only a readable uninstall
+		// marker excludes a client; an unreadable uninstalled_at keeps it.
+		uninstalled, uninstallKnown := uninstallState(a)
+		if uninstalled {
 			continue
 		}
 		orgID, match, known := orgMembership(a, netOrg, orgByID, orgFilter)
@@ -204,7 +210,7 @@ func computeStale(agents, networks, orgs []jaRes, orgFilter string, window time.
 			rows[orgID] = row
 		}
 		row.Count++
-		row.Agents = append(row.Agents, staleAgent{ID: a.ID, Hostname: a.str("hostname"), FriendlyName: a.str("friendly_name"), AgentType: a.str("agent_type"), AgentVersion: a.str("agent_version"), AgentState: a.str("agent_state"), LastSync: a.str("last_sync"), Reason: reason, AgeBucket: bucket})
+		row.Agents = append(row.Agents, staleAgent{ID: a.ID, Hostname: a.str("hostname"), FriendlyName: a.str("friendly_name"), AgentType: a.str("agent_type"), AgentVersion: a.str("agent_version"), AgentState: a.str("agent_state"), LastSync: a.str("last_sync"), Reason: reason, AgeBucket: bucket, UninstallUnknown: !uninstallKnown})
 	}
 	out = make([]staleOrgRow, 0, len(rows))
 	for _, r := range rows {

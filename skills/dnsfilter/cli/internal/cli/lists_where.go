@@ -49,7 +49,7 @@ Do NOT use this command for a security review of all allow lists; use 'policy-au
 Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).
 sites and roaming_clients count every site and installed roaming client the policy governs: its own assignment, a roaming client inheriting its site's policy, or any slot of a scheduled policy (the client's own or inherited from its site). scheduled_sites and scheduled_roaming_clients say how many of those reach the policy through a schedule slot, so it governs them only part of the week.
 Assignments are resolved as why-blocked resolves them: a scheduled policy replaces a retained direct policy, and a site's to-many policies relationship is not an assignment and is not counted. User, collection and LAN-subnet assignments are not exposed by the policy API and are not counted.
-Unknown is never an all-clear: a policy whose allow or block list is absent, null or unreadable in the mirror is named in meta.unreadable_policies, a scheduled policy whose 672 slots are not all usable policy ids in meta.unresolved_schedules, and roaming clients inheriting from a site the mirror lacks in meta.unplaced_roaming_clients.`,
+Unknown is never an all-clear: a policy whose allow or block list is absent, null or unreadable in the mirror is named in meta.unreadable_policies, a scheduled policy whose 672 slots are not all usable policy ids in meta.unresolved_schedules, roaming clients inheriting from a site the mirror lacks in meta.unplaced_roaming_clients, policies a site, roaming client or schedule slot uses that the mirror lacks in meta.missing_policies, and sites or roaming clients whose policy, scheduled-policy or site link cannot be read in meta.unreadable_assignments.`,
 		Example: strings.Trim(`
   dnsfilter-cli lists where example.com --agent
   dnsfilter-cli lists where cdn.example.com`, "\n"),
@@ -106,12 +106,20 @@ Unknown is never an all-clear: a policy whose allow or block list is absent, nul
 			unreadable := unreadablePolicyLists(loaded["policies"])
 			unplaced := unplacedRoamingClients(loaded["user-agents"], loaded["networks"])
 			withheld = withheld || len(unreadable) > 0 || unplaced > 0
-			extraNote := whereUnreadableNote(unreadable, unplaced)
+			// HAND-FIX(lists-where-missing-referenced-policies): a policy a
+			// site, roaming client or schedule slot uses but the policies
+			// table lacks cannot be ruled out, and neither can a site or
+			// client whose assignment link is unreadable.
+			missing := missingReferencedPolicies(loaded["policies"], loaded["networks"], loaded["user-agents"], loaded["scheduled-policies"])
+			unreadableLinks := unreadableAssignments(loaded["networks"], loaded["user-agents"])
+			withheld = withheld || len(missing) > 0 || unreadableLinks > 0
+			extraNote := joinNotes(whereUnreadableNote(unreadable, unplaced), whereMissingNote(missing, unreadableLinks))
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				if withheld {
 					res := incompleteMirrorJSON(rows, incomplete)
 					res.Meta.Note, res.Meta.UnresolvedSchedules = whereWithheldNote(incomplete, unresolved), sortedKeys(unresolved)
 					res.Meta.Note, res.Meta.UnreadablePolicies, res.Meta.UnplacedRoamingClients = joinNotes(extraNote, res.Meta.Note), unreadable, unplaced
+					res.Meta.MissingPolicies, res.Meta.UnreadableAssignments = missing, unreadableLinks
 					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+res.Meta.Note)
 					return printJSONFiltered(cmd.OutOrStdout(), res, flags)
 				}
@@ -188,6 +196,80 @@ func unplacedRoamingClients(agents, networks []jaRes) int {
 		}
 	}
 	return n
+}
+
+// missingReferencedPolicies returns, sorted, the ids of policies a site, an
+// installed roaming client or a usable scheduled-policy slot puts in effect
+// that the mirror's policies table does not hold: lists where cannot rule the
+// domain out of them.
+func missingReferencedPolicies(policies, networks, agents, schedules []jaRes) []string {
+	have := byID(policies)
+	schedByID := byID(schedules)
+	missing := map[string]bool{}
+	use := func(policyID, schedID string) {
+		ids := []string{policyID}
+		if schedID != "" {
+			// A schedule replaces a retained direct policy; an unresolved
+			// schedule is reported apart (meta.unresolved_schedules).
+			ids = nil
+			if slots, valid := scheduleSlotIDs(schedByID[schedID]); valid {
+				ids = slots
+			}
+		}
+		for _, id := range ids {
+			if _, ok := have[id]; !ok && id != "" && id != "0" {
+				missing[id] = true
+			}
+		}
+	}
+	for _, n := range networks {
+		use(n.relID("policy"), n.relID("scheduled_policy"))
+	}
+	for _, a := range agents {
+		if !isUninstalled(a) {
+			use(a.relID("policy"), a.relID("scheduled_policy")) // an inheriting client uses its site's, checked above
+		}
+	}
+	return sortedKeys(missing)
+}
+
+// unreadableAssignments counts sites and installed roaming clients whose
+// policy or scheduled-policy relationship (or, for a client, site link) is
+// present but unreadable: relID reads it as "no assignment", so the counts
+// would fall back to a direct or inherited policy.
+func unreadableAssignments(networks, agents []jaRes) int {
+	readable := func(r jaRes, rels ...string) bool {
+		for _, rel := range rels {
+			if _, ok := r.relRef(rel); !ok {
+				return false
+			}
+		}
+		return true
+	}
+	n := 0
+	for _, s := range networks {
+		if !readable(s, "policy", "scheduled_policy") {
+			n++
+		}
+	}
+	for _, a := range agents {
+		if !isUninstalled(a) && !readable(a, "policy", "scheduled_policy", "network") {
+			n++
+		}
+	}
+	return n
+}
+
+// whereMissingNote describes missing referenced policies and unreadable assignment links ("" when neither).
+func whereMissingNote(missing []string, unreadableLinks int) string {
+	notes := make([]string, 0, 2)
+	if len(missing) > 0 {
+		notes = append(notes, fmt.Sprintf("%d policies in use by a site, roaming client or schedule slot are not in the local mirror (policy ids %s), so the domain cannot be ruled out of them; this is not an all-clear.", len(missing), strings.Join(missing, ", ")))
+	}
+	if unreadableLinks > 0 {
+		notes = append(notes, fmt.Sprintf("%d sites or roaming clients carry a policy, scheduled-policy or site link that cannot be read, so their policy is unknown; this is not an all-clear.", unreadableLinks))
+	}
+	return joinNotes(notes...)
 }
 
 // whereUnreadableNote describes unreadable policy lists and unplaced clients ("" when neither).
@@ -286,7 +368,7 @@ func computeListsWhere(domain string, policies, orgs, networks, agents, schedule
 	orgByID := byID(orgs)
 	rows := make([]listsWhereRow, 0)
 	for _, p := range policies {
-		orgID := p.str("organization_id")
+		orgID := p.idAttr("organization_id")
 		if orgID == "" {
 			orgID = p.relID("organization")
 		}
