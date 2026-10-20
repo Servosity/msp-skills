@@ -39,7 +39,13 @@ import (
 // was never learned: a timeout, a dropped connection or a server error
 // after the request left, or a run that was killed mid-call. A resume never
 // re-sends it on its own. A later reconcile that finds the job marks it
-// CREATED; otherwise only --retry-unknown sends it again.
+// CREATED; otherwise only --retry-unknown sends it again. An UNKNOWN row
+// marked ambiguous (several portal jobs could be it) is never sent again.
+//
+// SKIPPED is an archive another batch holds in the download guard; it is
+// never this batch's. JOB_FAILED is a confirmed job that then finished
+// failed or cancelled: the archive does not exist, and a resume of this
+// batch creates it once more.
 const (
 	dlPlanned   = "PLANNED"
 	dlRequested = "REQUESTED"
@@ -48,6 +54,7 @@ const (
 	dlFailed    = "FAILED"
 	dlUnknown   = "UNKNOWN"
 	dlSkipped   = "SKIPPED"
+	dlJobFailed = "JOB_FAILED"
 	// EMPTY is a job that was created and succeeded with nothing to
 	// download. getRestoreDownloadStatus drops such jobs, so without the
 	// dashboard cross-check they look identical to a job that was never
@@ -103,6 +110,8 @@ type downloadRow struct {
 	// Ambiguous is set when several portal jobs could be this row's and
 	// none is proven; such a row is never sent again on its own.
 	Ambiguous bool `json:"ambiguous,omitempty"`
+	// HeldBy names the batch that holds this archive when it is SKIPPED.
+	HeldBy string `json:"held_by,omitempty"`
 }
 
 // downloadBatch is the on-disk ledger for one year-end run.
@@ -375,9 +384,10 @@ func newRowLabel() string {
 	return rowLabelPrefix + hex.EncodeToString(b[:])
 }
 
-// creationSkew allows for the clocks of this machine and the portal
-// disagreeing when a job's creation time is compared with requested_at.
-const creationSkew = 10 * time.Minute
+// unrelatedAge is how long before a row was requested a job must have been
+// created to be certainly not that row's. Within it, a job could still be
+// the row's own as far as two clocks can tell.
+const unrelatedAge = 24 * time.Hour
 
 // labelsKept reports whether the portal evidently stores job labels: some
 // job it lists carries one this tool sent.
@@ -397,54 +407,51 @@ type rowMatch struct {
 	ambiguous bool
 }
 
-// matchRow finds the portal job that is this row's archive. Sharing the
-// mailbox, sub-source and snapshot is not enough: an older export of the
-// same snapshot (a zip without legal-hold items, say) must never stand in
-// for this one. In order:
+// matchRow finds the portal job that is an unconfirmed row's archive. A row
+// already confirmed is never matched again: only its pinned job id counts
+// (see reconcileRows). For the rest, among the listed jobs of the same
+// mailbox, sub-source and snapshot:
 //
-//   - a job with the row's confirmed job id, or carrying its label, is it;
-//   - a job carrying any other label is not;
-//   - when the portal evidently keeps labels, nothing else is;
-//   - otherwise an unlabelled job counts only if it was created after the
-//     row was requested and its files do not contradict the row's format.
-//     One such job is the row's; more than one, or one whose creation time
-//     cannot be read, is ambiguous and proves nothing.
-func matchRow(r *downloadRow, jobs []portal.DownloadJob, format string, keptLabels bool) rowMatch {
+//   - the job carrying the row's own label is it;
+//   - a job that is provably another archive is ignored: it carries a label
+//     the download guard records for a different archive, its files
+//     contradict the row's format, or it was created more than unrelatedAge
+//     before the row was requested;
+//   - when the portal keeps labels, any other such job could be this row's
+//     with its label lost or edited, so the row is ambiguous;
+//   - when it does not, exactly one job created at or after the row was
+//     requested is the row's. A job created before then, a job whose
+//     creation time cannot be read, or more than one candidate makes the
+//     row ambiguous.
+//
+// An ambiguous row is never inferred EMPTY or MISSING.
+func matchRow(r *downloadRow, jobs []portal.DownloadJob, format string, keptLabels bool, foreign func(label string) bool) rowMatch {
 	key := jobKey(r.Entity, r.SubSource, r.SnapshotRaw)
-	var unlabelled []portal.DownloadJob
+	since, sinceErr := time.Parse(time.RFC3339, r.RequestedAt)
+	var candidates []portal.DownloadJob
+	unsure := false
 	for _, j := range jobs {
 		if jobKey(j.Account, j.SubSource, j.SnapshotDate) != key {
 			continue
 		}
 		label := strings.TrimSpace(j.JobLabel)
-		switch {
-		case r.JobID != "" && strings.EqualFold(strings.TrimSpace(j.JobID), r.JobID):
+		if r.Label != "" && label == r.Label {
 			return rowMatch{job: j, found: true}
-		case r.Label != "" && label == r.Label:
-			return rowMatch{job: j, found: true}
-		case label == "":
-			unlabelled = append(unlabelled, j)
 		}
-	}
-	if keptLabels && r.Label != "" {
-		return rowMatch{}
-	}
-	since, sinceErr := time.Parse(time.RFC3339, r.RequestedAt)
-	var candidates []portal.DownloadJob
-	unsure := false
-	for _, j := range unlabelled {
-		if !formatFits(j, format) {
+		if (label != "" && foreign != nil && foreign(label)) || !formatFits(j, format) {
 			continue
 		}
 		created, err := cadate.ParseCompact(j.InitDate)
-		if sinceErr != nil || err != nil {
+		switch {
+		case sinceErr != nil || err != nil:
 			unsure = true
-			continue
+		case created.Before(since.Add(-unrelatedAge)):
+			// Made well before this row was requested: not its job.
+		case keptLabels || label != "" || created.Before(since):
+			unsure = true
+		default:
+			candidates = append(candidates, j)
 		}
-		if created.Before(since.Add(-creationSkew)) {
-			continue
-		}
-		candidates = append(candidates, j)
 	}
 	switch {
 	case len(candidates) == 1 && !unsure:
@@ -481,89 +488,143 @@ func confirmRow(r *downloadRow, j portal.DownloadJob, now string) {
 }
 
 // markAmbiguous holds a row whose job cannot be told apart from another
-// export: it may exist, so it is UNKNOWN and is not sent again.
+// export: it may exist, so it is UNKNOWN and is never sent again on its own.
 func markAmbiguous(r *downloadRow) {
 	r.Status, r.Ambiguous = dlUnknown, true
-	r.Detail = "more than one portal job could be this archive and none carries its label; check 'download list' before doing anything with it"
+	r.Detail = "a portal job of this mailbox, sub-source and snapshot is listed but cannot be proved to be this row's (its label is missing or different); it is not created again"
 }
 
-// reconcileBatch lists the portal after a run and settles each row it
-// sent. A confirmed (CREATED) row is never unconfirmed: an empty job drops
-// out of the listing when it finishes, so absence later proves nothing.
-func reconcileBatch(ctx context.Context, sess *portal.Session, batch *downloadBatch, createdDelta, requested int) error {
-	jobs, err := sess.DownloadJobs(ctx)
-	if err != nil {
-		return err
+// jobEndedBadly reports a job that finished failed or cancelled: it will
+// never produce an archive.
+func jobEndedBadly(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "FAILED", "CANCELLED", "CANCELED":
+		return true
 	}
-	// The dashboard counts every job, including ones that finished with
-	// nothing to download; the listing below only carries jobs that are
-	// running or have files. When the dashboard grew by as much as was
-	// requested, nothing was lost, so an unmatched row is EMPTY rather
-	// than MISSING.
-	allAccountedFor := requested > 0 && createdDelta >= requested
+	return false
+}
+
+// markJobFailed records that a confirmed row's job finished failed or
+// cancelled. The archive does not exist; a resume creates it once more.
+func markJobFailed(r *downloadRow, status string) {
+	r.Status, r.JobStatus = dlJobFailed, status
+	r.Detail = "the portal job " + r.JobID + " finished as " + status + " with no archive; a resume of this batch creates it once more"
+}
+
+// reconcileResult counts what one reconcile pass changed.
+type reconcileResult struct {
+	confirmed, jobFailed, ambiguous int
+}
+
+// reconcileRows settles a batch's rows against one portal listing and
+// mirrors every change into the download guard.
+//
+//   - A confirmed (CREATED) row is matched only by its pinned job id. When
+//     that job is not listed (an empty job drops out once it finishes) the
+//     row stays CREATED; when it is listed as failed or cancelled the row is
+//     JOB_FAILED. It is never re-matched to another job.
+//   - REQUESTED, MISSING and UNKNOWN rows go through matchRow: found is
+//     CREATED, ambiguous is UNKNOWN and held.
+//   - Only after a run (final), and only when nothing listed could be the
+//     row's, is an unfound row inferred EMPTY (the dashboard count accounts
+//     for it) or MISSING. A pass before re-sending only ever confirms.
+func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBatch, jobs []portal.DownloadJob, final, allAccountedFor bool) (reconcileResult, error) {
+	var res reconcileResult
+	known, err := guard.labels(ctx)
+	if err != nil {
+		return res, err
+	}
 	kept := labelsKept(jobs)
+	byID := map[string]portal.DownloadJob{}
+	for _, j := range jobs {
+		byID[strings.ToLower(strings.TrimSpace(j.JobID))] = j
+	}
 	now := isoUTC(time.Now())
 	for i := range batch.Rows {
 		r := &batch.Rows[i]
-		if r.Status != dlRequested && r.Status != dlMissing && r.Status != dlCreated && r.Status != dlUnknown {
+		id := rowIdentity(batch, r)
+		if r.Status == dlCreated && r.JobID != "" {
+			j, listed := byID[strings.ToLower(strings.TrimSpace(r.JobID))]
+			if !listed {
+				continue
+			}
+			r.LastSeenAt, r.JobStatus = now, j.Status
+			if jobEndedBadly(j.Status) {
+				if _, err := guard.jobFailed(ctx, r.JobID); err != nil {
+					return res, err
+				}
+				markJobFailed(r, j.Status)
+				res.jobFailed++
+			}
+			continue
+		}
+		if r.Status != dlRequested && r.Status != dlMissing && r.Status != dlUnknown && r.Status != dlCreated {
 			continue
 		}
 		r.ReconciledAt = now
-		m := matchRow(r, jobs, batch.Format, kept)
+		foreign := func(label string) bool {
+			other, ok := known[label]
+			return ok && other != id && label != r.Label
+		}
+		m := matchRow(r, jobs, batch.Format, kept, foreign)
 		switch {
 		case m.found:
 			confirmRow(r, m.job, now)
-			continue
-		case r.Status == dlCreated:
-			// Confirmed earlier and not listed now: still created.
-			continue
+			if err := guard.pin(ctx, id, batch.BatchKey, m.job.JobID); err != nil {
+				return res, err
+			}
+			res.confirmed++
+			if jobEndedBadly(m.job.Status) {
+				if _, err := guard.jobFailed(ctx, m.job.JobID); err != nil {
+					return res, err
+				}
+				markJobFailed(r, m.job.Status)
+				res.jobFailed++
+			}
 		case m.ambiguous:
 			markAmbiguous(r)
-			continue
-		case r.Status == dlUnknown:
-			// An UNKNOWN create is never settled by absence: a job takes
-			// minutes to appear, and an empty one never appears at all.
-			continue
+			if err := guard.hold(ctx, id, batch.BatchKey); err != nil {
+				return res, err
+			}
+			res.ambiguous++
+		case !final, r.Status == dlUnknown, r.Status == dlCreated:
+			// Absence proves nothing for these: a job takes minutes to
+			// appear and an empty one never appears at all.
 		case allAccountedFor:
 			r.Status = dlEmpty
 			r.Detail = "created and finished with nothing to download"
-			continue
+		default:
+			r.Status = dlMissing
+			r.Detail = "requested, but no job that could be this row's appeared on the portal"
 		}
-		r.Status = dlMissing
-		r.Detail = "requested, but no matching job appeared on the portal"
 	}
-	return nil
+	return res, nil
 }
 
-// reconcileBeforeResend lists the portal and marks every REQUESTED,
-// UNKNOWN or MISSING row whose job is now there as CREATED, so a resume
-// never sends a create for a job that already exists, and holds any row
-// whose job cannot be told apart from another export. It never makes a
-// row sendable, so it is safe to run at any time.
-func reconcileBeforeResend(ctx context.Context, sess *portal.Session, batch *downloadBatch) (int, error) {
+// reconcileBatch lists the portal after a run and settles each row it sent.
+func reconcileBatch(ctx context.Context, sess *portal.Session, guard *downloadGuard, batch *downloadBatch, createdDelta, requested int) (reconcileResult, error) {
 	jobs, err := sess.DownloadJobs(ctx)
 	if err != nil {
-		return 0, err
+		return reconcileResult{}, err
 	}
-	kept := labelsKept(jobs)
-	now := isoUTC(time.Now())
-	promoted := 0
-	for i := range batch.Rows {
-		r := &batch.Rows[i]
-		if r.Status != dlUnknown && r.Status != dlMissing && r.Status != dlRequested {
-			continue
-		}
-		r.ReconciledAt = now
-		m := matchRow(r, jobs, batch.Format, kept)
-		switch {
-		case m.found:
-			confirmRow(r, m.job, now)
-			promoted++
-		case m.ambiguous:
-			markAmbiguous(r)
-		}
+	// The dashboard counts every job, including ones that finished with
+	// nothing to download; the listing only carries jobs that are running
+	// or have files. When the dashboard grew by as much as was requested,
+	// nothing was lost, so an unmatched row is EMPTY rather than MISSING.
+	allAccountedFor := requested > 0 && createdDelta >= requested
+	return reconcileRows(ctx, guard, batch, jobs, true, allAccountedFor)
+}
+
+// reconcileBeforeResend lists the portal before a resume sends anything: it
+// confirms rows whose job is now there, holds rows it cannot tell apart,
+// and finds confirmed jobs that failed. It never makes a row sendable
+// except a confirmed one whose job failed, which is created once more.
+func reconcileBeforeResend(ctx context.Context, sess *portal.Session, guard *downloadGuard, batch *downloadBatch) (reconcileResult, error) {
+	jobs, err := sess.DownloadJobs(ctx)
+	if err != nil {
+		return reconcileResult{}, err
 	}
-	return promoted, nil
+	return reconcileRows(ctx, guard, batch, jobs, false, false)
 }
 
 // recoverInterruptedRows turns every REQUESTED row whose create never
@@ -625,22 +686,30 @@ with the batch's recorded --format, --include-deleted and --include-legal-hold.
 
 Each create carries a unique job label, and a row is confirmed only by the
 portal job with its label (or, where the portal does not keep labels, the one
-job of that snapshot created after the row was requested). An older export of
-the same snapshot never counts, and a confirmed row stays CREATED.
+job of that snapshot created after the row was requested). A confirmed row
+keeps its job for good. When a listed job of the same mailbox, sub-source and
+snapshot could be the row's but cannot be proved to be, the row is held as
+ambiguous: it is never created again, and the snapshot-wide 'download fetch'
+printed for it collects every archive of that snapshot. A confirmed job that
+finishes failed or cancelled is JOB_FAILED, and a resume creates it once more.
 
-The batch key is printed, and the ledger saved, before the first create.
-Running the same command again without --resume is refused while the earlier
-batch has archives that were created, may have been created, or are being
-sent; --new-batch overrides that and creates every export again. Without
---new-batch, an archive another batch for the same task already created or
-may have created is left out (SKIPPED), not created twice. Two runs never
-work on one batch at once.
+Every archive (account, task, mailbox, sub-source, snapshot, format and both
+include flags) is claimed in one download guard in the state directory right
+before its create, so no two batches or runs can create the same archive. A
+new batch whose archives other batches already hold is refused, with each
+holding batch's resume command and commands for the archives no batch holds.
+A row another batch claims first is SKIPPED and named. The batch key is
+printed, and the ledger saved, before the first create. --new-batch is the
+only override: it creates every export of the run again. Two runs never work
+on one batch at once.
 
 --timeout bounds each API call, not the run: archives stream for as long as
 they keep arriving, and the reconcile wait is not cut short.
 
-Exit codes: 0 every row settled; 2 nothing sent (usage, a refused re-run, a
-batch in use); 6 rows remain FAILED, UNKNOWN or MISSING.
+Exit codes: 0 every row settled (CREATED, EMPTY, or held by another batch);
+2 nothing sent (usage, a refused re-run, archives held by other batches, a
+batch in use, an unreadable ledger); 6 rows remain FAILED, MISSING,
+JOB_FAILED, UNKNOWN or ambiguous, or REQUESTED and not yet confirmed.
 
 Nothing is created without --yes.
 `, "\n"),
@@ -807,7 +876,7 @@ Nothing is created without --yes.
 				b.IncludeDeleted, b.IncludeLegalHold = &incDel, &incLH
 				b.EntityFilter, b.SubSourceFilter = sortedKeys(filter), sortedKeys(subFilter)
 				b.MinSize = strings.TrimSpace(flagMinSize)
-				b.RerunKey = rerunIdentity(b.Scope, b.AccountID, b.TaskID, b.OnDate, b.Format, b.EntityFilter, b.SubSourceFilter)
+				b.RerunKey = rerunIdentity(b.Scope, b.AccountID, b.TaskID, b.OnDate, b.Format, b.EntityFilter, b.SubSourceFilter, incDel, incLH)
 				b.BatchKey = newBatchKey(time.Now(), scope.account)
 				b.CreatedAt = isoUTC(time.Now())
 				batch = b
@@ -835,8 +904,19 @@ Nothing is created without --yes.
 				}
 				return usageErr(fmt.Errorf("add --yes to create these %d archive(s)", len(sendable)))
 			}
+			// The download guard holds one claim per archive across every
+			// batch in this state directory; every ledger is imported into
+			// it once before anything is decided.
+			guard, err := openDownloadGuard(ctx)
+			if err != nil {
+				return err
+			}
+			defer guard.Close()
+			if err := guard.seedFromLedgers(ctx); err != nil {
+				return usageErr(err)
+			}
 			run := submitRun{
-				cmd: cmd, flags: flags, sess: sess, scope: scope, concurrency: flagConcurrency,
+				cmd: cmd, flags: flags, sess: sess, guard: guard, scope: scope, concurrency: flagConcurrency,
 				resume: flagResume, retryUnknown: flagRetryUnknown, noReconcile: flagNoReconcile, newBatch: flagNewBatch,
 			}
 			if flagResume {
@@ -875,6 +955,11 @@ Nothing is created without --yes.
 				}
 				return unsettledDownloadErr(batch)
 			}
+			if !flagNewBatch {
+				if err := refuseHeldArchives(ctx, cmd, guard, batch); err != nil {
+					return err
+				}
+			}
 			return withBatchLock(batch.BatchKey, func() error {
 				if err := claimNewBatch(batch, flagNewBatch); err != nil {
 					return err
@@ -882,6 +967,9 @@ Nothing is created without --yes.
 				path, _ := batchPath(batch.BatchKey)
 				fmt.Fprintf(cmd.ErrOrStderr(), "batch %s recorded in %s; if this run stops, continue it with: cloudally-cli download submit --batch %s --resume --yes\n",
 					batch.BatchKey, path, batch.BatchKey)
+				if downloadClaimPause > 0 {
+					time.Sleep(downloadClaimPause)
+				}
 				return run.send(ctx, batch)
 			})
 		},
@@ -905,7 +993,7 @@ Nothing is created without --yes.
 	cmd.Flags().StringVar(&flagBatch, "batch", "", "Batch key to resume")
 	cmd.Flags().BoolVar(&flagResume, "resume", false, "Re-send only the rows that never appeared on the portal (MISSING) or were refused (FAILED); UNKNOWN rows are held")
 	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows that are still not on the portal; the portal is always checked first, even with --no-reconcile")
-	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Start a new batch even though an earlier batch for the same scope, account, task, date, filters and format already has archives; every export is created again")
+	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Start a new batch even though other batches already hold its archives; every export of the run is created again. The only override of the download guard")
 	cmd.Flags().BoolVar(&flagNoReconcile, "no-reconcile", false, "Skip the reconcile pass; rows stay REQUESTED and unverified")
 	cmd.Flags().StringVar(&flagPlanOut, "plan-out", "", "Write the batch plan JSON to this path")
 	cmd.Flags().StringVar(&flagPortalURL, "portal-url", portal.DefaultBaseURL, portalURLFlagHelp)
@@ -920,6 +1008,7 @@ type submitRun struct {
 	cmd                                         *cobra.Command
 	flags                                       *rootFlags
 	sess                                        *portal.Session
+	guard                                       *downloadGuard
 	scope                                       restoreScope
 	concurrency                                 int
 	resume, retryUnknown, noReconcile, newBatch bool
@@ -931,48 +1020,28 @@ type submitRun struct {
 func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 	stderr := r.cmd.ErrOrStderr()
 	retry := r.retryUnknown
-	// Before anything is sent, a resume looks for its UNKNOWN and MISSING
-	// rows on the portal: any found is CREATED and is never sent again.
+	// Before anything is sent, a resume lists the portal: rows whose job is
+	// there are confirmed and never sent again, rows it cannot tell apart
+	// are held, and a confirmed job that failed is created once more.
 	// --retry-unknown always looks first, even with --no-reconcile, and
 	// sends nothing UNKNOWN when the portal cannot be read.
-	if r.resume && (!r.noReconcile || retry) && batch.count(dlUnknown)+batch.count(dlMissing)+batch.count(dlRequested) > 0 {
-		promoted, rerr := reconcileBeforeResend(ctx, r.sess, batch)
+	if r.resume && (!r.noReconcile || retry) {
+		res, rerr := reconcileBeforeResend(ctx, r.sess, r.guard, batch)
 		if rerr != nil {
 			tenantf(stderr, "warning: could not list the portal before re-sending (%v); UNKNOWN rows stay held\n", rerr)
 			retry = false
-		} else if promoted > 0 {
-			fmt.Fprintf(stderr, "%d row(s) were found on the portal and are now CREATED, so they are not sent again\n", promoted)
+		}
+		if res.confirmed > 0 {
+			fmt.Fprintf(stderr, "%d row(s) were found on the portal and are now CREATED, so they are not sent again\n", res.confirmed)
+		}
+		if res.jobFailed > 0 {
+			fmt.Fprintf(stderr, "%d confirmed job(s) finished failed or cancelled; this run creates each of those archives once more\n", res.jobFailed)
 		}
 		if err := saveBatch(batch); err != nil {
 			return fmt.Errorf("saving the batch ledger: %w", err)
 		}
 	}
 	sendable := pendingDownloadRows(batch, r.resume, retry)
-	// An archive another batch already created, or may have, is not
-	// created again here; only --new-batch asks for that.
-	if !r.newBatch && len(sendable) > 0 {
-		taken, err := rowsTakenElsewhere(batch)
-		if err != nil {
-			return usageErr(err)
-		}
-		kept, skipped := sendable[:0:0], 0
-		for _, row := range sendable {
-			if other, ok := taken[jobKey(row.Entity, row.SubSource, row.SnapshotRaw)]; ok {
-				row.Status = dlSkipped
-				row.Detail = "batch " + other + " already created or may have created this archive; it is not created again here"
-				skipped++
-				continue
-			}
-			kept = append(kept, row)
-		}
-		if skipped > 0 {
-			fmt.Fprintf(stderr, "%d archive(s) were left out because another batch already created or may have created them; 'download list' shows them\n", skipped)
-			if err := saveBatch(batch); err != nil {
-				return fmt.Errorf("saving the batch ledger: %w", err)
-			}
-		}
-		sendable = kept
-	}
 	if held := heldUnknownRows(batch, sendable); len(held) > 0 {
 		printUnknownDownloadNotice(stderr, batch, held)
 	}
@@ -980,14 +1049,14 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 		if err := printDownloadBatchPlan(r.cmd, r.flags, batch, sendable, false); err != nil {
 			return err
 		}
+		printBatchNotices(stderr, batch)
 		return unsettledDownloadErr(batch)
 	}
 	before, cerr := r.sess.JobCounts(ctx)
 	if cerr != nil {
 		tenantf(stderr, "warning: could not read the job count first (%v); empty jobs may read as missing\n", cerr)
 	}
-	includeDeleted, includeLegalHold := boolValue(batch.IncludeDeleted), boolValue(batch.IncludeLegalHold)
-	if err := runDownloadBatch(ctx, r.cmd, r.sess, batch, sendable, batch.Format, r.concurrency, includeDeleted, includeLegalHold); err != nil {
+	if err := runDownloadBatch(ctx, r.cmd, r.sess, r.guard, batch, sendable, r.concurrency, retry, r.newBatch); err != nil {
 		return err
 	}
 	// Only rows that may have created a job count toward what the
@@ -1011,7 +1080,7 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 			fmt.Fprintf(stderr, "portal job count went from %d to %d (+%d) for %d requested\n",
 				before.Total, after.Total, delta, wanted)
 		}
-		if err := reconcileBatch(ctx, r.sess, batch, delta, wanted); err != nil {
+		if _, err := reconcileBatch(ctx, r.sess, r.guard, batch, delta, wanted); err != nil {
 			tenantf(stderr, "warning: reconcile failed (%v); rows stay REQUESTED and are unverified\n", err)
 		}
 		if err := saveBatch(batch); err != nil {
@@ -1021,7 +1090,61 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 	if err := printDownloadBatchResult(r.cmd, r.flags, batch, r.scope); err != nil {
 		return err
 	}
+	printBatchNotices(stderr, batch)
 	return unsettledDownloadErr(batch)
+}
+
+// refuseHeldArchives refuses a new batch when archives it would create are
+// already held in the download guard by other batches. Nothing is saved
+// or sent. It names each holding batch with the command that continues it,
+// and prints commands limited to the archives no batch holds.
+func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *downloadGuard, batch *downloadBatch) error {
+	heldBy := map[string][]downloadClaim{}
+	var free []downloadRow
+	for i := range batch.Rows {
+		r := &batch.Rows[i]
+		c, err := guard.conflict(ctx, rowIdentity(batch, r), batch.BatchKey)
+		if err != nil {
+			return fmt.Errorf("reading the download guard: %w", err)
+		}
+		if c == nil {
+			free = append(free, *r)
+			continue
+		}
+		heldBy[c.BatchKey] = append(heldBy[c.BatchKey], *c)
+	}
+	if len(heldBy) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(heldBy))
+	for k := range heldBy {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	w := cmd.ErrOrStderr()
+	held := 0
+	for _, k := range keys {
+		states := map[string]int{}
+		for _, c := range heldBy[k] {
+			states[downloadClaimText(c.State)]++
+		}
+		var parts []string
+		for _, st := range []string{dgCreated, dgUnknown, dgInFlight, dgJobFailed} {
+			if n := states[downloadClaimText(st)]; n > 0 {
+				parts = append(parts, fmt.Sprintf("%d %s", n, downloadClaimText(st)))
+			}
+		}
+		held += len(heldBy[k])
+		fmt.Fprintf(w, "batch %s already holds %d of these archives (%s). Continue it with: cloudally-cli download submit --batch %s --resume --yes\n",
+			k, len(heldBy[k]), strings.Join(parts, ", "), k)
+	}
+	if len(free) > 0 {
+		fmt.Fprintf(w, "the %d archive(s) no batch holds yet can be created on their own, one command per mailbox:\n", len(free))
+		for _, c := range submitCommandsFor(batch, free) {
+			tenantf(w, "  %s\n", c)
+		}
+	}
+	return usageErr(fmt.Errorf("%d of the %d archive(s) this run would create are already held by other batches in this state directory; nothing was sent (details above)", held, len(batch.Rows)))
 }
 
 func boolValue(p *bool) bool { return p != nil && *p }
@@ -1032,9 +1155,18 @@ func boolValue(p *bool) bool { return p != nil && *p }
 // quietly left out held items would be worse than no export.
 func checkResumeSettings(cmd *cobra.Command, b *downloadBatch, format string, includeDeleted, includeLegalHold bool) error {
 	f := cmd.Flags()
+	var conflicts []string
+	if f.Changed("format") && format != b.Format {
+		conflicts = append(conflicts, fmt.Sprintf("--format %s (batch recorded %s)", format, b.Format))
+	}
 	if b.IncludeDeleted == nil || b.IncludeLegalHold == nil {
 		// A ledger from an older build. Saying what the first run used is
-		// enough to resume it; guessing is not.
+		// enough to resume it; guessing is not. Its format is recorded,
+		// so a different one is refused here too.
+		if len(conflicts) > 0 {
+			return usageErr(fmt.Errorf("batch %s creates its archives with different settings than this run: %s; nothing was sent. Drop the flag to resume with the recorded value",
+				b.BatchKey, strings.Join(conflicts, ", ")))
+		}
 		if f.Changed("include-deleted") && f.Changed("include-legal-hold") {
 			return nil
 		}
@@ -1060,10 +1192,6 @@ func checkResumeSettings(cmd *cobra.Command, b *downloadBatch, format string, in
 		}
 		return usageErr(errors.New(msg))
 	}
-	var conflicts []string
-	if f.Changed("format") && format != b.Format {
-		conflicts = append(conflicts, fmt.Sprintf("--format %s (batch recorded %s)", format, b.Format))
-	}
 	if f.Changed("include-deleted") && includeDeleted != *b.IncludeDeleted {
 		conflicts = append(conflicts, fmt.Sprintf("--include-deleted=%t (batch recorded %t)", includeDeleted, *b.IncludeDeleted))
 	}
@@ -1071,7 +1199,7 @@ func checkResumeSettings(cmd *cobra.Command, b *downloadBatch, format string, in
 		conflicts = append(conflicts, fmt.Sprintf("--include-legal-hold=%t (batch recorded %t)", includeLegalHold, *b.IncludeLegalHold))
 	}
 	if len(conflicts) > 0 {
-		return usageErr(fmt.Errorf("batch %s creates its archives with different settings than this run: %s; nothing was sent. Drop the flag(s) to resume with the recorded values. Archives with other settings are a separate export of every mailbox: only --new-batch starts one, and it creates every export again",
+		return usageErr(fmt.Errorf("batch %s creates its archives with different settings than this run: %s; nothing was sent. Drop the flag(s) to resume with the recorded values",
 			b.BatchKey, strings.Join(conflicts, ", ")))
 	}
 	return nil
@@ -1079,7 +1207,9 @@ func checkResumeSettings(cmd *cobra.Command, b *downloadBatch, format string, in
 
 // pendingDownloadRows picks the rows a run should send. REQUESTED and
 // CREATED rows are never sent again, and UNKNOWN ones only with explicit
-// --retry-unknown.
+// --retry-unknown. A resume also sends rows whose confirmed job failed
+// (once more each) and tries again to claim SKIPPED rows: the guard still
+// refuses any another batch holds.
 func pendingDownloadRows(batch *downloadBatch, resume, retryUnknown bool) []*downloadRow {
 	var out []*downloadRow
 	for i := range batch.Rows {
@@ -1090,7 +1220,7 @@ func pendingDownloadRows(batch *downloadBatch, resume, retryUnknown bool) []*dow
 		switch r.Status {
 		case dlPlanned:
 			out = append(out, r)
-		case dlMissing, dlFailed:
+		case dlMissing, dlFailed, dlJobFailed, dlSkipped:
 			if resume {
 				out = append(out, r)
 			}
@@ -1128,15 +1258,86 @@ func printUnknownDownloadNotice(w io.Writer, batch *downloadBatch, rows []*downl
 		len(rows), batch.AccountID, batch.BatchKey)
 }
 
-// unsettledDownloadErr reports a batch that still has FAILED, UNKNOWN or
-// MISSING rows, so a script never reads it as finished.
+// unsettledDownloadErr reports a batch that is not finished, so a script
+// never reads it as done: rows FAILED, MISSING or JOB_FAILED (a resume
+// creates them), UNKNOWN or ambiguous (held), and REQUESTED rows not yet
+// confirmed on the portal.
 func unsettledDownloadErr(batch *downloadBatch) error {
-	failed, unknown, missing := batch.count(dlFailed), batch.count(dlUnknown), batch.count(dlMissing)
-	if failed+unknown+missing == 0 {
+	resend := batch.count(dlFailed) + batch.count(dlMissing) + batch.count(dlJobFailed)
+	ambiguous := 0
+	for _, r := range batch.Rows {
+		if r.Status == dlUnknown && r.Ambiguous {
+			ambiguous++
+		}
+	}
+	unknown := batch.count(dlUnknown) - ambiguous
+	unconfirmed := batch.count(dlRequested)
+	if resend+unknown+ambiguous+unconfirmed == 0 {
 		return nil
 	}
-	return partialFailureErr(fmt.Errorf("batch %s is not settled: %d FAILED and %d MISSING (re-send with --batch %s --resume --yes), %d UNKNOWN (check 'download list' before --retry-unknown)",
-		batch.BatchKey, failed, missing, batch.BatchKey, unknown))
+	var parts []string
+	if resend > 0 {
+		parts = append(parts, fmt.Sprintf("%d to create (FAILED, MISSING or JOB_FAILED): cloudally-cli download submit --batch %s --resume --yes", resend, batch.BatchKey))
+	}
+	if unknown > 0 {
+		parts = append(parts, fmt.Sprintf("%d UNKNOWN: check 'download list' before --retry-unknown", unknown))
+	}
+	if ambiguous > 0 {
+		parts = append(parts, fmt.Sprintf("%d ambiguous: resolve them by hand as shown above", ambiguous))
+	}
+	if unconfirmed > 0 {
+		parts = append(parts, fmt.Sprintf("%d REQUESTED and not yet confirmed: run cloudally-cli download submit --batch %s --resume --yes again later", unconfirmed, batch.BatchKey))
+	}
+	return partialFailureErr(fmt.Errorf("batch %s is not settled: %s", batch.BatchKey, strings.Join(parts, "; ")))
+}
+
+// printBatchNotices explains the rows a person has to act on: ambiguous
+// rows, with the snapshot-wide fetch that collects every archive of that
+// snapshot, and rows another batch holds.
+func printBatchNotices(w io.Writer, batch *downloadBatch) {
+	var ambiguous, skipped []downloadRow
+	for _, r := range batch.Rows {
+		switch {
+		case r.Status == dlUnknown && r.Ambiguous:
+			ambiguous = append(ambiguous, r)
+		case r.Status == dlSkipped:
+			skipped = append(skipped, r)
+		}
+	}
+	if len(ambiguous) > 0 {
+		fmt.Fprintf(w, "%d archive(s) are ambiguous: a portal job of the same mailbox, sub-source and snapshot is listed but cannot be proved to be this batch's, so none was created again. Collect every archive of that snapshot and check it is the export wanted:\n", len(ambiguous))
+		for _, r := range ambiguous {
+			tenantf(w, "  cloudally-cli download fetch --account %s --dest <folder> --year <year> --on-date %s --entities %s\n", batch.AccountID, snapshotDay(r.SnapshotRaw), r.Entity)
+		}
+	}
+	if len(skipped) > 0 {
+		holders := map[string]int{}
+		for _, r := range skipped {
+			holders[r.HeldBy]++
+		}
+		for _, k := range sortedKeysInt(holders) {
+			fmt.Fprintf(w, "%d archive(s) are held by batch %s and were not created here; collect them with: cloudally-cli download fetch --account %s --batch %s --dest <folder> --year <year>\n",
+				holders[k], k, batch.AccountID, k)
+		}
+	}
+}
+
+// snapshotDay renders a compact snapshot as the YYYY-MM-DD --on-date takes.
+func snapshotDay(raw int64) string {
+	s := fmt.Sprintf("%d", raw)
+	if len(s) < 8 {
+		return s
+	}
+	return s[:4] + "-" + s[4:6] + "-" + s[6:8]
+}
+
+func sortedKeysInt(m map[string]int) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // classifyDownloadCreateFailure decides what a failed create call means for
@@ -1162,17 +1363,24 @@ func classifyDownloadCreateFailure(err error, connected bool) string {
 	}
 }
 
-// runDownloadBatch creates each of rows. Each row is saved to the ledger as
-// REQUESTED before its create call leaves, and saved again with the answer,
-// so a run killed at any point leaves a ledger that says which creates may
-// have reached the portal. A row whose REQUESTED state cannot be saved is
-// not sent.
-func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Session, batch *downloadBatch, rows []*downloadRow, format string, concurrency int, includeDeleted, includeLegalHold bool) error {
+// runDownloadBatch creates each of rows. For each row, in order: the
+// archive is claimed in the download guard (one IMMEDIATE transaction, so
+// of two racing batches only one can claim it), the row is saved to the
+// ledger as REQUESTED, the create is sent, and the claim and the row record
+// the answer. A run killed at any point leaves a ledger and a guard that
+// say which creates may have reached the portal. A row another batch holds
+// is SKIPPED and not sent; a row whose claim or REQUESTED state cannot be
+// saved is not sent.
+func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Session, guard *downloadGuard, batch *downloadBatch, rows []*downloadRow, concurrency int, retryUnknown, newBatch bool) error {
+	// Records are written even when the run is interrupted, so the
+	// guard and the ledger never lose an answer that came back.
+	keep := context.WithoutCancel(ctx)
+	includeDeleted, includeLegalHold := boolValue(batch.IncludeDeleted), boolValue(batch.IncludeLegalHold)
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var saveErr error
-	notSent := 0
+	notSent, sent, skipped := 0, 0, 0
 	for _, row := range rows {
 		wg.Add(1)
 		go func(r *downloadRow) {
@@ -1184,15 +1392,43 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 				return
 			}
 			mu.Lock()
-			prevStatus, prevDetail, prevRequested, prevAccepted := r.Status, r.Detail, r.RequestedAt, r.AcceptedAt
-			r.Status, r.RequestedAt, r.AcceptedAt, r.Detail = dlRequested, isoUTC(time.Now()), "", ""
-			// The label is saved with REQUESTED, before the create leaves,
-			// and kept across re-sends of the same row.
+			if r.Status == dlJobFailed {
+				// The failed job keeps its label; the new create gets its own.
+				r.Label, r.JobID, r.ConfirmedAt, r.LastSeenAt, r.JobStatus = "", "", "", "", ""
+			}
 			if r.Label == "" {
 				r.Label = newRowLabel()
 			}
+			id, label := rowIdentity(batch, r), r.Label
+			mu.Unlock()
+
+			claimID, cerr := guard.claim(keep, id, downloadOwner{batchKey: batch.BatchKey, label: label, scope: batch.Scope}, retryUnknown, newBatch)
+			mu.Lock()
+			if cerr != nil {
+				var held errDownloadClaimed
+				if errors.As(cerr, &held) {
+					adoptHeldClaim(r, held.claim, batch.BatchKey)
+					skipped++
+				} else {
+					r.Detail = "not sent: the download guard could not record the claim: " + cerr.Error()
+					notSent++
+					if saveErr == nil {
+						saveErr = cerr
+					}
+				}
+				if serr := saveBatch(batch); serr != nil && saveErr == nil {
+					saveErr = serr
+				}
+				mu.Unlock()
+				return
+			}
+			prevStatus, prevDetail, prevRequested, prevAccepted := r.Status, r.Detail, r.RequestedAt, r.AcceptedAt
+			r.Status, r.RequestedAt, r.AcceptedAt, r.Detail = dlRequested, isoUTC(time.Now()), "", ""
+			r.HeldBy, r.Ambiguous = "", false
 			if err := saveBatch(batch); err != nil {
 				r.Status, r.Detail, r.RequestedAt, r.AcceptedAt = prevStatus, prevDetail, prevRequested, prevAccepted
+				// Nothing was sent: release the claim.
+				_ = guard.settle(keep, claimID, dlFailed, false)
 				notSent++
 				if saveErr == nil {
 					saveErr = err
@@ -1211,16 +1447,22 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 				},
 				Source:           r.SubSource,
 				DateRaw:          r.SnapshotRaw,
-				Format:           format,
-				JobLabel:         r.Label,
+				Format:           batch.Format,
+				JobLabel:         label,
 				IncludeDeleted:   includeDeleted,
 				IncludeLegalHold: includeLegalHold,
 			})
 			mu.Lock()
+			sent++
 			if err != nil {
 				r.Status, r.Detail = classifyDownloadCreateFailure(err, connected.Load()), err.Error()
 			} else {
 				r.AcceptedAt = isoUTC(time.Now())
+			}
+			// If this fails the claim stays IN_FLIGHT until this run ends,
+			// then reads as UNKNOWN: safe, never a duplicate.
+			if serr := guard.settle(keep, claimID, r.Status, err == nil); serr != nil && saveErr == nil {
+				saveErr = serr
 			}
 			// A failed save here leaves the row REQUESTED on disk, which a
 			// resume treats as UNKNOWN: safe, never a duplicate.
@@ -1231,17 +1473,44 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 		}(row)
 	}
 	wg.Wait()
-	fmt.Fprintf(cmd.ErrOrStderr(), "requested %d archive(s)\n", len(rows)-notSent)
+	fmt.Fprintf(cmd.ErrOrStderr(), "requested %d archive(s)\n", sent)
+	if skipped > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "%d archive(s) were not created because another batch holds them (see below)\n", skipped)
+	}
 	if err := saveBatch(batch); err != nil {
 		return fmt.Errorf("saving the batch ledger: %w", err)
 	}
 	if notSent > 0 {
-		return fmt.Errorf("saving the batch ledger: %w; %d row(s) were not sent and stay as they were", saveErr, notSent)
+		return fmt.Errorf("saving the batch ledger or the download guard: %w; %d row(s) were not sent and stay as they were", saveErr, notSent)
 	}
 	if saveErr != nil {
-		tenantf(cmd.ErrOrStderr(), "warning: a ledger save during the run failed (%v); the final save succeeded\n", saveErr)
+		tenantf(cmd.ErrOrStderr(), "warning: a ledger or guard save during the run failed (%v); the final save succeeded\n", saveErr)
 	}
 	return nil
+}
+
+// adoptHeldClaim records on a row the guard claim that stopped it. The
+// batch's own claim means the ledger was behind the guard; another batch's
+// means that batch holds the archive.
+func adoptHeldClaim(r *downloadRow, c downloadClaim, batchKey string) {
+	if c.BatchKey == batchKey {
+		switch c.State {
+		case dgCreated:
+			r.Status, r.Detail = dlCreated, ""
+			if c.JobID != "" {
+				r.JobID = c.JobID
+			}
+		case dgUnknown:
+			r.Status = dlUnknown
+			r.Detail = "this batch's earlier create of this archive has an unknown outcome; it is not sent again without --retry-unknown"
+		default:
+			r.Status, r.HeldBy = dlSkipped, batchKey
+			r.Detail = "another run of this batch is creating this archive right now"
+		}
+		return
+	}
+	r.Status, r.HeldBy = dlSkipped, c.BatchKey
+	r.Detail = fmt.Sprintf("batch %s holds this archive (%s); it is not created again here", c.BatchKey, downloadClaimText(c.State))
 }
 
 func printDownloadBatchPlan(cmd *cobra.Command, flags *rootFlags, batch *downloadBatch, sendable []*downloadRow, dry bool) error {
@@ -1291,10 +1560,12 @@ func printDownloadBatchResult(cmd *cobra.Command, flags *rootFlags, batch *downl
 	fmt.Fprintf(w, "  created:     %d\n", batch.count(dlCreated))
 	fmt.Fprintf(w, "  missing:     %d\n", batch.count(dlMissing))
 	fmt.Fprintf(w, "  failed:      %d\n", batch.count(dlFailed))
+	fmt.Fprintf(w, "  job failed:  %d\n", batch.count(dlJobFailed))
 	fmt.Fprintf(w, "  unknown:     %d\n", batch.count(dlUnknown))
 	fmt.Fprintf(w, "  unverified:  %d\n", batch.count(dlRequested))
-	if n := batch.count(dlMissing) + batch.count(dlFailed); n > 0 {
-		fmt.Fprintf(w, "\n%d row(s) never appeared or were refused. Re-send them with:\n", n)
+	fmt.Fprintf(w, "  held by another batch: %d\n", batch.count(dlSkipped))
+	if n := batch.count(dlMissing) + batch.count(dlFailed) + batch.count(dlJobFailed); n > 0 {
+		fmt.Fprintf(w, "\n%d archive(s) never appeared, were refused, or their job failed. Create them with:\n", n)
 		fmt.Fprintf(w, "  cloudally-cli download submit --batch %s --resume --yes\n", batch.BatchKey)
 	}
 	if n := batch.count(dlUnknown); n > 0 {

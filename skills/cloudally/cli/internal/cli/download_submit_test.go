@@ -7,12 +7,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"cloudally-pp-cli/internal/cliutil"
 	"cloudally-pp-cli/internal/cliutil/testenv"
 	"cloudally-pp-cli/internal/portal"
 	"github.com/spf13/cobra"
@@ -45,6 +47,38 @@ func openStubSession(t *testing.T, s *dlStub) *portal.Session {
 		t.Fatalf("open portal session: %v", err)
 	}
 	return sess
+}
+
+func mustLoadBatch(t *testing.T, key string) *downloadBatch {
+	t.Helper()
+	b, err := loadBatch(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// testGuard opens the download guard for one test.
+func testGuard(t *testing.T) *downloadGuard {
+	t.Helper()
+	g, err := openDownloadGuard(context.Background())
+	if err != nil {
+		t.Fatalf("open download guard: %v", err)
+	}
+	t.Cleanup(g.Close)
+	return g
+}
+
+// removeDownloadGuard deletes the guard file, as if it had never existed.
+func removeDownloadGuard(t *testing.T) {
+	t.Helper()
+	dir, err := cliutil.StateDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		_ = os.Remove(filepath.Join(dir, downloadGuardFile+suffix))
+	}
 }
 
 func quietCmd() *cobra.Command {
@@ -88,7 +122,7 @@ func TestRunDownloadBatchSavesRequestedBeforeEachCreate(t *testing.T) {
 		mu.Unlock()
 	}
 	sess := openStubSession(t, s)
-	if err := runDownloadBatch(context.Background(), quietCmd(), sess, b, pendingDownloadRows(b, false, false), downloadFormatZip, 2, false, false); err != nil {
+	if err := runDownloadBatch(context.Background(), quietCmd(), sess, testGuard(t), b, pendingDownloadRows(b, false, false), 2, false, false); err != nil {
 		t.Fatalf("runDownloadBatch: %v", err)
 	}
 	if len(seen) != 3 {
@@ -121,7 +155,7 @@ func TestRunDownloadBatchClassifiesAmbiguousFailuresAsUnknown(t *testing.T) {
 	s.createCode["b@contoso.com"] = http.StatusUnauthorized
 	b := newSubmitBatch(t, "20221231-000000-classify", "a@contoso.com", "b@contoso.com", "c@contoso.com")
 	sess := openStubSession(t, s)
-	if err := runDownloadBatch(context.Background(), quietCmd(), sess, b, pendingDownloadRows(b, false, false), downloadFormatZip, 1, false, false); err != nil {
+	if err := runDownloadBatch(context.Background(), quietCmd(), sess, testGuard(t), b, pendingDownloadRows(b, false, false), 1, false, false); err != nil {
 		t.Fatalf("runDownloadBatch: %v", err)
 	}
 	onDisk, err := loadBatch("20221231-000000-classify")
@@ -143,7 +177,7 @@ func TestRunDownloadBatchClassifiesAmbiguousFailuresAsUnknown(t *testing.T) {
 	b2 := newSubmitBatch(t, "20221231-000000-gone", "d@contoso.com")
 	sess2 := openStubSession(t, gone)
 	gone.portal.Close()
-	if err := runDownloadBatch(context.Background(), quietCmd(), sess2, b2, pendingDownloadRows(b2, false, false), downloadFormatZip, 1, false, false); err != nil {
+	if err := runDownloadBatch(context.Background(), quietCmd(), sess2, testGuard(t), b2, pendingDownloadRows(b2, false, false), 1, false, false); err != nil {
 		t.Fatalf("runDownloadBatch: %v", err)
 	}
 	if r := rowByEntity(b2, "d@contoso.com"); r.Status != dlFailed {
@@ -178,12 +212,22 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 		}
 	}
 	sess := openStubSession(t, s)
-	if err := runDownloadBatch(context.Background(), quietCmd(), sess, b, pendingDownloadRows(b, false, false), downloadFormatZip, 1, false, false); err != nil {
+	guard, err := openDownloadGuard(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runDownloadBatch(context.Background(), quietCmd(), sess, guard, b, pendingDownloadRows(b, false, false), 1, false, false); err != nil {
 		t.Fatalf("runDownloadBatch: %v", err)
 	}
+	guard.Close()
+	// What a kill -9 at the first create leaves: the ledger as it stood
+	// then, and a guard holding only that create's claim. Removing the
+	// guard and letting the resume seed it from the ledger reproduces
+	// exactly that (the unanswered create is imported as UNKNOWN).
 	if err := os.WriteFile(path, crashState, batchFilePerm); err != nil {
 		t.Fatal(err)
 	}
+	removeDownloadGuard(t)
 	// The create in flight at the crash, one that answers 500 on resume,
 	// and one that goes through.
 	var others []string
@@ -242,8 +286,11 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 	_, stderr, err = runDL(t, s, "download", "submit", "--batch", "20221231-000000-crash", "--resume", "--retry-unknown", "--yes", "--json")
 	// The re-sent row is not on the portal yet, so it ends MISSING and the
 	// batch is reported as not settled.
-	if err == nil || ExitCode(err) != 6 || !strings.Contains(err.Error(), "1 MISSING") {
-		t.Fatalf("resume --retry-unknown: want exit 6 with 1 MISSING, got %v\n%s", err, stderr)
+	if err == nil || ExitCode(err) != 6 {
+		t.Fatalf("resume --retry-unknown: want exit 6 (the re-sent row is not on the portal yet), got %v\n%s", err, stderr)
+	}
+	if r := rowByEntity(mustLoadBatch(t, "20221231-000000-crash"), flaky); r.Status != dlMissing {
+		t.Fatalf("%s should be MISSING after its re-send did not appear: %+v", flaky, r)
 	}
 	if got := s.createdAccounts(); !slices.Equal(got, []string{flaky}) {
 		t.Fatalf("only %s (UNKNOWN and not on the portal) may be sent, got %v", flaky, got)

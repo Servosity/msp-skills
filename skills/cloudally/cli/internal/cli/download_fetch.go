@@ -207,7 +207,47 @@ const (
 	// the portal: a --batch row nothing matched, or an --entities mailbox
 	// with no download job.
 	fetchMissing = "MISSING"
+	// fetchSkippedHeld is a --batch row another batch holds: collected
+	// through that batch, and not a failure of this one.
+	fetchSkippedHeld = "HELD_BY_OTHER_BATCH"
 )
+
+// failedJobAdvice marks a job that finished without an archive as
+// JOB_FAILED in the download guard and in the ledger of the batch that
+// confirmed it, and says how that batch creates it once more. A job no
+// batch confirmed (one made in the portal, say) is only reported.
+func failedJobAdvice(ctx context.Context, guard *downloadGuard, job portal.DownloadJob) string {
+	base := fmt.Sprintf("the export job %s finished as %s and has no archive to download", job.JobID, job.Status)
+	if guard == nil || !jobEndedBadly(job.Status) {
+		return base
+	}
+	c, err := guard.jobFailed(context.WithoutCancel(ctx), job.JobID)
+	if err != nil || c == nil || c.BatchKey == "" {
+		return base
+	}
+	markLedgerJobFailed(c.BatchKey, job.JobID, job.Status)
+	return fmt.Sprintf("%s; batch %s creates it once more with: cloudally-cli download submit --batch %s --resume --yes", base, c.BatchKey, c.BatchKey)
+}
+
+// markLedgerJobFailed records a failed job on the row of key's ledger that
+// confirmed it. When another run holds the batch, the guard alone records
+// it; that run's next resume finds the failure itself.
+func markLedgerJobFailed(key, jobID, status string) {
+	_ = withBatchLock(key, func() error {
+		b, err := loadBatch(key)
+		if err != nil {
+			return err
+		}
+		for i := range b.Rows {
+			r := &b.Rows[i]
+			if r.Status == dlCreated && strings.EqualFold(strings.TrimSpace(r.JobID), strings.TrimSpace(jobID)) {
+				markJobFailed(r, status)
+				return saveBatch(b)
+			}
+		}
+		return nil
+	})
+}
 
 // stalePartialAge is how old a leftover .partial must be before a run
 // removes it. A live download writes to its .partial continuously and is
@@ -297,7 +337,10 @@ with nothing received. Leftover .partial files from a run that was killed
 are removed once they are an hour old.
 
 With --batch, only the jobs the batch confirmed as its own are downloaded;
-another export of the same snapshot is never taken in their place.
+another export of the same snapshot is never taken in their place. A job that
+finished failed or cancelled is handed back to the batch that confirmed it,
+and that batch's resume creates it once more. Rows another batch holds are
+listed as HELD_BY_OTHER_BATCH, with that batch's fetch command.
 
 Exit codes: 0 every archive asked for is on disk (or the job was EMPTY);
 3 no download job matched at all; 6 an archive FAILED or is MISSING (a
@@ -363,6 +406,15 @@ later.
 			jobs, err := sess.DownloadJobs(ctx)
 			if err != nil {
 				return err
+			}
+			// The guard says which batch confirmed a job, so a job that
+			// failed is handed back to that batch to create once more.
+			var guard *downloadGuard
+			if !flagDryRun {
+				if guard, err = openDownloadGuard(ctx); err != nil {
+					return err
+				}
+				defer guard.Close()
 			}
 			keep := map[string]bool{}
 			for _, e := range flagEntities {
@@ -435,7 +487,7 @@ later.
 					// A job that has stopped without becoming ready never
 					// will; only a running one is worth waiting for.
 					if exportJobFinished(job.Status) {
-						out.Status, out.Detail = fetchFailed, fmt.Sprintf("the export job finished as %s and has no archive to download. Its batch counts it as created, so a resume does not send it; to create just this archive again run download submit for the same task and date with --entities %s --sub-sources %s --new-batch --yes", job.Status, job.Account, job.SubSource)
+						out.Status, out.Detail = fetchFailed, failedJobAdvice(ctx, guard, job)
 					} else {
 						out.Status, out.Detail = fetchNotReady, "job status is "+job.Status
 					}
@@ -553,18 +605,27 @@ later.
 			batchKey := strings.TrimSpace(flagBatch)
 			for _, r := range batchRows {
 				id := strings.ToLower(strings.TrimSpace(r.JobID))
-				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || r.Status == dlSkipped || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
+				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
 					continue
 				}
 				if snap := fmt.Sprintf("%d", r.SnapshotRaw); wantDay != "" && (len(snap) < 8 || snap[:8] != wantDay) {
 					continue
 				}
 				out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID}
-				switch r.Status {
-				case dlCreated:
+				switch {
+				case r.Status == dlSkipped:
+					out.Status = fetchSkippedHeld
+					out.Detail = fmt.Sprintf("batch %s holds this archive; collect it with: cloudally-cli download fetch --account %s --batch %s --dest <folder> --year <year>", r.HeldBy, scope.account, r.HeldBy)
+				case r.Status == dlJobFailed:
+					out.Status = fetchFailed
+					out.Detail = fmt.Sprintf("its job %s finished as %s with no archive; create it once more with: cloudally-cli download submit --batch %s --resume --yes", r.JobID, r.JobStatus, batchKey)
+				case r.Status == dlUnknown && r.Ambiguous:
+					out.Status = fetchMissing
+					out.Detail = fmt.Sprintf("a job of this mailbox, sub-source and snapshot is listed but cannot be proved to be this batch's; collect every archive of that snapshot with: cloudally-cli download fetch --account %s --dest <folder> --year <year> --on-date %s --entities %s", scope.account, snapshotDay(r.SnapshotRaw), r.Entity)
+				case r.Status == dlCreated:
 					out.Status = fetchMissing
 					out.Detail = fmt.Sprintf("the batch's confirmed job %s is no longer listed on the portal (it finished with nothing to download, or expired); 'download list' shows what is there", r.JobID)
-				case dlRequested, dlUnknown:
+				case r.Status == dlRequested || r.Status == dlUnknown:
 					// Not confirmed yet. Confirming sends nothing that may
 					// already exist.
 					out.Status = fetchNotReady
@@ -874,7 +935,7 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "\n%d archive(s) considered, %.2f GiB written this run\n",
 			len(outcomes), float64(total)/(1<<30))
-		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, "WOULD_DOWNLOAD"} {
+		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, fetchSkippedHeld, "WOULD_DOWNLOAD"} {
 			if counts[k] > 0 {
 				fmt.Fprintf(w, "  %-16s %d\n", k, counts[k])
 			}

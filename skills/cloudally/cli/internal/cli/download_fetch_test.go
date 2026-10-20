@@ -68,6 +68,12 @@ type dlStub struct {
 	taskEntities []string
 	// slow streams each body in eight pieces this far apart.
 	slow time.Duration
+	// relabel, when set, changes the label a created job is listed with:
+	// a portal that drops labels, or an operator who edits one.
+	relabel func(account, subSource, label string) string
+	// countCreates makes the jobs dashboard count every create, as if each
+	// one made a job.
+	countCreates bool
 
 	api, portal, storage *httptest.Server
 }
@@ -229,12 +235,19 @@ func (s *dlStub) portalServer() *httptest.Server {
 				sub, _ := body["source"].(string)
 				date, _ := body["date"].(float64)
 				label, _ := body["jobLabel"].(string)
+				if s.relabel != nil {
+					label = s.relabel(account, sub, label)
+				}
 				s.jobs = append(s.jobs, dlJob{JobID: fmt.Sprintf("job-%d", len(s.jobs)+1), Account: account, SubSource: sub,
 					Status: "INPROCESS", Snapshot: int64(date), Label: label, Created: compactNow()})
 			}
 			writeEnvelope(w, map[string]any{"needRedirect": false})
 		case "getJobsDasboard":
-			writeEnvelope(w, map[string]any{"total": 0, "dashboardElements": []any{}})
+			total := 0
+			if s.countCreates {
+				total = len(s.creates)
+			}
+			writeEnvelope(w, map[string]any{"total": total, "dashboardElements": []any{}})
 		default:
 			writeEnvelope(w, nil)
 		}

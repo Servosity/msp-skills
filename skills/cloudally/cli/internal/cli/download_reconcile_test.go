@@ -41,33 +41,34 @@ func TestMatchRowNeedsProofTheJobIsTheRows(t *testing.T) {
 	}
 	older := requested.Add(-48 * time.Hour)
 	later := requested.Add(2 * time.Minute)
+	foreignLabel := rowLabelPrefix + "other-archive"
 	cases := []struct {
-		name            string
-		jobs            []portal.DownloadJob
-		format          string
-		wantID          string
-		wantAmbiguous   bool
-		labelsAreKept   bool
-		confirmedJobRow string
+		name          string
+		jobs          []portal.DownloadJob
+		format        string
+		wantID        string
+		wantAmbiguous bool
+		labelsAreKept bool
 	}{
 		{name: "its own label", jobs: []portal.DownloadJob{job("old", "", older), job("mine", rowLabelPrefix+"mine", later)}, wantID: "mine"},
-		{name: "another label is never it", jobs: []portal.DownloadJob{job("theirs", "SRV#6840424", later)}},
-		{name: "an older export of the same snapshot is not it", jobs: []portal.DownloadJob{job("old", "", older)}},
-		{name: "labels kept, so an unlabelled job is not it", jobs: []portal.DownloadJob{job("manual", "", later)}, labelsAreKept: true},
+		{name: "a label the guard records for another archive is never it", jobs: []portal.DownloadJob{job("theirs", foreignLabel, later)}},
+		{name: "a different label could be its own, edited", jobs: []portal.DownloadJob{job("edited", "SRV#6840424", later)}, wantAmbiguous: true},
+		{name: "labels kept, its label lost: could be it", jobs: []portal.DownloadJob{job("lost", "", later)}, labelsAreKept: true, wantAmbiguous: true},
+		{name: "an export made days before the request is not it", jobs: []portal.DownloadJob{job("old", "", older)}},
+		{name: "a job made minutes before the request is never accepted", jobs: []portal.DownloadJob{job("early", "", requested.Add(-5*time.Minute))}, wantAmbiguous: true},
 		{name: "a pst export is not a zip", jobs: []portal.DownloadJob{job("pst", "", later, "a.pst", "b.pst")}, format: downloadFormatZip},
 		{name: "one unlabelled job made after the request", jobs: []portal.DownloadJob{job("old", "", older), job("new", "", later)}, wantID: "new"},
 		{name: "two such jobs prove nothing", jobs: []portal.DownloadJob{job("n1", "", later), job("n2", "", later)}, wantAmbiguous: true},
 		{name: "no creation time proves nothing", jobs: []portal.DownloadJob{job("n1", "", time.Time{})}, wantAmbiguous: true},
-		{name: "its confirmed id", jobs: []portal.DownloadJob{job("old", "", older), job("conf", "", older)}, confirmedJobRow: "conf", wantID: "conf"},
 	}
+	foreign := func(label string) bool { return label == foreignLabel }
 	for _, tc := range cases {
 		r := row
-		r.JobID = tc.confirmedJobRow
 		format := tc.format
 		if format == "" {
 			format = downloadFormatPST
 		}
-		m := matchRow(&r, tc.jobs, format, tc.labelsAreKept)
+		m := matchRow(&r, tc.jobs, format, tc.labelsAreKept, foreign)
 		switch {
 		case tc.wantID != "":
 			if !m.found || m.job.JobID != tc.wantID {
@@ -137,8 +138,9 @@ func TestRetryUnknownIgnoresAnOlderExportOfTheSameSnapshot(t *testing.T) {
 	s.listCreated = true
 	s.mu.Unlock()
 
-	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", b.BatchKey, "--resume", "--retry-unknown", "--no-reconcile", "--yes"); err != nil {
-		t.Fatalf("resume: %v\n%s", err, stderr)
+	// --no-reconcile leaves the re-sent row REQUESTED, which is unsettled.
+	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", b.BatchKey, "--resume", "--retry-unknown", "--no-reconcile", "--yes"); err == nil || ExitCode(err) != 6 {
+		t.Fatalf("resume: want exit 6 for an unconfirmed row, got %v\n%s", err, stderr)
 	}
 	if got := s.createdAccounts(); len(got) != 1 {
 		t.Fatalf("the older zip must not stand in for the row; want it sent once, got %v", got)
@@ -199,6 +201,7 @@ func writeLegacyLedger(t *testing.T, key string, rows []downloadRow) {
 func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
+	quickReconcile(t, s)
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
 	const key = "20261015-201500-acct"
 	writeLegacyLedger(t, key, []downloadRow{
@@ -208,9 +211,12 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 		{Entity: "b@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041001, Status: dlRequested},
 	})
 
-	_, _, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...)
-	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), key) {
-		t.Fatalf("the same submit after an upgrade must be refused by the old ledger, got %v", err)
+	_, stderr0, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...)
+	if err == nil || ExitCode(err) != 2 || !strings.Contains(stderr0, "batch "+key+" already holds") {
+		t.Fatalf("the same submit after an upgrade must be refused by the old ledger, got %v\n%s", err, stderr0)
+	}
+	if strings.Contains(err.Error()+stderr0, "--new-batch") {
+		t.Fatalf("the refusal must not suggest --new-batch:\n%v\n%s", err, stderr0)
 	}
 	if n := len(s.createdAccounts()); n != 0 {
 		t.Fatalf("a refused run created %d export(s)", n)
@@ -238,7 +244,7 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 
 	// One of the offered commands goes through and creates only its row.
 	if _, stderr, err := runDL(t, s, "download", "submit", "--account", "acct-1", "--task", "task-1", "--latest",
-		"--entities", "a@contoso.com", "--sub-sources", "O365CALENDAR", "--yes", "--no-reconcile"); err != nil {
+		"--entities", "a@contoso.com", "--sub-sources", "O365CALENDAR", "--yes"); err != nil {
 		t.Fatalf("an offered command was refused: %v\n%s", err, stderr)
 	}
 	if got := s.createdAccounts(); len(got) != 1 || got[0] != "a@contoso.com" {
@@ -258,7 +264,7 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	if got := sortedCopy(s.createdAccounts()); len(got) != 2 || got[0] != "a@contoso.com" || got[1] != "b@contoso.com" {
 		t.Fatalf("want a@ calendar once and b@ mail once, got %v", got)
 	}
-	if r := after.Rows[1]; r.Status != dlSkipped || !strings.Contains(r.Detail, "already created") {
+	if r := after.Rows[1]; r.Status != dlSkipped || r.HeldBy == "" || r.HeldBy == key {
 		t.Fatalf("a@'s calendar should be SKIPPED in the old batch: %+v", r)
 	}
 }

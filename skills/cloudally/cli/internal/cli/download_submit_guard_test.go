@@ -22,6 +22,18 @@ func downloadSubmitArgs(extra ...string) []string {
 	return append([]string{"download", "submit", "--account", "acct-1", "--task", "task-1", "--latest", "--yes", "--json"}, extra...)
 }
 
+// quickReconcile makes a run reconcile after a millisecond against a stub
+// that lists every job it created, as the portal does after a while.
+func quickReconcile(t *testing.T, s *dlStub) {
+	t.Helper()
+	prev := reconcileDelay
+	reconcileDelay = time.Millisecond
+	t.Cleanup(func() { reconcileDelay = prev })
+	s.mu.Lock()
+	s.listCreated = true
+	s.mu.Unlock()
+}
+
 // ledgerKeys lists the batch ledgers on disk.
 func ledgerKeys(t *testing.T) []string {
 	t.Helper()
@@ -83,8 +95,9 @@ func TestDownloadSubmitHasNoWholeRunDeadline(t *testing.T) {
 func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
+	quickReconcile(t, s)
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
-	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...); err != nil {
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs()...); err != nil {
 		t.Fatalf("first run: %v\n%s", err, stderr)
 	}
 	first := ledgerKeys(t)
@@ -92,41 +105,45 @@ func TestDownloadSubmitRefusesAnIdenticalRerun(t *testing.T) {
 		t.Fatalf("first run: creates=%d ledgers=%v", n, first)
 	}
 
-	_, _, err := runDL(t, s, downloadSubmitArgs("--no-reconcile")...)
-	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "--batch "+first[0]+" --resume --yes") || !strings.Contains(err.Error(), "--new-batch") {
-		t.Fatalf("an identical re-run must be refused with the resume command, got %v", err)
+	_, stderr, err := runDL(t, s, downloadSubmitArgs()...)
+	if err == nil || ExitCode(err) != 2 || !strings.Contains(stderr, "--batch "+first[0]+" --resume --yes") {
+		t.Fatalf("an identical re-run must be refused with the resume command, got %v\n%s", err, stderr)
+	}
+	if strings.Contains(err.Error()+stderr, "--new-batch") {
+		t.Fatalf("a refusal must not suggest --new-batch:\n%v\n%s", err, stderr)
 	}
 	if n := len(s.createdAccounts()); n != 4 || len(ledgerKeys(t)) != 1 {
 		t.Fatalf("a refused re-run created %d / wrote %d ledgers", n-4, len(ledgerKeys(t))-1)
 	}
-	// A different filter is a different command, but its archives were all
-	// created by the first batch, so it creates none of them again.
-	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--sub-sources", "O365MAIL")...); err != nil {
-		t.Fatalf("a different sub-source filter should run: %v\n%s", err, stderr)
+	// A narrower selection of the same archives is refused too: they are
+	// all held by the first batch.
+	if _, _, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err == nil || ExitCode(err) != 2 {
+		t.Fatalf("a narrower run over held archives must be refused, got %v", err)
 	}
-	if n := len(s.createdAccounts()); n != 4 {
-		t.Fatalf("creates after the filtered run = %d, want 4 (nothing created twice)", n)
+	if n := len(s.createdAccounts()); n != 4 || len(ledgerKeys(t)) != 1 {
+		t.Fatalf("after the narrower run: creates=%d ledgers=%d, want 4 and 1", n, len(ledgerKeys(t)))
 	}
 	if _, _, err := runDL(t, s, downloadSubmitArgs("--new-batch", "--resume", "--batch", first[0])...); err == nil || ExitCode(err) != 2 {
 		t.Fatalf("--new-batch with --resume: want exit 2, got %v", err)
 	}
-	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--new-batch")...); err != nil {
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--new-batch")...); err != nil {
 		t.Fatalf("--new-batch: %v\n%s", err, stderr)
 	}
-	if n := len(s.createdAccounts()); n != 8 || len(ledgerKeys(t)) != 3 {
+	if n := len(s.createdAccounts()); n != 8 || len(ledgerKeys(t)) != 2 {
 		t.Fatalf("--new-batch should create every export again: creates=%d ledgers=%d", n, len(ledgerKeys(t)))
 	}
 
 	// A batch whose every create was refused owns nothing.
 	testenv.Isolate(t)
 	s2 := newDLStub(t)
+	quickReconcile(t, s2)
 	s2.taskEntities = []string{"c@contoso.com"}
 	s2.createCode["c@contoso.com"] = 401
-	if _, _, err := runDL(t, s2, downloadSubmitArgs("--no-reconcile")...); err == nil {
+	if _, _, err := runDL(t, s2, downloadSubmitArgs()...); err == nil {
 		t.Fatal("a run whose creates were all refused should not exit 0")
 	}
 	delete(s2.createCode, "c@contoso.com")
-	if _, stderr, err := runDL(t, s2, downloadSubmitArgs("--no-reconcile")...); err != nil {
+	if _, stderr, err := runDL(t, s2, downloadSubmitArgs()...); err != nil {
 		t.Fatalf("an earlier batch with only refused creates must not block: %v\n%s", err, stderr)
 	}
 }
@@ -137,6 +154,7 @@ const (
 	helperArgs  = "CLOUDALLY_DL_HELPER_ARGS"
 	helperHome  = "CLOUDALLY_DL_HELPER_HOME"
 	helperPause = "CLOUDALLY_DL_HELPER_PAUSE"
+	helperClaim = "CLOUDALLY_DL_HELPER_CLAIM_PAUSE"
 )
 
 // TestHelperDownloadSubmitProcess is not a test: it is the second process
@@ -151,6 +169,10 @@ func TestHelperDownloadSubmitProcess(t *testing.T) {
 	if d, err := time.ParseDuration(os.Getenv(helperPause)); err == nil {
 		rerunGuardPause = d
 	}
+	if d, err := time.ParseDuration(os.Getenv(helperClaim)); err == nil {
+		downloadClaimPause = d
+	}
+	reconcileDelay = time.Millisecond
 	var args []string
 	_ = json.Unmarshal([]byte(os.Getenv(helperArgs)), &args)
 	cmd := RootCmd()
@@ -216,10 +238,11 @@ func TestDownloadSubmitRerunGuardHoldsAcrossProcesses(t *testing.T) {
 	}
 	testenv.Isolate(t)
 	s := newDLStub(t)
+	quickReconcile(t, s)
 	s.mu.Lock()
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
 	s.mu.Unlock()
-	args := downloadSubmitArgs("--no-reconcile")
+	args := downloadSubmitArgs()
 	res := runChildren(t, s, 700*time.Millisecond, 0, args, args)
 	codes := map[int]int{}
 	for _, r := range res {
@@ -236,7 +259,7 @@ func TestDownloadSubmitRerunGuardHoldsAcrossProcesses(t *testing.T) {
 	}
 
 	// --new-batch in both: two batches in the same second, both kept.
-	res = runChildren(t, s, 0, 0, downloadSubmitArgs("--no-reconcile", "--new-batch"), downloadSubmitArgs("--no-reconcile", "--new-batch"))
+	res = runChildren(t, s, 0, 0, downloadSubmitArgs("--new-batch"), downloadSubmitArgs("--new-batch"))
 	for _, r := range res {
 		if r.code != 0 {
 			t.Fatalf("--new-batch runs should both succeed: %+v", res)
@@ -256,11 +279,12 @@ func TestDownloadSubmitConcurrentResumesDoNotOverlap(t *testing.T) {
 	}
 	testenv.Isolate(t)
 	s := newDLStub(t)
+	quickReconcile(t, s)
 	newSubmitBatch(t, "20221231-000000-shared", "a@contoso.com", "b@contoso.com")
 	s.mu.Lock()
 	s.createDelay = 2 * time.Second
 	s.mu.Unlock()
-	args := []string{"download", "submit", "--batch", "20221231-000000-shared", "--resume", "--yes", "--no-reconcile", "--json"}
+	args := []string{"download", "submit", "--batch", "20221231-000000-shared", "--resume", "--yes", "--json"}
 	res := runChildren(t, s, 0, 700*time.Millisecond, args, args)
 	if res[0].code != 0 {
 		t.Fatalf("the first resume should succeed: %+v", res[0])
@@ -279,9 +303,10 @@ func TestDownloadSubmitConcurrentResumesDoNotOverlap(t *testing.T) {
 func TestDownloadSubmitResumeKeepsIncludeFlags(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
+	quickReconcile(t, s)
 	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
 	s.createCode["b@contoso.com"] = 401
-	if _, _, err := runDL(t, s, downloadSubmitArgs("--no-reconcile", "--include-deleted", "--include-legal-hold")...); err == nil {
+	if _, _, err := runDL(t, s, downloadSubmitArgs("--include-deleted", "--include-legal-hold")...); err == nil {
 		t.Fatal("b@ was refused, so the first run should not exit 0")
 	}
 	keys := ledgerKeys(t)
@@ -293,13 +318,13 @@ func TestDownloadSubmitResumeKeepsIncludeFlags(t *testing.T) {
 	s.createBodies = nil
 	s.mu.Unlock()
 
-	if _, _, err := runDL(t, s, "download", "submit", "--batch", keys[0], "--resume", "--include-legal-hold=false", "--yes", "--no-reconcile"); err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "--include-legal-hold=false (batch recorded true)") {
+	if _, _, err := runDL(t, s, "download", "submit", "--batch", keys[0], "--resume", "--include-legal-hold=false", "--yes"); err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "--include-legal-hold=false (batch recorded true)") {
 		t.Fatalf("a conflicting include flag must be refused, got %v", err)
 	}
 	if n := len(s.createBodies); n != 0 {
 		t.Fatalf("a refused resume sent %d create(s)", n)
 	}
-	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", keys[0], "--resume", "--yes", "--no-reconcile"); err != nil {
+	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", keys[0], "--resume", "--yes"); err != nil {
 		t.Fatalf("resume: %v\n%s", err, stderr)
 	}
 	if len(s.createBodies) != 2 {
