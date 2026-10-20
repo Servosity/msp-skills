@@ -213,7 +213,7 @@
     {
       "id": "sync-clear-never-marks-complete",
       "summary": "the --full / --latest-only cursor clears go through store.ClearSyncCursor, which marks the attempt incomplete (never complete), and run only after every flag is validated, only for known resource names, and only for resources that will get past syncResource's preflight",
-      "why": "The generated sync cleared each selected collection with SaveSyncStateAt(resource, \"\", 0, time.Time{}), which writes last_attempt_complete = 1, and did it before --since was parsed. So `sync --full --since bogus` rewrote every row to complete and exited; a kill, timeout or MCP-host SIGTERM during a --full run left every queued, never-walked collection reading complete; and `--full --resources netwrks` left a row for a name that can never sync. mcpStoreStatus (internal/mcp/tools.go) counts last_attempt_complete to tell agents the store is a complete snapshot, so all three read as ready (false-GREEN). ClearSyncCursor (hand-authored internal/store/dnsfilter_sync_state.go) resets cursor, watermark (NULL) and count and writes last_attempt_complete = 0; only the walk's final SaveSyncStateAt after outcome.complete marks a collection complete. The clear now runs after --since parsing, skips names not in knownSyncResourceNames(), and skips a resource syncResourceWalksAfterClear says the walk will skip (domains without fqdns), because a cleared row only becomes complete again through a walk. Precedent: backup-radar sync-clear-never-marks-complete. Proven: SaveSyncStateAt back at the clear site fails TestSyncFullClearLeavesQueuedCollectionIncomplete (users read complete=1 while networks was still in flight); the original pre-validation clear fails TestSyncUsageErrorsLeaveSyncStateUntouched and TestSyncFullDoesNotClearAResourceItWillSkip; dropping the known-name filter or the preflight filter fails the matching test; ClearSyncCursor writing 1 fails TestClearSyncCursorNeverMarksComplete. NOT covered here: internal/cli/channel_workflow.go (workflow archive --full) still clears with s.SaveSyncState(resource, \"\", 0), which stamps now with complete = 1.",
+      "why": "The generated sync cleared each selected collection with SaveSyncStateAt(resource, \"\", 0, time.Time{}), which writes last_attempt_complete = 1, and did it before --since was parsed. So `sync --full --since bogus` rewrote every row to complete and exited; a kill, timeout or MCP-host SIGTERM during a --full run left every queued, never-walked collection reading complete; and `--full --resources netwrks` left a row for a name that can never sync. mcpStoreStatus (internal/mcp/tools.go) counts last_attempt_complete to tell agents the store is a complete snapshot, so all three read as ready (false-GREEN). ClearSyncCursor (hand-authored internal/store/dnsfilter_sync_state.go) resets cursor, watermark (NULL) and count and writes last_attempt_complete = 0; only the walk's final SaveSyncStateAt after outcome.complete marks a collection complete. The clear now runs after --since parsing, skips names not in knownSyncResourceNames(), and skips a resource syncResourceWalksAfterClear says the walk will skip (domains without fqdns), because a cleared row only becomes complete again through a walk. Precedent: backup-radar sync-clear-never-marks-complete. Proven: SaveSyncStateAt back at the clear site fails TestSyncFullClearLeavesQueuedCollectionIncomplete (users read complete=1 while networks was still in flight); the original pre-validation clear fails TestSyncUsageErrorsLeaveSyncStateUntouched and TestSyncFullDoesNotClearAResourceItWillSkip; dropping the known-name filter or the preflight filter fails the matching test; ClearSyncCursor writing 1 fails TestClearSyncCursorNeverMarksComplete. NOT covered here: internal/cli/channel_workflow.go (workflow archive --full) still clears with s.SaveSyncState(resource, \"\", 0), which stamps now with complete = 1. workflow archive --full had its own copy of the old clear (SaveSyncState(resource, \"\", 0) stamps complete=1) and its own hard-coded resource list that still included api-keys; it now uses ClearSyncCursor, the syncResourceWalksAfterClear filter and defaultSyncResources(). TestWorkflowArchiveFullClearNeverMarksComplete times the archive out on its first resource and fails if any never-walked collection reads complete or api-keys gets a sync_state row.",
       "status": "active",
       "asserts": [
         {
@@ -273,6 +273,25 @@
         {
           "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
           "contains": "func TestSyncResourceWalksAfterClearMatchesPreflight(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "if err := s.ClearSyncCursor(resource); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "resources := defaultSyncResources()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "s.SaveSyncState(resource, \"\", 0)"
+        },
+        {
+          "file": "cli/internal/cli/workflow_archive_clear_test.go",
+          "contains": "func TestWorkflowArchiveFullClearNeverMarksComplete(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -1353,6 +1372,83 @@
         {
           "file": "cli/internal/cli/template_class_fixes_test.go",
           "contains": "func TestRootHelpBrandCasing(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "response-cache-never-holds-secrets",
+      "summary": "the on-disk HTTP response cache never stores a GET body that carries a secret-named key (networks secret_key, api-keys token); bodies without secrets are cached as before",
+      "why": "secrets-never-persisted closed the SQLite mirror, but writeCacheWithHeaders wrote raw GET bodies to <cache>/http/resources/<tag>/ for live networks list/show and api-keys list/show. The 5-minute TTL only gates reads, so the file stayed on disk holding every site's deployment secret and API key tokens. The write now skips any body that store.ScrubPersistedSecrets would change (same key rule as the mirror, decoded JSON, fail closed on undecodable bodies). TestResponseCacheNeverHoldsSecrets fails when the guard is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if !bytes.Equal(store.ScrubPersistedSecrets(data), data) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/response_cache_secrets_test.go",
+          "contains": "func TestResponseCacheNeverHoldsSecrets(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-fails-closed",
+      "summary": "DNSFILTER_MCP_READ_ONLY turns read-only mode on for 1, true, yes or any other non-empty value; only 0, false, no and off (or an unresolved MCPB placeholder) leave it off",
+      "why": "The press template accepted only the literal \"1\", so an operator who typed true or yes into the .mcpb prompt or an env block silently got full write access, including deletes and credential reads. The switch now fails closed. The generated TestCodeOrchExecuteReadOnlyRefusesNonGET and cobratree TestMCPReadOnlySwitch asserted the old rule and were updated; both fail if the old comparison returns.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "not_contains": "return os.Getenv(MCPReadOnlyEnvVar) == \"1\""
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_writebody_test.go",
+          "contains": "for _, on := range []string{\"true\", \"yes\", \"TRUE\", \" on \", \"enabled\"} {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-import-hidden",
+      "summary": "import (one POST per JSONL line, read from a local file) is annotated mcp:hidden, so the MCP server does not offer it as a tool",
+      "why": "mcp-filesystem-destination-gate stopped MCP callers passing --input, but the import tool stayed listed, inviting an agent to try a bulk create path that only makes sense from a terminal. TestImportIsNotAnMCPTool walks the real command tree and fails if import is registered.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/import_hidden_test.go",
+          "contains": "func TestImportIsNotAnMCPTool(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-auth-hints-windows-twin",
+      "summary": "every MCP auth-error hint that says `export DNSFILTER_API_KEY=` is followed by its PowerShell form and the bare-token reminder",
+      "why": "The MCP server's 400/401/403 auth hints were POSIX-only. Most MSPs run Windows; the CLI's hints were twinned by auth-hints-windows-twin, the MCP copies in tools.go were not. TestMCPAuthHintsHaveWindowsTwin fails when a twin line is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "In PowerShell: $env:DNSFILTER_API_KEY = \\\"your-token-here\\\" (the bare token, no Bearer prefix)",
+          "min_count": 3,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/auth_hint_twin_test.go",
+          "contains": "func TestMCPAuthHintsHaveWindowsTwin(t *testing.T) {",
           "code_only": true
         }
       ]

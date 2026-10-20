@@ -107,13 +107,19 @@ func TestCodeOrchExecuteReadOnlyRefusesNonGET(t *testing.T) {
 	if codeOrchBlockedByMCPReadOnly("POST") {
 		t.Fatal("unset switch blocked POST")
 	}
-	t.Setenv(cliutil.MCPReadOnlyEnvVar, "true")
-	if codeOrchBlockedByMCPReadOnly("DELETE") {
-		t.Fatal(`"true" enabled the read-only switch`)
+	// handfixes.json: mcp-read-only-fails-closed. Any value other than an
+	// explicit off turns the switch on; a typo never grants writes.
+	for _, on := range []string{"true", "yes", "TRUE", " on ", "enabled"} {
+		t.Setenv(cliutil.MCPReadOnlyEnvVar, on)
+		if !codeOrchBlockedByMCPReadOnly("DELETE") {
+			t.Fatalf("%q did not enable the read-only switch", on)
+		}
 	}
-	t.Setenv(cliutil.MCPReadOnlyEnvVar, "yes")
-	if codeOrchBlockedByMCPReadOnly("PATCH") {
-		t.Fatal(`"yes" enabled the read-only switch`)
+	for _, off := range []string{"0", "false", "no", "off", "${user_config.dnsfilter_mcp_read_only}"} {
+		t.Setenv(cliutil.MCPReadOnlyEnvVar, off)
+		if codeOrchBlockedByMCPReadOnly("PATCH") {
+			t.Fatalf("%q enabled the read-only switch", off)
+		}
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
 	if codeOrchBlockedByMCPReadOnly("GET") {

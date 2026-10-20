@@ -93,7 +93,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"agent-local-users", "api-keys", "application-categories", "applications", "block-pages", "categories", "dashboards", "dashboards-owned", "dictionary", "dictionary-qp-methods", "dictionary-vpn-settings-state-types", "distributors", "distributors-msps", "distributors-organizations", "distributors-skus-available", "distributors-users", "ip-addresses", "mac-addresses", "networks", "networks-geo", "networks-subnets", "organizations", "policies", "policy-ips", "scheduled-policies", "scheduled-reports", "unblock-requests", "user-agents", "users"}
+			resources := defaultSyncResources()
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]
@@ -109,8 +109,14 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			// existingCursor unconditionally; its full param only gates the
 			// since filter, not cursor reset. Mirrors newSyncCmd's pattern.
 			if full {
+				// HAND-FIX(sync-clear-never-marks-complete): a clear never marks
+				// the collection complete, and a resource the walk would skip
+				// is not cleared at all.
 				for _, resource := range resources {
-					if err := s.SaveSyncState(resource, "", 0); err != nil {
+					if !syncResourceWalksAfterClear(resource, "", nil) {
+						continue
+					}
+					if err := s.ClearSyncCursor(resource); err != nil {
 						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
 					}
 				}

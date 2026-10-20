@@ -581,18 +581,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
 					"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"" +
+					"\n      In PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\" (the bare token, no Bearer prefix)" +
 					"\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens" +
 					"\n      Run 'dnsfilter-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
 					"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"" +
+					"\n      In PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\" (the bare token, no Bearer prefix)" +
 					"\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens" +
 					"\n      Run 'dnsfilter-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
 					"\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"" +
+					"\n      In PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\" (the bare token, no Bearer prefix)" +
 					"\n      Get a key at: https://help.dnsfilter.com/hc/en-us/articles/21169189058323-API-Tokens" +
 					"\n      Run 'dnsfilter-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):

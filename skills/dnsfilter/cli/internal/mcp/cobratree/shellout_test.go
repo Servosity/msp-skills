@@ -2118,19 +2118,26 @@ func TestMCPReadOnlySwitch(t *testing.T) {
 		}
 	})
 
+	// handfixes.json: mcp-read-only-fails-closed.
 	t.Run("other values", func(t *testing.T) {
-		for _, value := range []string{"", "true", "yes", "0", "TRUE"} {
+		for _, value := range []string{"", "0", "false", "no", "OFF"} {
 			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
 			if cliutil.IsMCPReadOnlyEnv() {
 				t.Fatalf("value %q enabled the read-only switch", value)
+			}
+		}
+		for _, value := range []string{"true", "yes", "TRUE", "on"} {
+			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
+			if !cliutil.IsMCPReadOnlyEnv() {
+				t.Fatalf("value %q did not enable the read-only switch", value)
 			}
 		}
 		t.Setenv(cliutil.MCPReadOnlyEnvVar, "true")
 		root := mcpReadOnlyFixtureRoot()
 		s := server.NewMCPServer("test", "0.0.0")
 		RegisterAll(s, root, func() (string, error) { return "missing-binary", nil })
-		if s.ListTools()["purge"] == nil {
-			t.Fatal(`"true" skipped mutating tools`)
+		if s.ListTools()["purge"] != nil {
+			t.Fatal(`"true" kept mutating tools`)
 		}
 	})
 

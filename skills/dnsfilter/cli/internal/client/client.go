@@ -14,6 +14,7 @@ import (
 	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/config"
 	"dnsfilter-pp-cli/internal/platform"
+	"dnsfilter-pp-cli/internal/store"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -825,6 +826,12 @@ func (c *Client) writeCache(path string, params map[string]string, data json.Raw
 }
 
 func (c *Client) writeCacheWithHeaders(path string, params map[string]string, headers map[string]string, data json.RawMessage) {
+	// handfixes.json: response-cache-never-holds-secrets. A GET body with a
+	// secret-named key (networks secret_key, api-keys token) is not cached:
+	// the TTL only gates reads, so the file would stay on disk.
+	if !bytes.Equal(store.ScrubPersistedSecrets(data), data) {
+		return
+	}
 	resourceDir := c.cacheResourceDir(path)
 	_ = os.MkdirAll(resourceDir, 0o700)
 	cacheFile := filepath.Join(resourceDir, c.cacheKeyFor(http.MethodGet, path, params, headers, nil)+".json")

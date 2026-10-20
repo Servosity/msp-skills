@@ -138,14 +138,19 @@ func IsDogfoodEnv() bool {
 }
 
 // MCPReadOnlyEnvVar is the operator kill switch for this CLI's MCP server.
-// The value must be exactly "1", matching the other harness switches.
-// "true" and "yes" do not enable it.
+// Fail closed (handfixes.json: mcp-read-only-fails-closed): "1", "true",
+// "yes" and any other non-empty value turn it on; only "0", "false", "no"
+// and "off" leave it off. An unresolved MCPB placeholder counts as unset.
 const MCPReadOnlyEnvVar = "DNSFILTER_MCP_READ_ONLY"
 
 // IsMCPReadOnlyEnv reports whether the MCP server should expose only
 // read-only mirrored commands and refuse non-GET execute calls.
 func IsMCPReadOnlyEnv() bool {
-	return os.Getenv(MCPReadOnlyEnvVar) == "1"
+	switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
 }
 
 // EnvOverride returns the named environment variable, treating an
