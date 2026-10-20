@@ -41,6 +41,16 @@ var unresolvedPathKeyRE = regexp.MustCompile(`\{[a-zA-Z_][a-zA-Z0-9_]*\}`)
 
 const dogfoodMaxParentRows = 2
 
+// filteredSyncHold turns off pruning and freezes sync_state for a narrowed
+// resource, and says so on the event stream.
+func filteredSyncHold(db *store.Store, syncEvents io.Writer, resource string) {
+	db.HoldSyncState(resource)
+	if syncEvents == nil {
+		return
+	}
+	fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"filtered_sync","message":"user params narrow this request: rows outside the filter are kept and the resource's sync state is left as the last unfiltered sync wrote it"}`+"\n", resource)
+}
+
 // pathContextVarSet is the set of --path-context keys sync accepts
 // (path-context-known-keys-only refuses every other key). Tenant vars are
 // also listed in endpointTemplateVarSet so the unresolved-key skip ignores them.
@@ -228,6 +238,14 @@ Resource scoping:
 			// catch typos without false positives.
 			if err := userParams.validateResourceNames(knownSyncResourceNames()); err != nil {
 				return usageErr(err)
+			}
+
+			// Hand-fix filtered-sync-never-prunes-or-completes: hold the state
+			// of every narrowed resource before --full / --latest-only reset it.
+			for _, resource := range resources {
+				if userParams.narrows(resource, false) {
+					db.HoldSyncState(resource)
+				}
 			}
 
 			// --full: clear all sync cursors before starting.
@@ -521,6 +539,10 @@ func syncResource(ctx context.Context, c interface {
 	started := time.Now()
 	if syncEvents == nil {
 		syncEvents = io.Discard
+	}
+	if userParams.narrows(resource, false) {
+		prune = false
+		filteredSyncHold(db, syncEvents, resource)
 	}
 
 	if !humanFriendly {
@@ -3322,6 +3344,10 @@ func syncDependentResource(ctx context.Context, c interface {
 	RateLimit() float64
 }, db *store.Store, dep dependentResourceDef, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer, concurrency int) syncResult {
 	started := time.Now()
+	if userParams.narrows(dep.Name, true) {
+		prune = false
+		filteredSyncHold(db, syncEvents, dep.Name)
+	}
 	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
 		cursor, _, count, err := db.GetSyncState(dep.Name)
 		if err != nil {

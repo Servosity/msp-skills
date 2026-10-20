@@ -285,7 +285,6 @@ func respondLoadMirror(cmd *cobra.Command, flags *rootFlags, job respondJob) (re
 	}
 	defer db.Close()
 	m.present = true
-	m.incomplete = len(esetMirrorCheck(db, resources...).Incomplete) > 0
 	// A --customer run also takes its expected device list from the mirror,
 	// so an unfinished sync is worth a hint even for a group UUID.
 	if needNames || job.customer != "" {
@@ -330,10 +329,7 @@ func respondExecute(cmd *cobra.Command, flags *rootFlags, job respondJob) error 
 		targets.Groups = append(targets.Groups, ref)
 		want.DeviceUUIDs = m.customerDeviceUUIDs(ref.UUID)
 		want.MinRuns = len(want.DeviceUUIDs)
-		// Hand-fix respond-wait-needs-complete-membership: after an
-		// interrupted sync the mirrored member list may miss devices, so
-		// --wait must not report the group task complete.
-		want.Unknown = len(want.DeviceUUIDs) == 0 || m.incomplete
+		want.Unknown = len(want.DeviceUUIDs) == 0
 	}
 
 	body := respondBuildBody(job.action, job.verb, job.scan, targets, time.Now())
@@ -400,6 +396,14 @@ func respondExecute(cmd *cobra.Command, flags *rootFlags, job respondJob) error 
 		Created:      respondCreatedView{TaskUUID: taskUUID, Action: job.action, Targets: targets},
 		Runs:         make([]respondRun, 0),
 		ExpectedRuns: want.MinRuns,
+	}
+	if job.wait > 0 && job.customer != "" {
+		// Hand-fix respond-wait-needs-complete-membership: the task targets
+		// the live group, so the runs to wait for are its live members, not
+		// the mirror's (an interrupted sync, or a device enrolled since the
+		// last sync, would let --wait report complete too early).
+		want = respondLiveMembers(cmd, c, targets.Groups[0].UUID, flags)
+		result.ExpectedRuns = want.MinRuns
 	}
 	if job.wait > 0 {
 		poll := respondPollRuns(cmd.Context(), c, taskUUID, want, job.wait, respondPollInterval,

@@ -62,7 +62,7 @@ func TestDefaultSyncLeavesInstallerLinksOut(t *testing.T) {
 	}
 	run := func(home string, args ...string) {
 		cmd := RootCmd()
-		var out bytes.Buffer
+		var out lockedBuffer // sync workers write concurrently
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		cmd.SetArgs(append(args, "--json", "--rate-limit", "0", "--home", home))

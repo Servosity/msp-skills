@@ -810,6 +810,16 @@ func (p *syncUserParams) applyTo(resource string, params map[string]string, isDe
 	}
 }
 
+// narrows reports whether any user param applies to resource's request
+// (hand-fix filtered-sync-never-prunes-or-completes). Every user param counts:
+// any of them can change which rows ESET returns.
+func (p *syncUserParams) narrows(resource string, isDependent bool) bool {
+	if p == nil {
+		return false
+	}
+	return (!isDependent && len(p.flatGlobal) > 0) || len(p.trueGlobal) > 0 || len(p.perResource[resource]) > 0
+}
+
 // validateResourceNames returns a usage-shaped error when any --resource-param
 // key targets a resource not in known. Without this check a typo
 // (e.g. --resource-param chanels:mine=true) is a silent no-op: the param

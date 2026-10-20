@@ -4128,7 +4128,7 @@
     {
       "id": "json-numbers-exact",
       "summary": "every JSON number above 2^53 survives byte for byte on the request and output paths: import (map[string]json.RawMessage), the generated --stdin bodies and JSON-valued flags (esetDecodeExact), MCP tool arguments (ExactArguments middleware: plain integer literals stay json.Number, other numbers stay float64), export json/jsonl (RawMessage, JSONL compacted one record per line), the helpers.go --compact/--agent/--csv/--plain/--quiet paths, the generated write-response envelopes and the TTY table decode",
-      "why": "Press 4.33.5 decoded write bodies into map[string]any / any, so an integer above 2^53 (9007199254740993) reached the API as 9007199254740992 with exit 0: import (Codex round 2 P1, reproduced), single-record `export <res> <id> --format json` (Codex round 2 P1), and the same class in 34 generated write commands (41 call sites: --stdin bodies and JSON-valued flags such as device-tasks create --task-action-params). JSONL export kept a pretty-printed record's newlines, so its output could not be re-imported (Codex P2). TestImportExportKeepNumbersExact failed with import.go reverted, with export.go reverted, and with only exportJSONLine removed; TestGeneratedWriteBodiesKeepNumbersExact failed with groups_create.go reverted (--stdin) and with device-tasks_create.go reverted (JSON flag). Codex round 3 found the same class on two more surfaces: MCP eset-protect_execute (mcp-go fills Params.Arguments with plain json.Unmarshal; reproduced on the built binary over stdio, the POSTed body carried ...992 before the fix and ...993 after) and --compact (implied by --agent), --csv and --plain output. TestExecuteKeepsBigIntegers drives ExactArguments(handleCodeOrchExecute) with a wire-decoded request and keeps the bare handler as the rounding control; TestEveryOutputModeKeepsBigIntegers is the oracle across devices list/get in default, --json, --compact, --agent, --select, --csv and --plain, and failed in --compact, --agent, --csv and --plain before the helpers.go change. Adversarial round 3: the first ExactArguments kept 7.0 / 1e1 as json.Number, which printed literally and broke integer flags (fleet_stale days:7.0) and int32 query params (pageSize=10.0); exactIntegersOnly converts every non-integer literal back to float64 (TestExactArgumentsKeepsNonIntegerNumbersAsFloat; built-binary receipt: fleet_stale days:7.0 succeeds and execute devices.list pageSize:10.0 sends pageSize=10). The same round found the generated write-response envelope (`var parsed any`) and the TTY table decode still rounded; 140 sites in 100 generated files now decode with esetDecodeExact (TestWriteResponsesKeepNumbersExact failed with groups_create.go reverted; a pty receipt of `devices list` prints COUNT 9007199254740993). ESET's official specs declare 87 int64 fields as JSON integers, so the class is reachable.",
+      "why": "Press 4.33.5 decoded write bodies into map[string]any / any, so an integer above 2^53 (9007199254740993) reached the API as 9007199254740992 with exit 0: import (Codex round 2 P1, reproduced), single-record `export <res> <id> --format json` (Codex round 2 P1), and the same class in 34 generated write commands (41 call sites: --stdin bodies and JSON-valued flags such as device-tasks create --task-action-params). JSONL export kept a pretty-printed record's newlines, so its output could not be re-imported (Codex P2). TestImportExportKeepNumbersExact failed with import.go reverted, with export.go reverted, and with only exportJSONLine removed; TestGeneratedWriteBodiesKeepNumbersExact failed with groups_create.go reverted (--stdin) and with device-tasks_create.go reverted (JSON flag). Codex round 3 found the same class on two more surfaces: MCP eset-protect_execute (mcp-go fills Params.Arguments with plain json.Unmarshal; reproduced on the built binary over stdio, the POSTed body carried ...992 before the fix and ...993 after) and --compact (implied by --agent), --csv and --plain output. TestExecuteKeepsBigIntegers drives ExactArguments(handleCodeOrchExecute) with a wire-decoded request and keeps the bare handler as the rounding control; TestEveryOutputModeKeepsBigIntegers is the oracle across devices list/get in default, --json, --compact, --agent, --select, --csv and --plain, and failed in --compact, --agent, --csv and --plain before the helpers.go change. Adversarial round 3: the first ExactArguments kept 7.0 / 1e1 as json.Number, which printed literally and broke integer flags (fleet_stale days:7.0) and int32 query params (pageSize=10.0); exactIntegersOnly converts every non-integer literal back to float64 (TestExactArgumentsKeepsNonIntegerNumbersAsFloat; built-binary receipt: fleet_stale days:7.0 succeeds and execute devices.list pageSize:10.0 sends pageSize=10). The same round found the generated write-response envelope (`var parsed any`) and the TTY table decode still rounded; 140 sites in 100 generated files now decode with esetDecodeExact (TestWriteResponsesKeepNumbersExact failed with groups_create.go reverted; a pty receipt of `devices list` prints COUNT 9007199254740993). ESET's official specs declare 87 int64 fields as JSON integers, so the class is reachable. Adversarial round 4 found the write commands' first table attempt (`json.Unmarshal(data, &items) == nil && len(items) > 0`) was the unconverted twin; 40 more generated files now use esetDecodeExact there.",
       "status": "active",
       "asserts": [
         {
@@ -5109,6 +5109,206 @@
           "file": "cli/internal/cli/web-address-rules_domains_web-address-rules-update.go",
           "contains": "esetDecodeExact(filtered, &parsed)",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detection-groups_resolve.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2_batch-get.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/detections_v2_resolve.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-targets.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/device-tasks_update-triggers.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_move.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/devices_rename.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rule-exclusions_update-definition.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_disable.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_enable.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/edr-rules_update-definition.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables_block.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/executables_unblock.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_move.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/groups_rename.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_basic-attributes-update_incidents-update-incident-basic-attributes.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_close.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-create-incident.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-delete-incident.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_comments_incident-update-incident-text.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/incidents_reopen.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/installers_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/installers_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/ip-sets_update.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_assign-policy.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_unassign-policy.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy-assignments_update-ranking.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/roles_create.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/roles_delete.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/web-address-rules_domains_web-address-rules-update.go",
+          "contains": "esetDecodeExact(data, &items) == nil && len(items) > 0",
+          "code_only": true
         }
       ]
     },
@@ -5189,18 +5389,56 @@
     },
     {
       "id": "respond-wait-needs-complete-membership",
-      "summary": "respond scan --customer --yes --wait keeps completion unknown when the last devices or device-groups sync did not finish, because the expected runs come from the mirrored member list",
-      "why": "The task targets the live group, but expected runs came only from mirrored devices and any non-empty list cleared Unknown, so after an interrupted sync that captured device A but missed B, --wait reported complete:true as soon as A finished (Codex round 5 P1). respondLoadMirror records esetMirrorCheck(...).Incomplete and respondExecute sets want.Unknown when it is non-empty. TestRespondCustomerWaitNeedsCompleteMembership: with a complete sync the customer task completes; with an interrupted devices sync it does not, and that subtest failed with respond.go reverted.",
+      "summary": "respond scan --customer --yes --wait waits for the customer group's LIVE members (GET /v1/device_groups/{uuid}/devices?recurseSubgroups=true), not the mirror's; a failed or truncated listing leaves completion unknown",
+      "why": "The task targets the live group, but expected runs came only from mirrored devices, so --wait reported complete:true as soon as the mirrored devices finished: after an interrupted sync that missed device B (Codex round 5 P1) and, even after a complete sync, when device B was enrolled since (Codex round 6 P1). respondLiveMembers lists the group's devices including subgroups once the task is created and uses that set as the expectation. TestRespondCustomerWaitUsesLiveMembership: every live member finished -> complete with 2 expected runs; a live member the mirror never saw has not run -> incomplete; the listing returns 500 -> incomplete with a 'completion stays unknown' warning. The last two subtests failed with the respondLiveMembers call removed from respond.go.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/respond.go",
-          "contains": "m.incomplete = len(esetMirrorCheck(db, resources...).Incomplete) > 0",
+          "contains": "want = respondLiveMembers(cmd, c, targets.Groups[0].UUID, flags)",
           "code_only": true
         },
         {
-          "file": "cli/internal/cli/respond.go",
-          "contains": "want.Unknown = len(want.DeviceUUIDs) == 0 || m.incomplete",
+          "file": "cli/internal/cli/eset_respond_task.go",
+          "contains": "res, err := esetFetchAll(ctx, c, u, map[string]string{\"recurseSubgroups\": \"true\"}, \"devices\", respondMembersMaxPages)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "filtered-sync-never-prunes-or-completes",
+      "summary": "a sync narrowed by --param / --resource-param / --global-param never prunes and never writes sync_state for the narrowed resource (held before the --full reset), so rows outside the filter stay and completeness stays as the last unfiltered sync left it",
+      "why": "User params narrowed the request, but reaching its last page still allowed ReconcileAll across the whole resource: after a full devices sync, `sync --resources devices --full --param isMuted=true` deleted every unmuted device from the mirror and marked devices fully synced, so fleet reports silently undercounted (Codex round 6 P1). syncUserParams.narrows decides per resource (any user param counts); Store.HoldSyncState makes SaveSyncStateAt / SaveSyncProgress / SaveSyncCursor no-ops for it, applied in RunE before the --full/--latest-only reset and again in syncResource / syncDependentResource, which also turn prune off and emit a filtered_sync sync_warning. TestFilteredFullSyncKeepsRowsOutsideTheFilter failed with sync.go and helpers.go reverted (`pruned a device outside its filter`), checks the devices sync state is unchanged, and checks an unfiltered --full still prunes.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) HoldSyncState(resourceType string) { s.heldSync.Store(resourceType, true) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "\tif s.syncStateHeld(resourceType) {\n\t\treturn nil\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return (!isDependent && len(p.flatGlobal) > 0) || len(p.trueGlobal) > 0 || len(p.perResource[resource]) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\t\t\t\tif userParams.narrows(resource, false) {\n\t\t\t\t\tdb.HoldSyncState(resource)\n\t\t\t\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\tif userParams.narrows(dep.Name, true) {\n\t\tprune = false\n\t\tfilteredSyncHold(db, syncEvents, dep.Name)\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\tif userParams.narrows(resource, false) {\n\t\tprune = false\n\t\tfilteredSyncHold(db, syncEvents, resource)\n\t}",
           "code_only": true
         }
       ]

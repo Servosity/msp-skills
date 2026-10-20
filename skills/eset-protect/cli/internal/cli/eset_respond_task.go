@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"eset-protect-pp-cli/internal/client"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -226,10 +227,6 @@ type respondMirror struct {
 	path    string
 	devices []esetDevice
 	groups  []esetGroup
-	// incomplete: the last sync of a resource the run reads did not finish,
-	// so mirrored group membership may be missing devices (hand-fix
-	// respond-wait-needs-complete-membership).
-	incomplete bool
 }
 
 // resolveDevice turns a name or UUID into a target. A UUID is used as is
@@ -531,4 +528,41 @@ func respondPollRuns(ctx context.Context, c *client.Client, taskUUID string, wan
 		case <-timer.C:
 		}
 	}
+}
+
+// respondMembersMaxPages bounds the live membership walk (pageSize 1000).
+const respondMembersMaxPages = 100
+
+// respondLiveMembers lists every device ESET puts under groupUUID, subgroups
+// included, as the expectation for a customer task's runs (handfixes.json:
+// respond-wait-needs-complete-membership). A failed or truncated listing
+// leaves completion unknown: --wait then never reports the task complete.
+func respondLiveMembers(cmd *cobra.Command, c *client.Client, groupUUID string, flags *rootFlags) respondExpectation {
+	unknown := respondExpectation{Unknown: true}
+	if groupUUID == "" {
+		return unknown
+	}
+	ctx, cancel := boundCtx(cmd.Context(), flags)
+	defer cancel()
+	u := esetHost("device-management", "/v1/device_groups/"+url.PathEscape(groupUUID)+"/devices")
+	res, err := esetFetchAll(ctx, c, u, map[string]string{"recurseSubgroups": "true"}, "devices", respondMembersMaxPages)
+	if err == nil && res.Truncated {
+		err = fmt.Errorf("more than %d pages of devices", respondMembersMaxPages)
+	}
+	if err != nil {
+		esetFprintf(cmd.ErrOrStderr(), "warning: could not list the customer's current devices (%v); completion stays unknown\n", err)
+		return unknown
+	}
+	want := respondExpectation{}
+	for _, raw := range res.Items {
+		var d struct {
+			UUID string `json:"uuid"`
+		}
+		if json.Unmarshal(raw, &d) == nil && d.UUID != "" {
+			want.DeviceUUIDs = append(want.DeviceUUIDs, d.UUID)
+		}
+	}
+	want.MinRuns = len(want.DeviceUUIDs)
+	want.Unknown = len(want.DeviceUUIDs) == 0
+	return want
 }

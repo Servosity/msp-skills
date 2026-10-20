@@ -92,6 +92,20 @@ type Store struct {
 	// race-free by construction within a resource.
 	writeMu sync.Mutex
 	path    string
+	// heldSync names resources whose sync_state this Store must not write
+	// (hand-fix filtered-sync-never-prunes-or-completes).
+	heldSync sync.Map
+}
+
+// HoldSyncState makes every sync_state write for resourceType a no-op on this
+// Store. A sync narrowed by --param / --resource-param / --global-param holds
+// it: the run neither proves nor disproves that the whole resource is
+// mirrored, so the state from the last unfiltered sync stands.
+func (s *Store) HoldSyncState(resourceType string) { s.heldSync.Store(resourceType, true) }
+
+func (s *Store) syncStateHeld(resourceType string) bool {
+	_, held := s.heldSync.Load(resourceType)
+	return held
 }
 
 // Open opens or creates the SQLite store at dbPath using the background
@@ -3752,6 +3766,9 @@ func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {
 // watermark represented by at. Callers use this when the watermark belongs to
 // the data just fetched rather than to the instant the checkpoint is written.
 func (s *Store) SaveSyncStateAt(resourceType, cursor string, count int, at time.Time) error {
+	if s.syncStateHeld(resourceType) {
+		return nil
+	}
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
 	_, err := s.db.Exec(
@@ -3768,6 +3785,9 @@ func (s *Store) SaveSyncStateAt(resourceType, cursor string, count int, at time.
 // SaveSyncProgress stores pagination progress, marks the latest attempt
 // incomplete, and preserves the last completed incremental watermark.
 func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
+	if s.syncStateHeld(resourceType) {
+		return nil
+	}
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
 	_, err := s.db.Exec(
@@ -3796,6 +3816,9 @@ func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced tim
 
 // SaveSyncCursor stores the pagination cursor for a resource type.
 func (s *Store) SaveSyncCursor(resourceType, cursor string) error {
+	if s.syncStateHeld(resourceType) {
+		return nil
+	}
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
 	_, err := s.db.Exec(

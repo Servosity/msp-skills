@@ -286,6 +286,9 @@ func TestReportCustomerFlagsIncompleteSections(t *testing.T) {
 // sync check, so rows left by a dead re-sync came back with no hint.
 func TestGenericLocalReadsHintAfterAnInterruptedSync(t *testing.T) {
 	testenv.Isolate(t)
+	// The default DB scope is process-global and set by the last command an
+	// earlier test ran; resolve this test's path unscoped, as its command will.
+	setDefaultDBScopeIdentity("", "", "")
 	db := defaultDBPath(esetCLIName)
 	seeded := exposureSeedDB(t, map[string][]map[string]any{"devices": exposureFixtureDevices(time.Now())})
 	if err := copyFileForTest(seeded, db); err != nil {
