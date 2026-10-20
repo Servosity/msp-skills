@@ -1356,7 +1356,7 @@
     {
       "id": "doctor-verdict-tracks-reality",
       "summary": "doctor's api row is ERROR when the probe path 404s (base_url is not the DNSFilter API root), WARN when it serves a web page or a 5xx, and names the probe path instead of '/'; the remedy names base_url and DNSFILTER_BASE_URL for both shells",
-      "why": "check_doctor_truth.py --slug dnsfilter failed the wrong-base state: a base_url aimed at a web UI (app shell at /, 404 everywhere else) reported 'reachable (HTTP 404 at /)', a health claim for a broken install, mislabelled with '/' when the probe was /v1/current_user. The credential probe was already correct. After the fix check_doctor_truth passes; TestDoctorAPIVerdictTracksReality covers wrong-base, web page and healthy states. Codex round 17 (P1, 2026-10-20): a /v1/current_user that redirected to another host answering 200 {} made doctor report api reachable and credentials valid (the key was not even sent there); both probes now record the URL the answer came from (client.WithResponseURLRecorder) and a redirected-away answer is a WARN. Every 403 read as 'credentials are valid but lack permission' and was not on the --fail-on warn gate; a 403 is now WARN scope-limited (the gate also matches 'scope-limited'), and a 403 whose body says the request was not authenticated is reported invalid. A 5xx told the operator to set auth.verify_path, which does not exist; 404, 5xx and other statuses now get real remedies. TestDoctorRedirectedProbeIsNotProof and TestDoctorForbiddenAndServerErrorVerdicts fail against each revert.",
+      "why": "check_doctor_truth.py --slug dnsfilter failed the wrong-base state: a base_url aimed at a web UI (app shell at /, 404 everywhere else) reported 'reachable (HTTP 404 at /)', a health claim for a broken install, mislabelled with '/' when the probe was /v1/current_user. The credential probe was already correct. After the fix check_doctor_truth passes; TestDoctorAPIVerdictTracksReality covers wrong-base, web page and healthy states. Codex round 17 (P1, 2026-10-20): a /v1/current_user that redirected to another host answering 200 {} made doctor report api reachable and credentials valid (the key was not even sent there); both probes now record the URL the answer came from (client.WithResponseURLRecorder) and a redirected-away answer is a WARN. Every 403 read as 'credentials are valid but lack permission' and was not on the --fail-on warn gate; a 403 is now WARN scope-limited (the gate also matches 'scope-limited'), and a 403 whose body says the request was not authenticated is reported invalid. A 5xx told the operator to set auth.verify_path, which does not exist; 404, 5xx and other statuses now get real remedies. TestDoctorRedirectedProbeIsNotProof and TestDoctorForbiddenAndServerErrorVerdicts fail against each revert. Codex round 18 (P1 x2) and adversarial round 19 (P2), 2026-10-20: cache freshness read only last_synced_at, which a capped or interrupted walk keeps while recording last_attempt_complete = 0, so an incomplete mirror showed 'OK Cache: fresh' and passed --fail-on stale; an incomplete latest walk now makes the cache status 'incomplete' (WARN, on the stale gate) naming the collections with a sync --full remedy, and a store without the column proves nothing (as mcpStoreStatus). A nil client error counted as valid credentials, so /v1/current_user answering 304 with no body or 200 plain-text 'Access denied' reported credentials valid; only a JSON current-user record (data with id or attributes) is valid now, anything else is 'WARN not verified'. The 403 classifier matched 'required' near 'key' and any 'authenticat', so 'This API key lacks the required scope' called a valid key invalid; it now matches only phrases that say the request was not authenticated (invalid/expired/missing token or key, authentication required, unauthenticated, a bare Unauthorized, credentials not provided). TestDoctorIncompleteSyncIsNotFresh, TestDoctorCurrentUserProbeNeedsARecord and TestDoctorForbiddenScopeIsNotInvalid fail against each revert; the r17 in-memory transport now answers a current-user record instead of {}.",
       "status": "active",
       "asserts": [
         {
@@ -1433,6 +1433,60 @@
         {
           "file": "cli/internal/cli/auth_doctor_r17_test.go",
           "contains": "func TestDoctorForbiddenAndServerErrorVerdicts(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "case authErr == nil && !doctorLooksLikeCurrentUser(authBody):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "func doctorLooksLikeCurrentUser(body []byte) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "COALESCE(last_attempt_complete, 0) FROM sync_state ORDER BY resource_type",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if complete != 1 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"status\"] = \"incomplete\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "case \"stale\", \"incomplete\":",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "(?i)\\bauthenticat|"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "(invalid|expired|revoked|missing|required|not valid)"
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r18_test.go",
+          "contains": "func TestDoctorIncompleteSyncIsNotFresh(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r18_test.go",
+          "contains": "func TestDoctorCurrentUserProbeNeedsARecord(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r18_test.go",
+          "contains": "func TestDoctorForbiddenScopeIsNotInvalid(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -1792,12 +1846,12 @@
     {
       "id": "api-key-scheme-prefix-warning",
       "summary": "a key stored with a pasted 'Bearer ' or 'Token ' prefix makes doctor's auth row WARN and auth set-token print a warning; the key is still sent verbatim",
-      "why": "DNSFilter's spec says the Authorization header value is the API key itself and the CLI sends the stored key as-is (raw-api-key-authorization-header), so a key pasted as 'Bearer eyJ...' travels with the prefix and doctor used to report auth 'configured' with only a bare 401 on the credential row. The CLI does not strip it (it cannot know DNSFILTER never accepts the scheme form); it names the cause. TestDoctorWarnsOnSchemePrefixedKey fails when reverted.",
+      "why": "DNSFilter's spec says the Authorization header value is the API key itself and the CLI sends the stored key as-is (raw-api-key-authorization-header), so a key pasted as 'Bearer eyJ...' travels with the prefix and doctor used to report auth 'configured' with only a bare 401 on the credential row. The CLI does not strip it (it cannot know DNSFILTER never accepts the scheme form); it names the cause. TestDoctorWarnsOnSchemePrefixedKey fails when reverted. Codex round 18 (2026-10-20, env-api-key-wins): doctor checks the key actually sent (cfg.AuthHeader(): a stored auth_header or the DNSFILTER_API_KEY value), not only the saved api_key field.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/doctor.go",
-          "contains": "if scheme := apiKeySchemePrefix(cfg.DnsfilterApiKey); scheme != \"\" {",
+          "contains": "if scheme := apiKeySchemePrefix(cfg.AuthHeader()); scheme != \"\" {",
           "code_only": true
         },
         {
@@ -2293,7 +2347,7 @@
     {
       "id": "doctor-probes-bypass-response-cache",
       "summary": "both doctor probes (reachability and credentials) use the no-cache GET, so a verdict is never answered from the 5-minute response cache",
-      "why": "Adversarial round 1 (P2): the reachability probe used c.GetWithHeaders, which reads the response cache, so after one healthy run doctor kept printing 'OK API: reachable' for 5 minutes while the host refused connections or 404'd. Proved with the built binary: after the mock was killed the HEAD build said api=reachable, the fixed build says api=unreachable and credentials=skipped. TestDoctorProbesBypassResponseCache (healthy run, then the host 404s, then it goes away, same home) fails when reverted. Codex round 17 (P1, 2026-10-20): both probes now pass a context carrying the response-URL recorder (doctor-verdict-tracks-reality); they still use the no-cache GET.",
+      "why": "Adversarial round 1 (P2): the reachability probe used c.GetWithHeaders, which reads the response cache, so after one healthy run doctor kept printing 'OK API: reachable' for 5 minutes while the host refused connections or 404'd. Proved with the built binary: after the mock was killed the HEAD build said api=reachable, the fixed build says api=unreachable and credentials=skipped. TestDoctorProbesBypassResponseCache (healthy run, then the host 404s, then it goes away, same home) fails when reverted. Codex round 17 (P1, 2026-10-20): both probes now pass a context carrying the response-URL recorder (doctor-verdict-tracks-reality); they still use the no-cache GET. Codex round 18 (2026-10-20): the credential probe keeps its body (authBody) so doctor can require a current-user record (doctor-verdict-tracks-reality); it still uses the no-cache GET.",
       "status": "active",
       "asserts": [
         {
@@ -2312,7 +2366,7 @@
         },
         {
           "file": "cli/internal/cli/doctor.go",
-          "contains": "_, authErr := c.GetWithHeadersNoCache(authCtx, verifyPath, authParams, authHeaders)",
+          "contains": "authBody, authErr := c.GetWithHeadersNoCache(authCtx, verifyPath, authParams, authHeaders)",
           "code_only": true
         }
       ]
@@ -3573,7 +3627,7 @@
     {
       "id": "config-env-base-url-never-persisted",
       "summary": "a DNSFILTER_BASE_URL override applies to the current process only: saving the config (auth set-token, auth logout, token refresh) writes the base URL the config file held, never the override",
-      "why": "Adversarial round 8 (P2, 2026-10-20): `printf 'tok\\n' | DNSFILTER_BASE_URL=http://127.0.0.1:9/evil dnsfilter-cli auth set-token` wrote base_url = 'http://127.0.0.1:9/evil' into config.toml, so every later call, including ones with DNSFILTER_BASE_URL empty, sent the saved token there, while mcp-install.md says an empty value means api.dnsfilter.com. Load now records the file's base URL when the env override replaces it, and persisted() writes that. Press template behavior (config.go.tmpl); likely fleet-wide. TestEnvBaseURLNeverPersisted fails against the previous config.go. Codex round 8 / adversarial round 9 (P2): the agentcookie-managed save path marshals the whole config instead of persisted(), so the swap moved into configForSave, which every save path uses; TestEnvBaseURLNeverPersisted covers both.",
+      "why": "Adversarial round 8 (P2, 2026-10-20): `printf 'tok\\n' | DNSFILTER_BASE_URL=http://127.0.0.1:9/evil dnsfilter-cli auth set-token` wrote base_url = 'http://127.0.0.1:9/evil' into config.toml, so every later call, including ones with DNSFILTER_BASE_URL empty, sent the saved token there, while mcp-install.md says an empty value means api.dnsfilter.com. Load now records the file's base URL when the env override replaces it, and persisted() writes that. Press template behavior (config.go.tmpl); likely fleet-wide. TestEnvBaseURLNeverPersisted fails against the previous config.go. Codex round 8 / adversarial round 9 (P2): the agentcookie-managed save path marshals the whole config instead of persisted(), so the swap moved into configForSave, which every save path uses; TestEnvBaseURLNeverPersisted covers both. Codex round 18 (P2, 2026-10-20): TestEnvBaseURLNeverPersisted created its configs (and so the credentials files they write) under a separate t.TempDir(), outside the testenv.Isolate sandbox, which the write-time guard refuses on Windows under a TEMP with a broad inherited ACL; both configs now live under the Isolate home (see credentials-file-follows-config for the package guard that makes this fail on every OS).",
       "asserts": [
         {
           "file": "cli/internal/config/config.go",
@@ -3589,6 +3643,15 @@
           "file": "cli/internal/config/config.go",
           "contains": "if c.baseURLOverridden {\n\t\tout.BaseURL = c.fileBaseURL\n\t}",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/config/base_url_override_test.go",
+          "contains": "path := filepath.Join(home, \"tenant-a\", \"config.toml\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/base_url_override_test.go",
+          "not_contains": "filepath.Join(t.TempDir(), \"config.toml\")"
         }
       ]
     },
@@ -3980,7 +4043,7 @@
     {
       "id": "credentials-file-follows-config",
       "summary": "An explicit config (--config or DNSFILTER_CONFIG) keeps its credentials in its sibling data/credentials.toml for load, save (auth set-token) and logout; logout also removes the file the credentials were actually loaded from, never an unrelated default file",
-      "why": "Codex round 16 (P1, 2026-10-20): Load read an explicit config's sibling credentials first, but SaveCredentials and RemoveCredentials always used the default data directory, so `--config X auth logout` printed 'Credentials cleared' while the tenant credential stayed usable and an unrelated default credential was deleted (and `--config X auth set-token` was silently shadowed by an existing sibling). Config.CredentialsFilePath is now the one path for save and logout. TestExplicitConfigCredentialsFollowTheConfig fails with either the save path or the logout path reverted. Codex round 17 (P1, 2026-10-20): CredentialsFilePathForConfig follows a symlinked config to its target's directory, but save() atomically replaced the link with a regular file, so after one `auth set-token` every load looked in the link's directory and silently fell back to the default credentials (and logout deleted the default and left the tenant token). save() now writes through a symlinked config (configWritePath), so load, save and logout keep one location. TestSymlinkedConfigCredentialsStayPutAfterSave fails with save() writing c.Path (it skips where os.Symlink is unavailable, e.g. Windows without developer mode).",
+      "why": "Codex round 16 (P1, 2026-10-20): Load read an explicit config's sibling credentials first, but SaveCredentials and RemoveCredentials always used the default data directory, so `--config X auth logout` printed 'Credentials cleared' while the tenant credential stayed usable and an unrelated default credential was deleted (and `--config X auth set-token` was silently shadowed by an existing sibling). Config.CredentialsFilePath is now the one path for save and logout. TestExplicitConfigCredentialsFollowTheConfig fails with either the save path or the logout path reverted. Codex round 17 (P1, 2026-10-20): CredentialsFilePathForConfig follows a symlinked config to its target's directory, but save() atomically replaced the link with a regular file, so after one `auth set-token` every load looked in the link's directory and silently fell back to the default credentials (and logout deleted the default and left the tenant token). save() now writes through a symlinked config (configWritePath), so load, save and logout keep one location. TestSymlinkedConfigCredentialsStayPutAfterSave fails with save() writing c.Path (it skips where os.Symlink is unavailable, e.g. Windows without developer mode). Adversarial round 19 (P2, 2026-10-20): save() wrote through a symlinked config for EVERY config, so plain `auth set-token` (no --config) failed with a temp-file error when the default config.toml was a dotfiles-managed link to a read-only file. Only an explicit config is written through its link now (its sibling credentials follow the resolved path), and save() skips a private config file that already holds exactly what it would write (same base URL and headers, no credential field), so set-token and logout succeed and leave a managed link and its target alone. TestPlainSetTokenWithAReadOnlyLinkedDefaultConfig fails with the old unconditional write-through; TestExplicitLinkedConfigIsWrittenThroughWhenItChanges keeps the write-through guarded where a write is needed (TestSymlinkedConfigCredentialsStayPutAfterSave now takes the no-write path). Codex round 18 (P2): TestExplicitConfigCredentialsFollowTheConfig created its credential fixtures under a separate t.TempDir(), outside the testenv.Isolate sandbox, which the write-time guard refuses on Windows under a TEMP with a broad inherited ACL; the fixtures now live under the Isolate home, and config_r18_test.go's init makes every credentials write in the config package refuse a path outside that home, so the class fails on every OS (it failed exactly this test and TestEnvBaseURLNeverPersisted before the move).",
       "asserts": [
         {
           "file": "cli/internal/config/config.go",
@@ -4014,7 +4077,7 @@
         },
         {
           "file": "cli/internal/config/config.go",
-          "contains": "if err := write(configWritePath(c.Path), data); err != nil {",
+          "contains": "target = configWritePath(c.Path)",
           "code_only": true
         },
         {
@@ -4026,6 +4089,50 @@
           "file": "cli/internal/config/credentials_r17_test.go",
           "contains": "func TestSymlinkedConfigCredentialsStayPutAfterSave(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err := write(target, data); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if c.AgentcookieManagedByExternalStore() || !configFileAlreadyHolds(c.Path, persisted.persisted()) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "func configFileAlreadyHolds(path string, want persistedConfig) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if err != nil || cliutil.VerifyCredsPerms(real) != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config_r18_test.go",
+          "contains": "func TestPlainSetTokenWithAReadOnlyLinkedDefaultConfig(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config_r18_test.go",
+          "contains": "func TestExplicitLinkedConfigIsWrittenThroughWhenItChanges(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config_r18_test.go",
+          "contains": "cliutil.SavedCredentialsPermsCheck = func(path string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/credentials_path_test.go",
+          "contains": "tenant := filepath.Join(home, \"tenant\", \"config.toml\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/credentials_path_test.go",
+          "not_contains": "filepath.Join(t.TempDir(), \"tenant\", \"config.toml\")"
         }
       ]
     },
@@ -4948,7 +5055,7 @@
     {
       "id": "redirect-strips-every-custom-credential",
       "summary": "a redirect hop that leaves the configured API host carries none of the config file's [headers] and no credential-named header (Proxy-Authorization, Cookie, X-Api-Key, ...), not only Authorization; a same-host hop keeps them",
-      "why": "Codex round 17 (P1, 2026-10-20): CheckRedirect stripped only Authorization on a cross-host hop, and Go copies every header of the first request onto each hop, so a custom header such as X-Api-Key reached the other host. TestRedirectOffOriginStripsEveryCustomCredential fails without stripOffOriginHeaders.",
+      "why": "Codex round 17 (P1, 2026-10-20): CheckRedirect stripped only Authorization on a cross-host hop, and Go copies every header of the first request onto each hop, so a custom header such as X-Api-Key reached the other host. TestRedirectOffOriginStripsEveryCustomCredential fails without stripOffOriginHeaders. Codex round 18 (P1, 2026-10-20): stripping headers left the BODY: the request body reader is replayable, so a 307/308 off the origin after PATCH /v1/users/change_password (new_password) or POST /v1/enterprise_connections (options.client_secret) re-sent the body to the other host. An off-origin hop that keeps a non-GET/HEAD method or a body is now refused (ErrRedirectBodyReplay, never retried); an off-origin GET, a POST a 302 turns into a bodiless GET, and a same-origin 307 still follow. TestRedirectOffOriginNeverReplaysTheBody (httptest, a hostname target so the private-address refusal is not what stops it) fails without the refusal.",
       "asserts": [
         {
           "file": "cli/internal/client/client.go",
@@ -4964,13 +5071,38 @@
           "file": "cli/internal/client/client_r17_test.go",
           "contains": "func TestRedirectOffOriginStripsEveryCustomCredential(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if redirectReplaysRequest(req) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return ErrRedirectBodyReplay",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return req.Body != nil && req.Body != http.NoBody",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "errors.Is(err, ErrRedirectBodyReplay)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r18_test.go",
+          "contains": "func TestRedirectOffOriginNeverReplaysTheBody(t *testing.T) {",
+          "code_only": true
         }
       ]
     },
     {
       "id": "response-text-in-errors-is-masked",
       "summary": "every response-derived string a client error carries is masked like an HTTP error body: the 2xx HTML title summary, the read and Content-Encoding decoding errors, and the 429 request ID",
-      "why": "Codex round 17 (P1, 2026-10-20): outside the read-only switch a 2xx HTML body's title summary was put in the error without maskCredentialText, so a page echoing the configured API key printed it; the decoding error quotes the response's Content-Encoding value. TestResponseTextInErrorsIsMasked fails with either the summary or the decoding error unmasked.",
+      "why": "Codex round 17 (P1, 2026-10-20): outside the read-only switch a 2xx HTML body's title summary was put in the error without maskCredentialText, so a page echoing the configured API key printed it; the decoding error quotes the response's Content-Encoding value. TestResponseTextInErrorsIsMasked fails with either the summary or the decoding error unmasked. Codex round 18 (P1 x3, plus the MCP truncated-JSON P1) and adversarial round 19 (P2), 2026-10-20: (a) an error body was cut to 4096 bytes before masking, so a configured key split by the cut kept 31 of its 32 characters, and a long JSON body cut mid-record lost the credential-named key ({\"pass word\":...}) the read-only filters can only see in whole JSON; the WHOLE body is now masked first, a body over 4 KiB is scrubbed with store.ScrubPersistedSecrets (text: the JSON embedded in it) before the cut, and a non-HTML body over 64 KiB is summarized by size; (b) the HTML title summary stripped the tags that named a credential (<title><secret_key>X</secret_key></title> gave X), which defeated the default-mode read-only-hinted MCP filter; a page whose markup or title names a credential is summarized without its title, and a title is masked before its 160-rune cut (raw or entity-encoded key), for error pages and 2xx documents; (c) the masker registered only raw and URL-escaped forms; JSON-escaped (a quote, \\/ for /, \\u003c), HTML-escaped and lower-cased forms are masked too; (adversarial r19) the Content-Encoding decoding error lower-cased the token before quoting it, so a mixed-case key escaped the case-sensitive masker; tokens keep their case (matching folds it) and TestResponseTextInErrorsIsMasked now uses a mixed-case key and checks case-insensitively. TestErrorBodyIsMaskedBeforeTheCut, TestHTMLTitleNeverCarriesACredential, TestErrorMaskingCoversEchoedForms and TestResponseTextInErrorsIsMasked each fail against their revert.",
       "asserts": [
         {
           "file": "cli/internal/client/client.go",
@@ -4990,6 +5122,86 @@
         {
           "file": "cli/internal/client/client_r17_test.go",
           "contains": "func TestResponseTextInErrorsIsMasked(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "bodyText := c.errorBodyText(respBody, authHeader)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "masked := []byte(c.maskCredentialText(string(body), authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "masked = scrubOversizedErrorBody(masked)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return store.ScrubPersistedSecrets(body)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if store.TextNamesSecret(trimmed) || store.TextNamesSecret(title) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "title = mask(title)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "summary, ok := summarizeHTMLDocument([]byte(c.maskCredentialText(string(respBody), authHeader)), c.credentialMasker(authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, form := range credentialEchoForms(value) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "add(strings.ToLower(value))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "add(strings.ReplaceAll(form, \"/\", `\\/`))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "token := strings.TrimSpace(part)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "switch strings.ToLower(encodings[i]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r18_test.go",
+          "contains": "func TestErrorBodyIsMaskedBeforeTheCut(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r18_test.go",
+          "contains": "func TestHTMLTitleNeverCarriesACredential(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r18_test.go",
+          "contains": "func TestErrorMaskingCoversEchoedForms(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r17_test.go",
+          "contains": "const key = \"Secret-Key-R17\"",
           "code_only": true
         }
       ]
@@ -5171,6 +5383,102 @@
         {
           "file": "cli/internal/store/store_r17_test.go",
           "contains": "func TestOpenReadOnlyNeverHidesCommittedWAL(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-never-prints-a-credential",
+      "summary": "--dry-run's request preview shows every credential-named body field (at any depth), credential text in a string, a credential-named query parameter (in params or in the path) and the configured key as ****, keeping field names and ordinary values readable",
+      "why": "Codex round 18 (P1, 2026-10-20): client.dryRun printed the request body verbatim, so `enterprise-connections create --stdin --dry-run` printed options.client_secret to stderr although it was piped through stdin (billing payment_token and users change-password new_password the same). The preview now decodes the body and masks with the store's key and text rules plus the configured-credential masker. TestDryRunNeverPrintsACredential (client) and TestDryRunStdinBodyNeverPrintsTheSecret (the reported command through the CLI) fail with the preview reverted. helpers.go and root.go print no request body or params (writeDryRun prints only the action).",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "enc.Encode(c.dryRunMaskJSON(pretty, authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "fmt.Fprintf(cliutil.Stderr(), \"  %s%s=%s\\n\", sep, name, c.dryRunMaskValue(k, params[k], authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "fmt.Fprintf(cliutil.Stderr(), \"%s %s\\n\", method, c.dryRunMaskURL(targetURL, authHeader))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func (c *Client) dryRunMaskJSON(v any, authHeader string) any {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if key != k || store.KeyNamesSecret(k) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if value != \"\" && (namesSecret || store.TextNamesSecret(value)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client_r18_test.go",
+          "contains": "func TestDryRunNeverPrintsACredential(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r18_test.go",
+          "contains": "func TestDryRunStdinBodyNeverPrintsTheSecret(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "env-api-key-wins",
+      "summary": "DNSFILTER_API_KEY overrides a stored auth_header (config file or credentials file) as well as a stored api_key: the key AuthHeader returns, and every request sends, is the one auth_source names; doctor checks the sent key for a pasted scheme prefix",
+      "why": "Codex round 18 (P1, 2026-10-20): with auth_header = TENANT-A-KEY in a private config and DNSFILTER_API_KEY=TENANT-B-KEY, Load labelled the source env:DNSFILTER_API_KEY but AuthHeader() returned the stored auth_header first, so requests (writes included) used tenant A's key while auth status and doctor named the environment. TestEnvironmentKeyWinsOverStoredAuthHeader (config file and credentials file; also checks the store scope) and TestDoctorSendsTheKeyItNames (the Authorization doctor actually sends) fail without the environment check. Not done: helpers.go jwtExpirySource still prefers the api_key field over AuthHeader() when no environment key is set (outside this change's files).",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if c.envOverrides[\"DnsfilterApiKey\"] && c.DnsfilterApiKey != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config_r18_test.go",
+          "contains": "func TestEnvironmentKeyWinsOverStoredAuthHeader(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_doctor_r18_test.go",
+          "contains": "func TestDoctorSendsTheKeyItNames(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "redirect-never-replays-a-body",
+      "summary": "the --deliver webhook POST and the feedback POST never follow a redirect: refuseBodyRedirect fails the delivery instead, so a 307/308 cannot replay the command output or feedback body to another host",
+      "why": "Round 18 sibling (2026-10-20): Codex round 18 found the API client replaying credential bodies on off-origin 307/308 redirects (fixed in client.go); deliver.go and feedback.go build their own default http.Client with a replayable body, so a webhook that redirected sent the command output (a networks export carries site secret keys) to whatever host it named. TestDeliverWebhookNeverFollowsARedirect fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "httpClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseBodyRedirect(\"webhook\")}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: refuseBodyRedirect(\"feedback endpoint\")}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "func refuseBodyRedirect(target string) func(*http.Request, []*http.Request) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver_redirect_test.go",
+          "contains": "func TestDeliverWebhookNeverFollowsARedirect(t *testing.T) {",
           "code_only": true
         }
       ]

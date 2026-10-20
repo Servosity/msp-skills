@@ -140,7 +140,7 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 		req.Header.Set("User-Agent", "dnsfilter-cli/deliver")
 	}
 
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseBodyRedirect("webhook")}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting to webhook: %w", err)
@@ -150,4 +150,14 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 		return fmt.Errorf("webhook returned %s", resp.Status)
 	}
 	return nil
+}
+
+// refuseBodyRedirect never follows a redirect from a POST target: Go replays
+// the body on 307/308, which would send the command output (or feedback) to
+// whatever host the redirect names (handfixes.json:
+// redirect-never-replays-a-body).
+func refuseBodyRedirect(target string) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, _ []*http.Request) error {
+		return fmt.Errorf("refusing to follow a redirect from the %s to %s", target, req.URL.Host)
+	}
 }

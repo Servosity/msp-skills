@@ -83,7 +83,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "dnsfilter-cli/feedback")
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: refuseBodyRedirect("feedback endpoint")}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting feedback: %w", err)
