@@ -33,10 +33,11 @@ const WebhookTokenWithheld = "[withheld]"
 var webhookTokenStrict = regexp.MustCompile(`(?i)"token"[\s\p{Z}]*:[\s\p{Z}]*"([^"\n]+)"`)
 
 // webhookTokenLoose also accepts single-quoted or unquoted keys (a JavaScript
-// inspect print) with a value in single or double quotes, up to the matching
+// inspect print, which uses backticks when a string holds both quote kinds)
+// with a value in single, double or back quotes, up to the matching
 // quote. It is applied to text that is not JSON and to single JSON string
 // values, never across a serialized JSON document.
-var webhookTokenLoose = regexp.MustCompile(`(?i)(?:^|[^a-z0-9_])["']?token["']?[\s\p{Z}]*:[\s\p{Z}]*(?:'([^'\n]+)'|"([^"\n]+)")`)
+var webhookTokenLoose = regexp.MustCompile("(?i)(?:^|[^a-z0-9_])[\"'`]?token[\"'`]?[\\s\\p{Z}]*:[\\s\\p{Z}]*(?:'([^'\\n]+)'|\"([^\"\\n]+)\"|`([^`\\n]+)`)")
 
 // webhookTokenWord is a cheap prefilter: a view without "token" cannot match.
 var webhookTokenWord = regexp.MustCompile(`(?i)token`)

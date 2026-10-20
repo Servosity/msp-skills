@@ -63,7 +63,8 @@ All notable changes to this skill are documented here. Format follows
   error message instead of being printed or returned over MCP. In a successful answer,
   any field that quotes one back is replaced by `[withheld]` (or the whole answer is
   withheld when the echo is not in a single field) before it is printed, cached, stored
-  or returned over MCP. A base64, case-changed or partial echo is not detected.
+  or returned over MCP. A base64, case-changed or partial echo is not detected, nor is
+  a webhook token written unquoted in free text (`token=abc`).
 - An environment `SAAS_ALERTS_BASE_URL` is never saved to `config.toml`.
 
 ### Known limitations

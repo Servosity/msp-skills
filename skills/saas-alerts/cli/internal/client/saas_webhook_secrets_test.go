@@ -384,4 +384,13 @@ func TestWebhookTokenInFreeTextIsWithheldFieldByField(t *testing.T) {
 	if out := string(withholdWebhookTokens(path, []byte(`Error: { token: 'test-secret,inspect' }`))); strings.Contains(out, "test-secret") {
 		t.Fatalf("punctuated inspect token in text leaked: %s", out)
 	}
+	bt := string(rune(96))
+	for _, body := range []string{
+		"Error: { token: " + bt + `test-secret-'both"-kinds` + bt + " }",
+		`{"message":"bad { token: ` + bt + `test-secret-'both-kinds` + bt + ` }"}`,
+	} {
+		if out := string(withholdWebhookTokens(path, []byte(body))); strings.Contains(out, "test-secret") {
+			t.Fatalf("backtick-quoted token leaked: %s", out)
+		}
+	}
 }
