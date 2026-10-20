@@ -207,7 +207,14 @@ const (
 	// the portal: a --batch row nothing matched, or an --entities mailbox
 	// with no download job.
 	fetchMissing = "MISSING"
+	// fetchUnlisted is an archive asked for whose job is not in a job
+	// listing the portal cut short: it may exist beyond the cut, so it is
+	// neither MISSING nor expired, and nothing is created for it.
+	fetchUnlisted = "UNLISTED"
 )
+
+// unlistedDetail explains an UNLISTED outcome.
+const unlistedDetail = "its job is not among the jobs the portal listed before the listing's page cap, so it may still exist; nothing is concluded and nothing should be created for it"
 
 // heldArchive is where a --batch row another batch holds really stands:
 // the holding batch's ledger row for the same archive. row is nil when
@@ -258,7 +265,7 @@ func resolveHeld(b *downloadBatch) map[int]heldArchive {
 // heldOutcome reports a --batch row another batch holds, from the holder's
 // own ledger row. Its confirmed job was in the run's job list (want), so
 // when it was seen there the job loop already reported it.
-func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, account string) (fetchOutcome, bool) {
+func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, account string, listingCut bool) (fetchOutcome, bool) {
 	out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource}
 	resume := fmt.Sprintf("cloudally-cli download submit --batch %s --resume --yes", h.key)
 	if h.row == nil {
@@ -274,6 +281,10 @@ func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, account 
 	case hr.Status == dlCreated && hr.JobID != "":
 		if matched[strings.ToLower(strings.TrimSpace(hr.JobID))] {
 			return out, false
+		}
+		if listingCut {
+			out.Status, out.Detail = fetchUnlisted, "held by batch "+h.key+": "+unlistedDetail
+			return out, true
 		}
 		out.Status = fetchMissing
 		out.Detail = "held by batch " + h.key + ": " + expiredArchiveAdvice(h.ledger, hr, account)
@@ -458,12 +469,16 @@ create was refused the row is FAILED, when it is not confirmed or ready yet it
 is NOT_READY, and when that batch's ledger cannot be read it is MISSING, each
 naming that batch's resume command.
 
-Exit codes: 0 every archive asked for is on disk (or the job was EMPTY);
-3 no download job matched at all; 6 an archive FAILED or is MISSING (a
---batch row or an --entities mailbox with no job on the portal), or the
-drive is too full to continue; 8 nothing failed but some jobs are still
-being built or not yet confirmed (NOT_READY): run the same command again
-later.
+The portal lists jobs 100 to a page. If the listing stops at its cap of 50
+pages while more may exist, an archive whose job is not among those read is
+UNLISTED: it may still exist, so it is never reported MISSING or expired and
+nothing is suggested to create it.
+
+Exit codes: 0 every archive asked for is on disk (or the job was EMPTY); 3 no
+download job matched at all; 6 an archive FAILED, is UNLISTED, or is MISSING
+(a --batch row or an --entities mailbox with no job on the portal), or the
+drive is too full to continue; 8 nothing failed but some jobs are still being
+built or not yet confirmed (NOT_READY): run the same command again later.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31 --dry-run
@@ -519,9 +534,15 @@ later.
 			if err != nil {
 				return err
 			}
-			jobs, err := sess.DownloadJobs(ctx)
-			if err != nil {
-				return err
+			jobs, listErr := sess.DownloadJobs(ctx)
+			// A listing cut at its page cap still proves every job in it;
+			// it proves nothing about a job missing from it (listingCut).
+			listingCut := errors.Is(listErr, portal.ErrListingIncomplete)
+			if listErr != nil && !listingCut {
+				return listErr
+			}
+			if listingCut {
+				tenantf(cmd.ErrOrStderr(), "warning: %v; an archive not among the %d job(s) read is reported %s, never as missing or expired\n", listErr, len(jobs), fetchUnlisted)
 			}
 			// The guard says which batch confirmed a job, so a job that
 			// failed is handed back to that batch to create once more.
@@ -750,7 +771,7 @@ later.
 					continue
 				}
 				if h, ok := held[i]; ok {
-					if out, report := heldOutcome(r, h, matched, scope.account); report {
+					if out, report := heldOutcome(r, h, matched, scope.account, listingCut); report {
 						outcomes = append(outcomes, out)
 					}
 					continue
@@ -763,6 +784,8 @@ later.
 				case r.Status == dlUnknown && r.Ambiguous:
 					out.Status = fetchMissing
 					out.Detail = fmt.Sprintf("a job of this mailbox, sub-source and snapshot is listed but cannot be proved to be this batch's; collect every archive of that snapshot with: cloudally-cli download fetch --account %s --dest <folder> --year <year> --on-date %s --entities %s", scope.account, snapshotDay(r.SnapshotRaw), r.Entity)
+				case r.Status == dlCreated && listingCut:
+					out.Status, out.Detail = fetchUnlisted, unlistedDetail
 				case r.Status == dlCreated:
 					// --resume never re-creates a confirmed archive, so the
 					// way back, if one is wanted, is a person's decision.
@@ -781,8 +804,15 @@ later.
 			}
 			for _, e := range sortedKeys(keep) {
 				if !seenEntity[e] && batchRows == nil {
+					if listingCut {
+						outcomes = append(outcomes, fetchOutcome{Entity: e, Status: fetchUnlisted, Detail: unlistedDetail})
+						continue
+					}
 					outcomes = append(outcomes, fetchOutcome{Entity: e, Status: fetchMissing, Detail: "no download job on the portal for this mailbox matches this run's filters"})
 				}
+			}
+			if len(outcomes) == 0 && listingCut {
+				return partialFailureErr(fmt.Errorf("no download job matched among the %d the portal listed, but the listing was cut short (%v), so a matching job may exist beyond it", len(jobs), listErr))
 			}
 			return finishFetch(cmd, flags, outcomes, total, nil)
 		},
@@ -1080,7 +1110,7 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "\n%d archive(s) considered, %.2f GiB written this run\n",
 			len(outcomes), float64(total)/(1<<30))
-		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, "WOULD_DOWNLOAD"} {
+		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, fetchUnlisted, "WOULD_DOWNLOAD"} {
 			if counts[k] > 0 {
 				fmt.Fprintf(w, "  %-16s %d\n", k, counts[k])
 			}
@@ -1092,9 +1122,9 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 	if len(outcomes) == 0 {
 		return notFoundErr(errors.New("no download jobs matched: check --account, --on-date and --entities, or list the jobs with 'download list'; a job created minutes ago may not be listed yet"))
 	}
-	if n := counts[fetchFailed] + counts[fetchMissing]; n > 0 {
-		return partialFailureErr(fmt.Errorf("%d of %d archive(s) are not on disk (%d FAILED, %d MISSING); nothing was overwritten, so the same command can be run again once the cause is fixed",
-			n, len(outcomes), counts[fetchFailed], counts[fetchMissing]))
+	if n := counts[fetchFailed] + counts[fetchMissing] + counts[fetchUnlisted]; n > 0 {
+		return partialFailureErr(fmt.Errorf("%d of %d archive(s) are not on disk (%d FAILED, %d MISSING, %d UNLISTED); nothing was overwritten, so the same command can be run again once the cause is fixed",
+			n, len(outcomes), counts[fetchFailed], counts[fetchMissing], counts[fetchUnlisted]))
 	}
 	if n := counts[fetchNotReady]; n > 0 {
 		return &cliError{code: ExitJobPending, err: fmt.Errorf("%d archive(s) are still being built (NOT_READY); run the same command again later to collect them", n)}

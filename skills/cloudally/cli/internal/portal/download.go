@@ -89,7 +89,11 @@ func (s *Session) DownloadFiles(ctx context.Context, jobID string) ([]DownloadFi
 		return nil, fmt.Errorf("portal: download info needs an export job id")
 	}
 	var all []DownloadFile
-	for page := 1; page <= maxDownloadInfoPages; page++ {
+	for page := 1; ; page++ {
+		if page > maxDownloadInfoPages {
+			// A job's file list cut short would download as complete.
+			return all, fmt.Errorf("%w: job %s has more than %d files", ErrListingIncomplete, jobID, maxDownloadInfoPages*downloadInfoPageSize)
+		}
 		raw, err := s.Get(ctx, downloadInfoOperation, url.Values{
 			"taskId":  {jobID},
 			"_search": {"false"},
@@ -110,14 +114,10 @@ func (s *Session) DownloadFiles(ctx context.Context, jobID string) ([]DownloadFi
 			pg.Data = rows
 		}
 		all = append(all, pg.Data...)
-		if len(pg.Data) < downloadInfoPageSize {
-			break
-		}
-		if pg.TotalPages > 0 && page >= pg.TotalPages {
-			break
+		if len(pg.Data) < downloadInfoPageSize || (pg.TotalPages > 0 && page >= pg.TotalPages) {
+			return all, nil
 		}
 	}
-	return all, nil
 }
 
 // LinkExpiry reports when a minted download link stops working, read from

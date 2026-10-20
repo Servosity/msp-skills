@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -804,7 +805,7 @@ func TestStaleRequestedRowsBecomeMissing(t *testing.T) {
 	// The confirming pass alone, with no job listed: only the row
 	// accepted over an hour ago is MISSING.
 	b.Rows[0].Status, b.Rows[1].Status = dlRequested, dlRequested
-	if _, err := reconcileRows(context.Background(), testGuard(t), b, nil, false, nil); err != nil {
+	if _, err := reconcileRows(context.Background(), testGuard(t), b, nil, false, true, nil); err != nil {
 		t.Fatal(err)
 	}
 	if a, bb := rowByEntity(b, "a@contoso.com"), rowByEntity(b, "b@contoso.com"); a.Status != dlMissing || bb.Status != dlRequested {
@@ -984,4 +985,78 @@ func TestEmptyIsNotInferredWhenAnotherRunCreatesAndPinsInTheWindow(t *testing.T)
 	if r := mustLoadBatch(t, ledgerKeys(t)[0]).Rows[0]; r.Status != dlMissing {
 		t.Fatalf("a dropped create must be MISSING when another run created and pinned a job in the window, got %s", r.Status)
 	}
+}
+
+// Round 7 P1-b: DownloadJobs stopped after 50 pages of 100 and reported
+// success, so a job beyond the first 5,000 read as absent. The stale rule
+// then made its row MISSING and the resume created the export again, and
+// fetch called the confirmed archive expired. A listing cut at its cap is
+// now marked incomplete, and nothing is concluded from absence in it.
+func TestACutJobListingConcludesNothingFromAbsence(t *testing.T) {
+	testenv.Isolate(t)
+	unpacedPortal(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.mu.Lock()
+	s.listCreated = false
+	s.taskEntities = []string{"a@contoso.com"}
+	s.mu.Unlock()
+	_, _, _ = runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL", "--no-reconcile")...)
+	key := ledgerKeys(t)[0]
+	b := mustLoadBatch(t, key)
+	b.Rows[0].AcceptedAt = isoUTC(time.Now().Add(-2 * time.Hour))
+	if err := saveBatch(b); err != nil {
+		t.Fatal(err)
+	}
+	// More jobs than the listing's cap; this row's own job lies beyond it.
+	s.mu.Lock()
+	for i := 0; i < 5000; i++ {
+		s.jobs = append(s.jobs, dlJob{JobID: fmt.Sprintf("other-%d", i), Account: "z@contoso.com", SubSource: "O365MAIL",
+			Status: "INPROCESS", Snapshot: 20200101000000, Created: compactNow()})
+	}
+	s.jobs = append(s.jobs, dlJob{JobID: "job-mine", Account: "a@contoso.com", SubSource: "O365MAIL", Status: "INPROCESS",
+		Snapshot: b.Rows[0].SnapshotRaw, Label: b.Rows[0].Label, Created: compactNow()})
+	s.mu.Unlock()
+
+	_, stderr, err := runDL(t, s, "download", "submit", "--batch", key, "--resume", "--yes")
+	if n := len(s.createdAccounts()); n != 1 {
+		t.Fatalf("creates = %d, want 1: the row's job exists beyond the listing's cap\n%s", n, stderr)
+	}
+	if err == nil || ExitCode(err) != 6 || !strings.Contains(stderr, "page cap") {
+		t.Fatalf("a resume over a cut listing must say so and exit 6, got %v\n%s", err, stderr)
+	}
+	if r := mustLoadBatch(t, key).Rows[0]; r.Status != dlRequested {
+		t.Fatalf("absence from a cut listing must leave the row as it was, got %s", r.Status)
+	}
+
+	// fetch of a confirmed row whose job is beyond the cut: UNLISTED, not
+	// MISSING with a --new-batch command.
+	b = mustLoadBatch(t, key)
+	b.Rows[0].Status, b.Rows[0].JobID, b.Rows[0].ConfirmedAt = dlCreated, "job-mine", isoUTC(time.Now())
+	if err := saveBatch(b); err != nil {
+		t.Fatal(err)
+	}
+	out, stderr, err := runDL(t, s, fetchArgs(t.TempDir(), "--batch", key)...)
+	if err == nil || ExitCode(err) != 6 || !strings.Contains(out, fetchUnlisted) || strings.Contains(out+stderr, "--new-batch") {
+		t.Fatalf("want UNLISTED, exit 6 and no --new-batch, got %v\n%s\n%s", err, out, stderr)
+	}
+	// watch and list say the listing was cut instead of "not found" or a
+	// clean exit.
+	if _, _, err := runDL(t, s, "download", "watch", "--account", "acct-1", "--job", "job-mine", "--once"); err == nil || ExitCode(err) != 6 || !strings.Contains(err.Error(), "may still exist") {
+		t.Fatalf("watch of a job beyond a cut listing: want exit 6 saying it may exist, got %v", err)
+	}
+	if _, stderr, err := runDL(t, s, "download", "list", "--account", "acct-1", "--json"); err == nil || ExitCode(err) != 6 || !strings.Contains(stderr, "page cap") {
+		t.Fatalf("list of a cut listing: want exit 6 and a warning, got %v\n%s", err, stderr)
+	}
+}
+
+// unpacedPortal turns off the portal session's call pacing, so a test that
+// reads 50 listing pages does not wait 12 seconds for each listing.
+func unpacedPortal(t *testing.T) {
+	orig := openPortal
+	openPortal = func(ctx context.Context, cfg portal.Config, token string) (*portal.Session, error) {
+		cfg.RatePerSec = -1
+		return orig(ctx, cfg, token)
+	}
+	t.Cleanup(func() { openPortal = orig })
 }

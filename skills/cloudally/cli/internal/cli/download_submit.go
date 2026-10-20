@@ -419,11 +419,13 @@ func labelsKept(jobs []portal.DownloadJob) bool {
 	return false
 }
 
-// rowMatch is what the portal listing says about one row.
+// rowMatch is what the portal listing says about one row. byLabel: the job
+// carries the row's own unique label, proof even in a listing cut short.
 type rowMatch struct {
 	job       portal.DownloadJob
 	found     bool
 	ambiguous bool
+	byLabel   bool
 }
 
 // matchRow finds the portal job that is an unconfirmed row's archive. A row
@@ -455,7 +457,7 @@ func matchRow(r *downloadRow, jobs []portal.DownloadJob, format string, keptLabe
 		}
 		label := strings.TrimSpace(j.JobLabel)
 		if k := rowLabelKey(r.Label); k != "" && rowLabelKey(label) == k {
-			return rowMatch{job: j, found: true}
+			return rowMatch{job: j, found: true, byLabel: true}
 		}
 		if (label != "" && foreign != nil && foreign(label)) || !formatFits(j, format) {
 			continue
@@ -521,9 +523,12 @@ func markJobFailed(r *downloadRow, status string) {
 	r.Detail = "the portal job " + r.JobID + " finished as " + status + " with no archive; a resume of this batch creates it once more"
 }
 
-// reconcileResult counts what one reconcile pass changed.
+// reconcileResult counts what one reconcile pass changed. listingCut: the
+// portal's job listing stopped at its page cap, so absence proved nothing
+// and rows not found by their own label were left as they were.
 type reconcileResult struct {
 	confirmed, jobFailed, ambiguous int
+	listingCut                      bool
 }
 
 // reconcileRows settles a batch's rows against one portal listing and
@@ -539,8 +544,13 @@ type reconcileResult struct {
 //   - Only after a run (final), and only when nothing listed could be the
 //     row's, is an unfound REQUESTED row EMPTY (when it is in empty, see
 //     emptyRows) or MISSING. A pass before re-sending only ever confirms.
-func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBatch, jobs []portal.DownloadJob, final bool, empty map[*downloadRow]bool) (reconcileResult, error) {
-	var res reconcileResult
+//
+// complete says the listing was read to its end. When it was cut short, a
+// job beyond the cut may be any row's, so the only conclusion drawn is a
+// job carrying the row's own label (positive proof): nothing becomes
+// ambiguous, MISSING or EMPTY, and nothing is made sendable.
+func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBatch, jobs []portal.DownloadJob, final, complete bool, empty map[*downloadRow]bool) (reconcileResult, error) {
+	res := reconcileResult{listingCut: !complete}
 	// A run killed between a create and recording its answer leaves its
 	// claim IN_FLIGHT; recover those first so a confirmation found below
 	// can be pinned on them.
@@ -592,6 +602,9 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 			return k != "" && known[k] && k != rowLabelKey(r.Label)
 		}
 		m := matchRow(r, jobs, batch.Format, kept, foreign)
+		if !complete && !m.byLabel {
+			continue
+		}
 		switch {
 		case m.found:
 			// The guard is pinned first: a row is never confirmed in the
@@ -650,10 +663,11 @@ func acceptedBefore(r downloadRow, t time.Time) bool {
 // sent; an unfound row is EMPTY only when it is in empty (emptyRows).
 func reconcileBatch(ctx context.Context, sess *portal.Session, guard *downloadGuard, batch *downloadBatch, empty map[*downloadRow]bool) (reconcileResult, error) {
 	jobs, err := sess.DownloadJobs(ctx)
-	if err != nil {
+	cut := errors.Is(err, portal.ErrListingIncomplete)
+	if err != nil && !cut {
 		return reconcileResult{}, err
 	}
-	return reconcileRows(ctx, guard, batch, jobs, true, empty)
+	return reconcileRows(ctx, guard, batch, jobs, true, !cut, empty)
 }
 
 // countWindow is what a run read around its creates to tell an empty job
@@ -756,10 +770,11 @@ func outsideActivity(ctx context.Context, guard *downloadGuard, account string, 
 // except a confirmed one whose job failed, which is created once more.
 func reconcileBeforeResend(ctx context.Context, sess *portal.Session, guard *downloadGuard, batch *downloadBatch) (reconcileResult, error) {
 	jobs, err := sess.DownloadJobs(ctx)
-	if err != nil {
+	cut := errors.Is(err, portal.ErrListingIncomplete)
+	if err != nil && !cut {
 		return reconcileResult{}, err
 	}
-	return reconcileRows(ctx, guard, batch, jobs, false, nil)
+	return reconcileRows(ctx, guard, batch, jobs, false, !cut, nil)
 }
 
 // recoverInterruptedRows turns every REQUESTED row whose create never
@@ -823,8 +838,11 @@ A resend of an UNKNOWN or MISSING row that is refused or never sent leaves the
 row UNKNOWN: the first create may still exist. PLANNED and FAILED rows of a
 ledger from the first build (which recorded no include flags) are held as
 UNKNOWN for the same reason. A resume with an --account other than the batch's
-is refused (exit 2). A resume sends every row with the batch's recorded
---format, --include-deleted and --include-legal-hold.
+is refused (exit 2). When the portal's job listing stops at its page cap, or
+cannot be read, nothing is concluded from a row's absence: no row becomes
+MISSING or EMPTY, and MISSING and UNKNOWN rows are not sent again in that run.
+A resume sends every row with the batch's recorded --format, --include-deleted
+and --include-legal-hold.
 
 Each create carries a unique job label, and a row is confirmed only by the
 portal job with its label (or, where the portal does not keep labels, the one
@@ -1204,11 +1222,19 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 	// are held, and a confirmed job that failed is created once more.
 	// --retry-unknown always looks first, even with --no-reconcile, and
 	// sends nothing UNKNOWN when the portal cannot be read.
+	// A MISSING row is sent again only after a listing read to its end has
+	// not shown its job: one cut at its page cap, or one that failed,
+	// proves nothing, so then MISSING and UNKNOWN rows are both held.
+	holdMissing := false
 	if r.resume && (!r.noReconcile || retry) {
 		res, rerr := reconcileBeforeResend(ctx, r.sess, r.guard, batch)
 		if rerr != nil {
-			tenantf(stderr, "warning: could not list the portal before re-sending (%v); UNKNOWN rows stay held\n", rerr)
-			retry = false
+			tenantf(stderr, "warning: could not list the portal before re-sending (%v); UNKNOWN and MISSING rows stay held\n", rerr)
+			retry, holdMissing = false, true
+		}
+		if res.listingCut {
+			fmt.Fprintf(stderr, "warning: the portal's job listing stopped at its page cap, so a job not in it may still exist; UNKNOWN and MISSING rows stay held and nothing is concluded from absence\n")
+			retry, holdMissing = false, true
 		}
 		if res.confirmed > 0 {
 			fmt.Fprintf(stderr, "%d row(s) were found on the portal and are now CREATED, so they are not sent again\n", res.confirmed)
@@ -1221,6 +1247,15 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 		}
 	}
 	sendable := pendingDownloadRows(batch, r.resume, retry)
+	if holdMissing {
+		kept := sendable[:0]
+		for _, row := range sendable {
+			if row.Status != dlMissing {
+				kept = append(kept, row)
+			}
+		}
+		sendable = kept
+	}
 	if held := heldUnknownRows(batch, sendable); len(held) > 0 {
 		printUnknownDownloadNotice(stderr, batch, held)
 	}
@@ -1274,8 +1309,10 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 		if w.counted && (w.outsideUnsettled || w.outsideChanged || w.unreadable) {
 			fmt.Fprintf(stderr, "another create or restore was unsettled or active while this one ran, so the job count cannot show which rows finished empty; rows not found are MISSING\n")
 		}
-		if _, err := reconcileBatch(ctx, r.sess, r.guard, batch, emptyRows(batch, sendable, w)); err != nil {
+		if res, err := reconcileBatch(ctx, r.sess, r.guard, batch, emptyRows(batch, sendable, w)); err != nil {
 			tenantf(stderr, "warning: reconcile failed (%v); rows stay REQUESTED and are unverified\n", err)
+		} else if res.listingCut {
+			fmt.Fprintf(stderr, "warning: the portal's job listing stopped at its page cap; rows whose own job was not in it stay as they are (never MISSING or EMPTY)\n")
 		}
 		if err := saveBatch(batch); err != nil {
 			return fmt.Errorf("saving the batch ledger: %w", err)

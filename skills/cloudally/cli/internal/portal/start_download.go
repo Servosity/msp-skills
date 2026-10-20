@@ -187,11 +187,22 @@ type downloadStatusPage struct {
 // downloadStatusOperation lists restore and download jobs with their chunks.
 const downloadStatusOperation = "getRestoreDownloadStatus"
 
+// ErrListingIncomplete is returned, with everything read so far, when a
+// listing stops at its page cap while another page may exist. A job found
+// in it is real; a job missing from it may still exist, so nothing may be
+// concluded from absence.
+var ErrListingIncomplete = errors.New("portal: the listing stopped at its page cap and more may exist")
+
 // DownloadJobs lists the account's restore and download jobs, newest first
-// as the portal returns them. Only EXPORT jobs are returned.
+// as the portal returns them. Only EXPORT jobs are returned. It reads until
+// a short or empty page (or the last page the portal names); stopped at
+// the cap instead, it returns what it read and ErrListingIncomplete.
 func (s *Session) DownloadJobs(ctx context.Context) ([]DownloadJob, error) {
 	var all []DownloadJob
-	for page := 1; page <= maxDownloadInfoPages; page++ {
+	for page := 1; ; page++ {
+		if page > maxDownloadInfoPages {
+			return all, fmt.Errorf("%w: read %d pages of %d jobs", ErrListingIncomplete, maxDownloadInfoPages, downloadInfoPageSize)
+		}
 		raw, err := s.Call(ctx, downloadStatusOperation, map[string]any{
 			"_search": false,
 			"rows":    downloadInfoPageSize,
@@ -202,8 +213,8 @@ func (s *Session) DownloadJobs(ctx context.Context) ([]DownloadJob, error) {
 			return all, err
 		}
 		var rows []DownloadJob
+		var pg downloadStatusPage
 		if err := json.Unmarshal(raw, &rows); err != nil {
-			var pg downloadStatusPage
 			if perr := json.Unmarshal(raw, &pg); perr != nil {
 				return all, fmt.Errorf("portal: decoding %s rows: %w", downloadStatusOperation, err)
 			}
@@ -214,11 +225,10 @@ func (s *Session) DownloadJobs(ctx context.Context) ([]DownloadJob, error) {
 				all = append(all, r)
 			}
 		}
-		if len(rows) < downloadInfoPageSize {
-			break
+		if len(rows) < downloadInfoPageSize || (pg.TotalPages > 0 && page >= pg.TotalPages) {
+			return all, nil
 		}
 	}
-	return all, nil
 }
 
 // ParseSnapshotDate decodes a compact yyyyMMddHHmmss backup date.

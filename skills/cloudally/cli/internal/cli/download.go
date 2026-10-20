@@ -133,13 +133,18 @@ func fetchExportJobs(ctx context.Context, c *client.Client, scope restoreScope, 
 // findExportJob looks up one download job by id.
 func findExportJob(ctx context.Context, c *client.Client, scope restoreScope, portalURL, jobID string) (portal.DownloadJob, bool, error) {
 	jobs, err := fetchExportJobs(ctx, c, scope, portalURL)
-	if err != nil {
+	incomplete := errors.Is(err, portal.ErrListingIncomplete)
+	if err != nil && !incomplete {
 		return portal.DownloadJob{}, false, err
 	}
 	for _, j := range jobs {
 		if strings.EqualFold(strings.TrimSpace(j.JobID), strings.TrimSpace(jobID)) {
 			return j, true, nil
 		}
+	}
+	if incomplete {
+		// Not in an incomplete listing proves nothing.
+		return portal.DownloadJob{}, false, partialFailureErr(fmt.Errorf("export job %s is not among the jobs the portal listed (%v); it may still exist", jobID, err))
 	}
 	return portal.DownloadJob{}, false, nil
 }
@@ -213,21 +218,35 @@ func newDownloadListCmd(flags *rootFlags) *cobra.Command {
 			ctx, cancel := boundCtx(cmd.Context(), flags)
 			defer cancel()
 			jobs, err := fetchExportJobs(ctx, c, scope, flagPortalURL)
-			if err != nil {
+			incomplete := errors.Is(err, portal.ErrListingIncomplete)
+			if err != nil && !incomplete {
 				return err
+			}
+			if incomplete {
+				// The rows read are shown; the exit says the list is cut.
+				defer func() {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v; only the newest %d job(s) are listed\n", err, len(jobs))
+				}()
 			}
 			rows := make([]downloadJobRow, 0, len(jobs))
 			for _, j := range jobs {
 				rows = append(rows, downloadJobRowFrom(j))
 			}
-			if wantsHumanTable(cmd.OutOrStdout(), flags) {
-				if len(rows) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "no download (export) jobs on this account")
-					return nil
-				}
-				return printRestoreTable(cmd.OutOrStdout(), downloadJobHeaders, tenantCells(downloadJobRowsAsMaps(rows)))
+			var perr error
+			switch {
+			case !wantsHumanTable(cmd.OutOrStdout(), flags):
+				perr = printJSONFiltered(cmd.OutOrStdout(), rows, flags)
+			case len(rows) == 0 && incomplete:
+				fmt.Fprintln(cmd.OutOrStdout(), "no download (export) jobs among the jobs the portal listed")
+			case len(rows) == 0:
+				fmt.Fprintln(cmd.OutOrStdout(), "no download (export) jobs on this account")
+			default:
+				perr = printRestoreTable(cmd.OutOrStdout(), downloadJobHeaders, tenantCells(downloadJobRowsAsMaps(rows)))
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
+			if perr == nil && incomplete {
+				return partialFailureErr(err)
+			}
+			return perr
 		},
 	}
 	addRestoreScopeFlags(cmd, &scope)
@@ -468,9 +487,9 @@ func newDownloadWatchCmd(flags *rootFlags) *cobra.Command {
 Polls one export job until it reaches a terminal state, so a script can gate
 the link step on it. Exits 0 when the job is READY_FOR_DOWNLOAD, 6 when it
 finished any other way (any status naming a failure: failed, cancelled,
-aborted, stopped, error), and with --once 8 when it is still being built.
---timeout bounds each status check, not the wait: an export can take hours to
-build.
+aborted, stopped, error) or is not among the jobs of a listing the portal cut
+short, and with --once 8 when it is still being built. --timeout bounds each
+status check, not the wait: an export can take hours to build.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download watch --account 5f1c2a --job 9f2b1c

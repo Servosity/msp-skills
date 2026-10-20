@@ -187,8 +187,17 @@ func (s *dlStub) portalServer() *httptest.Server {
 		defer s.mu.Unlock()
 		switch op {
 		case "getRestoreDownloadStatus":
+			// Paginated as the portal does: page N of rows each.
+			var q struct{ Page, Rows int }
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &q)
+			jobs := s.jobs
+			if q.Page > 0 && q.Rows > 0 {
+				lo, hi := min((q.Page-1)*q.Rows, len(jobs)), min(q.Page*q.Rows, len(jobs))
+				jobs = jobs[lo:hi]
+			}
 			rows := []map[string]any{}
-			for _, j := range s.jobs {
+			for _, j := range jobs {
 				rows = append(rows, map[string]any{
 					"taskId": j.JobID, "type": "EXPORT", "status": j.Status, "account": j.Account,
 					"source": "MS365", "subsource": j.SubSource, "snapshotDate": j.Snapshot,
