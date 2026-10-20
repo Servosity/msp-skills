@@ -8,57 +8,88 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
+// SessionKey is the one canonical key of a NAS's cached session: the lower-case
+// scheme and host with the default port written out (https -> 443, http ->
+// 80), plus the path prefix with no trailing slash (a DSM behind a reverse
+// proxy at https://proxy/nas1 is a different NAS from https://proxy/nas2), or
+// "" for an address that is not an http(s) URL with a host and no user info.
+// It is CanonicalAddress, the key VerifyDSM remembers, so the session file
+// name, the origin recorded in it, every comparison against that origin and
+// the trusted-device token cache all agree: HTTPS://NAS:443/nas1/ and
+// https://nas/nas1 are one session, https://nas and http://nas never are.
+// The generated session manager (HAND-FIX(dsm-login)) and the fleet client
+// both key the cache through it.
+func SessionKey(baseURL string) string {
+	return CanonicalAddress(baseURL)
+}
+
+// SameSession reports whether two addresses (a configured base URL, an origin
+// recorded in a session file) name the same cached session: equal, non-empty
+// SessionKeys.
+func SameSession(a, b string) bool {
+	ka := SessionKey(a)
+	return ka != "" && ka == SessionKey(b)
+}
+
 // SessionFileName is the per-NAS session cache file the CLI keeps in its data
-// directory (sid, SynoToken and the 2FA trusted-device token, mode 0600) for
-// an origin (scheme://host:port). The generated session manager
-// (HAND-FIX(dsm-login)) and the fleet layer share it, so `auth login` with a
-// one-time code and later fleet logins to the same NAS reuse one token. A
-// hash of the origin keeps names unique: "nas:5001" and "nas_5001" differ.
-func SessionFileName(origin string) string {
-	sum := sha256.Sum256([]byte(strings.ToLower(origin)))
-	readable := strings.NewReplacer("://", "-", ":", "_", "/", "_", "\\", "_").Replace(origin)
+// directory (sid, SynoToken and the 2FA trusted-device tokens, mode 0600) for
+// baseURL's SessionKey, or "" when the address has no key. The generated
+// session manager and the fleet layer share it, so `auth login` with a
+// one-time code and later fleet logins to the same NAS reuse one token. The
+// readable part keeps only [A-Za-z0-9.-] (safe on Windows, never a path
+// separator) and is capped; a hash of the key keeps names unique ("nas:5001"
+// and "nas_5001" differ).
+func SessionFileName(baseURL string) string {
+	key := SessionKey(baseURL)
+	if key == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(key))
+	readable := strings.Map(func(r rune) rune {
+		if r == '.' || r == '-' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return '_'
+	}, strings.Replace(key, "://", "-", 1))
+	if len(readable) > 96 {
+		readable = readable[:96]
+	}
 	return "session-" + readable + "-" + hex.EncodeToString(sum[:4]) + ".json"
 }
 
-func originOf(baseURL string) string {
-	u, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || u.Host == "" {
+// SessionFilePath is baseURL's session cache file in dataDir ("" without a
+// data directory or a usable address).
+func SessionFilePath(dataDir, baseURL string) string {
+	name := SessionFileName(baseURL)
+	if name == "" || dataDir == "" {
 		return ""
 	}
-	return u.Scheme + "://" + u.Host
+	return filepath.Join(dataDir, name)
 }
 
-func sessionFilePath(dataDir, baseURL string) string {
-	origin := originOf(baseURL)
-	if origin == "" || dataDir == "" {
-		return ""
-	}
-	return filepath.Join(dataDir, SessionFileName(origin))
-}
-
-// CachedDeviceID returns the trusted-device token cached for baseURL's host
+// CachedDeviceID returns the trusted-device token cached for baseURL's NAS
 // and this account, or "" when none is cached.
 func CachedDeviceID(dataDir, baseURL, account string) string {
-	return CachedDeviceIDFile(sessionFilePath(dataDir, baseURL), originOf(baseURL), account)
+	return CachedDeviceIDFile(SessionFilePath(dataDir, baseURL), baseURL, account)
 }
 
 // CachedDeviceIDFile is CachedDeviceID for a known session file path. The
-// token is returned only for the exact origin and account it was recorded
-// for: a file recorded for another origin or for no origin, another account,
-// or an unknown (empty) account yields nothing.
-func CachedDeviceIDFile(path, origin, account string) string {
-	if path == "" || origin == "" || account == "" {
+// token is returned only when the file's recorded origin is the same session
+// as baseURL (SameSession) and for the account it was recorded for: a file
+// recorded for another NAS or for no origin, another account, or an unknown
+// (empty) account yields nothing.
+func CachedDeviceIDFile(path, baseURL, account string) string {
+	if path == "" || account == "" {
 		return ""
 	}
 	rec := readRecord(path)
-	if o, _ := rec["origin"].(string); o != origin {
+	if o, _ := rec["origin"].(string); !SameSession(o, baseURL) {
 		return ""
 	}
 	if ids, ok := rec["device_ids"].(map[string]any); ok {
@@ -76,8 +107,10 @@ func CachedDeviceIDFile(path, origin, account string) string {
 
 func readRecord(path string) map[string]any {
 	rec := map[string]any{}
-	// #nosec G304 -- path comes from sessionFilePath: this CLI's data dir joined with a sanitized, hashed per-origin file name
-	if data, err := os.ReadFile(path); err == nil {
+	// path is SessionFilePath (this CLI's data dir joined with a sanitized,
+	// hashed per-NAS file name) or a session cache file CachedSessions listed
+	// in this CLI's own data or config directory.
+	if data, err := os.ReadFile(filepath.Clean(path)); err == nil {
 		if json.Unmarshal(data, &rec) != nil || rec == nil {
 			rec = map[string]any{} // unreadable or JSON null: start over
 		}
@@ -89,7 +122,7 @@ func readRecord(path string) map[string]any {
 // session cache file (a per-account map, so two accounts on one host never
 // overwrite each other), keeping the session manager's fields, mode 0600.
 func SaveDeviceID(dataDir, baseURL, account, deviceID string) error {
-	path := sessionFilePath(dataDir, baseURL)
+	path := SessionFilePath(dataDir, baseURL)
 	if path == "" || deviceID == "" {
 		return errors.New("no session cache path or device token")
 	}
@@ -100,41 +133,9 @@ func SaveDeviceID(dataDir, baseURL, account, deviceID string) error {
 	}
 	ids[account] = deviceID
 	rec["device_ids"] = ids
-	rec["origin"] = originOf(baseURL)
+	rec["origin"] = SessionKey(baseURL)
 	if _, ok := rec["saved"]; !ok {
 		rec["saved"] = time.Now().UTC().Format(time.RFC3339Nano)
-	}
-	data, err := json.MarshalIndent(rec, "", "  ")
-	if err != nil {
-		return err
-	}
-	return writeAtomic(path, data)
-}
-
-// ForgetSession clears the cached DSM session (sid, SynoToken, the session
-// manager's account and device token) for baseURL's origin, plus account's
-// entry in the per-account device-token map; other accounts' tokens stay.
-// A file left with nothing to keep is removed.
-func ForgetSession(dataDir, baseURL, account string) error {
-	path := sessionFilePath(dataDir, baseURL)
-	if path == "" {
-		return nil
-	}
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	rec := readRecord(path)
-	for _, k := range []string{"token", "synotoken", "device_id", "account", "cookies"} {
-		delete(rec, k)
-	}
-	if ids, ok := rec["device_ids"].(map[string]any); ok {
-		delete(ids, account)
-		if len(ids) == 0 {
-			delete(rec, "device_ids")
-		}
-	}
-	if _, keep := rec["device_ids"]; !keep {
-		return os.Remove(path)
 	}
 	data, err := json.MarshalIndent(rec, "", "  ")
 	if err != nil {
@@ -189,14 +190,4 @@ func writeAtomic(path string, data []byte) error {
 		return err
 	}
 	return os.Rename(f.Name(), path) // CreateTemp files are already 0600
-}
-
-// Origin renders a base URL as scheme://host for display, dropping any user
-// info, path or query.
-func Origin(raw string) string {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || u.Host == "" {
-		return "(invalid SYNOLOGY_BASE_URL)"
-	}
-	return u.Scheme + "://" + u.Host
 }

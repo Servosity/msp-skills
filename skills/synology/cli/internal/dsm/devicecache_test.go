@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -117,19 +118,29 @@ func TestPlaceholderOrigin(t *testing.T) {
 	}
 }
 
-func TestForgetSessionKeepsOtherAccounts(t *testing.T) {
+func TestForgetSessionFilesRemovesEveryAccount(t *testing.T) {
 	dir := t.TempDir()
 	base := "https://nas:5001"
 	_ = SaveDeviceID(dir, base, "admin", "did-a")
 	_ = SaveDeviceID(dir, base, "fleet", "did-f")
-	if err := ForgetSession(dir, base, "admin"); err != nil {
-		t.Fatal(err)
+	_ = SaveDeviceID(dir, "https://other:5001", "admin", "did-o")
+	files, err := CachedSessions(base, dir)
+	if err != nil || len(files) != 1 || files[0].NAS != "https://nas:5001" ||
+		strings.Join(files[0].DeviceTokenAccounts, ",") != "admin,fleet" || files[0].SessionID {
+		t.Fatalf("CachedSessions(%s) = %+v, %v", base, files, err)
 	}
-	if CachedDeviceID(dir, base, "admin") != "" || CachedDeviceID(dir, base, "fleet") != "did-f" {
-		t.Fatal("logout forgot the wrong device tokens")
+	removed, err := ForgetSessionFiles(files)
+	if err != nil || len(removed) != 1 {
+		t.Fatalf("ForgetSessionFiles = %+v, %v", removed, err)
 	}
-	_ = ForgetSession(dir, base, "fleet")
-	if _, err := os.Stat(filepath.Join(dir, SessionFileName(base))); !os.IsNotExist(err) {
-		t.Fatal("an empty session file was kept")
+	if CachedDeviceID(dir, base, "admin") != "" || CachedDeviceID(dir, base, "fleet") != "" {
+		t.Fatal("a trusted-device token survived forgetting its NAS's session file")
+	}
+	if CachedDeviceID(dir, "https://other:5001", "admin") != "did-o" {
+		t.Fatal("forgetting one NAS removed another NAS's token")
+	}
+	// Removing again removes nothing and is not an error.
+	if removed, err := ForgetSessionFiles(files); err != nil || len(removed) != 0 {
+		t.Fatalf("second ForgetSessionFiles = %+v, %v", removed, err)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -305,35 +306,200 @@ func openFleetRead(ctx context.Context, path string, haveNAS bool) (*sql.DB, fun
 	return s.DB(), func() { _ = s.Close() }, nil
 }
 
-// printFleetRows writes machine output through the generated helpers and a
-// table for humans; rows must be a slice.
+// printFleetRows writes machine output through the generated helpers and,
+// for a human, one card per row (writeFleetCards); rows must be a slice.
 func printFleetRows(cmd *cobra.Command, flags *rootFlags, rows any, empty string) error {
 	w := cmd.OutOrStdout()
 	if !wantsHumanTable(w, flags) {
 		return printReportJSON(w, rows, flags) // agent-compaction-keeps-report-fields
 	}
+	return writeFleetCards(w, rows, empty)
+}
+
+// fleetFieldTier ranks a report key for the human view: identity first (the
+// NAS, its client, then the host, task or item the row is about), then what
+// the row is (kind, state, ok), then why (error, sync_error, note, ...), then
+// every other field in the order the row type declares it.
+func fleetFieldTier(key string, hasNAS bool) (tier, pos int) {
+	order := [][]string{
+		{"nas"},
+		{"client"},
+		{"host_name", "task_name", "name", "key", "device_name"},
+		{"kind", "state", "severity", "ok", "status"},
+		{"error", "sync_error", "last_sync_error", "problem", "note", "first_error", "warnings"},
+	}
+	if !hasNAS && key == "name" {
+		return 0, 0 // fleet list: the row's name is the NAS
+	}
+	for t, keys := range order {
+		for i, k := range keys {
+			if k == key {
+				return t, i
+			}
+		}
+	}
+	return len(order), 0
+}
+
+// fleetTimeKeys are unix-second fields shown as local times.
+func fleetTimeKey(key string) bool {
+	return strings.HasSuffix(key, "_at") || key == "last_success" || key == "time_start" || key == "time_end" || key == "history_from"
+}
+
+// writeFleetCards is the human view of a fleet/abb report: one card per row.
+// Every key that any row carries is shown on every card, in one fixed order
+// per row type (fleetFieldTier, then the type's declaration order), and no
+// value is truncated, so the NAS, client, host or task a row is about and its
+// kind, error, sync_error or note are never dropped. A key a row does not
+// carry, or a null (not measured), shows "-".
+func writeFleetCards(w io.Writer, rows any, empty string) error {
 	data, err := json.Marshal(rows)
 	if err != nil {
 		return err
 	}
 	var items []map[string]any
-	_ = json.Unmarshal(data, &items)
+	if err := json.Unmarshal(data, &items); err != nil {
+		return err
+	}
 	if len(items) == 0 {
 		_, err := fmt.Fprintln(w, empty)
 		return err
 	}
+	present := map[string]bool{}
 	for _, it := range items {
-		for k, v := range it {
-			f, ok := v.(float64)
-			if !ok || f <= 0 {
-				continue
-			}
-			if strings.HasSuffix(k, "_at") || k == "last_success" || k == "time_start" || k == "time_end" {
-				it[k] = time.Unix(int64(f), 0).Local().Format("2006-01-02 15:04")
-			}
+		for k := range it {
+			present[k] = true
 		}
 	}
-	return printAutoTable(w, items)
+	declared := map[string]int{}
+	for i, k := range declaredJSONFields(reflect.TypeOf(rows)) {
+		if _, dup := declared[k]; !dup {
+			declared[k] = i
+		}
+	}
+	keys := make([]string, 0, len(present))
+	for k := range present {
+		keys = append(keys, k)
+	}
+	hasNAS := present["nas"]
+	sort.Slice(keys, func(i, j int) bool {
+		ti, pi := fleetFieldTier(keys[i], hasNAS)
+		tj, pj := fleetFieldTier(keys[j], hasNAS)
+		if ti != tj {
+			return ti < tj
+		}
+		if pi != pj {
+			return pi < pj
+		}
+		di, iok := declared[keys[i]]
+		dj, jok := declared[keys[j]]
+		switch {
+		case iok && jok && di != dj:
+			return di < dj
+		case iok != jok:
+			return iok // declared fields before undeclared ones
+		}
+		return keys[i] < keys[j]
+	})
+	width := 0
+	for _, k := range keys {
+		width = max(width, len(k))
+	}
+	var b strings.Builder
+	for n, it := range items {
+		if n > 0 {
+			b.WriteString("\n")
+		}
+		var title []string
+		for _, k := range keys {
+			if t, _ := fleetFieldTier(k, hasNAS); t > 2 {
+				break
+			}
+			if v := fleetCardValue(k, it[k]); v != "-" {
+				title = append(title, v)
+			}
+		}
+		if len(title) == 0 {
+			title = append(title, fmt.Sprintf("row %d", n+1))
+		}
+		b.WriteString(bold(strings.Join(title, " / ")) + "\n")
+		for _, k := range keys {
+			v, ok := it[k]
+			text := "-"
+			if ok {
+				text = fleetCardValue(k, v)
+			}
+			fmt.Fprintf(&b, "  %-*s  %s\n", width+1, k+":", strings.ReplaceAll(text, "\n", "\n  "+strings.Repeat(" ", width+3)))
+		}
+	}
+	_, err = io.WriteString(w, b.String())
+	return err
+}
+
+// fleetCardValue renders one report value for a card, in full: strings are
+// scrubbed of terminal controls (never truncated), unix times are local
+// times, null is "-", an empty list is "(none)" and a list puts one item per
+// line.
+func fleetCardValue(key string, v any) string {
+	switch val := v.(type) {
+	case nil:
+		return "-"
+	case string:
+		return cliutil.ScrubTerminal(val)
+	case bool:
+		if val {
+			return "true"
+		}
+		return "false"
+	case float64:
+		if val > 0 && fleetTimeKey(key) {
+			return time.Unix(int64(val), 0).Local().Format("2006-01-02 15:04")
+		}
+		if val == math.Trunc(val) && math.Abs(val) < 1e15 {
+			return fmt.Sprintf("%d", int64(val))
+		}
+		return fmt.Sprintf("%g", val)
+	case []any:
+		if len(val) == 0 {
+			return "(none)"
+		}
+		lines := make([]string, 0, len(val))
+		for _, e := range val {
+			lines = append(lines, "- "+fleetCardValue("", e))
+		}
+		return strings.Join(lines, "\n")
+	default:
+		raw, _ := json.Marshal(val) // an object: compact JSON, keys sorted
+		return cliutil.ScrubTerminal(string(raw))
+	}
+}
+
+// declaredJSONFields lists the JSON names of t's struct fields (through
+// pointers and slices) in declaration order, embedded structs inline.
+func declaredJSONFields(t reflect.Type) []string {
+	for t != nil && (t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice || t.Kind() == reflect.Array) {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Struct {
+		return nil
+	}
+	var out []string
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if f.Anonymous && name == "" {
+			out = append(out, declaredJSONFields(f.Type)...)
+			continue
+		}
+		if !f.IsExported() || name == "-" {
+			continue
+		}
+		if name == "" {
+			name = f.Name
+		}
+		out = append(out, name)
+	}
+	return out
 }
 
 // checkLimits rejects threshold flags that would silently disable a check: a

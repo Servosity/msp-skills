@@ -838,6 +838,7 @@ func FindDevice(ctx context.Context, db Querier, nasList []NAS, query string, ru
 // a nas_not_synced row for a NAS whose history cannot be trusted.
 type TrendRow struct {
 	NAS         string `json:"nas"`
+	Client      string `json:"client,omitempty"`
 	Kind        string `json:"kind"` // task, device, nas_not_synced, abb_missing, abb_not_installed, partial_history
 	Note        string `json:"note,omitempty"`
 	HistoryFrom int64  `json:"history_from,omitempty"` // set when the window starts before the mirrored history
@@ -1027,7 +1028,15 @@ func Trend(ctx context.Context, db Querier, nasList []NAS, since time.Time, byDe
 			out = append(out, TrendRow{NAS: n.Name, Kind: "partial_history", HistoryFrom: from, Note: partialNote(n.Name, from)})
 		}
 	}
-	return append(out, unsynced...), nil
+	out = append(out, unsynced...)
+	clients := map[string]string{}
+	for _, n := range nasList {
+		clients[n.Name] = n.Client
+	}
+	for i := range out {
+		out[i].Client = clients[out[i].NAS] // every report row names its client
+	}
+	return out, nil
 }
 
 func partialNote(nas string, from int64) string {

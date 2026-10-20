@@ -35,7 +35,7 @@
         },
         {
           "file": "cli/internal/client/session.go",
-          "contains": "dsm.SessionFileName(",
+          "contains": "dsm.SessionFilePath(",
           "min_count": 1,
           "code_only": true
         },
@@ -334,8 +334,8 @@
     },
     {
       "id": "dsm-auth-logout",
-      "summary": "auth logout also forgets the cached DSM session (sid, SynoToken) and the account's trusted-device token for the configured NAS",
-      "why": "The generated logout clears config credentials only; the per-origin session file kept a reusable sid, so a later command still authenticated after 'credentials cleared'.",
+      "summary": "auth logout forgets, on this computer, the whole cached session file of the NAS SYNOLOGY_BASE_URL (or the config's base_url, or --nas <registered name>) names - every account's sid, SynoToken, cookies and two-factor trusted-device tokens - or with --all every session cache file in the data directory, plus the login stored in the CLI's own config (credential fields of config.json, the credentials file); it prints every file it removed or changed (or 'nothing cached for <address>'), never contacts the NAS and says so, keeps --dry-run truthful, and with no usable NAS address refuses (exit 2, naming SYNOLOGY_BASE_URL, --nas and --all) instead of reporting 'cleared' for the example placeholder",
+      "why": "The generated logout cleared only what the current shell named: in a fresh shell (SYNOLOGY_BASE_URL unset) it targeted https://nas.example.com:5001, cleared nothing, wrote a config.json naming the placeholder and still printed {\"cleared\": true} / 'Logged out. Credentials cleared.', so the next command reused the live sid with no password; with SYNOLOGY_BASE_URL set and SYNOLOGY_ACCOUNT unset it removed the sid but kept the account's trusted-device token, so the next password login skipped the second factor. TestAuthLogoutInAFreshShell, TestAuthLogoutWithoutAnAccount and TestAuthLogoutForgetsOnlyTheNamedNAS (against a two-factor DSM stand-in: after logout the next command needs the password and a one-time code) fail with the contract reverted.",
       "status": "active",
       "asserts": [
         {
@@ -346,7 +346,57 @@
         },
         {
           "file": "cli/internal/cli/auth.go",
-          "contains": "dsm.ForgetSession(",
+          "contains": "return runAuthLogout(cmd, flags, all, nasName)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "Long:    authLogoutLong,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "Logged out. Credentials cleared."
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "cfg.ClearTokens()"
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_dsm.go",
+          "contains": "func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName string) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_dsm.go",
+          "contains": "removed, ferr := dsm.ForgetSessionFiles(files)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/sessioncache.go",
+          "contains": "func CachedSessions(baseURL string, dirs ...string) ([]CachedSession, error) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_contract_test.go",
+          "contains": "func TestAuthLogoutInAFreshShell(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_contract_test.go",
+          "contains": "func TestAuthLogoutWithoutAnAccount(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_logout_contract_test.go",
+          "contains": "func TestAuthLogoutForgetsOnlyTheNamedNAS(",
           "min_count": 1,
           "code_only": true
         }
@@ -1979,7 +2029,13 @@
         },
         {
           "file": "cli/internal/dsm/guard.go",
-          "contains": "if v == \"\" || m.exact[v] {",
+          "contains": "for _, v := range []string{raw, strings.TrimSpace(raw)} {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "if strings.TrimSpace(v) == \"\" || m.exact[v] {",
           "min_count": 1,
           "code_only": true
         },
@@ -2265,7 +2321,7 @@
         },
         {
           "file": "cli/internal/dsm/devicecache.go",
-          "contains": "if path == \"\" || origin == \"\" || account == \"\" {",
+          "contains": "if path == \"\" || account == \"\" {",
           "min_count": 1,
           "code_only": true
         },
@@ -2284,6 +2340,86 @@
         {
           "file": "cli/internal/dsm/session_gate_test.go",
           "contains": "func TestOriginJarBindsCookiesToOneOrigin(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-session-key",
+      "summary": "one canonical session key, dsm.SessionKey (= CanonicalAddress: lower-case scheme and host, default port written out, reverse-proxy path kept, no trailing slash), names the per-NAS session file (dsm.SessionFilePath), is the origin recorded in it (session manager and fleet SaveDeviceID), and every comparison against a recorded origin goes through dsm.SameSession (session reuse and the trusted-device token cache), in the generated session manager and the fleet client alike",
+      "why": "saveToDisk recorded the full SYNOLOGY_BASE_URL as the origin while loadFromDisk asked CachedDeviceIDFile for dsm.Origin(baseURL) (scheme://host only) and the file was named by scheme://host, so with a reverse-proxied address (https://proxy/nas1) or an upper-case scheme the exact-origin check never matched and every relogin after the session ended demanded a fresh one-time code; two NAS behind one proxy also shared one file. TestTrustedDeviceTokenBehindAProxyPath and TestSessionKeyIsOneCanonicalKey fail with the key reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "return dsm.SessionFilePath(dir, m.baseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "m.deviceID = dsm.CachedDeviceIDFile(path, baseURL, account)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "if !dsm.SameSession(rec.Origin, baseURL) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "origin := m.synoToken, m.deviceID, dsm.SessionKey(m.baseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "not_contains": "dsm.Origin(baseURL)"
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "not_contains": "if rec.Origin != baseURL {"
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "not_contains": "dsm.SessionFileName(u.Scheme+\"://\"+u.Host)"
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "HAND-FIX(dsm-session-key)",
+          "min_count": 4,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/dsm/devicecache.go",
+          "contains": "func SessionKey(baseURL string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/devicecache.go",
+          "contains": "if o, _ := rec[\"origin\"].(string); !SameSession(o, baseURL) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/devicecache.go",
+          "contains": "rec[\"origin\"] = SessionKey(baseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session_key_test.go",
+          "contains": "func TestTrustedDeviceTokenBehindAProxyPath(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/session_key_test.go",
+          "contains": "func TestSessionKeyIsOneCanonicalKey(",
           "min_count": 1,
           "code_only": true
         }

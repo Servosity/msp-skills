@@ -6,7 +6,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -189,62 +188,24 @@ func credentialSavePath(cfg *config.Config) string {
 }
 
 func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	// HAND-FIX(dsm-auth-logout): logout forgets, on this computer, the whole
+	// cached DSM session file of the NAS SYNOLOGY_BASE_URL (or --nas) names,
+	// or with --all every cached session, plus the CLI's stored login, and
+	// prints exactly what it removed; with no NAS address it refuses rather
+	// than report "cleared" for the example placeholder.
+	var all bool
+	var nasName string
+	cmd := &cobra.Command{
 		Use:     "logout",
-		Short:   "Clear stored credentials",
-		Example: "  synology-cli auth logout",
+		Short:   "Forget the cached DSM session and stored login for a NAS (or every NAS with --all) on this computer",
+		Long:    authLogoutLong,
+		Example: "  synology-cli auth logout\n  synology-cli auth logout --nas acme\n  synology-cli auth logout --all --dry-run",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(flags.configPath)
-			if err != nil {
-				return configErr(err)
-			}
-
-			if dryRunOK(flags) { // HAND-FIX(dsm-auth-logout): a preview changes nothing
-				return writeDryRun(cmd.OutOrStdout(), flags, "auth logout")
-			}
-			account := cfg.SynologyAccount // HAND-FIX(dsm-auth-logout)
-			if err := cfg.ClearTokens(); err != nil {
-				return configErr(fmt.Errorf("clearing tokens: %w", err))
-			}
-			// HAND-FIX(dsm-auth-logout): also forget the cached DSM session (sid,
-			// SynoToken) and this account's trusted-device token for the NAS.
-			if dir, derr := cliutil.DataDir(); derr == nil {
-				if ferr := dsm.ForgetSession(dir, cfg.BaseURL, account); ferr != nil {
-					return configErr(fmt.Errorf("clearing the cached DSM session: %w", ferr))
-				}
-			}
-
-			// Identify which (if any) auth env var is still exported so the
-			// JSON envelope and the human prose can both surface it.
-			envStillSet := ""
-			if envStillSet == "" && os.Getenv("SYNOLOGY_ACCOUNT") != "" {
-				envStillSet = "SYNOLOGY_ACCOUNT"
-			}
-			if envStillSet == "" && os.Getenv("SYNOLOGY_PASSWORD") != "" {
-				envStillSet = "SYNOLOGY_PASSWORD"
-			}
-			if envStillSet == "" && os.Getenv("SYNOLOGY_DEVICE_ID") != "" {
-				envStillSet = "SYNOLOGY_DEVICE_ID"
-			}
-			if envStillSet == "" && os.Getenv("SYNOLOGY_OTP_CODE") != "" {
-				envStillSet = "SYNOLOGY_OTP_CODE"
-			}
-
-			// JSON envelope: {cleared: true, note?: "<env_var> env var is still set"}.
-			if flags.asJSON {
-				out := map[string]any{"cleared": true}
-				if envStillSet != "" {
-					out["note"] = envStillSet + " env var is still set"
-				}
-				return printJSONFiltered(cmd.OutOrStdout(), out, flags)
-			}
-
-			if envStillSet != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Config cleared. Note: %s env var is still set.\n", envStillSet)
-				return nil
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Logged out. Credentials cleared.")
-			return nil
+			return runAuthLogout(cmd, flags, all, nasName) // HAND-FIX(dsm-auth-logout)
 		},
 	}
+	cmd.Flags().BoolVar(&all, "all", false, "Forget every cached DSM session in the data directory (the single NAS and every fleet NAS) and the stored login")
+	cmd.Flags().StringVar(&nasName, "nas", "", "Forget the cached session of this registered NAS (see 'fleet list') instead of SYNOLOGY_BASE_URL's")
+	return cmd
 }

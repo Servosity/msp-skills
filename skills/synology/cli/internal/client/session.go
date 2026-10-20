@@ -374,12 +374,12 @@ func (m *SessionManager) sessionFilePath() string {
 	// HAND-FIX(dsm-login): one session file per NAS, so pointing
 	// SYNOLOGY_BASE_URL at another NAS never replays the first NAS's sid; the
 	// name is shared with the fleet layer's trusted-device token cache.
-	if u, err := url.Parse(m.baseURL); err == nil && u.Host != "" {
-		return filepath.Join(dir, dsm.SessionFileName(u.Scheme+"://"+u.Host))
-	}
-	// HAND-FIX(dsm-session-origin-bound): no NAS origin, no session file (the
-	// origin-less session.json is never read or written).
-	return ""
+	// HAND-FIX(dsm-session-key): named by dsm.SessionKey (lower-case scheme
+	// and host, explicit port, path kept), the key the recorded origin and
+	// every comparison use too. HAND-FIX(dsm-session-origin-bound): no NAS
+	// origin, no session file (the origin-less session.json is never read or
+	// written).
+	return dsm.SessionFilePath(dir, m.baseURL)
 }
 
 type sessionRecord struct {
@@ -428,14 +428,14 @@ func (m *SessionManager) loadFromDisk() {
 	// HAND-FIX(dsm-login): the trusted-device token outlives the session and is
 	// kept per account (fleet logins share this file).
 	m.mu.Lock()
-	m.deviceID = dsm.CachedDeviceIDFile(path, dsm.Origin(baseURL), account)
+	m.deviceID = dsm.CachedDeviceIDFile(path, baseURL, account) // HAND-FIX(dsm-session-key)
 	m.issued = append(m.issued, m.deviceID)
 	m.mu.Unlock()
 	if rec.Account != account {
 		return // HAND-FIX(dsm-login): only the same account's session is reused
 	}
-	if rec.Origin != baseURL {
-		return // HAND-FIX(dsm-login): a sid from https://nas is never sent to http://nas
+	if !dsm.SameSession(rec.Origin, baseURL) {
+		return // HAND-FIX(dsm-login): a sid from https://nas is never sent to http://nas (HAND-FIX(dsm-session-key))
 	}
 	if time.Since(rec.Saved) > sessionTTL {
 		return // stale; ignore
@@ -472,7 +472,7 @@ func (m *SessionManager) saveToDisk() {
 	}
 	m.mu.Lock()
 	tok := m.token
-	synoToken, deviceID, origin := m.synoToken, m.deviceID, m.baseURL // HAND-FIX(dsm-login)
+	synoToken, deviceID, origin := m.synoToken, m.deviceID, dsm.SessionKey(m.baseURL) // HAND-FIX(dsm-login) HAND-FIX(dsm-session-key)
 	m.mu.Unlock()
 
 	// Persist cookies for every host the session interacts with. cookiejar

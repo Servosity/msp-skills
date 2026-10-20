@@ -25,13 +25,18 @@ import (
 
 type fleetSyncRow struct {
 	NAS          string   `json:"nas"`
+	Client       string   `json:"client,omitempty"`
 	OK           bool     `json:"ok"`
 	Error        string   `json:"error,omitempty"`
 	Warnings     []string `json:"warnings,omitempty"`
 	ABBInstalled *bool    `json:"abb_installed,omitempty"`
-	// Absence is never zero: the counts are what this sync mirrored, so they
-	// are null (not 0) when nothing was fetched (unreachable NAS, rejected
-	// login, credentials not set).
+	// Absence is never zero: each count is what this sync measured and
+	// mirrored, and null (not 0) when that part was not measured: nothing
+	// fetched (unreachable NAS, rejected login, credentials not set), the
+	// mirror not written, Active Backup for Business not installed or not
+	// answering (tasks, results, device_runs), the job history not fetched
+	// (results, device_runs) or the storage snapshot not fetched
+	// (storage_items).
 	Tasks        *int  `json:"tasks"`
 	Results      *int  `json:"results"`
 	DeviceRuns   *int  `json:"device_runs"`
@@ -159,7 +164,7 @@ recorded and does not stop the others; the exit code is 5 when any NAS failed.`,
 
 func syncOneNAS(ctx context.Context, flags *rootFlags, db *sql.DB, writeMu *sync.Mutex, n fleet.NAS, opts fleet.Options) fleetSyncRow {
 	start := time.Now()
-	row := fleetSyncRow{NAS: n.Name}
+	row := fleetSyncRow{NAS: n.Name, Client: n.Client}
 	var client *dsm.Client // set once built; its Redact masks what the error may echo
 	finish := func(snap *fleet.Snapshot, info fleet.SystemInfo, err error) fleetSyncRow {
 		writeMu.Lock()
@@ -174,11 +179,13 @@ func syncOneNAS(ctx context.Context, flags *rootFlags, db *sql.DB, writeMu *sync
 		wctx := context.WithoutCancel(ctx)
 		if snap != nil {
 			row.Warnings = snap.Warnings
-			tasks, results, runs, storage := len(snap.Tasks), len(snap.Results), len(snap.DeviceRuns), len(snap.Storage)
-			row.Tasks, row.Results, row.DeviceRuns, row.StorageItems = &tasks, &results, &runs, &storage
 		}
 		row.ABBInstalled = info.ABBInstalled
-		if cerr := fleet.CommitSync(wctx, db, n, start, snap, info, err); errors.Is(cerr, fleet.ErrSuperseded) {
+		cerr := fleet.CommitSync(wctx, db, n, start, snap, info, err)
+		if cerr == nil {
+			row.Tasks, row.Results, row.DeviceRuns, row.StorageItems = measuredCounts(snap)
+		}
+		if errors.Is(cerr, fleet.ErrSuperseded) {
 			// A sync that started later already committed; it is the answer.
 			row.Warnings = append(row.Warnings, cerr.Error())
 		} else if cerr != nil {
@@ -216,6 +223,28 @@ func syncOneNAS(ctx context.Context, flags *rootFlags, db *sql.DB, writeMu *sync
 		snap.Warnings = append(snap.Warnings, "could not cache the trusted-device token; the next login will need a one-time code again: "+c.DeviceIDErr.Error())
 	}
 	return finish(snap, info, err)
+}
+
+// measuredCounts are a committed snapshot's counts, each nil (null) when
+// that part was not measured: tasks need the ABB task list to have parsed
+// (not on a NAS without Active Backup for Business, or one whose ABB did not
+// answer), results and device_runs a complete job history (they commit
+// together), storage_items a complete storage snapshot.
+func measuredCounts(snap *fleet.Snapshot) (tasks, results, deviceRuns, storage *int) {
+	if snap == nil {
+		return nil, nil, nil, nil
+	}
+	count := func(n int) *int { return &n }
+	if snap.ABBInstalled {
+		tasks = count(len(snap.Tasks))
+	}
+	if snap.HistoryFrom > 0 {
+		results, deviceRuns = count(len(snap.Results)), count(len(snap.DeviceRuns))
+	}
+	if snap.StorageOK {
+		storage = count(len(snap.Storage))
+	}
+	return tasks, results, deviceRuns, storage
 }
 
 // fleetSyncPlanNAS is one NAS a fleet sync would contact. Credential env vars
