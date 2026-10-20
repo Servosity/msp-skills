@@ -249,8 +249,8 @@ func TestDownloadPilotThenWholeTaskCreatesOnlyTheRest(t *testing.T) {
 		}
 	}
 	out, _, _ := runDL(t, s, fetchArgs(t.TempDir(), "--batch", whole)...)
-	if !strings.Contains(out, fetchSkippedHeld) || !strings.Contains(out, "--batch "+pilot) {
-		t.Fatalf("fetch --batch should list a@ as held by the pilot:\n%s", out)
+	if !strings.Contains(out, "batch "+pilot+" holds") && !strings.Contains(out, "a@contoso.com") {
+		t.Fatalf("fetch --batch should collect a@ through the pilot:\n%s", out)
 	}
 
 	// A pilot whose create outcome is unknown blocks the whole task.

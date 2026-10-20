@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"cloudally-pp-cli/internal/cliutil/testenv"
+	"cloudally-pp-cli/internal/portal"
 )
 
 // Round 6 P1-1: a resend of a create that may already exist can never
@@ -521,5 +522,103 @@ func TestDownloadSubmitDryRunSendsNothing(t *testing.T) {
 	}
 	if len(ledgerKeys(t)) != 0 {
 		t.Fatal("--dry-run saved a ledger")
+	}
+}
+
+// readyAllJobs makes every listed job ready with one small archive.
+func readyAllJobs(s *dlStub) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.jobs {
+		j := &s.jobs[i]
+		id := "d-" + j.JobID
+		j.Status = portal.StatusReadyForDownload
+		j.Files = []portal.DownloadFile{{ExportDataID: id, FileName: j.SubSource + ".zip", Size: "6 Bytes"}}
+		s.bodies[id] = []byte("PK\x03\x04ok")
+	}
+}
+
+// Docs review 2: fetch --batch of the whole task after a pilot left the
+// pilot's mailbox HELD_BY_OTHER_BATCH, undownloaded, and exited 0. A held
+// row is now collected through its holder's confirmed job; while the
+// holder has not confirmed it, the row is NOT_READY (exit 8).
+func TestFetchBatchCollectsTheArchivesAPilotHolds(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+	// The pilot's creates are accepted but not yet confirmed.
+	_, _, _ = runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com", "--no-reconcile")...)
+	pilot := ledgerKeys(t)[0]
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs()...); err != nil {
+		t.Fatalf("the whole task: %v\n%s", err, stderr)
+	}
+	var whole string
+	for _, k := range ledgerKeys(t) {
+		if k != pilot {
+			whole = k
+		}
+	}
+	readyAllJobs(s)
+	heldOnDisk := func(dest string) int {
+		n := 0
+		_ = filepath.WalkDir(dest, func(p string, d os.DirEntry, err error) error {
+			if err == nil && !d.IsDir() && strings.Contains(p, "a@contoso.com") && strings.HasSuffix(p, ".zip") {
+				n++
+			}
+			return nil
+		})
+		return n
+	}
+
+	dest := t.TempDir()
+	out, stderr, err := runDL(t, s, fetchArgs(dest, "--batch", whole)...)
+	if err == nil || ExitCode(err) != ExitJobPending {
+		t.Fatalf("the pilot has not confirmed a@ yet: want exit %d, got %v\n%s\n%s", ExitJobPending, err, out, stderr)
+	}
+	if !strings.Contains(out, "--batch "+pilot+" --resume --yes") {
+		t.Fatalf("the NOT_READY rows should name the pilot's resume:\n%s", out)
+	}
+
+	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", pilot, "--resume", "--yes"); err != nil {
+		t.Fatalf("pilot resume: %v\n%s", err, stderr)
+	}
+	readyAllJobs(s)
+	dest = t.TempDir()
+	if out, stderr, err := runDL(t, s, fetchArgs(dest, "--batch", whole)...); err != nil {
+		t.Fatalf("every archive of the whole batch should be on disk: %v\n%s\n%s", err, out, stderr)
+	}
+	if n := heldOnDisk(dest); n != 2 {
+		t.Fatalf("a@'s two archives (held by the pilot) on disk = %d, want 2", n)
+	}
+}
+
+// The holder's ledger cannot be read: the held row is MISSING, never a
+// silent success.
+func TestFetchBatchHeldRowWithAnUnreadableHolderIsMissing(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+	_, _, _ = runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com")...)
+	pilot := ledgerKeys(t)[0]
+	_, _, _ = runDL(t, s, downloadSubmitArgs()...)
+	var whole string
+	for _, k := range ledgerKeys(t) {
+		if k != pilot {
+			whole = k
+		}
+	}
+	readyAllJobs(s)
+	path, _ := batchPath(pilot)
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := runDL(t, s, fetchArgs(t.TempDir(), "--batch", whole)...)
+	if err == nil || ExitCode(err) != 6 {
+		t.Fatalf("want exit 6, got %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "batch "+pilot+" holds this archive, but its ledger cannot tell") {
+		t.Fatalf("the MISSING row should say why:\n%s", out)
 	}
 }

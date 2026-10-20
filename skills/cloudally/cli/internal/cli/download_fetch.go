@@ -207,10 +207,88 @@ const (
 	// the portal: a --batch row nothing matched, or an --entities mailbox
 	// with no download job.
 	fetchMissing = "MISSING"
-	// fetchSkippedHeld is a --batch row another batch holds: collected
-	// through that batch, and not a failure of this one.
-	fetchSkippedHeld = "HELD_BY_OTHER_BATCH"
 )
+
+// heldArchive is where a --batch row another batch holds really stands:
+// the holding batch's ledger row for the same archive. row is nil when
+// that ledger cannot be read (err) or has no such row.
+type heldArchive struct {
+	key    string
+	ledger *downloadBatch
+	row    *downloadRow
+	err    error
+}
+
+// resolveHeld follows each held row of b to its holder's ledger row.
+func resolveHeld(b *downloadBatch) map[int]heldArchive {
+	out := map[int]heldArchive{}
+	ledgers := map[string]heldArchive{}
+	for i, r := range b.Rows {
+		if r.Status != dlSkipped {
+			continue
+		}
+		key := strings.TrimSpace(r.HeldBy)
+		h, ok := ledgers[key]
+		if !ok {
+			h.key = key
+			if key == "" {
+				h.err = errors.New("the ledger does not name the batch that holds it")
+			} else {
+				h.ledger, h.err = loadBatch(key)
+			}
+			ledgers[key] = h
+		}
+		if h.ledger != nil {
+			for j := range h.ledger.Rows {
+				hr := &h.ledger.Rows[j]
+				if strings.EqualFold(hr.Entity, r.Entity) && strings.EqualFold(hr.SubSource, r.SubSource) && hr.SnapshotRaw == r.SnapshotRaw && hr.Status != dlSkipped {
+					h.row = hr
+					break
+				}
+			}
+			if h.row == nil {
+				h.err = fmt.Errorf("batch %s has no row for this archive", key)
+			}
+		}
+		out[i] = h
+	}
+	return out
+}
+
+// heldOutcome reports a --batch row another batch holds, from the holder's
+// own ledger row. Its confirmed job was in the run's job list (want), so
+// when it was seen there the job loop already reported it.
+func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, account string) (fetchOutcome, bool) {
+	out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource}
+	resume := fmt.Sprintf("cloudally-cli download submit --batch %s --resume --yes", h.key)
+	if h.row == nil {
+		out.Status = fetchMissing
+		out.Detail = fmt.Sprintf("batch %s holds this archive, but its ledger cannot tell where it stands (%v)", h.key, h.err)
+		return out, true
+	}
+	hr := *h.row
+	out.JobID = hr.JobID
+	switch {
+	case hr.Status == dlEmpty:
+		return out, false
+	case hr.Status == dlCreated && hr.JobID != "":
+		if matched[strings.ToLower(strings.TrimSpace(hr.JobID))] {
+			return out, false
+		}
+		out.Status = fetchMissing
+		out.Detail = "held by batch " + h.key + ": " + expiredArchiveAdvice(h.ledger, hr, account)
+	case hr.Status == dlJobFailed || hr.Status == dlFailed:
+		out.Status = fetchFailed
+		out.Detail = fmt.Sprintf("batch %s holds this archive and its create %s (ledger status %s); create it once more with: %s", h.key, map[bool]string{true: "job failed", false: "was refused"}[hr.Status == dlJobFailed], hr.Status, resume)
+	case hr.Status == dlUnknown && hr.Ambiguous:
+		out.Status = fetchMissing
+		out.Detail = fmt.Sprintf("batch %s holds this archive, but a job of this snapshot cannot be proved to be its; collect every archive of that snapshot with: cloudally-cli download fetch --account %s --dest <folder> --year <year> --on-date %s --entities %s", h.key, account, snapshotDay(r.SnapshotRaw), r.Entity)
+	default:
+		out.Status = fetchNotReady
+		out.Detail = fmt.Sprintf("batch %s holds this archive and has not confirmed its job yet (ledger status %s); confirm it with: %s, then run this again", h.key, hr.Status, resume)
+	}
+	return out, true
+}
 
 // snapshotOnDay reports whether a compact snapshot falls on day
 // (yyyyMMdd) in the account's timezone, offset from UTC the way 'download
@@ -372,8 +450,12 @@ With --batch, only the jobs the batch confirmed as its own are downloaded;
 another export of the same snapshot is never taken in their place. A job that
 ended in failure (any status naming a failure: FAILED, CANCELLED, ABORTED,
 STOPPED, ERROR) is handed back to the batch that confirmed it,
-and that batch's resume creates it once more. Rows another batch holds are
-listed as HELD_BY_OTHER_BATCH, with that batch's fetch command.
+and that batch's resume creates it once more. A row another batch holds (a
+pilot run's mailbox, say) is collected through that batch: its confirmed
+job, matched by job id, is downloaded here. When that batch's job failed or
+its create was refused the row is FAILED, when it is not confirmed or ready
+yet it is NOT_READY, and when that batch's ledger cannot be read it is
+MISSING, each naming that batch's resume command.
 
 Exit codes: 0 every archive asked for is on disk (or the job was EMPTY);
 3 no download job matched at all; 6 an archive FAILED or is MISSING (a
@@ -465,6 +547,7 @@ later.
 			var want map[string]bool
 			var batchRows []downloadRow
 			var batchLedger *downloadBatch
+			var held map[int]heldArchive
 			if key := strings.TrimSpace(flagBatch); key != "" {
 				b, berr := loadBatch(key)
 				if berr != nil {
@@ -477,6 +560,14 @@ later.
 				for _, r := range b.Rows {
 					if id := strings.ToLower(strings.TrimSpace(r.JobID)); id != "" && r.Status == dlCreated {
 						want[id] = true
+					}
+				}
+				// A row another batch holds is collected through that
+				// batch's confirmed job, matched by its id, never a guess.
+				held = resolveHeld(b)
+				for _, h := range held {
+					if h.row != nil && h.row.Status == dlCreated && h.row.JobID != "" {
+						want[strings.ToLower(strings.TrimSpace(h.row.JobID))] = true
 					}
 				}
 				batchRows, batchLedger = b.Rows, b
@@ -646,7 +737,7 @@ later.
 			// What was asked for but never seen on the portal is reported,
 			// so a run that collected only part of a set says so.
 			batchKey := strings.TrimSpace(flagBatch)
-			for _, r := range batchRows {
+			for i, r := range batchRows {
 				id := strings.ToLower(strings.TrimSpace(r.JobID))
 				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
 					continue
@@ -654,11 +745,14 @@ later.
 				if wantDay != "" && !snapshotOnDay(r.SnapshotRaw, wantDay, offset) {
 					continue
 				}
+				if h, ok := held[i]; ok {
+					if out, report := heldOutcome(r, h, matched, scope.account); report {
+						outcomes = append(outcomes, out)
+					}
+					continue
+				}
 				out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID}
 				switch {
-				case r.Status == dlSkipped:
-					out.Status = fetchSkippedHeld
-					out.Detail = fmt.Sprintf("batch %s holds this archive; collect it with: cloudally-cli download fetch --account %s --batch %s --dest <folder> --year <year>", r.HeldBy, scope.account, r.HeldBy)
 				case r.Status == dlJobFailed:
 					out.Status = fetchFailed
 					out.Detail = fmt.Sprintf("its job %s finished as %s with no archive; create it once more with: cloudally-cli download submit --batch %s --resume --yes", r.JobID, r.JobStatus, batchKey)
@@ -982,7 +1076,7 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "\n%d archive(s) considered, %.2f GiB written this run\n",
 			len(outcomes), float64(total)/(1<<30))
-		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, fetchSkippedHeld, "WOULD_DOWNLOAD"} {
+		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, "WOULD_DOWNLOAD"} {
 			if counts[k] > 0 {
 				fmt.Fprintf(w, "  %-16s %d\n", k, counts[k])
 			}
