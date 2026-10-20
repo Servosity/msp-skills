@@ -5,7 +5,8 @@
 // "mcp-read-only-redacts-before-bounding" entries.
 
 // Package redact keeps credentials out of MCP tool results while the
-// DNSFILTER_MCP_READ_ONLY switch is on. It has two entry points:
+// DNSFILTER_MCP_READ_ONLY switch is on, and out of every result and error of
+// a tool advertised readOnlyHint=true in any mode. It has two entry points:
 //
 //   - Raw runs on a full, unbounded body BEFORE internal/mcp/bound budgets it
 //     (bound calls it from EndpointResponse, EndpointPageResponse, JSON and
@@ -13,12 +14,16 @@
 //   - Final runs on every result text in the MCP result funnel, after
 //     bounding, and fails closed: it also withholds what it cannot decode.
 //
+// RawAlways and FinalAlways apply the same rules without the switch check;
+// the funnel uses them for a read-only-hinted tool (WithForced, Forced).
+//
 // Matching is by key name on decoded JSON (store.IsSecretKey plus a trailing
 // "pin"), never by guessing at values.
 package redact
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -167,7 +172,16 @@ func isHex(c byte) bool {
 // to Final, on the text that is actually returned. Off the read-only switch it
 // returns text unchanged.
 func Raw(text string) string {
-	if text == "" || !Enabled() {
+	if !Enabled() {
+		return text
+	}
+	return RawAlways(text)
+}
+
+// RawAlways is Raw without the switch check, for a tool advertised
+// readOnlyHint=true (see Forced).
+func RawAlways(text string) string {
+	if text == "" {
 		return text
 	}
 	out, _ := redactJSONSegments(text)
@@ -181,7 +195,21 @@ func Raw(text string) string {
 // key=value pair is withheld whole, and any text carrying a value this process
 // already withheld is withheld whole.
 func Final(text string) string {
-	if text == "" || !Enabled() {
+	if !Enabled() {
+		return text
+	}
+	return final(text, WithheldBlockMessage)
+}
+
+// FinalAlways is Final without the switch check, for a tool advertised
+// readOnlyHint=true (see Forced); a withheld block reads
+// WithheldHintedBlockMessage, which does not claim the switch is set.
+func FinalAlways(text string) string {
+	return final(text, WithheldHintedBlockMessage)
+}
+
+func final(text, block string) string {
+	if text == "" {
 		return text
 	}
 	out, plain := redactJSONSegments(text)
@@ -189,9 +217,44 @@ func Final(text string) string {
 	// bounded preview cut it so it no longer decodes (handfixes.json:
 	// binary-envelope-never-hides-text).
 	if textNamesCredential(out, plain) || carriesWithheldValue(out) || strings.Contains(out, "_pp_binary") {
-		return WithheldBlockMessage
+		return block
 	}
 	return out
+}
+
+// WithheldHintedBlockMessage replaces a whole text block, as
+// WithheldBlockMessage does, for a tool advertised readOnlyHint=true while
+// the read-only switch is off.
+const WithheldHintedBlockMessage = "withheld: this result carries a credential-bearing field and this tool is advertised read-only, so it never returns credentials (API key tokens, network secret keys, uninstall PINs, client secrets) in any mode; credential reads go through dnsfilter_execute, which is not advertised read-only"
+
+// IsWithheldBlock reports whether text is a whole-block withheld message
+// from Final or FinalAlways.
+func IsWithheldBlock(text string) bool {
+	return text == WithheldBlockMessage || text == WithheldHintedBlockMessage
+}
+
+// forcedKey marks a context whose tool call serves a tool advertised
+// readOnlyHint=true.
+type forcedKey struct{}
+
+// WithForced marks ctx for one call of a tool advertised readOnlyHint=true:
+// MCP hosts auto-approve such a tool, so its results and errors are filtered
+// with RawAlways/FinalAlways (the read-only switch's rules) whatever the
+// switch says. Hand-wired (handfixes.json:
+// mcp-read-only-hinted-tools-filter-credentials): the MCP result funnel marks
+// the call; the shell-out layer reads the mark to redact captured companion
+// CLI output before it selects, tails or cuts lines from it.
+func WithForced(ctx context.Context) context.Context {
+	return context.WithValue(ctx, forcedKey{}, true)
+}
+
+// Forced reports whether ctx was marked by WithForced.
+func Forced(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	v, _ := ctx.Value(forcedKey{}).(bool)
+	return v
 }
 
 // maxFailedSegmentDecodes bounds the embedded-JSON scan on text that is not

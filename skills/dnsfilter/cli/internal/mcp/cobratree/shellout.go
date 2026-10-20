@@ -16,6 +16,7 @@ import (
 
 	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/mcp/bound"
+	"dnsfilter-pp-cli/internal/mcp/redact"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
@@ -469,15 +470,19 @@ func SplitShellArgs(s string) []string {
 type CLICommandResult struct {
 	Stdout      string
 	StderrHints []string
+	// forced is redact.Forced of the call that ran the command
+	// (handfixes.json: mcp-read-only-hinted-tools-filter-credentials).
+	forced bool
 }
 
 // ToolResultFromCLICommand keeps stdout in the first content block and places
 // filtered CLI hints in a separate block for clients that display auxiliary
 // content.
 func ToolResultFromCLICommand(result CLICommandResult) *mcplib.CallToolResult {
-	toolResult := mcplib.NewToolResultText(bound.Text(result.Stdout))
+	boundText := boundTextFor(result.forced)
+	toolResult := mcplib.NewToolResultText(boundText(result.Stdout))
 	if len(result.StderrHints) > 0 {
-		toolResult.Content = append(toolResult.Content, mcplib.NewTextContent(bound.Text(strings.Join(result.StderrHints, "\n"))))
+		toolResult.Content = append(toolResult.Content, mcplib.NewTextContent(boundText(strings.Join(result.StderrHints, "\n"))))
 	}
 	return toolResult
 }
@@ -500,23 +505,30 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	// name and keep its value ('ret_key":"<secret>'), which no later rule
 	// recognizes. Whole texts (stdout as the result, stderr in an error) go
 	// to bound.Text, which redacts before it budgets or previews.
+	// Hand-wired (handfixes.json: mcp-read-only-hinted-tools-filter-credentials):
+	// a call of a tool advertised readOnlyHint=true (the MCP result funnel
+	// marks its context) gets the same redaction off the switch, whole texts
+	// through bound.TextAlways; the funnel's redact.FinalAlways then filters
+	// the whole result or error.
+	forced := redact.Forced(ctx)
 	result := CLICommandResult{
 		Stdout:      stdoutText,
-		StderrHints: stderrHintLines(redactChildOutput(stderrRaw)),
+		StderrHints: stderrHintLines(redactChildOutput(stderrRaw, forced)),
+		forced:      forced,
 	}
 	if err != nil {
-		return result, cliFailureError(binPath, err, stdoutText, stderrRaw)
+		return result, cliFailureError(binPath, err, stdoutText, stderrRaw, forced)
 	}
 	return result, nil
 }
 
 // cliFailureError builds the error for a command that exited non-zero.
-func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string) error {
+func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string, forced bool) error {
 	stderrText := strings.TrimSpace(stderrRaw)
 	msg := stderrText
 	if msg == "" {
 		msg = strings.TrimSpace(stdoutText)
-	} else if detail := failedStdoutDetail(redactChildOutput(stdoutText)); detail != "" {
+	} else if detail := failedStdoutDetail(redactChildOutput(stdoutText, forced)); detail != "" {
 		// A command that exits non-zero can print its remedy on stdout
 		// (sync's {"event":"sync_warning",...,"message":"run 'dnsfilter-cli
 		// sync --full --resources user-agents'..."}); stderr alone only says
@@ -529,7 +541,7 @@ func cliFailureError(binPath string, runErr error, stdoutText, stderrRaw string)
 		if stderrText == "" {
 			label = "output"
 		}
-		return fmt.Errorf("cli %s: %w (%s: %s)", binPath, runErr, label, bound.Text(msg))
+		return fmt.Errorf("cli %s: %w (%s: %s)", binPath, runErr, label, boundTextFor(forced)(msg))
 	}
 	return fmt.Errorf("cli %s: %w", binPath, runErr)
 }

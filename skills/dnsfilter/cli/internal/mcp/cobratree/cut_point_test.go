@@ -52,7 +52,7 @@ func networkRow(i, filler int) string {
 // failureText runs the failed-command error path exactly as RunCLICommand
 // does, then the MCP result funnel's Final, and returns what the client sees.
 func failureText(stdout, stderr string) string {
-	return redact.Final(cliFailureError("dnsfilter-cli", errors.New("exit status 2"), stdout, stderr).Error())
+	return redact.Final(cliFailureError("dnsfilter-cli", errors.New("exit status 2"), stdout, stderr, false).Error())
 }
 
 // TestFailureDetailFrontCutInsideKeyName: 25 rows, the 20-line tail cut from

@@ -237,6 +237,13 @@ func TestReadOnlyOversizedStoreOutputNeverLeaksSecrets(t *testing.T) {
 			t.Fatalf("seed fts: %v", err)
 		}
 	}
+	// The fixture exercises the path only if the rows hold the raw secrets.
+	// (sql and search are advertised readOnlyHint=true, so since
+	// mcp-read-only-hinted-tools-filter-credentials no MCP mode shows them.)
+	var raw int
+	if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE data LIKE '%NETSECRET%'`).Scan(&raw); err != nil || raw != 300 {
+		t.Fatalf("seeded rows do not carry raw secrets (%d, %v); the fixture does not exercise the path", raw, err)
+	}
 	_ = db.Close()
 
 	calls := []struct {
@@ -246,21 +253,17 @@ func TestReadOnlyOversizedStoreOutputNeverLeaksSecrets(t *testing.T) {
 		{"sql", map[string]any{"query": "SELECT data FROM resources WHERE resource_type = 'networks'"}},
 		{"search", map[string]any{"query": "Springfield", "limit": 300}},
 	}
-	s := newRegisteredServer(t)
-	for _, c := range calls {
-		if frame := callToolWire(t, s, c.tool, c.args); !strings.Contains(frame, "NETSECRET") {
-			t.Fatalf("default mode %s should see the seeded secrets; the fixture does not exercise the path: %.300s", c.tool, frame)
-		}
-	}
-	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
-	s = newRegisteredServer(t)
-	for _, c := range calls {
-		frame := callToolWire(t, s, c.tool, c.args)
-		if strings.Contains(frame, "NETSECRET") {
-			t.Fatalf("%s leaked a stored secret_key under read-only: %.600s", c.tool, frame)
-		}
-		if !strings.Contains(frame, "Site 0") {
-			t.Fatalf("%s lost the non-secret data: %.300s", c.tool, frame)
+	for _, mode := range []string{"1", ""} {
+		t.Setenv(cliutil.MCPReadOnlyEnvVar, mode)
+		s := newRegisteredServer(t)
+		for _, c := range calls {
+			frame := callToolWire(t, s, c.tool, c.args)
+			if strings.Contains(frame, "NETSECRET") {
+				t.Fatalf("%s leaked a stored secret_key (read-only=%q): %.600s", c.tool, mode, frame)
+			}
+			if !strings.Contains(frame, "Site 0") {
+				t.Fatalf("%s lost the non-secret data (read-only=%q): %.300s", c.tool, mode, frame)
+			}
 		}
 	}
 }

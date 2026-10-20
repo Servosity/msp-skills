@@ -1,13 +1,15 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/dnsfilter/handfixes.json
-// under the "mcp-failure-keeps-stdout-remedy" entry.
+// under the "mcp-failure-keeps-stdout-remedy" and
+// "mcp-read-only-hinted-tools-filter-credentials" entries.
 
 package cobratree
 
 import (
 	"strings"
 
+	"dnsfilter-pp-cli/internal/mcp/bound"
 	"dnsfilter-pp-cli/internal/mcp/redact"
 )
 
@@ -28,20 +30,43 @@ import (
 //
 // The capture cap itself only drops a suffix, which never separates a value
 // from the key or header in front of it. Off the switch the text is returned
-// unchanged.
-func redactChildOutput(s string) string {
-	if s == "" || !redact.Enabled() {
+// unchanged, unless forced: the call serves a tool advertised
+// readOnlyHint=true (redact.Forced), which gets the same rules in every mode
+// (handfixes.json: mcp-read-only-hinted-tools-filter-credentials).
+func redactChildOutput(s string, forced bool) string {
+	raw, final := redact.Raw, redact.Final
+	if !redact.Enabled() {
+		if !forced {
+			return s
+		}
+		raw, final = redact.RawAlways, redact.FinalAlways
+	}
+	if s == "" {
 		return s
 	}
-	lines := strings.Split(redact.Raw(s), "\n")
+	lines := strings.Split(raw(s), "\n")
 	for i, line := range lines {
-		if strings.TrimSpace(line) != "" && redact.Final(line) == redact.WithheldBlockMessage {
-			lines[i] = redact.WithheldBlockMessage
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if block := final(line); redact.IsWithheldBlock(block) {
+			lines[i] = block
 		}
 	}
 	out := strings.Join(lines, "\n")
-	if redact.Final(out) == redact.WithheldBlockMessage {
-		return redact.WithheldBlockMessage
+	if block := final(out); redact.IsWithheldBlock(block) {
+		return block
 	}
 	return out
+}
+
+// boundTextFor returns bound.Text, or bound.TextAlways for a call of a tool
+// advertised readOnlyHint=true (redact.Forced): its captured output (stdout
+// as the result, stderr in an error) is redacted before it is budgeted or
+// previewed in every mode, as the read-only switch does.
+func boundTextFor(forced bool) func(string) string {
+	if forced {
+		return bound.TextAlways
+	}
+	return bound.Text
 }

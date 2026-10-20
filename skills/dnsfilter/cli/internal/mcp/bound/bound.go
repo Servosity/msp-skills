@@ -216,6 +216,18 @@ func Text(out string) string {
 	// that redaction happened to shrink under the budget still ends in a cut
 	// record, and only the preview leaves that tail out.
 	redacted := redact.Raw(out)
+	return textWithinBudget(out, redacted)
+}
+
+// TextAlways is Text with redact.RawAlways, for the output of a call of a
+// tool advertised readOnlyHint=true: it is redacted before it is budgeted in
+// every mode, as the read-only switch does (handfixes.json:
+// mcp-read-only-hinted-tools-filter-credentials).
+func TextAlways(out string) string {
+	return textWithinBudget(out, redact.RawAlways(out))
+}
+
+func textWithinBudget(out, redacted string) string {
 	if len(out) <= MaxBytes && len(redacted) <= MaxBytes {
 		return redacted
 	}
