@@ -142,7 +142,7 @@ needs a human, and the Destructive tier needs a human who has read the command t
 - **Synced rows and the restore ledger are kept per CloudAlly user.** Each partner user,
   each `auth use-account` customer and each company login has its own local store, so a
   restricted partner user never reads the administrator's synced customer data. The
-  download batch ledgers and `restore-guard.db` are shared by every login in the state
+  download batch ledgers, `download-guard.db` and `restore-guard.db` are shared by every login in the state
   directory. If `auth-context.json` cannot be
   trusted, the restore commands stop instead of opening an empty store.
 - **Treat downloaded archives as customer data.** `download fetch` writes complete

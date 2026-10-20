@@ -18,7 +18,7 @@ faqs:
   - q: "What credentials does it need?"
     a: "A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. Past backup dates and downloads need the partner login."
   - q: "Can it change or delete my customers' backups?"
-    a: "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. Every restore and download command shows what it would do and stops until you pass --yes, and governance.md lists the destructive commands an agent should never run on its own. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools."
+    a: "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint at once (including recovery restore and tasks delete) and download_link returns live links."
   - q: "Why does a December 31st download hold December 30th?"
     a: "CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern, for example) and --on-date then means the customer's own calendar day."
   - q: "Is my CloudAlly data safe?"
@@ -57,24 +57,24 @@ Ask your AI to restore or download every CloudAlly mailbox as it stood on a past
 <sub>Your agent runs: <code>cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01</code></sub>
 
 **Instead of** Building a year-end export per mailbox and per sub-source in the portal, then racing 60-second download links one archive at a time
-**just ask:** *"Archive every mailbox as it stood on December 31st in the customer's timezone, and download the archives to disk."*
+**just ask:** *"Plan year-end archives of every mailbox as they stood on December 31st in the customer's timezone, and show me the plan first."*
 <sub>Your agent runs: <code>cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run</code></sub>
 
 **Instead of** Clicking into every customer account in the partner portal to look for red backup statuses
 **just ask:** *"Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed?"*
-<sub>Your agent runs: <code>cloudally-cli backup health --stale-days 2 --failing --group-by account</code></sub>
+<sub>Your agent runs: <code>cloudally-cli backup health --stale-days 2 --group-by account</code></sub>
 
 
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --failing --group-by account` |
+| Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --group-by account` |
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox on this task be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
-| Restore every mailbox on the task to October 1st, then follow the batch until it finishes. | `cloudally-cli restore submit --account 5f1c2a --task 64b0e9 --date 2026-10-01 --yes` |
+| Plan, then restore every mailbox on the task to October 1st. | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01` |
 | Archive every mailbox as it stood on December 31st in the customer's own timezone. | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes` |
-| Download every finished year-end archive to disk, one folder per mailbox. | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31` |
+| Download every finished year-end archive to disk, one folder per mailbox and sub-source. | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12` |
 | What did we restore for this customer since September? | `cloudally-cli restore history --account 5f1c2a --since 2026-09-01` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/cloudally/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/cloudally/guide.md).
@@ -83,7 +83,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/clou
 
 [cloudally](https://github.com/jancotanis/cloudally) (a Ruby gem) and [n8n-nodes-cloudally](https://github.com/davejlong/n8n-nodes-cloudally) (n8n workflow nodes) wrap CloudAlly's documented API. This one is a single binary that works as a CLI and an MCP server and goes past the documented API where it stops: it reads each mailbox's past backups from the customer portal, creates downloads the way the portal does (the documented export call creates nothing), plans and ledgers bulk restores and downloads to one date, and sweeps every customer's backup health in one command.
 
-The CloudAlly partner and customer portals restore and export one mailbox and one date at a time through a wizard. This works from the AI agent you already use, handles whole tasks and multiple years at once, shows a plan before anything changes, and keeps a local record of every restore and download it started.
+The CloudAlly partner and customer portals restore and export one mailbox and one date at a time through a wizard. This works from the AI agent you already use, handles a whole task at once (several dates per restore batch, one date per download batch), shows a plan before anything changes, and keeps a local record of every restore and download it started.
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
@@ -129,14 +129,14 @@ Create an API application in the CloudAlly partner portal (Integrations > REST A
 | --- | --- | --- |
 | Read | backup health, backup snapshots, restore plan, restore watch, restore history, download list, download watch; every list, get, details, bills, tasks and backup-statuses read; sync, search, export. Local writes only: the response cache, the local store and files you name | Allow |
 | Sensitive read | download link (a 60-second presigned URL to a mailbox archive) and download fetch (writes complete mailbox archives to disk) | Human-in-the-loop - never paste a link anywhere |
-| Write | download submit and download start (EXPORT jobs only); backup-now, activate, pause, add-entity and cancel on backup tasks; creating accounts, resellers and users; updating settings and permissions | Human-in-the-loop |
-| Restore | restore submit and the recovery restore commands, which write backed-up items back into live mailboxes, sites and drives | Human-in-the-loop - run restore plan or --dry-run first |
+| Write | download submit and download start (EXPORT jobs only); backup-now, activate, pause, add-entity and cancel on backup tasks; creating accounts, resellers and users (import included); updating settings and permissions | Human-in-the-loop |
+| Restore | restore submit and the recovery restore commands, which write backed-up items back into live mailboxes, sites and drives | Human-in-the-loop - run restore plan first |
 | Destructive | tasks delete and its distributor and reseller variants (delete a backup task and its data; never point one at a download job), remove-entity, unsubscribe and user delete (delete a CloudAlly account), delete-user | Human only |
-| Credential | auth login, auth use-account, auth set-token, auth logout, session login and refresh, access-token and sign-in-token, user update-password, import | Human-in-the-loop only |
+| Credential | auth login, auth use-account, auth set-token, auth logout, session login, partner-login and refresh, access-token and sign-in-token, user update-password | Human-in-the-loop only |
 | Data egress | --deliver webhook:<url> on any command, feedback --send, and feedback when CLOUDALLY_FEEDBACK_ENDPOINT is set with CLOUDALLY_FEEDBACK_AUTO_SEND=true | Human-in-the-loop - a webhook sink moves client data off your machine |
 | MCP execute | cloudally_execute calls any endpoint of the CloudAlly spec by ID: each call follows the tiers above, and every non-GET call is refused while CLOUDALLY_MCP_READ_ONLY=1 | Human-in-the-loop unless CLOUDALLY_MCP_READ_ONLY=1 |
 
-This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. Every restore and download command prints its plan and stops until --yes is passed, download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/cloudally/governance.md).
+This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. restore submit, download submit and download start print their plan and stop until --yes is passed, while the generated recovery restore and delete commands send immediately and are human-only. Download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/cloudally/governance.md).
 
 ## Frequently asked questions
 
@@ -162,7 +162,7 @@ A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_S
 
 ### Can it change or delete my customers' backups?
 
-It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. Every restore and download command shows what it would do and stops until you pass --yes, and governance.md lists the destructive commands an agent should never run on its own. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools.
+It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint at once (including recovery restore and tasks delete) and download_link returns live links.
 
 ### Why does a December 31st download hold December 30th?
 

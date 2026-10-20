@@ -170,7 +170,7 @@ cloudally-cli doctor
 | Which backup would each mailbox be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
 | Restore every mailbox on the task to October 1st | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01`, then the same flags on `restore submit` plus `--yes` once the human confirms the plan |
 | Archive every mailbox as it stood on December 31st, in the customer's timezone | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes` |
-| Download every finished archive to disk | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31` |
+| Download every finished archive to disk | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12` |
 | What did we restore for this customer since September? | `cloudally-cli restore history --account 5f1c2a --since 2026-09-01` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating, and how CloudAlly behaves), see [AGENTS.md](./AGENTS.md).
@@ -188,7 +188,7 @@ CloudAlly's own partner and customer portals restore and export one mailbox and 
 "Restore every mailbox to how it was on the 1st" and "give us every mailbox as it stood on December 31st for the last few years" are routine requests, and in the CloudAlly portal each one is a wizard per mailbox per date. The documented API cannot answer which backup existed on a past date, an MS365 mailbox is five separate downloads with their own timestamps, timestamps are UTC (so the backup stamped December 31st holds December 30th for a US customer), and download links die after 60 seconds.
 
 - `cloudally-cli restore plan` then `restore submit` - a whole task restored to one date, planned first and recorded in a ledger.
-- `cloudally-cli download submit --utc-offset -5` then `download fetch` - year-end archives of every mailbox, in the customer's own day, collected to disk.
+- `cloudally-cli download submit --utc-offset -5` then `download fetch --batch <key>` - year-end archives of every mailbox, in the customer's own day, collected to disk.
 - `cloudally-cli backup health` - every stale or failing mailbox across every customer in one list.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.

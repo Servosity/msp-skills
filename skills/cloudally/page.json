@@ -47,7 +47,7 @@
     },
     {
       "question": "Download every finished year-end archive to disk, one folder per mailbox and sub-source.",
-      "command": "cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31"
+      "command": "cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12"
     },
     {
       "question": "What did we restore for this customer since September?",
