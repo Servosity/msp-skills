@@ -60,7 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `SYNOLOGY_BASE_URL` (the NAS address, for example `https://192.168.1.50:5001`), `SYNOLOGY_ACCOUNT` and `SYNOLOGY_PASSWORD` when Claude Desktop prompts you. A two-factor account also needs `SYNOLOGY_DEVICE_ID`, or a one-time `SYNOLOGY_OTP_CODE` for the first login.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. One bundle covers macOS (Apple Silicon and Intel), Linux (`amd64`) and Windows (`amd64`; Windows on ARM runs it under x64 emulation); on Linux `arm64`, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -241,7 +241,7 @@ This CLI separates local files into four path kinds:
 | Kind | Contents |
 |------|----------|
 | `config` | `config.json`, saved profiles and the `fleet.json` NAS registry (env-var names only, never a password) |
-| `data` | `credentials.toml`, `data.db`, the `fleet.db` mirror and `session-<host>.json` (DSM session id, SynoToken and two-factor trusted-device token, mode 0600) |
+| `data` | `credentials.toml`, `data.db`, the `fleet.db` mirror and `session-<scheme>-<host>_<port>-<hash>.json` per NAS (DSM session id, SynoToken and two-factor trusted-device token, mode 0600) |
 | `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
 | `cache` | Regenerable HTTP/cache files |
 
@@ -490,7 +490,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **DSM error 403 at login (a one-time code is required)**  -  Run 'synology-cli auth login' once with a fresh 6-digit code in SYNOLOGY_OTP_CODE (fleet: <prefix>_OTP_CODE and 'fleet sync'); the CLI caches the trusted-device token, then unset the OTP
 - **DSM error 102 on abb commands**  -  Active Backup for Business is not installed on that NAS; check with 'synology-cli package'
 - **DSM error 105 (insufficient permission)**  -  Use an account in the DSM administrators group: Active Backup for Business management and Storage Manager calls need administrator rights
-- **not a DSM WebAPI ... the password was not sent**  -  The address did not answer `SYNO.API.Info` the way DSM does, so no login was attempted. Check SYNOLOGY_BASE_URL (or the fleet entry's --url): use the https:// address if DSM redirects http:// to https:// (redirects are never followed), and make a reverse proxy in front of DSM pass `/webapi/query.cgi`
+- **does not answer as a DSM WebAPI ... the password was not sent** (or **... the session was not sent**)  -  The address did not answer `SYNO.API.Info` the way DSM does, so no login was attempted. Check SYNOLOGY_BASE_URL (or the fleet entry's --url): use the https:// address if DSM redirects http:// to https:// (redirects are never followed), and make a reverse proxy in front of DSM pass `/webapi/query.cgi`
 - **the NAS certificate does not match the pinned SHA-256 fingerprint**  -  The NAS renewed its certificate. Check the fingerprint the error names in DSM (Control Panel > Security > Certificate), then re-pin with the value you checked: 'synology-cli fleet add <name> --tls-fingerprint <sha256>' (keeps the address, settings and mirrored history) or set SYNOLOGY_TLS_FINGERPRINT to it. A pin mismatch is also what an interception looks like: never re-pin without that check
 - **the NAS certificate failed verification**  -  Most NAS units use a self-signed certificate: pin it with 'fleet add <name> --url ... --pin-cert' (fleet) or SYNOLOGY_TLS_FINGERPRINT=<sha256> (single NAS); SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate on a network you control
 - **fleet status shows UNKNOWN for a NAS**  -  Its last fleet sync failed or is old; run 'synology-cli fleet sync' and read that NAS's sync_error

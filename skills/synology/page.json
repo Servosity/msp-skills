@@ -107,7 +107,7 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "abb backup (start a backup now), abb cancel (cancel a running backup), session logout (end the CLI's DSM session); fleet sync (sends each registered NAS's env-var login to that NAS's registered URL, caches its session and rewrites the mirror)",
+      "examples": "abb backup (start a backup now), abb cancel (cancel a running backup), session logout (end the CLI's DSM session); fleet sync (sends each registered NAS's env-var login to that NAS's registered URL, logs out when done and rewrites the mirror)",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {

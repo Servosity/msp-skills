@@ -328,7 +328,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `SYNOLOGY_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `SYNOLOGY_CONFIG_DIR`, `SYNOLOGY_DATA_DIR`, `SYNOLOGY_STATE_DIR`, `SYNOLOGY_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `SYNOLOGY_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` holds `config.json`, profiles and the `fleet.json` NAS registry. `data` holds `credentials.toml`, `data.db`, the `fleet.db` mirror and `session-<host>.json` (DSM session id, SynoToken and two-factor trusted-device token, mode 0600). `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` holds `config.json`, profiles and the `fleet.json` NAS registry. `data` holds `credentials.toml`, `data.db`, the `fleet.db` mirror and `session-<scheme>-<host>_<port>-<hash>.json` per NAS (DSM session id, SynoToken and two-factor trusted-device token, mode 0600). `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `synology-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:

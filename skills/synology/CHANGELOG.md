@@ -42,5 +42,8 @@ All notable changes to this skill are documented here. Format follows
   MCP tools, and `fleet add <name> --tls-fingerprint <sha256>` re-pins a NAS
   whose certificate was renewed, keeping its history. Re-running `fleet add`
   on a registered NAS changes only the fields you pass and lists them.
+- `auth logout` forgets the whole session file of the NAS it names (or every
+  NAS with `--all`), lists what it removed, and refuses when no NAS is named.
+- Fleet and abb reports print one complete card per row in a terminal.
 - Reports never show an unknown as zero: rows about a NAS that did not sync
   carry null counts, and unknown durations are null with a note.

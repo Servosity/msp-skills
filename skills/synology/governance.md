@@ -34,15 +34,23 @@ login, a cached session, or a raw session id in the config), the CLI asks the
 address for `SYNO.API.Info` without credentials, once per address per run.
 Only a host that answers the way DSM does gets the account, password or
 session; anything else (a
-mistyped address, the client's router, a web page, a redirect) fails with "not
-a DSM WebAPI ... the password was not sent". No DSM request ever follows a
+mistyped address, the client's router, a web page, a redirect) fails with "does
+not answer as a DSM WebAPI ... the password was not sent" (or "... the session
+was not sent" for a cached or configured session). No DSM request ever follows a
 redirect (DSM's WebAPI never redirects), so a DSM that redirects `http://` to
 `https://` must be registered by its `https://` address. The probe proves the
 host is a DSM, not that it is the NAS you meant: check each address you register.
 
-**What is written to disk.** Passwords and one-time codes are never written. The
-CLI does cache, per NAS, the DSM session id, the SynoToken and the two-factor
-trusted-device token in `session-<host>.json` in its data directory, created
+**What is written to disk.** The CLI never writes a password or one-time code.
+Your MCP client's config file does, if you put `SYNOLOGY_PASSWORD` (or a fleet
+NAS's `<prefix>_PASSWORD`) in its `env` block: Claude Desktop, VS Code and
+Gemini CLI store that file in plain text, so keep it private or set the
+variables in the environment the client starts from. For the single NAS the CLI
+caches the DSM session id, the SynoToken and the two-factor trusted-device token
+in a per-NAS session file (`session-<scheme>-<host>_<port>-<hash>.json`) in its
+data directory; for a fleet NAS, `fleet sync`
+logs out when it finishes and keeps only the trusted-device token there. Session
+files are created
 owner-only (mode 0600) on macOS and Linux. On Windows the data directory sits
 under your user profile (`%USERPROFILE%\.local\share\synology-cli`), which
 Windows already limits to your account, SYSTEM and Administrators; keep it there
@@ -60,10 +68,13 @@ address and account it was issued for, and its cookies stay bound to that
 address. Anyone who can read
 the session file can act as the CLI's DSM
 session until it expires, and the trusted-device token spares a future login the
-second factor. `synology-cli auth logout` forgets the cached session and
-trusted-device token for the `SYNOLOGY_BASE_URL` NAS; `fleet remove` does not
-touch a fleet NAS's session file, so delete it from the data directory
-(`synology-cli doctor` prints the path) when you retire a NAS.
+second factor. `synology-cli auth logout` forgets the whole session file (every
+account's session id, SynoToken, cookies and trusted-device token) of the NAS in
+`SYNOLOGY_BASE_URL`, of a registered NAS with `--nas <name>`, or of every NAS
+with `--all`, and lists each file it removed; with no NAS named it refuses and
+changes nothing. It works locally and does not contact the NAS. `fleet remove`
+does not touch a NAS's session file, so run `synology-cli auth logout --nas
+<name>` before you retire a fleet NAS.
 `synology-cli session logout` invalidates the session id on the NAS itself. To
 revoke a trusted-device token for good, remove the device from the account's
 trusted devices in DSM.
@@ -135,7 +146,7 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. Nothing changes on a NAS. | `fleet status`, `fleet health`, `fleet list`, `abb failures`, `abb stale`, `abb device`, `abb trend`, `abb triage`, `abb tasks`, `abb results`, `abb result-detail`, `abb logs`, `abb transfers`, `abb storage`, `abb settings`, `abb hypervisors`, `hyperbackup tasks`, `hyperbackup task-status`, `storage`, `system`, `log`, `package`, `folder`, `user`, `group`, `session apis`, `sync`, `search`, `export` (`sync` fills the local mirror; `export --output` overwrites the file you name) | Allow |
-| **Write (routine)** | Starts or stops work on a NAS, or refreshes the mirror. | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet sync` (sends each registered NAS's env-var login to that NAS's registered URL, caches its session and two-factor trusted-device token, and rewrites the mirror) | Preview with `--dry-run`, then an approved write |
+| **Write (routine)** | Starts or stops work on a NAS, or refreshes the mirror. | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet sync` (sends each registered NAS's env-var login to that NAS's registered URL, logs out when done, keeps the two-factor trusted-device token, and rewrites the mirror) | Preview with `--dry-run`, then an approved write |
 | **Credential** | Sends a password, or stores or clears a session. | `auth login` (sends the password to `SYNOLOGY_BASE_URL` and caches the DSM session and the two-factor trusted-device token), `auth logout` | Human-in-the-loop only |
 | **Admin (operator only)** | Decides which URL each NAS password is sent to. | `fleet add` (registers a NAS URL and the env vars whose login is sent there; `--check` logs in once), `fleet remove` (unregisters a NAS and deletes its mirror rows). CLI only: neither is offered as an MCP tool | Operator only, never an agent |
 | **Data egress** | Sends output off your machine. | `--deliver webhook:<url>` on any command (POSTs that command's output to the URL you name), `feedback --send` | Human-in-the-loop - a webhook sink moves client data off your machine |

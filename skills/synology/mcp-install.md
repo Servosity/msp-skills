@@ -217,6 +217,10 @@ the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./READ
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.
 
+## Fleet NAS units over MCP
+
+The `env` blocks above configure the single NAS in `SYNOLOGY_BASE_URL`. `fleet_sync` and `abb_triage` reach every NAS you registered with `synology-cli fleet add`, and each of those reads its own login from the MCP server's environment: add `SYNOLOGY_<NAME>_ACCOUNT` and `SYNOLOGY_<NAME>_PASSWORD` (or the `--env-prefix` you chose, plus `_DEVICE_ID` for a two-factor account) for every registered NAS to the server's `env` block. The one-click `.mcpb` has no fields for them, so a fleet setup uses the JSON config. `synology-cli fleet list` shows which variables each NAS expects and whether they are set. These config files hold the passwords in plain text: keep them private.
+
 ## Troubleshooting
 
 - `synology-mcp: command not found`: the install dir is not on your PATH (the

@@ -154,7 +154,19 @@ $env:SYNOLOGY_BASE_URL = "https://192.168.1.50:5001"; $env:SYNOLOGY_ACCOUNT = "<
 synology-cli auth login
 ```
 
-**Every client NAS** - register each one, then sync them all. The login for a NAS named `acme` comes from `SYNOLOGY_ACME_ACCOUNT` and `SYNOLOGY_ACME_PASSWORD` (or the prefix you pass with `--env-prefix`):
+**Every client NAS** - register each one, then sync them all. The login for a NAS named `acme` comes from `SYNOLOGY_ACME_ACCOUNT` and `SYNOLOGY_ACME_PASSWORD` (or the prefix you pass with `--env-prefix`). macOS / Linux:
+
+```bash
+export SYNOLOGY_ACME_ACCOUNT=<account> SYNOLOGY_ACME_PASSWORD=<password>
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:SYNOLOGY_ACME_ACCOUNT = "<account>"; $env:SYNOLOGY_ACME_PASSWORD = "<password>"
+```
+
+Then, in either shell:
 
 ```bash
 synology-cli fleet add acme --url https://nas.acme.example:5001 --client "Acme Corp" --pin-cert --check
@@ -254,7 +266,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `fleet status`, `fleet health`, `fleet list`, `abb failures`, `abb stale`, `abb device`, `abb trend`, `abb triage`, `abb tasks`, `abb results`, `abb logs`, `hyperbackup`, `storage`, `system`, `log`, `package`, `folder`, `user`, `group`, `sync`, `search`, `export` (`sync` fills the local mirror; `export --output` overwrites the file you name) | Allow |
-| Write (routine) | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet sync` (sends each registered NAS's login to its registered URL and caches the session) | Preview with `--dry-run`, then a reviewed write |
+| Write (routine) | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet sync` (sends each registered NAS's login to its registered URL, logs out when done) | Preview with `--dry-run`, then a reviewed write |
 | Credential | `auth login` (sends the password to `SYNOLOGY_BASE_URL`), `auth logout` | Human-in-the-loop only |
 | Admin (operator only) | `fleet add`, `fleet remove`: they decide which URL each NAS password goes to, so they are CLI only and not offered over MCP | Operator only |
 | Data egress | `--deliver webhook:<url>`, `feedback --send` | Human-in-the-loop |
