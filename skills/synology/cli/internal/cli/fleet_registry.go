@@ -60,10 +60,14 @@ SHA-256 fingerprint now and verifies exactly that certificate afterwards.
 is installed.
 
 Re-pin a registered NAS after it renewed its certificate (DSM's self-signed
-one, or Let's Encrypt every ~90 days) with 'fleet add <name> --pin-cert' (or
---tls-fingerprint): the NAS keeps its address, client, env-var prefix and
-mirrored history; only the pin changes. A different --url is refused there:
-a new address is a new NAS (fleet remove, then fleet add).
+one, or Let's Encrypt every ~90 days): check the new fingerprint in DSM
+(Control Panel > Security > Certificate), then run 'fleet add <name>
+--tls-fingerprint <that value>'. The NAS keeps its address, client, env-var
+prefix and mirrored history; only the pin changes. 'fleet add <name>
+--pin-cert' also re-pins, but to whatever certificate the address presents
+right now - a pin mismatch is also what a man-in-the-middle looks like, so
+use it only on a network you trust. A different --url is refused there: a
+new address is a new NAS (fleet remove, then fleet add).
 
 Registry administration is operator-only: fleet add and fleet remove are not
 MCP tools.`, "\n"),
@@ -71,7 +75,7 @@ MCP tools.`, "\n"),
   synology-cli fleet add acme --url https://nas.acme.example:5001 --client "Acme Corp"
   synology-cli fleet add acme --url https://192.168.10.5:5001 --pin-cert --check
   synology-cli fleet add lab --url http://10.0.0.20:5000 --env-prefix LAB_NAS
-  synology-cli fleet add acme --pin-cert`, "\n"),
+  synology-cli fleet add acme --tls-fingerprint <sha256-checked-in-DSM>`, "\n"),
 		// mcp:hidden: an MCP caller must never choose the address (and the
 		// env-var prefix, so which password) a login is sent to.
 		Annotations: map[string]string{"mcp:read-only": "false", "mcp:hidden": "true", "pp:happy-args": "name=acme;--url=https://nas.acme.example:5001;--dry-run"},
@@ -116,7 +120,7 @@ MCP tools.`, "\n"),
 				if pinCert || fingerprint != "" {
 					return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
 				}
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: http:// sends the DSM password and session in clear text; prefer https://<nas>:5001 with --pin-cert")
+				dsm.WarnPlainHTTP(origin) // the same once-per-NAS warning every login prints
 			}
 			// Validate the pin as typed: "sha256/" or ":" normalizes to nothing
 			// and must not silently register an unpinned NAS.
@@ -149,7 +153,7 @@ MCP tools.`, "\n"),
 					// flag says otherwise; the mirror rows stay, because they
 					// are tied to the unchanged address.
 					if origin != "" && origin != registered.URL {
-						return usageErr(fmt.Errorf("NAS %q is registered at %s; re-pinning keeps that address and refuses --url %s (a different address is a different NAS: run 'synology-cli fleet remove %s', then 'synology-cli fleet add %s --url %s --pin-cert')", n.Name, registered.URL, origin, n.Name, n.Name, origin))
+						return usageErr(fmt.Errorf("NAS %q is registered at %s; re-pinning keeps that address and refuses --url %s (a different address is a different NAS: run 'synology-cli fleet remove %s', then 'synology-cli fleet add %s --url %s --pin-cert')", n.Name, dsm.DisplayAddress(registered.URL), dsm.DisplayAddress(origin), n.Name, n.Name, dsm.DisplayAddress(origin)))
 					}
 					if !strings.HasPrefix(registered.URL, "https://") {
 						return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
@@ -208,9 +212,10 @@ MCP tools.`, "\n"),
 				// The mirror still holds the old NAS's rows; reports read them as
 				// not synced (URL mismatch) and the next sync replaces them in the
 				// same transaction that commits the new data.
-				fmt.Fprintf(cmd.ErrOrStderr(), "note: %s now points at %s; its mirrored history from %s is replaced on the next sync\n", n.Name, n.URL, prev.URL)
+				fmt.Fprintf(cmd.ErrOrStderr(), "note: %s now points at %s; its mirrored history from %s is replaced on the next sync\n", n.Name, dsm.DisplayAddress(n.URL), dsm.DisplayAddress(prev.URL))
 			}
 			res.RegistryPath = path
+			res.NAS.URL = dsm.DisplayAddress(res.NAS.URL) // output only; the registry keeps the address as registered
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), res, flags)
 			}
@@ -219,9 +224,9 @@ MCP tools.`, "\n"),
 				if old == "" {
 					old = "(none)"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "re-pinned %s (%s): %s -> %s\n", n.Name, n.URL, old, n.TLSFingerprint)
+				fmt.Fprintf(cmd.OutOrStdout(), "re-pinned %s (%s): %s -> %s\n", n.Name, dsm.DisplayAddress(n.URL), old, n.TLSFingerprint)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "registered %s (%s) in %s\n", n.Name, n.URL, path)
+			fmt.Fprintf(cmd.OutOrStdout(), "registered %s (%s) in %s\n", n.Name, dsm.DisplayAddress(n.URL), path)
 			for k, set := range res.EnvVars {
 				state := "set"
 				if !set {
@@ -269,7 +274,7 @@ func checkNAS(ctx context.Context, flags *rootFlags, n fleet.NAS) (info map[stri
 	defer func() { _ = c.Logout(context.Background()) }()
 	info, err = apiInfo(ctx, c, fleet.PathABBTasks, fleet.PathHyperBackupTasks)
 	if err != nil {
-		return nil, "", redactErr(c, authErr(fmt.Errorf("login check against %s failed: %w", n.URL, err)))
+		return nil, "", redactErr(c, authErr(fmt.Errorf("login check against %s failed: %w", dsm.DisplayAddress(n.URL), err)))
 	}
 	if c.DeviceIDErr != nil {
 		warn = "could not cache the trusted-device token; the next login will need a one-time code again: " + c.DeviceIDErr.Error()
@@ -325,7 +330,7 @@ func newFleetListCmd(flags *rootFlags) *cobra.Command {
 			}
 			for _, n := range list {
 				st := states[n.Name]
-				rows = append(rows, fleetListRow{Name: n.Name, Client: n.Client, URL: n.URL, EnvPrefix: n.EnvPrefix,
+				rows = append(rows, fleetListRow{Name: n.Name, Client: n.Client, URL: dsm.DisplayAddress(n.URL), EnvPrefix: n.EnvPrefix,
 					EnvVars: n.EnvStatus(), TLS: fleetTLSMode(n), LastSyncAt: st.SucceededAt, LastSyncError: st.Error,
 					ImplicitConfig: len(reg.NAS) == 0})
 			}

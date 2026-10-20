@@ -165,8 +165,8 @@
     },
     {
       "id": "dsm-tls",
-      "summary": "SYNOLOGY_TLS_FINGERPRINT pins and SYNOLOGY_SKIP_TLS_VERIFY skips TLS verification on the standard transport; a redirect to another origin is refused outright (Go copies the sid-bearing URL into Referer before CheckRedirect runs)",
-      "why": "Most NAS units serve DSM's self-signed certificate. Only the h2-only browser-chrome transport emits --insecure, and that transport cannot reach DSM over plain HTTP or with HTTP/2 off (DSM's default).",
+      "summary": "SYNOLOGY_TLS_FINGERPRINT pins and SYNOLOGY_SKIP_TLS_VERIFY skips TLS verification on the standard transport; no DSM request (probe, login, authenticated read or write, logout) follows a redirect, same origin included: every DSM http.Client's CheckRedirect is dsm.RefuseRedirect, a 3xx net/http returns unfollowed is an error too, the refusal names the status only and is not retried",
+      "why": "Most NAS units serve DSM's self-signed certificate. Only the h2-only browser-chrome transport emits --insecure, and that transport cannot reach DSM over plain HTTP or with HTTP/2 off (DSM's default). DSM's WebAPI never redirects; the generated client followed same-origin redirects on authenticated requests, so a NAS (or anything on the path) answering a read with 302 Location: /webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup&...&_sid=... made the client carry the sid and SynoToken into a backup start through the read-only abb_tasks tool, even with SYNOLOGY_MCP_READ_ONLY=1. TestNoDSMRequestFollowsARedirect, TestMCPReadToolNeverFollowsARedirect and TestEveryHTTPClientRefusesRedirects fail with the generated redirect policy restored.",
       "status": "active",
       "asserts": [
         {
@@ -177,13 +177,57 @@
         },
         {
           "file": "cli/internal/client/client.go",
-          "contains": "return dsm.ErrRedirectRefused",
+          "contains": "httpClient.CheckRedirect = dsm.RefuseRedirect",
           "min_count": 1,
           "code_only": true
         },
         {
           "file": "cli/internal/client/client.go",
-          "contains": "if dsm.SameOriginRedirect(req, via) != nil {",
+          "contains": "if rerr := dsm.RedirectStatus(resp.StatusCode); rerr != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "!errors.Is(transportErr, dsm.ErrRedirectRefused)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "m.client.CheckRedirect = dsm.RefuseRedirect",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "dsm.SameOriginRedirect("
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "redirectDestinationRefused(req.URL, via)"
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "func RefuseRedirect(req *http.Request, _ []*http.Request) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/redirect_refused_test.go",
+          "contains": "func TestNoDSMRequestFollowsARedirect(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/redirect_refused_test.go",
+          "contains": "func TestEveryHTTPClientRefusesRedirects(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redirect_refused_test.go",
+          "contains": "func TestMCPReadToolNeverFollowsARedirect(",
           "min_count": 1,
           "code_only": true
         }
@@ -207,7 +251,7 @@
         },
         {
           "file": "cli/internal/cli/auth.go",
-          "contains": "dsm.Origin(cfg.BaseURL)",
+          "contains": "dsm.DisplayAddress(cfg.BaseURL)",
           "min_count": 2,
           "code_only": true
         },
@@ -1440,8 +1484,8 @@
     },
     {
       "id": "doctor-verdict-tracks-reality",
-      "summary": "doctor refuses the placeholder address and names SYNOLOGY_BASE_URL, proves the host is a DSM WebAPI with dsm.ProbeDSM (the unauthenticated SYNO.API.Info check dsm.Login itself runs before every credential POST, so doctor and every login share one rule) before any password is sent; a certificate pin mismatch is its own verdict, then logs in and makes one authenticated SYNO.DSM.Info read, reporting valid / rejected (DSM 4xx) / two-factor code needed / scope-limited; the auth row counts SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD as configured",
-      "why": "The generated doctor called any answer to GET / reachable (DSM's own login page included: `reachable (HTML body at /)`) and, with SYNOLOGY_ACCOUNT/PASSWORD set, printed no credentials row and auth `not configured`; check_doctor_truth failed 5 assertions on the shipped tree, and the generated probe POSTed the password to a JSON or HTML host that is not DSM. The gate's generic stub does not speak DSM's {success,data} envelope or carry an account login, so its healthy fixture is honestly reported as not a DSM WebAPI; with the generic GET / probe gone from doctor.go the gate passes on its expired, wrong-base and placeholder checks. TestDoctorVerdictTracksReality drives a DSM-faithful stub in both directions (valid, wrong password, 2FA, non-DSM JSON, HTML, no login, placeholder) and asserts the password never reaches a non-DSM host; it fails with the generated probe restored.",
+      "summary": "doctor refuses the placeholder address and names SYNOLOGY_BASE_URL, proves the host is a DSM WebAPI with dsm.ProbeDSM (the unauthenticated SYNO.API.Info check dsm.Login itself runs before every credential POST, so doctor and every login share one rule) before any password is sent; a certificate pin mismatch is its own verdict, then logs in and makes one authenticated SYNO.DSM.Info read, reporting valid / rejected (DSM 4xx) / two-factor code needed / scope-limited; the auth row counts SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD as configured; the Credentials row names the same reason kind as the API row (not a DSM WebAPI, certificate pin mismatch, certificate failed verification, unreachable) through dsm.TransportKind, and a transport row reports plain http:// as WARN",
+      "why": "The generated doctor called any answer to GET / reachable (DSM's own login page included: `reachable (HTML body at /)`) and, with SYNOLOGY_ACCOUNT/PASSWORD set, printed no credentials row and auth `not configured`; check_doctor_truth failed 5 assertions on the shipped tree, and the generated probe POSTed the password to a JSON or HTML host that is not DSM. The gate's generic stub does not speak DSM's {success,data} envelope or carry an account login, so its healthy fixture is honestly reported as not a DSM WebAPI; with the generic GET / probe gone from doctor.go the gate passes on its expired, wrong-base and placeholder checks. TestDoctorVerdictTracksReality drives a DSM-faithful stub in both directions (valid, wrong password, 2FA, non-DSM JSON, HTML, no login, placeholder) and asserts the password never reaches a non-DSM host; it fails with the generated probe restored. The Credentials row used to say 'SYNOLOGY_BASE_URL does not answer as a DSM WebAPI' for every probe failure, an unreachable NAS and a refused certificate included (TestDoctorCredentialsRowNamesTheRealReason); plain http:// sent the password in clear text without a doctor WARN (TestPlainHTTPLoginWarnsOnEveryPath).",
       "status": "active",
       "asserts": [
         {
@@ -1496,12 +1540,6 @@
         },
         {
           "file": "cli/internal/cli/doctor_verdict.go",
-          "contains": "setCred(\"ERROR not verified: \" + doctorBaseURLEnv + \" does not answer as a DSM WebAPI, so the password was not sent\")",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor_verdict.go",
           "contains": "func doctorClassifyLogin(c *dsm.Client, err error) string {",
           "min_count": 1,
           "code_only": true
@@ -1509,6 +1547,36 @@
         {
           "file": "cli/internal/cli/doctor_verdict_test.go",
           "contains": "func TestDoctorVerdictTracksReality(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "if ok, verdict, credVerdict := doctorProbeDSMAPI(ctx, hc, n.URL); !ok {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "switch dsm.TransportKind(err) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "report[\"transport\"] = doctorTransport(n)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "{\"transport\", \"Transport\"},",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_reason_kind_test.go",
+          "contains": "func TestDoctorCredentialsRowNamesTheRealReason(",
           "min_count": 1,
           "code_only": true
         }
@@ -1729,7 +1797,7 @@
     },
     {
       "id": "dsm-pin-mismatch-named-not-retried",
-      "summary": "a NAS certificate that does not match the pin is its own error kind (dsm.PinMismatchError / ErrCertificatePinMismatch): transport errors, fleet sync rows, live commands and doctor say 'the NAS certificate does not match the pinned SHA-256 fingerprint' with the presented fingerprint and the re-pin remedy, and the generated client does not retry it",
+      "summary": "a NAS certificate that does not match the pin is its own error kind (dsm.PinMismatchError / ErrCertificatePinMismatch): transport errors, fleet sync rows, live commands and doctor say 'the NAS certificate does not match the pinned SHA-256 fingerprint' with the presented fingerprint and the re-pin remedy, and the generated client does not retry it; the remedy is to verify the presented fingerprint in DSM and pin that value with --tls-fingerprint (or SYNOLOGY_TLS_FINGERPRINT), never a blind --pin-cert",
       "why": "A pin mismatch read as 'the request failed (connection error or malformed response)', so a NAS that renewed its certificate (DSM self-signed renewal, Let's Encrypt every ~90 days) silently broke every sync; a live call over a cached session retried it three times with back-off (7 s) before failing. TestPinMismatchIsNamedEverywhere, TestPinMismatchIsItsOwnErrorKind and TestPinMismatchIsNotRetried fail with the description or the no-retry check removed.",
       "status": "active",
       "asserts": [
@@ -1756,6 +1824,10 @@
           "contains": "func TestPinMismatchIsNotRetried(",
           "min_count": 1,
           "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/tls.go",
+          "not_contains": "re-pin it: 'synology-cli fleet add <name> --pin-cert'"
         }
       ]
     },
@@ -1846,6 +1918,162 @@
         {
           "file": "cli/internal/mcp/operator_only_tools_test.go",
           "contains": "func TestMCPTeachNeverReadsAnAgentChosenFile(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-mask-secret-values",
+      "summary": "every successful DSM answer (the generated client's success return and its response-cache read; the fleet dsm.Client.Get) passes dsm.MaskResponse with every secret VALUE the client holds (configured password, one-time code, trusted-device token, raw auth_header sid, every sid and SynoToken held), covering JSON-escaped, percent-encoded (once or twice), HTML-escaped and any decodable form; values shorter than 8 characters are masked only as a whole JSON value and values shorter than 4 not at all; masked text reads [redacted]",
+      "why": "Credential-VALUE redaction covered only error text. If login returned sid SID-LEAK-7731 and a later answer carried that value in any field (a user's description, say), it reached stdout, the response cache, the local store and export. TestSecretValuesNeverLeaveTheClient (stdout, store, cache, export), TestCachedAnswersAreMaskedToo and TestFleetClientMasksSecretValues fail with the funnel removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return c.maskSecretValues(json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return c.maskSecretValues(cached), nil",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return json.RawMessage(dsm.MaskResponse(data, secrets...))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/dsm.go",
+          "contains": "return MaskResponse(data, c.secrets()...), nil",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "func MaskResponse(body []byte, secrets ...string) []byte {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/secret_values_masked_test.go",
+          "contains": "func TestSecretValuesNeverLeaveTheClient(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/secret_values_test.go",
+          "contains": "func TestCachedAnswersAreMaskedToo(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/mask_response_test.go",
+          "contains": "func TestFleetClientMasksSecretValues(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-display-address",
+      "summary": "the configured NAS address is never printed raw: doctor's base_url, auth login's 'Logged in to ...', the generated dry-run request line, the request-construction error, fleet list/add output and the fleet sync dry-run plan all go through dsm.DisplayAddress, which drops a user, a password, a query and a fragment even from an address that does not parse",
+      "why": "SYNOLOGY_BASE_URL=https://admin:Password7731@nas:5001 synology-cli doctor --json printed the password in base_url; a query or fragment in the address reached doctor and the dry-run preview; a fleet entry hand-edited with a password printed it in fleet list and fleet add. TestNASAddressNeverPrintedRaw and TestDisplayAddressStripsCredentialsQueryAndFragment fail with any of the display calls reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"base_url\"] = dsm.DisplayAddress(cfg.BaseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "report[\"base_url\"] = cfg.BaseURL"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.displayURL(dsm.DisplayAddress(c.BaseURL)+path, authHeader)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "creating request: SYNOLOGY_BASE_URL (%s) plus the request path is not a valid URL",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "fmt.Errorf(\"creating request: %w\", err)"
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "dsm.DisplayAddress(cfg.BaseURL)",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "func DisplayAddress(raw string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/nas_address_display_test.go",
+          "contains": "func TestNASAddressNeverPrintedRaw(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-transport-kind-kept",
+      "summary": "a sanitised transport error keeps its kind: the generated client wraps it with dsm.SanitizeTransport (text = the kind only, Unwrap = the cause under *url.Error), maskedError unwraps to the transport kind, and the session manager's masked login error (dsm.ScrubError) keeps it too, so --data-source auto still falls back to the local store when the NAS is unreachable, over a cached session and on a fresh login",
+      "why": "Sanitising transport errors (so no server-chosen text reaches the user) used errors.New, which discarded the type: isNetworkError no longer recognised a refused connection and --data-source auto stopped falling back to the local store. TestAutoDataSourceFallsBackWhenTheNASIsUnreachable fails with any of the three wrappers reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "err = dsm.SanitizeTransport(err)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "err = errors.New(dsm.DescribeTransport(err))"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func (e maskedError) Unwrap() error { return e.kind }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return maskedError{msg: msg, kind: kind}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "return \"\", dsm.ScrubError(err, append(m.Secrets(), creds.Password, creds.OTPCode, creds.DeviceID)...)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "func (e *TransportError) Unwrap() error { return e.cause }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/offline_fallback_test.go",
+          "contains": "func TestAutoDataSourceFallsBackWhenTheNASIsUnreachable(",
           "min_count": 1,
           "code_only": true
         }

@@ -86,7 +86,7 @@ var addedColumns = [][3]string{
 // was written by an older version (smaller or NULL mirror_format) reads as
 // not synced until it syncs again, so data written under older, looser rules
 // is never reported as current.
-const MirrorFormat = 11 // 3: results record protected device ids; 4: transfers checked against them; 5: transfer parents must be backups; 6-8: every last_result identity mirrored and checked; 9: unfinished task runs stored as running; 10-11: transfers within their run's time (checked after merging)
+const MirrorFormat = 12 // 3: results record protected device ids; 4: transfers checked against them; 5: transfer parents must be backups; 6-8: every last_result identity mirrored and checked; 9: unfinished task runs stored as running; 10-11: transfers within their run's time (checked after merging); 12: a byte count DSM did not report is stored as unknown (-1), not 0
 
 // EnsureSchema creates the fleet tables and migrates an older mirror.
 func EnsureSchema(ctx context.Context, db *sql.DB) error {
@@ -506,7 +506,7 @@ func writeTaskResult(ctx context.Context, tx *sql.Tx, nas string, r Result) erro
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO abb_results VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			nas, r.ResultID, r.TaskID, r.TaskName, r.Status, r.JobAction, r.BackupType, r.Start, r.End, 0, 0, 0, "", "", "")
+			nas, r.ResultID, r.TaskID, r.TaskName, r.Status, r.JobAction, r.BackupType, r.Start, r.End, 0, 0, -1, "", "", "") // bytes unknown (-1), never 0
 		return err
 	case err != nil:
 		return err

@@ -219,5 +219,6 @@ func (n NAS) HTTPClient(timeout time.Duration) (*http.Client, error) {
 		return nil, fmt.Errorf("NAS %s: %w", n.Name, err)
 	}
 	tr.TLSClientConfig = cfg
-	return &http.Client{Timeout: timeout, Transport: tr, CheckRedirect: dsm.SameOriginRedirect}, nil
+	// No DSM request follows a redirect (dsm.RefuseRedirect), same origin included.
+	return &http.Client{Timeout: timeout, Transport: tr, CheckRedirect: dsm.RefuseRedirect}, nil
 }

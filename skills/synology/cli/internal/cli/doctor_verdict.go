@@ -15,6 +15,7 @@ import (
 
 	"synology-pp-cli/internal/config"
 	"synology-pp-cli/internal/dsm"
+	"synology-pp-cli/internal/fleet"
 )
 
 // doctorBaseURLEnv names the variable that points the CLI at a NAS, so every
@@ -61,6 +62,7 @@ func doctorDSMVerdict(ctx context.Context, flags *rootFlags, cfg *config.Config,
 		setCred("skipped (the NAS address was refused)")
 		return
 	}
+	report["transport"] = doctorTransport(n)
 	timeout := flags.timeout
 	if timeout <= 0 {
 		timeout = 60 * time.Second
@@ -71,9 +73,10 @@ func doctorDSMVerdict(ctx context.Context, flags *rootFlags, cfg *config.Config,
 		setCred("skipped (the NAS address was refused)")
 		return
 	}
-	if ok, verdict := doctorProbeDSMAPI(ctx, hc, n.URL); !ok {
+	if ok, verdict, credVerdict := doctorProbeDSMAPI(ctx, hc, n.URL); !ok {
+		// The Credentials row names the same reason kind as the API row.
 		report["api"] = verdict
-		setCred("ERROR not verified: " + doctorBaseURLEnv + " does not answer as a DSM WebAPI, so the password was not sent")
+		setCred(credVerdict)
 		return
 	} else {
 		report["api"] = verdict
@@ -97,24 +100,57 @@ func doctorDSMVerdict(ctx context.Context, flags *rootFlags, cfg *config.Config,
 	setCred(doctorClassifyLogin(c, err))
 }
 
+// doctorTransport reports how the DSM password and session travel: over
+// plain http:// they cross the network unencrypted, which every login also
+// warns about on stderr (dsm.WarnPlainHTTP), so doctor says WARN.
+func doctorTransport(n fleet.NAS) string {
+	switch {
+	case dsm.IsPlainHTTP(n.URL):
+		return "WARN " + dsm.PlainHTTPWarning(n.URL)
+	case n.TLSFingerprint != "":
+		return "https (certificate pinned by SYNOLOGY_TLS_FINGERPRINT)"
+	case n.Insecure:
+		return "https (certificate verification off by SYNOLOGY_SKIP_TLS_VERIFY; prefer SYNOLOGY_TLS_FINGERPRINT)"
+	}
+	return "https (certificate verified)"
+}
+
 // doctorProbeDSMAPI reports the host's answer to dsm.ProbeDSM, the same
 // unauthenticated SYNO.API.Info check dsm.Login runs before it sends any
-// password: doctor and every login share one rule for "this is a DSM".
-func doctorProbeDSMAPI(ctx context.Context, hc *http.Client, origin string) (bool, string) {
+// password: doctor and every login share one rule for "this is a DSM". When
+// the probe fails it returns the API row and the Credentials row, both named
+// after the same reason kind (not DSM, certificate pin mismatch, certificate
+// failed verification, unreachable), so the Credentials row never blames
+// SYNOLOGY_BASE_URL for a NAS that is down or a certificate that is refused.
+func doctorProbeDSMAPI(ctx context.Context, hc *http.Client, origin string) (ok bool, api, credentials string) {
 	wrongHost := fmt.Sprintf("point %s at the NAS's DSM address, for example https://<nas>:5001", doctorBaseURLEnv)
 	err := dsm.ProbeDSM(ctx, hc, origin)
 	var notDSM *dsm.NotDSMError
 	switch {
 	case err == nil:
-		return true, "reachable (DSM WebAPI answered SYNO.API.Info)"
+		return true, "reachable (DSM WebAPI answered SYNO.API.Info)", ""
 	case errors.As(err, &notDSM):
-		return false, fmt.Sprintf("ERROR %s - %s is not a DSM WebAPI; %s", notDSM.Reason, doctorBaseURLEnv, wrongHost)
-	case errors.Is(err, dsm.ErrCertificatePinMismatch):
+		return false, fmt.Sprintf("ERROR %s - %s is not a DSM WebAPI; %s", notDSM.Reason, doctorBaseURLEnv, wrongHost),
+			doctorNotVerified(doctorBaseURLEnv + " does not answer as a DSM WebAPI")
+	}
+	switch dsm.TransportKind(err) {
+	case dsm.KindPinMismatch:
 		// Its own verdict: the NAS answered, with a certificate other than the
 		// pinned one (usually a renewal), so this is not "unreachable".
-		return false, "ERROR certificate pin mismatch: " + err.Error()
+		return false, "ERROR certificate pin mismatch: " + err.Error(),
+			doctorNotVerified("the NAS certificate does not match the pinned SHA-256 fingerprint (see API)")
+	case dsm.KindCertificate:
+		return false, "ERROR certificate: " + err.Error(),
+			doctorNotVerified("the NAS certificate failed verification (see API)")
 	}
-	return false, "ERROR unreachable: " + err.Error()
+	return false, "ERROR unreachable: " + err.Error(),
+		doctorNotVerified("the NAS did not answer (" + err.Error() + ")")
+}
+
+// doctorNotVerified is the Credentials row when the probe stopped doctor
+// before any password was sent.
+func doctorNotVerified(reason string) string {
+	return "ERROR not verified: " + reason + ", so the password was not sent"
 }
 
 // doctorClassifyLogin turns the login-plus-read outcome into a verdict. Every

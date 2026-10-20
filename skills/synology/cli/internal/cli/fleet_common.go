@@ -96,11 +96,12 @@ func dsmDryRun(cmd *cobra.Command, flags *rootFlags, action string, params map[s
 	if err := dsm.CheckOperationParams(path, params); err != nil {
 		return usageErr(err)
 	}
-	base, err := url.Parse(strings.TrimSpace(c.BaseURL))
-	if err != nil {
+	if _, err := url.Parse(strings.TrimSpace(c.BaseURL)); err != nil {
 		return configErr(errors.New("SYNOLOGY_BASE_URL is not a URL"))
 	}
-	origin := base.Scheme + "://" + base.Host
+	// The address is printed through the one display rule (no user info,
+	// query or fragment), and the preview's request is built from it.
+	origin := strings.TrimRight(dsm.DisplayAddress(c.BaseURL), "/")
 	target, err := url.Parse(origin + path)
 	if err != nil {
 		return fmt.Errorf("%s: the declared path is not a URL", action)

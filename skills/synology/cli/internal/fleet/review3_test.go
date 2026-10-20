@@ -591,7 +591,7 @@ func TestTrendNewestRunWithoutEndIsUnknown(t *testing.T) {
 	res = append(res, Result{ResultID: 4, TaskID: 1, TaskName: "T", Status: StatusFailed, JobAction: JobBackup, Start: ts(time.Hour)})
 	commitTasks(t, db, n, &Snapshot{TakenAt: now, ABBInstalled: true, HistoryFrom: ts(30 * day), Results: res})
 	tr, _ := Trend(ctx, db, []NAS{n}, now.Add(-day), false, 2, now, 26*time.Hour)
-	if len(tr) != 1 || tr[0].LastSec != nil || tr[0].Overrun || !strings.Contains(tr[0].Note, "no end time") {
+	if len(tr) != 1 || tr[0].LastSec != nil || tr[0].Overrun != nil || !strings.Contains(tr[0].Note, "no end time") {
 		t.Fatalf("newest run without an end borrowed an older duration: %+v", tr)
 	}
 }

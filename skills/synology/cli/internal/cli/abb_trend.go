@@ -28,8 +28,12 @@ NOT use this command for what failed in the latest run; use 'abb failures'
 instead.
 
 overrun is true when the newest completed run took more than --overrun times
-the median of at least 3 runs. Rows are sorted overruns first, then lowest
-success rate. A NAS whose mirror is not fresh adds a nas_not_synced row (exit 6).`, "\n"),
+the median of at least 3 runs, and null (never false) when that cannot be
+judged: the newest run has no end time, fewer than 3 runs have one, or
+--overrun 0. median_duration_sec and p90_duration_sec are null, with a note,
+when no run in the window has an end time. Rows are sorted overruns first,
+then lowest success rate. A NAS whose mirror is not fresh adds a
+nas_not_synced row (exit 6).`, "\n"),
 		Example:     "  synology-cli abb trend --since 30d --agent",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:typed-exit-codes": "0,6"},
 		RunE: func(cmd *cobra.Command, args []string) error {

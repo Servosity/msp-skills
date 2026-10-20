@@ -99,9 +99,9 @@ code is not needed again. SYNOLOGY_DEVICE_ID overrides the kept token.`, "\n"),
 				return configErr(fmt.Errorf("no session: set SYNOLOGY_BASE_URL to the NAS address, for example https://<nas>:5001"))
 			}
 			if serr := c.Session.SaveError(); serr != nil {
-				return configErr(fmt.Errorf("logged in to %s, but caching the session failed: %w", dsm.Origin(cfg.BaseURL), serr))
+				return configErr(fmt.Errorf("logged in to %s, but caching the session failed: %w", dsm.DisplayAddress(cfg.BaseURL), serr))
 			}
-			fmt.Fprintf(w, "%s Logged in to %s and cached the session.\n", green("OK"), dsm.Origin(cfg.BaseURL))
+			fmt.Fprintf(w, "%s Logged in to %s and cached the session.\n", green("OK"), dsm.DisplayAddress(cfg.BaseURL))
 			return nil
 		},
 	}

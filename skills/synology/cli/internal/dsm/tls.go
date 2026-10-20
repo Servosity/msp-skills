@@ -87,8 +87,11 @@ func (e *PinMismatchError) Error() string {
 func (e *PinMismatchError) Is(target error) bool { return target == ErrCertificatePinMismatch }
 
 // PinMismatchHint is the remedy every surface (transport errors, fleet sync
-// rows, live commands, doctor) prints for a pin mismatch.
-const PinMismatchHint = "if the NAS renewed its certificate, re-pin it: 'synology-cli fleet add <name> --pin-cert' for a registered NAS (keeps its URL, settings and mirror), or set SYNOLOGY_TLS_FINGERPRINT to the new fingerprint after checking it in DSM (Control Panel > Security > Certificate)"
+// rows, live commands, doctor) prints for a pin mismatch. It never suggests
+// --pin-cert: that trusts whatever certificate is presented right now, and a
+// pin mismatch is also exactly what a man-in-the-middle looks like. The
+// operator checks the presented fingerprint in DSM first, then pins that value.
+const PinMismatchHint = "verify that fingerprint in DSM (Control Panel > Security > Certificate); if it matches (the NAS renewed its certificate), re-pin it with 'synology-cli fleet add <name> --tls-fingerprint <the value you checked>' for a registered NAS (keeps its URL, settings and mirror), or set SYNOLOGY_TLS_FINGERPRINT to that value for the single NAS; if it does not match, do not re-pin: something else is answering at the NAS address"
 
 // RefuseAllTLS returns a config that fails every TLS handshake with err: a
 // pin the operator asked for but mistyped must not silently fall back to
@@ -117,10 +120,10 @@ func EnvTLS() (pin string, skip bool) {
 func FetchFingerprint(ctx context.Context, baseURL string) (string, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil || u.Host == "" {
-		return "", fmt.Errorf("invalid NAS URL %q", baseURL)
+		return "", fmt.Errorf("invalid NAS URL %s", DisplayAddress(baseURL))
 	}
 	if u.Scheme != "https" {
-		return "", fmt.Errorf("certificate pinning needs an https:// URL, got %q", baseURL)
+		return "", fmt.Errorf("certificate pinning needs an https:// URL, got %s", DisplayAddress(baseURL))
 	}
 	host := u.Host
 	if u.Port() == "" {

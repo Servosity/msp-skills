@@ -306,20 +306,15 @@ func TestEnvelopeFailureWithOddErrorCode(t *testing.T) {
 	}
 }
 
-func TestSameOriginRedirectComparesEffectiveOrigins(t *testing.T) {
-	via := func(u string) []*http.Request {
-		r, _ := http.NewRequest(http.MethodGet, u, nil)
-		return []*http.Request{r}
+func TestRefuseRedirectNamesOnlyTheStatus(t *testing.T) {
+	next, _ := http.NewRequest(http.MethodGet, "https://nas/webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup&_sid=SIDSECRET9", nil)
+	next.Response = &http.Response{StatusCode: http.StatusFound}
+	err := RefuseRedirect(next, nil)
+	if err == nil || !errors.Is(err, ErrRedirectRefused) || !strings.Contains(err.Error(), "status 302") {
+		t.Fatalf("err = %v, want a refused redirect naming status 302", err)
 	}
-	next := func(u string) *http.Request {
-		r, _ := http.NewRequest(http.MethodGet, u, nil)
-		return r
-	}
-	if SameOriginRedirect(next("https://nas/webapi"), via("http://nas/webapi")) == nil {
-		t.Error("http to https on the same host was treated as one origin")
-	}
-	if SameOriginRedirect(next("https://NAS:443/x"), via("https://nas/webapi")) != nil {
-		t.Error("an explicit default port was treated as another origin")
+	if strings.Contains(err.Error(), "SIDSECRET9") || strings.Contains(err.Error(), "backup") || strings.Contains(describeTransport(err), "SIDSECRET9") {
+		t.Fatalf("the refusal quoted the Location: %v", err)
 	}
 }
 
@@ -403,9 +398,7 @@ func TestTransportErrorsDropRedirectURL(t *testing.T) {
 		http.Redirect(w, r, evil.URL+"/echo/PASSSECRET34/DEVICESECRET34/SIDSECRET34", http.StatusFound)
 	}))
 	defer nas.Close()
-	hc := nas.Client()
-	hc.CheckRedirect = SameOriginRedirect
-	c := &Client{HTTP: hc, BaseURL: nas.URL, Creds: Credentials{Account: "a", Password: "PASSSECRET34", DeviceID: "DEVICESECRET34"}, RatePerSec: 1000}
+	c := &Client{HTTP: nas.Client(), BaseURL: nas.URL, Creds: Credentials{Account: "a", Password: "PASSSECRET34", DeviceID: "DEVICESECRET34"}, RatePerSec: 1000}
 	_, err := c.Get(context.Background(), "/webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=list&version=1", nil)
 	if err == nil || strings.Contains(err.Error(), "SECRET34") {
 		t.Fatalf("err = %v", err)

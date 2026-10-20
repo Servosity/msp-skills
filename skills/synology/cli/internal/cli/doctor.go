@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"synology-pp-cli/internal/cliutil"
 	"synology-pp-cli/internal/config"
+	"synology-pp-cli/internal/dsm"
 	"synology-pp-cli/internal/store"
 )
 
@@ -250,7 +251,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			} else {
 				report["config"] = "ok"
 				report["config_path"] = cfg.Path
-				report["base_url"] = cfg.BaseURL
+				// HAND-FIX(dsm-display-address): never print the address raw (a user,
+				// password or query in SYNOLOGY_BASE_URL stays out of the report).
+				report["base_url"] = dsm.DisplayAddress(cfg.BaseURL)
 				// agentcookie integration is soft: if the agentcookie daemon manages
 				// this CLI's config, it writes a marker file alongside the config and
 				// AuthSource is upgraded to "agentcookie" in config.Load. Surface the
@@ -386,6 +389,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				{"paths_warning", "Paths"},
 				{"credentials_location_warning", "Credentials Storage"},
 				{"api", "API"},
+				{"transport", "Transport"}, // HAND-FIX(doctor-verdict-tracks-reality): plain http:// is a WARN
 				{"credentials", "Credentials"},
 			}
 			for _, ck := range checkKeys {

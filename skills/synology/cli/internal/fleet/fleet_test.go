@@ -340,7 +340,7 @@ func TestTrendOverrun(t *testing.T) {
 		}
 	}
 	// Three runs of 60s, 60s, 600s: median 60s, last 600s > 2x median.
-	if bob.Runs != 3 || bob.MedianSec != 60 || bob.LastSec == nil || *bob.LastSec != 600 || !bob.Overrun || bob.SuccessRatePct != 100 {
+	if bob.Runs != 3 || bob.MedianSec == nil || *bob.MedianSec != 60 || bob.LastSec == nil || *bob.LastSec != 600 || bob.Overrun == nil || !*bob.Overrun || bob.SuccessRatePct != 100 {
 		t.Fatalf("BOB trend = %+v", bob)
 	}
 	tasks, _ := Trend(context.Background(), db, []NAS{acme, {Name: "ghost"}}, now.Add(-30*day), false, 2, now, 26*time.Hour)
@@ -772,7 +772,7 @@ func TestTrendEvenMedian(t *testing.T) {
 	}
 	commitTasks(t, db, n, &Snapshot{TakenAt: now, ABBInstalled: true, Results: results})
 	rows, _ := Trend(context.Background(), db, []NAS{n}, now.Add(-30*day), false, 2, now, 26*time.Hour)
-	if rows[0].MedianSec != 330 || !rows[0].Overrun {
+	if rows[0].MedianSec == nil || *rows[0].MedianSec != 330 || rows[0].Overrun == nil || !*rows[0].Overrun {
 		t.Fatalf("trend = %+v, want median 330 and overrun (700 > 2x330)", rows[0])
 	}
 }

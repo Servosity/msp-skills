@@ -456,36 +456,13 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		limiter:    newRateLimiter(rateLimit),
 		Session:    sess,
 	}
-	// CheckRedirect re-derives auth on each hop. Go's default replays the
-	// original Authorization header verbatim, which breaks nonce-bound
-	// schemes (OAuth 1.0a PLAINTEXT, SigV4, Hawk): the duplicate nonce
-	// trips the server's replay detector with a 401. c.authHeader()
-	// returns a fresh value for those schemes and the same static value
-	// for Bearer/api_key, so post-redirect headers are byte-identical for
-	// static auth and freshly-signed for nonce-bound auth.
-	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 10 {
-			// Match Go's defaultCheckRedirect: a plain error so Client.Do
-			// returns it through do()'s err != nil branch. ErrUseLastResponse
-			// would cause Do to return the 3xx with nil error, which do()
-			// would then classify as a successful response and hand the HTML
-			// "Moved Permanently" body back to the caller.
-			return errors.New("stopped after 10 redirects")
-		}
-		if err := redirectDestinationRefused(req.URL, via); err != nil {
-			return err
-		}
-		// Never carry credential material across a host change or protocol
-		// downgrade. Go strips Authorization and Cookie in common cases, but
-		// custom headers and URL query values need explicit removal here.
-		if dsm.SameOriginRedirect(req, via) != nil { // effective origin: scheme, host, port
-			// HAND-FIX(dsm-tls): a DSM API call never moves to another origin, and
-			// Go has already copied the sid-bearing URL into Referer; refuse the hop
-			// so neither the sid, the SynoToken nor a foreign answer is accepted.
-			return dsm.ErrRedirectRefused
-		}
-		return nil
-	}
+	// HAND-FIX(dsm-tls): replaces the generated per-hop CheckRedirect (which
+	// followed same-origin redirects). DSM's WebAPI never redirects, so no DSM request
+	// follows one, same origin included: a 302 to
+	// /webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup on an
+	// authenticated read would otherwise carry the sid and SynoToken into a
+	// backup start. dsm.RefuseRedirect names the status, never the Location.
+	httpClient.CheckRedirect = dsm.RefuseRedirect
 	return c
 }
 
@@ -507,7 +484,7 @@ func (c *Client) GetWithHeaders(ctx context.Context, path string, params map[str
 	// Check cache for GET requests
 	if cacheEnabled {
 		if cached, ok := c.readCacheWithHeaders(path, params, headers); ok {
-			return cached, nil
+			return c.maskSecretValues(cached), nil // HAND-FIX(dsm-mask-secret-values)
 		}
 	}
 	result, _, err := c.do(ctx, "GET", path, params, nil, headers)
@@ -1351,7 +1328,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 
 		req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
 		if err != nil {
-			return nil, 0, fmt.Errorf("creating request: %w", err)
+			// HAND-FIX(dsm-display-address): net/url's error quotes the whole URL,
+			// user info and query included; name the problem, never the address.
+			return nil, 0, fmt.Errorf("creating request: SYNOLOGY_BASE_URL (%s) plus the request path is not a valid URL", dsm.DisplayAddress(c.BaseURL))
 		}
 		if bodyBytes != nil {
 			req.Header.Set("Content-Type", "application/json")
@@ -1457,8 +1436,11 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if err != nil {
 			// HAND-FIX(dsm-login): Go's transport error can quote server-chosen
 			// bytes (a redirect URL, a malformed status line); report the kind only.
+			// HAND-FIX(dsm-transport-kind-kept): the sanitised error keeps the kind
+			// (errors.Is / errors.As), so --data-source auto still recognises an
+			// unreachable NAS and falls back to the local store.
 			transportErr := err
-			err = errors.New(dsm.DescribeTransport(err))
+			err = dsm.SanitizeTransport(err)
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, 0, ctxErr
 			}
@@ -1469,7 +1451,8 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// in a tight loop. ctx cancellation breaks out of the wait at once.
 			// HAND-FIX(dsm-pin-mismatch-not-retried): a certificate that is not the
 			// pinned one stays that way; retrying only delays the re-pin hint.
-			if attempt < maxRetries && canRetryAmbiguousFailure && !isPermanentDNSError(transportErr) && !errors.Is(transportErr, dsm.ErrCertificatePinMismatch) {
+			// HAND-FIX(dsm-tls): a refused redirect is the NAS's answer, not a blip.
+			if attempt < maxRetries && canRetryAmbiguousFailure && !isPermanentDNSError(transportErr) && !errors.Is(transportErr, dsm.ErrCertificatePinMismatch) && !errors.Is(transportErr, dsm.ErrRedirectRefused) {
 				wait := time.Duration(math.Pow(2, float64(attempt))) * time.Second
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
@@ -1504,6 +1487,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		// servers and the very first request of a session.
 		if remaining, resetAt, ok := cliutil.ParseRateLimitHeaders(resp.Header); ok {
 			c.limiter.ObserveHeaders(remaining, resetAt)
+		}
+
+		// HAND-FIX(dsm-tls): a 3xx net/http did not follow (no Location, 300,
+		// 304) is a redirect too, never a success: name the status only.
+		if rerr := dsm.RedirectStatus(resp.StatusCode); rerr != nil {
+			return nil, resp.StatusCode, fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), rerr)
 		}
 
 		// Success
@@ -1559,7 +1548,10 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				// (The press verify mock does not speak DSM.)
 				return nil, resp.StatusCode, &APIError{Method: method, Path: c.displayURL(path, authHeader), StatusCode: http.StatusBadGateway, Body: "DSM answered without a data envelope"}
 			}
-			return json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil
+			// HAND-FIX(dsm-mask-secret-values): every successful answer is masked
+			// for every secret value this client holds before it is printed,
+			// cached, stored or exported.
+			return c.maskSecretValues(json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil
 		}
 
 		if !binaryResponse {
@@ -1688,7 +1680,10 @@ func safeEndpointClass(method, path string) string {
 // using the auth material already resolved in `do()`. Never triggers a network
 // call — the caller is responsible for passing cached auth material only.
 func (c *Client) dryRun(method, targetURL, path string, params map[string]string, body []byte, headerOverrides map[string]string, authHeader string) (json.RawMessage, int, error) {
-	fmt.Fprintf(termio.Stderr(), "%s %s\n", method, c.displayURL(targetURL, authHeader))
+	// HAND-FIX(dsm-display-address): the NAS address is printed through
+	// dsm.DisplayAddress (no user info, query or fragment).
+	_ = targetURL
+	fmt.Fprintf(termio.Stderr(), "%s %s\n", method, c.displayURL(dsm.DisplayAddress(c.BaseURL)+path, authHeader))
 	queryPrinted := false
 	if params != nil {
 		keys := make([]string, 0, len(params))
@@ -2006,11 +2001,16 @@ func maskToken(token string) string {
 
 type maskedError struct {
 	msg string
+	// HAND-FIX(dsm-transport-kind-kept): the transport kind of the masked
+	// error (never its unmasked text) stays reachable for errors.Is / errors.As.
+	kind error
 }
 
 func (e maskedError) Error() string {
 	return e.msg
 }
+
+func (e maskedError) Unwrap() error { return e.kind }
 
 func (c *Client) displayURL(rawURL string, extraCredentials ...string) string {
 	return c.maskCredentialText(rawURL, extraCredentials...)
@@ -2025,7 +2025,29 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 	if msg == raw {
 		return err
 	}
+	var kind *dsm.TransportError // HAND-FIX(dsm-transport-kind-kept)
+	if errors.As(err, &kind) {
+		return maskedError{msg: msg, kind: kind}
+	}
 	return maskedError{msg: msg}
+}
+
+// maskSecretValues masks every secret value this client holds (the
+// configured password, one-time code and trusted-device token, every sid and
+// SynoToken the session manager has held) in a successful answer, through
+// dsm.MaskResponse. HAND-FIX(dsm-mask-secret-values).
+func (c *Client) maskSecretValues(data json.RawMessage) json.RawMessage {
+	if c == nil || len(data) == 0 {
+		return data
+	}
+	var secrets []string
+	if c.Config != nil {
+		secrets = append(secrets, c.Config.SynologyPassword, c.Config.SynologyOtpCode, c.Config.SynologyDeviceId, c.Config.AuthHeaderVal)
+	}
+	if c.Session != nil {
+		secrets = append(secrets, c.Session.Secrets()...)
+	}
+	return json.RawMessage(dsm.MaskResponse(data, secrets...))
 }
 
 // maskBody masks credentials in a response body before it is summarized or

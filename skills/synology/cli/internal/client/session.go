@@ -168,7 +168,9 @@ func (m *SessionManager) EnsureToken() (string, error) {
 	if err != nil {
 		// A login error can echo a server-chosen value (a DSM error code, say);
 		// mask every credential and session value held so far.
-		return "", fmt.Errorf("%s", dsm.ScrubSecrets(err.Error(), append(m.Secrets(), creds.Password, creds.OTPCode, creds.DeviceID)...))
+		// HAND-FIX(dsm-transport-kind-kept): the masked error keeps its transport
+		// kind, so an unreachable NAS still triggers --data-source auto's fallback.
+		return "", dsm.ScrubError(err, append(m.Secrets(), creds.Password, creds.OTPCode, creds.DeviceID)...)
 	}
 	m.mu.Lock()
 	m.token = sess.SID
@@ -239,7 +241,7 @@ func (m *SessionManager) ConfigureDSM(baseURL string, creds dsm.Credentials) {
 	m.baseURL = strings.TrimRight(baseURL, "/")
 	m.creds = creds
 	m.token, m.synoToken, m.deviceID = "", "", ""
-	m.client.CheckRedirect = dsm.SameOriginRedirect // never carry a login or session to another origin
+	m.client.CheckRedirect = dsm.RefuseRedirect // HAND-FIX(dsm-tls): no DSM request follows a redirect
 	m.loginErr = nil
 	if m.baseURL != "" {
 		m.loginErr = dsm.CheckOrigin(m.baseURL)

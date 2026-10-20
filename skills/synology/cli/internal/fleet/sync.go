@@ -279,7 +279,7 @@ func fetchResults(ctx context.Context, nas Caller, from, now int64, maxPages int
 				ResultID: num(m, "result_id"), TaskID: num(m, "task_id"), TaskName: str(m, "task_name"),
 				Status: num(m, "status"), JobAction: num(m, "job_action"), BackupType: num(m, "backup_type"),
 				Start: num(m, "time_start"), End: num(m, "time_end"), Errors: num(m, "error_count"),
-				Warnings: num(m, "warning_count"), Bytes: num(m, "transfered_bytes"), Hosts: strings.Join(hosts, ","),
+				Warnings: num(m, "warning_count"), Bytes: bytesOrUnknown(m), Hosts: strings.Join(hosts, ","),
 				DeviceIDs: ids,
 			}
 			// The same run can reappear when pages shift; a conflicting copy
@@ -725,7 +725,7 @@ func parseDeviceRuns(raw json.RawMessage, now int64) ([]DeviceRun, error) {
 			out = append(out, DeviceRun{
 				DeviceResultID: rid, ResultID: num(tm, "result_id"), DeviceID: id,
 				DeviceName: tname, Status: num(tm, "status"), Start: num(tm, "time_start"), End: num(tm, "time_end"),
-				Bytes: num(tm, "transfered_bytes"),
+				Bytes: bytesOrUnknown(tm),
 			})
 		}
 	}
@@ -906,6 +906,16 @@ func NumValue(x any) (int64, bool) {
 
 // num reads an integer field through numOK; an absent, fractional or
 // malformed value reads as 0, which every required-field check rejects.
+// bytesOrUnknown reads DSM's transfered_bytes; -1 marks a count DSM did not
+// report (or reported as no valid number), so a report shows it as unknown
+// (null), never as 0 bytes transferred.
+func bytesOrUnknown(m map[string]any) int64 {
+	if b, ok := numOK(m, "transfered_bytes"); ok && b >= 0 {
+		return b
+	}
+	return -1
+}
+
 func num(m map[string]any, k string) int64 {
 	if v, ok := numOK(m, k); ok {
 		return v

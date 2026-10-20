@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"synology-pp-cli/internal/mcp/cobratree"
 )
 
 // dsmReservedQueryKeys select which DSM operation runs (api, method,
@@ -32,7 +34,11 @@ var dsmReservedQueryKeys = []string{"api", "method", "version", "_sid", "synotok
 // Rules: a write tool (not annotated read-only) refuses every undeclared
 // argument; a read tool keeps the pass-through for extra DSM filters but
 // refuses any argument that would override a parameter the tool's own path
-// fixes, or a reserved DSM key, compared case-insensitively.
+// fixes, or a reserved DSM key, compared case-insensitively, and every name
+// the Cobra-mirror tools refuse (cobratree.BlockedArgumentNames: deliver,
+// config, home, output, db, profile, base-url, ...), so "--deliver,
+// --output, --db, --config and --home are refused over MCP" holds for
+// every tool instead of reaching the NAS as query parameters.
 func undeclaredEndpointArgError(args map[string]any, declared map[string]bool, pathTemplate string, readOnly bool) error {
 	fixed := map[string]bool{}
 	for _, k := range dsmReservedQueryKeys {
@@ -44,6 +50,10 @@ func undeclaredEndpointArgError(args map[string]any, declared map[string]bool, p
 				fixed[strings.ToLower(k)] = true
 			}
 		}
+	}
+	blocked := map[string]bool{}
+	for name := range cobratree.BlockedArgumentNames() {
+		blocked[strings.ToLower(name)] = true
 	}
 	var unknown []string
 	for k := range args {
@@ -58,6 +68,9 @@ func undeclaredEndpointArgError(args map[string]any, declared map[string]bool, p
 		}
 		if fixed[strings.ToLower(k)] {
 			return fmt.Errorf("MCP parameter %q would override the DSM operation this tool is fixed to; refused (nothing was sent)", k)
+		}
+		if blocked[strings.ToLower(k)] {
+			return fmt.Errorf("MCP parameter %q is a CLI root or destination flag, which is refused over MCP and never forwarded to the NAS (nothing was sent)", k)
 		}
 	}
 	return nil

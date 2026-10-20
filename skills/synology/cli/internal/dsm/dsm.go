@@ -268,37 +268,78 @@ func Scrub(text string) string {
 
 var pctEscape = regexp.MustCompile(`%[0-9a-fA-F]{2}`)
 
-// errRedirectRefused marks a refused cross-origin redirect.
-var errRedirectRefused = errors.New("refusing a redirect to another origin")
+// errRedirectRefused is what errors.Is matches for a refused redirect
+// (*RedirectError).
+var errRedirectRefused = errors.New("refusing to follow a redirect")
 
-// transportErr reports a failed request by kind only (describeTransport).
+// transportErr reports a failed request by kind only (describeTransport),
+// keeping the kind for errors.Is / errors.As (SanitizeTransport).
 func (c *Client) transportErr(what string, err error, _ ...string) error {
-	return fmt.Errorf("%s: %s", what, describeTransport(err))
+	return fmt.Errorf("%s: %w", what, SanitizeTransport(err))
 }
 
-// describeTransport names what went wrong with a request without quoting
-// Go's error text, which can carry server-chosen bytes (a redirect URL, a
-// malformed status line, a certificate field).
-func describeTransport(err error) string {
+// Transport failure kinds (TransportKind): what went wrong with a request
+// that got no usable answer. Every surface that classifies one (the error
+// text, doctor's API and Credentials rows) reads this one function.
+const (
+	KindPinMismatch = "pin-mismatch" // the NAS presented a certificate other than the pinned one
+	KindCertificate = "certificate"  // the certificate failed verification (self-signed, wrong host, unknown CA)
+	KindRedirect    = "redirect"     // the NAS answered with a redirect (never followed)
+	KindTimeout     = "timeout"
+	KindCanceled    = "canceled"
+	KindUnreachable = "unreachable" // no connection (refused, no route, DNS)
+	KindOther       = "other"
+)
+
+// TransportKind classifies a transport error by its type, never its text.
+func TransportKind(err error) string {
 	var (
 		netErr  *net.OpError
 		certErr *tls.CertificateVerificationError
 		hostErr x509.HostnameError
 		authErr x509.UnknownAuthorityError
 		pinErr  *PinMismatchError
+		redir   *RedirectError
 	)
 	switch {
 	case errors.As(err, &pinErr):
-		return fmt.Sprintf("the NAS certificate does not match the pinned SHA-256 fingerprint (the NAS presented %s); %s", pinErr.Presented, PinMismatchHint)
+		return KindPinMismatch
 	case errors.Is(err, context.DeadlineExceeded):
-		return "the request timed out"
+		return KindTimeout
 	case errors.Is(err, context.Canceled):
-		return "the request was canceled"
-	case errors.Is(err, errRedirectRefused):
-		return "the NAS redirected the request; refused (check SYNOLOGY_BASE_URL)"
+		return KindCanceled
+	case errors.As(err, &redir), errors.Is(err, errRedirectRefused):
+		return KindRedirect
 	case errors.As(err, &certErr), errors.As(err, &hostErr), errors.As(err, &authErr):
-		return "the NAS certificate failed verification (check SYNOLOGY_TLS_FINGERPRINT or fleet add --pin-cert)"
+		return KindCertificate
 	case errors.As(err, &netErr):
+		return KindUnreachable
+	}
+	return KindOther
+}
+
+// describeTransport names what went wrong with a request without quoting
+// Go's error text, which can carry server-chosen bytes (a redirect URL, a
+// malformed status line, a certificate field).
+func describeTransport(err error) string {
+	switch TransportKind(err) {
+	case KindPinMismatch:
+		var pinErr *PinMismatchError
+		errors.As(err, &pinErr)
+		return fmt.Sprintf("the NAS certificate does not match the pinned SHA-256 fingerprint (the NAS presented %s); %s", pinErr.Presented, PinMismatchHint)
+	case KindTimeout:
+		return "the request timed out"
+	case KindCanceled:
+		return "the request was canceled"
+	case KindRedirect:
+		redir := &RedirectError{}
+		errors.As(err, &redir)
+		return redir.Error()
+	case KindCertificate:
+		return "the NAS certificate failed verification (check SYNOLOGY_TLS_FINGERPRINT or fleet add --pin-cert)"
+	case KindUnreachable:
+		var netErr *net.OpError
+		errors.As(err, &netErr)
 		return "cannot reach the NAS (" + netErr.Op + " failed)"
 	}
 	return "the request failed (connection error or malformed response)"
@@ -330,7 +371,7 @@ func Decoded(s string) string {
 // DescribeTransport is describeTransport for the generated client.
 func DescribeTransport(err error) string { return describeTransport(err) }
 
-// ErrRedirectRefused marks a refused cross-origin redirect (generated client).
+// ErrRedirectRefused is what errors.Is matches for a refused redirect.
 var ErrRedirectRefused = errRedirectRefused
 
 // ScrubSecrets is scrubSecrets for the generated session manager.
@@ -411,6 +452,9 @@ func Login(ctx context.Context, hc *http.Client, baseURL string, creds Credentia
 		}
 		return Session{}, fmt.Errorf("DSM login: %w; the password was not sent", err)
 	}
+	// The host is DSM; over http:// the password is about to cross the
+	// network in clear text. Say so once per NAS, on every login path.
+	WarnPlainHTTP(baseURL)
 	return login(ctx, hc, baseURL, creds)
 }
 
@@ -445,11 +489,7 @@ func login(ctx context.Context, hc *http.Client, baseURL string, creds Credentia
 	}
 	form.Set("device_name", name)
 	// Never follow a redirect with the password form: a 307/308 would re-send it.
-	noRedirect := *hc
-	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error {
-		return fmt.Errorf("%w (DSM login; check SYNOLOGY_BASE_URL)", errRedirectRefused)
-	}
-	hc = &noRedirect
+	hc = NoRedirect(hc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+loginPath, strings.NewReader(form.Encode()))
 	if err != nil {
 		return Session{}, errors.New(scrubSecrets(err.Error(), creds.Password, creds.OTPCode, creds.DeviceID))
@@ -457,12 +497,15 @@ func login(ctx context.Context, hc *http.Client, baseURL string, creds Credentia
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := hc.Do(req)
 	if err != nil {
-		return Session{}, fmt.Errorf("DSM login: %s", describeTransport(err))
+		return Session{}, fmt.Errorf("DSM login: %w", SanitizeTransport(err))
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return Session{}, errReadBody("DSM login")
+	}
+	if rerr := RedirectStatus(resp.StatusCode); rerr != nil {
+		return Session{}, fmt.Errorf("DSM login: %w", rerr)
 	}
 	if resp.StatusCode >= 400 {
 		return Session{}, fmt.Errorf("DSM login: HTTP %d", resp.StatusCode)
@@ -524,10 +567,14 @@ type Client struct {
 // any encoding. Fleet and triage errors pass through it before they are
 // printed or stored.
 func (c *Client) Redact(text string) string {
+	return scrubSecrets(text, c.secrets()...)
+}
+
+// secrets lists every credential and session value this client has used.
+func (c *Client) secrets() []string {
 	c.mu.Lock()
-	secrets := append([]string{c.Creds.Password, c.Creds.OTPCode, c.Creds.DeviceID}, c.seen...)
-	c.mu.Unlock()
-	return scrubSecrets(text, secrets...)
+	defer c.mu.Unlock()
+	return append([]string{c.Creds.Password, c.Creds.OTPCode, c.Creds.DeviceID}, c.seen...)
 }
 
 // Get calls a spec path (/webapi/entry.cgi?api=...&method=...&version=...)
@@ -580,7 +627,9 @@ func (c *Client) Get(ctx context.Context, path string, params url.Values) (json.
 			// "nothing there".
 			return nil, fmt.Errorf("%s: the NAS did not return a DSM data envelope (%s)", api, snippet(body))
 		}
-		return data, nil
+		// Every successful answer is masked for every secret value this
+		// client holds before the fleet layer prints, stores or mirrors it.
+		return MaskResponse(data, c.secrets()...), nil
 	}
 }
 
@@ -599,31 +648,6 @@ func snippet(body []byte) string {
 	return fmt.Sprintf("%d-byte non-JSON body", len(body))
 }
 
-// SameOriginRedirect refuses redirects that leave the NAS's origin: the
-// session id rides in the URL, X-SYNO-TOKEN in a header, and a 307/308 would
-// re-send a login form.
-func SameOriginRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 5 {
-		return errors.New("stopped after 5 redirects")
-	}
-	if first := via[0].URL; effectiveOrigin(req.URL) != effectiveOrigin(first) {
-		// The target is not named: a redirect URL can carry anything, credentials included.
-		return fmt.Errorf("%w from %s://%s", errRedirectRefused, first.Scheme, first.Host)
-	}
-	return nil
-}
-
-// effectiveOrigin is scheme://hostname:port with the scheme's default port
-// filled in, so http://nas and https://nas are different origins and
-// https://nas and https://nas:443 the same one.
-func effectiveOrigin(u *url.URL) string {
-	port := u.Port()
-	if port == "" {
-		port = map[string]string{"http": "80", "https": "443"}[strings.ToLower(u.Scheme)]
-	}
-	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Hostname()) + ":" + port
-}
-
 // do sends one request through the limiter, retrying HTTP 429 with backoff and
 // returning *cliutil.RateLimitError when the NAS keeps throttling.
 func (c *Client) do(ctx context.Context, req *http.Request, api string) ([]byte, error) {
@@ -632,7 +656,8 @@ func (c *Client) do(ctx context.Context, req *http.Request, api string) ([]byte,
 		if err := lim.Wait(ctx); err != nil {
 			return nil, err
 		}
-		resp, err := c.HTTP.Do(req.Clone(ctx))
+		// No DSM request follows a redirect, whatever client was handed in.
+		resp, err := NoRedirect(c.HTTP).Do(req.Clone(ctx))
 		if err != nil {
 			return nil, c.transportErr(api, err, req.URL.Query().Get("_sid"), req.Header.Get("X-SYNO-TOKEN"))
 		}
@@ -640,6 +665,9 @@ func (c *Client) do(ctx context.Context, req *http.Request, api string) ([]byte,
 		_ = resp.Body.Close()
 		if err != nil {
 			return nil, errReadBody(api)
+		}
+		if rerr := RedirectStatus(resp.StatusCode); rerr != nil {
+			return nil, fmt.Errorf("%s: %w", api, rerr)
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			lim.OnRateLimit()
@@ -695,7 +723,7 @@ func (c *Client) Logout(ctx context.Context) error {
 	if sess.SynoToken != "" {
 		req.Header.Set("X-SYNO-TOKEN", sess.SynoToken)
 	}
-	resp, err := c.HTTP.Do(req)
+	resp, err := NoRedirect(c.HTTP).Do(req)
 	if err != nil {
 		return c.transportErr("DSM logout", err, sess.SID, sess.SynoToken)
 	}
@@ -703,6 +731,9 @@ func (c *Client) Logout(ctx context.Context) error {
 	_ = resp.Body.Close()
 	if err != nil {
 		return errReadBody("DSM logout")
+	}
+	if rerr := RedirectStatus(resp.StatusCode); rerr != nil {
+		return fmt.Errorf("DSM logout: %w", rerr)
 	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("DSM logout: HTTP %d", resp.StatusCode)

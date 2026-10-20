@@ -188,10 +188,16 @@ func TestPinMismatchIsItsOwnErrorKind(t *testing.T) {
 	if !errors.Is(err, ErrCertificatePinMismatch) {
 		t.Fatalf("err = %v, want ErrCertificatePinMismatch", err)
 	}
-	for _, want := range []string{"does not match the pinned SHA-256 fingerprint", "re-pin", "--pin-cert", "SYNOLOGY_TLS_FINGERPRINT", "the password was not sent"} {
+	for _, want := range []string{"does not match the pinned SHA-256 fingerprint", "re-pin", "SYNOLOGY_TLS_FINGERPRINT", "the password was not sent",
+		// The remedy is: check the presented fingerprint in DSM, then pin
+		// exactly that value (finding 9: never a blind --pin-cert).
+		"verify that fingerprint in DSM (Control Panel > Security > Certificate)", "--tls-fingerprint <the value you checked>"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("pin mismatch text lacks %q: %v", want, err)
 		}
+	}
+	if strings.Contains(err.Error(), "--pin-cert") {
+		t.Fatalf("pin mismatch hint recommends --pin-cert, which trusts whatever certificate is presented (a man-in-the-middle looks exactly like this): %v", err)
 	}
 	if strings.Contains(err.Error(), "connection error or malformed response") {
 		t.Fatalf("pin mismatch still reads as a generic failure: %v", err)

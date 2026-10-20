@@ -340,12 +340,18 @@ type devRow struct {
 // per-device runs falls back to a fully successful task result whose
 // task_config named its device id; a host name never decides, since two
 // machines (or a machine and its replacement) can share one.
+//
+// A good run whose end time DSM did not report counts by its start, a lower
+// bound of when it finished: absence is never zero, so such a run is never
+// read as "never succeeded", and the age it yields is never understated.
 const lastSuccessSQL = `MAX(
-  COALESCE((SELECT MAX(r.time_end) FROM abb_device_runs r WHERE r.nas = d.nas AND r.device_id = d.device_id AND r.status IN (2,3) AND r.time_end > 0
+  COALESCE((SELECT MAX(CASE WHEN r.time_end > 0 THEN r.time_end ELSE r.time_start END) FROM abb_device_runs r
+     WHERE r.nas = d.nas AND r.device_id = d.device_id AND r.status IN (2,3) AND (r.time_end > 0 OR r.time_start > 0)
      AND NOT EXISTS (SELECT 1 FROM abb_results p WHERE p.nas = r.nas AND p.result_id = r.result_id AND p.job_action <> 1)), 0),
   CASE WHEN EXISTS (SELECT 1 FROM abb_device_runs r WHERE r.nas = d.nas AND r.device_id = d.device_id) THEN 0
-  ELSE COALESCE((SELECT MAX(x.time_end) FROM abb_results x WHERE x.nas = d.nas AND x.task_id = d.task_id AND x.job_action = 1
-     AND x.status = 2 AND x.time_end > 0 AND instr(COALESCE(x.device_ids,''), ',' || d.device_id || ',') > 0), 0) END)`
+  ELSE COALESCE((SELECT MAX(CASE WHEN x.time_end > 0 THEN x.time_end ELSE x.time_start END) FROM abb_results x
+     WHERE x.nas = d.nas AND x.task_id = d.task_id AND x.job_action = 1 AND x.status = 2 AND (x.time_end > 0 OR x.time_start > 0)
+     AND instr(COALESCE(x.device_ids,''), ',' || d.device_id || ',') > 0), 0) END)`
 
 // deviceLastSuccess joins each protected device to its newest good per-device
 // run (success or partial: both left a restore point). Only a device with no
@@ -676,9 +682,45 @@ type DeviceMatch struct {
 	OSName       string      `json:"os_name,omitempty"`
 	AgentStatus  string      `json:"agent_status,omitempty"`
 	LastSuccess  int64       `json:"last_success,omitempty"`
-	RecentRuns   []DeviceRun `json:"recent_runs"`
+	RecentRuns   []RecentRun `json:"recent_runs"`
 	LastAttempt  string      `json:"last_attempt_status,omitempty"`
 	LastAttemptT int64       `json:"last_attempt_at,omitempty"`
+}
+
+// RecentRun is one per-device backup transfer in abb device's recent_runs.
+// Absence is never zero: a time, duration, byte count or parent result DSM
+// did not report is null, never 0 (0 bytes would read as an empty backup,
+// time 0 as 1970).
+type RecentRun struct {
+	DeviceResultID   int64  `json:"device_result_id"`
+	ResultID         *int64 `json:"result_id"`
+	DeviceName       string `json:"device_name,omitempty"`
+	Status           string `json:"status"`
+	StatusCode       int64  `json:"status_code"`
+	TimeStart        *int64 `json:"time_start"`
+	TimeEnd          *int64 `json:"time_end"`
+	DurationSec      *int64 `json:"duration_sec"`
+	TransferredBytes *int64 `json:"transferred_bytes"`
+}
+
+// known returns &v for a value the mirror holds (v > 0, or v >= 0 when zero
+// is a real measurement), nil for one DSM did not report.
+func known(v int64, zeroIsReal bool) *int64 {
+	if v > 0 || (zeroIsReal && v == 0) {
+		return &v
+	}
+	return nil
+}
+
+func recentRun(r DeviceRun) RecentRun {
+	out := RecentRun{DeviceResultID: r.DeviceResultID, ResultID: known(r.ResultID, false), DeviceName: r.DeviceName,
+		Status: StatusLabel(int(r.Status)), StatusCode: r.Status, TimeStart: known(r.Start, false), TimeEnd: known(r.End, false),
+		TransferredBytes: known(r.Bytes, true)}
+	if r.Start > 0 && r.End > 0 && r.End >= r.Start {
+		d := r.End - r.Start
+		out.DurationSec = &d
+	}
+	return out
 }
 
 // ReportIdentity is what --quiet prints for the row: the device's host name,
@@ -699,9 +741,9 @@ func FindDevice(ctx context.Context, db Querier, nasList []NAS, query string, ru
 	for _, n := range nasList {
 		st, ok := states[n.Name]
 		if !ok || !st.FreshFor(n, now, maxSyncAge) {
-			unsynced = append(unsynced, DeviceMatch{NAS: n.Name, Client: n.Client, Kind: "nas_not_synced", Note: syncNote(st, ok, n), RecentRuns: make([]DeviceRun, 0)})
+			unsynced = append(unsynced, DeviceMatch{NAS: n.Name, Client: n.Client, Kind: "nas_not_synced", Note: syncNote(st, ok, n), RecentRuns: make([]RecentRun, 0)})
 		} else if kind, note, gone := st.ABBGone(); gone {
-			unsynced = append(unsynced, DeviceMatch{NAS: n.Name, Client: n.Client, Kind: kind, Note: note, RecentRuns: make([]DeviceRun, 0)})
+			unsynced = append(unsynced, DeviceMatch{NAS: n.Name, Client: n.Client, Kind: kind, Note: note, RecentRuns: make([]RecentRun, 0)})
 		} else {
 			clients[n.Name] = n.Client
 		}
@@ -738,19 +780,19 @@ func FindDevice(ctx context.Context, db Querier, nasList []NAS, query string, ru
 	// Drain-first: follow-up queries run after the parent cursor is closed.
 	for i := range out {
 		m := &out[i]
-		rr, err := db.QueryContext(ctx, `SELECT device_result_id, result_id, device_id, COALESCE(device_name,''), status, time_start, time_end,
-  COALESCE(transfered_bytes,0) FROM abb_device_runs WHERE nas = ? AND device_id = ? ORDER BY time_start DESC LIMIT ?`, m.NAS, m.DeviceID, runs)
+		rr, err := db.QueryContext(ctx, `SELECT device_result_id, COALESCE(result_id,0), device_id, COALESCE(device_name,''), status, COALESCE(time_start,0), COALESCE(time_end,0),
+  COALESCE(transfered_bytes,-1) FROM abb_device_runs WHERE nas = ? AND device_id = ? ORDER BY time_start DESC LIMIT ?`, m.NAS, m.DeviceID, runs)
 		if err != nil {
 			return nil, err
 		}
-		m.RecentRuns = make([]DeviceRun, 0)
+		m.RecentRuns = make([]RecentRun, 0)
 		for rr.Next() {
 			var r DeviceRun
 			if err := rr.Scan(&r.DeviceResultID, &r.ResultID, &r.DeviceID, &r.DeviceName, &r.Status, &r.Start, &r.End, &r.Bytes); err != nil {
 				_ = rr.Close()
 				return nil, err
 			}
-			m.RecentRuns = append(m.RecentRuns, r)
+			m.RecentRuns = append(m.RecentRuns, recentRun(r))
 		}
 		if err := rr.Err(); err != nil {
 			_ = rr.Close()
@@ -760,7 +802,10 @@ func FindDevice(ctx context.Context, db Querier, nasList []NAS, query string, ru
 			return nil, err
 		}
 		if len(m.RecentRuns) > 0 {
-			m.LastAttempt, m.LastAttemptT = StatusLabel(int(m.RecentRuns[0].Status)), m.RecentRuns[0].Start
+			m.LastAttempt = m.RecentRuns[0].Status
+			if s := m.RecentRuns[0].TimeStart; s != nil {
+				m.LastAttemptT = *s
+			}
 		}
 	}
 	if out == nil {
@@ -785,10 +830,14 @@ type TrendRow struct {
 	Partials       int     `json:"partials"`
 	Failures       int     `json:"failures"`
 	SuccessRatePct float64 `json:"success_rate_pct"`
-	MedianSec      int64   `json:"median_duration_sec"`
-	P90Sec         int64   `json:"p90_duration_sec"`
-	LastSec        *int64  `json:"last_duration_sec"` // null: the newest completed run has no end time
-	Overrun        bool    `json:"overrun"`
+	// Absence is never zero: a duration needs a run's start and end, so with
+	// no run that has both, the median and p90 are null (with a note), not 0;
+	// overrun is null whenever it cannot be judged (the newest run has no end
+	// time, fewer than 3 runs have one, or --overrun 0), never false.
+	MedianSec *int64 `json:"median_duration_sec"`
+	P90Sec    *int64 `json:"p90_duration_sec"`
+	LastSec   *int64 `json:"last_duration_sec"` // null: the newest completed run has no end time
+	Overrun   *bool  `json:"overrun"`
 }
 
 // ReportIdentity is what --quiet prints for the row: the task or device
@@ -899,28 +948,43 @@ func Trend(ctx context.Context, db Querier, nasList []NAS, since time.Time, byDe
 		if r.Runs > 0 {
 			r.SuccessRatePct = round1(100 * float64(r.Successes) / float64(r.Runs))
 		}
-		if n := len(g.durs); n > 0 {
-			// LastSec and Overrun describe the newest completed run only; when
-			// it has no end time they stay 0/false rather than borrow an older one.
-			if g.lastDur >= 0 {
-				r.LastSec = &g.lastDur
-			} else {
-				r.Note = strings.TrimSpace(r.Note + " The newest run has no end time: its duration and overrun are unknown.")
-			}
+		n := len(g.durs)
+		// LastSec and Overrun describe the newest completed run only; when it
+		// has no end time they stay null rather than borrow an older one.
+		switch {
+		case n == 0:
+			r.Note = strings.TrimSpace(r.Note + " No run in the window has an end time: the median, p90 and overrun are unknown.")
+		case g.lastDur < 0:
+			r.Note = strings.TrimSpace(r.Note + " The newest run has no end time: its duration and overrun are unknown.")
+		default:
+			r.LastSec = &g.lastDur
+		}
+		if n > 0 {
 			sorted := append([]int64(nil), g.durs...)
 			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-			r.MedianSec = sorted[n/2]
+			median := sorted[n/2]
 			if n%2 == 0 {
-				r.MedianSec = (sorted[n/2-1] + sorted[n/2]) / 2
+				median = (sorted[n/2-1] + sorted[n/2]) / 2
 			}
-			r.P90Sec = sorted[int(math.Ceil(0.9*float64(n)))-1]
-			r.Overrun = g.lastDur >= 0 && n >= 3 && overrun > 0 && float64(g.lastDur) > overrun*float64(r.MedianSec)
+			p90 := sorted[int(math.Ceil(0.9*float64(n)))-1]
+			r.MedianSec, r.P90Sec = &median, &p90
+			switch {
+			case g.lastDur < 0: // noted above
+			case overrun <= 0:
+				r.Note = strings.TrimSpace(r.Note + " The overrun check is off (--overrun 0).")
+			case n < 3:
+				r.Note = strings.TrimSpace(r.Note + fmt.Sprintf(" Overrun needs at least 3 runs with an end time (%d in the window): unknown.", n))
+			default:
+				over := float64(g.lastDur) > overrun*float64(median)
+				r.Overrun = &over
+			}
 		}
 		out = append(out, r)
 	}
+	overran := func(r TrendRow) bool { return r.Overrun != nil && *r.Overrun }
 	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Overrun != out[j].Overrun {
-			return out[i].Overrun
+		if overran(out[i]) != overran(out[j]) {
+			return overran(out[i])
 		}
 		return out[i].SuccessRatePct < out[j].SuccessRatePct
 	})

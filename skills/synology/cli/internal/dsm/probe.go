@@ -31,12 +31,10 @@ func (e *NotDSMError) Error() string {
 }
 
 // ProbeTransportError reports a probe that never got an answer (unreachable
-// host, timeout, certificate refused). Error() is describeTransport's kind,
-// never Go's text; Unwrap keeps the cause for errors.Is / errors.As.
-type ProbeTransportError struct{ err error }
-
-func (e *ProbeTransportError) Error() string { return describeTransport(e.err) }
-func (e *ProbeTransportError) Unwrap() error { return e.err }
+// host, timeout, certificate refused). It is a TransportError: Error() is
+// describeTransport's kind, never Go's text; Unwrap keeps the cause for
+// errors.Is / errors.As.
+type ProbeTransportError = TransportError
 
 // ProbeDSM asks origin for SYNO.API.Info without credentials and returns nil
 // only when the answer is DSM's: HTTP 200 with a success envelope whose data
@@ -48,24 +46,26 @@ func ProbeDSM(ctx context.Context, hc *http.Client, origin string) error {
 	if hc == nil {
 		hc = http.DefaultClient
 	}
-	noRedirect := *hc
-	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(origin, "/")+APIInfoProbePath, nil)
 	if err != nil {
 		return &NotDSMError{Reason: "the address is not a usable URL"}
 	}
-	resp, err := noRedirect.Do(req)
+	resp, err := NoRedirect(hc).Do(req)
+	var redir *RedirectError
+	if errors.As(err, &redir) {
+		return &NotDSMError{Reason: probeRedirectReason(redir.Status)}
+	}
 	if err != nil {
-		return &ProbeTransportError{err: err}
+		return SanitizeTransport(err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return &ProbeTransportError{err: errors.New("reading the response failed")}
+		return SanitizeTransport(errors.New("reading the response failed"))
 	}
 	switch {
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
-		return &NotDSMError{Reason: fmt.Sprintf("the host answered SYNO.API.Info with status %d (a redirect); DSM answers its WebAPI without redirecting - if it redirects http:// to https://, use the https:// address", resp.StatusCode)}
+		return &NotDSMError{Reason: probeRedirectReason(resp.StatusCode)}
 	case resp.StatusCode != http.StatusOK:
 		return &NotDSMError{Reason: fmt.Sprintf("the host answered SYNO.API.Info with status %d; DSM answers it with status 200", resp.StatusCode)}
 	case BodyLooksLikeHTML(body):
@@ -102,4 +102,9 @@ func BodyLooksLikeHTML(body []byte) bool {
 	}
 	return strings.HasPrefix(lower, "<!doctype html") || strings.HasPrefix(lower, "<html") ||
 		(strings.HasPrefix(lower, "<") && (strings.Contains(lower, "<html") || strings.Contains(lower, "<body") || strings.Contains(lower, "<head") || strings.Contains(lower, "<title")))
+}
+
+// probeRedirectReason names a redirect answer to the probe by status only.
+func probeRedirectReason(status int) string {
+	return fmt.Sprintf("the host answered SYNO.API.Info with status %d (a redirect); DSM answers its WebAPI without redirecting - if it redirects http:// to https://, use the https:// address", status)
 }

@@ -8,8 +8,10 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -60,9 +62,6 @@ recorded and does not stop the others; the exit code is 5 when any NAS failed.`,
   synology-cli fleet sync --nas acme --agent`, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "false", "pp:data-source": "live", "pp:typed-exit-codes": "0,5,10"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dryRunOK(flags) {
-				return writeDryRun(cmd.OutOrStdout(), flags, "fleet sync")
-			}
 			initial, err := parseWindow("since", window)
 			if err != nil {
 				return err
@@ -80,6 +79,10 @@ recorded and does not stop the others; the exit code is 5 when any NAS failed.`,
 					return err
 				}
 				list = []fleet.NAS{n}
+			}
+			if dryRunOK(flags) {
+				// Name every NAS the sync would contact; send nothing, open nothing.
+				return writeFleetSyncPlan(cmd, flags, list, dbPath)
 			}
 			if len(list) == 0 {
 				noFleetHint(cmd.ErrOrStderr())
@@ -209,4 +212,96 @@ func syncOneNAS(ctx context.Context, flags *rootFlags, db *sql.DB, writeMu *sync
 		snap.Warnings = append(snap.Warnings, "could not cache the trusted-device token; the next login will need a one-time code again: "+c.DeviceIDErr.Error())
 	}
 	return finish(snap, info, err)
+}
+
+// fleetSyncPlanNAS is one NAS a fleet sync would contact. Credential env vars
+// are named with whether each is set; values are never shown.
+type fleetSyncPlanNAS struct {
+	Name             string          `json:"name"`
+	Client           string          `json:"client,omitempty"`
+	URL              string          `json:"url"`
+	TLS              string          `json:"tls"`
+	CredentialVars   map[string]bool `json:"credential_env_vars"`
+	CredentialsReady bool            `json:"credentials_ready"`
+	Note             string          `json:"note,omitempty"`
+	TransportWarning string          `json:"transport_warning,omitempty"`
+}
+
+// fleetSyncPlan is fleet sync --dry-run's answer.
+type fleetSyncPlan struct {
+	DryRun bool               `json:"dry_run"`
+	Action string             `json:"action"`
+	Would  string             `json:"would"`
+	NAS    []fleetSyncPlanNAS `json:"nas"`
+	DB     string             `json:"db,omitempty"`
+}
+
+// writeFleetSyncPlan answers fleet sync --dry-run: which NAS units it would
+// log in to (name, address through dsm.DisplayAddress, TLS mode), the
+// credential env-var NAMES each would read and whether they are set, and the
+// mirror it would write. Nothing is sent and no file is created.
+func writeFleetSyncPlan(cmd *cobra.Command, flags *rootFlags, list []fleet.NAS, dbPath string) error {
+	plan := fleetSyncPlan{DryRun: true, Action: "fleet sync", NAS: make([]fleetSyncPlanNAS, 0, len(list))}
+	if p, err := fleetDBPath(dbPath); err == nil {
+		plan.DB = p
+	}
+	for _, n := range list {
+		row := fleetSyncPlanNAS{Name: n.Name, Client: n.Client, URL: dsm.DisplayAddress(n.URL), TLS: fleetTLSMode(n),
+			CredentialVars: n.EnvStatus(), CredentialsReady: n.Credentials().Complete()}
+		switch {
+		case n.Override != nil:
+			row.Note = "the single NAS from SYNOLOGY_BASE_URL; its login may also come from the CLI config"
+		case !row.CredentialsReady:
+			row.Note = fmt.Sprintf("set %[1]s_ACCOUNT and %[1]s_PASSWORD; without them this NAS fails the sync", n.EnvPrefix)
+		}
+		if dsm.IsPlainHTTP(n.URL) {
+			row.TransportWarning = dsm.PlainHTTPWarning(n.URL)
+		}
+		plan.NAS = append(plan.NAS, row)
+	}
+	switch len(plan.NAS) {
+	case 0:
+		plan.Would = "contact no NAS: none is registered and SYNOLOGY_BASE_URL is not set; nothing was sent"
+	default:
+		plan.Would = fmt.Sprintf("log in to %d NAS unit(s) and mirror their Active Backup for Business tasks, results, device transfers and storage health into %s; nothing was sent", len(plan.NAS), plan.DB)
+	}
+	w := cmd.OutOrStdout()
+	if !wantsHumanTable(w, flags) {
+		// The same compact shape every other dry-run answer uses.
+		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(false)
+		return enc.Encode(plan)
+	}
+	fmt.Fprintf(w, "dry-run: would %s\n", plan.Would)
+	for _, r := range plan.NAS {
+		client := ""
+		if r.Client != "" {
+			client = " (" + r.Client + ")"
+		}
+		fmt.Fprintf(w, "  %s%s  %s  tls %s\n", r.Name, client, r.URL, r.TLS)
+		names := make([]string, 0, len(r.CredentialVars))
+		for k := range r.CredentialVars {
+			names = append(names, k)
+		}
+		sort.Strings(names)
+		for _, k := range names {
+			state := "set"
+			if !r.CredentialVars[k] {
+				state = "not set"
+			}
+			fmt.Fprintf(w, "    %s: %s\n", k, state)
+		}
+		ready := "ready"
+		if !r.CredentialsReady {
+			ready = "MISSING"
+		}
+		fmt.Fprintf(w, "    credentials: %s\n", ready)
+		if r.Note != "" {
+			fmt.Fprintf(w, "    note: %s\n", r.Note)
+		}
+		if r.TransportWarning != "" {
+			fmt.Fprintf(w, "    warning: %s\n", r.TransportWarning)
+		}
+	}
+	return nil
 }

@@ -52,6 +52,14 @@ func TestPinMismatchIsNamedEverywhere(t *testing.T) {
 	if !strings.Contains(out, "certificate pin mismatch") || !strings.Contains(out, "re-pin") {
 		t.Fatalf("doctor does not name the pin mismatch: %s %s", out, errText)
 	}
+	// The remedy pins the value the operator checked in DSM; it never says
+	// --pin-cert (which trusts whatever certificate is presented right now).
+	var report map[string]any
+	_ = json.Unmarshal([]byte(out), &report)
+	api, _ := report["api"].(string)
+	if !strings.Contains(api, "--tls-fingerprint <the value you checked>") || !strings.Contains(api, "Control Panel > Security > Certificate") || strings.Contains(out, "--pin-cert") {
+		t.Fatalf("doctor's pin-mismatch remedy: %s", out)
+	}
 }
 
 // TestFleetAddRepinsARegisteredNAS: 'fleet add <name> --pin-cert' on a
