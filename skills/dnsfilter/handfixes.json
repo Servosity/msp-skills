@@ -140,7 +140,7 @@
     {
       "id": "secrets-never-persisted",
       "summary": "every resource write scrubs secret-named keys (secret_key, token, client_secret, access_token, payment_token, password, api key, private key, a trailing pin such as uninstall_pin, and the like, at any depth, including inside JSON encoded in a string value) and withholds a string value that still names one as key=value text or a table header, before the row reaches SQLite, its FTS index or a typed table, through one funnel in mergeIncomingResourceData; api-keys is out of the default sync set",
-      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted. Codex round 3 (P1) / adversarial round 5 (P2): the text rule ran secretPairRE on the raw string and never undid JSON escaping, so a string field holding a cut-off (undecodable) JSON blob with a \\u-escaped key name persisted the secret (ScrubPersistedSecrets of a meta string {\"a\":1,\"tok\\\\u0065n\":\"SECRET\" returned it unchanged; reproduced end to end through sync and read-only MCP sql substr). textNamesSecret now runs on UnescapeForTextRule(text), which undoes JSON string escaping one level per round up to 6 levels (\\u0065 in either hex case, \\\", \\\\, \\n, \\t, \\/), the same rule as the read-only MCP redactor's unescapeForTextRule (200,000 random strings gave identical output), so the store scrub is never narrower than MCP output and the redactor can call store.UnescapeForTextRule. The property generator now also spells token/secret_key/pin with \\u-escaped characters (upper and lower hex) as document keys, in JSON-in-string, in cut-off blobs (once and twice quoted) and in name=value text; it fails on the previous code (seed 20261020 case 22, a twice-quoted cut-off blob with p\\\\u0069n) and with the unescape call removed. Codex round 4 (P1): the text rule's exemptions matched a prefix, so a value that STARTS with an exempt literal passed: {\"meta\":\"password=true!SENTINEL42\"} survived unchanged (null-, false. and \"[withheld: credential]secret\" likewise, and a value on the next line after an empty separator, YAML-style token:\\n  SECRET, counted as empty). Every exemption now matches exactly: pairValueEmpty exempts only nothing at all, a delimiter that ends an empty value (, ; & } ] )), or a value token that is exactly true, false, null or the placeholder followed by the end of the text or a delimiter (whitespace , ; & \" ' } ] )); newlines after the separator are skipped like spaces, so the next line is read as the value. The rule is exported for the read-only MCP redactor: TextNamesSecret(raw text) undoes JSON escaping and runs the pair and table rules; SecretPairInText(already-unescaped text) is the pair rule alone (no DNSFILTER_ environment-name exception). The property generator now emits values starting with true/false/null/the placeholder and continuing into a sentinel (plain and in cut-off blobs) and next-line values; it fails on the previous code (seed 20261020 case 22, \"pin\":\"true!SNTNL24\") and with the literal check back to a bare prefix; TestSecretPairExemptionsAreExact pins both sides. Codex round 5 (P1): quoted values lost their quote boundary before the exemption checks (the separator's trailing quotes were trimmed), so a roaming-client meta of password=\",SECRET\" read as an empty value and survived into SQLite and read-only MCP. Value extraction is now one tokenizer, pairCarriesValue, and every exemption applies to the value it extracts: spaces and newlines after the separator are skipped; a value opening with a quote (or a quote escaped at that level, \\\") runs to the matching closing quote with backslash escapes honored, or to the end of the text when unclosed; a closed quoted value followed by anything but the end or a delimiter runs on and carries a value; any other value runs to the first delimiter (the placeholder is matched whole); a value is exempt only when it is exactly empty, true, false, null or the placeholder (quoted content compared with its quotes and surrounding whitespace removed), or an unclosed quote followed only by delimiters (a preview cut right after the separator). TextNamesSecret runs the pair rule on the raw text and on each level of JSON escaping undone, because a quote boundary is only right at the level it was written in (token=\"\\\",SECRET\" is a value at its own level and looks empty once unescaped). The property generator now emits quoted values whose content starts with a delimiter, a literal, the placeholder or an escaped quote, closed or unclosed, plain and in cut-off blobs; it fails on the previous code (seed 20261020 case 19, x password:'null,SNTNL19) and with each tokenizer rule reverted (quotes trimmed again, pair rule only on fully unescaped text, closed quoted value never running on); TestPairValueTokenizer pins both sides. Round 8 (adversarial R7 P1, Codex R6 P1, adversarial R7 P2): (1) the CLI's own auth hints (export DNSFILTER_API_KEY=\"your-token-here\" and the PowerShell twin in helpers.go, auth.go, doctor.go and mcp/tools.go; DNSFILTER_API_KEY=<your-token-here> in client.go; <token>, <value> and <long-random-value> in the README, guide and mcp-install docs) made read-only MCP withhold every 401/403 error block; those five documentation placeholders are now exempt on an exact match of the extracted value only, quoted or not, like WithheldValuePlaceholder (12 CLI/doc strings flip to kept, none flip to withheld). (2) Spaced credential labels were missed (\"API Key: SECRET\", \"Network secret key: SECRET\" reached SQLite): the pair regex now captures up to three words before the separator and labelNamesSecret treats the whitespace like _ or -: the last word names a secret, or it is key/keys and the last two or three words together do (API Key, Secret Key, Network secret key; not Password Policy, public key, the key); a header cell of two or three such words heads a secret column when the next non-empty line has the same number of cells. (3) A value on the next line counts only in YAML block form: the next non-empty line is indented deeper than the key's line and is a single token or a quoted string (password:\\n  hunter2 withheld; Credentials:\\n  stored in IT Glue, Uninstall PIN:\\nask the NOC and Rotate the token:\\nnext quarter kept). Proven: each rule reverted alone fails the extended property test, the pinned cases or TestTextRuleKeepsPlaceholdersAndProse. Round 8 / Codex round 7 (2026-10-20): the round-7 attempt to keep prose after a label that ends its line (judging a next-line value by indent and word count) leaked the common shape of a credential written on the next line ('Uninstall PIN:\\n482915', 'password:\\n  correct horse battery staple'); a value that starts on a later line is now judged exactly like a same-line value, so the rule fails closed (prose after a line-ending label is withheld, by design). A spaced secret header (API Key) heads a table when the next non-empty line is a delimited row of any width, since a quoted comma in a CSV row adds cells. TestTextRuleKeepsPlaceholdersAndProse fails on 16 inputs against the previous rule. Codex round 8 / adversarial round 9 (2026-10-20): a value that starts with a delimiter (password=;hunter2) was read as empty; it is now empty only when nothing but delimiters follows (fail closed). The label before a separator is found procedurally (secretLabelBefore): one to three words naming a secret, optionally followed by a qualifier led by a parenthetical, number, comma, dash or preposition (Uninstall PIN for Acme laptops: 4821, Uninstall PIN (Acme): 4821); a following noun is another label (Password Policy: strict is kept), and 'with' is not a qualifier so the CLI's own 'Set your API key with: export ...' hint is judged by its inner placeholder pair. Semicolon tables and 2-5 word headers count. The label window is cut before any scan (the first version searched the whole prefix per separator: 100 s on 1.2 MB; TestTextRuleStaysLinear). Codex round 9 (P1) / adversarial round 10 (P2s), 2026-10-20: the 120-byte label window let 'password for <130 chars>: x' through, the closed qualifier-lead list missed [ \\u2013 \\u2014 @ { < and glued #, the window reached across JSON keys ('Office of the Secretary of State','status':... withheld a whole read-only result), and the per-separator window scan was O(120^2). SecretPairInText is now one linear pass with no window: a secret run followed by any punctuation, a digit or a preposition arms the segment, however long the qualifier; a segment ends at a line break or at the end of a JSON string (a quote followed by , } or ]); an exempt value after a labelled separator (<token>, the placeholder) is skipped so its words never arm. TestTextRuleKeepsPlaceholdersAndProse fails on 15 inputs against the windowed rule; TestTextRuleStaysLinear covers 1 MB of '(:' with and without a trailing backslash run. Adversarial round 11 (2 P1s, 2026-10-20): any quote followed by , ] or } ended the segment, so a qualifier listing quoted names ('Admin password for 'Main Office', HQ: x') leaked; and an escaped-looking \\\\n in a UNC path (\\\\\\\\dc01\\\\netlogon) ended it too. Real double quotes (even backslash run) are now tracked as JSON strings and disarm only the qualifier armed inside the string they close; they never arm; escaped double quotes are literal; single quotes are punctuation that arms; an escaped line break is text at its level (the unescape rounds supply real breaks). The table-header check finds the next non-empty line in one backward pass (it was K*M: 34 s on 1 MB). Codex round 10 (P1): an opening double quote after a secret label cleared it without arming (PIN \"Acme\" (laptops): 482915 leaked); a double quote (or an escaped one, one level down) that opens a string after a space now arms, while a key's quote, which sits against its label, never does. Adversarial round 12 (P1, 2026-10-20): tracking JSON strings in text anyone can write let one stray quote (an inch mark: Rack: 19\" cabinet) invert the phase, so a quoted name in a later qualifier disarmed it and the credential was stored. The rule now has two modes. Plain (SecretPairInText, every store value and every string in a result) tracks no strings: an opening quote after a space arms and nothing but a real line break disarms. JSON (SecretPairInJSONText, only the read-only filter's pass over a whole result it decoded) tracks strings at every JSON-in-string nesting level (a quote after 2^d-1 backslashes) and ends a qualifier where the string it armed in closes; the pass over the fully unescaped result is label-only (SecretLabelPairInText), since unescaping destroys the quote structure. A string value that starts like JSON but is not one value (a bounded preview) skips the whole-string plain pass: its complete records are redacted as JSON and the remainder keeps the plain rule, so ordinary records no longer withhold a preview. A 8100-case fuzz (6 prefixes incl. stray quotes x 6 labels x 15 qualifiers x 3 separators, plain/result/preview/mixed) through redact.Final and the store scrub found no miss. Adversarial round 13 (P1) / Codex round 12 (P1): skipping the whole-string plain pass for tenant strings that start with [ or { (to keep bounded previews) let '[Site notes] Rack: 19\" cabinet\\nUninstall PIN [\"HQ\"] laptops: x' through read-only MCP, because JSON mode then ran on tenant text; every string value gets the plain pass again (a preview holding a qualifier-like ordinary value loses only its preview field), and a decoded JSON segment leaves its opening bracket in the plain remainder so a qualifier written as JSON still arms. In plain mode a quote that closes a quoted label (\"Uninstall PIN\" (HQ): x) keeps it pending for the qualifier after it. Adversarial round 14 (P1, 2026-10-20): a plural secret word was not a label ('Uninstall PINs: x', 'API tokens: x', uninstall_pins=x, a {\"uninstall_pins\":[...]} string), because the suffix rule matched only token and pin at the end of a folded word. The suffix list now also holds tokens and pins, for keys and text labels alike (no DNSFilter spec property ends in tokens or pins, so no spec field is newly dropped; a counter such as total_tokens is now withheld). Dropping the plurals fails TestIsSecretKey and five TestScrubSecretsInsideStrings cases. Codex round 13 (P1, 2026-10-20): a string holding exactly one JSON value returned early from the key rule, so a JSON key carrying a qualified label ({\"Uninstall PIN (HQ)\":\"x\"} inside a note) survived the store scrub and read-only MCP. The kept or re-encoded form of every JSON-in-string now also gets the plain text rule (store scrubSecretString and the redactor's string branch alike); removing it fails TestScrubSecretsInsideStrings ('qualified json key') and TestQualifiedLabelAsJSONKeyInString. Adversarial round 15 (P2, 2026-10-20): that whole-text backstop read re-encoded JSON as prose, so a value ending in a secret word (Victoria's Secret, Spin, Tokens, 'Secretary of') armed the next key and read-only sql withheld whole records and whole json_group_array lists. It is replaced by KeyNamesSecret: every key the scrub, the raw-token gate and the read-only redactor judge passes the key rule OR, read as a text label (key + ': x'), the label rule, so {\"Uninstall PIN (HQ)\":\"x\"} is a credential key while the JSON structure around it is honored. No DNSFilter spec property (1,420 keys) is newly matched. Reverting KeyNamesSecret to IsSecretKey fails the qualified-key cases; restoring the backstop fails the ordinary-record keep cases in TestQualifiedLabelAsJSONKeyInString. Codex round 14 (P1, 2026-10-20): ids are stored unscrubbed (resources.id, FTS, typed tables), so an ID-less row keyed by its name ({\"name\":\"token=S\"}), an id field holding a credential, or a parent key holding one put the secret in data.db (read-only sql hex(id) recovered it). IdentityNamesSecret (the scrub would withhold or rewrite the value) now makes ExtractResourceID return no id (an extract failure), skips such a parent value in resourceStorageID, refuses it in Upsert, and refuses a parameter fingerprint over a secret key or value (a hash of a PIN is brute-forceable). Reverting each of the three reachable guards fails TestSecretsNeverReachTheStoreFile. Adversarial round 16 (P1, 2026-10-20): the scrub kept a secret-named key whose value was true, false or null as a flag, so a key whose own text is the credential ({\"Uninstall PIN: 4821\":true}, {\"token=X\":null}, in a JSON-in-string and at the top level) reached data.db and the response cache. KeyCarriesSecret (TextNamesSecret on the key text) now drops the pair whatever its value in the store scrub, the raw-token gate, the redactor and its raw gate; disabling it fails three TestScrubSecretsInsideStrings cases. Codex round 15 (P1) / adversarial round 16 (P2): the fingerprint check looked only at top-level fields with IsSecretKey, so {\"card\":{\"pin\":\"4821\"}} and {\"Uninstall PIN (HQ)\":\"4821\"} were hashed (brute-forced back to 4821); parameterSnapshotID now refuses any payload ScrubPersistedSecrets would change (TestParameterFingerprintNeverHashesASecret: 5 cases fail without it). Adversarial round 16 (P2): a refused JSON:API id fell through to the envelope unwrap and was re-keyed by attributes.name, so such rows collapsed and a prune deleted them under a complete sync; identityRefused now makes it an extract failure (TestRefusedIdentityIsAnExtractFailure). Codex round 16 (P1): a \\u-escaped PIN label JSON-encoded 14 times outran the 8 decode levels and 6 unescape rounds, so the scrub kept it. Both bounds now fail closed: past maxNestedJSONDepth a string that still decodes as one JSON value is withheld, and TextNamesSecret treats escaping deeper than maxUnescapeRounds (not at a fixed point) as naming a secret. TestDeepEncodingFailsClosed fails with each rule removed (the unescape fixture is built from rune(92)). Codex round 17 (P1, 2026-10-20) / adversarial round 18 (P2): (1) the scanner read PIN2, PIN.2 and \"PIN.\" as one word, so 'Uninstall PIN2: 4821', 'Uninstall PIN.2: 4821' and 'Uninstall PIN. HQ: 4821' were kept by the store scrub, the response-cache gate and read-only MCP. gluedSecretLabel judges every prefix of a word that ends in a letter right before a digit, or before a '.', '_' or '-' not followed by a letter, by the IsSecretKey/labelNamesSecret rules from running state (linear); such a word names the secret and arms the segment. Between letters those characters still join a compound name (token_type, pin_code_enabled, api-keys.index); a word ending in an identifier word (token.id) is never one. A glued arming does not reach the CLI's own '<secret label> with:' instruction (check your API key. Set your API key with: export ...), so its auth hint stays readable; any other arming still labels it. In JSON text a second arming no longer replaces the first (armedIn: each ends where its own string closes), a pre-existing narrowing this exposed. TestGluedSecretLabelArms brute-forces 13 secret words x 11 glues x 6 qualifiers x 4 separators x 5 prefixes through the text rule and the store scrub and fails with the glued check off; TestJSONScanRearmingNeverNarrows fails with re-arming replacing the earlier arming. (2) header cells longer than 64 bytes, longer than five words, or carrying a qualifier were skipped before the secret check; there is no length or word guard now, an identifier cell is judged as a JSON key (KeyNamesSecret) and a spaced label (with one optional bracketed qualifier) by the label rule. TestTableHeaderAnyLength fails with each guard restored. (3) after 256 failed decodes the rest of a string was copied unexamined (256 '[' then {\"p a s s w o r d\":\"X\"} kept X); the store scrub and the redactor's redactJSONSegments now return the placeholder for a value whose budget ran out with a '{' or '[' left, and skip placeholders without spending the budget. TestEmbeddedJSONBudgetFailsClosed, TestReadOnlyWithholdsRound17Shapes and TestBudgetRuleMatchesStore fail without it. (4) NKEY, DNSFilter's roaming-client deploy property for the site secret key, is a whole-word secret key (secretKeyWords; nKey too; not monkey or donkey; no spec property matched), and plistNamesSecret judges <key>NAME</key><string|integer|real|data|date>VALUE. TestNKEYIsASecret fails with either removed. (10) TestDepthBoundWithheldWithoutEscapes fails with the maxNestedJSONDepth decode block removed (the existing TestDeepEncodingFailsClosed still passes then). Differential vs deb7d1a2f over 949 spec keys, 10,840 spec/doc/CLI strings, 600,000 random strings and 200,000 random JSON documents: no value the old rule withheld is kept by any exported rule; two README paragraphs are newly withheld. Round 18 follow-up (2026-10-20): besides the plist entry, markupNamesSecret judges an XML/HTML element (<password>X</password>, <secret_key a=\"b\">X) and a command-line flag followed by a value (--nkey X, -password X) by KeyNamesSecret and exemptPairValue; an unclosed tag that is a documentation placeholder (<token>, <value>) is prose. TestMarkupAndFlagValuesNameSecrets fails without it (12 assertions).",
+      "why": "DNSFilter list and show GETs return live credentials in synced resources: Network.secret_key on /v1/networks, /v1/networks/all, /v1/networks/msp, /v1/networks/msp/all and /v1/networks/{id}, and ApiKey.token on /v1/api_keys and /v1/api_keys/{id} (the full token in an api-keys create response, which the mutation write-through also stores). The generated store wrote them verbatim into the resources blob, resources_fts and the typed tables, so a plain sync left every site's agent secret key in data.db where search, sql and MCP hand it back. ScrubPersistedSecrets (hand-authored internal/store/dnsfilter_secrets.go) decodes each row (UseNumber), drops every secret-named key in nested objects and arrays (booleans and nulls kept; a key whose last word is id/ids/uuid is an identifier, so the revoke rows' api_keys_id parent key survives), returns secret-free rows byte-for-byte and withholds an undecodable row whole. mergeIncomingResourceData is the single place Upsert, every typed Upsert<X>, UpsertBatch (sync) and the live/mutation write-through pass, and its output feeds the generic blob, FTS and the typed projection; scrubbing the merged value also drops a secret a keep-richer merge would carry over from an older row. No novel command reads a scrubbed field. api-keys left the default sync set (nothing local reads it); it stays syncable by name and is still scrubbed. Proven: TestSecretsNeverReachTheStoreFile drives every typed writer by reflection plus UpsertBatch for every typed resource, then greps data.db, -wal and -shm for the sentinel; removing the hook fails it (data.db and data.db-wal), TestMergeDropsALegacySecret and the end-to-end TestSyncNeverPersistsSecrets. A reprint regenerates mergeIncomingResourceData without the hook while every generated test stays green. NOT covered here: the HTTP response cache in internal/client/client.go still writes raw GET bodies (secret_key included) for live list/show commands. Adversarial round 2 (P2): the scrub was narrower than the read-only MCP redactor, which also withholds keys ending in pin and descends into JSON inside string values; read-only MCP sql with a column alias or hex() bypasses the redactor's key-name output filter, so a synced row's uninstall_pin, pin and a string holding {\"secret_key\":...} reached data.db (LC_ALL=C grep -ao found all three). IsSecretKey now also matches a trailing pin (no DNSFilter spec property ends in pin, so no spec field is newly dropped; pin_code_enabled-style keys are kept), and scrubSecretString decodes a string that is one JSON value (object, array, or a JSON string holding JSON, up to maxNestedJSONDepth levels), scrubs it and re-encodes it compactly, scrubs every JSON object or array embedded in other text, and replaces a string whose remaining text names a secret key with a value (token=..., Uninstall PIN: ..., JSON cut mid-record, or the header row of a multi-line table) with \"[withheld: credential]\"; past the depth bound a string is only checked as text. Rows with no secret stay byte-identical (internal/client relies on that for its cache gate). Proven: dropping the pin suffix, the string branch or the text rule each fails TestScrubSecretsInsideStrings and TestSecretsNeverReachTheStoreFile, and the first two also fail the end-to-end TestSyncNeverPersistsSecrets. Codex round 2 (P1): duplicate JSON keys bypassed the scrub, because decoding keeps only the last value while the unchanged original bytes were preserved: a UserAgent meta of {\"token\":\"SECRET\",\"token\":null} decoded to token:null, so nothing was scrubbed and the row was stored byte-for-byte with SECRET (receipt: LC_ALL=C grep -ao on data-*.db found it). Class fix (a decision on the decoded value must never keep the raw bytes): the byte-identical path is taken only when rawJSONNeedsNoScrub walks the RAW tokens (json.Decoder.Token, every key occurrence) and finds exactly one JSON value with only whitespace after it, no object with a repeated key, no secret-named key with anything but null or a boolean, and no string value scrubSecretString would change; any other row is re-encoded from the scrubbed decoded value (duplicates collapse, secrets drop). The same gate applies at every JSON-in-string level and to every JSON segment embedded in text, and a string that is not exactly one JSON value (text after or around an embedded value) goes through the text rule over the whole string first. TestScrubPersistedSecretsProperty generates 80,000 small documents from four seeds (random nesting, keys from name/token/secret_key/pin/id/meta with duplicates, JSON-in-string, double-encoded and trailing-text variants) whose only sentinels sit under secret keys or in secret name=value text, and fails if any sentinel survives; it fails on the previous code (seed 20261020 case 17, a duplicated token) and on the JSON-in-string gate reverted alone; TestScrubDuplicateKeysAndTrailingText pins the cases, including that a repeated non-secret key is collapsed rather than trusted. Codex round 3 (P1) / adversarial round 5 (P2): the text rule ran secretPairRE on the raw string and never undid JSON escaping, so a string field holding a cut-off (undecodable) JSON blob with a \\u-escaped key name persisted the secret (ScrubPersistedSecrets of a meta string {\"a\":1,\"tok\\\\u0065n\":\"SECRET\" returned it unchanged; reproduced end to end through sync and read-only MCP sql substr). textNamesSecret now runs on UnescapeForTextRule(text), which undoes JSON string escaping one level per round up to 6 levels (\\u0065 in either hex case, \\\", \\\\, \\n, \\t, \\/), the same rule as the read-only MCP redactor's unescapeForTextRule (200,000 random strings gave identical output), so the store scrub is never narrower than MCP output and the redactor can call store.UnescapeForTextRule. The property generator now also spells token/secret_key/pin with \\u-escaped characters (upper and lower hex) as document keys, in JSON-in-string, in cut-off blobs (once and twice quoted) and in name=value text; it fails on the previous code (seed 20261020 case 22, a twice-quoted cut-off blob with p\\\\u0069n) and with the unescape call removed. Codex round 4 (P1): the text rule's exemptions matched a prefix, so a value that STARTS with an exempt literal passed: {\"meta\":\"password=true!SENTINEL42\"} survived unchanged (null-, false. and \"[withheld: credential]secret\" likewise, and a value on the next line after an empty separator, YAML-style token:\\n  SECRET, counted as empty). Every exemption now matches exactly: pairValueEmpty exempts only nothing at all, a delimiter that ends an empty value (, ; & } ] )), or a value token that is exactly true, false, null or the placeholder followed by the end of the text or a delimiter (whitespace , ; & \" ' } ] )); newlines after the separator are skipped like spaces, so the next line is read as the value. The rule is exported for the read-only MCP redactor: TextNamesSecret(raw text) undoes JSON escaping and runs the pair and table rules; SecretPairInText(already-unescaped text) is the pair rule alone (no DNSFILTER_ environment-name exception). The property generator now emits values starting with true/false/null/the placeholder and continuing into a sentinel (plain and in cut-off blobs) and next-line values; it fails on the previous code (seed 20261020 case 22, \"pin\":\"true!SNTNL24\") and with the literal check back to a bare prefix; TestSecretPairExemptionsAreExact pins both sides. Codex round 5 (P1): quoted values lost their quote boundary before the exemption checks (the separator's trailing quotes were trimmed), so a roaming-client meta of password=\",SECRET\" read as an empty value and survived into SQLite and read-only MCP. Value extraction is now one tokenizer, pairCarriesValue, and every exemption applies to the value it extracts: spaces and newlines after the separator are skipped; a value opening with a quote (or a quote escaped at that level, \\\") runs to the matching closing quote with backslash escapes honored, or to the end of the text when unclosed; a closed quoted value followed by anything but the end or a delimiter runs on and carries a value; any other value runs to the first delimiter (the placeholder is matched whole); a value is exempt only when it is exactly empty, true, false, null or the placeholder (quoted content compared with its quotes and surrounding whitespace removed), or an unclosed quote followed only by delimiters (a preview cut right after the separator). TextNamesSecret runs the pair rule on the raw text and on each level of JSON escaping undone, because a quote boundary is only right at the level it was written in (token=\"\\\",SECRET\" is a value at its own level and looks empty once unescaped). The property generator now emits quoted values whose content starts with a delimiter, a literal, the placeholder or an escaped quote, closed or unclosed, plain and in cut-off blobs; it fails on the previous code (seed 20261020 case 19, x password:'null,SNTNL19) and with each tokenizer rule reverted (quotes trimmed again, pair rule only on fully unescaped text, closed quoted value never running on); TestPairValueTokenizer pins both sides. Round 8 (adversarial R7 P1, Codex R6 P1, adversarial R7 P2): (1) the CLI's own auth hints (export DNSFILTER_API_KEY=\"your-token-here\" and the PowerShell twin in helpers.go, auth.go, doctor.go and mcp/tools.go; DNSFILTER_API_KEY=<your-token-here> in client.go; <token>, <value> and <long-random-value> in the README, guide and mcp-install docs) made read-only MCP withhold every 401/403 error block; those five documentation placeholders are now exempt on an exact match of the extracted value only, quoted or not, like WithheldValuePlaceholder (12 CLI/doc strings flip to kept, none flip to withheld). (2) Spaced credential labels were missed (\"API Key: SECRET\", \"Network secret key: SECRET\" reached SQLite): the pair regex now captures up to three words before the separator and labelNamesSecret treats the whitespace like _ or -: the last word names a secret, or it is key/keys and the last two or three words together do (API Key, Secret Key, Network secret key; not Password Policy, public key, the key); a header cell of two or three such words heads a secret column when the next non-empty line has the same number of cells. (3) A value on the next line counts only in YAML block form: the next non-empty line is indented deeper than the key's line and is a single token or a quoted string (password:\\n  hunter2 withheld; Credentials:\\n  stored in IT Glue, Uninstall PIN:\\nask the NOC and Rotate the token:\\nnext quarter kept). Proven: each rule reverted alone fails the extended property test, the pinned cases or TestTextRuleKeepsPlaceholdersAndProse. Round 8 / Codex round 7 (2026-10-20): the round-7 attempt to keep prose after a label that ends its line (judging a next-line value by indent and word count) leaked the common shape of a credential written on the next line ('Uninstall PIN:\\n482915', 'password:\\n  correct horse battery staple'); a value that starts on a later line is now judged exactly like a same-line value, so the rule fails closed (prose after a line-ending label is withheld, by design). A spaced secret header (API Key) heads a table when the next non-empty line is a delimited row of any width, since a quoted comma in a CSV row adds cells. TestTextRuleKeepsPlaceholdersAndProse fails on 16 inputs against the previous rule. Codex round 8 / adversarial round 9 (2026-10-20): a value that starts with a delimiter (password=;hunter2) was read as empty; it is now empty only when nothing but delimiters follows (fail closed). The label before a separator is found procedurally (secretLabelBefore): one to three words naming a secret, optionally followed by a qualifier led by a parenthetical, number, comma, dash or preposition (Uninstall PIN for Acme laptops: 4821, Uninstall PIN (Acme): 4821); a following noun is another label (Password Policy: strict is kept), and 'with' is not a qualifier so the CLI's own 'Set your API key with: export ...' hint is judged by its inner placeholder pair. Semicolon tables and 2-5 word headers count. The label window is cut before any scan (the first version searched the whole prefix per separator: 100 s on 1.2 MB; TestTextRuleStaysLinear). Codex round 9 (P1) / adversarial round 10 (P2s), 2026-10-20: the 120-byte label window let 'password for <130 chars>: x' through, the closed qualifier-lead list missed [ \\u2013 \\u2014 @ { < and glued #, the window reached across JSON keys ('Office of the Secretary of State','status':... withheld a whole read-only result), and the per-separator window scan was O(120^2). SecretPairInText is now one linear pass with no window: a secret run followed by any punctuation, a digit or a preposition arms the segment, however long the qualifier; a segment ends at a line break or at the end of a JSON string (a quote followed by , } or ]); an exempt value after a labelled separator (<token>, the placeholder) is skipped so its words never arm. TestTextRuleKeepsPlaceholdersAndProse fails on 15 inputs against the windowed rule; TestTextRuleStaysLinear covers 1 MB of '(:' with and without a trailing backslash run. Adversarial round 11 (2 P1s, 2026-10-20): any quote followed by , ] or } ended the segment, so a qualifier listing quoted names ('Admin password for 'Main Office', HQ: x') leaked; and an escaped-looking \\\\n in a UNC path (\\\\\\\\dc01\\\\netlogon) ended it too. Real double quotes (even backslash run) are now tracked as JSON strings and disarm only the qualifier armed inside the string they close; they never arm; escaped double quotes are literal; single quotes are punctuation that arms; an escaped line break is text at its level (the unescape rounds supply real breaks). The table-header check finds the next non-empty line in one backward pass (it was K*M: 34 s on 1 MB). Codex round 10 (P1): an opening double quote after a secret label cleared it without arming (PIN \"Acme\" (laptops): 482915 leaked); a double quote (or an escaped one, one level down) that opens a string after a space now arms, while a key's quote, which sits against its label, never does. Adversarial round 12 (P1, 2026-10-20): tracking JSON strings in text anyone can write let one stray quote (an inch mark: Rack: 19\" cabinet) invert the phase, so a quoted name in a later qualifier disarmed it and the credential was stored. The rule now has two modes. Plain (SecretPairInText, every store value and every string in a result) tracks no strings: an opening quote after a space arms and nothing but a real line break disarms. JSON (SecretPairInJSONText, only the read-only filter's pass over a whole result it decoded) tracks strings at every JSON-in-string nesting level (a quote after 2^d-1 backslashes) and ends a qualifier where the string it armed in closes; the pass over the fully unescaped result is label-only (SecretLabelPairInText), since unescaping destroys the quote structure. A string value that starts like JSON but is not one value (a bounded preview) skips the whole-string plain pass: its complete records are redacted as JSON and the remainder keeps the plain rule, so ordinary records no longer withhold a preview. A 8100-case fuzz (6 prefixes incl. stray quotes x 6 labels x 15 qualifiers x 3 separators, plain/result/preview/mixed) through redact.Final and the store scrub found no miss. Adversarial round 13 (P1) / Codex round 12 (P1): skipping the whole-string plain pass for tenant strings that start with [ or { (to keep bounded previews) let '[Site notes] Rack: 19\" cabinet\\nUninstall PIN [\"HQ\"] laptops: x' through read-only MCP, because JSON mode then ran on tenant text; every string value gets the plain pass again (a preview holding a qualifier-like ordinary value loses only its preview field), and a decoded JSON segment leaves its opening bracket in the plain remainder so a qualifier written as JSON still arms. In plain mode a quote that closes a quoted label (\"Uninstall PIN\" (HQ): x) keeps it pending for the qualifier after it. Adversarial round 14 (P1, 2026-10-20): a plural secret word was not a label ('Uninstall PINs: x', 'API tokens: x', uninstall_pins=x, a {\"uninstall_pins\":[...]} string), because the suffix rule matched only token and pin at the end of a folded word. The suffix list now also holds tokens and pins, for keys and text labels alike (no DNSFilter spec property ends in tokens or pins, so no spec field is newly dropped; a counter such as total_tokens is now withheld). Dropping the plurals fails TestIsSecretKey and five TestScrubSecretsInsideStrings cases. Codex round 13 (P1, 2026-10-20): a string holding exactly one JSON value returned early from the key rule, so a JSON key carrying a qualified label ({\"Uninstall PIN (HQ)\":\"x\"} inside a note) survived the store scrub and read-only MCP. The kept or re-encoded form of every JSON-in-string now also gets the plain text rule (store scrubSecretString and the redactor's string branch alike); removing it fails TestScrubSecretsInsideStrings ('qualified json key') and TestQualifiedLabelAsJSONKeyInString. Adversarial round 15 (P2, 2026-10-20): that whole-text backstop read re-encoded JSON as prose, so a value ending in a secret word (Victoria's Secret, Spin, Tokens, 'Secretary of') armed the next key and read-only sql withheld whole records and whole json_group_array lists. It is replaced by KeyNamesSecret: every key the scrub, the raw-token gate and the read-only redactor judge passes the key rule OR, read as a text label (key + ': x'), the label rule, so {\"Uninstall PIN (HQ)\":\"x\"} is a credential key while the JSON structure around it is honored. No DNSFilter spec property (1,420 keys) is newly matched. Reverting KeyNamesSecret to IsSecretKey fails the qualified-key cases; restoring the backstop fails the ordinary-record keep cases in TestQualifiedLabelAsJSONKeyInString. Codex round 14 (P1, 2026-10-20): ids are stored unscrubbed (resources.id, FTS, typed tables), so an ID-less row keyed by its name ({\"name\":\"token=S\"}), an id field holding a credential, or a parent key holding one put the secret in data.db (read-only sql hex(id) recovered it). IdentityNamesSecret (the scrub would withhold or rewrite the value) now makes ExtractResourceID return no id (an extract failure), skips such a parent value in resourceStorageID, refuses it in Upsert, and refuses a parameter fingerprint over a secret key or value (a hash of a PIN is brute-forceable). Reverting each of the three reachable guards fails TestSecretsNeverReachTheStoreFile. Adversarial round 16 (P1, 2026-10-20): the scrub kept a secret-named key whose value was true, false or null as a flag, so a key whose own text is the credential ({\"Uninstall PIN: 4821\":true}, {\"token=X\":null}, in a JSON-in-string and at the top level) reached data.db and the response cache. KeyCarriesSecret (TextNamesSecret on the key text) now drops the pair whatever its value in the store scrub, the raw-token gate, the redactor and its raw gate; disabling it fails three TestScrubSecretsInsideStrings cases. Codex round 15 (P1) / adversarial round 16 (P2): the fingerprint check looked only at top-level fields with IsSecretKey, so {\"card\":{\"pin\":\"4821\"}} and {\"Uninstall PIN (HQ)\":\"4821\"} were hashed (brute-forced back to 4821); parameterSnapshotID now refuses any payload ScrubPersistedSecrets would change (TestParameterFingerprintNeverHashesASecret: 5 cases fail without it). Adversarial round 16 (P2): a refused JSON:API id fell through to the envelope unwrap and was re-keyed by attributes.name, so such rows collapsed and a prune deleted them under a complete sync; identityRefused now makes it an extract failure (TestRefusedIdentityIsAnExtractFailure). Codex round 16 (P1): a \\u-escaped PIN label JSON-encoded 14 times outran the 8 decode levels and 6 unescape rounds, so the scrub kept it. Both bounds now fail closed: past maxNestedJSONDepth a string that still decodes as one JSON value is withheld, and TextNamesSecret treats escaping deeper than maxUnescapeRounds (not at a fixed point) as naming a secret. TestDeepEncodingFailsClosed fails with each rule removed (the unescape fixture is built from rune(92)). Codex round 17 (P1, 2026-10-20) / adversarial round 18 (P2): (1) the scanner read PIN2, PIN.2 and \"PIN.\" as one word, so 'Uninstall PIN2: 4821', 'Uninstall PIN.2: 4821' and 'Uninstall PIN. HQ: 4821' were kept by the store scrub, the response-cache gate and read-only MCP. gluedSecretLabel judges every prefix of a word that ends in a letter right before a digit, or before a '.', '_' or '-' not followed by a letter, by the IsSecretKey/labelNamesSecret rules from running state (linear); such a word names the secret and arms the segment. Between letters those characters still join a compound name (token_type, pin_code_enabled, api-keys.index); a word ending in an identifier word (token.id) is never one. A glued arming does not reach the CLI's own '<secret label> with:' instruction (check your API key. Set your API key with: export ...), so its auth hint stays readable; any other arming still labels it. In JSON text a second arming no longer replaces the first (armedIn: each ends where its own string closes), a pre-existing narrowing this exposed. TestGluedSecretLabelArms brute-forces 13 secret words x 11 glues x 6 qualifiers x 4 separators x 5 prefixes through the text rule and the store scrub and fails with the glued check off; TestJSONScanRearmingNeverNarrows fails with re-arming replacing the earlier arming. (2) header cells longer than 64 bytes, longer than five words, or carrying a qualifier were skipped before the secret check; there is no length or word guard now, an identifier cell is judged as a JSON key (KeyNamesSecret) and a spaced label (with one optional bracketed qualifier) by the label rule. TestTableHeaderAnyLength fails with each guard restored. (3) after 256 failed decodes the rest of a string was copied unexamined (256 '[' then {\"p a s s w o r d\":\"X\"} kept X); the store scrub and the redactor's redactJSONSegments now return the placeholder for a value whose budget ran out with a '{' or '[' left, and skip placeholders without spending the budget. TestEmbeddedJSONBudgetFailsClosed, TestReadOnlyWithholdsRound17Shapes and TestBudgetRuleMatchesStore fail without it. (4) NKEY, DNSFilter's roaming-client deploy property for the site secret key, is a whole-word secret key (secretKeyWords; nKey too; not monkey or donkey; no spec property matched), and plistNamesSecret judges <key>NAME</key><string|integer|real|data|date>VALUE. TestNKEYIsASecret fails with either removed. (10) TestDepthBoundWithheldWithoutEscapes fails with the maxNestedJSONDepth decode block removed (the existing TestDeepEncodingFailsClosed still passes then). Differential vs deb7d1a2f over 949 spec keys, 10,840 spec/doc/CLI strings, 600,000 random strings and 200,000 random JSON documents: no value the old rule withheld is kept by any exported rule; two README paragraphs are newly withheld. Round 18 follow-up (2026-10-20): besides the plist entry, markupNamesSecret judges an XML/HTML element (<password>X</password>, <secret_key a=\"b\">X) and a command-line flag followed by a value (--nkey X, -password X) by KeyNamesSecret and exemptPairValue; an unclosed tag that is a documentation placeholder (<token>, <value>) is prose. TestMarkupAndFlagValuesNameSecrets fails without it (12 assertions). Codex round 18 / adversarial round 19 (2026-10-20): (1) P1 adversarial: DNSFilter's own API key is written 'Authorization: KEY' (curl -H 'Authorization: KEY', Authorization=KEY, {\"Authorization\":\"KEY\"}, Authorization: Bearer KEY, Proxy-Authorization: Basic KEY) and no rule named it, so a pasted curl in an unblock request note reached data.db, FTS, the response cache and read-only MCP. A key or label whose folded words end in authorization (authorizationSuffix) is now a secret for the key rule (IsSecretKey, so every JSON key, table header, markup element and flag) and for text labels. The text pair scan reads it in a second pass (secretPairScan: the first pass is the earlier vocabulary unchanged), because a new label can lift a pair through the scan's own exemptions: 'Authorization: <token>' skips its exempt value, whose token word armed the text after it before ('4821Authorization: <token>\"string\": falsehostname<value>' was withheld and a one-pass rule kept it). No DNSFilter data property ends in authorization (header_authorization is only the spec's security-scheme name; authorized_domains and authorization_url do not match), and the CLI's own messages about the Authorization header stay readable. (2) P1 Codex: a flag value starting with '-' (deploy --password -hunter2) bypassed the flag rule. flagNamesSecret replaces flagValueRE and fails closed: after a secret-named flag any next token on its line is its value unless it is a long flag (--verbose); a lone '-' counts. (3) P1 Codex / P2 adversarial: XML CDATA (<password><![CDATA[x]]></password>, the plist <key>NKEY</key><string><![CDATA[x]]></string>), name/value attribute pairs (<Property Id=\"NKEY\" Value=\"x\"/>, <add key=\"NKEY\" value=\"x\"/>, <input type=\"password\" value=\"x\">, <meta name=\"csrf-token\" content=\"x\">, and a key or name attribute whose element text is the value, <entry key=\"password\">x</entry>, never after a void or self-closing tag and never for an id) and fullwidth separators (PIN U+FF1A 4821, secret_key U+FF1D x) were kept. The element and plist rules read the text as written and with each CDATA section unwrapped (cdataVariants: both readings, so unwrapping never hides a tag the raw text shows); markupAttributeNamesSecret judges attribute pairs in one pass; TextNamesSecret also reads each escape level with fullwidth ASCII forms, small forms, colon and equals look-alikes and HTML character references (&#58;, &colon;, &lt;) folded to ASCII (foldWideForms), as a second reading, so a fullwidth letter that armed as punctuation before still arms. (4) P1 Codex: the depth bound failed open for JSON embedded after prose ('prefix {\"p a s s w o r d\":\"X\"}' wrapped in a JSON array 8 times): past maxNestedJSONDepth a string that still holds '{' or '[' (placeholders aside) is withheld. (5) P2 adversarial: markupNamesSecret searched the whole text for a closing tag once per <token> element (16 s on 400 KB, a CPU denial of service from end-user text); whether a placeholder name is ever closed is now looked up once per name. (6) P2 adversarial: the decode budget withheld a whole ordinary read-only result (agents_stale csv=true with 256 or more records: each CSV-escaped JSON cell failed to decode and spent the budget). A CSV cell holding one JSON value with its quotes doubled (CSVJSONCell: the quote before it opens a cell at the text start or after a separator, and a quote that is not doubled closes it) is decoded and judged by the key rule like any segment, in the store scrub and the read-only redactor alike, and never spends the budget; an exhausted budget still withholds. (7) P2 adversarial: a glued arming in an ordinary hostname (LAPTOP-SPIN1, TOKEN2-LAPTOP) ran past its value after CSV-doubled quotes (one escaped quote in an earlier value inverts which quotes the JSON-text pass reads as string boundaries) and labelled a later key's separator, withholding the whole result. In JSON text (SecretPairInJSONText, the read-only whole-result pass) a glued-only arming now ends at a quote or a comma (endGlue); plain text, which the store uses, keeps it whole, and 'Uninstall PIN2: 4821' is still withheld. (8) P1 Codex (MCP): a JSON error body cut to 4096 bytes no longer decoded, so a key only the key rule reads ({\"pass word\":\"x\",...) survived read-only MCP. CutOffKeyNamesSecret applies KeyNamesSecret to each quoted key where a JSON key stands (after '{' or ',', CSV-doubled quotes too) with a value that is not exempt, at every escape level, on the text an embedded-JSON scan could not decode (the store scrub's remainder and the redactor's textNamesCredential), so a truncated object is judged like the whole one; the client-side scrub before truncating is a separate change in client.go. Receipts (each fix reverted alone): TestAuthorizationIsASecretName fails with the suffix and second pass off, with the second pass alone off ('TextNamesSecret(\"Authorization: R19AUTH01\") = false') and with one pass using the new vocabulary ('the new label lifted a pair the earlier rule withheld'); TestFlagValueStartingWithADashIsAValue ('deploy --password -R18LEAK'); TestXMLCDATAAttributesAndFullwidthSeparators with CDATA, attribute pairs, folding, character references or the content attribute removed; TestDepthBoundFailsClosedAfterProse ('encoded 8 times: the embedded key survived'); TestRound18RulesStayLinear (1 MB of <token>x took 2m6s with the per-element search restored, 0.22 s fixed); TestCSVResultIsNotWithheldForItsSize ('FinalAlways withheld or changed a clean CSV of 300 records') and TestCSVJSONCellsAreDecoded; TestGluedHostnameNeverWithholdsAResult ('hostname LAPTOP-SPIN1: the result was withheld'); TestTruncatedJSONBodyGetsTheKeyRule and TestCutOffObjectKeysGetTheKeyRule. Every new rule finishes 1 MB of adversarial input in under 0.5 s. Differential vs d0b6dcfb6 (the old store rule and read-only redactor vendored beside the new ones): 1,774 spec names (properties, parameters, schema keys), 15,071 spec, doc and CLI strings, 600,000 random strings and 200,000 random JSON documents through the key rule, the text rule and the store scrub, plus 150,000 strings, 200,000 documents and 20,001 agents_stale-shaped CSV results through read-only FinalAlways: no key, string or row the old rules withheld is kept by the store (0 narrowed in every store and key tally, and 0 for read-only strings). Read-only whole results: 15 documents and 1,640 CSV results the old filter withheld whole are now returned; with the CSV-cell decode and the JSON-mode glue end both disabled the count is 0, so all of them are (6) and (7). Per pair, of 413,024 key/value pairs the old read-only filter withholds on their own, 10 appear in new output: the old store scrub keeps every one (no credential by the per-value rule), 9 disappear with both relaxations disabled and 1 the old filter also returned in that result; the value-level checks report every pair when fed unredacted input. Newly withheld ordinary values: the spec's security-scheme name header_authorization (not a data property) and three documentation strings that show an Authorization header (the spec's auth example 'Authorization: eyJ...', the MCP server's startup stderr line and an mcp-install.md sentence), none of which a tool returns.",
       "status": "active",
       "asserts": [
         {
@@ -633,6 +633,211 @@
         {
           "file": "cli/internal/store/dnsfilter_secrets_markup_test.go",
           "contains": "func TestMarkupAndFlagValuesNameSecrets(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "const authorizationSuffix = \"authorization\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if authorization && strings.HasSuffix(folded, authorizationSuffix) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if secretPairScanIn(text, mode, false) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "return containsFoldASCII(text, authorizationSuffix) && secretPairScanIn(text, mode, true)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if isSecretKeyIn(last, false) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "runSecret = glued || labelNamesSecret(strings.Join(run, \" \")) || authorization && authorizationLabel(w)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func flagNamesSecret(text string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if v := text[k:e]; v != \"\" && !isLongFlag(v) && !exemptPairValue(v) && KeyNamesSecret(name) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "not_contains": "flagValueRE"
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func unwrapCDATA(text string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "for _, t := range cdataVariants(text) {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if markupElementNamesSecret(t) || markupAttributeNamesSecret(t) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if attr == \"value\" || attr == \"content\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if folded := foldWideForms(text); folded != text && (SecretPairInText(folded) || plistNamesSecret(folded) || markupNamesSecret(folded)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if folded := foldWideForms(text); folded != text && tableNamesSecret(folded) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if c, n := htmlCharRef(s[i:]); n > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "case r >= 0xFF01 && r <= 0xFF5E && r != 0xFF3C:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if strings.ContainsAny(strings.ReplaceAll(s, WithheldValuePlaceholder, \"\"), \"{[\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if documentationPlaceholders[\"<\"+name+\">\"] && !closes(name) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "not_contains": "&& !strings.Contains(lower, \"</\"+name)"
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func CSVJSONCell(text string, start int) (string, int, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if cell, end, ok := CSVJSONCell(text, start); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "out.WriteString(strings.ReplaceAll(enc, `\"`, `\"\"`))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if cell, end, ok := store.CSVJSONCell(text, start); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "out.WriteString(strings.ReplaceAll(encodeJSONCompact(cleaned), `\"`, `\"\"`))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if mode == scanJSON && armedByGlue {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "endGlue()",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "func CutOffKeyNamesSecret(text string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if CutOffKeyNamesSecret(plain) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets.go",
+          "contains": "if k < len(text) && text[k] == ':' && KeyNamesSecret(text[i+1:j]) && pairCarriesValue(text[k+1:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if store.CutOffKeyNamesSecret(plain) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestAuthorizationIsASecretName(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestFlagValueStartingWithADashIsAValue(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestXMLCDATAAttributesAndFullwidthSeparators(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestDepthBoundFailsClosedAfterProse(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestCutOffObjectKeysGetTheKeyRule(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestCSVJSONCellsAreDecoded(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/dnsfilter_secrets_r18_test.go",
+          "contains": "func TestRound18RulesStayLinear(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_r18_test.go",
+          "contains": "func TestCSVResultIsNotWithheldForItsSize(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_r18_test.go",
+          "contains": "func TestGluedHostnameNeverWithholdsAResult(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_r18_test.go",
+          "contains": "func TestTruncatedJSONBodyGetsTheKeyRule(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -3774,7 +3979,7 @@
     {
       "id": "merge-explicit-empty-scalar-is-authoritative",
       "summary": "the keep-richer merge treats a key the API sends as null or \"\" as the current value; only an omitted key keeps the stored one",
-      "why": "Codex round 10 (P1, 2026-10-20): the press 4.33.5 keep-richer merge kept the stored value whenever the incoming one was null or empty, except for *_at timestamps and last_sync (an earlier hand-fix). A roaming client that last reported the newest agent_version and then reported agent_version \"\" kept the old version in the mirror, so agents drift counted it current instead of version_unknown: an all-clear from unknown telemetry. Generalized the timestamp exception to every scalar null or \"\". TestMergeExplicitNullTimestampClears now pins friendly_name null, agent_version \"\" and an omitted key, and fails against the previous merge.",
+      "why": "Codex round 10 (P1, 2026-10-20): the press 4.33.5 keep-richer merge kept the stored value whenever the incoming one was null or empty, except for *_at timestamps and last_sync (an earlier hand-fix). A roaming client that last reported the newest agent_version and then reported agent_version \"\" kept the old version in the mirror, so agents drift counted it current instead of version_unknown: an all-clear from unknown telemetry. Generalized the timestamp exception to every scalar null or \"\". TestMergeExplicitNullTimestampClears now pins friendly_name null, agent_version \"\" and an omitted key, and fails against the previous merge. Codex round 18 (P1, 2026-10-20): the keep-richer merge kept the stored container whenever the API sent a scalar (or an empty value of another type) for the same key, so a policy whose blacklist_domains the API now sent as false kept the stale [] and lists where printed its all-clear instead of naming the policy unreadable. mergeKeepRicherValue now takes every key the incoming object sends whatever its type: objects still merge key by key and arrays by identity, but a container is replaced by a scalar, null or a container of another kind. Only an omitted key keeps the stored value, so a thinner list row still keeps the detail's richer fields, and an empty array of objects still keeps the richer copy (merge-empty-scalar-array-authoritative). Receipts (the two keep-existing rules restored): TestMergePresentKeyOfAnyTypeReplaces fails ('blacklist_domains sent as false merged to [\"a.example\"]'); TestSyncMistypedPolicyListIsNotHiddenByTheStaleList fails ('lists where did not name policy 10 as unreadable').",
       "asserts": [
         {
           "file": "cli/internal/store/store.go",
@@ -3784,6 +3989,24 @@
         {
           "file": "cli/internal/store/dnsfilter_merge_test.go",
           "contains": "t.Fatalf(\"an explicit empty agent_version kept the stale one: %s\", merged)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "if isJSONContainer(existing) && !isJSONContainer(incoming) {"
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "if isJSONEmpty(incoming) && !isJSONEmpty(existing) {"
+        },
+        {
+          "file": "cli/internal/store/store_r18_test.go",
+          "contains": "func TestMergePresentKeyOfAnyTypeReplaces(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_r18_test.go",
+          "contains": "func TestSyncMistypedPolicyListIsNotHiddenByTheStaleList(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -5219,7 +5442,7 @@
     {
       "id": "sync-non-object-item-is-incomplete",
       "summary": "a list item that is not a JSON object (42, \"x\", null, [1]) is an extract failure in the batch writer, so sync never certifies a walk complete (or prunes) over a row it did not store; a null child no longer panics the per-parent walk",
-      "why": "Codex round 17 (P1, 2026-10-20): UpsertBatchDetailed only counted a non-object item as skipped, so sync saw stored=1, extractFailures=0 for [{\"id\":\"a0\"},42], certified the walk complete and the --full reconcile deleted the row the 42 stood for. Every undecodable or non-object item now counts as an extract failure (the stderr not-cached warning keeps its old id-only condition). The dependent loop wrote parent_id into the nil map a null child decodes to and panicked (P2); a non-object child now goes to the store unchanged and fails that parent's walk. TestUpsertBatchCountsNonObjectItems and TestSyncNonObjectItemIsIncomplete fail without the count; TestSyncDependentNullChildIsAFailure panics (assignment to entry in nil map) without the nil guard.",
+      "why": "Codex round 17 (P1, 2026-10-20): UpsertBatchDetailed only counted a non-object item as skipped, so sync saw stored=1, extractFailures=0 for [{\"id\":\"a0\"},42], certified the walk complete and the --full reconcile deleted the row the 42 stood for. Every undecodable or non-object item now counts as an extract failure (the stderr not-cached warning keeps its old id-only condition). The dependent loop wrote parent_id into the nil map a null child decodes to and panicked (P2); a non-object child now goes to the store unchanged and fails that parent's walk. TestUpsertBatchCountsNonObjectItems and TestSyncNonObjectItemIsIncomplete fail without the count; TestSyncDependentNullChildIsAFailure panics (assignment to entry in nil map) without the nil guard. Codex round 18 (P1, 2026-10-20): a map-keyed record whose value is {} ({\"data\":{\"1\":{},\"2\":{\"id\":\"2\"}}}) was dropped by the flattener before integrity accounting, so the walk stored 2, counted no failure, certified complete and --full deleted record 1, which the response still names. flattenMapKeyedCollection now passes such a record on as a non-object item (null), which the batch writer counts as an extract failure, so the walk is incomplete and never prunes; a collection whose records are all empty is an integrity failure, never an empty page. Receipts (fix reverted): TestMapKeyedEmptyRecordIsAnExtractFailure fails ('flattened 1 items, want 2'); TestSyncMapKeyedEmptyRecordIsIncomplete fails ('--full pruned the record the response still names (1 rows left, want 2)').",
       "asserts": [
         {
           "file": "cli/internal/store/store.go",
@@ -5249,6 +5472,21 @@
         {
           "file": "cli/internal/cli/sync_r17_test.go",
           "contains": "func TestSyncDependentNullChildIsAFailure(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "items = append(items, json.RawMessage(\"null\"))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store_r18_test.go",
+          "contains": "func TestMapKeyedEmptyRecordIsAnExtractFailure(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_r18_test.go",
+          "contains": "func TestSyncMapKeyedEmptyRecordIsIncomplete(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -5293,7 +5531,7 @@
     {
       "id": "sync-has-more-null-is-unknown",
       "summary": "a has_more (has_next, next_page) that is null, a string or a number is unknown, never a proven end: only the JSON literals true and false are read",
-      "why": "Codex round 17 (P1, 2026-10-20): json.Unmarshal of null into a bool succeeds and leaves false, so a full page with \"has_more\": null was read as proven exhaustion: no page-number fallback, no unprovable-end check, the walk saved complete at 100 of 101 rows. explicitJSONBool now gates envelopeExplicitHasMore and extractPaginationFromEnvelope; an unknown value falls back to the other pagination signals. TestSyncHasMoreNullIsUnknown fails without it (stored 100 user-agents, want 101).",
+      "why": "Codex round 17 (P1, 2026-10-20): json.Unmarshal of null into a bool succeeds and leaves false, so a full page with \"has_more\": null was read as proven exhaustion: no page-number fallback, no unprovable-end check, the walk saved complete at 100 of 101 rows. explicitJSONBool now gates envelopeExplicitHasMore and extractPaginationFromEnvelope; an unknown value falls back to the other pagination signals. TestSyncHasMoreNullIsUnknown fails without it (stored 100 user-agents, want 101). Codex round 18 (P1, 2026-10-20): has_more inside a pagination wrapper ({\"data\":[...],\"meta\":{\"has_more\":true}}) was never read, although the next-cursor search looks inside the same wrappers, so a short page that said there is more ended the walk complete and --full pruned the outstanding rows. envelopeExplicitHasMore now reads has_more, hasMore, has_next, hasNext and next_page (explicit booleans only, through explicitJSONBool) in the envelope and in each wrapper of paginationWrapperKeys (response_metadata, additional_data, pagination, meta, paging: one list for both searches now), an explicit true anywhere winning over a false elsewhere, and extractPaginationFromEnvelope ORs it in. A short page whose wrapper says has_more true with no cursor is cursor_unavailable (incomplete, no prune); an explicit wrapper false on a full page ends the walk, as a top-level false does. Receipt (wrapper levels removed): TestSyncWrapperHasMoreIsRead fails ('--full pruned the outstanding rows (1 left, want 2)').",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
@@ -5313,6 +5551,32 @@
         {
           "file": "cli/internal/cli/sync_r17_test.go",
           "contains": "func TestSyncHasMoreNullIsUnknown(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "var paginationWrapperKeys = []string{\"response_metadata\", \"additional_data\", \"pagination\", \"meta\", \"paging\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "for _, wrapperKey := range paginationWrapperKeys {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if more, ok := envelopeExplicitHasMore(envelope); ok && more {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "more, parsed = more || hasMore, true",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_r18_test.go",
+          "contains": "func TestSyncWrapperHasMoreIsRead(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -6026,6 +6290,100 @@
         {
           "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
           "contains": "func TestR18ExportPrivateFileCheck(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-empty-proof-is-the-response-path",
+      "summary": "a resource that declares where its rows are listed proves an empty collection only by an empty array at that path; a metadata array beside it (\"included\":[]) or a null, missing or scalar path is an unknown collection: the walk is incomplete with a warning, never complete, never pruned, and never stored as the collection's one record",
+      "why": "Codex round 18 (P1, 2026-10-20): isEmptyPageResponse took any lone empty array as proof of an empty page (hasExactlyOneEmptyArray), so {\"data\":null,\"included\":[],\"meta\":{\"total\":2}} from /v1/user_agents/all certified an empty collection and --full deleted every user-agent row. For a resource that declares its response path, only an empty array at that path ({\"data\":[]}, or an empty list wrapper inside it) proves emptiness; a null, missing or scalar path is unknown. The flat walk then no longer falls through to the single-object store either: collectionPayloadUnknown makes it incomplete (collection_unreadable, with a warning), because a writer that keys an id-less envelope by its fingerprint (user-agent-releases, enterprise-connections) stored the unreadable envelope as the collection's one record and marked the collection complete. Resources with no declared path keep the generated heuristics; the per-parent walk already treats a page that is not provably empty as empty_non_list_response (incomplete). Receipts: with the path restriction reverted TestSyncMetadataArrayNeverProvesEmpty fails ('--full pruned the mirror to 0 user-agents, want 2'); with only the unreadable-collection guard reverted it fails on the release feed ('the unreadable envelope was stored as a record (2 rows, want 1)').",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if json.Unmarshal(pathData, &inner) == nil && isEmptyItemKeyArray(inner) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func isEmptyItemKeyArray(envelope map[string]json.RawMessage) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if collectionPayloadUnknown(data, responsePathForResource(resource, path)...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func collectionPayloadUnknown(data json.RawMessage, responsePaths ...string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "outcome.reason = \"collection_unreadable\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_r18_test.go",
+          "contains": "func TestSyncMetadataArrayNeverProvesEmpty(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-unpaginated-continuation-is-incomplete",
+      "summary": "a resource sync reads as one page (flat or per parent) whose response carries an explicit continuation (links.next, a next cursor, has_more true, before any synthetic page/offset fallback) is an incomplete walk with an unfollowed_continuation warning, never complete and never pruned",
+      "why": "Codex round 18 (P1, 2026-10-20): a resource sync reads as one page (resourceSupportsPagination false: api-keys, invoices, enterprise_connections, scheduled_reports and others) declared its walk complete even when the response carried links.next, a next cursor or has_more true, so --full deleted the rows on the page it never fetched; the per-parent walk had the same branch, and its --max-pages branch too. The continuation the response itself carries (explicitNextCursor and explicitHasMore, read before the synthetic page/offset fallback, so a full page with no signal is still one page) now makes the walk incomplete with an unfollowed_continuation warning (syncUnpaginatedContinuation), flat and per parent, on a page with rows and on an empty one; it is never complete and never prunes. Receipt (check disabled): TestSyncUnpaginatedContinuationIsIncomplete fails ('flat: --full pruned the key on the unfollowed page (1 left, want 2)').",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func syncUnpaginatedContinuation(resource string, explicitHasMore bool, explicitNextCursor string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return !resourceSupportsPagination(resource) && !syncPageEndsWalk(explicitHasMore, explicitNextCursor)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "explicitNextCursor, explicitHasMore := nextCursor, hasMore",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if syncUnpaginatedContinuation(resource, explicitHasMore, explicitNextCursor) {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if syncUnpaginatedContinuation(dep.Name, explicitHasMore, explicitNextCursor) {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync_r18_test.go",
+          "contains": "func TestSyncUnpaginatedContinuationIsIncomplete(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "typed-failure-drops-stale-projection",
+      "summary": "when a batch write's typed projection fails (a NOT NULL parent key sent as null) after its generic row committed, the earlier typed row for that id is deleted in the same transaction, so TypedPartitionComplete sees the typed table short of the generic partition and typed reads fall back to the generic rows instead of serving the stale value",
+      "why": "Codex round 18 (P2, 2026-10-20): TypedPartitionComplete compares only counts, so a batch update whose typed projection failed (lan_ips networks_id sent as null against its NOT NULL column) committed the new generic row while the earlier typed row stayed: counts equal, and typed reads served the stale IP without the generic-fallback warning. The batch writer already rolled the typed upsert back to its savepoint and counted it; it now also deletes that id's typed row in the same transaction, so the typed table is short of the generic partition, TypedPartitionComplete reports incomplete and typed reads fall back to the generic rows until a clean write projects the row again. Every typed writer the batch dispatches writes exactly the table typedListTableByResource names (40 of 40 checked); the single-row Upsert<X> writers are atomic (a typed failure rolls the generic row back too) and the generic Upsert is reached only for resources with no typed table, so neither has the gap. Receipt (delete removed): TestFailedTypedUpdateMakesThePartitionIncomplete fails ('a failed typed update left the typed partition complete=true (err=<nil>): typed reads return the stale IP').",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if _, delErr := tx.Exec(fmt.Sprintf(`DELETE FROM \"%s\" WHERE \"id\" = ?`, table), storageID); delErr != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store_r18_test.go",
+          "contains": "func TestFailedTypedUpdateMakesThePartitionIncomplete(t *testing.T) {",
           "code_only": true
         }
       ]

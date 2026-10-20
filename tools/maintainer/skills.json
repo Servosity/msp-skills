@@ -729,7 +729,7 @@
       "display_name": "DNSFilter",
       "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
       "has_video": true,
-      "cli_hash": "sha256:ae095b127a0f5a0063c21b55861854d67bb9590122e7ea631a97372b7ee7b80f",
+      "cli_hash": "sha256:43a646591d08966980e5c2bcc9dd681f16cee79bd235c4363e95f210b20aae55",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,
