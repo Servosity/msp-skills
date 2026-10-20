@@ -505,7 +505,7 @@ func TestGroupUnblockRequests(t *testing.T) {
 	}
 	// A pending request with no usable domain is still pending, never an
 	// all-clear.
-	for _, raw := range []string{`{"id":"17","attributes":{"domain":null}}`, `{"id":"18","attributes":{}}`, `{"id":"19","attributes":{"domain":"  "}}`} {
+	for _, raw := range []string{`{"id":"17","attributes":{"domain":null,"category":{"is_threat":true}}}`, `{"id":"18","attributes":{}}`, `{"id":"19","attributes":{"domain":"  "}}`} {
 		g := groupUnblockRequests([]jaRes{ja(t, raw)}, nil, now)
 		if len(g) != 1 || g[0].Domain != "" || g[0].Requests != 1 || g[0].Hint != "review" {
 			t.Fatalf("%s: domain-less request grouped as %+v, want one review group", raw, g)

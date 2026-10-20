@@ -111,6 +111,9 @@ func TestScrubSecretsInsideStrings(t *testing.T) {
 		"plural key=value":     `{"a":"uninstall_pins=` + secretSentinel + `"}`,
 		"plural key in string": `{"a":` + q(`{"uninstall_pins":["`+secretSentinel+`"]}`) + `}`,
 		"qualified json key":   `{"a":` + q(`{"Uninstall PIN (HQ)":"`+secretSentinel+`"}`) + `}`,
+		"labelled key, flag":   `{"a":` + q(`{"Install roaming client":true,"Uninstall PIN: `+secretSentinel+`":true}`) + `}`,
+		"labelled key, null":   `{"a":` + q(q(`{"Deploy agent":false,"Admin password=`+secretSentinel+`":null}`)) + `}`,
+		"labelled key, top":    `{"Uninstall PIN: ` + secretSentinel + `":true,"name":"x"}`,
 		"qualified key, twice": `{"a":` + q(q(`{"name":"x","Admin password for HQ":"`+secretSentinel+`"}`)) + `}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
@@ -391,5 +394,49 @@ func TestMergeDropsALegacySecret(t *testing.T) {
 		if strings.Contains(data, secretSentinel) || !strings.Contains(data, "HQ2") {
 			t.Fatalf("%s: legacy secret carried over or row not updated: %s", q, data)
 		}
+	}
+}
+
+// A parameter fingerprint is a hash of the row, and a hash of a low-entropy
+// secret is reversible by brute force, so no fingerprint is taken over a
+// payload the scrub would change.
+func TestParameterFingerprintNeverHashesASecret(t *testing.T) {
+	for _, raw := range []string{
+		`{"card":{"pin":"4821"}}`,
+		`{"Uninstall PIN (HQ)":"4821","site":"HQ"}`,
+		`{"items":[{"token":"abc"}]}`,
+		`{"pin":"4821","site":"HQ"}`,
+		`{"note":"Uninstall PIN: 4821"}`,
+	} {
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(raw), &obj); err != nil {
+			t.Fatal(err)
+		}
+		if id := ResolveStorageID("billing", obj); id != "" {
+			t.Errorf("%s fingerprinted as %s", raw, id)
+		}
+	}
+	if id := ResolveStorageID("billing", map[string]any{"site": "HQ", "count": json.Number("3")}); id == "" {
+		t.Error("an ordinary parameter row got no fingerprint")
+	}
+}
+
+// A JSON:API row whose id names a credential is an extract failure: it is
+// never re-keyed by attributes.name, so two such rows cannot collapse into one
+// stored row that a later prune deletes.
+func TestRefusedIdentityIsAnExtractFailure(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	rows := []json.RawMessage{
+		json.RawMessage(`{"id":"Uninstall PIN: ` + secretSentinel + `","type":"networks","attributes":{"name":"HQ"}}`),
+		json.RawMessage(`{"id":"token=` + secretSentinel + `","type":"networks","attributes":{"name":"HQ"}}`),
+		json.RawMessage(`{"id":"7","type":"networks","attributes":{"name":"Branch"}}`),
+	}
+	stored, extractFailures, _, err := s.UpsertBatchDetailed("networks", rows)
+	if err != nil || stored != 1 || extractFailures != 2 {
+		t.Fatalf("stored=%d extractFailures=%d err=%v, want 1 stored and 2 extract failures", stored, extractFailures, err)
 	}
 }

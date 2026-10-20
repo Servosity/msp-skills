@@ -1121,3 +1121,56 @@ func TestAnalyticsHumanOutputScrubsControls(t *testing.T) {
 		t.Fatalf("analytics human output carries terminal controls: %q", out.String())
 	}
 }
+
+// A network deleted upstream takes its LAN IPs with it: after a certified,
+// complete --full walk, child partitions whose parent the parent table no
+// longer holds are pruned, including when no parent is left at all.
+func TestSyncFullPrunesOrphanedDependentPartitions(t *testing.T) {
+	testenv.Isolate(t)
+	networks := []string{"2", "3"}
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		if p := q.Get("page[number]"); p != "" && p != "1" {
+			return `{"data":[]}`, true
+		}
+		if path == "/v1/networks/all" {
+			rows := make([]string, 0, len(networks))
+			for _, id := range networks {
+				rows = append(rows, `{"id":"`+id+`","type":"networks","attributes":{"name":"N`+id+`"}}`)
+			}
+			return `{"data":[` + strings.Join(rows, ",") + `]}`, true
+		}
+		for _, id := range []string{"2", "3"} {
+			if path == "/v1/networks/"+id+"/lan_ips" {
+				return `{"data":[{"id":"` + id + `00","type":"lan_ips","attributes":{"ip":"10.0.0.` + id + `"},"relationships":{"network":{"data":{"id":"` + id + `"}}}}]}`, true
+			}
+		}
+		return "", false
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	count := func() int {
+		t.Helper()
+		db, err := store.OpenReadOnly(dbPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		n, _ := db.Count("lan_ips")
+		return n
+	}
+	full := []string{"sync", "--full", "--resources", "networks,lan_ips", "--db", dbPath}
+	syncHFRunOK(t, full...)
+	if n := count(); n != 2 {
+		t.Fatalf("first walk stored %d lan_ips, want 2", n)
+	}
+	networks = []string{"2"}
+	syncHFRunOK(t, full...)
+	if n := count(); n != 1 {
+		t.Fatalf("a complete --full walk kept the LAN IPs of a deleted network: %d rows, want 1", n)
+	}
+	syncHFRunOK(t, append(append([]string(nil), full[:4]...), "--no-prune", "--db", dbPath)...)
+	networks = nil
+	syncHFRunOK(t, full...)
+	if n := count(); n != 0 {
+		t.Fatalf("a complete --full walk over no networks kept %d LAN IPs, want 0", n)
+	}
+}

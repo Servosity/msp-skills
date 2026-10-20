@@ -122,6 +122,9 @@ func rawJSONNeedsNoScrub(raw []byte, depth int) bool {
 			}
 			stack[n-1].keys[key] = true
 			stack[n-1].expectKey = false
+			if KeyCarriesSecret(key) {
+				return false
+			}
 			secretValue = KeyNamesSecret(key)
 			continue
 		}
@@ -186,6 +189,11 @@ func scrubSecretValueDepth(value any, depth int) (any, bool) {
 	case map[string]any:
 		removed := false
 		for key, child := range v {
+			if KeyCarriesSecret(key) { // the key text is the leak: no value type keeps it
+				delete(v, key)
+				removed = true
+				continue
+			}
 			if KeyNamesSecret(key) {
 				switch child.(type) {
 				case nil, bool:
@@ -434,6 +442,12 @@ func TextNamesSecret(text string) bool {
 func KeyNamesSecret(key string) bool {
 	return IsSecretKey(key) || TextNamesSecret(key+": x")
 }
+
+// KeyCarriesSecret reports whether a JSON object key's own text holds a
+// labelled credential with a value ("Uninstall PIN: 4821", "token=X"): the
+// key is then the leak, so the pair is dropped whatever its value (a true,
+// false or null flag included).
+func KeyCarriesSecret(key string) bool { return TextNamesSecret(key) }
 
 // IdentityNamesSecret reports whether an identity value (a row id, a parent
 // key, a fingerprint input) is one the scrub would withhold or rewrite. Ids

@@ -1574,6 +1574,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		}
 
 		bodyText := truncateBody(respBody)
+		// Hand-wired (handfixes.json: read-only-refuses-non-json): under the
+		// read-only switch an error body that is not JSON (XML, HTML, plain
+		// text) is summarized too, since only JSON keys can be checked.
+		if cliutil.IsMCPReadOnlyEnv() && len(bytes.TrimSpace(respBody)) > 0 && !json.Valid(respBody) {
+			bodyText = fmt.Sprintf("(%d-byte non-JSON error body; not shown while %s is set)", len(respBody), cliutil.MCPReadOnlyEnvVar)
+		}
 		if resp.StatusCode == http.StatusForbidden {
 			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody)
 		}

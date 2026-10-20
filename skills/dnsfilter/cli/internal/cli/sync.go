@@ -3043,6 +3043,33 @@ func urlIDFieldName(field string) bool {
 	}
 }
 
+// pruneOrphanDependentPartitions deletes the rows of a per-parent dependent
+// whose parent the parent table no longer holds (a network deleted upstream
+// takes its LAN IPs with it). Called only after a certified, complete parent
+// collection and a complete child walk under --full prune. The live set is
+// every parent row of any tenant, so another tenant's children are never
+// orphans (handfixes.json: sync-prune-scopes-on-parent-id).
+func pruneOrphanDependentPartitions(db *store.Store, dep dependentResourceDef, pathParams []dependentPathParamDef, syncEvents io.Writer) error {
+	allParents, err := dependentParentRows(db, dep.ParentTable, pathParams, "", "")
+	if err != nil {
+		return fmt.Errorf("listing %s parents: %w", dep.ParentTable, err)
+	}
+	live := make([]string, 0, len(allParents))
+	for _, row := range allParents {
+		id := row["id"]
+		if id == "" {
+			id = row[pathParams[0].Field]
+		}
+		live = append(live, id)
+	}
+	deleted, err := db.ReconcileOrphanPartitions(dep.Name, "$.parent_id", live, reconcileTypedTable(dep.Name), store.CascadeJunctionsFor(dep.Name))
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(syncEvents, `{"event":"reconcile","resource":"%s","scope":"orphaned_parents","deleted":%d}`+"\n", dep.Name, deleted)
+	return nil
+}
+
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
 		{Name: "enterprise_connections", ParentTable: "organizations", ParentIDParam: "organization_id", PathTemplate: "/v1/enterprise_connections", KeyField: "", ReconcileMode: "none", GenericScopeJSONPath: "", PathParams: []dependentPathParamDef{
@@ -3660,6 +3687,11 @@ func syncDependentResource(ctx context.Context, c interface {
 			if preview, ok := c.(interface{ IsDryRun() bool }); ok && preview.IsDryRun() {
 				return syncResult{Resource: dep.Name, Duration: time.Since(started)} // a preview saves no state
 			}
+			if prune && dep.ReconcileMode == "per_parent" {
+				if err := pruneOrphanDependentPartitions(db, dep, pathParams, syncEvents); err != nil {
+					return syncResult{Resource: dep.Name, Err: fmt.Errorf("reconciling %s: %w", dep.Name, err), Duration: time.Since(started)}
+				}
+			}
 			if err := db.SaveSyncState(dep.Name, "", 0); err != nil {
 				return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, err), Duration: time.Since(started)}
 			}
@@ -3964,6 +3996,12 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 	if !attemptComplete && coverageReason == "" {
 		coverageReason = "parent_partitions_incomplete"
+	}
+	if attemptComplete && prune && dep.ReconcileMode == "per_parent" {
+		if err := pruneOrphanDependentPartitions(db, dep, pathParams, syncEvents); err != nil {
+			fmt.Fprintf(syncEvents, `{"event":"reconcile_error","resource":"%s","scope":"orphaned_parents","error":%q}`+"\n", dep.Name, err.Error())
+			attemptComplete, coverageReason = false, "reconcile_error"
+		}
 	}
 	var stateErr error
 	if attemptComplete {

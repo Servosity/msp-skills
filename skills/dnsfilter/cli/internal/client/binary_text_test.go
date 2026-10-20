@@ -98,6 +98,14 @@ func TestReadOnlyBodiesTheFiltersCannotRead(t *testing.T) {
 		case "/v1/networks/45":
 			w.Header().Set("Content-Type", "text/csv")
 			_, _ = w.Write([]byte("secret_key\nZQ"))
+		case "/v1/networks/22":
+			w.Header().Set("Content-Type", "application/xml")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`<error><secret_key>ZQ</secret_key></error>`))
+		case "/v1/networks/23":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"errors":[{"detail":"name is invalid"}]}`))
 		case "/v1/networks/21":
 			w.Header().Set("Content-Type", "application/json; charset=utf-16")
 			w.WriteHeader(http.StatusNotFound)
@@ -121,5 +129,11 @@ func TestReadOnlyBodiesTheFiltersCannotRead(t *testing.T) {
 	}
 	if _, err := c.Get(context.Background(), "/v1/networks/1", nil); err != nil {
 		t.Fatalf("read-only mode refused a JSON body: %v", err)
+	}
+	if _, err := c.Get(context.Background(), "/v1/networks/22", nil); err == nil || strings.Contains(err.Error(), "ZQ") || !strings.Contains(err.Error(), "non-JSON error body") {
+		t.Fatalf("read-only mode showed a non-JSON error body: %v", err)
+	}
+	if _, err := c.Get(context.Background(), "/v1/networks/23", nil); err == nil || !strings.Contains(err.Error(), "name is invalid") {
+		t.Fatalf("read-only mode hid a JSON error body: %v", err)
 	}
 }

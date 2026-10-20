@@ -5655,6 +5655,13 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 	return ""
 }
 
+// identityRefused reports a row whose identity field is present but was
+// refused by ExtractResourceID because it names a credential.
+func identityRefused(resourceType string, obj map[string]any) bool {
+	id := extractResourceIDUnchecked(resourceType, obj)
+	return id != "" && IdentityNamesSecret(id)
+}
+
 func extractResourceIDUnchecked(resourceType string, obj map[string]any) string {
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if s := canonicalIDFromOverride(obj, override); s != "" {
@@ -5753,14 +5760,6 @@ func parameterSnapshotID(obj map[string]any) string {
 		return ""
 	}
 	fields := parameterFingerprintFields(obj)
-	// HAND-FIX(secrets-never-persisted): a hash of a low-entropy secret (a
-	// PIN) is reversible by brute force, so no fingerprint is taken over a
-	// secret-named key or a value the scrub would withhold.
-	for key, value := range fields {
-		if str, ok := value.(string); IsSecretKey(key) || (ok && IdentityNamesSecret(str)) {
-			return ""
-		}
-	}
 	var payload any
 	if len(fields) > 0 {
 		payload = fields
@@ -5769,6 +5768,13 @@ func parameterSnapshotID(obj map[string]any) string {
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil || len(raw) == 0 || string(raw) == "null" || string(raw) == "{}" {
+		return ""
+	}
+	// HAND-FIX(secrets-never-persisted): a hash of a low-entropy secret (a
+	// PIN) is reversible by brute force, so no fingerprint is taken over a
+	// payload the secret scrub would change (the same rules as the stored
+	// row: every key, every nested value).
+	if !bytes.Equal(ScrubPersistedSecrets(raw), raw) {
 		return ""
 	}
 	sum := sha256.Sum256(raw)
@@ -6459,14 +6465,19 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 		// particular item (response shape mismatches happen even when the
 		// spec declares x-resource-id).
 		id := ExtractResourceID(resourceType, obj)
-		if id == "" {
+		// HAND-FIX(secrets-never-persisted): an identity refused because it
+		// names a credential is an extract failure; no fallback field (the
+		// envelope's attributes.name, a fingerprint) may re-key the row.
+		refused := id == "" && identityRefused(resourceType, obj)
+		if id == "" && !refused {
 			if keyObj, rowObj, rowItem, ok := unwrapIDBearingEnvelopeItem(resourceType, item, obj); ok {
 				id = ExtractResourceID(resourceType, keyObj)
+				refused = id == "" && identityRefused(resourceType, keyObj)
 				obj = rowObj
 				item = rowItem
 			}
 		}
-		if id == "" {
+		if id == "" && !refused {
 			id = ResolveStorageID(resourceType, obj)
 		}
 		if id == "" {
@@ -7270,6 +7281,51 @@ func (s *Store) ReconcilePartition(resourceType, genericScopeJSONPath, scopeValu
 		 WHERE resource_type = ?
 		   AND (CASE WHEN json_valid(data) THEN json_extract(data, ?) END) = ?`,
 		resourceType, genericScopeJSONPath, scopeValue)
+}
+
+// ReconcileOrphanPartitions hard-deletes the rows of resourceType whose
+// partition value at genericScopeJSONPath is not in liveScopes: children of a
+// parent the API no longer returns. The caller must pass every parent id the
+// parent table holds after a complete, certified parent sync. A row with no
+// value at the path (a live write-through row) is never a victim. Returns the
+// number of generic rows deleted.
+func (s *Store) ReconcileOrphanPartitions(resourceType, genericScopeJSONPath string, liveScopes []string, typedTable string, cascades []CascadeJunction) (int, error) {
+	rows, err := s.db.Query(
+		`SELECT DISTINCT json_extract(data, ?) FROM resources
+		 WHERE resource_type = ? AND json_valid(data) AND json_type(data, ?) = 'text'`,
+		genericScopeJSONPath, resourceType, genericScopeJSONPath)
+	if err != nil {
+		return 0, fmt.Errorf("reconcile %s: list partitions: %w", resourceType, err)
+	}
+	var scopes []string
+	for rows.Next() {
+		var scope string
+		if err := rows.Scan(&scope); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("reconcile %s: list partitions: %w", resourceType, err)
+		}
+		scopes = append(scopes, scope)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("reconcile %s: list partitions: %w", resourceType, err)
+	}
+	live := make(map[string]bool, len(liveScopes))
+	for _, scope := range liveScopes {
+		live[scope] = true
+	}
+	deleted := 0
+	for _, scope := range scopes {
+		if scope == "" || live[scope] {
+			continue
+		}
+		n, err := s.ReconcilePartition(resourceType, genericScopeJSONPath, scope, nil, typedTable, cascades)
+		deleted += n
+		if err != nil {
+			return deleted, err
+		}
+	}
+	return deleted, nil
 }
 
 // Whole-table reconciliation is safe only when the caller supplies the complete

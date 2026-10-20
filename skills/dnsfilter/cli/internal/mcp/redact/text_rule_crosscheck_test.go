@@ -112,6 +112,8 @@ func TestQualifiedLabelAsJSONKeyInString(t *testing.T) {
 		`{"Uninstall PIN (HQ)":"` + secretMarker + `"}`,
 		`{"name":"x","Admin password for HQ":"` + secretMarker + `"}`,
 		`["ok",{"PIN for laptops":"` + secretMarker + `"}]`,
+		`{"Install roaming client":true,"Uninstall PIN: ` + secretMarker + `":true}`,
+		`{"Deploy agent":false,"token=` + secretMarker + `":null}`,
 	} {
 		for _, doc := range []string{`{"note":` + q(inner) + `}`, `{"note":` + q(q(inner)) + `}`} {
 			if out := Final(doc); strings.Contains(out, secretMarker) {

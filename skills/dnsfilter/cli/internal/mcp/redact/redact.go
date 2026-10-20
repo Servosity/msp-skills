@@ -274,6 +274,11 @@ func redactValue(value any) (any, bool) {
 		}
 		changed := false
 		for key, child := range v {
+			if store.KeyCarriesSecret(key) { // the key text is the leak
+				delete(v, key)
+				changed = true
+				continue
+			}
 			if IsCredentialKey(key) {
 				switch child.(type) {
 				case nil, bool:
@@ -396,6 +401,9 @@ func rawJSONClean(raw string) bool {
 			}
 			stack[n-1].keys[k] = true
 			stack[n-1].expectKey = false
+			if store.KeyCarriesSecret(k) {
+				return false
+			}
 			credValue = IsCredentialKey(k)
 			continue
 		}
