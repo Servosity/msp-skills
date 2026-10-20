@@ -45,6 +45,7 @@ Add (or merge with your existing `mcpServers` block):
         "CLOUDALLY_PARTNER_EMAIL": "",
         "CLOUDALLY_PARTNER_PASSWORD": "",
         "CLOUDALLY_BASE_URL": "",
+        "CLOUDALLY_PORTAL_URL": "",
         "CLOUDALLY_MCP_READ_ONLY": "",
         "CLOUDALLY_MCP_HTTP_TOKEN": "",
         "CLOUDALLY_USER_AGENT": "",
@@ -83,6 +84,7 @@ Configuration**) and add:
         "CLOUDALLY_PARTNER_EMAIL": "",
         "CLOUDALLY_PARTNER_PASSWORD": "",
         "CLOUDALLY_BASE_URL": "",
+        "CLOUDALLY_PORTAL_URL": "",
         "CLOUDALLY_MCP_READ_ONLY": "",
         "CLOUDALLY_MCP_HTTP_TOKEN": "",
         "CLOUDALLY_USER_AGENT": "",
@@ -115,6 +117,7 @@ Claude Desktop:
         "CLOUDALLY_PARTNER_EMAIL": "",
         "CLOUDALLY_PARTNER_PASSWORD": "",
         "CLOUDALLY_BASE_URL": "",
+        "CLOUDALLY_PORTAL_URL": "",
         "CLOUDALLY_MCP_READ_ONLY": "",
         "CLOUDALLY_MCP_HTTP_TOKEN": "",
         "CLOUDALLY_USER_AGENT": "",
@@ -140,12 +143,7 @@ default and refuses to start until `CLOUDALLY_MCP_HTTP_TOKEN` is set; press 4.32
 CLOUDALLY_CLIENT_ID=<value> CLOUDALLY_CLIENT_SECRET=<value> CLOUDALLY_MCP_HTTP_TOKEN=<a long random value> cloudally-mcp --transport http
 ```
 
-Windows (PowerShell):
-
-```powershell
-$env:CLOUDALLY_CLIENT_ID = "<value>"; $env:CLOUDALLY_CLIENT_SECRET = "<value>"; $env:CLOUDALLY_MCP_HTTP_TOKEN = "<a long random value>"
-cloudally-mcp --transport http
-```
+On Windows, set the same three variables in PowerShell first (`$env:CLOUDALLY_CLIENT_ID = "<value>"`, and likewise `CLOUDALLY_CLIENT_SECRET` and `CLOUDALLY_MCP_HTTP_TOKEN`), then start the server in HTTP mode the same way.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

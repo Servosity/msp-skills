@@ -77,6 +77,12 @@
           "isSecret": false
         },
         {
+          "name": "CLOUDALLY_PORTAL_URL",
+          "description": "Optional; leave blank. Sends the customer-portal handoff (past backup dates, downloads) to this portal origin instead of https://app.cloudally.com, for tests and mock servers. Required when CLOUDALLY_BASE_URL is set: portal commands refuse to send a partner handoff to production while the API points elsewhere.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "CLOUDALLY_MCP_READ_ONLY",
           "description": "Optional. Set to 1 to hide tools that change CloudAlly state (restores, downloads, task changes, deletes) and refuse non-GET execute calls. Tools still write local state: the response cache and learning entries.",
           "isRequired": false,

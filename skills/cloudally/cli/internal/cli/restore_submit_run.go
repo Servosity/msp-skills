@@ -77,7 +77,7 @@ func runSubmit(cmd *cobra.Command, flags *rootFlags, c *client.Client, req submi
 			req.opts, req.source = opts, source
 			batch, resumed = existing, true
 		} else {
-			return usageErr(errors.New("--resume found no earlier batch with the same scope, account, task, entities, and dates; nothing was sent. Check `restore history`, or drop --resume to start a new batch"))
+			return usageErr(errors.New("--resume found no earlier batch with the same scope, account, task, entities, and dates in this login's ledger; nothing was sent. Each login (partner, or one company after auth use-account) keeps its own ledger, so run `restore history` under the login that started the batch before dropping --resume: a new batch resends every restore"))
 		}
 	} else if !req.newBatch {
 		prior, n, err := ledgerAcceptedRowsByKey(sqlDB, key, legacyKey)

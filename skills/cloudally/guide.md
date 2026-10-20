@@ -619,6 +619,7 @@ Environment variables:
 | `CLOUDALLY_PARTNER_EMAIL` | login | No | Partner portal login email used by `auth login --partner` (reaches every customer account; needed for past backup dates and downloads). |
 | `CLOUDALLY_PARTNER_PASSWORD` | login | No | Partner portal login password used by `auth login --partner`. |
 | `CLOUDALLY_BASE_URL` | endpoint | No (default `https://api.cloudally.com`) | Sends every API call to this base URL instead; for tests and mock servers. |
+| `CLOUDALLY_PORTAL_URL` | endpoint | No (default `https://app.cloudally.com`) | Sends the customer-portal handoff to this origin instead; for tests and mock servers. Required when `CLOUDALLY_BASE_URL` is set: portal commands refuse to send a partner handoff to production while the API points elsewhere. |
 | `CLOUDALLY_CONFIG` | path | No | Config file path (default `~/.config/cloudally-cli/config.toml`). |
 | `CLOUDALLY_MCP_READ_ONLY` | MCP | No | Set to `1` so the MCP server hides tools that change CloudAlly state and refuses non-GET execute calls. Tools still write local state: the response cache and learning entries. |
 | `CLOUDALLY_MCP_HTTP_TOKEN` | MCP | Only with `--transport http` | Bearer token HTTP MCP callers must send; the HTTP transport refuses to start without it. |
@@ -648,6 +649,8 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **portal session is not authenticated (status 401)** - Several portal sessions for the same customer started at the same instant invalidated each other's handoff tokens. Start parallel `download fetch` or `download submit` runs a few seconds apart, or run them one at a time.
 - **A link from download link stopped working** - Links last about 60 seconds. Run `download link` again for a fresh one, or let `download fetch` mint and stream in one step.
 - **restore submit lists restores that may already have been accepted** - Check the batch with cloudally-cli restore watch --batch <id> --once; it settles every row it finds a RESTORE task for. Then run the command the notice prints (your original submit with --resume --retry-unknown --yes added); it sends only rows still UNKNOWN.
+- **restore submit --resume finds no earlier batch** - Each login (the partner login, or one company after auth use-account) keeps its own ledger. Run restore history under the login that started the batch before dropping --resume; a new batch resends every restore.
+- **A portal command refuses with CLOUDALLY_PORTAL_URL** - CLOUDALLY_BASE_URL points away from production, so the CLI will not send a partner handoff token to the production portal. Set CLOUDALLY_PORTAL_URL to the matching portal, or unset CLOUDALLY_BASE_URL.
 - **restore submit refuses: batch already has restores CloudAlly accepted** - Re-running would restore those mailboxes twice. Run the --resume command the error prints; pass --new-batch only to restore every mailbox again.
 - **--resume refuses: different options** - A resumed batch always restores to the target and options it started with. Drop the flag, or start a separate batch with --new-batch.
 - **restore watch exits 5: failed after CloudAlly accepted them** - Those restores ran and may have written part of the mailbox, and --resume never resends them. Check the mailbox, then submit just those rows as a new batch.

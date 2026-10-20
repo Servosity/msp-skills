@@ -23,6 +23,7 @@
         "CLOUDALLY_PARTNER_EMAIL": "${user_config.cloudally_partner_email}",
         "CLOUDALLY_PARTNER_PASSWORD": "${user_config.cloudally_partner_password}",
         "CLOUDALLY_BASE_URL": "${user_config.cloudally_base_url}",
+        "CLOUDALLY_PORTAL_URL": "${user_config.cloudally_portal_url}",
         "CLOUDALLY_MCP_READ_ONLY": "${user_config.cloudally_mcp_read_only}",
         "CLOUDALLY_MCP_HTTP_TOKEN": "${user_config.cloudally_mcp_http_token}",
         "CLOUDALLY_USER_AGENT": "${user_config.cloudally_user_agent}",
@@ -84,6 +85,13 @@
       "type": "string",
       "title": "Base URL override (testing)",
       "description": "Optional; leave blank. Sends every CloudAlly API call to this base URL instead of https://api.cloudally.com, for tests and mock servers.",
+      "sensitive": false,
+      "required": false
+    },
+    "cloudally_portal_url": {
+      "type": "string",
+      "title": "Portal URL override (testing)",
+      "description": "Optional; leave blank. Sends the customer-portal handoff (past backup dates, downloads) to this portal origin instead of https://app.cloudally.com, for tests and mock servers. Required when CLOUDALLY_BASE_URL is set: portal commands refuse to send a partner handoff to production while the API points elsewhere.",
       "sensitive": false,
       "required": false
     },

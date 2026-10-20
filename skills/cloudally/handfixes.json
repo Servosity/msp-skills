@@ -333,6 +333,84 @@
           "not_contains": "entities.entity"
         }
       ]
+    },
+    {
+      "id": "logout-clears-partner-sidecar",
+      "summary": "auth logout and auth set-token delete auth-context.json (the partner access and refresh token) and fail loudly if they cannot",
+      "why": "auth login --partner keeps the partner tokens in <state>/auth-context.json so auth use-account can switch customers. The 4.33.5 logout cleared only credentials.toml, so after logout `auth use-account --partner` restored a working partner session (every customer) with no password. Found by the PR #400 runtime review; TestLogoutRemovesPartnerSidecar fails without these lines. auth.go is generated, so a reprint drops them.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if err := clearAuthContext(); err != nil {",
+          "code_only": true,
+          "min_count": 2
+        }
+      ]
+    },
+    {
+      "id": "store-scope-follows-login-not-token",
+      "summary": "The local store (restore ledger, synced feeds) is keyed by API origin + client id + logged-in principal through config.StoreScopeIdentity, not by the rotating access token",
+      "why": "The template names the store after a hash of the auth header. CloudAlly tokens rotate on every refresh and re-login, so each rotation opened an empty store: restore history vanished and `restore submit --resume` advised starting a new batch, which resends restores that may already have been accepted. Origin + client id alone let a company login open the partner's store, so the principal is part of the key. Backstop: a template change that ignores the hook brings the token-named stores back silently.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if StoreScopeIdentity != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "contains": "config.StoreScopeIdentity = cloudallyStoreScopeIdentity",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-and-portal-refuse-cross-host-redirects",
+      "summary": "Login, refresh and use-account POSTs refuse every redirect; the portal session refuses a redirect off its origin or to http; generated clients refuse to replay a body across origins",
+      "why": "A cross-host 307 sent client-id, client-secret and the password or refresh token to the foreign host, and the CLI saved the token that host returned (PR #400 runtime review, reproduced against stubs). The portal client forwarded X-CSRF-TOKEN the same way. Backstop for hand-written files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth_cloudally_refresh.go",
+          "contains": "return http.ErrUseLastResponse",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/portal.go",
+          "contains": "hc.CheckRedirect = redirectPolicy(base, callerRedirect)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_redirect_guard.go",
+          "contains": "registerClientHook(cloudallyRedirectGuardHook)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "download-fetch-private-no-replace",
+      "summary": "download fetch writes owner-only folders and files inside --dest, never through a link, never over an existing file, only from https links to public hosts; download submit records ambiguous creates as UNKNOWN",
+      "why": "Archives were written 0644/0755, a planted .partial symlink redirected the write outside --dest, an existing archive was silently replaced, any server-supplied URL was fetched (SSRF), and a create that timed out was resent on --resume (PR #400 review). Backstop for hand-written files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/download_fetch.go",
+          "contains": "func publishNoReplace(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/fetch.go",
+          "contains": "if err := DownloadURLPolicy(req.URL); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "dlUnknown",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
