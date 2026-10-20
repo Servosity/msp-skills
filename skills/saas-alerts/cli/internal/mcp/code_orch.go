@@ -1742,6 +1742,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
+	if why, _ := cli.TestEventFailure(path, data); why != "" { // saas-alerts hand-fix: a failed test event is an error over MCP too
+		return mcplib.NewToolResultError(why + "; answer: " + string(data)), nil
+	}
 	text := bound.EndpointResponse(ep.Method, data)
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())

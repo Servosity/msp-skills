@@ -43,7 +43,7 @@ func TestRuleTriggersDecideIDsAreNeverTruncated(t *testing.T) {
 		t.Fatalf("want 2 decided and truncated=false: %s", out)
 	}
 	// Supersession is only worked out from the fetched pages, so the cut list still says so.
-	if res.SupersessionUnchecked == "" || !strings.Contains(stderr, "could not mark one superseded") {
+	if res.SupersessionUnchecked == "" || !strings.Contains(stderr, "supersession was checked only against the triggers read") {
 		t.Fatalf("a capped --ids plan must say supersession was unchecked: stderr=%q\n%s", stderr, out)
 	}
 }

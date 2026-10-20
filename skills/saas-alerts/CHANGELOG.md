@@ -34,8 +34,10 @@ All notable changes to this skill are documented here. Format follows
   sync, so an event SaaS Alerts recorded late is still fetched.
 - `subscriptions health` checks every webhook subscription, its unsent queue and domain,
   and plans re-enabling disabled ones (`--reenable --confirm`).
-- `subscriptions test-event` exits 6 with `success: false` when SaaS Alerts answers with
-  a delivery error, instead of reporting the failed delivery as a success.
+- `subscriptions test-event` exits 6 with `success: false` when SaaS Alerts answers
+  `false`, an error message or a delivery-error list, instead of reporting the failed
+  delivery as a success, and the MCP server returns the same answer as an error; an
+  answer it does not recognise is a warning.
 - `rule-triggers decide --ids` reads any requested id it does not find on the fetched
   pages directly, so `--max-pages` cannot leave one out; when the list was cut it says
   supersession was checked only against the pages it read (`supersession_unchecked`).
@@ -43,7 +45,8 @@ All notable changes to this skill are documented here. Format follows
 
 ### Security
 - Webhook subscription delivery tokens are withheld before they are printed, cached,
-  stored or returned over MCP, including when an API error message echoes one.
+  stored or returned over MCP, including in a `token` field of an API error answer, and a
+  token the request sent is masked if an error message quotes it back.
 - Tenant values cannot drive the terminal through command output: `--csv`, `--plain`,
   `--quiet` and the human output of the workflow commands drop control characters, and
   JSON output escapes C1 controls.

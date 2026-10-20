@@ -118,3 +118,19 @@ func TestWebhookTokenWithheldFromErrorBodies(t *testing.T) {
 		t.Fatalf("token reached the error: %v", err)
 	}
 }
+
+// TestWebhookTokenEchoedInErrorTextIsMasked: an error answer that quotes the
+// request's token inside a message (not a token key) has it masked.
+func TestWebhookTokenEchoedInErrorTextIsMasked(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"message":"token test-secret-echo is too short"}`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key"}, 5*time.Second, 0)
+	_, _, err := c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": "test-secret-echo"})
+	if err == nil || strings.Contains(err.Error(), "test-secret-echo") {
+		t.Fatalf("echoed request token reached the error: %v", err)
+	}
+}

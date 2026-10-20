@@ -1458,7 +1458,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			Method:     method,
 			Path:       c.displayURL(path, authHeader),
 			StatusCode: resp.StatusCode,
-			Body:       c.maskCredentialText(bodyText, authHeader),
+			Body:       c.maskCredentialText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: an echoed request token is masked too
 		}
 
 		// Rate limited: classify before provider decoding. The server-driven

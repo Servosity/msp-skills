@@ -111,3 +111,36 @@ func containsWithheldToken(v any) bool {
 	}
 	return false
 }
+
+// requestWebhookTokens returns the token values a Webhooks API request body
+// carries, so an error answer that quotes one back (in a message string or a
+// non-JSON body) has it masked like the API key.
+func requestWebhookTokens(path string, body []byte) []string {
+	if len(body) == 0 || !strings.Contains(path, "/outgoingWebhookApi/") {
+		return nil
+	}
+	var v any
+	if json.Unmarshal(body, &v) != nil {
+		return nil
+	}
+	var out []string
+	var walk func(any)
+	walk = func(v any) {
+		switch t := v.(type) {
+		case map[string]any:
+			for k, val := range t {
+				if s, ok := val.(string); ok && strings.EqualFold(k, "token") {
+					out = append(out, s)
+					continue
+				}
+				walk(val)
+			}
+		case []any:
+			for _, item := range t {
+				walk(item)
+			}
+		}
+	}
+	walk(v)
+	return out
+}

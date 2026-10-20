@@ -222,7 +222,7 @@ The default run, without --confirm, is a preview: it fetches the selected trigge
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d fetched rule trigger row(s) could not be decoded; triggers matching the selection may be missing from this plan\n", result.Summary.Undecoded)
 			}
 			if result.SupersessionUnchecked != "" { // saas-alerts hand-fix: decide-ids-never-truncated
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: every requested id was resolved, but %s, so a newer trigger of the same rule beyond it could not mark one superseded\n", result.SupersessionUnchecked)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s, so supersession was checked only against the triggers read; a newer trigger of the same rule beyond them could not mark a requested one superseded\n", result.SupersessionUnchecked)
 			}
 			if result.Summary.ActionSafetyUnknown > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d trigger(s) skipped: the actions approving would fire are unknown (action_safety_unknown)\n", result.Summary.ActionSafetyUnknown)

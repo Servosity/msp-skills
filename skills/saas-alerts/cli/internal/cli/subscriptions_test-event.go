@@ -74,8 +74,10 @@ func newSubscriptionsTestEventCmd(flags *rootFlags) *cobra.Command {
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)
 				if partialFailure == nil { // saas-alerts hand-fix: a 200 that lists delivery errors is a failed test event
-					if ok, why, whErrors := shTestEventOutcome(data, nil); !ok {
-						partialFailure = &partialFailureReport{Field: "delivery", Message: why, Details: whErrors}
+					if why, unknown := TestEventFailure(path, data); why != "" {
+						partialFailure = &partialFailureReport{Field: "delivery", Message: why}
+					} else if unknown {
+						fmt.Fprintln(cmd.ErrOrStderr(), "warning: test event outcome unknown (the API answered with a string this CLI does not recognize)")
 					}
 				}
 				if partialFailure != nil {
@@ -85,9 +87,7 @@ func newSubscriptionsTestEventCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 			}
-			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "subscriptions", data, "")
-			}
+			// saas-alerts hand-fix: a test event answer is not a subscription, so it is never stored.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
 				var items []map[string]any
