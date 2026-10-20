@@ -41,7 +41,7 @@
         },
         {
           "file": "cli/internal/client/session.go",
-          "contains": "rec.Account != m.creds.Account",
+          "contains": "rec.Account != account",
           "min_count": 1,
           "code_only": true
         },
@@ -1510,7 +1510,7 @@
         },
         {
           "file": "cli/internal/cli/doctor_verdict.go",
-          "contains": "err := dsm.ProbeDSM(ctx, hc, origin)",
+          "contains": "err := dsm.VerifyDSM(ctx, hc, origin)",
           "min_count": 1,
           "code_only": true
         },
@@ -1522,7 +1522,7 @@
         },
         {
           "file": "cli/internal/dsm/dsm.go",
-          "contains": "if err := ProbeDSM(ctx, hc, baseURL); err != nil {",
+          "contains": "if err := VerifyDSM(ctx, hc, baseURL); err != nil {",
           "min_count": 1,
           "code_only": true
         },
@@ -1925,8 +1925,8 @@
     },
     {
       "id": "dsm-mask-secret-values",
-      "summary": "every successful DSM answer (the generated client's success return and its response-cache read; the fleet dsm.Client.Get) passes dsm.MaskResponse with every secret VALUE the client holds (configured password, one-time code, trusted-device token, raw auth_header sid, every sid and SynoToken held), covering JSON-escaped, percent-encoded (once or twice), HTML-escaped and any decodable form; values shorter than 8 characters are masked only as a whole JSON value and values shorter than 4 not at all; masked text reads [redacted]",
-      "why": "Credential-VALUE redaction covered only error text. If login returned sid SID-LEAK-7731 and a later answer carried that value in any field (a user's description, say), it reached stdout, the response cache, the local store and export. TestSecretValuesNeverLeaveTheClient (stdout, store, cache, export), TestCachedAnswersAreMaskedToo and TestFleetClientMasksSecretValues fail with the funnel removed.",
+      "summary": "every successful DSM answer (the generated client's success return and its response-cache read; the fleet dsm.Client.Get) passes dsm.MaskResponse with every secret VALUE the client holds (configured password, one-time code, trusted-device token, raw auth_header sid, every sid and SynoToken held), covering JSON-escaped, percent-encoded (once or twice), HTML-escaped and any decodable form; every non-empty secret is masked when it is an entire string value, whatever its length, and inside larger text from 8 characters on; masking is type-preserving: only string values change, never a number, boolean or null, and an object key is never renamed for a short secret; masked text reads [redacted]",
+      "why": "Credential-VALUE redaction covered only error text. If login returned sid SID-LEAK-7731 and a later answer carried that value in any field (a user's description, say), it reached stdout, the response cache, the local store and export. TestSecretValuesNeverLeaveTheClient (stdout, store, cache, export), TestCachedAnswersAreMaskedToo and TestFleetClientMasksSecretValues fail with the funnel removed. Round 3: a secret shorter than 4 characters (SYNOLOGY_PASSWORD=abc) as an entire field was never masked, and a number token equal to a held secret (a 6-digit one-time code equal to a result_id) was rewritten to the string \"[redacted]\", so the typed fleet parser failed fleet sync and abb triage with 'no valid result_id' while <prefix>_OTP_CODE was set. TestMaskingIsTypePreservingAndCoversShortSecrets, TestShortSecretsAndOneTimeCodesAreMaskedWherever and TestFleetSyncWithAOneTimeCodeEqualToAResultID fail with either rule reverted.",
       "status": "active",
       "asserts": [
         {
@@ -1974,6 +1974,44 @@
         {
           "file": "cli/internal/dsm/mask_response_test.go",
           "contains": "func TestFleetClientMasksSecretValues(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "if v == \"\" || m.exact[v] {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "not_contains": "secretWholeValueMin"
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "not_contains": "m.exact[tok]"
+        },
+        {
+          "file": "cli/internal/dsm/guard.go",
+          "contains": "masked = m.maskInside(s)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/session_gate_test.go",
+          "contains": "func TestMaskingIsTypePreservingAndCoversShortSecrets(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/session_gate_cli_test.go",
+          "contains": "func TestShortSecretsAndOneTimeCodesAreMaskedWherever(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/session_gate_cli_test.go",
+          "contains": "func TestFleetSyncWithAOneTimeCodeEqualToAResultID(",
           "min_count": 1,
           "code_only": true
         }
@@ -2074,6 +2112,204 @@
         {
           "file": "cli/internal/cli/offline_fallback_test.go",
           "contains": "func TestAutoDataSourceFallsBackWhenTheNASIsUnreachable(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-probe-before-session",
+      "summary": "no request that carries a credential or a session (password, one-time code, trusted-device token, a sid from a login, the config's auth_header or the session cache, the SynoToken, session cookies) is sent to a NAS address that has not answered the SYNO.API.Info probe as DSM in this process: the generated client sends through sendVerified (dsm.VerifyDSM whenever the request carries a session or the client holds any credential), the fleet client checks before every request and logout, Login and doctor use the same VerifyDSM; the probe runs once per address per process and carries no cookie; a host that is not DSM gets a SessionRefusedError ('DSM session refused: ... the session was not sent') and nothing else",
+      "why": "The probe guarded only the login. A private config with base_url and a raw auth_header sid (no account, no password, no cached session) made `system dsm --no-cache` send _sid=<sid> straight to the host, even one serving a router page; a cached session for an address that now answers as something else went the same way. TestRawSessionGoesOnlyToADSM, TestRawSessionFromConfigIsNotSentToANonDSMHost, TestFleetClientNeverSendsASessionToANonDSM and TestProbeCarriesNoCookie fail with the gate (or the probe's cookie strip) reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "resp, err := c.sendVerified(ctx, httpClient, req)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "resp, err := httpClient.Do(req)"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if err := dsm.VerifyDSM(ctx, hc, c.BaseURL); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if hc != nil && dsm.CarriesSession(req, hc.Jar) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "HAND-FIX(dsm-probe-before-session)",
+          "min_count": 3,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/dsm/verified.go",
+          "contains": "func VerifyDSM(ctx context.Context, hc *http.Client, baseURL string) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/dsm.go",
+          "contains": "if err := c.verifyBeforeSending(ctx, api); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/dsm.go",
+          "contains": "if err := c.verifyBeforeSending(ctx, \"DSM logout\"); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/probe.go",
+          "contains": "pc.Jar = nil",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/platform_rate_limit_test.go",
+          "contains": "if dsmtest.ServeAPIInfo(w, r) {",
+          "min_count": 3,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session_gate_test.go",
+          "contains": "func TestRawSessionGoesOnlyToADSM(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/session_gate_cli_test.go",
+          "contains": "func TestRawSessionFromConfigIsNotSentToANonDSMHost(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/session_gate_test.go",
+          "contains": "func TestFleetClientNeverSendsASessionToANonDSM(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/session_gate_test.go",
+          "contains": "func TestVerifyDSMProbesOncePerAddressPerProcess(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dsm-session-origin-bound",
+      "summary": "a session (sid, SynoToken, cookies, trusted-device token) is restored only for the exact origin and account it was saved for: newSessionManager loads nothing, ConfigureDSM empties and re-binds the cookie jar to the new origin and clears every session field before loading, loadFromDisk returns with no NAS address or no account and never reads the legacy origin-less session.json, the cached device token needs the record's exact origin and account; the jar (dsm.OriginJar) stores and returns cookies only for its one scheme://host:port and stores an https:// origin's cookies Secure",
+      "why": "newSessionManager called loadFromDisk before the origin was configured: an unexpired legacy session.json without an account passed the empty-account check, the origin check was skipped because the base URL was still empty, its cookies were restored without Secure, and ConfigureDSM cleared the sid but kept the jar, so a request to http://<same host> carried cookies saved for https://. TestLegacySessionNeverLoaded, TestReconfigureResetsTheSession and TestOriginJarBindsCookiesToOneOrigin fail with the binding reverted.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "*dsm.OriginJar",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "jar := dsm.NewOriginJar()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "not_contains": "cookiejar.New(nil)"
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "m.jar.Bind(m.baseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "if baseURL == \"\" || account == \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "cliutil.ReadFileWithLegacyFallback(path, \"\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "not_contains": "filepath.Join(filepath.Dir(m.configPath), \"session.json\")"
+        },
+        {
+          "file": "cli/internal/client/session.go",
+          "contains": "HAND-FIX(dsm-session-origin-bound)",
+          "min_count": 5,
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/dsm/verified.go",
+          "contains": "func (j *OriginJar) Bind(baseURL string) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/devicecache.go",
+          "contains": "if path == \"\" || origin == \"\" || account == \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session_gate_test.go",
+          "contains": "func TestLegacySessionNeverLoaded(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/session_gate_test.go",
+          "contains": "func TestReconfigureResetsTheSession(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/dsm/session_gate_test.go",
+          "contains": "func TestOriginJarBindsCookiesToOneOrigin(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-required-args-enforced",
+      "summary": "RegisterTools installs installRequiredArgsGuard, a server middleware that refuses every tools/call omitting (absent, null or blank) an argument the tool's own input schema marks required, before the handler runs: endpoint reads and writes, the Cobra mirror and novel tools alike; the result is an MCP error '<tool> requires \"<arg>\" (missing or empty); nothing was sent'",
+      "why": "mcp-go advertises a schema's required list but does not enforce it, and the generated endpoint handler forwards whatever it gets: abb_backup and abb_cancel declare task_ids as required, yet a call with no task_ids sent the backup/cancel write with no task list (the CLI refuses the same call). TestMCPRequiredArgsAreEnforced (through the server's own message path) fails with the guard removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "installRequiredArgsGuard(s)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/required_args_guard.go",
+          "contains": "func installRequiredArgsGuard(s *server.MCPServer) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/required_args_guard_test.go",
+          "contains": "func TestMCPRequiredArgsAreEnforced(",
           "min_count": 1,
           "code_only": true
         }

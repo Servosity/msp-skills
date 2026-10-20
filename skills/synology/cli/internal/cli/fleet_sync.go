@@ -29,11 +29,14 @@ type fleetSyncRow struct {
 	Error        string   `json:"error,omitempty"`
 	Warnings     []string `json:"warnings,omitempty"`
 	ABBInstalled *bool    `json:"abb_installed,omitempty"`
-	Tasks        int      `json:"tasks"`
-	Results      int      `json:"results"`
-	DeviceRuns   int      `json:"device_runs"`
-	StorageItems int      `json:"storage_items"`
-	DurationMS   int64    `json:"duration_ms"`
+	// Absence is never zero: the counts are what this sync mirrored, so they
+	// are null (not 0) when nothing was fetched (unreachable NAS, rejected
+	// login, credentials not set).
+	Tasks        *int  `json:"tasks"`
+	Results      *int  `json:"results"`
+	DeviceRuns   *int  `json:"device_runs"`
+	StorageItems *int  `json:"storage_items"`
+	DurationMS   int64 `json:"duration_ms"`
 }
 
 // ReportIdentity is what --quiet prints for the row.
@@ -171,7 +174,8 @@ func syncOneNAS(ctx context.Context, flags *rootFlags, db *sql.DB, writeMu *sync
 		wctx := context.WithoutCancel(ctx)
 		if snap != nil {
 			row.Warnings = snap.Warnings
-			row.Tasks, row.Results, row.DeviceRuns, row.StorageItems = len(snap.Tasks), len(snap.Results), len(snap.DeviceRuns), len(snap.Storage)
+			tasks, results, runs, storage := len(snap.Tasks), len(snap.Results), len(snap.DeviceRuns), len(snap.Storage)
+			row.Tasks, row.Results, row.DeviceRuns, row.StorageItems = &tasks, &results, &runs, &storage
 		}
 		row.ABBInstalled = info.ABBInstalled
 		if cerr := fleet.CommitSync(wctx, db, n, start, snap, info, err); errors.Is(cerr, fleet.ErrSuperseded) {

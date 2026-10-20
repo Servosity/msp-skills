@@ -545,22 +545,26 @@ func daysToFull(ctx context.Context, db Querier, nas, volID string, cur StorageI
 
 // NASStatus is one row of the fleet rollup.
 type NASStatus struct {
-	NAS          string   `json:"nas"`
-	Client       string   `json:"client,omitempty"`
-	State        Severity `json:"state"`
-	Model        string   `json:"model,omitempty"`
-	DSMVersion   string   `json:"dsm_version,omitempty"`
-	LastSyncAt   int64    `json:"last_sync_at,omitempty"`
-	SyncError    string   `json:"sync_error,omitempty"`
-	Tasks        int      `json:"tasks"`
-	TasksOK      int      `json:"tasks_ok"`
-	TasksPartial int      `json:"tasks_partial"`
-	TasksFailed  int      `json:"tasks_failed"`
-	TasksNoRun   int      `json:"tasks_no_run"`
-	TasksRunning int      `json:"tasks_running"`
-	TasksStuck   int      `json:"tasks_running_too_long"`
-	TasksOff     int      `json:"tasks_unscheduled"`
-	StaleDevices int      `json:"stale_devices"`
+	NAS        string   `json:"nas"`
+	Client     string   `json:"client,omitempty"`
+	State      Severity `json:"state"`
+	Model      string   `json:"model,omitempty"`
+	DSMVersion string   `json:"dsm_version,omitempty"`
+	LastSyncAt int64    `json:"last_sync_at,omitempty"`
+	SyncError  string   `json:"sync_error,omitempty"`
+	// Absence is never zero: the task buckets and stale_devices are counts
+	// of a current mirror, so they are null (not 0) for a NAS whose mirror
+	// is not fresh and for one where Active Backup for Business does not
+	// answer (abb_missing / abb_not_installed, named in note).
+	Tasks        *int     `json:"tasks"`
+	TasksOK      *int     `json:"tasks_ok"`
+	TasksPartial *int     `json:"tasks_partial"`
+	TasksFailed  *int     `json:"tasks_failed"`
+	TasksNoRun   *int     `json:"tasks_no_run"`
+	TasksRunning *int     `json:"tasks_running"`
+	TasksStuck   *int     `json:"tasks_running_too_long"`
+	TasksOff     *int     `json:"tasks_unscheduled"`
+	StaleDevices *int     `json:"stale_devices"`
 	Storage      Severity `json:"storage"`
 	ABBInstalled *bool    `json:"abb_installed,omitempty"`
 	Note         string   `json:"note,omitempty"`
@@ -604,7 +608,8 @@ func Status(ctx context.Context, db Querier, nasList []NAS, since time.Time, sta
 		if err != nil {
 			return nil, err
 		}
-		row.Tasks = len(tasks)
+		var c taskCounts
+		c.tasks = len(tasks)
 		flagged := map[int64]Failure{}
 		for _, f := range failures {
 			if f.NAS == n.Name && f.TaskID != 0 {
@@ -616,24 +621,24 @@ func Status(ctx context.Context, db Querier, nasList []NAS, since time.Time, sta
 			f, bad := flagged[t.TaskID]
 			switch {
 			case bad && (f.Kind == "running_too_long" || f.Kind == "running_start_unknown"):
-				row.TasksStuck++
+				c.stuck++
 			case bad && f.Kind == "no_run_in_window":
-				row.TasksNoRun++
+				c.noRun++
 			case bad && (f.Status == "partial" || f.Status == "canceled"):
-				row.TasksPartial++
+				c.partial++
 			case bad:
-				row.TasksFailed++
+				c.failed++
 			case t.Running:
-				row.TasksRunning++
+				c.running++
 			case !t.Scheduled:
-				row.TasksOff++
+				c.off++
 			default:
-				row.TasksOK++
+				c.ok++
 			}
 		}
 		for _, s := range stale {
 			if s.NAS == n.Name && (s.Kind == "stale" || s.Kind == "never_succeeded") {
-				row.StaleDevices++
+				c.stale++
 			}
 		}
 		for _, h := range health {
@@ -642,21 +647,34 @@ func Status(ctx context.Context, db Querier, nasList []NAS, since time.Time, sta
 			}
 		}
 		row.State = row.Storage
-		if row.TasksFailed > 0 {
+		if c.failed > 0 {
 			row.State = maxSev(row.State, SevCritical)
 		}
-		if row.TasksPartial+row.TasksNoRun+row.TasksStuck+row.StaleDevices > 0 {
+		if c.partial+c.noRun+c.stuck+c.stale > 0 {
 			row.State = maxSev(row.State, SevWarning)
 		}
 		if kind, note, gone := st.ABBGone(); gone {
+			// ABB does not answer: its task and device counts are unknown, not 0.
 			row.Note = note
 			if kind == "abb_missing" {
 				row.State = maxSev(row.State, SevCritical)
 			}
+		} else {
+			c.set(&row)
 		}
 		out = append(out, row)
 	}
 	return out, nil
+}
+
+// taskCounts accumulates one NAS's task buckets before they are reported.
+type taskCounts struct{ tasks, ok, partial, failed, noRun, running, stuck, off, stale int }
+
+func (c taskCounts) set(row *NASStatus) {
+	p := func(v int) *int { return &v }
+	row.Tasks, row.TasksOK, row.TasksPartial, row.TasksFailed = p(c.tasks), p(c.ok), p(c.partial), p(c.failed)
+	row.TasksNoRun, row.TasksRunning, row.TasksStuck, row.TasksOff = p(c.noRun), p(c.running), p(c.stuck), p(c.off)
+	row.StaleDevices = p(c.stale)
 }
 
 func maxSev(a, b Severity) Severity {
@@ -819,17 +837,21 @@ func FindDevice(ctx context.Context, db Querier, nasList []NAS, query string, ru
 // TrendRow summarizes backup runs for one task or device over a window, or is
 // a nas_not_synced row for a NAS whose history cannot be trusted.
 type TrendRow struct {
-	NAS            string  `json:"nas"`
-	Kind           string  `json:"kind"` // task, device, nas_not_synced, abb_missing, abb_not_installed, partial_history
-	Note           string  `json:"note,omitempty"`
-	HistoryFrom    int64   `json:"history_from,omitempty"` // set when the window starts before the mirrored history
-	Key            string  `json:"key,omitempty"`          // task name or device host name
-	ID             int64   `json:"id"`
-	Runs           int     `json:"runs"`
-	Successes      int     `json:"successes"`
-	Partials       int     `json:"partials"`
-	Failures       int     `json:"failures"`
-	SuccessRatePct float64 `json:"success_rate_pct"`
+	NAS         string `json:"nas"`
+	Kind        string `json:"kind"` // task, device, nas_not_synced, abb_missing, abb_not_installed, partial_history
+	Note        string `json:"note,omitempty"`
+	HistoryFrom int64  `json:"history_from,omitempty"` // set when the window starts before the mirrored history
+	Key         string `json:"key,omitempty"`          // task name or device host name
+	// Absence is never zero: id, the run counts and success_rate_pct are
+	// measurements of a task or device, so they are null (never 0) on a row
+	// that is not one (nas_not_synced, abb_missing, abb_not_installed,
+	// partial_history): an unsynced NAS never ranks as "0% success".
+	ID             *int64   `json:"id"`
+	Runs           *int     `json:"runs"`
+	Successes      *int     `json:"successes"`
+	Partials       *int     `json:"partials"`
+	Failures       *int     `json:"failures"`
+	SuccessRatePct *float64 `json:"success_rate_pct"`
 	// Absence is never zero: a duration needs a run's start and end, so with
 	// no run that has both, the median and p90 are null (with a note), not 0;
 	// overrun is null whenever it cannot be judged (the newest run has no end
@@ -895,9 +917,11 @@ func Trend(ctx context.Context, db Querier, nasList []NAS, since time.Time, byDe
 	}
 	defer rows.Close()
 	type acc struct {
-		row     TrendRow
-		durs    []int64
-		lastDur int64 // newest completed run's duration; -1 = no end time
+		row                               TrendRow
+		id                                int64
+		runs, successes, partials, failed int
+		durs                              []int64
+		lastDur                           int64 // newest completed run's duration; -1 = no end time
 	}
 	groups := map[string]*acc{}
 	var order []string
@@ -916,21 +940,21 @@ func Trend(ctx context.Context, db Querier, nasList []NAS, since time.Time, byDe
 		k := fmt.Sprintf("%s\x00%d", nas, id)
 		g, ok := groups[k]
 		if !ok {
-			g = &acc{row: TrendRow{NAS: nas, Kind: kind, Key: key, ID: id}}
+			g = &acc{row: TrendRow{NAS: nas, Kind: kind, Key: key}, id: id}
 			if from, ok := partial[nas]; ok {
 				g.row.HistoryFrom, g.row.Note = from, partialNote(nas, from)
 			}
 			groups[k] = g
 			order = append(order, k)
 		}
-		g.row.Runs++
+		g.runs++
 		switch status {
 		case StatusSuccess:
-			g.row.Successes++
+			g.successes++
 		case StatusPartial:
-			g.row.Partials++
+			g.partials++
 		default:
-			g.row.Failures++
+			g.failed++
 		}
 		g.lastDur = -1
 		if end > 0 && start > 0 && end >= start { // a run can finish in the second it started
@@ -945,9 +969,10 @@ func Trend(ctx context.Context, db Querier, nasList []NAS, since time.Time, byDe
 	for _, k := range order {
 		g := groups[k]
 		r := g.row
-		if r.Runs > 0 {
-			r.SuccessRatePct = round1(100 * float64(r.Successes) / float64(r.Runs))
-		}
+		// A group exists only once it has a finished run, so runs > 0.
+		rate := round1(100 * float64(g.successes) / float64(g.runs))
+		id, runs, successes, partials, failed := g.id, g.runs, g.successes, g.partials, g.failed
+		r.ID, r.Runs, r.Successes, r.Partials, r.Failures, r.SuccessRatePct = &id, &runs, &successes, &partials, &failed, &rate
 		n := len(g.durs)
 		// LastSec and Overrun describe the newest completed run only; when it
 		// has no end time they stay null rather than borrow an older one.
@@ -986,7 +1011,7 @@ func Trend(ctx context.Context, db Querier, nasList []NAS, since time.Time, byDe
 		if overran(out[i]) != overran(out[j]) {
 			return overran(out[i])
 		}
-		return out[i].SuccessRatePct < out[j].SuccessRatePct
+		return *out[i].SuccessRatePct < *out[j].SuccessRatePct // every measured row has a rate
 	})
 	// A NAS with partial history but no runs in the window still says so.
 	for _, n := range nasList {

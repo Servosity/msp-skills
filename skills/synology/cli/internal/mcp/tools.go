@@ -41,6 +41,10 @@ const (
 // RegisterTools registers all API operations as MCP tools.
 func RegisterTools(s *server.MCPServer) {
 	installFreshTenantGate(s)
+	// HAND-FIX(mcp-required-args-enforced): every tool refuses a call that
+	// omits (or passes empty) an argument its schema marks required, before
+	// any request is sent.
+	installRequiredArgsGuard(s)
 	s.AddTool(
 		mcplib.NewTool("abb_backup",
 			mcplib.WithDescription("Start a backup now for one or more tasks. Required: task_ids."),

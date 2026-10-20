@@ -28,7 +28,9 @@ use this command to list individual failed tasks or bad disks; use 'abb
 failures' or 'fleet health' instead.
 
 state is ok, warning, critical or unknown. A NAS that never synced, whose last
-sync failed, or whose mirror is older than --max-sync-age is unknown, never ok.
+sync failed, or whose mirror is older than --max-sync-age is unknown, never ok;
+its task counts and stale_devices are null (unknown), never 0, and so are
+those of a NAS whose Active Backup for Business does not answer (see note).
 Exit code 6 when any NAS is not ok (RMM-friendly); --no-fail exits 0.`, "\n"),
 		Example:     "  synology-cli fleet status --agent",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:typed-exit-codes": "0,6"},

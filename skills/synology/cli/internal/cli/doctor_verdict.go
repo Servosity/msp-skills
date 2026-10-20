@@ -115,7 +115,7 @@ func doctorTransport(n fleet.NAS) string {
 	return "https (certificate verified)"
 }
 
-// doctorProbeDSMAPI reports the host's answer to dsm.ProbeDSM, the same
+// doctorProbeDSMAPI reports the host's answer to dsm.VerifyDSM, the same
 // unauthenticated SYNO.API.Info check dsm.Login runs before it sends any
 // password: doctor and every login share one rule for "this is a DSM". When
 // the probe fails it returns the API row and the Credentials row, both named
@@ -124,7 +124,7 @@ func doctorTransport(n fleet.NAS) string {
 // SYNOLOGY_BASE_URL for a NAS that is down or a certificate that is refused.
 func doctorProbeDSMAPI(ctx context.Context, hc *http.Client, origin string) (ok bool, api, credentials string) {
 	wrongHost := fmt.Sprintf("point %s at the NAS's DSM address, for example https://<nas>:5001", doctorBaseURLEnv)
-	err := dsm.ProbeDSM(ctx, hc, origin)
+	err := dsm.VerifyDSM(ctx, hc, origin) // the probe the login below reuses: one per NAS per run
 	var notDSM *dsm.NotDSMError
 	switch {
 	case err == nil:

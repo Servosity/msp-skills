@@ -33,7 +33,10 @@ judged: the newest run has no end time, fewer than 3 runs have one, or
 --overrun 0. median_duration_sec and p90_duration_sec are null, with a note,
 when no run in the window has an end time. Rows are sorted overruns first,
 then lowest success rate. A NAS whose mirror is not fresh adds a
-nas_not_synced row (exit 6).`, "\n"),
+nas_not_synced row (exit 6). A row that is not a task or device measurement
+(nas_not_synced, abb_missing, abb_not_installed, partial_history) has id,
+runs, successes, partials, failures and success_rate_pct null, never 0, so
+it never ranks as a 0% success rate.`, "\n"),
 		Example:     "  synology-cli abb trend --since 30d --agent",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:typed-exit-codes": "0,6"},
 		RunE: func(cmd *cobra.Command, args []string) error {

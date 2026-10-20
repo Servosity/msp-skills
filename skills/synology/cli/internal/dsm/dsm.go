@@ -272,6 +272,21 @@ var pctEscape = regexp.MustCompile(`%[0-9a-fA-F]{2}`)
 // (*RedirectError).
 var errRedirectRefused = errors.New("refusing to follow a redirect")
 
+// verifyBeforeSending is VerifyDSM for a request that carries the session:
+// a host that is not DSM is a SessionRefusedError, one that did not answer
+// keeps its transport kind.
+func (c *Client) verifyBeforeSending(ctx context.Context, what string) error {
+	err := VerifyDSM(ctx, c.HTTP, c.BaseURL)
+	if err == nil {
+		return nil
+	}
+	var notDSM *NotDSMError
+	if errors.As(err, &notDSM) {
+		return fmt.Errorf("%s: %w", what, SessionNotSent(err))
+	}
+	return c.transportErr(what, err)
+}
+
 // transportErr reports a failed request by kind only (describeTransport),
 // keeping the kind for errors.Is / errors.As (SanitizeTransport).
 func (c *Client) transportErr(what string, err error, _ ...string) error {
@@ -430,11 +445,11 @@ func PlaceholderOrigin(raw string) bool {
 // Login performs SYNO.API.Auth login against baseURL (scheme://host:port).
 //
 // No credential leaves the process until the host proves it is a DSM WebAPI:
-// ProbeDSM asks it for SYNO.API.Info without credentials first, so a
-// mistyped address (the client's router on :5001, a proxy, a web server)
-// gets an unauthenticated GET and never the account and password. Every
-// login in this CLI (auth login, every live command, fleet add --check,
-// fleet sync, doctor) comes through here.
+// VerifyDSM asks it for SYNO.API.Info without credentials first (once per
+// address per process), so a mistyped address (the client's router on :5001,
+// a proxy, a web server) gets an unauthenticated GET and never the account
+// and password. Every login in this CLI (auth login, every live command,
+// fleet add --check, fleet sync, doctor) comes through here.
 func Login(ctx context.Context, hc *http.Client, baseURL string, creds Credentials) (Session, error) {
 	if err := CheckOrigin(baseURL); err != nil {
 		return Session{}, err
@@ -445,7 +460,7 @@ func Login(ctx context.Context, hc *http.Client, baseURL string, creds Credentia
 	if !creds.Complete() {
 		return Session{}, errors.New("DSM login needs SYNOLOGY_ACCOUNT and SYNOLOGY_PASSWORD (or the fleet entry's account/password env vars)")
 	}
-	if err := ProbeDSM(ctx, hc, baseURL); err != nil {
+	if err := VerifyDSM(ctx, hc, baseURL); err != nil {
 		var notDSM *NotDSMError
 		if errors.As(err, &notDSM) {
 			return Session{}, fmt.Errorf("DSM login refused: %w; the password was not sent - check SYNOLOGY_BASE_URL (or the fleet entry's --url)", err)
@@ -656,6 +671,12 @@ func (c *Client) do(ctx context.Context, req *http.Request, api string) ([]byte,
 		if err := lim.Wait(ctx); err != nil {
 			return nil, err
 		}
+		// The request carries the sid and SynoToken: it goes only to an address
+		// that answered SYNO.API.Info as DSM in this process (the login checked
+		// it; this keeps the rule true for every send).
+		if err := c.verifyBeforeSending(ctx, api); err != nil {
+			return nil, err
+		}
 		// No DSM request follows a redirect, whatever client was handed in.
 		resp, err := NoRedirect(c.HTTP).Do(req.Clone(ctx))
 		if err != nil {
@@ -722,6 +743,9 @@ func (c *Client) Logout(ctx context.Context) error {
 	}
 	if sess.SynoToken != "" {
 		req.Header.Set("X-SYNO-TOKEN", sess.SynoToken)
+	}
+	if err := c.verifyBeforeSending(ctx, "DSM logout"); err != nil {
+		return err
 	}
 	resp, err := NoRedirect(c.HTTP).Do(req)
 	if err != nil {

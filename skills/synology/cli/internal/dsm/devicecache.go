@@ -49,14 +49,16 @@ func CachedDeviceID(dataDir, baseURL, account string) string {
 	return CachedDeviceIDFile(sessionFilePath(dataDir, baseURL), originOf(baseURL), account)
 }
 
-// CachedDeviceIDFile is CachedDeviceID for a known session file path; a file
-// recorded for another origin yields nothing.
+// CachedDeviceIDFile is CachedDeviceID for a known session file path. The
+// token is returned only for the exact origin and account it was recorded
+// for: a file recorded for another origin or for no origin, another account,
+// or an unknown (empty) account yields nothing.
 func CachedDeviceIDFile(path, origin, account string) string {
-	if path == "" {
+	if path == "" || origin == "" || account == "" {
 		return ""
 	}
 	rec := readRecord(path)
-	if o, _ := rec["origin"].(string); o != "" && o != origin {
+	if o, _ := rec["origin"].(string); o != origin {
 		return ""
 	}
 	if ids, ok := rec["device_ids"].(map[string]any); ok {
@@ -65,7 +67,7 @@ func CachedDeviceIDFile(path, origin, account string) string {
 		}
 	}
 	// The session manager's own record (auth login) for the same account.
-	if acct, _ := rec["account"].(string); acct == account || acct == "" {
+	if acct, _ := rec["account"].(string); acct == account {
 		did, _ := rec["device_id"].(string)
 		return did
 	}

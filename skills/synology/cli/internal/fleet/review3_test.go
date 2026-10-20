@@ -82,7 +82,7 @@ func TestABBNeverInstalledIsNotAFinding(t *testing.T) {
 	}
 	f, _ := Failures(ctx, db, []NAS{n}, now.Add(-day), now, 26*time.Hour)
 	st, _ := Status(ctx, db, []NAS{n}, now.Add(-day), 36*time.Hour, 85, 55, now, 26*time.Hour)
-	if len(f) != 1 || f[0].Kind != "abb_not_installed" || st[0].State != SevOK || st[0].StaleDevices != 0 {
+	if len(f) != 1 || f[0].Kind != "abb_not_installed" || st[0].State != SevOK || st[0].StaleDevices != nil || st[0].Tasks != nil {
 		t.Fatalf("never-ABB NAS: failures=%+v status=%+v", f, st[0])
 	}
 	m, _ := FindDevice(ctx, db, []NAS{n}, "PC", 5, now, 26*time.Hour)
@@ -103,7 +103,7 @@ func TestABBMissingIsCriticalEverywhere(t *testing.T) {
 	s, _ := Stale(ctx, db, []NAS{n}, 36*time.Hour, now, 26*time.Hour)
 	tr, _ := Trend(ctx, db, []NAS{n}, now.Add(-day), false, 2, now, 26*time.Hour)
 	m, _ := FindDevice(ctx, db, []NAS{n}, "PC", 5, now, 26*time.Hour)
-	if st[0].State != SevCritical || st[0].StaleDevices != 0 || st[0].Note == "" {
+	if st[0].State != SevCritical || st[0].StaleDevices != nil || st[0].Tasks != nil || st[0].Note == "" {
 		t.Fatalf("status = %+v", st[0])
 	}
 	if len(s) != 1 || s[0].Kind != "abb_missing" || len(tr) != 1 || tr[0].Kind != "abb_missing" || len(m) != 1 || m[0].Kind != "abb_missing" {

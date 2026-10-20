@@ -1432,7 +1432,17 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			uploadClient.Timeout += uploadAllowance
 			httpClient = &uploadClient
 		}
-		resp, err := httpClient.Do(req)
+		// HAND-FIX(dsm-probe-before-session): a request carrying a credential or
+		// a session (the configured auth_header sid, a cached or fresh sid, the
+		// SynoToken, a session cookie, or any held password, one-time code or
+		// device token) goes only to an address that answered SYNO.API.Info as
+		// DSM in this process; a host that is not DSM gets nothing, and an
+		// unreachable one fails like the request itself would.
+		resp, err := c.sendVerified(ctx, httpClient, req)
+		var notDSM *dsm.NotDSMError
+		if errors.As(err, &notDSM) {
+			return nil, 0, err
+		}
 		if err != nil {
 			// HAND-FIX(dsm-login): Go's transport error can quote server-chosen
 			// bytes (a redirect URL, a malformed status line); report the kind only.
@@ -2030,6 +2040,42 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 		return maskedError{msg: msg, kind: kind}
 	}
 	return maskedError{msg: msg}
+}
+
+// sendVerified sends req, first checking with dsm.VerifyDSM (one probe per
+// address per process) whenever req would carry a credential or a session.
+// A host that is not DSM returns a *dsm.SessionRefusedError and nothing is
+// sent. HAND-FIX(dsm-probe-before-session).
+func (c *Client) sendVerified(ctx context.Context, hc *http.Client, req *http.Request) (*http.Response, error) {
+	if c.carriesCredentials(hc, req) {
+		if err := dsm.VerifyDSM(ctx, hc, c.BaseURL); err != nil {
+			return nil, dsm.SessionNotSent(err)
+		}
+	}
+	return hc.Do(req)
+}
+
+// carriesCredentials reports a request with a session on it (sid, SynoToken,
+// cookie, Authorization) or a client holding any credential or session
+// value. HAND-FIX(dsm-probe-before-session).
+func (c *Client) carriesCredentials(hc *http.Client, req *http.Request) bool {
+	if hc != nil && dsm.CarriesSession(req, hc.Jar) {
+		return true
+	}
+	var held []string
+	if c.Config != nil {
+		held = append(held, c.Config.AuthHeaderVal, c.Config.AuthHeader(), c.Config.AccessToken, c.Config.RefreshToken,
+			c.Config.ClientSecret, c.Config.SynologyPassword, c.Config.SynologyOtpCode, c.Config.SynologyDeviceId)
+	}
+	if c.Session != nil {
+		held = append(held, c.Session.Secrets()...)
+	}
+	for _, v := range held {
+		if strings.TrimSpace(v) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // maskSecretValues masks every secret value this client holds (the

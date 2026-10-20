@@ -280,7 +280,7 @@ func TestStatusRollup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rows[0].State != SevCritical || rows[0].TasksFailed != 1 || rows[0].TasksRunning != 1 || rows[0].Model != "DS920+" {
+	if rows[0].State != SevCritical || count(rows[0].TasksFailed) != 1 || count(rows[0].TasksRunning) != 1 || rows[0].Model != "DS920+" {
 		t.Fatalf("acme row = %+v", rows[0])
 	}
 	if rows[1].State != SevWarning || rows[1].Storage != SevOK {
@@ -340,12 +340,12 @@ func TestTrendOverrun(t *testing.T) {
 		}
 	}
 	// Three runs of 60s, 60s, 600s: median 60s, last 600s > 2x median.
-	if bob.Runs != 3 || bob.MedianSec == nil || *bob.MedianSec != 60 || bob.LastSec == nil || *bob.LastSec != 600 || bob.Overrun == nil || !*bob.Overrun || bob.SuccessRatePct != 100 {
+	if count(bob.Runs) != 3 || bob.MedianSec == nil || *bob.MedianSec != 60 || bob.LastSec == nil || *bob.LastSec != 600 || bob.Overrun == nil || !*bob.Overrun || bob.SuccessRatePct == nil || *bob.SuccessRatePct != 100 {
 		t.Fatalf("BOB trend = %+v", bob)
 	}
 	tasks, _ := Trend(context.Background(), db, []NAS{acme, {Name: "ghost"}}, now.Add(-30*day), false, 2, now, 26*time.Hour)
 	for _, r := range tasks {
-		if r.Key == "File Server" && (r.Kind != "task" || r.Failures != 1 || r.SuccessRatePct != 0) {
+		if r.Key == "File Server" && (r.Kind != "task" || count(r.Failures) != 1 || r.SuccessRatePct == nil || *r.SuccessRatePct != 0) {
 			t.Fatalf("File Server trend = %+v", r)
 		}
 	}
@@ -555,7 +555,7 @@ func TestRunningDoesNotHideStaleOrStuckJobs(t *testing.T) {
 		t.Fatalf("running task hid a 30-day-stale device: %+v", s)
 	}
 	st, _ := Status(context.Background(), db, []NAS{n}, now.Add(-day), 36*time.Hour, 85, 55, now, 26*time.Hour)
-	if st[0].State == SevOK || st[0].TasksStuck != 1 {
+	if st[0].State == SevOK || count(st[0].TasksStuck) != 1 {
 		t.Fatalf("status with a hung job = %+v", st[0])
 	}
 }
@@ -669,7 +669,7 @@ func TestRunningTaskDoesNotHidePriorFailure(t *testing.T) {
 		t.Fatalf("failed run hidden by the run in progress: %+v", f)
 	}
 	st, _ := Status(context.Background(), db, []NAS{n}, now.Add(-day), 36*time.Hour, 85, 55, now, 26*time.Hour)
-	if st[0].State != SevCritical || st[0].TasksFailed != 1 || st[0].TasksRunning != 0 {
+	if st[0].State != SevCritical || count(st[0].TasksFailed) != 1 || count(st[0].TasksRunning) != 0 {
 		t.Fatalf("status = %+v", st[0])
 	}
 }
@@ -741,8 +741,8 @@ func TestStatusBucketsAddUp(t *testing.T) {
 			{ResultID: 2, TaskID: 2, Status: StatusFailed, JobAction: JobBackup, Start: ts(2 * time.Hour), End: ts(time.Hour)}}})
 	st, _ := Status(context.Background(), db, []NAS{n}, now.Add(-day), 36*time.Hour, 85, 55, now, 26*time.Hour)
 	r := st[0]
-	if r.TasksOK != 1 || r.TasksFailed != 1 || r.TasksOff != 0 ||
-		r.TasksOK+r.TasksFailed+r.TasksPartial+r.TasksNoRun+r.TasksRunning+r.TasksStuck+r.TasksOff != r.Tasks {
+	if count(r.TasksOK) != 1 || count(r.TasksFailed) != 1 || count(r.TasksOff) != 0 ||
+		count(r.TasksOK)+count(r.TasksFailed)+count(r.TasksPartial)+count(r.TasksNoRun)+count(r.TasksRunning)+count(r.TasksStuck)+count(r.TasksOff) != count(r.Tasks) {
 		t.Fatalf("buckets = %+v", r)
 	}
 }
@@ -841,4 +841,12 @@ func TestFetchTruncationAndTransferFailureCommitNoHistory(t *testing.T) {
 	if err == nil || len(snap.Results) != 0 {
 		t.Fatalf("results committed without their device runs: err=%v results=%d", err, len(snap.Results))
 	}
+}
+
+// count reads a reported count; null (not a measurement) reads as -1, never 0.
+func count(p *int) int {
+	if p == nil {
+		return -1
+	}
+	return *p
 }

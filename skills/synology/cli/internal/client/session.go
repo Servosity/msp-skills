@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -57,9 +56,12 @@ var sessionInvalidationStatuses = map[int]bool{
 // SessionManager owns the cookie jar + cached token and coordinates the
 // handshake. Safe for concurrent use by the client's retry loop.
 type SessionManager struct {
-	mu         sync.Mutex
-	client     *http.Client
-	jar        http.CookieJar
+	mu     sync.Mutex
+	client *http.Client
+	// HAND-FIX(dsm-session-origin-bound): the jar holds cookies for exactly the
+	// configured NAS origin (scheme://host:port), Secure for https://, and
+	// ConfigureDSM empties it.
+	jar        *dsm.OriginJar
 	token      string
 	configPath string
 
@@ -76,7 +78,9 @@ type SessionManager struct {
 }
 
 // newSessionManager constructs a SessionManager with a cookie jar attached to
-// its HTTP client. Any cached session on disk is loaded immediately.
+// its HTTP client. HAND-FIX(dsm-session-origin-bound): nothing is loaded
+// here; a cached session is read only by ConfigureDSM, once the NAS origin
+// and the account are known.
 //
 // The bootstrap and token-fetch calls go through the same newHTTPClient as the
 // data path so the Chrome-compatible transport (when configured) is applied to
@@ -84,13 +88,12 @@ type SessionManager struct {
 // run as a vanilla net/http client and get rate-limited away even when the
 // data client would have cleared the bot wall.
 func newSessionManager(timeout time.Duration, configPath string) *SessionManager {
-	jar, _ := cookiejar.New(nil)
+	jar := dsm.NewOriginJar() // HAND-FIX(dsm-session-origin-bound): unbound until ConfigureDSM
 	m := &SessionManager{
 		jar:        jar,
 		client:     newHTTPClient(timeout, jar),
 		configPath: configPath,
 	}
-	m.loadFromDisk()
 	return m
 }
 
@@ -241,6 +244,9 @@ func (m *SessionManager) ConfigureDSM(baseURL string, creds dsm.Credentials) {
 	m.baseURL = strings.TrimRight(baseURL, "/")
 	m.creds = creds
 	m.token, m.synoToken, m.deviceID = "", "", ""
+	// HAND-FIX(dsm-session-origin-bound): every reconfiguration starts from an
+	// empty jar bound to the new origin; no cookie outlives the NAS it came from.
+	m.jar.Bind(m.baseURL)
 	m.client.CheckRedirect = dsm.RefuseRedirect // HAND-FIX(dsm-tls): no DSM request follows a redirect
 	m.loginErr = nil
 	if m.baseURL != "" {
@@ -371,7 +377,9 @@ func (m *SessionManager) sessionFilePath() string {
 	if u, err := url.Parse(m.baseURL); err == nil && u.Host != "" {
 		return filepath.Join(dir, dsm.SessionFileName(u.Scheme+"://"+u.Host))
 	}
-	return filepath.Join(dir, "session.json")
+	// HAND-FIX(dsm-session-origin-bound): no NAS origin, no session file (the
+	// origin-less session.json is never read or written).
+	return ""
 }
 
 type sessionRecord struct {
@@ -395,15 +403,21 @@ type jarCookie struct {
 }
 
 func (m *SessionManager) loadFromDisk() {
+	// HAND-FIX(dsm-session-origin-bound): a session (sid, SynoToken, cookies,
+	// trusted-device token) is restored only for the exact origin and the
+	// account it was saved for; with either unknown nothing is read, and the
+	// legacy origin-less session.json is never read.
+	m.mu.Lock()
+	baseURL, account := m.baseURL, m.creds.Account
+	m.mu.Unlock()
+	if baseURL == "" || account == "" {
+		return
+	}
 	path := m.sessionFilePath()
 	if path == "" {
 		return
 	}
-	legacy := ""
-	if m.configPath != "" && m.baseURL == "" { // HAND-FIX(dsm-login): no cross-NAS legacy fallback
-		legacy = filepath.Join(filepath.Dir(m.configPath), "session.json")
-	}
-	data, _, err := cliutil.ReadFileWithLegacyFallback(path, legacy)
+	data, _, err := cliutil.ReadFileWithLegacyFallback(path, "")
 	if err != nil {
 		return
 	}
@@ -414,13 +428,13 @@ func (m *SessionManager) loadFromDisk() {
 	// HAND-FIX(dsm-login): the trusted-device token outlives the session and is
 	// kept per account (fleet logins share this file).
 	m.mu.Lock()
-	m.deviceID = dsm.CachedDeviceIDFile(path, dsm.Origin(m.baseURL), m.creds.Account)
+	m.deviceID = dsm.CachedDeviceIDFile(path, dsm.Origin(baseURL), account)
 	m.issued = append(m.issued, m.deviceID)
 	m.mu.Unlock()
-	if rec.Account != m.creds.Account {
-		return // HAND-FIX(dsm-login): only the same account's session (an empty one included) is reused
+	if rec.Account != account {
+		return // HAND-FIX(dsm-login): only the same account's session is reused
 	}
-	if m.baseURL != "" && rec.Origin != m.baseURL {
+	if rec.Origin != baseURL {
 		return // HAND-FIX(dsm-login): a sid from https://nas is never sent to http://nas
 	}
 	if time.Since(rec.Saved) > sessionTTL {
@@ -442,6 +456,8 @@ func (m *SessionManager) loadFromDisk() {
 			Path:    c.Path,
 			Expires: c.Expires,
 		}
+		// HAND-FIX(dsm-session-origin-bound): the jar keeps only cookies of the
+		// configured origin and stores them Secure for https://.
 		m.jar.SetCookies(u, []*http.Cookie{ck})
 	}
 }
@@ -450,7 +466,7 @@ func (m *SessionManager) saveToDisk() {
 	path := m.sessionFilePath()
 	if path == "" || m.jar == nil {
 		m.mu.Lock()
-		m.saveErr = fmt.Errorf("no session cache location (data directory unavailable)") // HAND-FIX(dsm-login)
+		m.saveErr = fmt.Errorf("no session cache location (no NAS address, or the data directory is unavailable)") // HAND-FIX(dsm-login)
 		m.mu.Unlock()
 		return
 	}

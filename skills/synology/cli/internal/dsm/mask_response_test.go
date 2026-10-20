@@ -19,7 +19,8 @@ import (
 // value the client holds (a sid echoed in a user's description, a password
 // JSON-escaped or percent-encoded inside a URL) is masked in every form; the
 // rest of the answer is untouched; a short secret (a 6-digit one-time code)
-// is masked only as a whole value, never inside other numbers or text.
+// is masked only as a whole string value, never inside other numbers or
+// text, and a number is never rewritten.
 func TestMaskResponseCoversEveryForm(t *testing.T) {
 	const sid, pw, tok, otp = "SID-LEAK-7731", `p@ss/w"rd&9931`, "TOKLEAK5566", "918273"
 	body := `{"users":[` +
@@ -53,8 +54,11 @@ func TestMaskResponseCoversEveryForm(t *testing.T) {
 			t.Fatalf("masking destroyed %s: %s", keep, out)
 		}
 	}
-	if !strings.Contains(out, `"code":"[redacted]"`) || !strings.Contains(out, `"otp":"[redacted]"`) {
+	if !strings.Contains(out, `"otp":"[redacted]"`) {
 		t.Fatalf("a whole-value one-time code was not masked: %s", out)
+	}
+	if !strings.Contains(out, `"code":918273`) {
+		t.Fatalf("masking rewrote a number (it is type-preserving: string values only): %s", out)
 	}
 	// Nothing to mask: the bytes come back as they were.
 	if got := string(MaskResponse([]byte(`{"a": 1,  "b":"x"}`), sid)); got != `{"a": 1,  "b":"x"}` {

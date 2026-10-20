@@ -41,7 +41,10 @@ type ProbeTransportError = TransportError
 // lists SYNO.API.Auth. It is the one rule that decides whether a password may
 // be sent: Login runs it before every credential POST and doctor reports it.
 // A redirect is not followed (DSM answers its WebAPI directly), so a host
-// cannot vouch for another one.
+// cannot vouch for another one. The probe carries nothing secret: no
+// session, no credential and no cookie (hc's cookie jar is not used), since
+// the host has not yet shown it is a DSM. Callers that are about to send a
+// credential or a session use VerifyDSM, which runs this once per address.
 func ProbeDSM(ctx context.Context, hc *http.Client, origin string) error {
 	if hc == nil {
 		hc = http.DefaultClient
@@ -50,7 +53,9 @@ func ProbeDSM(ctx context.Context, hc *http.Client, origin string) error {
 	if err != nil {
 		return &NotDSMError{Reason: "the address is not a usable URL"}
 	}
-	resp, err := NoRedirect(hc).Do(req)
+	pc := NoRedirect(hc)
+	pc.Jar = nil // a session cookie never goes to a host before it answers as DSM
+	resp, err := pc.Do(req)
 	var redir *RedirectError
 	if errors.As(err, &redir) {
 		return &NotDSMError{Reason: probeRedirectReason(redir.Status)}

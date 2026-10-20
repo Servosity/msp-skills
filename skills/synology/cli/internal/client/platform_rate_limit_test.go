@@ -15,12 +15,16 @@ import (
 
 	"synology-pp-cli/internal/cliutil"
 	"synology-pp-cli/internal/config"
+	"synology-pp-cli/internal/dsm/dsmtest"
 	"synology-pp-cli/internal/platform"
 )
 
 func TestPlatformRateLimitRetriesSafeRequestAndRecordsMetadata(t *testing.T) {
 	var calls atomic.Int32
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) { // HAND-FIX(dsm-probe-before-session): a credential goes only to a DSM
+			return
+		}
 		if calls.Add(1) == 1 {
 			w.Header().Set("Retry-After", "0")
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -45,7 +49,10 @@ func TestPlatformRateLimitRetriesSafeRequestAndRecordsMetadata(t *testing.T) {
 
 func TestPlatformRateLimitDoesNotReplayUnsafeWrite(t *testing.T) {
 	var calls atomic.Int32
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) { // HAND-FIX(dsm-probe-before-session): a credential goes only to a DSM
+			return
+		}
 		calls.Add(1)
 		w.Header().Set("Retry-After", "0")
 		w.Header().Set("X-Request-ID", "safe-request-id")
@@ -71,7 +78,10 @@ func TestPlatformRateLimitDoesNotReplayUnsafeWrite(t *testing.T) {
 
 func TestPlatformRateLimitRetryBudgetReturnsTypedError(t *testing.T) {
 	var calls atomic.Int32
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dsmtest.ServeAPIInfo(w, r) { // HAND-FIX(dsm-probe-before-session): a credential goes only to a DSM
+			return
+		}
 		calls.Add(1)
 		w.Header().Set("Retry-After", "5")
 		w.WriteHeader(http.StatusTooManyRequests)

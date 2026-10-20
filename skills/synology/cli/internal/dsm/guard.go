@@ -134,15 +134,12 @@ func ScrubError(err error, secrets ...string) error {
 
 // --- secret values in successful answers -----------------------------------
 
-// secretSubstringMin is the shortest secret masked wherever it appears in a
-// response string. A shorter one (a 6-digit one-time code, a short password)
-// is masked only when it is an entire JSON value: masking "123456" inside
-// every timestamp and id would destroy the output.
+// secretSubstringMin is the shortest secret masked wherever it appears inside
+// a response string. A shorter one (a 6-digit one-time code, a short
+// password) is masked only when it is an entire string value: masking
+// "123456" inside every timestamp and id would destroy the output. Every
+// non-empty secret, however short, is masked as an entire string value.
 const secretSubstringMin = 8
-
-// secretWholeValueMin is the shortest secret masked at all in a response;
-// shorter values (empty included) are ignored.
-const secretWholeValueMin = 4
 
 // ResponseMask replaces a secret value found in a successful answer.
 const ResponseMask = "[redacted]"
@@ -153,9 +150,14 @@ const ResponseMask = "[redacted]"
 // decoded first, so any JSON escaping (\" \/ \uXXXX) is covered; inside a
 // value the literal, percent-encoded (once or twice), HTML-escaped and any
 // other decodable form is masked. A value whose decoded form still carries a
-// secret is replaced whole. A number token equal to a secret is replaced by
-// the mask string. Text that is not JSON is masked as plain text. The bytes
-// outside an affected value are left exactly as they were.
+// secret is replaced whole, and so is a string value that is exactly a
+// secret, whatever its length. Masking is type-preserving: only string
+// values change; a number, true, false or null is never rewritten (a
+// one-time code 482913 that equals a result_id leaves the id a number the
+// fleet parser can read), and an object key keeps its name unless a secret
+// of 8 or more characters sits inside it. Text that is not JSON is masked as
+// plain text. The bytes outside an affected string are left exactly as they
+// were.
 func MaskResponse(body []byte, secrets ...string) []byte {
 	m := newResponseMasker(secrets)
 	if m == nil || len(body) == 0 {
@@ -167,38 +169,28 @@ func MaskResponse(body []byte, secrets ...string) []byte {
 	var out bytes.Buffer
 	changed := false
 	for i := 0; i < len(body); {
-		c := body[i]
-		switch {
-		case c == '"':
-			end := jsonStringEnd(body, i)
-			lit := body[i:end]
-			var s string
-			if json.Unmarshal(lit, &s) == nil {
-				if masked := m.maskString(s); masked != s {
-					out.Write(encodeJSONString(masked))
-					changed = true
-					i = end
-					continue
-				}
-			}
-			out.Write(lit)
-			i = end
-		case c == '-' || (c >= '0' && c <= '9'):
-			end := i
-			for end < len(body) && strings.IndexByte("+-.0123456789eE", body[end]) >= 0 {
-				end++
-			}
-			if tok := string(body[i:end]); m.exact[tok] {
-				out.Write(encodeJSONString(ResponseMask))
-				changed = true
-			} else {
-				out.WriteString(tok)
-			}
-			i = end
-		default:
-			out.WriteByte(c)
+		if body[i] != '"' {
+			out.WriteByte(body[i]) // numbers, true, false, null and structure pass through untouched
 			i++
+			continue
 		}
+		end := jsonStringEnd(body, i)
+		lit := body[i:end]
+		var s string
+		if json.Unmarshal(lit, &s) == nil {
+			masked := m.maskString(s)
+			if isObjectKey(body, end) {
+				masked = m.maskInside(s)
+			}
+			if masked != s {
+				out.Write(encodeJSONString(masked))
+				changed = true
+				i = end
+				continue
+			}
+		}
+		out.Write(lit)
+		i = end
 	}
 	if !changed {
 		return body
@@ -206,9 +198,24 @@ func MaskResponse(body []byte, secrets ...string) []byte {
 	return out.Bytes()
 }
 
+// isObjectKey reports a JSON string literal ending at body[end] that is an
+// object key (the next non-blank byte is ':').
+func isObjectKey(body []byte, end int) bool {
+	for ; end < len(body); end++ {
+		switch body[end] {
+		case ' ', '\t', '\n', '\r':
+			continue
+		case ':':
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // responseMasker holds one call's secrets: sub are masked wherever they
-// appear (longest first, with their encoded forms), exact only as an entire
-// value; exact also lists every secret for whole-value and number matches.
+// appear (longest first, with their encoded forms); exact lists every
+// non-empty secret, each masked when it is an entire string value.
 type responseMasker struct {
 	sub   []string
 	forms []string
@@ -219,7 +226,7 @@ func newResponseMasker(secrets []string) *responseMasker {
 	m := &responseMasker{exact: map[string]bool{}}
 	for _, v := range secrets {
 		v = strings.TrimSpace(v)
-		if len(v) < secretWholeValueMin || m.exact[v] {
+		if v == "" || m.exact[v] {
 			continue
 		}
 		m.exact[v] = true
@@ -245,11 +252,18 @@ func decodedView(s string) string {
 	return s
 }
 
-// maskString masks secrets in one decoded string value.
+// maskString masks secrets in one decoded string value: replaced whole when
+// it is exactly a secret (any length), otherwise maskInside.
 func (m *responseMasker) maskString(s string) string {
 	if t := strings.TrimSpace(s); m.exact[t] || m.exact[decodedView(t)] {
 		return ResponseMask
 	}
+	return m.maskInside(s)
+}
+
+// maskInside masks the secrets of 8 or more characters inside a string (an
+// object key, or a value that is not exactly a secret).
+func (m *responseMasker) maskInside(s string) string {
 	out := s
 	for _, f := range m.forms {
 		if strings.Contains(out, f) {

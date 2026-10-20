@@ -32,6 +32,8 @@ func init() {
 
 type fleetAddResult struct {
 	NAS            fleet.NAS       `json:"nas"`
+	Updated        bool            `json:"updated,omitempty"` // the name was already registered
+	Changes        []fleetChange   `json:"changes,omitempty"` // every field the add changed on a registered NAS
 	Repinned       bool            `json:"repinned,omitempty"`
 	PreviousPin    string          `json:"previous_tls_fingerprint,omitempty"`
 	RegistryPath   string          `json:"registry_path"`
@@ -40,6 +42,31 @@ type fleetAddResult struct {
 	ABBAvailable   *bool           `json:"abb_available,omitempty"`
 	HyperBackupAPI *bool           `json:"hyper_backup_available,omitempty"`
 	Warning        string          `json:"warning,omitempty"`
+}
+
+// fleetChange is one field a re-add changed on a registered NAS: url (shown
+// as a display address), client, env_prefix, tls_fingerprint or insecure.
+type fleetChange struct {
+	Field string `json:"field"`
+	From  any    `json:"from"`
+	To    any    `json:"to"`
+}
+
+// registryChanges lists the fields that differ between a registered NAS and
+// what a re-add will save.
+func registryChanges(prev, next fleet.NAS) []fleetChange {
+	var out []fleetChange
+	add := func(field string, from, to any) {
+		if from != to {
+			out = append(out, fleetChange{Field: field, From: from, To: to})
+		}
+	}
+	add("url", dsm.DisplayAddress(prev.URL), dsm.DisplayAddress(next.URL))
+	add("client", prev.Client, next.Client)
+	add("env_prefix", prev.EnvPrefix, next.EnvPrefix)
+	add("tls_fingerprint", prev.TLSFingerprint, next.TLSFingerprint)
+	add("insecure", prev.Insecure, next.Insecure)
+	return out
 }
 
 func newFleetAddCmd(flags *rootFlags) *cobra.Command {
@@ -53,6 +80,13 @@ Register a client NAS for the fleet commands. The login is never stored: the
 NAS reads <prefix>_ACCOUNT, <prefix>_PASSWORD and, for two-factor accounts,
 <prefix>_DEVICE_ID (or a one-time <prefix>_OTP_CODE) from the environment.
 The prefix defaults to SYNOLOGY_<NAME>.
+
+Running fleet add again on a registered name changes only what you pass:
+--url, --client, --env-prefix, --insecure and the certificate pin keep their
+registered values otherwise, and the output lists every field that changed.
+'fleet add <name> --check' checks a registered NAS without --url. A new
+--url for a NAS with a pinned certificate is refused: a new address is a new
+NAS (fleet remove, then fleet add with --pin-cert or --tls-fingerprint).
 
 Most NAS units serve DSM's self-signed certificate: --pin-cert records its
 SHA-256 fingerprint now and verifies exactly that certificate afterwards.
@@ -99,11 +133,11 @@ MCP tools.`, "\n"),
 			if !fleet.ValidName(name) {
 				return usageErr(fmt.Errorf("NAS name %q must be lowercase letters, digits, '.', '_' or '-'", args[0]))
 			}
-			// A pin flag without --url re-pins a registered NAS (checked under
-			// the registry lock below); every other add needs --url.
+			// A registered name keeps its address without --url (checked under
+			// the registry lock below); a new NAS needs --url.
 			repin := pinCert || fingerprint != ""
 			origin := ""
-			if nasURL != "" || !repin {
+			if cmd.Flags().Changed("url") || nasURL != "" {
 				var err error
 				if origin, err = fleet.OriginURL(nasURL); err != nil {
 					return usageErr(fmt.Errorf("--url: %w", err))
@@ -146,30 +180,49 @@ MCP tools.`, "\n"),
 			res := fleetAddResult{}
 			err = fleet.UpdateRegistry(path, func(r *fleet.Registry) error {
 				registered, exists := r.Get(n.Name)
+				keptPrefix := false
 				switch {
-				case repin && exists:
-					// Re-pin: same NAS, new certificate. Keep everything the
-					// operator registered (address, client, prefix) unless a
-					// flag says otherwise; the mirror rows stay, because they
-					// are tied to the unchanged address.
-					if origin != "" && origin != registered.URL {
+				case exists:
+					// Re-adding a registered NAS changes only what the caller
+					// passed: address, client, credential prefix, the pin and
+					// --insecure keep their registered values otherwise (a
+					// silently reset prefix would send another env var's
+					// password to this address).
+					moved := origin != "" && origin != registered.URL
+					if moved && repin {
 						return usageErr(fmt.Errorf("NAS %q is registered at %s; re-pinning keeps that address and refuses --url %s (a different address is a different NAS: run 'synology-cli fleet remove %s', then 'synology-cli fleet add %s --url %s --pin-cert')", n.Name, dsm.DisplayAddress(registered.URL), dsm.DisplayAddress(origin), n.Name, n.Name, dsm.DisplayAddress(origin)))
 					}
-					if !strings.HasPrefix(registered.URL, "https://") {
-						return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
+					if moved && registered.TLSFingerprint != "" {
+						return usageErr(fmt.Errorf("NAS %q is registered at %s with a pinned certificate; a new address is a different NAS and the pin does not carry over: run 'synology-cli fleet remove %s', then 'synology-cli fleet add %s --url %s --pin-cert' (or --tls-fingerprint <sha256-checked-in-DSM>)", n.Name, dsm.DisplayAddress(registered.URL), n.Name, n.Name, dsm.DisplayAddress(origin)))
 					}
-					n.URL = registered.URL
+					if origin == "" {
+						n.URL = registered.URL
+					}
 					if !cmd.Flags().Changed("client") {
 						n.Client = registered.Client
 					}
 					if !explicitPrefix {
-						n.EnvPrefix = registered.EnvPrefix
+						n.EnvPrefix, keptPrefix = registered.EnvPrefix, true
 					}
-					res.Repinned, res.PreviousPin = true, registered.TLSFingerprint
+					if !repin {
+						n.TLSFingerprint = registered.TLSFingerprint
+					}
+					if !cmd.Flags().Changed("insecure") {
+						n.Insecure = registered.Insecure
+					}
+					if repin {
+						// Re-pin: same NAS, new certificate; the mirror rows stay,
+						// because they are tied to the unchanged address.
+						if !strings.HasPrefix(n.URL, "https://") {
+							return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
+						}
+						res.Repinned, res.PreviousPin = true, registered.TLSFingerprint
+					}
 				case n.URL == "":
 					return usageErr(fmt.Errorf("--url: %s is not registered; a new NAS needs its address, for example: fleet add %s --url https://<nas>:5001 --pin-cert", n.Name, n.Name))
 				}
-				if err := prefixClash(r, n, explicitPrefix); err != nil {
+				// A kept prefix was accepted when the NAS was registered.
+				if err := prefixClash(r, n, explicitPrefix || keptPrefix); err != nil {
 					return err
 				}
 				if pinCert {
@@ -198,6 +251,9 @@ MCP tools.`, "\n"),
 					res.ABBAvailable, res.HyperBackupAPI = &abb, &hb
 				}
 				prev, replacing = r.Get(n.Name)
+				if replacing {
+					res.Updated, res.Changes = true, registryChanges(prev, n)
+				}
 				r.Put(n)
 				return nil
 			})
@@ -226,7 +282,17 @@ MCP tools.`, "\n"),
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "re-pinned %s (%s): %s -> %s\n", n.Name, dsm.DisplayAddress(n.URL), old, n.TLSFingerprint)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "registered %s (%s) in %s\n", n.Name, dsm.DisplayAddress(n.URL), path)
+			if res.Updated {
+				fmt.Fprintf(cmd.OutOrStdout(), "updated %s (%s) in %s\n", n.Name, dsm.DisplayAddress(n.URL), path)
+				if len(res.Changes) == 0 {
+					fmt.Fprintln(cmd.OutOrStdout(), "  no field changed")
+				}
+				for _, ch := range res.Changes {
+					fmt.Fprintf(cmd.OutOrStdout(), "  changed %s: %s -> %s\n", ch.Field, fleetChangeValue(ch.From), fleetChangeValue(ch.To))
+				}
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "registered %s (%s) in %s\n", n.Name, dsm.DisplayAddress(n.URL), path)
+			}
 			for k, set := range res.EnvVars {
 				state := "set"
 				if !set {
@@ -248,6 +314,14 @@ MCP tools.`, "\n"),
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Skip TLS verification for this NAS (prefer --pin-cert)")
 	cmd.Flags().BoolVar(&check, "check", false, "Log in now and report whether Active Backup for Business and Hyper Backup APIs are available")
 	return cmd
+}
+
+// fleetChangeValue renders a changed field's value for the human output.
+func fleetChangeValue(v any) string {
+	if s, ok := v.(string); ok && s == "" {
+		return "(none)"
+	}
+	return fmt.Sprint(v)
 }
 
 // prefixClash refuses a NAS whose credential prefix another NAS already uses,
