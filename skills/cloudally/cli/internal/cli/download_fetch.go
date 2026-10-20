@@ -277,7 +277,7 @@ func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, current 
 	out.JobID = hr.JobID
 	switch {
 	case hr.Status == dlEmpty:
-		return out, false
+		out.Status, out.Detail = fetchEmpty, "batch "+h.key+" holds this archive; its job finished with nothing to download"
 	case hr.Status == dlCreated && hr.JobID != "":
 		if matched[current(hr.JobID)] {
 			return out, false
@@ -845,7 +845,7 @@ is complete.
 			}
 			for i, r := range batchRows {
 				id := current(r.JobID)
-				if (r.Status == dlCreated && matched[id]) || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
+				if (r.Status == dlCreated && matched[id]) || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
 					continue
 				}
 				if wantDay != "" && !snapshotOnDay(r.SnapshotRaw, wantDay, offset) {
@@ -859,6 +859,10 @@ is complete.
 				}
 				out := fetchOutcome{Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID}
 				switch {
+				case r.Status == dlEmpty:
+					// Every row asked for gets an outcome, so a batch of
+					// empty mailboxes is not "no download jobs matched".
+					out.Status, out.Detail = fetchEmpty, "the job finished with nothing to download"
 				case r.Status == dlJobFailed:
 					out.Status = fetchFailed
 					out.Detail = fmt.Sprintf("its job %s finished as %s with no archive; create it once more with: cloudally-cli download submit --batch %s --resume --yes", r.JobID, r.JobStatus, batchKey)

@@ -1258,3 +1258,33 @@ func TestHeldArchivesAreReportedByTheHoldersState(t *testing.T) {
 		t.Fatalf("a holder-MISSING row is MISSING (exit 6) with the holder's resume, got %v\n%s", err, out)
 	}
 }
+
+// Round 7 runtime P2-3: fetch --batch of a batch whose rows are all EMPTY
+// exited 3, "no download jobs matched". Each row now gets an EMPTY outcome
+// and the fetch exits 0.
+func TestFetchBatchOfEmptyRowsExitsZero(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.mu.Lock()
+	s.listCreated = false
+	s.countCreates = true // each create made a job that finished empty
+	s.taskEntities = []string{"a@contoso.com"}
+	s.mu.Unlock()
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs()...); err != nil {
+		t.Fatalf("submit: %v\n%s", err, stderr)
+	}
+	key := ledgerKeys(t)[0]
+	for _, r := range mustLoadBatch(t, key).Rows {
+		if r.Status != dlEmpty {
+			t.Fatalf("want every row EMPTY, got %+v", r)
+		}
+	}
+	out, stderr, err := runDL(t, s, fetchArgs(t.TempDir(), "--batch", key)...)
+	if err != nil {
+		t.Fatalf("a batch of empty mailboxes is complete: want exit 0, got %v\n%s\n%s", err, out, stderr)
+	}
+	if n := strings.Count(out, `"status": "EMPTY"`) + strings.Count(out, `"status":"EMPTY"`); n != 2 {
+		t.Fatalf("want an EMPTY outcome per row (2), got %d:\n%s", n, out)
+	}
+}
