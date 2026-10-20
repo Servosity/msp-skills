@@ -299,8 +299,9 @@ func resolvePaginatedReadWithStrategyAndJSONGuard(ctx context.Context, c *client
 	if flags != nil && flags.dryRun {
 		fetchAll = false
 	}
+	localParams := localPageParams(params, limitParam, fetchAll, defaultPageSize)
 	if strategy == "local" {
-		data, prov, err := resolveLocal(ctx, flags, hintWriter, resourceType, true, path, params, "strategy_local")
+		data, prov, err := resolveLocal(ctx, flags, hintWriter, resourceType, true, path, localParams, "strategy_local")
 		return data, attachFreshness(prov, flags), err
 	}
 	if strategy == "live" {
@@ -325,7 +326,7 @@ func resolvePaginatedReadWithStrategyAndJSONGuard(ctx context.Context, c *client
 	}
 	switch flags.dataSource {
 	case "local":
-		data, prov, err := resolveLocal(ctx, flags, hintWriter, resourceType, true, path, params, "user_requested")
+		data, prov, err := resolveLocal(ctx, flags, hintWriter, resourceType, true, path, localParams, "user_requested")
 		return data, attachFreshness(prov, flags), err
 
 	case "live":
@@ -371,7 +372,7 @@ func resolvePaginatedReadWithStrategyAndJSONGuard(ctx context.Context, c *client
 			return nil, DataProvenance{}, err
 		}
 		esetNoteTokenFallback(flags, err)
-		fallbackData, fallbackProv, fallbackErr := resolveLocal(ctx, flags, hintWriter, resourceType, true, path, params, networkFallbackReason)
+		fallbackData, fallbackProv, fallbackErr := resolveLocal(ctx, flags, hintWriter, resourceType, true, path, localParams, networkFallbackReason)
 		if fallbackErr != nil {
 			return nil, DataProvenance{}, localFallbackError(err, fallbackErr)
 		}
@@ -842,6 +843,29 @@ func mutationResponseHasID(resourceType string, data json.RawMessage) bool {
 // A row-selecting parameter that cannot be applied fails closed: returning
 // the unfiltered rows would answer a different question. Projection
 // parameters are reported on stderr. Object paths fetch by the trailing ID.
+// localPageParams (hand-fix local-read-page-size-is-not-a-total): ESET's
+// pageSize is the size of one page, not a total. A local read for --all must
+// not cap at it, and pageSize 0 means the server default page, not zero rows.
+func localPageParams(params map[string]string, limitParam string, fetchAll bool, defaultPageSize int) map[string]string {
+	v, ok := params[limitParam]
+	if limitParam == "" || !ok {
+		return params
+	}
+	out := make(map[string]string, len(params))
+	for k, x := range params {
+		out[k] = x
+	}
+	switch {
+	case fetchAll:
+		delete(out, limitParam)
+	case strings.TrimSpace(v) == "0" && defaultPageSize > 0:
+		out[limitParam] = strconv.Itoa(defaultPageSize)
+	case strings.TrimSpace(v) == "0":
+		delete(out, limitParam)
+	}
+	return out
+}
+
 func resolveLocal(ctx context.Context, flags *rootFlags, hintWriter io.Writer, resourceType string, isList bool, path string, params map[string]string, reason string) (json.RawMessage, DataProvenance, error) {
 	// Hand-fix local-read-path-query-filters: a filter carried in the path's
 	// query string cannot be applied to local rows, so it fails closed.

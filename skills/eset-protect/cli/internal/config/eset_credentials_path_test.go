@@ -78,3 +78,42 @@ func TestExplicitConfigLogoutClearsItsOwnCredentials(t *testing.T) {
 		t.Fatalf("after logout tenant A should fall back to the global file, got %q", cfg.AccessToken)
 	}
 }
+
+// TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal
+// (credentials-path-follows-config): with credentials inline in an explicit
+// config, credentialsPath stayed unset, so auth set-token / logout wrote and
+// deleted the GLOBAL file, which another configuration may be using.
+func TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal(t *testing.T) {
+	isolateCredentials(t)
+	if err := cliutil.SaveCredentials(&cliutil.Credentials{AccessToken: "token-global"}); err != nil {
+		t.Fatal(err)
+	}
+	globalPath, err := cliutil.CredentialsFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(t.TempDir(), "tenantA", "config.toml")
+	if err := cliutil.AtomicWritePrivateFile(configPath, []byte("access_token = 'inline-a'\n"), 0o600, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AccessToken != "inline-a" {
+		t.Fatalf("loaded %q, want the inline token", cfg.AccessToken)
+	}
+	colocated, err := cliutil.CredentialsFilePathForConfig(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := cfg.CredentialsPath(); err != nil || got != colocated {
+		t.Fatalf("CredentialsPath() = %q, %v; want the colocated %q", got, err, colocated)
+	}
+	if err := cfg.ClearTokens(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(globalPath); err != nil {
+		t.Fatalf("logout under an inline-credentials config deleted the global credentials: %v", err)
+	}
+}

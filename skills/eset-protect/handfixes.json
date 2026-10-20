@@ -5490,7 +5490,7 @@
     {
       "id": "credentials-path-follows-config",
       "summary": "the Config remembers which credentials file Load read (an explicit --config's colocated data/credentials.toml unless Load fell back to the global file) and SaveTokens, the save lock and rollback, ClearTokens (auth logout) and auth's save-path message all use it",
-      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file.",
+      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back).",
       "status": "active",
       "asserts": [
         {
@@ -5505,12 +5505,30 @@
         },
         {
           "file": "cli/internal/config/config.go",
-          "contains": "if colocated, perr := cliutil.CredentialsFilePathForConfig(path); perr == nil {\n\t\t\t\t\tcfg.credentialsPath = colocated",
+          "contains": "\t\tif explicitConfigFile {\n\t\t\tif colocated, perr := cliutil.CredentialsFilePathForConfig(path); perr == nil {\n\t\t\t\tcfg.credentialsPath = colocated\n\t\t\t}\n\t\t}\n\t\tif !cfg.hasCompleteCredentialFields() {",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/auth.go",
           "contains": "if path, err := cfg.CredentialsPath(); err == nil {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "local-read-page-size-is-not-a-total",
+      "summary": "local list reads take the pagination intent: with --all the page-size param no longer caps the result, and --page-size 0 means ESET's default page instead of zero rows",
+      "why": "parseLocalListQuery treats pageSize as a total-result limit, so `devices list --data-source local --all --page-size 1` silently returned one of the mirrored devices and `--page-size 0` returned an empty array, in explicit local reads and in the automatic outage fallback (Codex round 11 P1). localPageParams (data_source.go) rewrites the params passed to resolveLocal from the paginated resolver. TestLocalReadPageSizeIsNotATotal failed with the rewrite removed (`--all --page-size 1 returned 1 of 3`) and still checks a plain --page-size 1 returns one page.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "localParams := localPageParams(params, limitParam, fetchAll, defaultPageSize)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "func localPageParams(params map[string]string, limitParam string, fetchAll bool, defaultPageSize int) map[string]string {",
           "code_only": true
         }
       ]

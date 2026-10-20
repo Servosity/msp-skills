@@ -142,11 +142,16 @@ func Load(configPath string) (*Config, error) {
 		var creds *cliutil.Credentials
 		var ok bool
 		credentialsRefused := false
+		// Hand-fix credentials-path-follows-config: an explicit config writes
+		// its colocated file even when its credentials are inline; only a
+		// fallback to the global file below points writes there.
+		if explicitConfigFile {
+			if colocated, perr := cliutil.CredentialsFilePathForConfig(path); perr == nil {
+				cfg.credentialsPath = colocated
+			}
+		}
 		if !cfg.hasCompleteCredentialFields() {
 			if explicitConfigFile {
-				if colocated, perr := cliutil.CredentialsFilePathForConfig(path); perr == nil {
-					cfg.credentialsPath = colocated
-				}
 				var status cliutil.CredentialLoadStatus
 				creds, status, err = cliutil.LoadCredentialsForConfigWithStatus(path)
 				if err != nil {
