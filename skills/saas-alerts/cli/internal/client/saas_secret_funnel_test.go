@@ -146,3 +146,25 @@ func funnelTail(s string) string {
 	}
 	return s
 }
+
+// TestSecretInAResponseHeaderErrorIsWithheld: server text that reaches an
+// error through a header (an unsupported Content-Encoding) goes through the
+// same funnel, raw or encoded.
+func TestSecretInAResponseHeaderErrorIsWithheld(t *testing.T) {
+	const key = "Q7zXwHdr+ab/cd=ef-0000"
+	enc := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", enc)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: key, SaasAlertsApiKey: key}, 5*time.Second, 0)
+	c.NoCache = true
+	for _, e := range []string{key, url.QueryEscape(key), funnelBytes(key, "%%%02x")} {
+		enc = e
+		_, err := c.Get(context.Background(), "/reportApi/api/v1/customers", nil)
+		if err == nil || strings.Contains(err.Error(), "Q7zX") || strings.Contains(err.Error(), "%51%37") || strings.Contains(err.Error(), "%51%37%7a") {
+			t.Fatalf("Content-Encoding %q leaked: %v", e, err)
+		}
+	}
+}

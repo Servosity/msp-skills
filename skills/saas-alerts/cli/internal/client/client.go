@@ -1402,14 +1402,14 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		respBody, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if err != nil {
-			return nil, 0, fmt.Errorf("reading response: %w", err)
+			return nil, 0, fmt.Errorf("reading response: %w", c.maskError(err, authHeader)) // saas-alerts hand-fix: error-text-secret-funnel
 		}
 		// Decode after the read. A spec-set Accept-Encoding disables net/http's
 		// transparent gzip, but some hosts truncate the body unless that
 		// header is present, so the header stays and the bytes are inflated here.
 		respBody, err = decodeContentEncoding(resp.Header.Get("Content-Encoding"), respBody)
 		if err != nil {
-			return nil, 0, fmt.Errorf("decoding response: %w", err)
+			return nil, 0, fmt.Errorf("decoding response: %w", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...)) // saas-alerts hand-fix: error-text-secret-funnel (Content-Encoding is server text)
 		}
 
 		// Pace to the server-advertised budget when it ships rate-limit
@@ -1904,6 +1904,9 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 	}
 	raw := err.Error()
 	msg := c.maskCredentialText(raw, extraCredentials...)
+	if c.echoesCredential([]byte(msg), extraCredentials...) { // saas-alerts hand-fix: error-text-secret-funnel (an encoded echo survives the raw mask)
+		msg = echoWithheldText
+	}
 	if msg == raw {
 		return err
 	}

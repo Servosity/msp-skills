@@ -113,7 +113,7 @@ func (c *Client) respondAccessToken(ctx context.Context, apiKey string, refresh 
 // respondMintErr masks credentials in a mint failure; when masking changes nothing
 // the original error stays wrapped so callers can still detect network errors.
 func (c *Client) respondMintErr(label string, err error, apiKey string) error {
-	if masked := c.maskCredentialText(err.Error(), apiKey); masked != err.Error() {
+	if masked := c.maskError(err, apiKey).Error(); masked != err.Error() { // saas-alerts hand-fix: error-text-secret-funnel
 		return fmt.Errorf("%s: %s", label, masked)
 	}
 	return fmt.Errorf("%s: %w", label, err)
