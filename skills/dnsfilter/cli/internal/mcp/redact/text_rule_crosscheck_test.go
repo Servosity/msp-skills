@@ -122,8 +122,22 @@ func TestQualifiedLabelAsJSONKeyInString(t *testing.T) {
 			}
 		}
 	}
-	// A JSON-in-string with no secret is kept as written.
-	if doc := `{"cfg":` + q(`{"name":"x","pin_code_enabled":true}`) + `}`; Final(doc) != doc {
-		t.Errorf("a clean JSON-in-string changed: %s -> %s", doc, Final(doc))
+	// A JSON-in-string with no secret is kept as written, also when a value
+	// ends in a secret word or holds a preposition after one (a read-only sql
+	// cell holding a whole record): the JSON structure is honored, so such a
+	// value never arms the next key.
+	for _, inner := range []string{
+		`{"name":"x","pin_code_enabled":true}`,
+		`{"id":"8","type":"organizations","attributes":{"name":"Victoria's Secret","status":"active"}}`,
+		`{"id":"7","attributes":{"name":"Office of the Secretary of State","notes":"reset password for payroll portal","owner_id":3}}`,
+		`[{"name":"Spin","id":1},{"name":"Tokens","id":2},{"hostname":"KIOSK-PINS","agent_state":"protected"}]`,
+	} {
+		doc := `{"cfg":` + q(inner) + `}`
+		if Final(doc) != doc {
+			t.Errorf("a clean JSON-in-string changed: %s -> %s", doc, Final(doc))
+		}
+		if out := store.ScrubPersistedSecrets(json.RawMessage(doc)); string(out) != doc {
+			t.Errorf("store changed a clean JSON-in-string: %s -> %s", doc, out)
+		}
 	}
 }

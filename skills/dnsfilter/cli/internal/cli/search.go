@@ -99,7 +99,7 @@ Run sync first to populate the local search index.`,
   dnsfilter-cli search "status" --type agent-local-user-bulk-deletes --data-source local
   # JSON output for piping
   dnsfilter-cli search "status" --json --limit 20`,
-		Annotations: map[string]string{"mcp:hidden": "true"},
+		Annotations: map[string]string{"mcp:hidden": "true", "mcp:read-only": "true"}, // HAND-FIX(read-commands-open-store-read-only): no learn seed or migration
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()

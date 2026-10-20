@@ -50,7 +50,7 @@ func newNovelUnblocksTriageCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command to diagnose a block reported by phone or ticket with no unblock request; use 'why-blocked' instead.
 Do NOT use this command to apply an allow; use 'allow' instead.
 
-Coverage comes from each request's already_covered field (policy list or org/MSP Universal Allow List, evaluated by DNSFilter at call time), read for up to --max-coverage-checks requests. Hints follow a fixed rule: threat category -> deny; every request in the group confirmed covered -> resolve-already-allowed; otherwise review. The unblock queue only has data when the account has unblock requests enabled. Apply a decision with 'unblock-requests decision unblock-requests <id> --decision <allow|deny|resolve-already-allowed>'.`,
+Coverage comes from each request's already_covered field (policy list or org/MSP Universal Allow List, evaluated by DNSFilter at call time), read for up to --max-coverage-checks requests. A request with no domain is grouped under an empty domain ((unknown domain) in the table). Hints follow a fixed rule: threat category -> deny; every request in the group confirmed covered -> resolve-already-allowed; otherwise review. The unblock queue only has data when the account has unblock requests enabled. Apply a decision with 'unblock-requests decision unblock-requests <id> --decision <allow|deny|resolve-already-allowed>'.`,
 		Example: strings.Trim(`
   dnsfilter-cli unblocks triage --agent
   dnsfilter-cli unblocks triage --org 'Acme Dental'`, "\n"),
@@ -118,7 +118,11 @@ Coverage comes from each request's already_covered field (policy list or org/MSP
 				return nil
 			}
 			for _, g := range view.Groups {
-				fmt.Fprintf(w, "%-24s %-30s requests=%-3d age=%dh threat=%v allowed=%v orgs=%s\n", humanText(g.Hint), humanText(g.Domain), g.Requests, g.AgeHours, g.IsThreat, g.AlreadyAllowed, humanText(strings.Join(g.Orgs, ", ")))
+				domain := g.Domain
+				if domain == "" {
+					domain = "(unknown domain)"
+				}
+				fmt.Fprintf(w, "%-24s %-30s requests=%-3d age=%dh threat=%v allowed=%v orgs=%s\n", humanText(g.Hint), humanText(domain), g.Requests, g.AgeHours, g.IsThreat, g.AlreadyAllowed, humanText(strings.Join(g.Orgs, ", ")))
 			}
 			if view.Note != "" {
 				fmt.Fprintln(w, "note:", humanText(view.Note))
@@ -150,10 +154,10 @@ func groupUnblockRequests(requests []jaRes, coverage map[string]map[string]any, 
 	groups := map[string]*triageGroup{}
 	covered := map[string]int{} // domain -> requests confirmed covered
 	for _, r := range requests {
+		// HAND-FIX(unblocks-triage-unknown-domain-not-dropped): a pending
+		// request with no usable domain is still pending; it groups under
+		// the empty domain (hint review), never vanishes into an all-clear.
 		domain := normalizeDomain(r.str("domain"))
-		if domain == "" {
-			continue
-		}
 		g := groups[domain]
 		if g == nil {
 			g = &triageGroup{Domain: domain, RequestIDs: make([]string, 0), Orgs: make([]string, 0), PolicyIDs: make([]string, 0), BlockedBy: make([]string, 0), Categories: make([]string, 0), CoveredBy: make([]string, 0)}

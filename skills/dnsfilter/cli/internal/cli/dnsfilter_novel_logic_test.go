@@ -503,6 +503,14 @@ func TestGroupUnblockRequests(t *testing.T) {
 	if empty := groupUnblockRequests(nil, nil, now); len(empty) != 0 {
 		t.Fatalf("empty queue produced %+v", empty)
 	}
+	// A pending request with no usable domain is still pending, never an
+	// all-clear.
+	for _, raw := range []string{`{"id":"17","attributes":{"domain":null}}`, `{"id":"18","attributes":{}}`, `{"id":"19","attributes":{"domain":"  "}}`} {
+		g := groupUnblockRequests([]jaRes{ja(t, raw)}, nil, now)
+		if len(g) != 1 || g[0].Domain != "" || g[0].Requests != 1 || g[0].Hint != "review" {
+			t.Fatalf("%s: domain-less request grouped as %+v, want one review group", raw, g)
+		}
+	}
 }
 
 func TestPlanAllowTargets(t *testing.T) {

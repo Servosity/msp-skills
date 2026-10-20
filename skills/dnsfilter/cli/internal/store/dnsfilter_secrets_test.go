@@ -323,6 +323,30 @@ func TestSecretsNeverReachTheStoreFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Ids are stored unscrubbed (resources.id, FTS, typed tables), so a value
+	// the scrub would withhold is never an identity: not a derived id (an
+	// ID-less row keyed by its name), not an id field, not a parent key.
+	parentTypes := make([]string, 0, len(resourceParentKeyColumns))
+	for rt := range resourceParentKeyColumns {
+		parentTypes = append(parentTypes, rt)
+	}
+	sort.Strings(parentTypes)
+	for _, rt := range append([]string{"networks-geo", types[0]}, parentTypes...) {
+		rows := []json.RawMessage{
+			json.RawMessage(`{"name":"token=` + secretSentinel + `"}`),
+			json.RawMessage(`{"id":"Uninstall PIN: ` + secretSentinel + `","name":"x"}`),
+		}
+		for _, key := range resourceParentKeyColumns[rt] {
+			rows = append(rows, json.RawMessage(`{"id":"`+nextID()+`","`+key+`":"pin=`+secretSentinel+`"}`))
+		}
+		if _, _, _, err := s.UpsertBatchDetailed(rt, rows); err != nil {
+			t.Fatalf("UpsertBatch %s: %v", rt, err)
+		}
+	}
+	if err := s.Upsert("networks-geo", "token="+secretSentinel, json.RawMessage(`{"name":"x"}`)); err == nil {
+		t.Fatal("Upsert stored a row whose id names a credential")
+	}
+
 	// While open, rows live in the WAL; prove the grep sees them.
 	if hits := grepDir(t, dir, "VISIBLE-MARKER-m1"); len(hits) == 0 {
 		t.Fatal("visible marker not found in the store files; the grep is not looking where rows land")

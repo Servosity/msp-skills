@@ -824,6 +824,47 @@ func TestSyncDependentWithNoParentRows(t *testing.T) {
 	syncHFWantComplete(t, dbPath, "lan_ips", 0, "a --dry-run lan_ips walk")
 }
 
+// A dependent dry run over parent rows whose collection sync is not certified
+// previews the real run's warning, and saves no state.
+func TestSyncDependentDryRunUncertifiedParentWarns(t *testing.T) {
+	testenv.Isolate(t)
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		if p := q.Get("page[number]"); p != "" && p != "1" {
+			return `{"data":[]}`, true
+		}
+		switch path {
+		case "/v1/networks/all":
+			return `{"data":[{"id":"2","type":"networks","attributes":{"name":"HQ"}}]}`, true
+		case "/v1/networks/2/lan_ips":
+			return `{"data":[]}`, true
+		}
+		return "", false
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	syncHFRunOK(t, "sync", "--full", "--resources", "networks", "--db", dbPath)
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveSyncProgress("networks", "", 1); err != nil { // the parent collection is now uncertified
+		t.Fatal(err)
+	}
+	db.Close()
+	before := syncHFState(t, dbPath)
+	for _, args := range [][]string{
+		{"sync", "--dry-run", "--resources", "lan_ips", "--db", dbPath},
+		{"sync", "--dry-run", "--strict", "--resources", "lan_ips", "--db", dbPath},
+	} {
+		out, err := syncHFRun(args...)
+		if err == nil || !strings.Contains(out, `"reason":"parent_collection_incomplete"`) {
+			t.Fatalf("%v: the preview over an uncertified parent reported done (err=%v):\n%s", args, err, out)
+		}
+	}
+	if after := syncHFState(t, dbPath); after != before {
+		t.Fatalf("a dry run changed sync_state:\n before %s\n after  %s", before, after)
+	}
+}
+
 // A dependent walk whose first page already ends the listing is complete even
 // when the page cap (--latest-only, --max-pages 1) fired on that page.
 func TestSyncDependentShortPageUnderCapIsComplete(t *testing.T) {
@@ -1040,11 +1081,43 @@ func TestSyncFullPrunesDependentRows(t *testing.T) {
 // never create, migrate or stamp a database file.
 func TestReadCommandsNeverCreateTheMirror(t *testing.T) {
 	testenv.Isolate(t)
+	defaultDB := defaultDBPath("dnsfilter-cli")
 	for _, args := range [][]string{{"analytics"}, {"search", "acme"}} {
 		dbPath := filepath.Join(t.TempDir(), "data.db")
-		syncHFRun(append(args, "--db", dbPath)...)
-		if _, err := os.Stat(dbPath); err == nil {
-			t.Errorf("%v created %s", args, dbPath)
+		for _, run := range [][]string{append(args, "--db", dbPath), args} {
+			syncHFRun(run...)
+			for _, p := range []string{dbPath, defaultDB} {
+				if _, err := os.Stat(p); err == nil {
+					t.Errorf("%v created %s", run, p)
+					_ = os.Remove(p)
+				}
+			}
 		}
+	}
+}
+
+// analytics prints tenant group values: terminal controls (an OSC 52
+// clipboard write) never reach a human table.
+func TestAnalyticsHumanOutputScrubsControls(t *testing.T) {
+	testenv.Isolate(t)
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Upsert("networks-geo", "g1", json.RawMessage(`{"id":"g1","name":"HQ\u001b]52;c;ZXZpbA==\u0007"}`)); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	cmd := RootCmd()
+	cmd.SetArgs([]string{"analytics", "--type", "networks-geo", "--group-by", "name", "--db", dbPath})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("analytics: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "HQ") || strings.ContainsAny(out.String(), "\x1b\x07") {
+		t.Fatalf("analytics human output carries terminal controls: %q", out.String())
 	}
 }

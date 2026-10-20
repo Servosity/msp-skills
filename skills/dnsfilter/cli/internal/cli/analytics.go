@@ -78,7 +78,7 @@ Null or missing --group-by values are JSON null. Table output labels them (none)
 				fmt.Fprintln(out, "Resource Type\tCount")
 				fmt.Fprintln(out, "-------------\t-----")
 				for rt, count := range status {
-					fmt.Fprintf(out, "%s\t%d\n", rt, count)
+					fmt.Fprintf(out, "%s\t%d\n", humanText(rt), count)
 				}
 				return nil
 			}
@@ -97,7 +97,7 @@ Null or missing --group-by values are JSON null. Table output labels them (none)
 				return printJSONFiltered(out, result, flags)
 			}
 
-			fmt.Fprintf(out, "%s: %d records\n", resourceType, count)
+			fmt.Fprintf(out, "%s: %d records\n", humanText(resourceType), count)
 			return nil
 		},
 	}
@@ -170,10 +170,11 @@ func runGroupBy(out io.Writer, db *store.Store, resourceType, field string, limi
 		return printJSONFiltered(out, sorted, flags)
 	}
 
-	fmt.Fprintf(out, "%s\tCount\n", field)
+	// HAND-FIX(analytics-human-output-scrubbed): group values are tenant data.
+	fmt.Fprintf(out, "%s\tCount\n", humanText(field))
 	fmt.Fprintln(out, "---\t-----")
 	for _, row := range sorted {
-		fmt.Fprintf(out, "%s\t%d\n", formatGroupByValue(row.Value), row.Count)
+		fmt.Fprintf(out, "%s\t%d\n", humanText(formatGroupByValue(row.Value)), row.Count)
 	}
 	return nil
 }

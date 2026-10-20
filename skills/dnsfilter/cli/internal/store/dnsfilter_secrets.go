@@ -122,7 +122,7 @@ func rawJSONNeedsNoScrub(raw []byte, depth int) bool {
 			}
 			stack[n-1].keys[key] = true
 			stack[n-1].expectKey = false
-			secretValue = IsSecretKey(key)
+			secretValue = KeyNamesSecret(key)
 			continue
 		}
 		switch t := tok.(type) {
@@ -186,7 +186,7 @@ func scrubSecretValueDepth(value any, depth int) (any, bool) {
 	case map[string]any:
 		removed := false
 		for key, child := range v {
-			if IsSecretKey(key) {
+			if KeyNamesSecret(key) {
 				switch child.(type) {
 				case nil, bool:
 				default:
@@ -242,17 +242,11 @@ func scrubSecretString(s string, depth int) (any, bool) {
 		if inner, ok := decodeSingleJSON([]byte(trimmed)); ok {
 			// Same rule as the top-level row: keep the string only when its
 			// raw tokens prove there is nothing to scrub.
-			// The kept or re-encoded form still gets the text rule: a JSON
-			// key can carry a qualified label ({"Uninstall PIN (HQ)":"x"})
-			// that no key rule names.
 			if rawJSONNeedsNoScrub([]byte(trimmed), depth+1) {
-				if textNamesSecret(s) {
-					return WithheldValuePlaceholder, true
-				}
 				return s, false
 			}
 			cleaned, _ := scrubSecretValueDepth(inner, depth+1)
-			if enc, ok := encodeCompactJSON(cleaned); ok && !textNamesSecret(enc) {
+			if enc, ok := encodeCompactJSON(cleaned); ok {
 				return enc, true
 			}
 			return WithheldValuePlaceholder, true
@@ -428,6 +422,29 @@ func TextNamesSecret(text string) bool {
 		}
 	}
 	return false
+}
+
+// KeyNamesSecret reports whether a JSON object key names a secret: by the
+// key rule (IsSecretKey), or read as a text label by the label rule, since a
+// key can carry a qualified label ("Uninstall PIN (HQ)", "Admin password for
+// HQ") that no key rule names. Every key the scrub or the read-only filter
+// judges goes through here; the JSON structure around it is honored, so a
+// string value that merely ends in a secret word never arms a later key.
+// No DNSFilter spec property is newly matched by the label half.
+func KeyNamesSecret(key string) bool {
+	return IsSecretKey(key) || TextNamesSecret(key+": x")
+}
+
+// IdentityNamesSecret reports whether an identity value (a row id, a parent
+// key, a fingerprint input) is one the scrub would withhold or rewrite. Ids
+// are stored as given (resources.id, FTS, typed tables), so such a value is
+// never used as one.
+func IdentityNamesSecret(v string) bool {
+	if v == "" {
+		return false
+	}
+	_, changed := scrubSecretString(v, 0)
+	return changed
 }
 
 // labelNamesSecret reports whether a label of one to three space-separated

@@ -2042,6 +2042,9 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 }
 
 func (s *Store) Upsert(resourceType, id string, data json.RawMessage) error {
+	if IdentityNamesSecret(id) { // HAND-FIX(secrets-never-persisted): ids are stored unscrubbed
+		return fmt.Errorf("refusing to store a %s row whose id names a credential", resourceType)
+	}
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
@@ -5643,6 +5646,16 @@ var resourceParentKeyColumns = map[string][]string{
 // Callers that need to gate best-effort writes can use this to avoid passing
 // non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
+	// HAND-FIX(secrets-never-persisted): ids are stored unscrubbed (resources.id,
+	// FTS, typed tables), so a value the secret scrub would withhold or rewrite
+	// is never an identity; the row is an extract failure instead.
+	if id := extractResourceIDUnchecked(resourceType, obj); !IdentityNamesSecret(id) {
+		return id
+	}
+	return ""
+}
+
+func extractResourceIDUnchecked(resourceType string, obj map[string]any) string {
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if s := canonicalIDFromOverride(obj, override); s != "" {
 			return s
@@ -5740,6 +5753,14 @@ func parameterSnapshotID(obj map[string]any) string {
 		return ""
 	}
 	fields := parameterFingerprintFields(obj)
+	// HAND-FIX(secrets-never-persisted): a hash of a low-entropy secret (a
+	// PIN) is reversible by brute force, so no fingerprint is taken over a
+	// secret-named key or a value the scrub would withhold.
+	for key, value := range fields {
+		if str, ok := value.(string); IsSecretKey(key) || (ok && IdentityNamesSecret(str)) {
+			return ""
+		}
+	}
 	var payload any
 	if len(fields) > 0 {
 		payload = fields
@@ -6332,7 +6353,7 @@ func scalarIDString(value any) string {
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
 	for _, parentKey := range resourceParentKeyColumns[resourceType] {
 		parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
-		if parentValue != "" && parentValue != "<nil>" {
+		if parentValue != "" && parentValue != "<nil>" && !IdentityNamesSecret(parentValue) {
 			return id + string([]byte{0}) + parentValue
 		}
 	}

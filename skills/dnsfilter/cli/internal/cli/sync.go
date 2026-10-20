@@ -3880,6 +3880,15 @@ func syncDependentResource(ctx context.Context, c interface {
 	if dryRunHit {
 		// A dry-run preview must not mutate sync-state, so short-circuit before
 		// the SaveSyncState below — mirroring syncResource's guard. (issue #2935)
+		// HAND-FIX(sync-dependent-needs-parent-rows): it previews the real
+		// run's verdict on an uncertified parent too, still saving nothing.
+		if !parentCertified {
+			msg := fmt.Sprintf("%s sync incomplete (parent_collection_incomplete); completion watermark was not advanced", dep.Name)
+			if !humanFriendly {
+				fmt.Fprintln(syncEvents, syncWarningJSON(dep.Name, "", 0, "parent_collection_incomplete", msg))
+			}
+			return syncResult{Resource: dep.Name, Warn: errors.New(msg), Duration: time.Since(started)}
+		}
 		if !humanFriendly {
 			fmt.Fprintf(syncEvents, `{"event":"sync_dryrun","resource":"%s"}`+"\n", dep.Name)
 		}

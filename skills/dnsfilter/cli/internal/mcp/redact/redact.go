@@ -44,10 +44,11 @@ const WithheldBlockMessage = "withheld: this result carries a credential-bearing
 func Enabled() bool { return cliutil.IsMCPReadOnlyEnv() }
 
 // IsCredentialKey is the store's secret-key rule, one definition for the
-// local mirror and the MCP funnel (store.IsSecretKey: secret, password,
-// apikey, credential, a trailing token or pin, case and separator
-// insensitive, a trailing id/uuid word excluded).
-func IsCredentialKey(key string) bool { return store.IsSecretKey(key) }
+// local mirror and the MCP funnel (store.KeyNamesSecret: secret, password,
+// apikey, credential, a trailing token(s) or pin(s), case and separator
+// insensitive, a trailing id/uuid word excluded; or a key that reads as a
+// qualified secret label).
+func IsCredentialKey(key string) bool { return store.KeyNamesSecret(key) }
 
 // CredentialPathSegments are the DNSFilter API path segments whose GET answer
 // IS a credential: /v1/api_keys and /v1/api_keys/{id} (ApiKey.token),
@@ -307,17 +308,12 @@ func redactValue(value any) (any, bool) {
 			// JSON only if the WHOLE string is exactly one JSON value
 			// (Decoder.More is not an EOF test: {"ok":1}} token=S would pass).
 			if inner, ok := decodeExactlyOne(trimmed); ok {
-				out, outChanged := v, false
+				// A key carrying a qualified label ({"Uninstall PIN (HQ)":"x"})
+				// is a credential key (store.KeyNamesSecret).
 				if cleaned, changed := redactValue(inner); changed || !rawJSONClean(trimmed) {
-					out, outChanged = encodeJSONCompact(cleaned), true
+					return encodeJSONCompact(cleaned), true
 				}
-				// The cleaned form still gets the plain rule: a JSON key
-				// can carry a qualified label ({"Uninstall PIN (HQ)":"x"})
-				// that no key rule names.
-				if store.TextNamesSecret(out) {
-					return WithheldFieldPlaceholder, true
-				}
-				return out, outChanged
+				return v, false
 			}
 		}
 		// Not exactly one JSON value: the store's order (scrubSecretString).
