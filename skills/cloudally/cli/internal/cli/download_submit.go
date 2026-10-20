@@ -1072,8 +1072,9 @@ prints the ledger's rows).
 				}
 				return unsettledDownloadErr(batch)
 			}
+			leftOut := 0
 			if !flagNewBatch {
-				if err := refuseHeldArchives(ctx, cmd, guard, batch); err != nil {
+				if leftOut, err = refuseHeldArchives(ctx, cmd, guard, batch); err != nil {
 					return err
 				}
 			}
@@ -1081,6 +1082,7 @@ prints the ledger's rows).
 				if err := claimNewBatch(batch, flagNewBatch); err != nil {
 					return err
 				}
+				printLeftOut(cmd.ErrOrStderr(), leftOut)
 				path, _ := batchPath(batch.BatchKey)
 				fmt.Fprintf(cmd.ErrOrStderr(), "batch %s recorded in %s; if this run stops, continue it with: cloudally-cli download submit --batch %s --resume --yes\n",
 					batch.BatchKey, path, batch.BatchKey)
@@ -1232,13 +1234,16 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 // what the pilot did not. The run is refused only when another batch holds
 // an archive with an outcome not yet known, or is creating it right now:
 // whether that archive exists has to be settled in that batch first.
-func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *downloadGuard, batch *downloadBatch) error {
+//
+// It returns how many archives will be left out; the caller says so only
+// once the batch is recorded, so a run refused after this never reports
+// SKIPPED archives next to creates that never happened.
+func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *downloadGuard, batch *downloadBatch) (leftOut int, err error) {
 	unsettled := map[string]int{}
-	leftOut := 0
 	for i := range batch.Rows {
 		c, err := guard.conflict(ctx, rowIdentity(batch, &batch.Rows[i]), batch.BatchKey)
 		if err != nil {
-			return fmt.Errorf("reading the download guard: %w", err)
+			return 0, fmt.Errorf("reading the download guard: %w", err)
 		}
 		switch {
 		case c == nil:
@@ -1250,10 +1255,7 @@ func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *download
 	}
 	w := cmd.ErrOrStderr()
 	if len(unsettled) == 0 {
-		if leftOut > 0 {
-			fmt.Fprintf(w, "%d of these archive(s) are already created by other batches and will be left out (SKIPPED); the rest are created\n", leftOut)
-		}
-		return nil
+		return leftOut, nil
 	}
 	keys := make([]string, 0, len(unsettled))
 	for k := range unsettled {
@@ -1266,7 +1268,15 @@ func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *download
 		fmt.Fprintf(w, "batch %s holds %d of these archives with an outcome not yet known, or is creating them now. Settle it first with: cloudally-cli download submit --batch %s --resume --yes\n",
 			k, unsettled[k], k)
 	}
-	return usageErr(fmt.Errorf("%d archive(s) this run would create are held by other batches that have not settled whether they exist; nothing was sent (details above)", held))
+	return 0, usageErr(fmt.Errorf("%d archive(s) this run would create are held by other batches that have not settled whether they exist; nothing was sent (details above)", held))
+}
+
+// printLeftOut says how many archives of a recorded batch other batches
+// already created.
+func printLeftOut(w io.Writer, leftOut int) {
+	if leftOut > 0 {
+		fmt.Fprintf(w, "%d of these archive(s) are already created by other batches and will be left out (SKIPPED); the rest are created\n", leftOut)
+	}
 }
 
 func boolValue(p *bool) bool { return p != nil && *p }

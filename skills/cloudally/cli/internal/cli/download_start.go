@@ -220,13 +220,15 @@ is not used.
 			if err := guard.seedFromLedgers(ctx); err != nil {
 				return usageErr(err)
 			}
-			if err := refuseHeldArchives(ctx, cmd, guard, batch); err != nil {
+			leftOut, err := refuseHeldArchives(ctx, cmd, guard, batch)
+			if err != nil {
 				return err
 			}
 			if err := withBatchLock(batch.BatchKey, func() error {
 				if err := claimNewBatch(batch, false); err != nil {
 					return err
 				}
+				printLeftOut(cmd.ErrOrStderr(), leftOut)
 				return runDownloadBatch(ctx, cmd, sess, guard, batch, []*downloadRow{&batch.Rows[0]}, 1, false, false)
 			}); err != nil {
 				return err

@@ -652,3 +652,26 @@ func TestRerunGuardTellsTimeZonesApart(t *testing.T) {
 		t.Fatal("two --latest runs differing only in --utc-offset are the same command")
 	}
 }
+
+// Docs review 4: a refused re-run printed "N of these archive(s) ... will
+// be left out (SKIPPED); the rest are created" before the re-run guard
+// refused it, so an agent could report creates that never happened.
+func TestRefusedRerunPrintsNoSkippedNotice(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com")...); err != nil {
+		t.Fatalf("pilot: %v\n%s", err, stderr)
+	}
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs()...); err != nil || !strings.Contains(stderr, "left out (SKIPPED)") {
+		t.Fatalf("the whole task should say what it leaves out once it is recorded: %v\n%s", err, stderr)
+	}
+	_, stderr, err := runDL(t, s, downloadSubmitArgs()...)
+	if err == nil || ExitCode(err) != 2 || !strings.Contains(stderr+err.Error(), "is this same command") {
+		t.Fatalf("the same command again must be refused, got %v\n%s", err, stderr)
+	}
+	if strings.Contains(stderr, "SKIPPED") {
+		t.Fatalf("a refused run must not report archives left out:\n%s", stderr)
+	}
+}
