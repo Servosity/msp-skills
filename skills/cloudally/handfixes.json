@@ -434,6 +434,48 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "store-scope-per-user-fail-closed",
+      "summary": "Local stores are keyed by API origin + CloudAlly user (not token, not key pair); the restore ledger commands fail closed on an unusable auth-context.json; the portal URL must be https",
+      "why": "Round 2 of the PR #400 review: every partner login shared one principal, so a restricted partner user opened the administrator's cached data; rotating the key pair orphaned the ledger; a refused or legacy sidecar silently opened an empty per-token store and restore history read as empty; CLOUDALLY_PORTAL_URL=http://... sent the single-use handoff token in cleartext. Backstop for hand-written files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth_login.go",
+          "contains": "func partnerPrincipal(email string) string { return principalPartnerPrefix + userKey(email) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "contains": "id := \"cloudally:origin=\" + binding.origin + \"|principal=\" + principal",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "not_contains": "\"|client_id=\""
+        },
+        {
+          "file": "cli/internal/cli/portal_session.go",
+          "contains": "return checkPortalURL(v, cloudallyPortalURLEnv)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_submit.go",
+          "contains": "if err := requireBoundStoreScope(); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_watch.go",
+          "contains": "if err := requireBoundStoreScope(); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_history.go",
+          "contains": "if err := requireBoundStoreScope(); err != nil {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

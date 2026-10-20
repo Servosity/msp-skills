@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"cloudally-pp-cli/internal/cliutil/testenv"
 	"cloudally-pp-cli/internal/store"
 )
 
@@ -42,7 +41,11 @@ func runHealth(args ...string) (string, error) {
 // --agent compaction must keep the error text a failing row exists to show,
 // and a filter that matches nothing must not read as "healthy".
 func TestBackupHealthAgentKeepsErrorAndEmptyFilterFails(t *testing.T) {
-	testenv.Isolate(t)
+	isolateAuthState(t)
+	resetStoreScope(t)
+	// Let the command resolve its store path first (the scope state is
+	// package-global), then seed exactly that path.
+	_, _ = runHealth("--json")
 	seedHealthRows(t,
 		`{"userId":"u1","taskId":"t1","source":"MS365","entityName":"bad@contoso.com","lastBackupDate":"2020-01-01T00:00:00Z","backupStatus":[{"subSource":"mail","status":"FAILED","error":"QUOTA_EXCEEDED","errFAQLink":"https://example.com/faq"}]}`,
 		`{"userId":"u1","taskId":"t1","source":"MS365","entityName":"a@contoso.com","lastBackupDate":"2020-01-01T00:00:00Z"}`,

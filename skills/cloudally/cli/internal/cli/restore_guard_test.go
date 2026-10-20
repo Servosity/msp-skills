@@ -53,10 +53,11 @@ func TestRestoreGuardSpansPartnerAndUseAccount(t *testing.T) {
 	isolateAuthState(t)
 	resetStoreScope(t)
 	api := newFakeRestoreAPI(t, 0)
-	binding := authBinding{origin: cloudallyStoreOrigin(api.srv.URL), clientID: "cid"}
+	binding := authBinding{origin: cloudallyStoreOrigin(api.srv.URL)}
+	partnerUser := partnerPrincipal("tech@example.com")
 	partner := &authContext{Scope: authScopePartner}
-	partner.stashPartner(binding, "account-token", "", time.Time{}, true)
-	partner.bindTo(binding, "account-token", "", principalPartner)
+	partner.stashPartner(binding, "account-token", "", time.Time{}, partnerUser)
+	partner.bindTo(binding, "account-token", "", partnerUser)
 	if err := saveAuthContext(partner); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +70,7 @@ func TestRestoreGuardSpansPartnerAndUseAccount(t *testing.T) {
 	}
 
 	customer := &authContext{Scope: authScopeAccount, AccountID: "acc1"}
-	customer.bindTo(binding, "account-token", "", principalAccountPrefix+"acc1")
+	customer.bindTo(binding, "account-token", "", accountPrincipal(partnerUser, "acc1"))
 	if err := saveAuthContext(customer); err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +371,10 @@ func TestRestoreRecoveryLeavesLiveClaimAlone(t *testing.T) {
 func TestRestoreWatchUseAccountBatchUsesAccountPaths(t *testing.T) {
 	isolateAuthState(t)
 	api := newFakeRestoreAPI(t, 0)
-	if err := saveAuthContext(&authContext{Scope: authScopeAccount, AccountID: "CUSTOMER"}); err != nil {
+	customer := &authContext{Scope: authScopeAccount, AccountID: "CUSTOMER"}
+	customer.bindTo(authBinding{origin: cloudallyStoreOrigin(api.srv.URL)}, "account-token", "",
+		accountPrincipal(partnerPrincipal("tech@example.com"), "CUSTOMER"))
+	if err := saveAuthContext(customer); err != nil {
 		t.Fatal(err)
 	}
 	stdout, stderr, err := runAuthCmd(t, "", submitArgs("--date", "2026-10-01", "--entities", "a@contoso.com")...)

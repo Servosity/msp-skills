@@ -529,9 +529,7 @@ func TestRestoreSubmitResumeKeepsRecordedBackup(t *testing.T) {
 func TestRestoreSubmitPartnerScopeNeedsAccount(t *testing.T) {
 	isolateAuthState(t)
 	api := newFakeRestoreAPI(t, 0)
-	if err := saveAuthContext(&authContext{Scope: authScopePartner, PartnerAccessToken: "p"}); err != nil {
-		t.Fatal(err)
-	}
+	saveBoundAuthContext(t, api, &authContext{Scope: authScopePartner, PartnerAccessToken: "p"}, partnerPrincipal("tech@example.com"))
 	_, _, err := runAuthCmd(t, "", "restore", "submit", "--task", "64b0e9", "--date", "2026-10-01", "--rate", "1000", "--yes")
 	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "need an account token") {
 		t.Fatalf("want usage error about the account token, got %v", err)
@@ -547,9 +545,7 @@ func TestRestoreSubmitPartnerScopeNeedsAccount(t *testing.T) {
 func TestRestoreSubmitRecordsAccountAndRefusesMismatchedResume(t *testing.T) {
 	isolateAuthState(t)
 	api := newFakeRestoreAPI(t, 0)
-	if err := saveAuthContext(&authContext{Scope: authScopeAccount, AccountID: "acct-a", PartnerAccessToken: "p"}); err != nil {
-		t.Fatal(err)
-	}
+	saveBoundAuthContext(t, api, &authContext{Scope: authScopeAccount, AccountID: "acct-a", PartnerAccessToken: "p"}, accountPrincipal(partnerPrincipal("tech@example.com"), "acct-a"))
 	args := []string{"restore", "submit", "--task", "64b0e9", "--date", "2026-10-01", "--rate", "1000", "--yes", "--json"}
 
 	// The confirmation summary names the account.
@@ -578,12 +574,12 @@ func TestRestoreSubmitRecordsAccountAndRefusesMismatchedResume(t *testing.T) {
 		t.Fatalf("history = %s (%v)", hist, err)
 	}
 
-	if err := saveAuthContext(&authContext{Scope: authScopeAccount, AccountID: "acct-b", PartnerAccessToken: "p"}); err != nil {
-		t.Fatal(err)
-	}
+	saveBoundAuthContext(t, api, &authContext{Scope: authScopeAccount, AccountID: "acct-b", PartnerAccessToken: "p"}, accountPrincipal(partnerPrincipal("tech@example.com"), "acct-b"))
 	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobPlanned, jobPlanned, "a@contoso.com")
 	_, _, err = runAuthCmd(t, "", append(args, "--resume")...)
-	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "different account") {
+	// acct-b has its own store, so the resume finds no batch there; either
+	// refusal is fine as long as nothing is sent.
+	if err == nil || ExitCode(err) != 2 {
 		t.Fatalf("mismatched resume: want exit 2, got %v", err)
 	}
 	if got := api.posts.Load(); got != 5 {
@@ -718,5 +714,15 @@ func TestSubmitOneTransportOutcomes(t *testing.T) {
 	res = submitOne(context.Background(), newClient(drop.URL), "/v2/recovery/restore", body, restoreJob{Entity: "a@contoso.com"})
 	if res.status != jobUnknown || got.Load() != 1 {
 		t.Fatalf("dropped connection: status %s (%s), server saw %d; want UNKNOWN and 1", res.status, res.errText, got.Load())
+	}
+}
+
+// saveBoundAuthContext writes the record a real login or use-account
+// writes: bound to the active token, so the ledger commands accept it.
+func saveBoundAuthContext(t *testing.T, api *fakeRestoreAPI, ctx *authContext, principal string) {
+	t.Helper()
+	ctx.bindTo(authBinding{origin: cloudallyStoreOrigin(api.srv.URL)}, "account-token", "", principal)
+	if err := saveAuthContext(ctx); err != nil {
+		t.Fatal(err)
 	}
 }

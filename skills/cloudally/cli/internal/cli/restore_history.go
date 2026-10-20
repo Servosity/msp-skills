@@ -38,6 +38,9 @@ func newRestoreHistoryCmd(flags *rootFlags) *cobra.Command {
 			if err := validateDataSourceStrategy(flags, "local"); err != nil {
 				return usageErr(err)
 			}
+			if err := requireBoundStoreScope(); err != nil {
+				return err
+			}
 			if flagLimit < 0 {
 				return usageErr(fmt.Errorf("--limit must be 0 or more"))
 			}

@@ -237,6 +237,9 @@ one the plan resolved for it.
 			if err := validateDataSourceStrategy(flags, "live"); err != nil {
 				return usageErr(err)
 			}
+			if err := requireBoundStoreScope(); err != nil {
+				return err
+			}
 			if err := scope.validate(); err != nil {
 				return err
 			}

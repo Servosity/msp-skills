@@ -213,6 +213,9 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 			if strings.TrimSpace(flagBatch) == "" {
 				return usageErr(errors.New("--batch <batch id> is required"))
 			}
+			if err := requireBoundStoreScope(); err != nil {
+				return err
+			}
 			if flagInterval <= 0 {
 				return usageErr(errors.New("--interval must be greater than 0"))
 			}
