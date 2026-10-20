@@ -20,7 +20,7 @@ func submitArgs(extra ...string) []string {
 
 func wantGuardRefusal(t *testing.T, what string, err error) {
 	t.Helper()
-	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "already sent from this machine") {
+	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "already sent from this state directory") {
 		t.Fatalf("%s: want the machine-wide guard refusal (exit 2), got %v", what, err)
 	}
 }

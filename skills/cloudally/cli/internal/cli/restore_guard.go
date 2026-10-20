@@ -166,7 +166,7 @@ type claimOwner struct {
 type errRestoreClaimed struct{ claim guardClaim }
 
 func (e errRestoreClaimed) Error() string {
-	return fmt.Sprintf("restore already %s in batch %s (login %s) on this machine; not sending it again",
+	return fmt.Sprintf("restore already %s in batch %s (login %s) in this state directory; not sending it again",
 		claimStateText(e.claim.State), e.claim.BatchID, e.claim.Login)
 }
 

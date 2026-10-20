@@ -194,10 +194,10 @@ sent again by --resume, even when 'restore watch' later shows its RESTORE task F
 --resume keeps the target account, restore option, and include flags recorded on the
 batch; passing one of those flags with a different value is refused.
 
-A machine-wide restore guard, one file in the CLI state directory shared by every login
-and token on this machine, lets each restore (task, mailbox, resolved backup) be sent
+A restore guard, one file in the CLI state directory shared by every login and token
+that uses that directory, lets each restore (task, mailbox, resolved backup) be sent
 once. A run that would send a restore already accepted, unknown, or in flight from any
-batch, login, token, or process here is refused before anything is sent, whatever date
+batch, login, token, or process using it is refused before anything is sent, whatever date
 spelling, scope, or entity list it uses; only a restore the API refused before running
 it can be sent again. To send only the mailboxes never sent, limit --entities to them.
 --new-batch overrides the guard and sends every row again, accepted restores included;
@@ -403,7 +403,7 @@ one the plan resolved for it.
 	cmd.Flags().StringVar(&flagLabel, "label", "", "Free-text label stored on the batch")
 	cmd.Flags().BoolVar(&flagResume, "resume", false, "Continue the batch with the same scope, account, task, entity filter, and dates; sends only PLANNED and FAILED rows that were never accepted, with the batch's recorded restore options")
 	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows again; use only after 'restore watch' shows they are missing")
-	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Send every row again, including restores already accepted or unconfirmed in an earlier batch under any login on this machine; prefer --entities limited to the mailboxes never sent")
+	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Send every row again, including restores already accepted or unconfirmed in an earlier batch under any login using this state directory; prefer --entities limited to the mailboxes never sent")
 	addResolveFlags(cmd, &flagResolve, &flagPortalURL, &flagLookback)
 	return cmd
 }

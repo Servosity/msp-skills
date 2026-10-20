@@ -55,7 +55,7 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 	sqlDB := db.DB()
 	guard, err := openRestoreGuard(ctx)
 	if err != nil {
-		return fmt.Errorf("opening the machine-wide restore guard: %w; nothing was sent", err)
+		return fmt.Errorf("opening the restore guard: %w; nothing was sent", err)
 	}
 	defer guard.Close()
 	if err := guard.seedFromLedgers(ctx, ledgerDataDir()); err != nil {
@@ -100,7 +100,7 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 			req.opts, req.source = opts, source
 			batch, resumed = existing, true
 		} else {
-			return usageErr(errors.New("--resume found no earlier batch with the same scope, account, task, entities, and dates in this login's ledger; nothing was sent. Each login (partner, or one company after auth use-account) keeps its own ledger, so run `restore history` under the login that started the batch. Dropping --resume starts a new batch, which the machine-wide restore guard refuses for any restore already sent from this machine"))
+			return usageErr(errors.New("--resume found no earlier batch with the same scope, account, task, entities, and dates in this login's ledger; nothing was sent. Each login (partner, or one company after auth use-account) keeps its own ledger, so run `restore history` under the login that started the batch. Dropping --resume starts a new batch, which the restore guard refuses for any restore already sent from this state directory"))
 		}
 	} else if !req.newBatch {
 		prior, n, err := ledgerAcceptedRowsByKey(sqlDB, key, legacyKey)
@@ -435,15 +435,15 @@ func guardPreflight(ctx context.Context, cmd *cobra.Command, g *restoreGuard, re
 	}
 	held, err := g.conflicts(ctx, ids, owner, req.retryUnknown, req.newBatch)
 	if err != nil {
-		return fmt.Errorf("reading the machine-wide restore guard %s: %w; nothing was sent", g.path, err)
+		return fmt.Errorf("reading the restore guard %s: %w; nothing was sent", g.path, err)
 	}
 	if req.newBatch {
 		again, err := g.conflicts(ctx, ids, owner, req.retryUnknown, false)
 		if err != nil {
-			return fmt.Errorf("reading the machine-wide restore guard %s: %w; nothing was sent", g.path, err)
+			return fmt.Errorf("reading the restore guard %s: %w; nothing was sent", g.path, err)
 		}
 		if n := len(again) - len(held); n > 0 {
-			termf(cmd.ErrOrStderr(), "warning: --new-batch sends %d restore(s) again that were already sent from this machine (%s)\n", n, describeClaims(again, held))
+			termf(cmd.ErrOrStderr(), "warning: --new-batch sends %d restore(s) again that were already sent from this state directory (%s)\n", n, describeClaims(again, held))
 		}
 	}
 	if len(held) == 0 {
@@ -477,7 +477,7 @@ func guardPreflight(ctx context.Context, cmd *cobra.Command, g *restoreGuard, re
 	if req.newBatch {
 		newBatch = " A send that is in flight right now is refused even with --new-batch; wait for it to finish."
 	}
-	return usageErr(fmt.Errorf("%d of the %d restore(s) this run would send were already sent from this machine, under this or another login or token: %s. Nothing was sent; sending them again would restore those mailboxes twice. Look the batches up with 'restore history --batch <id>' under the login named. %s%s (restore guard: %s)",
+	return usageErr(fmt.Errorf("%d of the %d restore(s) this run would send were already sent from this state directory, under this or another login or token: %s. Nothing was sent; sending them again would restore those mailboxes twice. Look the batches up with 'restore history --batch <id>' under the login named. %s%s (restore guard: %s)",
 		len(held), len(rows), termSafe(describeClaims(held, nil)), termSafe(advice), newBatch, g.path))
 }
 
