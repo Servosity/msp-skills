@@ -70,10 +70,13 @@ another host. **Three commands write a credential to disk:** `auth login` (and
   separate guard; run restores from one account and one state directory. On every
   `restore submit` the guard imports, once per store and read-only, every restore any
   local ledger in the data directory recorded as sent, so restores made by earlier
-  builds or under other logins are refused too; if a ledger cannot be read, nothing is
-  sent. One backup reached two ways (the portal calendar and the task's last-backup
+  builds or under other logins are refused too; if the ledger directory or any ledger in
+  it cannot be read, the run sends nothing. One backup reached two ways (the portal calendar and the task's last-backup
   dates can differ by seconds or minutes) counts as one restore: anything within 30
-  minutes for the same task and mailbox is refused. The generated
+  minutes for the same task and mailbox is refused, because the CLI cannot tell a
+  re-reported time from a separate on-demand backup. The refusal names both times; a
+  person who has checked sends the other backup with the printed `--entities <mailbox>
+  --new-batch` command. Agents must not run it on their own. The generated
   single-restore `recovery restore` commands and the MCP `cloudally_execute` tool are not
   behind the guard.
 - **Downloads only ever create EXPORT jobs.** The portal endpoint the download
