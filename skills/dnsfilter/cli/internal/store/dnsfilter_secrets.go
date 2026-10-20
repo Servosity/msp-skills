@@ -401,6 +401,39 @@ func plistNamesSecret(text string) bool {
 	return false
 }
 
+// markupElementRE matches an XML/HTML element's opening tag and the text
+// right after it (<password>hunter2</password>, <secret_key a="b">X), and
+// flagValueRE a command-line flag and the token after it (--password X,
+// -nkey X): two more shapes, besides the plist entry, that carry a value with
+// no separator for the pair rule to see.
+var (
+	markupElementRE = regexp.MustCompile(`<([A-Za-z_][\w.\-]*)(?:\s[^<>]*)?>\s*([^<\s][^<]*)`)
+	flagValueRE     = regexp.MustCompile(`(?:^|\s)--?([A-Za-z][\w.\-]*)[ \t]+([^\s\-][^\s]*)`)
+)
+
+// markupNamesSecret reports an element or a flag whose name names a secret
+// (KeyNamesSecret) followed by a value that is not exempt (exemptPairValue).
+// An unclosed tag that is a documentation placeholder (<token>) is prose,
+// not an element.
+func markupNamesSecret(text string) bool {
+	lower := strings.ToLower(text)
+	for _, m := range markupElementRE.FindAllStringSubmatch(text, -1) {
+		name := strings.ToLower(m[1])
+		if documentationPlaceholders["<"+name+">"] && !strings.Contains(lower, "</"+name) {
+			continue
+		}
+		if KeyNamesSecret(m[1]) && !exemptPairValue(strings.TrimSpace(m[2])) {
+			return true
+		}
+	}
+	for _, m := range flagValueRE.FindAllStringSubmatch(text, -1) {
+		if KeyNamesSecret(m[1]) && !exemptPairValue(strings.TrimSpace(m[2])) {
+			return true
+		}
+	}
+	return false
+}
+
 // textNamesSecret is the store's text rule on a raw string value; see
 // TextNamesSecret.
 func textNamesSecret(text string) bool {
@@ -423,7 +456,7 @@ func TextNamesSecret(text string) bool {
 	// value's quote boundary is only right at the level it was written in,
 	// and a key's name may only show once escaping is undone.
 	for round := 0; ; round++ {
-		if SecretPairInText(text) || plistNamesSecret(text) {
+		if SecretPairInText(text) || plistNamesSecret(text) || markupNamesSecret(text) {
 			return true
 		}
 		if !strings.Contains(text, "\\") {
