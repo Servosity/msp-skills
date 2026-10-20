@@ -133,8 +133,14 @@ func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string
 	return matched
 }
 
-// jobTerminal reports whether a row needs no further polling.
+// jobTerminal reports whether a row needs no further polling. A row whose
+// submission is unconfirmed (UNKNOWN, or SUBMITTING from a run that may
+// still be sending) is not finished: watch keeps looking for its RESTORE
+// task until the timeout.
 func jobTerminal(j restoreJob) bool {
+	if jobOutcomeUnknown(j) && strings.TrimSpace(j.TaskID) == "" {
+		return false
+	}
 	switch j.Status {
 	case jobPlanned, jobFailed, jobFailedRedirect, jobUnmatched:
 		return true
@@ -297,7 +303,7 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 					if !human {
 						_ = printJSONFiltered(cmd.OutOrStdout(), out, flags)
 					}
-					return apiErr(fmt.Errorf("timed out after %s with %d restore(s) still running in batch %s", flagTimeout, out.Tally.Running+out.Tally.Pending, batch.BatchID))
+					return apiErr(fmt.Errorf("timed out after %s with %d restore(s) still running and %d still unconfirmed (UNKNOWN) in batch %s", flagTimeout, out.Tally.Running+out.Tally.Pending, out.Tally.Unknown, batch.BatchID))
 				}
 				select {
 				case <-ctx.Done():
@@ -316,17 +322,26 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			}
+			var problems []string
 			if out.Tally.Failed > 0 {
-				afterAccept := 0
+				var afterAccept []string
 				for _, j := range out.Rows {
 					if (j.Status == jobFailed || j.Status == jobFailedRedirect) && jobEverAccepted(j) {
-						afterAccept++
+						afterAccept = append(afterAccept, j.Entity)
 					}
 				}
-				if afterAccept == 0 {
-					return apiErr(fmt.Errorf("%d restore(s) failed in batch %s", out.Tally.Failed, batch.BatchID))
+				if len(afterAccept) == 0 {
+					problems = append(problems, fmt.Sprintf("%d restore(s) failed in batch %s", out.Tally.Failed, batch.BatchID))
+				} else {
+					problems = append(problems, fmt.Sprintf("%d restore(s) failed in batch %s; %d of them failed after CloudAlly accepted them and may have restored part of the mailbox, so neither 'restore submit --resume' nor a new batch sends them again on its own. Check what they restored first; to restore just those mailboxes a second time on purpose, run the original 'restore submit' with --entities %s --new-batch",
+						out.Tally.Failed, batch.BatchID, len(afterAccept), termSafe(shellQuote(strings.Join(afterAccept, ",")))))
 				}
-				return apiErr(fmt.Errorf("%d restore(s) failed in batch %s; %d of them failed after CloudAlly accepted them and may have restored part of the mailbox, so 'restore submit --resume' never sends those again: check what they restored before submitting them in a new batch", out.Tally.Failed, batch.BatchID, afterAccept))
+			}
+			if out.Tally.Unknown > 0 {
+				problems = append(problems, fmt.Sprintf("%d restore(s) in batch %s are still UNKNOWN: no RESTORE task was found for them, so it is not known whether CloudAlly accepted them", out.Tally.Unknown, batch.BatchID))
+			}
+			if len(problems) > 0 {
+				return apiErr(errors.New(strings.Join(problems, "; ")))
 			}
 			return nil
 		},

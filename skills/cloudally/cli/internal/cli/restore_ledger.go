@@ -380,14 +380,45 @@ func ledgerMarkSubmitting(db *sql.DB, id int64, at time.Time) error {
 }
 
 // ledgerRecoverInFlight turns rows a crashed run left SUBMITTING into
-// UNKNOWN and reports how many it changed.
-func ledgerRecoverInFlight(db *sql.DB, batchID string) (int64, error) {
-	res, err := db.Exec(`UPDATE restore_jobs SET status = ?, submit_status = ?, error = ?, updated_at = ? WHERE batch_id = ? AND submit_status = ?`,
-		jobUnknown, jobUnknown, recoveredInFlightError, isoUTC(time.Now()), batchID, jobSubmitting)
+// UNKNOWN and reports how many it changed. A row another live run is
+// sending right now (live reports it, from that run's restore guard claim)
+// is left alone and counted in busy: marking it UNKNOWN would let
+// --retry-unknown send it a second time while the first request is still
+// on the wire.
+func ledgerRecoverInFlight(db *sql.DB, batchID string, live func(restoreJob) bool) (recovered, busy int64, err error) {
+	rows, err := ledgerListJobs(db, batchID, "")
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return res.RowsAffected()
+	for _, j := range rows {
+		if j.submitOutcome() != jobSubmitting {
+			continue
+		}
+		if live != nil && live(j) {
+			busy++
+			continue
+		}
+		res, err := db.Exec(`UPDATE restore_jobs SET status = ?, submit_status = ?, error = ?, updated_at = ? WHERE id = ? AND submit_status = ?`,
+			jobUnknown, jobUnknown, recoveredInFlightError, isoUTC(time.Now()), j.ID, jobSubmitting)
+		if err != nil {
+			return recovered, busy, err
+		}
+		n, _ := res.RowsAffected()
+		recovered += n
+	}
+	return recovered, busy, nil
+}
+
+// ledgerRevertSubmitting puts a row this run claimed back the way it was,
+// when the restore guard refused it and nothing was sent.
+func ledgerRevertSubmitting(db *sql.DB, j restoreJob) error {
+	var submittedAt any
+	if j.SubmittedAt != nil {
+		submittedAt = isoUTC(*j.SubmittedAt)
+	}
+	_, err := db.Exec(`UPDATE restore_jobs SET status = ?, submit_status = ?, submitted_at = ?, updated_at = ? WHERE id = ? AND submit_status = ?`,
+		j.Status, j.submitOutcome(), submittedAt, isoUTC(time.Now()), j.ID, jobSubmitting)
+	return err
 }
 
 func ledgerUpdateJobSubmit(db *sql.DB, id int64, status string, httpStatus int, response, errText string, submittedAt time.Time) error {

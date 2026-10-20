@@ -136,6 +136,7 @@ func TestRestoreLedgerBackfillsSubmitStatus(t *testing.T) {
 	batchID := decodeSubmitOutput(t, stdout).BatchID
 	ledgerExec(t, `UPDATE restore_jobs SET submit_status = '', status = 'FAILED', task_id = 'rt-1', http_status = 200 WHERE entity = ?`, "a@contoso.com")
 	ledgerExec(t, `UPDATE restore_jobs SET submit_status = '', status = 'FAILED', task_id = NULL, http_status = 400 WHERE entity = ?`, "b@contoso.com")
+	guardReject(t, "b@contoso.com")
 	ledgerExec(t, `UPDATE restore_jobs SET submit_status = '', status = 'ARCHIVED', task_id = 'rt-3' WHERE entity = ?`, "c@contoso.com")
 	if _, stderr, err := runAuthCmd(t, "", append(args, "--resume")...); err != nil {
 		t.Fatalf("resume: %v (%s)", err, stderr)
@@ -257,6 +258,7 @@ func TestRestoreSubmitResumeKeepsRecordedOptions(t *testing.T) {
 
 	// Repeating the recorded value is not a conflict.
 	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobFailed, jobFailed, "b@contoso.com")
+	guardReject(t, "b@contoso.com")
 	same := append(append([]string{}, base...), "--resume", "--target-account", "recovery@example.com")
 	if _, stderr, err := runAuthCmd(t, "", same...); err != nil {
 		t.Fatalf("resume with the same target: %v (%s)", err, stderr)
@@ -267,6 +269,7 @@ func TestRestoreSubmitResumeKeepsRecordedOptions(t *testing.T) {
 
 	// A task that now reports another source is refused before sending.
 	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobFailed, jobFailed, "b@contoso.com")
+	guardReject(t, "b@contoso.com")
 	api.set(func(f *fakeRestoreAPI) { f.source = "GMAIL" })
 	_, _, err := runAuthCmd(t, "", append(append([]string{}, base...), "--resume")...)
 	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "source MS365") {

@@ -44,6 +44,12 @@ type fakeRestoreAPI struct {
 	source       string
 	taskStatus   string
 	tasks        []map[string]any
+	// postDelay slows every restore POST, to widen a race window.
+	postDelay time.Duration
+	// getPaths records every GET path, to check the API family used.
+	getPaths []string
+	// notFoundBody is the body of a 404.
+	notFoundBody string
 }
 
 func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
@@ -61,6 +67,11 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			f.mu.Lock()
+			f.getPaths = append(f.getPaths, r.URL.Path)
+			f.mu.Unlock()
+		}
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/backup-tasks/64b0e9"):
 			f.mu.Lock()
@@ -81,6 +92,10 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 			f.mu.Unlock()
 			_, _ = w.Write(raw)
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/recovery/restore"):
+			f.mu.Lock()
+			delay := f.postDelay
+			f.mu.Unlock()
+			time.Sleep(delay)
 			f.posts.Add(1)
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -106,7 +121,11 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 			}
 			_, _ = w.Write([]byte(`{"needRedirect":false}`))
 		default:
+			f.mu.Lock()
+			body := f.notFoundBody
+			f.mu.Unlock()
 			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(body))
 		}
 	}))
 	t.Cleanup(f.srv.Close)
@@ -216,6 +235,32 @@ func ledgerExec(t *testing.T, query string, args ...any) {
 	if _, err := db.DB().Exec(query, args...); err != nil {
 		t.Fatalf("%s: %v", query, err)
 	}
+}
+
+// guardExec runs one statement against the machine-wide restore guard, for
+// tests that fake a state the ledger and the guard would both hold.
+func guardExec(t *testing.T, query string, args ...any) {
+	t.Helper()
+	g, err := openRestoreGuard(context.Background())
+	if err != nil {
+		t.Fatalf("open restore guard: %v", err)
+	}
+	defer g.Close()
+	if _, err := g.db.Exec(query, args...); err != nil {
+		t.Fatalf("%s: %v", query, err)
+	}
+}
+
+// guardForget models a row that was never sent: no claim exists for it.
+func guardForget(t *testing.T, entity string) {
+	t.Helper()
+	guardExec(t, `DELETE FROM restore_claims WHERE entity = ?`, strings.ToLower(entity))
+}
+
+// guardReject models a row the API refused before running it.
+func guardReject(t *testing.T, entity string) {
+	t.Helper()
+	guardExec(t, `UPDATE restore_claims SET state = ? WHERE entity = ? AND superseded = 0`, claimRejected, strings.ToLower(entity))
 }
 
 func TestRestoreSubmitResumeNeverResends(t *testing.T) {
@@ -405,6 +450,7 @@ func TestRestoreSubmitCrashedSubmittingRowNotResent(t *testing.T) {
 	// the submission outcome.
 	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobSubmitting, jobSubmitting, "b@contoso.com")
 	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ?, submitted_at = NULL WHERE entity = ?`, jobPlanned, jobPlanned, "c@contoso.com")
+	guardForget(t, "c@contoso.com")
 	_, stderr, err := runAuthCmd(t, "", append(args, "--resume")...)
 	if err == nil || ExitCode(err) != 5 {
 		t.Fatalf("resume with a crashed row should exit 5, got %v", err)

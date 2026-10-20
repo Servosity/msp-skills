@@ -116,8 +116,15 @@ func (s restoreScope) tasksPath() string { return s.basePath() + "/backup-tasks"
 
 func (s restoreScope) restorePath() string { return s.basePath() + "/recovery/restore" }
 
-// scopeFromKind rebuilds a scope from the values stored on a ledger batch.
+// scopeFromKind rebuilds the API path selector from the values stored on a
+// ledger batch. An account-scope batch talks to the /v2 paths with the
+// account token; the account id it records (the customer, after
+// use-account) names who it restored for and is not a path selector, so it
+// must not turn the scope into the distributor family.
 func scopeFromKind(kind, account string) restoreScope {
+	if kind == scopeAccount {
+		return restoreScope{}
+	}
 	return restoreScope{account: account, reseller: kind == scopeReseller}
 }
 
@@ -335,6 +342,14 @@ the ledger offline.
 	cmd.AddCommand(newRestoreSubmitCmd(flags))
 	cmd.AddCommand(newRestoreWatchCmd(flags))
 	cmd.AddCommand(newRestoreHistoryCmd(flags))
+	// Errors carry API response bodies and tenant names to the root's
+	// "Error:" line; scrubRunE (download_text.go) makes them safe to print
+	// and keeps errors.As and the exit code.
+	for _, sub := range cmd.Commands() {
+		if sub.RunE != nil {
+			sub.RunE = scrubRunE(sub.RunE)
+		}
+	}
 	return cmd
 }
 
