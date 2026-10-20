@@ -4088,6 +4088,37 @@
           "contains": "`--deliver webhook:<url>` still posts the output, `feedback --send` still sends, and `import --dry-run` may still request an access token"
         }
       ]
+    },
+    {
+      "id": "profile-never-carries-yes",
+      "summary": "profile save never stores --yes and ApplyProfileToFlags never applies it, so a saved profile cannot pre-confirm respond isolate/release/scan or policies clone",
+      "why": "Press 4.33.5 run profiles captured every changed flag except a short reserved list, so `profile save routine --yes` followed by `respond isolate <uuid> --profile routine` sent StartNetworkIsolation with no --yes on that invocation (found by the 2026-10-20 Codex review, reproduced against a mock API). MCP was not exposed (it blocks --profile and the profile command) but the CLI confirmation contract was. TestProfileNeverCarriesYes failed with profile.go reverted (`profile save stored yes`) and, separately, with only the apply-side reservation removed (`a profile value pre-confirmed --yes`).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "\"profile\": true, \"client-profile\": true, \"config\": true, \"home\": true, \"help\": true, \"yes\": true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "\"home\": true, \"help\": true, \"description\": true, \"yes\": true}",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "detail-path-skips-template-vars",
+      "summary": "resourceDetailPath substitutes the item ID into the first placeholder that is not an endpoint template var, so `export <resource> <id>` works on ESET's absolute https://{region}.<svc>... paths",
+      "why": "The generated helper replaced the FIRST {placeholder}, which on every absolute ESET path is {region}, so `export policies <uuid>` (and most detail exports) failed with `unresolved path parameter {policyUuid}` (found by the 2026-10-20 Codex review and the prose review). TestExportDetailSubstitutesItemID failed with resource_paths.go reverted and passes with the fix.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "if endpointTemplateVarSet[path[loc[0]+1:loc[1]-1]] {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

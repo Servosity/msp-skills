@@ -102,6 +102,7 @@
     }
   ],
   "governance_summary": "The skill signs in as the ESET Connect API user you create, so that user's access rights are the real boundary. Reads, reports and the local mirror are safe to allow. Response actions (scan, isolate, release), policy and EDR rule changes, quarantine restores and deletes reach real customer machines and need a human to approve the exact request.",
+  "credentials_note": "The API user's password stays in your environment and is never written to disk, but the access and refresh tokens the CLI mints are cached in its credentials.toml (owner-only permissions), so removing the environment variables does not revoke access - run `eset-protect-cli auth logout` on every machine that cached them",
   "safety_tiers": [
     {
       "tier": "Read",

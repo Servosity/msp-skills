@@ -115,8 +115,11 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 	// resolution itself or are dangerous to overlay. profile save's skip
 	// map must remain a superset of this set so saved profiles never carry
 	// values that apply would silently refuse.
+	// Hand-fix profile-never-carries-yes: "yes" is reserved so a saved
+	// profile cannot pre-confirm respond isolate/release/scan or policies
+	// clone; confirmation must come from the current invocation.
 	reserved := map[string]bool{
-		"profile": true, "client-profile": true, "config": true, "home": true, "help": true,
+		"profile": true, "client-profile": true, "config": true, "home": true, "help": true, "yes": true,
 	}
 	for name, value := range profile.Values {
 		if reserved[name] || credentialLikeRunProfileFlag(name) {
@@ -215,7 +218,7 @@ captured: they control profile/config resolution and would never apply).`,
 			// Must stay a superset of ApplyProfileToFlags' reserved map for
 			// root flags: capturing a flag that apply refuses to overlay
 			// would store values that never take effect.
-			skip := map[string]bool{"profile": true, "client-profile": true, "config": true, "home": true, "help": true, "description": true}
+			skip := map[string]bool{"profile": true, "client-profile": true, "config": true, "home": true, "help": true, "description": true, "yes": true}
 			credentialFlags := []string{}
 			visit := func(fl *pflag.Flag) {
 				if fl.Changed && credentialLikeRunProfileFlag(fl.Name) {

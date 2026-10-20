@@ -82,7 +82,7 @@ func runE2EMCP(t *testing.T, bin string, env []string, calls []map[string]any) s
 	cmd.Env = env
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	var stderr bytes.Buffer
+	var stderr lockedBuffer
 	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -125,7 +125,37 @@ func runE2EMCP(t *testing.T, bin string, env []string, calls []map[string]any) s
 		send(map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": c})
 		all += recv(id) + "\n"
 	}
+	// Read stderr only after the server exits, so the copy goroutine has
+	// written all of it (go test -race flagged the read before Wait).
+	_ = stdin.Close()
+	exited := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(exited) }()
+	select {
+	case <-exited:
+	case <-time.After(10 * time.Second):
+		_ = cmd.Process.Kill()
+		<-exited
+	}
 	return all + stderr.String()
+}
+
+// lockedBuffer is a bytes.Buffer safe for the concurrent writers these tests
+// attach (sync workers, a subprocess's stderr copy goroutine).
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *lockedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
 }
 
 // TestBuiltBinariesNeverShowASecret runs the two Codex round 6 scenarios end

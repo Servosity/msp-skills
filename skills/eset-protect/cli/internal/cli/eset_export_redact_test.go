@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"eset-protect-pp-cli/internal/cliutil/testenv"
@@ -39,5 +40,37 @@ func TestExportRedactsCredentialTier(t *testing.T) {
 		if !bytes.Contains(got, []byte("[redacted]")) || !bytes.Contains(got, []byte("Acme Agent")) {
 			t.Fatalf("export --format %s lost the row or the redaction marker: %s", format, got)
 		}
+	}
+}
+
+// TestExportDetailSubstitutesItemID (handfixes.json:
+// detail-path-skips-template-vars): resourceDetailPath replaced the FIRST
+// placeholder, which on ESET's absolute https://{region}.<svc>... paths is the
+// region, so `export policies <uuid>` failed with "unresolved path parameter
+// {policyUuid}". The item ID must land in the item placeholder.
+func TestExportDetailSubstitutesItemID(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	const id = "00000000-0000-0000-0000-000000000001"
+	var mu sync.Mutex
+	var paths []string
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"policy":{"uuid":"`+id+`","displayName":"Base policy"}}`)
+	})
+	out, errOut, err := captureExecuteAll(t, "export", "policies", id, "--format", "json")
+	if err != nil {
+		t.Fatalf("export policies <uuid>: %v\n%s", err, errOut)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(paths) != 1 || paths[0] != "/v2/policies/"+id {
+		t.Fatalf("requested %v, want [/v2/policies/%s]", paths, id)
+	}
+	if !bytes.Contains(out, []byte("Base policy")) {
+		t.Fatalf("export lost the item: %s", out)
 	}
 }

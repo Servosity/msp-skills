@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"bytes"
 	"encoding/base64"
 	"io"
 	"net/http"
@@ -88,7 +87,7 @@ func TestCredentialTierNeverPersisted(t *testing.T) {
 		{[]string{"search", "Web threat blocked", "--data-source", "local", "--json"}, persistForensicURI},
 	} {
 		cmd := RootCmd()
-		var out bytes.Buffer
+		var out lockedBuffer // sync workers write concurrently
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		cmd.SetArgs(append(step.argv, "--rate-limit", "0", "--home", home))

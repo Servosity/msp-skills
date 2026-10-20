@@ -139,12 +139,16 @@ func resourceDetailPath(resource, escapedID string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("resource %q does not declare a single-item read path", resource)
 	}
-	start := strings.Index(path, "{")
-	end := strings.Index(path, "}")
-	if start < 0 || end <= start {
-		return "", fmt.Errorf("resource %q has an invalid single-item read path", resource)
+	// Hand-fix detail-path-skips-template-vars: ESET paths are absolute
+	// https://{region}.<svc>... templates, so the first placeholder is the
+	// region, not the item ID. Substitute the first non-template one.
+	for _, loc := range unresolvedPathKeyRE.FindAllStringIndex(path, -1) {
+		if endpointTemplateVarSet[path[loc[0]+1:loc[1]-1]] {
+			continue
+		}
+		return path[:loc[0]] + escapedID + path[loc[1]:], nil
 	}
-	return path[:start] + escapedID + path[end+1:], nil
+	return "", fmt.Errorf("resource %q has an invalid single-item read path", resource)
 }
 
 func resourceReadConfigFor(resource string) resourceReadConfig {
