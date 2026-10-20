@@ -446,16 +446,17 @@ for as long as bytes keep arriving, and is ended only after five minutes
 with nothing received. Leftover .partial files from a run that was killed
 are removed once they are an hour old.
 
-With --batch, only the jobs the batch confirmed as its own are downloaded;
-another export of the same snapshot is never taken in their place. A job that
-ended in failure (any status naming a failure: FAILED, CANCELLED, ABORTED,
-STOPPED, ERROR) is handed back to the batch that confirmed it,
-and that batch's resume creates it once more. A row another batch holds (a
-pilot run's mailbox, say) is collected through that batch: its confirmed
-job, matched by job id, is downloaded here. When that batch's job failed or
-its create was refused the row is FAILED, when it is not confirmed or ready
-yet it is NOT_READY, and when that batch's ledger cannot be read it is
-MISSING, each naming that batch's resume command.
+With --batch, only the jobs the batch confirmed as its own are downloaded, and
+only with the --account the batch was recorded for (another is refused, exit
+2); another export of the same snapshot is never taken in their place. A job
+that ended in failure (any status naming a failure: FAILED, CANCELLED,
+ABORTED, STOPPED, ERROR) is handed back to the batch that confirmed it, and
+that batch's resume creates it once more. A row another batch holds (a pilot
+run's mailbox, say) is collected through that batch: its confirmed job,
+matched by job id, is downloaded here. When that batch's job failed or its
+create was refused the row is FAILED, when it is not confirmed or ready yet it
+is NOT_READY, and when that batch's ledger cannot be read it is MISSING, each
+naming that batch's resume command.
 
 Exit codes: 0 every archive asked for is on disk (or the job was EMPTY);
 3 no download job matched at all; 6 an archive FAILED or is MISSING (a
@@ -552,6 +553,9 @@ later.
 				b, berr := loadBatch(key)
 				if berr != nil {
 					return usageErr(fmt.Errorf("--batch: %w", berr))
+				}
+				if err := checkBatchScope(cmd, scope, b); err != nil {
+					return err
 				}
 				// Only a job the batch confirmed as its own is its archive.
 				// Another export of the same snapshot (a zip without

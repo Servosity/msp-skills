@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"cloudally-pp-cli/internal/cliutil"
+	"github.com/spf13/cobra"
 )
 
 // batchKeyPattern is the shape of a batch key: a UTC timestamp, then short
@@ -201,6 +202,25 @@ func sameRerunZone(a, b *downloadBatch) bool {
 		return z
 	}
 	return a.OnDate == latestLabel || zone(a.Timezone) == zone(b.Timezone)
+}
+
+// checkBatchScope refuses a run whose --account (or --reseller) names
+// another customer than the batch was recorded for. Fetching a batch with
+// the wrong customer listed that customer's jobs and reported every
+// confirmed archive as expired, with --new-batch commands.
+func checkBatchScope(cmd *cobra.Command, scope restoreScope, b *downloadBatch) error {
+	f := cmd.Flags()
+	account := f.Changed("account") && !strings.EqualFold(strings.TrimSpace(scope.account), strings.TrimSpace(b.AccountID))
+	kind := f.Changed("reseller") && b.Scope != "" && scope.kind() != b.Scope
+	if !account && !kind {
+		return nil
+	}
+	reseller := ""
+	if b.Scope == scopeReseller {
+		reseller = " --reseller"
+	}
+	return usageErr(fmt.Errorf("batch %s was recorded for account %s (%s scope), not this run's --account %s; nothing was done. Run it with --account %s%s",
+		b.BatchKey, b.AccountID, b.Scope, scope.account, b.AccountID, reseller))
 }
 
 // ownedRows counts the rows of a batch that exist, may exist, or are about

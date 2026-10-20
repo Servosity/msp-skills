@@ -819,8 +819,9 @@ resume sends it again; a resume that sends nothing does not wait to reconcile.
 A resend of an UNKNOWN or MISSING row that is refused or never sent leaves the
 row UNKNOWN: the first create may still exist. PLANNED and FAILED rows of a
 ledger from the first build (which recorded no include flags) are held as
-UNKNOWN for the same reason. A resume sends every row with the batch's
-recorded --format, --include-deleted and --include-legal-hold.
+UNKNOWN for the same reason. A resume with an --account other than the batch's
+is refused (exit 2). A resume sends every row with the batch's recorded
+--format, --include-deleted and --include-legal-hold.
 
 Each create carries a unique job label, and a row is confirmed only by the
 portal job with its label (or, where the portal does not keep labels, the one
@@ -913,6 +914,9 @@ prints the ledger's rows).
 				b, err := loadBatch(strings.TrimSpace(flagBatch))
 				if err != nil {
 					return usageErr(fmt.Errorf("--batch: %w", err))
+				}
+				if err := checkBatchScope(cmd, scope, b); err != nil {
+					return err
 				}
 				if err := checkResumeSettings(cmd, b, format, flagIncludeDeleted, flagIncludeLegalHold); err != nil {
 					return err

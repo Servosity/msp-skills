@@ -827,3 +827,33 @@ func TestARunThatSentNothingDoesNotWait(t *testing.T) {
 		t.Fatalf("a refused create leaves the row FAILED: want exit 6, got %v", err)
 	}
 }
+
+// P2-g: fetch --batch with another customer's --account listed that
+// customer's jobs and called every confirmed archive expired, printing
+// --new-batch commands. A batch is only run for the account it was
+// recorded for; submit --resume checks the same.
+func TestBatchRunsAreRefusedForAnotherAccount(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.taskEntities = []string{"a@contoso.com"}
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err != nil {
+		t.Fatalf("submit: %v\n%s", err, stderr)
+	}
+	key := ledgerKeys(t)[0]
+	for _, args := range [][]string{
+		{"download", "fetch", "--account", "acct-2", "--dest", t.TempDir(), "--year", "2022", "--batch", key},
+		{"download", "submit", "--account", "acct-2", "--batch", key, "--resume", "--yes"},
+	} {
+		out, stderr, err := runDL(t, s, args...)
+		if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "Run it with --account acct-1") {
+			t.Fatalf("%s for another account: want exit 2 naming --account acct-1, got %v\n%s\n%s", args[1], err, out, stderr)
+		}
+		if strings.Contains(out+stderr, "--new-batch") {
+			t.Fatalf("%s must not suggest --new-batch:\n%s\n%s", args[1], out, stderr)
+		}
+	}
+	if n := len(s.createdAccounts()); n != 1 {
+		t.Fatalf("creates = %d, want 1", n)
+	}
+}
