@@ -45,6 +45,10 @@ func RegisterTools(s *server.MCPServer) {
 	// mcp-read-only-withholds-credentials): outermost middleware, so every
 	// tool result and error passes the one escape/credential funnel.
 	installResultSafety(s)
+	// Hand-wired (handfixes.json: mcp-tools-refuse-undeclared-arguments):
+	// inside the funnel (its refusal is escaped and filtered like any result),
+	// before the tenant gate and every handler.
+	installArgumentGate(s)
 	installFreshTenantGate(s)
 	// Code-orchestration mode — the full surface is covered by registry tools
 	// (<api>_search, <api>_get, and <api>_execute). Endpoint-mirror tools are suppressed.

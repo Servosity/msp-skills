@@ -77,6 +77,11 @@ func runFakeCLI(mode string) int {
 		fmt.Fprint(os.Stderr, "Error: upstream returned ")
 		_, _ = os.Stderr.Write(bigNetworksBody())
 		return 1
+	case "marker":
+		// Proves a mirror tool ran: the argument-gate test asserts this file
+		// never appears (mcp-tools-refuse-undeclared-arguments).
+		_ = os.WriteFile(os.Getenv("DNSFILTER_MCP_TEST_MARKER"), []byte("ran"), 0o600)
+		return 0
 	case "sync-resumed":
 		// sync on a walk resumed from a saved cursor: the remedy is on
 		// stdout, stderr only reports the warned run (mcp-failure-keeps-stdout-remedy).

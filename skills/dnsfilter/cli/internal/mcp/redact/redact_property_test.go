@@ -96,7 +96,28 @@ func (g *propGen) literalPrefixedValue() string {
 	return lit + sep + g.secret()
 }
 
+// quotedSecretPair is key<sep>"content" with the secret inside a quoted value
+// whose content starts with a delimiter or an escaped quote, written at the
+// pair's own level (its inner quotes escaped one level deeper), then quoted
+// as a JSON string 0 to 2 more times, so the value's quote boundary is only
+// right at one escape level.
+func (g *propGen) quotedSecretPair() string {
+	q := []string{"\"", "'"}[g.r.Intn(2)]
+	esc := `\` + q
+	starts := []string{",", ";", "}", "]", "&", ")", " ", esc, esc + ",", esc + esc, "[1]", ""}
+	content := starts[g.r.Intn(len(starts))] + starts[g.r.Intn(len(starts))] + g.secret() + starts[g.r.Intn(len(starts))]
+	s := []string{"token", "password", "pin"}[g.r.Intn(3)] + []string{"=", ": ", ":"}[g.r.Intn(3)] + q + content + q
+	s = []string{s, "note " + s + " end", `{"a":1} ` + s}[g.r.Intn(3)]
+	for k := g.r.Intn(3); k > 0; k-- {
+		s = quoteJSON(s)
+	}
+	return s
+}
+
 func (g *propGen) textWithSecret() string {
+	if g.r.Intn(4) == 0 {
+		return g.quotedSecretPair()
+	}
 	if g.r.Intn(3) == 0 {
 		key := []string{"password", "token", "secret_key", "pin", "client_secret"}[g.r.Intn(5)]
 		op := []string{"=", ": ", " = ", ":"}[g.r.Intn(4)]
@@ -246,6 +267,9 @@ func TestRedactionKnownBypasses(t *testing.T) {
 		`{"meta":"token=null~SECRETX9"}`,
 		`{"meta":"pin: [withheld: credential]SECRETX10"}`,
 		`{"meta":"secret_key=false#SECRETX11"}`,
+		`{"meta":"token=\"\\\",SECRETX12\""}`,
+		`{"meta":"password='\\',SECRETX13'"}`,
+		`{"meta":"\"pin=\\\"\\\\\\\",SECRETX14\\\"\""}`,
 	} {
 		resetWithheldMemory()
 		for name, fn := range map[string]func(string) string{"Final": Final, "Raw": Raw} {

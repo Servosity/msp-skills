@@ -298,8 +298,15 @@ func redactValue(value any) (any, bool) {
 				return v, false
 			}
 		}
-		// Not exactly one JSON value: redact the complete records inside it,
-		// then run the text rule over the whole (redacted) string.
+		// Not exactly one JSON value: the store's order (scrubSecretString).
+		// The text rule runs over the WHOLE raw string first, at every escape
+		// level (a quoted value's boundary is only right at the level it was
+		// written in: token="\",SECRET" carries a value there and looks empty
+		// once unescaped); then the complete records inside it are redacted
+		// and the rule runs over what is not JSON.
+		if store.TextNamesSecret(v) {
+			return WithheldFieldPlaceholder, true
+		}
 		inner, plain := redactJSONSegments(v)
 		if textNamesCredential(inner, plain) {
 			return WithheldFieldPlaceholder, true
@@ -397,15 +404,17 @@ func rawJSONClean(raw string) bool {
 	}
 }
 
-// textNamesCredential is the text rule, the store's (one definition):
-// store.TextNamesSecret on the non-JSON remainder (a secret pair, or a
-// CSV/table header with a secret column, after undoing JSON escaping), plus
-// one MCP-only widening: the secret-pair check also runs over the WHOLE
-// (redacted) text, so a pair whose value is itself JSON (token=["S"]) is
-// caught. The store rule has no literal-prefix, cut-placeholder or
-// environment-variable exemption, so neither does this.
+// textNamesCredential is the text rule for a result text, built only from the
+// store's exported rule: store.TextNamesSecret over the non-JSON remainder (a
+// secret pair at every escape level, raw included, or a CSV/table header once
+// escaping is undone), plus one MCP-only widening: the secret-pair check over
+// the WHOLE (redacted) text at its raw level and fully unescaped, so a pair
+// whose value is itself JSON (token=["S"]) is caught. The header part is not
+// run over the whole text: a pretty-printed JSON result is not a table. A
+// string VALUE gets the store's full rule over the whole string first (see
+// redactValue).
 func textNamesCredential(whole, plain string) bool {
-	return store.SecretPairInText(store.UnescapeForTextRule(whole)) || store.TextNamesSecret(plain)
+	return store.TextNamesSecret(plain) || store.SecretPairInText(whole) || store.SecretPairInText(store.UnescapeForTextRule(whole))
 }
 
 var (

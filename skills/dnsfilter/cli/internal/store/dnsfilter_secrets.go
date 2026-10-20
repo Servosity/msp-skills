@@ -346,14 +346,27 @@ func textNamesSecret(text string) bool {
 // can carry its value: a name=value / name: value pair whose value is not
 // exactly empty, true, false, null or the placeholder (SecretPairInText), or
 // a header row of a table that has at least one more line (a single line
-// such as "Top Secret, Finance" is a name, not a table). text is RAW: JSON
-// string escaping is undone first (UnescapeForTextRule), so a key spelled
-// tok\u0065n in a cut-off JSON blob is still read as token. There is no
-// exception for this CLI's own environment variable names.
+// such as "Top Secret, Finance" is a name, not a table). text is RAW: the
+// pair rule runs on it and on each level of JSON string escaping undone (up
+// to maxUnescapeRounds), so a key spelled tok\u0065n in a cut-off JSON blob
+// is still read as token; the table rule reads the fully unescaped text.
+// There is no exception for this CLI's own environment variable names.
 func TextNamesSecret(text string) bool {
-	text = UnescapeForTextRule(text)
-	if SecretPairInText(text) {
-		return true
+	// The pair rule reads the text at every escape level, raw included: a
+	// value's quote boundary is only right at the level it was written in,
+	// and a key's name may only show once escaping is undone.
+	for round := 0; ; round++ {
+		if SecretPairInText(text) {
+			return true
+		}
+		if round >= maxUnescapeRounds || !strings.Contains(text, "\\") {
+			break
+		}
+		next := unescapeOneLevel(text)
+		if next == text {
+			break
+		}
+		text = next
 	}
 	lines := strings.Split(strings.TrimSpace(text), "\n")
 	if len(lines) < 2 {
@@ -375,11 +388,10 @@ func TextNamesSecret(text string) bool {
 }
 
 // SecretPairInText reports whether text holds a secret-named key followed by
-// a separator (= or :, quotes allowed around the name) and a value. The value
-// is what follows the separator once spaces, newlines, quotes and
-// backslashes are skipped, up to the next delimiter (see pairValueEmpty).
-// text must ALREADY be unescaped (UnescapeForTextRule); TextNamesSecret does
-// that for raw text.
+// a separator (= or :, quotes allowed around the name) and a value that is
+// not exempt; see pairCarriesValue for how the value is taken. It reads text
+// at one escape level, as given, and never unescapes; TextNamesSecret runs it
+// on every level of raw text.
 func SecretPairInText(text string) bool {
 	if !strings.ContainsAny(text, ":=") {
 		return false
@@ -388,7 +400,7 @@ func SecretPairInText(text string) bool {
 		if !IsSecretKey(text[m[2]:m[3]]) {
 			continue
 		}
-		if !pairValueEmpty(strings.TrimLeft(text[m[1]:], " \t\r\n\"'\\")) {
+		if pairCarriesValue(text[m[1]:]) {
 			return true
 		}
 	}
@@ -406,51 +418,56 @@ const maxUnescapeRounds = 6
 // never narrower than what MCP output withholds.
 func UnescapeForTextRule(s string) string {
 	for round := 0; round < maxUnescapeRounds && strings.Contains(s, "\\"); round++ {
-		var b strings.Builder
-		b.Grow(len(s))
-		for i := 0; i < len(s); i++ {
-			if s[i] != '\\' || i+1 >= len(s) {
-				b.WriteByte(s[i])
-				continue
-			}
-			switch c := s[i+1]; c {
-			case '"', '\\', '/':
-				b.WriteByte(c)
-				i++
-			case 'n':
-				b.WriteByte('\n')
-				i++
-			case 'r':
-				b.WriteByte('\r')
-				i++
-			case 't':
-				b.WriteByte('\t')
-				i++
-			case 'b', 'f':
-				b.WriteByte(' ')
-				i++
-			case 'u':
-				if i+5 < len(s) && isHexByte(s[i+2]) && isHexByte(s[i+3]) && isHexByte(s[i+4]) && isHexByte(s[i+5]) {
-					var r rune
-					for _, h := range []byte(s[i+2 : i+6]) {
-						r = r*16 + rune(hexByteVal(h))
-					}
-					b.WriteRune(r)
-					i += 5
-					continue
-				}
-				b.WriteByte(s[i])
-			default:
-				b.WriteByte(s[i])
-			}
-		}
-		next := b.String()
+		next := unescapeOneLevel(s)
 		if next == s {
 			break
 		}
 		s = next
 	}
 	return s
+}
+
+// unescapeOneLevel undoes one level of JSON string escaping.
+func unescapeOneLevel(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			b.WriteByte(s[i])
+			continue
+		}
+		switch c := s[i+1]; c {
+		case '"', '\\', '/':
+			b.WriteByte(c)
+			i++
+		case 'n':
+			b.WriteByte('\n')
+			i++
+		case 'r':
+			b.WriteByte('\r')
+			i++
+		case 't':
+			b.WriteByte('\t')
+			i++
+		case 'b', 'f':
+			b.WriteByte(' ')
+			i++
+		case 'u':
+			if i+5 < len(s) && isHexByte(s[i+2]) && isHexByte(s[i+3]) && isHexByte(s[i+4]) && isHexByte(s[i+5]) {
+				var r rune
+				for _, h := range []byte(s[i+2 : i+6]) {
+					r = r*16 + rune(hexByteVal(h))
+				}
+				b.WriteRune(r)
+				i += 5
+				continue
+			}
+			b.WriteByte(s[i])
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
 }
 
 func isHexByte(c byte) bool {
@@ -468,21 +485,107 @@ func hexByteVal(c byte) byte {
 	}
 }
 
-// pairValueEmpty reports whether the text after a separator (leading
-// spaces, newlines, quotes and backslashes already skipped) carries no value.
-// Only an EXACT match is exempt, never a prefix: nothing at all, a delimiter
-// that ends an empty value (, ; & } ] )), or a value token that is exactly
-// true, false, null or the placeholder, ending at the end of the text or a
-// delimiter (whitespace , ; & " ' } ] )). "true!secret", "null-secret" and
-// "[withheld: credential]secret" all carry a value.
-func pairValueEmpty(rest string) bool {
-	if rest == "" || strings.ContainsAny(rest[:1], ",;&}])") {
-		return true
+// pairCarriesValue takes the value that follows a separator and reports
+// whether it carries anything. One tokenizer, and every exemption applies to
+// the value it extracts, never to a prefix of the text:
+//   - spaces and newlines after the separator are skipped;
+//   - a value opening with a quote (" or ', possibly escaped as \" at this
+//     escape level) runs to the matching closing quote, honoring backslash
+//     escapes, or to the end of the text when unclosed; a closed quoted value
+//     followed by anything but the end of the text or a delimiter runs on and
+//     carries a value;
+//   - any other value runs to the first delimiter (isValueDelimiter), except
+//     the placeholder, which is matched whole;
+//   - a value is exempt only when it is exactly empty, true, false, null or
+//     WithheldValuePlaceholder (quoted content compared with its quotes and
+//     surrounding whitespace removed), or an unclosed quote followed by
+//     nothing but delimiters.
+func pairCarriesValue(rest string) bool {
+	rest = strings.TrimLeft(rest, " \t\r\n")
+	if rest == "" {
+		return false
 	}
-	for _, lit := range []string{"true", "false", "null", WithheldValuePlaceholder} {
-		if strings.HasPrefix(rest, lit) && (len(rest) == len(lit) || isValueDelimiter(rest[len(lit)])) {
+	n := 0
+	for n < len(rest) && rest[n] == '\\' {
+		n++
+	}
+	if n < len(rest) && (rest[n] == '"' || rest[n] == '\'') {
+		content, after, closed := quotedValue(rest[n+1:], rest[n], n)
+		if closed && !quotedValueEnds(after) {
 			return true
 		}
+		if !closed && onlyDelimiters(content) {
+			// An unclosed quote followed only by delimiters (a preview cut
+			// right after the separator, then the enclosing JSON's own "})
+			// carries nothing.
+			return false
+		}
+		// Whitespace around the quoted content cannot carry a secret.
+		return !exemptPairValue(strings.Trim(content, " \t\r\n"))
+	}
+	if strings.HasPrefix(rest, WithheldValuePlaceholder) {
+		if after := rest[len(WithheldValuePlaceholder):]; after == "" || isValueDelimiter(after[0]) {
+			return false
+		}
+	}
+	end := 0
+	for end < len(rest) && !isValueDelimiter(rest[end]) {
+		end++
+	}
+	return !exemptPairValue(rest[:end])
+}
+
+// quotedValue scans s, the text after an opening quote q that was written
+// with n escaping backslashes before it, for the matching closing quote: the
+// same quote with exactly n backslashes before it (with n == 0, a backslash
+// escapes the next character). An unclosed value is the rest of the text.
+func quotedValue(s string, q byte, n int) (content, after string, closed bool) {
+	for i := 0; i < len(s); {
+		k := 0
+		for i+k < len(s) && s[i+k] == '\\' {
+			k++
+		}
+		if i+k < len(s) && s[i+k] == q && k == n {
+			return s[:i], s[i+k+1:], true
+		}
+		switch {
+		case n == 0 && k > 0:
+			i += k + 1 // a backslash escapes the character after it
+		case k > 0:
+			i += k
+		default:
+			i++
+		}
+	}
+	return s, "", false
+}
+
+// quotedValueEnds reports whether the text after a closed quoted value ends
+// it: the end of the text, a delimiter, or an escaped whitespace (\n, \r, \t
+// at this escape level).
+func quotedValueEnds(after string) bool {
+	if after == "" || isValueDelimiter(after[0]) {
+		return true
+	}
+	return len(after) > 1 && after[0] == '\\' && strings.IndexByte("nrt", after[1]) >= 0
+}
+
+// onlyDelimiters reports whether s holds nothing but delimiters (and
+// backslashes, which only escape them at deeper levels).
+func onlyDelimiters(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' && !isValueDelimiter(s[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// exemptPairValue reports whether an extracted value carries nothing.
+func exemptPairValue(v string) bool {
+	switch v {
+	case "", "true", "false", "null", WithheldValuePlaceholder:
+		return true
 	}
 	return false
 }

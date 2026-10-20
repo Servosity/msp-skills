@@ -149,7 +149,22 @@ func (g *secretGen) textValue(depth int) string {
 	pair := func() string {
 		return []string{"token=", "pin: ", "secret_key=", "Token:"}[g.r.Intn(4)] + g.sentinel()
 	}
-	switch g.r.Intn(13) {
+	switch g.r.Intn(15) {
+	case 13:
+		// A quoted value whose content begins with a delimiter, a literal,
+		// the placeholder or an escaped quote, closed or not.
+		q := []string{`"`, "'"}[g.r.Intn(2)]
+		lead := []string{",", ";", "&", "}", "]", ")", " ", "true", "null,", "false;", WithheldValuePlaceholder, "\\" + q, "\\" + q + ",", ""}[g.r.Intn(14)]
+		tail := q
+		if g.r.Intn(3) == 0 {
+			tail = "" // unclosed: the rest of the text is the value
+		}
+		sep := []string{"=", ": ", ":"}[g.r.Intn(3)]
+		return "x " + []string{"password", "token", "pin", "secret_key"}[g.r.Intn(4)] + sep + q + lead + g.sentinel() + tail
+	case 14:
+		// The same as a cut-off JSON blob: "token":",SECRET
+		lead := []string{",", "}", "true!", "null,", "\\" + `"`, ""}[g.r.Intn(6)]
+		return `{"a":1,` + g.keyText(g.secretKeyName()) + `:"` + lead + g.sentinel()
 	case 10:
 		// A value that STARTS with an exempt literal or the placeholder and
 		// continues, with no delimiter, into the secret.
@@ -233,21 +248,28 @@ func checkScrubProperty(t *testing.T, seed int64, cases int) {
 func TestScrubDuplicateKeysAndTrailingText(t *testing.T) {
 	q := func(s string) string { b, _ := json.Marshal(s); return string(b) }
 	for name, in := range map[string]string{
-		"top-level duplicate":        `{"id":"a1","meta":{"token":"SNTNL-1","token":null}}`,
-		"duplicate inside array":     `[{"secret_key":"SNTNL-2","secret_key":false}]`,
-		"duplicate in json string":   `{"meta":` + q(`{"token":"SNTNL-3","token":null}`) + `}`,
-		"duplicate in embedded json": `{"meta":` + q(`note {"pin":"SNTNL-4","pin":true} end`) + `}`,
-		"text after embedded value":  `{"meta":` + q(`{"ok":1}} token=SNTNL-5`) + `}`,
-		"second value in string":     `{"meta":` + q(`{"ok":1} {"token":"SNTNL-6"}`) + `}`,
-		"escaped key, cut-off blob":  `{"x":"{\"a\":1,\"tok\\u0065n\":\"SNTNL-7\""}`,
-		"escaped key, upper hex":     `{"x":` + q(`{"a":1,"S\u0045CRET_KEY":"SNTNL-8`) + `}`,
-		"escaped key, decodable":     `{"x":` + q(`{"p\u0069n":"SNTNL-9"}`) + `}`,
-		"escaped key, top level":     `{"tok\u0045n":"SNTNL-10","name":"a"}`,
-		"literal prefix (Codex)":     `{"meta":"password=true!SNTNL-11"}`,
-		"null prefix":                `{"meta":"token: null-SNTNL-12"}`,
-		"placeholder prefix":         `{"meta":` + q("pin="+WithheldValuePlaceholder+"SNTNL-13") + `}`,
-		"literal prefix in blob":     `{"meta":` + q(`{"a":1,"token":"false.SNTNL-14`) + `}`,
-		"value on the next line":     `{"meta":` + q("secret_key:\n  SNTNL-15") + `}`,
+		"top-level duplicate":                            `{"id":"a1","meta":{"token":"SNTNL-1","token":null}}`,
+		"duplicate inside array":                         `[{"secret_key":"SNTNL-2","secret_key":false}]`,
+		"duplicate in json string":                       `{"meta":` + q(`{"token":"SNTNL-3","token":null}`) + `}`,
+		"duplicate in embedded json":                     `{"meta":` + q(`note {"pin":"SNTNL-4","pin":true} end`) + `}`,
+		"text after embedded value":                      `{"meta":` + q(`{"ok":1}} token=SNTNL-5`) + `}`,
+		"second value in string":                         `{"meta":` + q(`{"ok":1} {"token":"SNTNL-6"}`) + `}`,
+		"escaped key, cut-off blob":                      `{"x":"{\"a\":1,\"tok\\u0065n\":\"SNTNL-7\""}`,
+		"escaped key, upper hex":                         `{"x":` + q(`{"a":1,"S\u0045CRET_KEY":"SNTNL-8`) + `}`,
+		"escaped key, decodable":                         `{"x":` + q(`{"p\u0069n":"SNTNL-9"}`) + `}`,
+		"escaped key, top level":                         `{"tok\u0045n":"SNTNL-10","name":"a"}`,
+		"literal prefix (Codex)":                         `{"meta":"password=true!SNTNL-11"}`,
+		"null prefix":                                    `{"meta":"token: null-SNTNL-12"}`,
+		"placeholder prefix":                             `{"meta":` + q("pin="+WithheldValuePlaceholder+"SNTNL-13") + `}`,
+		"literal prefix in blob":                         `{"meta":` + q(`{"a":1,"token":"false.SNTNL-14`) + `}`,
+		"value on the next line":                         `{"meta":` + q("secret_key:\n  SNTNL-15") + `}`,
+		"quoted value starting with a delimiter (Codex)": `{"meta":"password=\",SNTNL-16\""}`,
+		"quoted literal prefix":                          `{"meta":"token='true,SNTNL-17'"}`,
+		"quoted placeholder prefix":                      `{"meta":` + q(`pin="`+WithheldValuePlaceholder+`SNTNL-18"`) + `}`,
+		"quoted escaped quote":                           `{"meta":` + q("secret_key=\""+"\\"+"\"SNTNL-19\"") + `}`,
+		"unclosed quote":                                 `{"meta":"token=\";SNTNL-20"}`,
+		"empty quotes run on":                            `{"meta":` + q(`token=""SNTNL-21`) + `}`,
+		"escaped quote then a delimiter":                 `{"meta":` + q(`token="`+"\\"+`",SNTNL-22"`) + `}`,
 	} {
 		out := ScrubPersistedSecrets(json.RawMessage(in))
 		if bytes.Contains(out, []byte(sentinelPrefix)) || !json.Valid(out) {
@@ -333,5 +355,33 @@ func TestSecretPairExemptionsAreExact(t *testing.T) {
 	}
 	if !SecretPairInText(UnescapeForTextRule("tok" + bs + "u0065n=SECRET")) {
 		t.Error("SecretPairInText missed an unescaped pair")
+	}
+}
+
+// Value extraction is one quote-aware tokenizer: a quoted value runs to its
+// closing quote (backslash escapes honored) or to the end when unclosed, and
+// every exemption compares the extracted value only.
+func TestPairValueTokenizer(t *testing.T) {
+	bs := "\\"
+	carries := []string{
+		`password=",SECRET"`, `token='true,x'`, `token="true"x`, `token=""x`, `token=";x`,
+		`token="` + bs + `"x"`, `token="x` + bs + `"y"`, `pin="` + WithheldValuePlaceholder + `x"`,
+		`token=` + bs + `"x` + bs + `"`, `token: "x"`, "token:\n  \"x\"", `token='&x'`,
+	}
+	for _, text := range carries {
+		if !TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = false, want true (a value follows)", text)
+		}
+	}
+	empty := []string{
+		`token=""`, `token=''`, `token="",x=1`, `token='true'`, `token="null"}`,
+		`token="` + WithheldValuePlaceholder + `"`, `{` + bs + `"token` + bs + `":` + bs + `"` + bs + `"}`,
+		`token="`, `token="true`, `"token": "false" `, `token=''` + bs + `n`, `token=" "`, `token=" ` + WithheldValuePlaceholder + `"`,
+		`token="},`,
+	}
+	for _, text := range empty {
+		if TextNamesSecret(text) {
+			t.Errorf("TextNamesSecret(%q) = true, want false (no value)", text)
+		}
 	}
 }

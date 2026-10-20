@@ -71,3 +71,33 @@ func TestTextRuleMatchesStore(t *testing.T) {
 		t.Fatalf("%d of 100000 strings got different decisions", mismatches)
 	}
 }
+
+// TestQuotedValueRuleMatchesStore: quoted secret values whose content starts
+// with a delimiter or an escaped quote, at 0 to 2 extra escape levels, with
+// embedded JSON around them, get the same decision from the redactor and the
+// store scrub, and the redactor never returns the secret.
+func TestQuotedValueRuleMatchesStore(t *testing.T) {
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	g := &propGen{r: rand.New(rand.NewSource(11))}
+	mismatches := 0
+	for i := 0; i < 100000; i++ {
+		s := g.quotedSecretPair()
+		doc, _ := json.Marshal(map[string]string{"v": s})
+		resetWithheldMemory()
+		out := Raw(string(doc))
+		ours := withheldValue([]byte(out))
+		theirs := withheldValue(store.ScrubPersistedSecrets(doc))
+		if strings.Contains(Final(string(doc)), secretMarker) {
+			t.Fatalf("quoted value leaked: %q -> %s", s, Final(string(doc)))
+		}
+		if ours != theirs {
+			mismatches++
+			if mismatches <= 5 {
+				t.Errorf("decision differs for %q: redact withholds=%v, store withholds=%v", s, ours, theirs)
+			}
+		}
+	}
+	if mismatches > 0 {
+		t.Fatalf("%d of 100000 quoted values got different decisions", mismatches)
+	}
+}
