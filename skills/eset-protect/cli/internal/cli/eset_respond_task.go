@@ -558,9 +558,12 @@ func respondLiveMembers(cmd *cobra.Command, c *client.Client, groupUUID string, 
 		var d struct {
 			UUID string `json:"uuid"`
 		}
-		if json.Unmarshal(raw, &d) == nil && d.UUID != "" {
-			want.DeviceUUIDs = append(want.DeviceUUIDs, d.UUID)
+		if json.Unmarshal(raw, &d) != nil || strings.TrimSpace(d.UUID) == "" {
+			// An unreadable member would silently shrink the expected set.
+			esetFprintf(cmd.ErrOrStderr(), "warning: the customer's device list has a member without a device UUID; completion stays unknown\n")
+			return unknown
 		}
+		want.DeviceUUIDs = append(want.DeviceUUIDs, d.UUID)
 	}
 	want.MinRuns = len(want.DeviceUUIDs)
 	want.Unknown = len(want.DeviceUUIDs) == 0

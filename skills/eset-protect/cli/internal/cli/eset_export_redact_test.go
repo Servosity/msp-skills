@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -72,5 +73,29 @@ func TestExportDetailSubstitutesItemID(t *testing.T) {
 	}
 	if !bytes.Contains(out, []byte("Base policy")) {
 		t.Fatalf("export lost the item: %s", out)
+	}
+}
+
+// TestExportEmptyListPageIsZeroRecords (handfixes.json:
+// export-empty-list-is-zero-records): ESET omits an empty repeated field, so
+// an empty devices page is `{}`; export emitted the envelope as one fabricated
+// record.
+func TestExportEmptyListPageIsZeroRecords(t *testing.T) {
+	testenv.Isolate(t)
+	respondClearHarness(t)
+	body := `{}`
+	respondFakeESET(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, body)
+	})
+	for _, b := range []string{`{}`, `{"nextPageToken":"","totalSize":0}`} {
+		body = b
+		out, errOut, err := captureExecuteAll(t, "export", "devices", "--format", "json")
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", b, err, errOut)
+		}
+		if strings.TrimSpace(string(out)) != "[]" {
+			t.Fatalf("an empty page %s exported %q, want []", b, out)
+		}
 	}
 }

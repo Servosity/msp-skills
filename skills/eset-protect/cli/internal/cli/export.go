@@ -188,7 +188,18 @@ large datasets as it has no memory pressure.`,
 				}
 				items, nextCursor, hasMore := extractResourcePage(data, config)
 				if items == nil {
-					items = []json.RawMessage{data}
+					// Hand-fix export-empty-list-is-zero-records: ESET omits an
+					// empty repeated field, so `{}` (or only paging metadata) is
+					// an empty page, not one record.
+					empty, err := exportEmptyListPage(data, config)
+					if err != nil {
+						return fmt.Errorf("export %s: %w", resource, err)
+					}
+					if empty {
+						items = []json.RawMessage{}
+					} else {
+						items = []json.RawMessage{data}
+					}
 				}
 				for _, item := range items {
 					if limit > 0 && count >= limit {
@@ -259,6 +270,33 @@ large datasets as it has no memory pressure.`,
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Bypass response cache for fresh data")
 
 	return cmd
+}
+
+// exportEmptyListPage reports whether a list page with no extractable items
+// is empty: an object holding nothing but paging metadata. An object for a
+// resource that declares a list field, holding other keys but not that field,
+// is an unexpected shape and an error (handfixes.json:
+// export-empty-list-is-zero-records).
+func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (bool, error) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return false, nil
+	}
+	other := 0
+	for k := range obj {
+		switch k {
+		case "nextPageToken", "totalSize", "pageToken", "totalCount":
+		default:
+			other++
+		}
+	}
+	if other == 0 {
+		return true, nil
+	}
+	if config.responsePath != "" {
+		return false, fmt.Errorf("list response has no %q field", config.responsePath)
+	}
+	return false, nil
 }
 
 // exportJSONLine is one JSONL record: compacted, so a pretty-printed API

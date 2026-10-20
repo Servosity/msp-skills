@@ -5389,8 +5389,8 @@
     },
     {
       "id": "respond-wait-needs-complete-membership",
-      "summary": "respond scan --customer --yes --wait waits for the customer group's LIVE members (GET /v1/device_groups/{uuid}/devices?recurseSubgroups=true), not the mirror's; a failed or truncated listing leaves completion unknown",
-      "why": "The task targets the live group, but expected runs came only from mirrored devices, so --wait reported complete:true as soon as the mirrored devices finished: after an interrupted sync that missed device B (Codex round 5 P1) and, even after a complete sync, when device B was enrolled since (Codex round 6 P1). respondLiveMembers lists the group's devices including subgroups once the task is created and uses that set as the expectation. TestRespondCustomerWaitUsesLiveMembership: every live member finished -> complete with 2 expected runs; a live member the mirror never saw has not run -> incomplete; the listing returns 500 -> incomplete with a 'completion stays unknown' warning. The last two subtests failed with the respondLiveMembers call removed from respond.go.",
+      "summary": "respond scan --customer --yes --wait waits for the customer group's LIVE members (GET /v1/device_groups/{uuid}/devices?recurseSubgroups=true), not the mirror's; a failed or truncated listing leaves completion unknown; a member row that cannot be decoded or has no device UUID also leaves completion unknown",
+      "why": "The task targets the live group, but expected runs came only from mirrored devices, so --wait reported complete:true as soon as the mirrored devices finished: after an interrupted sync that missed device B (Codex round 5 P1) and, even after a complete sync, when device B was enrolled since (Codex round 6 P1). respondLiveMembers lists the group's devices including subgroups once the task is created and uses that set as the expectation. TestRespondCustomerWaitUsesLiveMembership: every live member finished -> complete with 2 expected runs; a live member the mirror never saw has not run -> incomplete; the listing returns 500 -> incomplete with a 'completion stays unknown' warning. The last two subtests failed with the respondLiveMembers call removed from respond.go. Codex round 13: a member row that was null, malformed or UUID-less was silently skipped, shrinking the expected set so --wait reported complete:true (the 'a member row without a UUID' subtest failed with eset_respond_task.go reverted).",
       "status": "active",
       "asserts": [
         {
@@ -5401,6 +5401,11 @@
         {
           "file": "cli/internal/cli/eset_respond_task.go",
           "contains": "res, err := esetFetchAll(ctx, c, u, map[string]string{\"recurseSubgroups\": \"true\"}, \"devices\", respondMembersMaxPages)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/eset_respond_task.go",
+          "contains": "if json.Unmarshal(raw, &d) != nil || strings.TrimSpace(d.UUID) == \"\" {",
           "code_only": true
         }
       ]
@@ -5494,7 +5499,7 @@
     {
       "id": "credentials-path-follows-config",
       "summary": "an explicit --config writes only its own colocated data/credentials.toml (SaveTokens, the token mint, the save lock and rollback, auth logout, auth's save-path message), even when it reads the default login because it has no credentials of its own; doctor probes the file the config read, and logout says when the default login still applies",
-      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back). Adversarial round 6: when the explicit config had no credentials of its own, Load fell back to the global file and pointed writes there too, so `--config tenantB auth set-token` (or the password-grant mint) overwrote the default tenant's token and `--config tenantB auth logout` deleted it. Reads keep the generated fallback (three generated tests pin it: a --config used only for settings still uses the default login); writes no longer follow it (TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal failed when the fallback reset credentialsPath). doctor's credentials-location probe now checks the file the config read (CredentialsReadPath) instead of always the global file.",
+      "why": "Load read an explicit config's colocated credentials, but every write used the global file: `--config tenantA/config.toml auth logout` reported success while tenant A stayed authenticated, deleted the default configuration's credentials, and token saves landed in the wrong file (Codex round 10 P1). cliutil.SaveCredentialsAt / RemoveCredentialsAt take the path; Config.CredentialsPath resolves it. TestExplicitConfigLogoutClearsItsOwnCredentials failed with config.go reverted (`SaveTokens did not write tenant A's colocated file`) and checks logout removes only tenant A's file. Codex round 11: with credentials inline in the explicit config, the colocated path was set only inside the !hasCompleteCredentialFields branch, so auth set-token / logout still wrote and deleted the global file; it is now set before that check (TestExplicitConfigWithInlineCredentialsNeverTouchesGlobal failed with the init moved back). Adversarial round 6: when the explicit config had no credentials of its own, Load fell back to the global file and pointed writes there too, so `--config tenantB auth set-token` (or the password-grant mint) overwrote the default tenant's token and `--config tenantB auth logout` deleted it. Reads keep the generated fallback (three generated tests pin it: a --config used only for settings still uses the default login); writes no longer follow it (TestExplicitConfigWithoutOwnCredentialsNeverWritesGlobal failed when the fallback reset credentialsPath). doctor's credentials-location probe now checks the file the config read (CredentialsReadPath) instead of always the global file. Adversarial round 7 (P2s): logout now also warns when clearing the config's own file makes the default login apply from then on, and names ESET_PROTECT_CONFIG when that is the config source; TestExplicitConfigLogoutNotesAndDoctorProbe covers both notes and the doctor probe (it failed with auth.go at the previous commit and with doctor.go before the probe change). Accepted residual: when the default login stores a password (legacy config.toml migration), the first write under such a config copies it into the config's own file.",
       "status": "active",
       "asserts": [
         {
@@ -5529,7 +5534,12 @@
         },
         {
           "file": "cli/internal/cli/auth.go",
-          "contains": "if cfg.UsesDefaultCredentials() {",
+          "contains": "case cfg.UsesDefaultCredentials():",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "case ownPath != globalPath && globalHas:",
           "code_only": true
         }
       ]
@@ -5548,6 +5558,24 @@
         {
           "file": "cli/internal/cli/data_source.go",
           "contains": "func localPageParams(params map[string]string, limitParam string, fetchAll bool, defaultPageSize int) map[string]string {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-empty-list-is-zero-records",
+      "summary": "export treats a list page with no extractable items and nothing but paging metadata (`{}`, `{\"nextPageToken\":\"\",\"totalSize\":0}`) as zero records instead of exporting the envelope as one record",
+      "why": "ESET omits an empty repeated field, so an empty devices page is `{}`; the generated fallback (`items = []json.RawMessage{data}`) exported it as a fabricated `[{}]` record with exit 0, and JSONL likewise (Codex round 13 P1). exportEmptyListPage recognizes metadata-only pages; a page for a resource with a declared list field that holds other keys but not that field is an error. TestExportEmptyListPageIsZeroRecords failed with export.go reverted (`an empty page {} exported [{}]`).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "empty, err := exportEmptyListPage(data, config)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (bool, error) {",
           "code_only": true
         }
       ]

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"eset-protect-pp-cli/internal/cliutil"
 	"eset-protect-pp-cli/internal/config"
@@ -248,8 +249,18 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			// clears only that config's file; say so when it was using the
 			// default login.
 			defaultNote := ""
-			if cfg.UsesDefaultCredentials() {
-				defaultNote = "this --config has no credentials of its own and uses the default login, which logout under --config does not clear; run auth logout without --config to clear it"
+			clearDefault := "run auth logout without --config to clear it"
+			if strings.TrimSpace(flags.configPath) == "" && strings.TrimSpace(os.Getenv("ESET_PROTECT_CONFIG")) != "" {
+				clearDefault = "unset ESET_PROTECT_CONFIG and run auth logout to clear it"
+			}
+			ownPath, _ := cfg.CredentialsPath()
+			globalPath, _ := cliutil.CredentialsFilePath()
+			globalHas, _ := cliutil.CredentialsFileHasValues()
+			switch {
+			case cfg.UsesDefaultCredentials():
+				defaultNote = "this config has no credentials of its own and uses the default login, which this logout does not clear; " + clearDefault
+			case ownPath != globalPath && globalHas:
+				defaultNote = "this config's own credentials are cleared, so from now on it uses the default login; " + clearDefault
 			}
 			if flags.asJSON {
 				out := map[string]any{"cleared": true}

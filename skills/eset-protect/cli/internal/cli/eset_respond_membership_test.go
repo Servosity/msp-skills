@@ -64,6 +64,13 @@ func TestRespondCustomerWaitUsesLiveMembership(t *testing.T) {
 			t.Fatalf("a live member without a run must keep the task incomplete: %v", got)
 		}
 	})
+	t.Run("a member row without a UUID", func(t *testing.T) {
+		bad := `{"devices":[{"uuid":"` + respondTestDevice + `"},null,{"displayName":"no uuid"}],"nextPageToken":""}`
+		got, text := run(t, bad, http.StatusOK, finished(respondTestDevice))
+		if got["complete"] == true || !strings.Contains(text, "completion stays unknown") {
+			t.Fatalf("an unreadable member must leave completion unknown: %v\n%s", got, text)
+		}
+	})
 	t.Run("membership cannot be listed", func(t *testing.T) {
 		got, text := run(t, `{}`, http.StatusInternalServerError, finished(respondTestDevice, "22222222-2222-4222-8222-222222222222"))
 		if got["complete"] == true || !strings.Contains(text, "completion stays unknown") {
