@@ -3397,6 +3397,13 @@ func syncOneParent(
 		pagesFetched++
 
 		if maxPages > 0 && pagesFetched >= maxPages {
+			// HAND-FIX(sync-resumed-walk-warns): a page that already ends the
+			// listing is a complete walk even when the page cap fired on it,
+			// as in the flat walk.
+			if !resourceSupportsPagination(dep.Name) || (!paginationEndUnprovable(true, nextCursor, len(items), pageSize.limit, data, responsePathForResource(dep.Name, path)...) && (!hasMore || shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit))) {
+				outcome.complete = true
+				break
+			}
 			outcome.reason = "max_pages_cap"
 			if !latestOnly {
 				if humanFriendly {
@@ -3644,6 +3651,9 @@ func syncDependentResource(ctx context.Context, c interface {
 	// complete; otherwise nothing was walked, which is a warning, never
 	// "(done)".
 	if len(parentRows) == 0 {
+		if preview, ok := c.(interface{ IsDryRun() bool }); ok && preview.IsDryRun() {
+			return syncResult{Resource: dep.Name, Duration: time.Since(started)} // a preview saves no state
+		}
 		if parentCertified {
 			if err := db.SaveSyncState(dep.Name, "", 0); err != nil {
 				return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, err), Duration: time.Since(started)}

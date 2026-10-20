@@ -473,6 +473,7 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		// A stray quote earlier in a plain value (an inch mark) changes nothing.
 		"Rack: 19\" cabinet\nUninstall PIN for \"HQ\" laptops: 482915", `Monitor 27" wide. Admin password for "Main Office" laptops: hunter2`,
 		`5'10" tall. PIN for "HQ": 4821`, `Unclosed " quote. Uninstall PIN for "HQ", branch: 551234`,
+		`"Uninstall PIN" (HQ): 482915`, `{"note":"\"Uninstall PIN\" (HQ): 482915"}`, `'Uninstall PIN' (HQ): 482915`,
 		// Semicolon tables and long spaced headers.
 		"Site;Network Secret Key;Address\nHQ;abc123;1 Main", "Site;secret_key;Address\nHQ;abc123;1 Main",
 		"Site,Roaming Client Uninstall PIN\nHQ,482915",

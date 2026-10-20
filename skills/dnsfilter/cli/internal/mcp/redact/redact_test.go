@@ -46,14 +46,17 @@ func TestFinalWithholdsUndecodablePreview(t *testing.T) {
 	kept := []string{
 		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": "` + WithheldFieldPlaceholder + `", "has_secret_key": true}, {"id": 2, "name": "Site 0002", "secret_key": null, "x": "y`,
 		`{"data": [{"id": 1, "name": "Site 0001", "secret_key": `,
-		// Ordinary records in a preview never withhold it (its complete
-		// records are redacted as JSON; a qualifier ends with its string).
-		`{"data": [{"id": 1, "name": "Site 0001"}, {"id": 7, "name": "Office of the Secretary of State", "status": "active"}, {"id": 8, "name": "Spin (cycling studio)", "organization_id": 7}, {"id": 9, "name": "Site`,
 	}
 	for _, p := range kept {
 		if got := Final(envelope(p)); !strings.Contains(got, "Site 0001") {
 			t.Fatalf("redacted preview was withheld: %s", got)
 		}
+	}
+	// A preview holding an ordinary value that reads like a qualifier (it is
+	// text a tenant can shape) loses its preview field, never the envelope.
+	ordinary := `{"data": [{"id": 1, "name": "Site 0001"}, {"id": 7, "name": "Office of the Secretary of State", "status": "active"}, {"id": 9, "name": "Site`
+	if got := Final(envelope(ordinary)); !strings.Contains(got, `"original_bytes":105597`) || strings.Contains(got, "Secretary") {
+		t.Fatalf("an ordinary preview must keep the envelope and withhold only the preview: %s", got)
 	}
 	// A preview cut inside a placeholder is withheld (one rule with the
 	// store, which has no cut-placeholder exemption; fails closed).
@@ -117,5 +120,30 @@ func TestFinalWithholdsBinaryEnvelopes(t *testing.T) {
 	}
 	if got := Final(`{"data":` + env + `}`); strings.Contains(got, "c2VjcmV0X2tleT1h") {
 		t.Fatalf("a nested binary envelope passed read-only MCP: %s", got)
+	}
+}
+
+// TestFinalBracketLedTenantText: a tenant value that starts with [ or { but
+// is not JSON, with a stray inch mark and a qualifier written as JSON, is
+// withheld by read-only MCP as by the store; a human-text result of the same
+// shape is withheld too; a cut binary envelope is withheld whole.
+func TestFinalBracketLedTenantText(t *testing.T) {
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	for _, v := range []string{
+		"[Site notes] Rack: 19\" cabinet\nUninstall PIN [\"HQ\", \"Branch\"] laptops: SENT13",
+		"[HQ] Rack 19\" cabinet. Admin password [\"Main Office\"] backup: SENT13",
+		"[TODO] 27\" monitor. Uninstall PIN {\"site\": \"HQ\"} laptops: SENT13",
+	} {
+		b, _ := json.Marshal(map[string]any{"data": map[string]any{"id": 1, "attributes": map[string]any{"physical_address": v}}})
+		if got := Final(string(b)); strings.Contains(got, "SENT13") {
+			t.Fatalf("read-only MCP returned a bracket-led credential: %s", got)
+		}
+		if got := Final("Site 1  " + strings.ReplaceAll(v, "\n", " ")); strings.Contains(got, "SENT13") {
+			t.Fatalf("a human-text result returned the credential: %s", got)
+		}
+	}
+	cut := `{"_pp_truncated":true,"original_bytes":60001,"preview":"{\"data\":{\"_pp_binary\":true,\"content_type\":\"application/octet-stream\",\"encoding\":\"base64\",\"data\":\"H4sIAAAA`
+	if got := Final(cut + `"}`); got != WithheldBlockMessage {
+		t.Fatalf("a cut binary envelope passed read-only MCP: %s", got)
 	}
 }

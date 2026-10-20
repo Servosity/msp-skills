@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"dnsfilter-pp-cli/internal/cliutil"
 	"dnsfilter-pp-cli/internal/config"
 )
 
@@ -56,5 +57,30 @@ func TestBinaryLabelNeverHidesText(t *testing.T) {
 	})
 	if len(cached) != 0 {
 		t.Fatalf("a secret-bearing or binary body was cached: %v", cached)
+	}
+}
+
+// TestNonTextBodyNeverPassesAsText: a body that is not UTF-8 text is wrapped
+// whatever its label (UTF-16 JSON labelled application/json), and under the
+// read-only switch it is refused instead.
+func TestNonTextBodyNeverPassesAsText(t *testing.T) {
+	utf16 := []byte{'{', 0, '"', 0, 'k', 0, '"', 0, ':', 0, '1', 0, '}', 0}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-16")
+		_, _ = w.Write(utf16)
+	}))
+	t.Cleanup(server.Close)
+	c := New(&config.Config{BaseURL: server.URL, DnsfilterApiKey: "test-key"}, 5*time.Second, 0)
+	c.NoCache = true
+	data, err := c.Get(context.Background(), "/v1/networks/33", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := UnwrapBinaryResponse(data); !ok {
+		t.Fatalf("a UTF-16 body passed as text: %q", data)
+	}
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	if _, err := c.Get(context.Background(), "/v1/networks/33", nil); err == nil || !strings.Contains(err.Error(), "not UTF-8 text") {
+		t.Fatalf("read-only mode returned a body no rule can read: %v", err)
 	}
 }

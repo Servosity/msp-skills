@@ -805,6 +805,43 @@ func TestSyncDependentWithNoParentRows(t *testing.T) {
 	syncHFRunOK(t, "sync", "--resources", "networks", "--db", dbPath)
 	syncHFWantComplete(t, dbPath, "networks", 1, "empty networks walk")
 	syncHFWantComplete(t, dbPath, "lan_ips", 1, "lan_ips under a complete, empty networks walk")
+
+	// A dry run saves no state, even on the empty-parent path.
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveSyncProgress("lan_ips", "", 0); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	syncHFRun("sync", "--dry-run", "--resources", "lan_ips", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "lan_ips", 0, "a --dry-run lan_ips walk")
+}
+
+// A dependent walk whose first page already ends the listing is complete even
+// when the page cap (--latest-only, --max-pages 1) fired on that page.
+func TestSyncDependentShortPageUnderCapIsComplete(t *testing.T) {
+	testenv.Isolate(t)
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		switch {
+		case path == "/v1/networks/all":
+			if p := q.Get("page[number]"); p != "" && p != "1" {
+				return `{"data":[]}`, true
+			}
+			return `{"data":[{"id":"50","type":"networks","attributes":{"name":"HQ"}}]}`, true
+		case strings.HasSuffix(path, "/lan_ips"):
+			return `{"data":[{"id":"9","type":"lan_ips","attributes":{"ip":"10.0.0.1"}}]}`, true
+		}
+		return "", false
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	syncHFRunOK(t, "sync", "--resources", "networks", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "networks", 1, "full networks walk")
+	for _, args := range [][]string{{"--latest-only"}, {"--max-pages", "1"}} {
+		syncHFRunOK(t, append([]string{"sync", "--resources", "lan_ips", "--db", dbPath}, args...)...)
+		syncHFWantComplete(t, dbPath, "lan_ips", 1, fmt.Sprintf("lan_ips %v with one short page per parent", args))
+	}
 }
 
 // A parent collection that becomes complete while a child walk is running

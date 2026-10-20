@@ -1530,11 +1530,18 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// — return a self-describing base64 envelope instead. Textual and
 			// JSON responses fall through to the unchanged path.
 			// Hand-wired (handfixes.json: binary-envelope-never-hides-text): a
-			// body labelled binary that is UTF-8 text (JSON, CSV) takes the
-			// text path, where the secret scrub, the response-cache rule and
-			// the read-only filter can read it; base64 would hide it from all
-			// three.
-			if isBinaryResponseContentType(resp.Header.Get("Content-Type")) && !bodyIsText(respBody) {
+			// body that is UTF-8 text (JSON, CSV), whatever its label, takes
+			// the text path, where the secret scrub, the response-cache rule
+			// and the read-only filter can read it; base64 would hide it from
+			// all three. Any other body is wrapped, never passed as text.
+			if (isBinaryResponseContentType(resp.Header.Get("Content-Type")) && !bodyIsText(respBody)) || bytes.IndexByte(respBody, 0) >= 0 {
+				// Not text the filters can read: a binary-labelled body that
+				// is not UTF-8, or any body with a NUL byte (UTF-16 JSON,
+				// gzip), whatever its label. Under the read-only switch
+				// nothing may leave that no rule can read.
+				if cliutil.IsMCPReadOnlyEnv() {
+					return nil, 0, fmt.Errorf("refusing %s %s while %s is set: the response is not UTF-8 text, so it cannot be checked for credentials", method, path, cliutil.MCPReadOnlyEnvVar)
+				}
 				env, encErr := wrapBinaryResponse(resp.Header.Get("Content-Type"), respBody)
 				if encErr != nil {
 					return nil, 0, encErr

@@ -591,7 +591,11 @@ func secretPairScan(text string, mode int) bool {
 				} else if spaced {
 					arm()
 				}
-				pending, joined = false, false
+				// In plain text a quote that closes a quoted label ("Uninstall
+				// PIN" (HQ): x) keeps it pending for a qualifier after it; in
+				// JSON text the quote ends a string value, which arms nothing.
+				keep := mode == scanPlain && i > 0 && isLabelWordByte(text[i-1])
+				pending, joined = pending && keep, false
 				i += k + 1
 				continue
 			}

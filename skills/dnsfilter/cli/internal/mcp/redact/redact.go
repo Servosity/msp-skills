@@ -184,7 +184,10 @@ func Final(text string) string {
 		return text
 	}
 	out, plain := redactJSONSegments(text)
-	if textNamesCredential(out, plain) || carriesWithheldValue(out) {
+	// A base64 binary envelope is opaque to every rule here, also when a
+	// bounded preview cut it so it no longer decodes (handfixes.json:
+	// binary-envelope-never-hides-text).
+	if textNamesCredential(out, plain) || carriesWithheldValue(out) || strings.Contains(out, "_pp_binary") {
 		return WithheldBlockMessage
 	}
 	return out
@@ -225,6 +228,12 @@ func redactJSONSegments(text string) (string, string) {
 			continue
 		}
 		end := start + int(dec.InputOffset())
+		// A decoded segment leaves its opening bracket in the plain
+		// remainder, so a qualifier written as JSON (Uninstall PIN ["HQ"]
+		// laptops: x) still arms the plain rule there (handfixes.json:
+		// secrets-never-persisted).
+		plain.WriteByte(text[start])
+		plain.WriteByte(' ')
 		// The raw bytes are kept only when a token walk of them shows no
 		// credential-named key with a value and no duplicate key: a decoded
 		// map keeps the LAST of {"token":"S","token":null}, so a clean decoded
@@ -294,7 +303,6 @@ func redactValue(value any) (any, bool) {
 		return v, changed
 	case string:
 		trimmed := strings.TrimSpace(v)
-		jsonLike := trimmed != "" && strings.ContainsAny(trimmed[:1], "{[")
 		if trimmed != "" && strings.ContainsAny(trimmed[:1], "{[\"") {
 			// JSON only if the WHOLE string is exactly one JSON value
 			// (Decoder.More is not an EOF test: {"ok":1}} token=S would pass).
@@ -311,13 +319,12 @@ func redactValue(value any) (any, bool) {
 		// written in: token="\",SECRET" carries a value there and looks empty
 		// once unescaped); then the complete records inside it are redacted
 		// and the rule runs over what is not JSON.
-		// A string that starts like JSON but is not one value (a bounded
-		// preview cut mid-record) skips the whole-string plain-text pass: its
-		// complete records are redacted as JSON below, and the rest still gets
-		// the plain-text rule, so an ordinary record ("Office of the Secretary
-		// of State","status":...) does not withhold the preview.
-		// Hand-wired (handfixes.json: secrets-never-persisted).
-		if !jsonLike && store.TextNamesSecret(v) {
+		// Every string gets the whole-string plain rule, a bounded preview
+		// included: it is text a tenant can shape (it starts with { or [ too),
+		// and the JSON-aware rule is never run on such text (one stray quote
+		// would invert it). A preview holding an ordinary value that reads
+		// like a qualifier loses its preview field, not the result.
+		if store.TextNamesSecret(v) {
 			return WithheldFieldPlaceholder, true
 		}
 		inner, plain := redactJSONSegments(v)
