@@ -1439,7 +1439,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
 				}
 			}
-			return json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil
+			return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens never leave the client
 		}
 
 		if !binaryResponse {

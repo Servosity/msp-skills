@@ -243,6 +243,30 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "webhook-subscription-token-withheld",
+      "summary": "every Webhooks API (/outgoingWebhookApi/) response has its subscription `token` replaced with [withheld] in the client's JSON success path, before print, response cache, sync, tail and MCP",
+      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "Generator support for x-secret / writeOnly response fields that are blanked before print, cache and store.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenNeverLeavesTheClient(",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
