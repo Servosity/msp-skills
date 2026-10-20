@@ -1355,7 +1355,8 @@ func paginatedGet(ctx context.Context, c interface {
 			fmt.Fprintf(os.Stderr, `{"event":"page_fetch","page":%d}`+"\n", page)
 		}
 
-		data, err := c.GetWithHeaders(ctx, path, clean, headers)
+		reqPath, reqParams := respondCursorRequest(path, clean, cursorParam) // saas-alerts hand-fix: Respond [ts, id] cursor as repeated startAfter keys
+		data, err := c.GetWithHeaders(ctx, reqPath, reqParams, headers)
 		if err != nil {
 			return nil, err
 		}
@@ -1458,6 +1459,10 @@ func paginatedGet(ctx context.Context, c interface {
 				}
 				if missingHasMoreCursor {
 					break
+				}
+				if nextAdvance != "" && respondEndOfPages(obj, cursorParam, hasMoreField) { // saas-alerts hand-fix: literal hasNextPage:false ends the walk
+					nextAdvance = ""
+					hasExplicitNoMore = true
 				}
 				if nextAdvance != "" {
 					foundCursorField = true
@@ -1811,6 +1816,9 @@ func paginationCursorToken(raw json.RawMessage) string {
 		if n, err := number.Int64(); err == nil && n > 0 {
 			return number.String()
 		}
+	}
+	if pair := respondArrayCursor(raw); pair != "" { // saas-alerts hand-fix: Respond pagination.cursor [ts, id]
+		return pair
 	}
 	return paginationLinkURL(raw)
 }

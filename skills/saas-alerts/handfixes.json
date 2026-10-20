@@ -367,6 +367,40 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "rule-triggers-list-all-follows-array-cursor",
+      "summary": "rule-triggers list --all follows Respond's [triggeredAt, id] pagination.cursor as repeated startAfter keys and stops on a literal pagination.hasNextPage false, instead of stopping after page 1",
+      "why": "The generic paginatedGet reads only scalar cursors, so --all fetched page 1, printed a truncated event on stderr and returned an un-flagged partial list on stdout with exit 0 (mock receipt 2026-10-20: 2 of 3 triggers). paginationCursorToken now accepts the two-element array (cursorValue owns the rule), the fetch-all GET re-expands it into repeated startAfter keys (replacing any --start-after on the path), and a literal hasNextPage:false ends the walk even though Respond also returns a cursor on the last page. TestRuleTriggersListAllFollowsArrayCursor fails with either change reverted (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "Array cursors and nested has-more flags in the generic paginatedGet (same deferral as sync-events-start-and-respond-array-cursor).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if pair := respondArrayCursor(raw); pair != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "reqPath, reqParams := respondCursorRequest(path, clean, cursorParam)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if nextAdvance != \"\" && respondEndOfPages(obj, cursorParam, hasMoreField) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_cursor.go",
+          "contains": "func respondCursorRequest(path string, params map[string]string, cursorParam string) (string, map[string]string) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_respond_cursor_test.go",
+          "contains": "func TestRuleTriggersListAllFollowsArrayCursor(",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
