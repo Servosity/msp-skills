@@ -126,7 +126,7 @@ dnsfilter-cli agents drift --agent
   ```bash
   dnsfilter-cli why-blocked example.com --org "Acme Dental" --agent
   ```
-- **`allow`**  -  Add a domain to the allow list of the policies blocking it for a client (from the query log, else the site or roaming-client assignment). Previews by default; --confirm --note writes, then reads back.
+- **`allow`**  -  Add a domain to the allow list of the policies blocking it for a client (from the query log, else the assigned site or roaming-client policies that block it). Previews by default; --confirm --note writes, then reads back.
 
   _Use after why-blocked confirms a legitimate site is blocked. --force is needed for a threat-categorized domain, --include-global to touch a global policy, and policies the key cannot edit are skipped._
 
@@ -275,7 +275,7 @@ Precedence matters in fleets: an ambient per-kind variable such as `DNSFILTER_DA
 
 Relocation is one-way. Unsetting `DNSFILTER_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
-Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `dnsfilter-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `dnsfilter-cli doctor --fail-on warn` to check path and credential-location warnings in automation; it also fails on a token that lacks access (HTTP 403) and on a probe redirected away from the API.
 
 ## Commands
 
@@ -887,7 +887,7 @@ Manage users
 ### allow
 
 
-- **`dnsfilter-cli allow`** - Add a domain to the allow list of the policies that blocked it for a client (from the query log, else the site or roaming-client assignment). Previews by default; writes only with --confirm --note, then reads each policy back.
+- **`dnsfilter-cli allow`** - Add a domain to the allow list of the policies that blocked it for a client (from the query log, else the assigned site or roaming-client policies that block it). Previews by default; writes only with --confirm --note, then reads each policy back.
 
 
 ### lists

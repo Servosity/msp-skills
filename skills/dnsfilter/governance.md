@@ -25,7 +25,13 @@ Where the token lives is your choice, and the CLI respects it:
   in process arguments or shell history): it is written to a permission-restricted
   credentials file in the CLI's data directory (`0600` on macOS and Linux; on
   Windows the file's ACL is checked to allow only you, Administrators and SYSTEM).
-  Run `dnsfilter-cli doctor` to see the resolved paths, and `auth logout` to clear it.
+  With `--config FILE` (or `DNSFILTER_CONFIG`) the token is saved beside that file, in
+  `data/credentials.toml`. If the file fails the permission check, `auth set-token`
+  saves nothing and keeps the previous credentials. Run `dnsfilter-cli doctor` to see
+  the resolved paths and the credentials file in use, and `auth logout` to clear it;
+  under `--config` logout leaves a record so the config never falls back to another
+  credentials file, and it names any credential still in effect (such as an
+  environment variable).
 
 The token is never logged and goes only to the API base URL. Two commands send data
 elsewhere only when you ask: `--deliver webhook:<url>` posts a command's output to
@@ -86,7 +92,8 @@ mode `allow`, `sync`, `export` and the archive tool are removed, `dnsfilter_exec
 runs GET endpoints only, the reads that return a secret (API key reads, the site
 secret-key endpoints, the roaming client uninstall PIN) are refused, and networks
 reads come back with each `secret_key` replaced by `[withheld: credential]`, so the
-agent still sees site names and ids. The same switch is enforced inside the HTTP client of the
+agent still sees site names and ids. Tools advertised read-only (the fleet and
+troubleshooting views, `sql`, `search`) apply the same credential filter in every mode. The same switch is enforced inside the HTTP client of the
 companion `dnsfilter-cli` the MCP server runs, so no route can send a write or a
 credential read while it is on.
 

@@ -15,7 +15,7 @@ All notable changes to this skill are documented here. Format follows
   included) and the rule that blocks or allows a domain for one client org, with
   recent Query Log hits; says which rule types the policy API does not expose.
 - `allow`: plans an allow on the policies that actually blocked the domain (Query Log
-  attribution, else the site or roaming-client assignment), refuses threat or
+  attribution, else the assigned site or roaming-client policies that block it), refuses threat or
   unresolvable categories without `--force`, skips global and non-editable
   policies; `--confirm --note` writes, reads back and exits 6 on any failed target.
 - `unblocks triage`: pending end-user unblock requests across every client, grouped

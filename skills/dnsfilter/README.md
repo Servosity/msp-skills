@@ -161,7 +161,7 @@ On Windows (PowerShell):
 $env:DNSFILTER_API_KEY | dnsfilter-cli auth set-token
 ```
 
-`doctor` checks config, paths and API reachability, and sends the token to DNSFilter's `GET /v1/current_user`, so a rejected token shows up as a `Credentials: invalid` row and a wrong base URL as an `API: ERROR` row. It exits 0 even then, so scripts should add `--fail-on error`. It also warns when a stored token starts with `Bearer ` or `Token `.
+`doctor` checks config, paths and API reachability, and sends the token to DNSFilter's `GET /v1/current_user`, so a rejected token shows up as a `Credentials: invalid` row, a token that lacks access (HTTP 403) as `WARN scope-limited`, and a wrong base URL as an `API: ERROR` row. An answer that was redirected away from the DNSFilter API never counts as proof. It exits 0 even then, so scripts should add `--fail-on error` (or `--fail-on warn`, which also fails on a 403 or a redirected probe). It also warns when a stored token starts with `Bearer ` or `Token `.
 
 
 ## What this skill does
@@ -225,7 +225,7 @@ An API token created in the DNSFilter dashboard (see DNSFilter's API Tokens help
 
 ### Can the AI allow a domain or change a policy by itself?
 
-Only if you let it. allow prints the plan and writes nothing unless you add --confirm with a --note (the ticket number), refuses a domain in a security category unless you add --force, skips policies you cannot edit and leaves shared global policies alone unless you pass --include-global; a saved profile can never supply --confirm or --force. Generated commands such as policies update or policies add-whitelist-domain send as soon as they run, so preview them with --dry-run. Over MCP, the generic dnsfilter_execute tool can call any DNSFilter endpoint, deletes included, gated only by your AI app's approval prompt. For an agent that should only read, set DNSFILTER_MCP_READ_ONLY=1 in the MCP server's environment: write tools and allow are removed, dnsfilter_execute runs GET endpoints only, and API key reads, site secret keys and the roaming client uninstall PIN are withheld. Keep the approval prompt on.
+Only if you let it. allow prints the plan and writes nothing unless you add --confirm with a --note (the ticket number), refuses a domain in a security category unless you add --force, skips policies you cannot edit or whose allow list it cannot read, marks an assigned policy it cannot evaluate as review instead of writing to it, and leaves shared global policies alone unless you pass --include-global; a saved profile can never supply --confirm or --force. Generated commands such as policies update or policies add-whitelist-domain send as soon as they run, so preview them with --dry-run. Over MCP, the generic dnsfilter_execute tool can call any DNSFilter endpoint, deletes included, gated only by your AI app's approval prompt. For an agent that should only read, set DNSFILTER_MCP_READ_ONLY=1 in the MCP server's environment: write tools and allow are removed, dnsfilter_execute runs GET endpoints only, and API key reads, site secret keys and the roaming client uninstall PIN are withheld. Keep the approval prompt on.
 
 ### Does why-blocked see every rule DNSFilter applies?
 

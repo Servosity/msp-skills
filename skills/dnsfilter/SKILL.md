@@ -65,7 +65,7 @@ Do not use this CLI for:
   ```bash
   dnsfilter-cli why-blocked example.com --org "Acme Dental" --agent
   ```
-- **`allow`**  -  Add a domain to the allow list of the policies blocking it for a client (from the query log, else the site or roaming-client assignment). Previews by default; --confirm --note writes, then reads back.
+- **`allow`**  -  Add a domain to the allow list of the policies blocking it for a client (from the query log, else the assigned site or roaming-client policies that block it). Previews by default; --confirm --note writes, then reads back.
 
   _Use after why-blocked confirms a legitimate site is blocked. --force is needed for a threat-categorized domain, --include-global to touch a global policy, and policies the key cannot edit are skipped._
 
@@ -518,7 +518,7 @@ the list endpoint's filter logic, so the export always matches what the admin se
 **allow**
 
 
-- `dnsfilter-cli allow`  -  Add a domain to the allow list of the policies that blocked it for a client (from the query log, else the site or roaming-client assignment). Previews by default; writes only with --confirm --note, then reads each policy back.
+- `dnsfilter-cli allow`  -  Add a domain to the allow list of the policies that blocked it for a client (from the query log, else the assigned site or roaming-client policies that block it). Previews by default; writes only with --confirm --note, then reads each policy back.
 
 
 **lists**
@@ -610,7 +610,7 @@ Run `dnsfilter-cli doctor` to verify setup.
 - **Read freely:** `why-blocked`, `unblocks triage`, `agents drift`, `agents stale`, `lists where`, `policy-audit`, and list/get commands, except the credential reads below.
 - **Plan before a policy change:** run `allow` without `--confirm` and show the plan; only add `--confirm --note "<ticket>"` after the user approves. Preview every generated write (`policies add-whitelist-domain`, `policies update`, `unblock-requests decision unblock-requests`, deletes) with `--dry-run` first: they send as soon as they run. Moving a site, subnet, MAC address or roaming client to another policy or schedule (`networks update`, `user-agents update` and their bulk forms), adding bypass domains, or disabling a roaming client changes filtering too: get approval as for a policy change, and treat any write [governance.md](./governance.md) does not name the same way.
 - **Credential reads are human-only:** `networks index`, `networks show`, `networks all`, `networks msp` and `networks msp-all` return each site's `secret_key`; `api-keys index` and `api-keys show` return tokens; `user-agents uninstall-pin` returns the uninstall PIN; `tail` and `export` of `networks` or `api-keys` print the same secrets; `psa-integrations` is a GET that creates a PSA integration and returns its link. Do not run them unless the user asks for that secret or that integration.
-- **MCP:** the generic `dnsfilter_execute` tool can call any endpoint, deletes included, with no dry-run. With `DNSFILTER_MCP_READ_ONLY=1` the server drops writes and `allow`, runs GET endpoints only, and withholds the secrets above. See [governance.md](./governance.md).
+- **MCP:** the generic `dnsfilter_execute` tool can call any endpoint, deletes included, with no dry-run. With `DNSFILTER_MCP_READ_ONLY=1` the server drops writes and `allow`, runs GET endpoints only, and withholds the secrets above. Tools advertised read-only (the fleet and troubleshooting views, `sql`, `search`) withhold credentials in every mode. See [governance.md](./governance.md).
 
 ## Agent Mode
 
@@ -657,7 +657,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Resolution order is per-kind env var, `--home`, `DNSFILTER_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
 - `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
-- Run `dnsfilter-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
+- Run `dnsfilter-cli doctor --fail-on warn` to surface path and credential-location warnings, a token that lacks access (HTTP 403, `scope-limited`) and a probe redirected away from the API. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
 
   ```json

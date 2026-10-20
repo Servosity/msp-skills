@@ -56,7 +56,7 @@ the `env` block to `"1"` (here or in any other agent's config below; do not add 
 because JSON keeps the last one). The MCP server then offers only tools that read from DNSFilter:
 `allow`, `sync` and `export` are removed, the generic `dnsfilter_execute` tool runs GET endpoints
 only, API key reads, the site secret-key endpoints and the roaming client uninstall PIN are
-refused, and networks reads come back with each `secret_key` withheld. `true` and `yes` work too;
+refused, and networks reads come back with each `secret_key` withheld. (Tools advertised read-only withhold credentials in every mode.) `true` and `yes` work too;
 only `0`, `false`, `no` or `off` (or an empty value) leave it off. The other optional entries can stay empty; an empty `DNSFILTER_BASE_URL` means
 the DNSFilter API (`https://api.dnsfilter.com`).
 

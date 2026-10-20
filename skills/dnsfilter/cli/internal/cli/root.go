@@ -326,7 +326,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 
 Highlights (not in the official API docs):
   • why-blocked   Name the site or roaming-client policy and rule that blocks or allows a domain for a client org, plus query-log hits. Does not evaluate user, collection, LAN-subnet, Universal List or AppAware rules.
-  • allow   Add a domain to the allow list of the policies blocking it for a client (from the query log, else the site or roaming-client assignment). Previews by default; --confirm --note writes, then reads back.
+  • allow   Add a domain to the allow list of the policies blocking it for a client (from the query log, else the assigned site or roaming-client policies that block it). Previews by default; --confirm --note writes, then reads back.
   • unblocks triage   Review pending end-user unblock requests grouped by domain across every client, with threat flags, age, and DNSFilter's own already-covered check. Needs unblock requests enabled on the account.
   • agents drift   See which client orgs have roaming clients behind the latest agent release, or on a specific bad build, with auto-update state per org. Joins the synced fleet with the vendor's live release feed.
   • agents stale   List roaming clients that stopped checking in or are unprotected or bypassed, grouped by client org with age buckets. Reads the local mirror; sync first.
