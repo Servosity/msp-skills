@@ -1430,8 +1430,15 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// run through the JSON sanitizer or returned as raw json.RawMessage
 			// — return a self-describing base64 envelope instead. Textual and
 			// JSON responses fall through to the unchanged path.
-			if isBinaryResponseContentType(resp.Header.Get("Content-Type")) {
-				env, encErr := wrapBinaryResponse(resp.Header.Get("Content-Type"), respBody)
+			// saas-alerts hand-fix: error-text-secret-funnel. A Webhooks answer is always
+			// read as JSON so its tokens are withheld; any other binary answer that echoes
+			// a secret is withheld whole, and its Content-Type is server text.
+			if isBinaryResponseContentType(resp.Header.Get("Content-Type")) && !strings.Contains(path, "/outgoingWebhookApi/") {
+				if c.echoesCredential(respBody, append(requestWebhookTokens(path, bodyBytes), authHeader)...) {
+					whole, _ := json.Marshal(echoWithheldText)
+					return whole, resp.StatusCode, nil
+				}
+				env, encErr := wrapBinaryResponse(c.funnelText(resp.Header.Get("Content-Type"), append(requestWebhookTokens(path, bodyBytes), authHeader)...), respBody)
 				if encErr != nil {
 					return nil, 0, encErr
 				}

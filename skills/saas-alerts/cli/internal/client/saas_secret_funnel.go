@@ -7,9 +7,9 @@ package client
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"html"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf16"
@@ -130,12 +130,12 @@ func withholdEchoedStrings(v any, secrets []string) any {
 	return v
 }
 
-// dropUnprintable deletes invalid UTF-8 and control characters, as the error
-// display does (ToValidUTF8 at the cut, control characters in HTML titles), so
+// dropUnprintable deletes invalid UTF-8, control and format (Cf) characters,
+// as the error display does (ToValidUTF8 at the cut, control characters in HTML titles), so
 // an echo split by one of them is seen joined, as the user would see it.
 func dropUnprintable(s string) string {
 	return strings.Map(func(r rune) rune {
-		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			return -1
 		}
 		return r
@@ -164,22 +164,20 @@ func jsonUnescape(s string) string {
 		if s[i] == '\\' && i+1 < len(s) {
 			switch s[i+1] {
 			case 'u':
-				if i+6 <= len(s) {
-					if r, err := strconv.ParseUint(s[i+2:i+6], 16, 32); err == nil {
-						// A UTF-16 surrogate pair is two escapes for one character.
-						if utf16.IsSurrogate(rune(r)) && i+12 <= len(s) && s[i+6] == '\\' && s[i+7] == 'u' {
-							if r2, err := strconv.ParseUint(s[i+8:i+12], 16, 32); err == nil {
-								if d := utf16.DecodeRune(rune(r), rune(r2)); d != unicode.ReplacementChar {
-									b.WriteRune(d)
-									i += 11
-									continue
-								}
+				if r, ok := hexRune(s, i+2); ok {
+					// A UTF-16 surrogate pair is two escapes for one character.
+					if utf16.IsSurrogate(r) && i+12 <= len(s) && s[i+6] == '\\' && s[i+7] == 'u' {
+						if r2, ok := hexRune(s, i+8); ok {
+							if d := utf16.DecodeRune(r, r2); d != unicode.ReplacementChar {
+								b.WriteRune(d)
+								i += 11
+								continue
 							}
 						}
-						b.WriteRune(rune(r))
-						i += 5
-						continue
 					}
+					b.WriteRune(r)
+					i += 5
+					continue
 				}
 			case '/', '"', '\\':
 				b.WriteByte(s[i+1])
@@ -192,6 +190,18 @@ func jsonUnescape(s string) string {
 	return b.String()
 }
 
+// hexRune reads the 4 hex digits at s[at:] as one UTF-16 unit.
+func hexRune(s string, at int) (rune, bool) {
+	if at+4 > len(s) {
+		return 0, false
+	}
+	b, err := hex.DecodeString(s[at : at+4])
+	if err != nil {
+		return 0, false
+	}
+	return rune(b[0])<<8 | rune(b[1]), true
+}
+
 // percentDecode decodes every valid %XX (either case) and leaves anything else.
 func percentDecode(s string) string {
 	if !strings.Contains(s, "%") {
@@ -200,8 +210,8 @@ func percentDecode(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
 		if s[i] == '%' && i+3 <= len(s) {
-			if v, err := strconv.ParseUint(s[i+1:i+3], 16, 8); err == nil {
-				b.WriteByte(byte(v))
+			if v, err := hex.DecodeString(s[i+1 : i+3]); err == nil {
+				b.WriteByte(v[0])
 				i += 2
 				continue
 			}

@@ -739,7 +739,7 @@ func syncResource(ctx context.Context, c interface {
 		previousPageItems = append([]json.RawMessage(nil), items...)
 		previousPageItemsSet = true
 
-		if len(items) == 0 && len(data) > 0 && !isJSONResponse(data) {
+		if _, _, binary := client.UnwrapBinaryResponse(data); len(items) == 0 && len(data) > 0 && (!isJSONResponse(data) || binary) { // saas-alerts hand-fix: a binary-labelled page is not an enumeration
 			// Abnormal: a 200 with a non-JSON body means the page was not a
 			// trustworthy enumeration — leave outcome.complete=false so reconcile
 			// SKIPS. Reuse the dependent loop's reason string for cross-loop

@@ -92,7 +92,7 @@ func (c *Client) respondAccessToken(ctx context.Context, apiKey string, refresh 
 			Method:     http.MethodPost,
 			Path:       respondAuthPath,
 			StatusCode: resp.StatusCode,
-			Body:       c.maskCredentialText(truncateBody(c.respondMintDisplay(body, apiKey)), apiKey) + " (Respond access-token mint; check SAAS_ALERTS_API_KEY and that Respond is enabled for the partner)",
+			Body:       c.funnelText(truncateBody(c.respondMintDisplay(body, apiKey)), apiKey) + " (Respond access-token mint; check SAAS_ALERTS_API_KEY and that Respond is enabled for the partner)",
 		}
 	}
 	var out struct {

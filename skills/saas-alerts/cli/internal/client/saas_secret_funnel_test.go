@@ -19,6 +19,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode"
 	"unicode/utf16"
 
 	"saas-alerts-pp-cli/internal/config"
@@ -56,6 +57,8 @@ var funnelEncodings = map[string]func(string) string{
 	// by one must not come out joined.
 	"ctrl-split": func(s string) string { return s[:3] + "\x01" + s[3:] },
 	"utf8-split": func(s string) string { return s[:3] + "\xff" + s[3:] },
+	// A format character (soft hyphen) the HTML-title display drops, percent-encoded.
+	"cf-split-pct": func(s string) string { return s[:3] + url.QueryEscape(string(rune(0xAD))+s[3:]) },
 	"json-entity-split": func(s string) string {
 		return funnelUTF16(s[:3], "u%04X") + "&#1;" + funnelUTF16(s[3:], "u%04X")
 	},
@@ -180,7 +183,7 @@ func funnelNormalize(s string) string {
 	for i := 0; i < 5; i++ {
 		before := s
 		s = strings.Map(func(r rune) rune {
-			if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			if r < 0x20 || (r >= 0x7f && r <= 0x9f) || unicode.Is(unicode.Cf, r) {
 				return -1
 			}
 			return r
@@ -308,5 +311,39 @@ func TestRateLimitRequestIDIsFunnelled(t *testing.T) {
 	}
 	if strings.Contains(funnelNormalize(err.Error()), "Q7zX") {
 		t.Fatalf("429 error leaked: %v", err)
+	}
+}
+
+// TestBinaryLabelledAnswerNeverCarriesASecret: a 2xx answer labelled binary is
+// funnelled too: an echo is withheld whole, the Content-Type is server text,
+// and a Webhooks answer is always read as JSON so its tokens are withheld.
+func TestBinaryLabelledAnswerNeverCarriesASecret(t *testing.T) {
+	const key = "Q7zXwKey-bin+ab/cd-0000"
+	ctype, answer := "", ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", ctype)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: key, SaasAlertsApiKey: key}, 5*time.Second, 0)
+	c.NoCache = true
+	for _, tc := range []struct{ ctype, answer string }{
+		{"application/octet-stream", "your key is " + key},
+		{"application/x-" + url.QueryEscape(key), "plain bytes"},
+	} {
+		ctype, answer = tc.ctype, tc.answer
+		data, err := c.Get(context.Background(), "/reportApi/api/v1/customers", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, _, _ := UnwrapBinaryResponse(data)
+		if strings.Contains(funnelNormalize(string(data)), "Q7zX") || strings.Contains(string(raw), "Q7zX") {
+			t.Fatalf("%s answer leaked: %s", tc.ctype, data)
+		}
+	}
+	ctype, answer = "application/octet-stream", `[{"channelId":"ch-1","token":"Q7zXwStored-token-0000"}]`
+	data, err := c.Get(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", nil)
+	if err != nil || strings.Contains(string(data), "Q7zX") || !strings.Contains(string(data), WebhookTokenWithheld) {
+		t.Fatalf("binary-labelled webhook answer kept its token: %s err=%v", data, err)
 	}
 }
