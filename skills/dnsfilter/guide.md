@@ -269,6 +269,8 @@ MCP servers do not receive CLI flags from the host. Put relocation in the host `
 }
 ```
 
+On Windows, use a Windows path with doubled backslashes in JSON, for example `"DNSFILTER_HOME": "C:\\ProgramData\\dnsfilter"`.
+
 Precedence matters in fleets: an ambient per-kind variable such as `DNSFILTER_DATA_DIR` overrides an explicit `--home` for that kind. Use `DNSFILTER_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
 
 Relocation is one-way. Unsetting `DNSFILTER_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
