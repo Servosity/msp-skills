@@ -93,7 +93,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (Windows: `%USERPROFILE%\.gemini\settings.json`; Gemini CLI's config) and add the same shape as
 Claude Desktop:
 
 ```json
@@ -145,8 +145,8 @@ read-only remote agent.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat the token
+endpoint: put `/mcp` in the connector URL, which is the Streamable HTTP endpoint this
+server documents. **Treat the token
 and the URL as sensitive.** Never expose the endpoint bare on the internet; gate it
 behind SSO / Cloudflare Access for team use.
 

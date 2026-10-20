@@ -149,7 +149,17 @@ $env:DNSFILTER_API_KEY = "<value>"
 dnsfilter-cli doctor
 ```
 
-To save the token instead of exporting it each session, run `dnsfilter-cli auth set-token` (see [guide.md](./guide.md)).
+To save the token instead of setting it each session, pipe it to `dnsfilter-cli auth set-token` (it reads stdin, so the token never lands in your shell history as an argument):
+
+```bash
+printf '%s\n' "$DNSFILTER_API_KEY" | dnsfilter-cli auth set-token
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:DNSFILTER_API_KEY | dnsfilter-cli auth set-token
+```
 
 `doctor` checks config, paths and API reachability, and sends the token to DNSFilter's `GET /v1/current_user`, so a rejected token shows up as a `Credentials: invalid` row and a wrong base URL as an `API: ERROR` row. It exits 0 even then, so scripts should add `--fail-on error`. It also warns when a stored token starts with `Bearer ` or `Token `.
 
@@ -179,7 +189,7 @@ It complements the DNSFilter dashboard rather than replacing it: policies, deplo
 
 ## The pain this closes
 
-A blocked-site ticket is a chain, not a lookup: which policy the client's site or roaming client is using right now (scheduled policies switch by the quarter hour), that policy's allow list, block list and categories, and what the Query Log recorded. Then the fix has to land on the policy that actually blocked it, not a shared global one. A DNSFilter Community post, "Policy enforcement & reporting discrepancies with Roaming Client", describes a roaming client on a second site ignoring its category blocks while reports showed the site as blocked.
+A blocked-site ticket is a chain, not a lookup: which policy the client's site or roaming client is using right now (scheduled policies switch by the quarter hour), that policy's allow list, block list and categories, and what the Query Log recorded. Then the fix has to land on the policy that actually blocked it, not a shared global one. A DNSFilter Community post, "Policy enforcement & reporting discrepancies with Roaming Client", describes a roaming client on a second site ignoring its category blocks, and reaching a URL that its reports showed as blocked.
 
 Roaming client releases go wrong across the whole book at once. DNSFilter's status page logged the [Windows Roaming Client 1.7.15 auto-upgrade incident](https://status.dnsfilter.com/incidents/vc2qwqtx2sxz): auto-upgrade paused, the release pulled from general availability, and uninstall-and-reinstall as the workaround. Its help center documents [macOS machines losing connectivity when updating the Roaming Client from 1.x to 2.2](https://help.dnsfilter.com/hc/en-us/articles/41871975449363-Internet-connectivity-lost-when-updating-macOS-Roaming-Client-1-x-x-to-2-2-x). The first question each time is which clients are on the bad build.
 
@@ -237,10 +247,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `dnsfilter-cli` why-blocked; unblocks triage; agents drift; agents stale; lists where; policy-audit; allow (without --confirm, plan only); organizations index; organizations show; policies index; policies show; user-agents index; unblock-requests index; traffic-reports query-logs; domains user-lookup; search; sync | Allow |
+| Read | `dnsfilter-cli` why-blocked; unblocks triage; agents drift; agents stale; lists where; policy-audit; allow (without --confirm, plan only); organizations index; organizations show; policies index; policies show; user-agents index; user-agents tags; unblock-requests index; traffic-reports query-logs; domains user-lookup; search; sync | Allow |
 | Filtering policy and allow lists | allow --confirm; policies add-whitelist-domain; policies remove-whitelist-domain; policies add-blacklist-domain; policies remove-blacklist-domain; policies add-blacklist-category; policies remove-blacklist-category; policies bulk-actions-add-allowlist-domains; policies update; policies permissive-mode policies-update; policies add-allowed-application; scheduled-policies update; unblock-requests decision unblock-requests; block-pages update | Preview (allow without --confirm, or --dry-run), then a human-approved write. One allow or a weaker policy opens the site for every deployment on that policy. |
-| Write (routine) | networks create; networks update; organizations create; organizations update; user-agents update; user-agents tags; ip-addresses create; mac-addresses create; scheduled-reports create; dashboards create; notes domain-update | Preview with --dry-run, then a reviewed write |
-| Credential and access | networks index, networks show, networks all, networks msp and networks msp-all (rows carry each site's secret key); networks secret-key networks-generate; networks secret-key networks-rotate; networks secret-key networks-revoke; api-keys index; api-keys show; api-keys create; api-keys revoke api-keys; user-agents uninstall-pin; users change-password; distributors users-reset-password-url; organizations users organization-create; auth set-token | Human-in-the-loop only |
+| Write (routine) | networks create; networks update; organizations create; organizations update; user-agents update; ip-addresses create; mac-addresses create; scheduled-reports create; dashboards create; notes domain-update | Preview with --dry-run, then a reviewed write |
+| Credential and access | networks index, networks show, networks all, networks msp and networks msp-all (rows carry each site's secret key); networks secret-key networks-generate; networks secret-key networks-rotate; networks secret-key networks-revoke; api-keys index; api-keys show; api-keys create; api-keys revoke api-keys; user-agents uninstall-pin; users change-password; distributors users-reset-password-url; organizations users organization-create; psa-integrations (a GET that creates a PSA integration and returns its link); auth set-token | Human-in-the-loop only |
 | Destructive and commercial | import (one create per JSONL line, so it can reach any tier above); policies destroy; networks destroy; networks bulk-destroy; organizations destroy; organizations cancel; user-agents destroy; agent-local-user-bulk-deletes create; api-keys destroy; billing create; billing address-update; distributors organizations-cancel; distributors msps-update; trials | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **scope you grant the DNSFilter credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

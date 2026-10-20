@@ -601,7 +601,7 @@ Threat-categorized allow-list entries, unblocked security categories, unknown-do
 
 ## Auth Setup
 
-DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, in your MSP organization so the cross-client commands can see your client organizations. Set DNSFILTER_API_KEY to the bare token (`export DNSFILTER_API_KEY=<token>` on macOS / Linux, `$env:DNSFILTER_API_KEY = "<token>"` in PowerShell), or save it once with `dnsfilter-cli auth set-token`, which reads the token from stdin.
+DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, in your MSP organization so the cross-client commands can see your client organizations. Set DNSFILTER_API_KEY to the bare token (`export DNSFILTER_API_KEY=<token>` on macOS / Linux, `$env:DNSFILTER_API_KEY = "<token>"` in PowerShell), or save it once by piping it to `dnsfilter-cli auth set-token`, which reads stdin only (`printf '%s\n' "$DNSFILTER_API_KEY" | dnsfilter-cli auth set-token`; PowerShell: `$env:DNSFILTER_API_KEY | dnsfilter-cli auth set-token`).
 
 Run `dnsfilter-cli doctor` to verify setup.
 
@@ -673,6 +673,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   }
   ```
 
+  On Windows, use a Windows path with doubled backslashes in JSON, for example `"DNSFILTER_HOME": "C:\\ProgramData\\dnsfilter"`.
+
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `DNSFILTER_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `DNSFILTER_HOME`, or `doctor` will not find credentials left under the former root.
 
 ## Automatic learning
@@ -690,6 +692,7 @@ Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English.
 # Command substitution on a file only ever yields data  -  the shell never
 # parses the file's bytes as syntax.
 QUERY=$(cat /path/to/question.txt)
+# PowerShell: $QUERY = Get-Content -Raw C:\path\to\question.txt
 dnsfilter-cli recall "$QUERY" --agent
 ```
 
@@ -801,6 +804,7 @@ Teaching is unconditional. After resolving a query the store could not answer, b
 
 ```bash
 QUERY=$(cat /path/to/question.txt)
+# PowerShell: $QUERY = Get-Content -Raw C:\path\to\question.txt
 dnsfilter-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
@@ -816,6 +820,7 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
 QUERY=$(cat /path/to/question.txt)
+# PowerShell: $QUERY = Get-Content -Raw C:\path\to\question.txt
 dnsfilter-cli teach \
   --query "$QUERY" \
   --resource-type <type> \
@@ -826,6 +831,7 @@ dnsfilter-cli teach \
 
 # Alternate: playbook-only (no resource to record alongside).
 QUERY=$(cat /path/to/question.txt)
+# PowerShell: $QUERY = Get-Content -Raw C:\path\to\question.txt
 dnsfilter-cli teach-playbook \
   --query "$QUERY" \
   --playbook-file ~/playbooks/<shape>.json \
@@ -842,6 +848,7 @@ If your debug-protocol response identifies a concrete correction the notes or pl
 
 ```bash
 QUERY=$(cat /path/to/question.txt)
+# PowerShell: $QUERY = Get-Content -Raw C:\path\to\question.txt
 NOTE=$(cat /path/to/note.txt)
 dnsfilter-cli playbook amend \
   --query "$QUERY" \
@@ -888,6 +895,7 @@ When you (or the agent) notice something off about this CLI, record it:
 ```
 dnsfilter-cli feedback "the --since flag is inclusive but docs say exclusive"
 dnsfilter-cli feedback --stdin < notes.txt
+Get-Content notes.txt | dnsfilter-cli feedback --stdin     # PowerShell
 dnsfilter-cli feedback list --json --limit 10
 ```
 
@@ -948,6 +956,10 @@ Parse `$ARGUMENTS`:
 2. Register with Claude Code:
    ```bash
    claude mcp add dnsfilter-mcp --env DNSFILTER_API_KEY="$DNSFILTER_API_KEY" -- dnsfilter-mcp
+   ```
+   On Windows (PowerShell):
+   ```powershell
+   claude mcp add dnsfilter-mcp --env DNSFILTER_API_KEY="$env:DNSFILTER_API_KEY" -- dnsfilter-mcp
    ```
 3. Verify: `claude mcp list`
 

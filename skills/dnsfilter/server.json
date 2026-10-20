@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/dnsfilter-mcp",
   "title": "DNSFilter MCP",
-  "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this",
+  "description": "DNSFilter for MSPs: why a site is blocked, preview-first allows, unblock requests, agent drift.",
   "version": "0.1.0",
   "icons": [
     {

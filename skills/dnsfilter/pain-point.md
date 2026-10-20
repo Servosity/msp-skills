@@ -14,8 +14,8 @@ policy that actually blocked it, not on a shared global policy that opens the
 site for every other client. Users report the gap between what the dashboard
 says and what devices do: a DNSFilter Community post titled "Policy enforcement &
 reporting discrepancies with Roaming Client" describes a roaming client on a
-second site ignoring its category blocks while reports showed the site as
-blocked. End-user unblock requests add a queue on top, one client at a time.
+second site ignoring its category blocks, and reaching a URL that its reports
+showed as blocked. End-user unblock requests add a queue on top, one client at a time.
 
 **"Which machines are on the bad agent?"** Roaming client releases go wrong
 across the whole book at once. DNSFilter's own status page logged the

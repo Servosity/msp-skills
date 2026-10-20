@@ -23,7 +23,7 @@ If `--version` reports "command not found" after install, the install step did n
 
 ### Pre-built binary
 
-Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=dnsfilter). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=dnsfilter). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`. On Windows, unblock the downloaded file with `Unblock-File <binary>.exe` in PowerShell and put its folder on your `PATH` (the installer uses `%LOCALAPPDATA%\Programs\msp-skills`).
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
@@ -56,11 +56,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=dnsfilter).
+1. Download `dnsfilter-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=dnsfilter).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `DNSFILTER_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. The one bundle carries binaries for macOS (Apple Silicon and Intel), Linux x64 and Windows x64; on Windows on Arm, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -94,7 +94,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Authentication
 
-DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, in your MSP organization so the cross-client commands can see your client organizations. Set DNSFILTER_API_KEY to the bare token (`export DNSFILTER_API_KEY=<token>` on macOS / Linux, `$env:DNSFILTER_API_KEY = "<token>"` in PowerShell), or save it once with `dnsfilter-cli auth set-token`, which reads the token from stdin.
+DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, in your MSP organization so the cross-client commands can see your client organizations. Set DNSFILTER_API_KEY to the bare token (`export DNSFILTER_API_KEY=<token>` on macOS / Linux, `$env:DNSFILTER_API_KEY = "<token>"` in PowerShell), or save it once by piping it to `dnsfilter-cli auth set-token`, which reads stdin only (`printf '%s\n' "$DNSFILTER_API_KEY" | dnsfilter-cli auth set-token`; PowerShell: `$env:DNSFILTER_API_KEY | dnsfilter-cli auth set-token`).
 
 ## Quick Start
 
