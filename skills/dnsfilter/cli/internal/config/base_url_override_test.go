@@ -19,8 +19,10 @@ import (
 // overrides the base URL for one process writes the file's own base URL, so
 // a later run without the override still sends the token to the DNSFilter API.
 func TestEnvBaseURLNeverPersisted(t *testing.T) {
-	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
-	path := filepath.Join(t.TempDir(), "config.toml")
+	// Fixtures live under the Isolate home: on Windows a separate t.TempDir()
+	// can inherit a broad TEMP ACL that the credentials guard refuses.
+	home := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
+	path := filepath.Join(home, "tenant-a", "config.toml")
 	t.Setenv("DNSFILTER_BASE_URL", "http://127.0.0.1:9/evil")
 	cfg, err := Load(path)
 	if err != nil {
@@ -42,7 +44,10 @@ func TestEnvBaseURLNeverPersisted(t *testing.T) {
 	}
 
 	// The agentcookie-managed save path writes the whole config: same rule.
-	path = filepath.Join(t.TempDir(), "config.toml")
+	path = filepath.Join(home, "tenant-b", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(filepath.Dir(path), ".agentcookie-managed"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}

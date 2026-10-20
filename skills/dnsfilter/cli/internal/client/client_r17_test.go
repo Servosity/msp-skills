@@ -177,7 +177,7 @@ func TestRedirectOffOriginStripsEveryCustomCredential(t *testing.T) {
 // Every response-derived string an error carries (an HTML title, a
 // Content-Encoding value) is masked like an HTTP error body.
 func TestResponseTextInErrorsIsMasked(t *testing.T) {
-	const key = "secret-key-r17" // lower case: Content-Encoding tokens are lower-cased before quoting
+	const key = "Secret-Key-R17" // mixed case: the Content-Encoding error must not fold it past the masker
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/html":
@@ -197,8 +197,8 @@ func TestResponseTextInErrorsIsMasked(t *testing.T) {
 		if err == nil {
 			t.Fatalf("GET %s: want an error", p)
 		}
-		if strings.Contains(err.Error(), key) {
-			t.Fatalf("GET %s: the API key reached the error text: %v", p, err)
+		if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(key)) {
+			t.Fatalf("GET %s: the API key (in any case) reached the error text: %v", p, err)
 		}
 	}
 }

@@ -7,6 +7,7 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -179,8 +180,45 @@ func doctorProbeRedirectedAway(c *client.Client, probePath string, final *url.UR
 
 // doctorForbiddenAuthFailure matches a 403 body that says the request was not
 // authenticated (a missing, invalid, expired or revoked key) rather than
-// refused for lack of permission.
-var doctorForbiddenAuthFailure = regexp.MustCompile(`(?i)\bauthenticat|\bunauthori[sz]ed\b|\blog ?in required\b|\b(invalid|expired|revoked|missing|bad|unknown)\b.{0,24}\b(token|api[ _-]?key|key|credentials?)\b|\b(token|api[ _-]?key|credentials?)\b.{0,24}\b(invalid|expired|revoked|missing|required|not valid)\b`)
+// refused for lack of permission. Hand-wired (handfixes.json:
+// doctor-verdict-tracks-reality): the phrases are anchored to the credential
+// itself ("invalid API token", "API key is invalid", "authentication
+// required", "unauthenticated", a bare "Unauthorized"), so a permission body
+// that merely mentions a key, a scope or an authenticated user ("This API key
+// lacks the required scope", "Unauthorized to access this organization") is
+// scope-limited, not invalid.
+var doctorForbiddenAuthFailure = regexp.MustCompile(`(?i)\bunauthenticated\b|\bnot (been )?authenticated\b|\bauthentication (is |was )?(required|failed|missing|invalid)\b|\b(failed|unable|could not|couldn't|cannot) (to )?authenticate\b|\blog ?in (is )?required\b|\bunauthori[sz]ed\s*(?:$|[.,;:!"'})\]])|\b(invalid|expired|revoked|missing|bad|unknown|malformed|unrecognized)\s+(api[ _-]?)?(token|key|credentials?)\b|\b(token|key|credentials?)\s+(is |was |has )?(been )?(invalid|expired|revoked|missing|not valid|not recognized)\b|\b(api[ _-]?key|token|credentials?|authentication|authori[sz]ation)( header)? (is )?required\b|\b(no )?(api[ _-]?)?(token|key|credentials?)( was| were)? not (provided|supplied|given|sent|found|present)\b|\bno (api[ _-]?)?(token|key|credentials?)( was| were)? (provided|supplied|given|sent|found|present)\b`)
+
+// doctorLooksLikeCurrentUser reports whether a /v1/current_user answer is the
+// record the API returns for an accepted key: a JSON object whose data member
+// is an object carrying an id or attributes.
+func doctorLooksLikeCurrentUser(body []byte) bool {
+	var envelope struct {
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(body, &envelope) != nil || envelope.Data == nil {
+		return false
+	}
+	for _, field := range []string{"id", "attributes"} {
+		if raw, ok := envelope.Data[field]; ok && len(raw) > 0 && string(raw) != "null" {
+			return true
+		}
+	}
+	return false
+}
+
+// doctorBodyShape names what a probe answered without quoting it (the body
+// can carry anything).
+func doctorBodyShape(body []byte) string {
+	trimmed := strings.TrimSpace(string(body))
+	switch {
+	case trimmed == "":
+		return "empty body"
+	case !json.Valid([]byte(trimmed)):
+		return fmt.Sprintf("%d-byte body that is not JSON", len(body))
+	}
+	return fmt.Sprintf("%d-byte JSON body with no data record", len(body))
+}
 
 func newDoctorCmd(flags *rootFlags) *cobra.Command {
 	var failOn string
@@ -253,7 +291,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						authConfigured = true
 						report["auth"] = "configured"
 						report["auth_source"] = authSource
-						if scheme := apiKeySchemePrefix(cfg.DnsfilterApiKey); scheme != "" {
+						// The header actually sent (a stored auth_header or the
+						// environment key), not only the saved api_key field.
+						if scheme := apiKeySchemePrefix(cfg.AuthHeader()); scheme != "" {
 							report["auth"] = fmt.Sprintf("WARN configured, but the key starts with %q: DNSFilter expects the bare API key in the Authorization header and the CLI sends it as-is; save it again without the prefix", scheme+" ")
 						}
 						if expiresAt, _, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok && expired {
@@ -387,7 +427,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						}
 						var authURL url.URL
 						authCtx := client.WithResponseURLRecorder(cmd.Context(), &authURL)
-						_, authErr := c.GetWithHeadersNoCache(authCtx, verifyPath, authParams, authHeaders)
+						authBody, authErr := c.GetWithHeadersNoCache(authCtx, verifyPath, authParams, authHeaders)
 						var authAPIErr *client.APIError
 						authAway, authRedirected := doctorProbeRedirectedAway(c, verifyPath, &authURL)
 						switch {
@@ -396,6 +436,12 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 							// only the configured API's authenticated endpoint can
 							// vouch for the key.
 							report["credentials"] = fmt.Sprintf("WARN not verified: %s was redirected to %s, so the answer did not come from the configured API's authenticated endpoint. %s", verifyPath, authAway, doctorBaseURLRemedy)
+						case authErr == nil && !doctorLooksLikeCurrentUser(authBody):
+							// Hand-wired (handfixes.json: doctor-verdict-tracks-reality):
+							// the client treats every status below 400 as success, so
+							// a 304 with no body or a 200 "Access denied" page is not
+							// proof; only the current-user record is.
+							report["credentials"] = fmt.Sprintf("WARN not verified: %s answered without a current-user record (%s), so the key was neither accepted nor rejected. %s", verifyPath, doctorBodyShape(authBody), doctorFullResponseHint)
 						case authErr == nil:
 							report["credentials"] = "valid"
 						case errors.As(authErr, &authAPIErr):
@@ -766,7 +812,7 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 				worstError = true
 			case "warn":
 				worstWarn = true
-			case "stale":
+			case "stale", "incomplete":
 				worstStale = true
 			}
 		}
@@ -839,7 +885,14 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		}
 	}
 
-	rows, qerr := s.DB().Query(`SELECT resource_type, COALESCE(total_count, 0), last_synced_at FROM sync_state ORDER BY resource_type`)
+	// Hand-wired (handfixes.json: doctor-verdict-tracks-reality): a capped or
+	// interrupted walk keeps the last successful timestamp while recording
+	// last_attempt_complete = 0, so freshness reads both. A store that
+	// predates the column proves nothing (the rule mcpStoreStatus applies).
+	rows, qerr := s.DB().Query(`SELECT resource_type, COALESCE(total_count, 0), last_synced_at, COALESCE(last_attempt_complete, 0) FROM sync_state ORDER BY resource_type`)
+	if qerr != nil && strings.Contains(strings.ToLower(qerr.Error()), "no such column") {
+		rows, qerr = s.DB().Query(`SELECT resource_type, COALESCE(total_count, 0), last_synced_at, 0 FROM sync_state ORDER BY resource_type`)
+	}
 	if qerr != nil {
 		// sync_state may not exist on a fresh DB that has migrated but not
 		// yet had any sync runs — treat as unknown rather than error.
@@ -850,17 +903,22 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 	defer rows.Close()
 
 	var resources []map[string]any
+	var incomplete []string
 	fresh := true
 	haveAny := false
 	oldest := time.Duration(0)
 	for rows.Next() {
 		var rtype string
-		var count int64
+		var count, complete int64
 		var lastSynced sql.NullTime
-		if err := rows.Scan(&rtype, &count, &lastSynced); err != nil {
+		if err := rows.Scan(&rtype, &count, &lastSynced, &complete); err != nil {
 			continue
 		}
-		r := map[string]any{"type": rtype, "rows": count}
+		r := map[string]any{"type": rtype, "rows": count, "complete": complete == 1}
+		if complete != 1 {
+			incomplete = append(incomplete, rtype)
+			fresh = false
+		}
 		if lastSynced.Valid && !lastSynced.Time.IsZero() {
 			haveAny = true
 			r["last_synced_at"] = lastSynced.Time.UTC().Format(time.RFC3339)
@@ -882,6 +940,10 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 	report["stale_after"] = staleAfter.String()
 
 	switch {
+	case len(incomplete) > 0:
+		report["status"] = "incomplete"
+		report["incomplete"] = incomplete
+		report["hint"] = fmt.Sprintf("The latest sync of %s did not finish a complete walk (capped, interrupted or failed), so the mirror may be missing rows. Run: dnsfilter-cli sync --full --resources %s", strings.Join(incomplete, ", "), strings.Join(incomplete, ","))
 	case !haveAny:
 		report["status"] = "empty"
 		// Only sync-tracked resources are counted here. A store seeded by
@@ -902,7 +964,7 @@ func renderCacheReport(w io.Writer, rep map[string]any) {
 	status, _ := rep["status"].(string)
 	indicator := green("OK")
 	switch status {
-	case "stale":
+	case "stale", "incomplete":
 		indicator = yellow("WARN")
 	case "error":
 		indicator = red("FAIL")
@@ -943,6 +1005,9 @@ func renderCacheReport(w io.Writer, rep map[string]any) {
 				rtype, _ := r["type"].(string)
 				rows := r["rows"]
 				staleness, _ := r["staleness"].(string)
+				if complete, ok := r["complete"].(bool); ok && !complete {
+					staleness += ", latest sync incomplete"
+				}
 				fmt.Fprintf(w, "      - %s: %v rows, %s\n", rtype, rows, staleness)
 			}
 		}

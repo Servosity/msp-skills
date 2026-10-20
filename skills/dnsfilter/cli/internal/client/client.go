@@ -314,6 +314,13 @@ var ErrRedirectPrivateDestination = errors.New("refusing redirect: loopback, pri
 // requested path, so a redirect must not change which of them applies.
 var ErrRedirectCredentialEndpoint = errors.New("refusing redirect to a credential or write endpoint (api_keys, uninstall_pin, secret_key, redirect_link)")
 
+// ErrRedirectBodyReplay refuses an off-origin hop that would replay the
+// request's method or body (a 307/308 after PATCH /v1/users/change_password
+// or POST /v1/enterprise_connections): Go re-sends a replayable body, and
+// stripping headers does not strip a new_password or client_secret from it
+// (handfixes.json: redirect-strips-every-custom-credential).
+var ErrRedirectBodyReplay = errors.New("refusing redirect: the request's method or body would be replayed to another host")
+
 // A followed redirect can change scheme or land on a local address the caller
 // never asked to reach. Only http and https are allowed. An https-to-http
 // downgrade on any earlier hop is refused. An off-origin hop is refused when
@@ -429,6 +436,16 @@ func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
 	return false
 }
 
+// redirectReplaysRequest reports a redirect hop that re-sends the original
+// request's method or body: anything but a bodiless GET or HEAD. A 301, 302
+// or 303 after a POST is turned into a bodiless GET by net/http and passes.
+func redirectReplaysRequest(req *http.Request) bool {
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		return true
+	}
+	return req.Body != nil && req.Body != http.NoBody
+}
+
 // stripOffOriginHeaders removes what must not reach another host: every
 // header the config file adds ([headers]) and every credential-named header
 // (Proxy-Authorization, Cookie, X-Api-Key, ...).
@@ -495,6 +512,12 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		// downgrade. Go strips Authorization and Cookie in common cases, but
 		// custom headers and URL query values need explicit removal here.
 		if redirectLeavesOrigin(req.URL, via) {
+			// Hand-wired (handfixes.json: redirect-strips-every-custom-credential):
+			// a hop off the origin that keeps a non-GET/HEAD method or a body
+			// (307/308) would hand that body to the other host.
+			if redirectReplaysRequest(req) {
+				return ErrRedirectBodyReplay
+			}
 			req.Header.Del("Authorization")
 			// Hand-wired (handfixes.json: redirect-strips-every-custom-credential):
 			// Go copies every header of the first request onto each hop, so a
@@ -1613,12 +1636,15 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if cliutil.IsMCPReadOnlyEnv() && len(bytes.TrimSpace(out)) > 0 && !json.Valid(out) {
 				return nil, 0, fmt.Errorf("refusing %s %s while %s is set: the response is not JSON, so it cannot be checked for credentials", method, path, cliutil.MCPReadOnlyEnvVar)
 			}
-			if !htmlResponse {
-				if summary, ok := summarizeHTMLDocument(respBody); ok {
-					// Hand-wired (handfixes.json: response-text-in-errors-is-masked):
-					// the title is response text; a page can echo the API key.
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, authHeader))
+			if !htmlResponse && bodyLooksLikeHTML(respBody) {
+				// Hand-wired (handfixes.json: response-text-in-errors-is-masked):
+				// the title is response text; a page can echo the API key, so
+				// the whole page is masked before the title is taken and cut.
+				summary, ok := summarizeHTMLDocument([]byte(c.maskCredentialText(string(respBody), authHeader)), c.credentialMasker(authHeader))
+				if !ok {
+					summary = fmt.Sprintf("HTML document (%d bytes)", len(respBody))
 				}
+				return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, authHeader))
 			}
 			return json.RawMessage(out), resp.StatusCode, nil
 		}
@@ -1634,7 +1660,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			respBody = sanitizeJSONResponse(respBody)
 		}
 
-		bodyText := truncateBody(respBody)
+		bodyText := c.errorBodyText(respBody, authHeader)
 		// Hand-wired (handfixes.json: read-only-refuses-non-json): under the
 		// read-only switch an error body that is not JSON (XML, HTML, plain
 		// text) is summarized too, since only JSON keys can be checked.
@@ -1749,7 +1775,7 @@ func safeEndpointClass(method, path string) string {
 // using the auth material already resolved in `do()`. Never triggers a network
 // call — the caller is responsible for passing cached auth material only.
 func (c *Client) dryRun(method, targetURL, path string, params map[string]string, body []byte, headerOverrides map[string]string, authHeader string) (json.RawMessage, int, error) {
-	fmt.Fprintf(cliutil.Stderr(), "%s %s\n", method, c.displayURL(targetURL, authHeader))
+	fmt.Fprintf(cliutil.Stderr(), "%s %s\n", method, c.dryRunMaskURL(targetURL, authHeader))
 	queryPrinted := false
 	if params != nil {
 		keys := make([]string, 0, len(params))
@@ -1764,18 +1790,28 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(cliutil.Stderr(), "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			name := c.maskCredentialText(k, authHeader)
+			if store.KeyCarriesSecret(k) {
+				name = maskToken(k)
+			}
+			fmt.Fprintf(cliutil.Stderr(), "  %s%s=%s\n", sep, name, c.dryRunMaskValue(k, params[k], authHeader))
 			queryPrinted = true
 		}
 	}
 	_ = queryPrinted
 	if body != nil {
-		var pretty json.RawMessage
-		if json.Unmarshal(body, &pretty) == nil {
+		// Hand-wired (handfixes.json: dry-run-never-prints-a-credential): a
+		// body piped through --stdin carries client_secret, new_password or
+		// payment_token; the preview shows each credential-named field and
+		// credential text as ****, never its value.
+		dec := json.NewDecoder(bytes.NewReader(body))
+		dec.UseNumber()
+		var pretty any
+		if dec.Decode(&pretty) == nil {
 			enc := json.NewEncoder(cliutil.Stderr())
 			enc.SetIndent("  ", "  ")
 			fmt.Fprintf(cliutil.Stderr(), "  Body:\n")
-			enc.Encode(pretty)
+			enc.Encode(c.dryRunMaskJSON(pretty, authHeader))
 		}
 	}
 	if authHeader != "" {
@@ -1783,6 +1819,81 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	}
 	fmt.Fprintf(cliutil.Stderr(), "\n(dry run - no request sent)\n")
 	return json.RawMessage(`{"dry_run": true}`), 0, nil
+}
+
+// dryRunMaskValue is what the dry-run preview prints for one request value:
+// **** when its name or its text names a credential, otherwise the value
+// with every configured credential masked.
+func (c *Client) dryRunMaskValue(name, value, authHeader string) string {
+	namesSecret := name != "" && (store.KeyNamesSecret(name) || store.KeyCarriesSecret(name))
+	if value != "" && (namesSecret || store.TextNamesSecret(value)) {
+		return maskToken(value)
+	}
+	return c.maskCredentialText(value, authHeader)
+}
+
+// dryRunMaskURL is the request URL for the dry-run preview: a query value
+// that dryRunMaskValue would hide (a token= parameter a path carries) is
+// shown as ****.
+func (c *Client) dryRunMaskURL(rawURL, authHeader string) string {
+	base, rawQuery, ok := strings.Cut(rawURL, "?")
+	if !ok || rawQuery == "" {
+		return c.displayURL(rawURL, authHeader)
+	}
+	parts := strings.Split(rawQuery, "&")
+	for i, part := range parts {
+		k, v, _ := strings.Cut(part, "=")
+		name, nerr := url.QueryUnescape(k)
+		value, verr := url.QueryUnescape(v)
+		if nerr != nil || verr != nil {
+			name, value = k, v
+		}
+		if masked := c.dryRunMaskValue(name, value, authHeader); masked != c.maskCredentialText(value, authHeader) {
+			parts[i] = k + "=" + masked
+		}
+		if store.KeyCarriesSecret(name) {
+			parts[i] = maskToken(part)
+		}
+	}
+	return c.displayURL(base+"?"+strings.Join(parts, "&"), authHeader)
+}
+
+// dryRunMaskJSON returns a copy of a decoded request body for the dry-run
+// preview: a credential-named key keeps its name with its value shown as
+// **** (a true, false or null flag is kept), a key whose own text carries a
+// credential is shown as ****, and every string is masked by
+// dryRunMaskValue, nested objects and arrays included.
+func (c *Client) dryRunMaskJSON(v any, authHeader string) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, child := range t {
+			key := k
+			if store.KeyCarriesSecret(k) {
+				key = maskToken(k)
+			}
+			switch child.(type) {
+			case nil, bool:
+				out[key] = child
+				continue
+			}
+			if key != k || store.KeyNamesSecret(k) {
+				out[key] = maskToken("x")
+				continue
+			}
+			out[key] = c.dryRunMaskJSON(child, authHeader)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, child := range t {
+			out[i] = c.dryRunMaskJSON(child, authHeader)
+		}
+		return out
+	case string:
+		return c.dryRunMaskValue("", t, authHeader)
+	}
+	return v
 }
 
 func (c *Client) ConfiguredTimeout() time.Duration {
@@ -1975,7 +2086,7 @@ func decodeContentEncoding(encoding string, body []byte) ([]byte, error) {
 	}
 	for i := len(encodings) - 1; i >= 0; i-- {
 		var err error
-		switch encodings[i] {
+		switch strings.ToLower(encodings[i]) {
 		case "gzip", "x-gzip":
 			body, err = gunzipBody(body)
 		case "deflate":
@@ -1997,11 +2108,14 @@ func contentEncodingTokens(header string) []string {
 	parts := strings.Split(header, ",")
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
-		token := strings.ToLower(strings.TrimSpace(part))
+		// Hand-wired (handfixes.json: response-text-in-errors-is-masked): the
+		// token keeps the response's case, so the error that quotes it is
+		// masked against the configured key as written; matching folds case.
+		token := strings.TrimSpace(part)
 		if i := strings.IndexByte(token, ';'); i >= 0 {
 			token = strings.TrimSpace(token[:i])
 		}
-		if token == "" || token == "identity" {
+		if token == "" || strings.EqualFold(token, "identity") {
 			continue
 		}
 		out = append(out, token)
@@ -2153,6 +2267,12 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		if escaped := url.PathEscape(value); escaped != value {
 			addMask(escaped)
 		}
+		// Hand-wired (handfixes.json: response-text-in-errors-is-masked): a
+		// response echoes a credential JSON-escaped (with or without HTML
+		// escaping, "/" as "\/"), HTML-escaped or lower-cased, not only raw.
+		for _, form := range credentialEchoForms(value) {
+			addMask(form)
+		}
 	}
 	addCredential := func(value string) {
 		value = strings.TrimSpace(value)
@@ -2189,6 +2309,86 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 	return masked
 }
 
+// credentialEchoForms lists the other spellings a response can echo a
+// credential in: JSON-escaped (HTML-escaped or not, with "/" also as "\/"),
+// HTML-escaped and lower-cased. Each differs from value or is dropped.
+func credentialEchoForms(value string) []string {
+	var forms []string
+	add := func(form string) {
+		if form != "" && form != value {
+			forms = append(forms, form)
+		}
+	}
+	jsonForm := func(escapeHTML bool) string {
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(escapeHTML)
+		if enc.Encode(value) != nil {
+			return ""
+		}
+		return strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(buf.String(), `"`), "\n"), `"`)
+	}
+	for _, escapeHTML := range []bool{true, false} {
+		form := jsonForm(escapeHTML)
+		add(form)
+		add(strings.ReplaceAll(form, "/", `\/`))
+	}
+	add(html.EscapeString(value))
+	add(strings.ToLower(value))
+	return forms
+}
+
+// credentialMasker binds maskCredentialText for the HTML title summary.
+func (c *Client) credentialMasker(extraCredentials ...string) func(string) string {
+	return func(text string) string { return c.maskCredentialText(text, extraCredentials...) }
+}
+
+// errorBodyText is the text an APIError carries for an error body. Hand-wired
+// (handfixes.json: response-text-in-errors-is-masked): every configured
+// credential is masked in the WHOLE body before anything is cut, so a key the
+// 4 KiB cut would split is still found; an HTML page is summarized by its
+// title (masked, and left out when the page names a credential); a longer
+// body is scrubbed of credential-named JSON keys before the cut, since the
+// read-only filters can only decode JSON that is whole.
+func (c *Client) errorBodyText(body []byte, authHeader string) string {
+	masked := []byte(c.maskCredentialText(string(body), authHeader))
+	if summary, ok := summarizeHTMLBody(masked, "HTML error page", c.credentialMasker(authHeader)); ok {
+		return summary
+	}
+	if len(masked) > maxScrubbedErrorBodyBytes {
+		// The scrub's text rules are not linear on every input, and an error
+		// body this size is not something a person reads.
+		return fmt.Sprintf("(%d-byte error body; too large to show)", len(body))
+	}
+	if len(masked) > maxErrorBodyBytes {
+		masked = scrubOversizedErrorBody(masked)
+	}
+	return truncateBody(masked)
+}
+
+// maxScrubbedErrorBodyBytes bounds the error body errorBodyText scrubs; a
+// longer one is summarized by its size.
+const maxScrubbedErrorBodyBytes = 64 << 10
+
+// scrubOversizedErrorBody applies the store's credential scrub to an error
+// body the 4 KiB cut is about to make undecodable: a JSON body loses every
+// credential-named key, and text has the JSON embedded in it scrubbed (or is
+// withheld whole when it still names a credential).
+func scrubOversizedErrorBody(body []byte) []byte {
+	if json.Valid(body) {
+		return store.ScrubPersistedSecrets(body)
+	}
+	wrapped, err := json.Marshal(string(body))
+	if err != nil {
+		return []byte(store.WithheldValuePlaceholder)
+	}
+	var text string
+	if json.Unmarshal(store.ScrubPersistedSecrets(wrapped), &text) != nil {
+		return []byte(store.WithheldValuePlaceholder)
+	}
+	return []byte(text)
+}
+
 func truncateBody(b []byte) string {
 	if summary, ok := collapseHTMLErrorBody(b); ok {
 		return summary
@@ -2200,29 +2400,53 @@ func truncateBody(b []byte) string {
 }
 
 func collapseHTMLErrorBody(b []byte) (string, bool) {
-	return summarizeHTMLBody(b, "HTML error page")
+	return summarizeHTMLBody(b, "HTML error page", nil)
 }
 
-func summarizeHTMLDocument(b []byte) (string, bool) {
-	return summarizeHTMLBody(b, "HTML document")
+func summarizeHTMLDocument(b []byte, mask func(string) string) (string, bool) {
+	return summarizeHTMLBody(b, "HTML document", mask)
 }
 
-func summarizeHTMLBody(b []byte, kind string) (string, bool) {
-	scanBytes := b
-	if len(scanBytes) > maxErrorBodyBytes {
-		scanBytes = scanBytes[:maxErrorBodyBytes]
-	}
-	body := strings.ToValidUTF8(string(scanBytes), "")
-	trimmed := strings.TrimSpace(body)
-	if trimmed == "" || !looksLikeHTMLBody(trimmed) {
+// summarizeHTMLBody summarizes an HTML body by its size and title. mask, when
+// set, is applied to the whole title before it is cut to 160 runes.
+func summarizeHTMLBody(b []byte, kind string, mask func(string) string) (string, bool) {
+	trimmed, ok := htmlScanWindow(b)
+	if !ok {
 		return "", false
 	}
 
 	summary := fmt.Sprintf("%s (%d bytes)", kind, len(b))
 	if title := extractHTMLTitle(trimmed); title != "" {
+		// Hand-wired (handfixes.json: response-text-in-errors-is-masked): the
+		// title is the page's text with its tags stripped, so a page whose
+		// markup names a credential (<title><secret_key>X</secret_key></title>)
+		// would pass on X without the label every credential filter reads.
+		if store.TextNamesSecret(trimmed) || store.TextNamesSecret(title) {
+			return summary + " (title not shown)", true
+		}
+		if mask != nil {
+			title = mask(title)
+		}
 		summary += ": " + truncateRunes(title, 160)
 	}
 	return summary, true
+}
+
+// htmlScanWindow returns the trimmed first 4 KiB of b and whether it reads
+// as HTML.
+func htmlScanWindow(b []byte) (string, bool) {
+	scanBytes := b
+	if len(scanBytes) > maxErrorBodyBytes {
+		scanBytes = scanBytes[:maxErrorBodyBytes]
+	}
+	trimmed := strings.TrimSpace(strings.ToValidUTF8(string(scanBytes), ""))
+	return trimmed, trimmed != "" && looksLikeHTMLBody(trimmed)
+}
+
+// bodyLooksLikeHTML reports a body summarizeHTMLBody would summarize.
+func bodyLooksLikeHTML(b []byte) bool {
+	_, ok := htmlScanWindow(b)
+	return ok
 }
 
 func looksLikeHTMLBody(body string) bool {
@@ -2401,7 +2625,8 @@ func clientMaxRetries() int {
 // redirect-never-reaches-a-credential-endpoint).
 func isRedirectRefusal(err error) bool {
 	return errors.Is(err, ErrRedirectCredentialEndpoint) || errors.Is(err, ErrRedirectPrivateDestination) ||
-		errors.Is(err, ErrRedirectProtocolDowngrade) || errors.Is(err, ErrRedirectUnsupportedScheme)
+		errors.Is(err, ErrRedirectProtocolDowngrade) || errors.Is(err, ErrRedirectUnsupportedScheme) ||
+		errors.Is(err, ErrRedirectBodyReplay)
 }
 
 func isPermanentDNSError(err error) bool {

@@ -321,6 +321,12 @@ func (c *Config) CredentialRefusalError() error {
 }
 
 func (c *Config) AuthHeader() string {
+	// HAND-FIX(env-api-key-wins): DNSFILTER_API_KEY overrides every stored
+	// credential, a stored auth_header included, so the key sent is the one
+	// AuthSource and CredentialSource name (env:DNSFILTER_API_KEY).
+	if c.envOverrides["DnsfilterApiKey"] && c.DnsfilterApiKey != "" {
+		return c.DnsfilterApiKey
+	}
 	if c.AuthHeaderVal != "" {
 		return c.AuthHeaderVal
 	}
@@ -883,8 +889,19 @@ func (c *Config) save() error {
 		// carries the credentials, so it gets the credentials file's guard.
 		write = cliutil.AtomicWriteSecretFile
 	}
-	if err := write(configWritePath(c.Path), data); err != nil {
-		return err
+	// HAND-FIX(credentials-file-follows-config): only an explicit config is
+	// written through a symlink (its sibling credentials follow the resolved
+	// path). A file that already holds exactly what would be written is left
+	// alone, so `auth set-token` and logout do not fail on a config.toml that
+	// a dotfiles manager links read-only.
+	target := c.Path
+	if c.explicitConfig {
+		target = configWritePath(c.Path)
+	}
+	if c.AgentcookieManagedByExternalStore() || !configFileAlreadyHolds(c.Path, persisted.persisted()) {
+		if err := write(target, data); err != nil {
+			return err
+		}
 	}
 	c.scrubLegacyCredentials()
 	if !c.AgentcookieManagedByExternalStore() {
@@ -914,6 +931,31 @@ func configWritePath(path string) string {
 		return real
 	}
 	return path
+}
+
+// configFileAlreadyHolds reports whether the config file at path (followed
+// through a symlink) already reads as want: the same base URL (a missing one
+// reads as the default) and headers, no credential field to scrub, and
+// permissions the private-file guard accepts. Only then can save() skip it.
+func configFileAlreadyHolds(path string, want persistedConfig) bool {
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil || cliutil.VerifyCredsPerms(real) != nil {
+		return false
+	}
+	data, err := os.ReadFile(filepath.Clean(real)) // #nosec G304 -- the config path this CLI resolved.
+	if err != nil {
+		return false
+	}
+	onDisk := Config{BaseURL: "https://api.dnsfilter.com"}
+	if toml.Unmarshal(data, &onDisk) != nil || onDisk.hasCredentialFields() || onDisk.BaseURL != want.BaseURL || len(onDisk.Headers) != len(want.Headers) {
+		return false
+	}
+	for k, v := range want.Headers {
+		if got, ok := onDisk.Headers[k]; !ok || got != v {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Config) scrubLegacyCredentials() {

@@ -19,7 +19,7 @@ import (
 // set-token writes there, a load reads it, and logout clears it without
 // touching the default credentials file.
 func TestExplicitConfigCredentialsFollowTheConfig(t *testing.T) {
-	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
+	home := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	t.Setenv("DNSFILTER_API_KEY", "")
 	t.Setenv("DNSFILTER_CONFIG", "")
 	defaultPath, err := cliutil.CredentialsFilePath()
@@ -29,7 +29,9 @@ func TestExplicitConfigCredentialsFollowTheConfig(t *testing.T) {
 	if err := cliutil.SaveCredentialsAt(defaultPath, &cliutil.Credentials{DnsfilterApiKey: "default-key"}); err != nil {
 		t.Fatal(err)
 	}
-	tenant := filepath.Join(t.TempDir(), "tenant", "config.toml")
+	// Under the Isolate home: on Windows a separate t.TempDir() can inherit a
+	// broad TEMP ACL that the credentials guard refuses.
+	tenant := filepath.Join(home, "tenant", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(tenant), 0o700); err != nil {
 		t.Fatal(err)
 	}

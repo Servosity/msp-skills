@@ -50,11 +50,12 @@ func runR17JSON(t *testing.T, args ...string) (map[string]any, error) {
 
 // r17Transport answers doctor's probes in memory for any host, so a
 // cross-host redirect can be followed without DNS: api.dnsfilter.test
-// redirects /v1/current_user to target, and every other request is a 200 {}.
+// redirects /v1/current_user to target, and every other request is a 200
+// current-user record (an empty {} is not proof of a valid key).
 type r17Transport struct{ target string }
 
 func (rt r17Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{}`)), Request: req}
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"data":{"id":"1"}}`)), Request: req}
 	if req.URL.Scheme == "http" || (req.URL.Host == "api.dnsfilter.test" && req.URL.Path == "/v1/current_user" && rt.target != "") {
 		resp.StatusCode = http.StatusFound
 		target := rt.target
@@ -77,7 +78,7 @@ func useR17Transport(t *testing.T, rt http.RoundTripper) {
 }
 
 // A probe answered by a redirect destination proves nothing: when
-// /v1/current_user redirects to another host that answers 200 {}, doctor
+// /v1/current_user redirects to another host that answers 200, doctor
 // reports neither a reachable API nor valid credentials. A same-host
 // http->https upgrade of the same path is still the API.
 func TestDoctorRedirectedProbeIsNotProof(t *testing.T) {
