@@ -203,7 +203,46 @@ const (
 	fetchEmpty      = "EMPTY"
 	fetchNotReady   = "NOT_READY"
 	fetchFailed     = "FAILED"
+	// fetchMissing is an archive the run was asked for that has no job on
+	// the portal: a --batch row nothing matched, or an --entities mailbox
+	// with no download job.
+	fetchMissing = "MISSING"
 )
+
+// stalePartialAge is how old a leftover .partial must be before a run
+// removes it. A live download writes to its .partial continuously and is
+// ended after portal.DownloadStallTimeout of silence, so an hour-old one
+// belongs to a run that was killed.
+const stalePartialAge = time.Hour
+
+// partialName matches the temporary files this tool creates, and nothing
+// else, so the sweep never touches a file it did not make.
+var partialName = regexp.MustCompile(`^\.cloudally-[0-9a-f]{16}\.partial$`)
+
+// sweepStalePartials removes this tool's own .partial files older than
+// stalePartialAge from one folder it writes to.
+func sweepStalePartials(root *os.Root, dirRel string, now time.Time) {
+	dir, err := root.Open(dirRel)
+	if err != nil {
+		return
+	}
+	names, err := dir.Readdirnames(-1)
+	_ = dir.Close()
+	if err != nil {
+		return
+	}
+	for _, name := range names {
+		if !partialName.MatchString(name) {
+			continue
+		}
+		rel := filepath.Join(dirRel, name)
+		fi, err := root.Lstat(rel)
+		if err != nil || !fi.Mode().IsRegular() || now.Sub(fi.ModTime()) < stalePartialAge {
+			continue
+		}
+		_ = root.Remove(rel)
+	}
+}
 
 // archiveRecord is the .cloudally.json written beside a finished archive.
 type archiveRecord struct {
@@ -251,7 +290,17 @@ the name instead.
 
 Jobs that finished with nothing to download are reported as EMPTY rather
 than failed: an empty mailbox is a fact about the mailbox, not an error.
-The command exits non-zero when any archive FAILED.
+
+--timeout bounds each API and portal call, not the run: an archive streams
+for as long as bytes keep arriving, and is ended only after five minutes
+with nothing received. Leftover .partial files from a run that was killed
+are removed once they are an hour old.
+
+Exit codes: 0 every archive asked for is on disk (or the job was EMPTY);
+6 an archive FAILED or is MISSING (a --batch row or an --entities mailbox
+with no job on the portal), or the drive is too full to continue; 8 nothing
+failed but some jobs are still being built (NOT_READY): run the same
+command again later.
 `, "\n"),
 		Example: strings.Trim(`
   cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31 --dry-run
@@ -299,8 +348,10 @@ The command exits non-zero when any archive FAILED.
 			if err != nil {
 				return err
 			}
-			ctx, cancel := boundCtx(cmd.Context(), flags)
-			defer cancel()
+			// No overall deadline: --timeout bounds each API and portal call
+			// (the clients apply it per request), while an archive streams
+			// until it stalls (portal.DownloadStallTimeout).
+			ctx := cmd.Context()
 			sess, err := openPortalSession(ctx, c, scope, flagPortalURL)
 			if err != nil {
 				return err
@@ -323,15 +374,17 @@ The command exits non-zero when any archive FAILED.
 			// filter for the --latest set, where every mailbox has its own
 			// date, and it is more precise than a date filter for a year.
 			var want map[string]bool
+			var batchRows []downloadRow
 			if key := strings.TrimSpace(flagBatch); key != "" {
 				b, berr := loadBatch(key)
 				if berr != nil {
-					return usageErr(fmt.Errorf("--batch %s: %w", key, berr))
+					return usageErr(fmt.Errorf("--batch: %w", berr))
 				}
 				want = map[string]bool{}
 				for _, r := range b.Rows {
 					want[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] = true
 				}
+				batchRows = b.Rows
 				if len(want) == 0 {
 					return usageErr(fmt.Errorf("--batch %s has no rows", key))
 				}
@@ -351,6 +404,9 @@ The command exits non-zero when any archive FAILED.
 			stderr := cmd.ErrOrStderr()
 			var outcomes []fetchOutcome
 			var total int64
+			matched := map[string]bool{}
+			seenEntity := map[string]bool{}
+			swept := map[string]bool{}
 			for _, job := range jobs {
 				if len(keep) > 0 && !keep[strings.ToLower(job.Account)] {
 					continue
@@ -363,9 +419,17 @@ The command exits non-zero when any archive FAILED.
 						continue
 					}
 				}
+				matched[jobKey(job.Account, job.SubSource, job.SnapshotDate)] = true
+				seenEntity[strings.ToLower(strings.TrimSpace(job.Account))] = true
 				out := fetchOutcome{Entity: job.Account, SubSource: job.SubSource, JobID: job.JobID}
 				if !job.Ready() {
-					out.Status, out.Detail = fetchNotReady, "job status is "+job.Status
+					// A job that has stopped without becoming ready never
+					// will; only a running one is worth waiting for.
+					if exportJobFinished(job.Status) {
+						out.Status, out.Detail = fetchFailed, "the export job finished as "+job.Status+" and has no archive to download; create it again"
+					} else {
+						out.Status, out.Detail = fetchNotReady, "job status is "+job.Status
+					}
 					outcomes = append(outcomes, out)
 					continue
 				}
@@ -439,12 +503,16 @@ The command exits non-zero when any archive FAILED.
 						outcomes = append(outcomes, fo)
 						continue
 					}
+					if !swept[dirRel] {
+						swept[dirRel] = true
+						sweepStalePartials(root, dirRel, time.Now())
+					}
 					hint, _ := portal.ParseSizeHint(f.Size)
 					if serr := ensureSpace(flagDest, hint.Bytes); serr != nil {
 						fo.Status, fo.Detail = fetchFailed, serr.Error()
 						outcomes = append(outcomes, fo)
 						tenantf(stderr, "stopping: %s\n", serr)
-						return finishFetch(cmd, flags, outcomes, total, serr)
+						return finishFetch(cmd, flags, outcomes, total, partialFailureErr(serr))
 					}
 					n, derr2 := streamChunk(ctx, sess, root, rel, f.ExportDataID, hint)
 					fo.Bytes = n
@@ -469,6 +537,25 @@ The command exits non-zero when any archive FAILED.
 					outcomes = append(outcomes, fo)
 					tenantf(stderr, "ok %-38s %-13s %12d bytes  %s\n",
 						truncateStr(job.Account, 36), job.SubSource, n, f.FileName)
+				}
+			}
+			// What was asked for but never seen on the portal is reported,
+			// so a run that collected only part of a set says so.
+			for _, r := range batchRows {
+				if matched[jobKey(r.Entity, r.SubSource, r.SnapshotRaw)] || r.Status == dlEmpty || (len(keep) > 0 && !keep[strings.ToLower(r.Entity)]) {
+					continue
+				}
+				if snap := fmt.Sprintf("%d", r.SnapshotRaw); wantDay != "" && (len(snap) < 8 || snap[:8] != wantDay) {
+					continue
+				}
+				outcomes = append(outcomes, fetchOutcome{
+					Entity: r.Entity, SubSource: r.SubSource, JobID: r.JobID, Status: fetchMissing,
+					Detail: fmt.Sprintf("no download job on the portal matches this batch row (ledger status %s); see 'download submit --batch %s --resume'", r.Status, strings.TrimSpace(flagBatch)),
+				})
+			}
+			for _, e := range sortedKeys(keep) {
+				if !seenEntity[e] && batchRows == nil {
+					outcomes = append(outcomes, fetchOutcome{Entity: e, Status: fetchMissing, Detail: "no download job on the portal for this mailbox matches this run's filters"})
 				}
 			}
 			return finishFetch(cmd, flags, outcomes, total, nil)
@@ -765,7 +852,7 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "\n%d archive(s) considered, %.2f GiB written this run\n",
 			len(outcomes), float64(total)/(1<<30))
-		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, "WOULD_DOWNLOAD"} {
+		for _, k := range []string{fetchDownloaded, fetchSkipped, fetchEmpty, fetchNotReady, fetchFailed, fetchMissing, "WOULD_DOWNLOAD"} {
 			if counts[k] > 0 {
 				fmt.Fprintf(w, "  %-16s %d\n", k, counts[k])
 			}
@@ -774,8 +861,12 @@ func finishFetch(cmd *cobra.Command, flags *rootFlags, outcomes []fetchOutcome, 
 	if fatal != nil {
 		return fatal
 	}
-	if n := counts[fetchFailed]; n > 0 {
-		return partialFailureErr(fmt.Errorf("%d of %d archive(s) FAILED; nothing was overwritten, so the same command can be run again once the cause is fixed", n, len(outcomes)))
+	if n := counts[fetchFailed] + counts[fetchMissing]; n > 0 {
+		return partialFailureErr(fmt.Errorf("%d of %d archive(s) are not on disk (%d FAILED, %d MISSING); nothing was overwritten, so the same command can be run again once the cause is fixed",
+			n, len(outcomes), counts[fetchFailed], counts[fetchMissing]))
+	}
+	if n := counts[fetchNotReady]; n > 0 {
+		return &cliError{code: ExitJobPending, err: fmt.Errorf("%d archive(s) are still being built (NOT_READY); run the same command again later to collect them", n)}
 	}
 	return nil
 }

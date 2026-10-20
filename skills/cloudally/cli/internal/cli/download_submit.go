@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http/httptrace"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -103,12 +102,23 @@ type downloadBatch struct {
 	// Timezone names the zone OnDate is expressed in. A backup stamped
 	// 2022-12-31 UTC is the 30 December end-of-day state for a US_EST
 	// account, so the zone is recorded rather than assumed.
-	Timezone  string         `json:"timezone"`
-	Format    string         `json:"format"`
-	CreatedAt string         `json:"created_at"`
-	UpdatedAt string         `json:"updated_at"`
-	Rows      []downloadRow  `json:"rows"`
-	Skipped   []downloadSkip `json:"skipped_entities,omitempty"`
+	Timezone string `json:"timezone"`
+	Format   string `json:"format"`
+	// IncludeDeleted and IncludeLegalHold are what every create in the
+	// batch asks for, so a resume sends the same archive the first run
+	// did. A ledger without them is not resumed.
+	IncludeDeleted   *bool `json:"include_deleted,omitempty"`
+	IncludeLegalHold *bool `json:"include_legal_hold,omitempty"`
+	// EntityFilter, SubSourceFilter and MinSize record what selected the
+	// rows; RerunKey is the identity the re-run guard compares.
+	EntityFilter    []string       `json:"entity_filter,omitempty"`
+	SubSourceFilter []string       `json:"sub_source_filter,omitempty"`
+	MinSize         string         `json:"min_size,omitempty"`
+	RerunKey        string         `json:"rerun_key,omitempty"`
+	CreatedAt       string         `json:"created_at"`
+	UpdatedAt       string         `json:"updated_at"`
+	Rows            []downloadRow  `json:"rows"`
+	Skipped         []downloadSkip `json:"skipped_entities,omitempty"`
 }
 
 // downloadSkip records a mailbox that produced no archive, and why.
@@ -127,47 +137,6 @@ func (b *downloadBatch) count(status string) int {
 		}
 	}
 	return n
-}
-
-// batchPath returns where a batch ledger lives.
-func batchPath(key string) (string, error) {
-	dir, err := cliutil.StateDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, downloadBatchDirName, key+".json"), nil
-}
-
-// saveBatch writes the ledger through a temporary file and a rename, so a
-// run killed mid-write leaves the previous ledger rather than half of one.
-// It is called once per row before and after each create, so that matters.
-func saveBatch(b *downloadBatch) error {
-	path, err := batchPath(b.BatchKey)
-	if err != nil {
-		return err
-	}
-	b.UpdatedAt = isoUTC(time.Now())
-	data, err := json.MarshalIndent(b, "", "  ")
-	if err != nil {
-		return err
-	}
-	return cliutil.AtomicWritePrivateFile(path, append(data, '\n'), batchFilePerm, 0o700)
-}
-
-func loadBatch(key string) (*downloadBatch, error) {
-	path, err := batchPath(key)
-	if err != nil {
-		return nil, err
-	}
-	data, err := os.ReadFile(path) // #nosec G304 -- key is a batch name from the state dir.
-	if err != nil {
-		return nil, err
-	}
-	var b downloadBatch
-	if err := json.Unmarshal(data, &b); err != nil {
-		return nil, fmt.Errorf("reading batch %s: %w", key, err)
-	}
-	return &b, nil
 }
 
 // planDownloadBatch expands every entity on the task into one row per
@@ -485,7 +454,7 @@ func newDownloadSubmitCmd(flags *rootFlags) *cobra.Command {
 	var flagEntities, flagSubSources []string
 	var flagEntitiesFile string
 	var flagConcurrency int
-	var flagIncludeDeleted, flagIncludeLegalHold, flagResume, flagNoReconcile, flagLatest, flagRetryUnknown bool
+	var flagIncludeDeleted, flagIncludeLegalHold, flagResume, flagNoReconcile, flagLatest, flagRetryUnknown, flagNewBatch bool
 	var flagLookback int
 
 	cmd := &cobra.Command{
@@ -516,8 +485,20 @@ A create whose outcome was never learned (a timeout, a dropped connection, a
 server error after the request left, or a run killed mid-call) is UNKNOWN.
 --resume first looks for UNKNOWN and MISSING jobs on the portal and marks the
 ones it finds CREATED, and never sends an UNKNOWN row again unless
---retry-unknown is given; check 'download list' before using it. The command exits non-zero
-while any row is FAILED or UNKNOWN.
+--retry-unknown is given; even then it looks first. A resume sends every row
+with the batch's recorded --format, --include-deleted and --include-legal-hold.
+
+The batch key is printed, and the ledger saved, before the first create.
+Running the same command again without --resume is refused while the earlier
+batch has archives that were created, may have been created, or are being
+sent; --new-batch overrides that and creates every export again. Two runs
+never work on one batch at once.
+
+--timeout bounds each API call, not the run: archives stream for as long as
+they keep arriving, and the reconcile wait is not cut short.
+
+Exit codes: 0 every row settled; 2 nothing sent (usage, a refused re-run, a
+batch in use); 6 rows remain FAILED, UNKNOWN or MISSING.
 
 Nothing is created without --yes.
 `, "\n"),
@@ -549,6 +530,9 @@ Nothing is created without --yes.
 			if flagRetryUnknown && !flagResume {
 				return usageErr(errors.New("--retry-unknown only applies with --resume"))
 			}
+			if flagNewBatch && flagResume {
+				return usageErr(errors.New("--new-batch and --resume cannot be combined: --resume continues the earlier batch, --new-batch starts another that creates every export again"))
+			}
 			format := strings.ToLower(strings.TrimSpace(flagFormat))
 			if format == "" {
 				format = downloadFormatZip
@@ -562,16 +546,19 @@ Nothing is created without --yes.
 				if strings.TrimSpace(flagBatch) == "" {
 					return usageErr(errors.New("--resume needs --batch <key>"))
 				}
-				b, err := loadBatch(flagBatch)
+				b, err := loadBatch(strings.TrimSpace(flagBatch))
 				if err != nil {
-					return usageErr(fmt.Errorf("--batch %s: %w", flagBatch, err))
+					return usageErr(fmt.Errorf("--batch: %w", err))
+				}
+				if err := checkResumeSettings(cmd, b, format, flagIncludeDeleted, flagIncludeLegalHold); err != nil {
+					return err
 				}
 				batch = b
 				scope = scopeFromKind(b.Scope, b.AccountID)
 				flagTask, format = b.TaskID, b.Format
-				if n := recoverInterruptedRows(batch); n > 0 {
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d row(s) in batch %s were still REQUESTED from a run that did not finish; they are now UNKNOWN and will not be sent again on their own\n", n, batch.BatchKey)
-				}
+				// Shown in the plan only; the ledger is changed under the
+				// batch lock below.
+				recoverInterruptedRows(batch)
 			}
 			if scope.account == "" {
 				return usageErr(errPortalNeedsAccount)
@@ -627,8 +614,10 @@ Nothing is created without --yes.
 			if err != nil {
 				return err
 			}
-			ctx, cancel := boundCtx(cmd.Context(), flags)
-			defer cancel()
+			// No overall deadline: --timeout bounds each API and portal call
+			// (the clients apply it per request), while a batch's creates
+			// and its reconcile wait take as long as they take.
+			ctx := cmd.Context()
 
 			sess, err := openPortalSession(ctx, c, scope, flagPortalURL)
 			if err != nil {
@@ -672,7 +661,12 @@ Nothing is created without --yes.
 				}
 				b.Scope, b.AccountID, b.Format = scope.kind(), scope.account, format
 				b.Timezone = offsetLabel(offset)
-				b.BatchKey = time.Now().UTC().Format("20060102-150405") + "-" + shortKey(scope.account)
+				incDel, incLH := flagIncludeDeleted, flagIncludeLegalHold
+				b.IncludeDeleted, b.IncludeLegalHold = &incDel, &incLH
+				b.EntityFilter, b.SubSourceFilter = sortedKeys(filter), sortedKeys(subFilter)
+				b.MinSize = strings.TrimSpace(flagMinSize)
+				b.RerunKey = rerunIdentity(b.Scope, b.AccountID, b.TaskID, b.OnDate, b.Format, b.EntityFilter, b.SubSourceFilter)
+				b.BatchKey = newBatchKey(time.Now(), scope.account)
 				b.CreatedAt = isoUTC(time.Now())
 				batch = b
 			}
@@ -687,23 +681,38 @@ Nothing is created without --yes.
 			if dryRunOK(flags) {
 				return printDownloadBatchPlan(cmd, flags, batch, sendable, true)
 			}
-			// Before anything is sent, a resume looks for its UNKNOWN and
-			// MISSING rows on the portal: any found is CREATED and is never
-			// sent again, even under --retry-unknown.
-			if flagResume && flags.yes && !flagNoReconcile && batch.count(dlUnknown)+batch.count(dlMissing) > 0 {
-				promoted, rerr := reconcileBeforeResend(ctx, sess, batch)
-				if rerr != nil {
-					tenantf(cmd.ErrOrStderr(), "warning: could not list the portal before re-sending (%v); UNKNOWN rows stay held\n", rerr)
-				} else if promoted > 0 {
-					fmt.Fprintf(cmd.ErrOrStderr(), "%d row(s) were found on the portal and are now CREATED, so they are not sent again\n", promoted)
+			if !flags.yes {
+				if held := heldUnknownRows(batch, sendable); len(held) > 0 {
+					printUnknownDownloadNotice(cmd.ErrOrStderr(), batch, held)
 				}
-				if err := saveBatch(batch); err != nil {
-					return fmt.Errorf("saving the batch ledger: %w", err)
+				if err := printDownloadBatchPlan(cmd, flags, batch, sendable, false); err != nil {
+					return err
 				}
-				sendable = pendingDownloadRows(batch, flagResume, flagRetryUnknown)
+				if len(sendable) == 0 {
+					return unsettledDownloadErr(batch)
+				}
+				return usageErr(fmt.Errorf("add --yes to create these %d archive(s)", len(sendable)))
 			}
-			if held := heldUnknownRows(batch, sendable); len(held) > 0 {
-				printUnknownDownloadNotice(cmd.ErrOrStderr(), batch, held)
+			run := submitRun{
+				cmd: cmd, flags: flags, sess: sess, scope: scope, concurrency: flagConcurrency,
+				resume: flagResume, retryUnknown: flagRetryUnknown, noReconcile: flagNoReconcile,
+			}
+			if flagResume {
+				key := batch.BatchKey
+				return withBatchLock(key, func() error {
+					// Reload under the lock: the ledger on disk is the truth.
+					b, err := loadBatch(key)
+					if err != nil {
+						return fmt.Errorf("--batch: %w", err)
+					}
+					if n := recoverInterruptedRows(b); n > 0 {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d row(s) in batch %s were still REQUESTED from a run that did not finish; they are now UNKNOWN and will not be sent again on their own\n", n, key)
+						if err := saveBatch(b); err != nil {
+							return fmt.Errorf("saving the batch ledger: %w", err)
+						}
+					}
+					return run.send(ctx, b)
+				})
 			}
 			if len(sendable) == 0 {
 				if err := printDownloadBatchPlan(cmd, flags, batch, sendable, false); err != nil {
@@ -711,55 +720,15 @@ Nothing is created without --yes.
 				}
 				return unsettledDownloadErr(batch)
 			}
-			if !flags.yes {
-				if err := printDownloadBatchPlan(cmd, flags, batch, sendable, false); err != nil {
+			return withBatchLock(batch.BatchKey, func() error {
+				if err := claimNewBatch(batch, flagNewBatch); err != nil {
 					return err
 				}
-				return usageErr(fmt.Errorf("add --yes to create these %d archive(s)", len(sendable)))
-			}
-
-			if err := saveBatch(batch); err != nil {
-				return fmt.Errorf("saving the batch ledger: %w", err)
-			}
-			before, cerr := sess.JobCounts(ctx)
-			if cerr != nil {
-				tenantf(cmd.ErrOrStderr(), "warning: could not read the job count first (%v); empty jobs may read as missing\n", cerr)
-			}
-			if err := runDownloadBatch(ctx, cmd, sess, batch, sendable, format, flagConcurrency, flagIncludeDeleted, flagIncludeLegalHold); err != nil {
-				return err
-			}
-			// Only rows that may have created a job count toward what the
-			// dashboard should have grown by.
-			wanted := 0
-			for _, r := range sendable {
-				if r.Status == dlRequested || r.Status == dlUnknown {
-					wanted++
-				}
-			}
-			if !flagNoReconcile {
-				fmt.Fprintf(cmd.ErrOrStderr(), "waiting %s before reconciling, because a new job takes minutes to appear\n", reconcileDelay)
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(reconcileDelay):
-				}
-				delta := 0
-				if after, aerr := sess.JobCounts(ctx); aerr == nil {
-					delta = after.Total - before.Total
-					fmt.Fprintf(cmd.ErrOrStderr(), "portal job count went from %d to %d (+%d) for %d requested\n",
-						before.Total, after.Total, delta, wanted)
-				}
-				if err := reconcileBatch(ctx, sess, batch, delta, wanted); err != nil {
-					tenantf(cmd.ErrOrStderr(), "warning: reconcile failed (%v); rows stay REQUESTED and are unverified\n", err)
-				}
-				if err := saveBatch(batch); err != nil {
-					return fmt.Errorf("saving the batch ledger: %w", err)
-				}
-			}
-			if err := printDownloadBatchResult(cmd, flags, batch, scope); err != nil {
-				return err
-			}
-			return unsettledDownloadErr(batch)
+				path, _ := batchPath(batch.BatchKey)
+				fmt.Fprintf(cmd.ErrOrStderr(), "batch %s recorded in %s; if this run stops, continue it with: cloudally-cli download submit --batch %s --resume --yes\n",
+					batch.BatchKey, path, batch.BatchKey)
+				return run.send(ctx, batch)
+			})
 		},
 	}
 	addRestoreScopeFlags(cmd, &scope)
@@ -774,13 +743,14 @@ Nothing is created without --yes.
 	cmd.Flags().StringSliceVar(&flagSubSources, "sub-sources", nil, "Sub-sources to archive, for example O365MAIL,O365CALENDAR; default is every one that succeeded")
 	cmd.Flags().StringVar(&flagFormat, "format", downloadFormatZip, "Archive format: zip, pst or single-pst")
 	cmd.Flags().IntVar(&flagConcurrency, "concurrency", defaultDownloadConcurrency, "Parallel create calls")
-	cmd.Flags().BoolVar(&flagIncludeDeleted, "include-deleted", false, "Include deleted items")
-	cmd.Flags().BoolVar(&flagIncludeLegalHold, "include-legal-hold", false, "Include items under legal hold")
+	cmd.Flags().BoolVar(&flagIncludeDeleted, "include-deleted", false, "Include deleted items. Recorded in the batch; --resume uses the recorded value")
+	cmd.Flags().BoolVar(&flagIncludeLegalHold, "include-legal-hold", false, "Include items under legal hold. Recorded in the batch; --resume uses the recorded value")
 	cmd.Flags().StringVar(&flagMinSize, "min-size", "",
 		"Skip mailboxes holding less than this, for example 10MB. Mailboxes reporting 0 bytes or Not Accessible are always skipped, since they can only produce empty archives")
 	cmd.Flags().StringVar(&flagBatch, "batch", "", "Batch key to resume")
 	cmd.Flags().BoolVar(&flagResume, "resume", false, "Re-send only the rows that never appeared on the portal (MISSING) or were refused (FAILED); UNKNOWN rows are held")
-	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows that are still not on the portal; check 'download list' first, since they may already exist")
+	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows that are still not on the portal; the portal is always checked first, even with --no-reconcile")
+	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Start a new batch even though an earlier batch for the same scope, account, task, date, filters and format already has archives; every export is created again")
 	cmd.Flags().BoolVar(&flagNoReconcile, "no-reconcile", false, "Skip the reconcile pass; rows stay REQUESTED and unverified")
 	cmd.Flags().StringVar(&flagPlanOut, "plan-out", "", "Write the batch plan JSON to this path")
 	cmd.Flags().StringVar(&flagPortalURL, "portal-url", portal.DefaultBaseURL, portalURLFlagHelp)
@@ -788,6 +758,118 @@ Nothing is created without --yes.
 	_ = cmd.Flags().MarkHidden("portal-url")
 	_ = cmd.Flags().MarkHidden("lookback-months")
 	return cmd
+}
+
+// submitRun carries what sending one batch needs.
+type submitRun struct {
+	cmd                               *cobra.Command
+	flags                             *rootFlags
+	sess                              *portal.Session
+	scope                             restoreScope
+	concurrency                       int
+	resume, retryUnknown, noReconcile bool
+}
+
+// send creates a batch's pending archives and reconciles them. The caller
+// holds the batch lock and the ledger is already saved, so the batch can be
+// resumed from the first create on.
+func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
+	stderr := r.cmd.ErrOrStderr()
+	retry := r.retryUnknown
+	// Before anything is sent, a resume looks for its UNKNOWN and MISSING
+	// rows on the portal: any found is CREATED and is never sent again.
+	// --retry-unknown always looks first, even with --no-reconcile, and
+	// sends nothing UNKNOWN when the portal cannot be read.
+	if r.resume && (!r.noReconcile || retry) && batch.count(dlUnknown)+batch.count(dlMissing) > 0 {
+		promoted, rerr := reconcileBeforeResend(ctx, r.sess, batch)
+		if rerr != nil {
+			tenantf(stderr, "warning: could not list the portal before re-sending (%v); UNKNOWN rows stay held\n", rerr)
+			retry = false
+		} else if promoted > 0 {
+			fmt.Fprintf(stderr, "%d row(s) were found on the portal and are now CREATED, so they are not sent again\n", promoted)
+		}
+		if err := saveBatch(batch); err != nil {
+			return fmt.Errorf("saving the batch ledger: %w", err)
+		}
+	}
+	sendable := pendingDownloadRows(batch, r.resume, retry)
+	if held := heldUnknownRows(batch, sendable); len(held) > 0 {
+		printUnknownDownloadNotice(stderr, batch, held)
+	}
+	if len(sendable) == 0 {
+		if err := printDownloadBatchPlan(r.cmd, r.flags, batch, sendable, false); err != nil {
+			return err
+		}
+		return unsettledDownloadErr(batch)
+	}
+	before, cerr := r.sess.JobCounts(ctx)
+	if cerr != nil {
+		tenantf(stderr, "warning: could not read the job count first (%v); empty jobs may read as missing\n", cerr)
+	}
+	includeDeleted, includeLegalHold := boolValue(batch.IncludeDeleted), boolValue(batch.IncludeLegalHold)
+	if err := runDownloadBatch(ctx, r.cmd, r.sess, batch, sendable, batch.Format, r.concurrency, includeDeleted, includeLegalHold); err != nil {
+		return err
+	}
+	// Only rows that may have created a job count toward what the
+	// dashboard should have grown by.
+	wanted := 0
+	for _, row := range sendable {
+		if row.Status == dlRequested || row.Status == dlUnknown {
+			wanted++
+		}
+	}
+	if !r.noReconcile {
+		fmt.Fprintf(stderr, "waiting %s before reconciling, because a new job takes minutes to appear (batch %s)\n", reconcileDelay, batch.BatchKey)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("stopped before reconciling; batch %s is saved, continue it with: cloudally-cli download submit --batch %s --resume --yes: %w", batch.BatchKey, batch.BatchKey, ctx.Err())
+		case <-time.After(reconcileDelay):
+		}
+		delta := 0
+		if after, aerr := r.sess.JobCounts(ctx); aerr == nil {
+			delta = after.Total - before.Total
+			fmt.Fprintf(stderr, "portal job count went from %d to %d (+%d) for %d requested\n",
+				before.Total, after.Total, delta, wanted)
+		}
+		if err := reconcileBatch(ctx, r.sess, batch, delta, wanted); err != nil {
+			tenantf(stderr, "warning: reconcile failed (%v); rows stay REQUESTED and are unverified\n", err)
+		}
+		if err := saveBatch(batch); err != nil {
+			return fmt.Errorf("saving the batch ledger: %w", err)
+		}
+	}
+	if err := printDownloadBatchResult(r.cmd, r.flags, batch, r.scope); err != nil {
+		return err
+	}
+	return unsettledDownloadErr(batch)
+}
+
+func boolValue(p *bool) bool { return p != nil && *p }
+
+// checkResumeSettings refuses to resume a batch with settings that differ
+// from the ones its archives were created with. What goes into an archive
+// is part of what the batch promised: a resumed legal-hold export that
+// quietly left out held items would be worse than no export.
+func checkResumeSettings(cmd *cobra.Command, b *downloadBatch, format string, includeDeleted, includeLegalHold bool) error {
+	if b.IncludeDeleted == nil || b.IncludeLegalHold == nil {
+		return usageErr(fmt.Errorf("batch %s has no record of its --include-deleted and --include-legal-hold settings, so a resumed archive could leave out items the first run included; nothing was sent. Start a separate batch with --new-batch and the flags it needs", b.BatchKey))
+	}
+	var conflicts []string
+	f := cmd.Flags()
+	if f.Changed("format") && format != b.Format {
+		conflicts = append(conflicts, fmt.Sprintf("--format %s (batch recorded %s)", format, b.Format))
+	}
+	if f.Changed("include-deleted") && includeDeleted != *b.IncludeDeleted {
+		conflicts = append(conflicts, fmt.Sprintf("--include-deleted=%t (batch recorded %t)", includeDeleted, *b.IncludeDeleted))
+	}
+	if f.Changed("include-legal-hold") && includeLegalHold != *b.IncludeLegalHold {
+		conflicts = append(conflicts, fmt.Sprintf("--include-legal-hold=%t (batch recorded %t)", includeLegalHold, *b.IncludeLegalHold))
+	}
+	if len(conflicts) > 0 {
+		return usageErr(fmt.Errorf("batch %s creates its archives with different settings than this run: %s; nothing was sent. Drop the flag(s) to resume with the recorded values, or start a separate batch with --new-batch instead of --resume",
+			b.BatchKey, strings.Join(conflicts, ", ")))
+	}
+	return nil
 }
 
 // pendingDownloadRows picks the rows a run should send. REQUESTED and
@@ -838,15 +920,15 @@ func printUnknownDownloadNotice(w io.Writer, batch *downloadBatch, rows []*downl
 		len(rows), batch.AccountID, batch.BatchKey)
 }
 
-// unsettledDownloadErr reports a batch that still has FAILED or UNKNOWN
-// rows, so a script never reads it as finished.
+// unsettledDownloadErr reports a batch that still has FAILED, UNKNOWN or
+// MISSING rows, so a script never reads it as finished.
 func unsettledDownloadErr(batch *downloadBatch) error {
-	failed, unknown := batch.count(dlFailed), batch.count(dlUnknown)
-	if failed+unknown == 0 {
+	failed, unknown, missing := batch.count(dlFailed), batch.count(dlUnknown), batch.count(dlMissing)
+	if failed+unknown+missing == 0 {
 		return nil
 	}
-	return partialFailureErr(fmt.Errorf("batch %s is not settled: %d FAILED (re-send with --resume), %d UNKNOWN (check 'download list' before --retry-unknown)",
-		batch.BatchKey, failed, unknown))
+	return partialFailureErr(fmt.Errorf("batch %s is not settled: %d FAILED and %d MISSING (re-send with --batch %s --resume --yes), %d UNKNOWN (check 'download list' before --retry-unknown)",
+		batch.BatchKey, failed, missing, batch.BatchKey, unknown))
 }
 
 // classifyDownloadCreateFailure decides what a failed create call means for
@@ -1014,15 +1096,6 @@ func writeBatchTo(path string, batch *downloadBatch) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), batchFilePerm)
-}
-
-// shortKey makes a stable short suffix for a batch name.
-func shortKey(s string) string {
-	s = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), "-", "")
-	if len(s) > 4 {
-		return s[:4]
-	}
-	return s
 }
 
 // offsetLabel renders a UTC offset the way an operator reads it.

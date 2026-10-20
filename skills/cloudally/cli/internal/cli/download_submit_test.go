@@ -24,6 +24,7 @@ func newSubmitBatch(t *testing.T, key string, entities ...string) *downloadBatch
 	b := &downloadBatch{
 		BatchKey: key, Scope: restoreScope{account: "acct-1"}.kind(), AccountID: "acct-1",
 		TaskID: "task-1", Source: "MS365", OnDate: "2022-12-31", Timezone: "UTC", Format: downloadFormatZip,
+		IncludeDeleted: new(bool), IncludeLegalHold: new(bool),
 	}
 	for i, e := range entities {
 		b.Rows = append(b.Rows, downloadRow{
@@ -68,11 +69,11 @@ func rowByEntity(b *downloadBatch, entity string) downloadRow {
 func TestRunDownloadBatchSavesRequestedBeforeEachCreate(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
-	b := newSubmitBatch(t, "batch-persist", "a@contoso.com", "b@contoso.com", "c@contoso.com")
+	b := newSubmitBatch(t, "20221231-000000-persist", "a@contoso.com", "b@contoso.com", "c@contoso.com")
 	var mu sync.Mutex
 	seen := map[string]string{}
 	s.onCreate = func(body map[string]any) {
-		onDisk, err := loadBatch("batch-persist")
+		onDisk, err := loadBatch("20221231-000000-persist")
 		if err != nil {
 			t.Errorf("reading the ledger mid-run: %v", err)
 			return
@@ -98,7 +99,7 @@ func TestRunDownloadBatchSavesRequestedBeforeEachCreate(t *testing.T) {
 			t.Fatalf("%s was %q on disk when its create arrived, want REQUESTED", account, status)
 		}
 	}
-	after, err := loadBatch("batch-persist")
+	after, err := loadBatch("20221231-000000-persist")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,12 +119,12 @@ func TestRunDownloadBatchClassifiesAmbiguousFailuresAsUnknown(t *testing.T) {
 	s := newDLStub(t)
 	s.createCode["a@contoso.com"] = http.StatusInternalServerError
 	s.createCode["b@contoso.com"] = http.StatusUnauthorized
-	b := newSubmitBatch(t, "batch-classify", "a@contoso.com", "b@contoso.com", "c@contoso.com")
+	b := newSubmitBatch(t, "20221231-000000-classify", "a@contoso.com", "b@contoso.com", "c@contoso.com")
 	sess := openStubSession(t, s)
 	if err := runDownloadBatch(context.Background(), quietCmd(), sess, b, pendingDownloadRows(b, false, false), downloadFormatZip, 1, false, false); err != nil {
 		t.Fatalf("runDownloadBatch: %v", err)
 	}
-	onDisk, err := loadBatch("batch-classify")
+	onDisk, err := loadBatch("20221231-000000-classify")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +140,7 @@ func TestRunDownloadBatchClassifiesAmbiguousFailuresAsUnknown(t *testing.T) {
 
 	// A portal that is gone before the request is sent: nothing left.
 	gone := newDLStub(t)
-	b2 := newSubmitBatch(t, "batch-gone", "d@contoso.com")
+	b2 := newSubmitBatch(t, "20221231-000000-gone", "d@contoso.com")
 	sess2 := openStubSession(t, gone)
 	gone.portal.Close()
 	if err := runDownloadBatch(context.Background(), quietCmd(), sess2, b2, pendingDownloadRows(b2, false, false), downloadFormatZip, 1, false, false); err != nil {
@@ -163,8 +164,8 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 	t.Cleanup(func() { reconcileDelay = prevDelay })
 
 	s := newDLStub(t)
-	b := newSubmitBatch(t, "batch-crash", "a@contoso.com", "b@contoso.com", "c@contoso.com")
-	path, err := batchPath("batch-crash")
+	b := newSubmitBatch(t, "20221231-000000-crash", "a@contoso.com", "b@contoso.com", "c@contoso.com")
+	path, err := batchPath("20221231-000000-crash")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +193,7 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 		}
 	}
 	flaky, clean := others[0], others[1]
-	onDisk, _ := loadBatch("batch-crash")
+	onDisk, _ := loadBatch("20221231-000000-crash")
 	if r := rowByEntity(onDisk, crashed); r.Status != dlRequested || r.AcceptedAt != "" {
 		t.Fatalf("the crash state should hold %s REQUESTED and unanswered: %+v", crashed, r)
 	}
@@ -207,7 +208,7 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 	s.creates, s.onCreate = nil, nil
 	s.createCode[flaky] = http.StatusInternalServerError
 	s.mu.Unlock()
-	_, stderr, err := runDL(t, s, "download", "submit", "--batch", "batch-crash", "--resume", "--yes", "--json")
+	_, stderr, err := runDL(t, s, "download", "submit", "--batch", "20221231-000000-crash", "--resume", "--yes", "--json")
 	if err == nil || ExitCode(err) != 6 {
 		t.Fatalf("a batch left with UNKNOWN rows must exit 6, got %v\n%s", err, stderr)
 	}
@@ -220,7 +221,7 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 	if !strings.Contains(stderr, "UNKNOWN") || !strings.Contains(stderr, "--retry-unknown") {
 		t.Fatalf("the operator should be told how to settle UNKNOWN rows:\n%s", stderr)
 	}
-	after, _ := loadBatch("batch-crash")
+	after, _ := loadBatch("20221231-000000-crash")
 	if r := rowByEntity(after, crashed); r.Status != dlUnknown {
 		t.Fatalf("%s should now be UNKNOWN: %+v", crashed, r)
 	}
@@ -238,14 +239,16 @@ func TestDownloadSubmitResumeAfterCrashSendsNothingTwice(t *testing.T) {
 		s.jobs = append(s.jobs, dlJob{JobID: "job-" + e, Account: e, SubSource: r.SubSource, Status: "INPROCESS", Snapshot: r.SnapshotRaw})
 	}
 	s.mu.Unlock()
-	_, stderr, err = runDL(t, s, "download", "submit", "--batch", "batch-crash", "--resume", "--retry-unknown", "--yes", "--json")
-	if err != nil {
-		t.Fatalf("resume --retry-unknown: %v\n%s", err, stderr)
+	_, stderr, err = runDL(t, s, "download", "submit", "--batch", "20221231-000000-crash", "--resume", "--retry-unknown", "--yes", "--json")
+	// The re-sent row is not on the portal yet, so it ends MISSING and the
+	// batch is reported as not settled.
+	if err == nil || ExitCode(err) != 6 || !strings.Contains(err.Error(), "1 MISSING") {
+		t.Fatalf("resume --retry-unknown: want exit 6 with 1 MISSING, got %v\n%s", err, stderr)
 	}
 	if got := s.createdAccounts(); !slices.Equal(got, []string{flaky}) {
 		t.Fatalf("only %s (UNKNOWN and not on the portal) may be sent, got %v", flaky, got)
 	}
-	final, _ := loadBatch("batch-crash")
+	final, _ := loadBatch("20221231-000000-crash")
 	for _, e := range []string{crashed, clean} {
 		if r := rowByEntity(final, e); r.Status != dlCreated || r.JobID != "job-"+e {
 			t.Fatalf("%s should be CREATED from the portal listing: %+v", e, r)

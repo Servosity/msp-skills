@@ -3,15 +3,21 @@
 package portal
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"math"
+	"mime"
+	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // ErrUnsafeDownloadURL is returned when the portal hands back a download
@@ -21,6 +27,36 @@ var ErrUnsafeDownloadURL = errors.New("portal: refusing an unsafe download url")
 // ErrDownloadSize is returned when a download does not match the size the
 // portal reported for it.
 var ErrDownloadSize = errors.New("portal: download size does not match the reported size")
+
+// ErrNotAnArchive is returned when a download of unknown size turns out to
+// be a short HTML, XML, JSON or text document: an error page served with a
+// 200, not an archive.
+var ErrNotAnArchive = errors.New("portal: the download is an error document, not an archive")
+
+// ErrDownloadStalled is returned when a download receives nothing for
+// DownloadStallTimeout.
+var ErrDownloadStalled = errors.New("portal: the download stalled")
+
+// DownloadStallTimeout ends a download that has received nothing for this
+// long. A whole transfer has no deadline, because a large archive can take
+// hours; only silence ends it. Tests shorten it.
+var DownloadStallTimeout = 5 * time.Minute
+
+// DownloadAddrPolicy vets the address a download connection actually
+// reaches, after the host name is resolved, so a name that resolves to
+// this machine or an internal network is refused just as the same address
+// written in the URL would be. Tests replace it to reach an httptest
+// server; nothing in the shipped binary changes it.
+var DownloadAddrPolicy = StrictDownloadAddr
+
+// StrictDownloadAddr refuses the same ranges StrictDownloadURL refuses in
+// an IP literal.
+func StrictDownloadAddr(a netip.Addr) error {
+	if reason := blockedAddrReason(a); reason != "" {
+		return fmt.Errorf("%w: the host resolves to a %s address", ErrUnsafeDownloadURL, reason)
+	}
+	return nil
+}
 
 // DownloadURLPolicy vets a server-supplied download URL, and every redirect
 // hop from it, before anything is requested. The link comes from a portal
@@ -134,6 +170,7 @@ type SizeHint struct {
 // is good to about 10 KiB; "1.8 GB" only to about 100 MiB, which is the
 // most that string can say.
 func ParseSizeHint(reported string) (SizeHint, bool) {
+	reported = normaliseSize(reported)
 	m := sizePattern.FindStringSubmatch(reported)
 	if m == nil {
 		return SizeHint{}, false
@@ -151,6 +188,20 @@ func ParseSizeHint(reported string) (SizeHint, bool) {
 		tol = int64(math.Ceil(step))
 	}
 	return SizeHint{Bytes: b, Tolerance: tol}, true
+}
+
+// groupedNumber matches a size written with thousands separators, such as
+// "1,024.50 MB".
+var groupedNumber = regexp.MustCompile(`^\s*([0-9]{1,3}(?:,[0-9]{3})+)((?:\.[0-9]+)?\s*[A-Za-z]+)\s*$`)
+
+// normaliseSize turns "1,024.50 MB" into "1024.50 MB" and a no-break space
+// into a plain one, so the size check is not lost to formatting.
+func normaliseSize(s string) string {
+	s = strings.ReplaceAll(s, "\u00a0", " ")
+	if m := groupedNumber.FindStringSubmatch(s); m != nil {
+		return strings.ReplaceAll(m[1], ",", "") + m[2]
+	}
+	return s
 }
 
 // Known reports whether the hint carries a size at all.
@@ -180,8 +231,12 @@ func (h SizeHint) Matches(n int64) bool {
 // When want is known, a response whose length cannot match it is refused
 // before anything is written, copying stops as soon as the body runs past
 // the reported size by more than its tolerance, and a body that ends short
-// is an error. A short error page served with a 200 therefore never passes
-// for a finished archive.
+// is an error. When it is not known, a short body that reads as an HTML,
+// XML, JSON or text document is refused. Either way a short error page
+// served with a 200 never passes for a finished archive.
+//
+// The transfer has no overall deadline; it ends only when it has received
+// nothing for DownloadStallTimeout.
 func (s *Session) FetchChunk(ctx context.Context, exportDataID string, w io.Writer, want SizeHint) (int64, error) {
 	link, err := s.DownloadURL(ctx, exportDataID)
 	if err != nil {
@@ -194,6 +249,16 @@ func (s *Session) FetchChunk(ctx context.Context, exportDataID string, w io.Writ
 	if err := DownloadURLPolicy(u); err != nil {
 		return 0, fmt.Errorf("portal: downloading chunk %s: %w", exportDataID, err)
 	}
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	stall := time.AfterFunc(DownloadStallTimeout, func() { cancel(ErrDownloadStalled) })
+	defer stall.Stop()
+	streamErr := func(n int64, err error) error {
+		if errors.Is(context.Cause(ctx), ErrDownloadStalled) {
+			return fmt.Errorf("%w: chunk %s received nothing for %s after %d bytes", ErrDownloadStalled, exportDataID, DownloadStallTimeout, n)
+		}
+		return fmt.Errorf("portal: streaming chunk %s after %d bytes: %w", exportDataID, n, err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {
 		return 0, fmt.Errorf("portal: building the download request: %w", scrubURLError(err))
@@ -201,20 +266,41 @@ func (s *Session) FetchChunk(ctx context.Context, exportDataID string, w io.Writ
 	// A presigned URL carries its own authorisation; sending the session
 	// cookie or CSRF header to object storage would be pointless and
 	// would leak them to a third party.
-	resp, err := s.downloadClient().Do(req)
+	client, done := s.downloadClient()
+	defer done()
+	resp, err := client.Do(req)
 	if err != nil {
+		if errors.Is(context.Cause(ctx), ErrDownloadStalled) {
+			return 0, streamErr(0, err)
+		}
 		return 0, fmt.Errorf("portal: downloading chunk %s: %w", exportDataID, scrubURLError(err))
 	}
 	defer resp.Body.Close()
+	body := &stallReader{r: resp.Body, timer: stall}
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		text, _ := io.ReadAll(io.LimitReader(body, 512))
 		return 0, fmt.Errorf("portal: downloading chunk %s: status %d: %s",
-			exportDataID, resp.StatusCode, strings.TrimSpace(string(body)))
+			exportDataID, resp.StatusCode, strings.TrimSpace(string(text)))
 	}
 	if !want.Known() {
-		n, err := io.Copy(w, resp.Body)
+		// Hold the start of the body back until it is clear it is not an
+		// error document; an archive never starts like one.
+		head, err := io.ReadAll(io.LimitReader(body, sniffLimit+1))
 		if err != nil {
-			return n, fmt.Errorf("portal: streaming chunk %s after %d bytes: %w", exportDataID, n, err)
+			return 0, streamErr(int64(len(head)), err)
+		}
+		if len(head) <= sniffLimit && looksLikeDocument(head, resp.Header.Get("Content-Type")) {
+			return 0, fmt.Errorf("%w: chunk %s is %d bytes of %s and the portal reported no usable size",
+				ErrNotAnArchive, exportDataID, len(head), documentKind(head, resp.Header.Get("Content-Type")))
+		}
+		hn, err := w.Write(head)
+		if err != nil {
+			return int64(hn), streamErr(int64(hn), err)
+		}
+		n, err := io.Copy(w, body)
+		n += int64(hn)
+		if err != nil {
+			return n, streamErr(n, err)
 		}
 		return n, nil
 	}
@@ -223,9 +309,9 @@ func (s *Session) FetchChunk(ctx context.Context, exportDataID string, w io.Writ
 			ErrDownloadSize, exportDataID, resp.ContentLength, want.Bytes)
 	}
 	ceiling := want.Bytes + want.Tolerance
-	n, err := io.Copy(w, io.LimitReader(resp.Body, ceiling+1))
+	n, err := io.Copy(w, io.LimitReader(body, ceiling+1))
 	if err != nil {
-		return n, fmt.Errorf("portal: streaming chunk %s after %d bytes: %w", exportDataID, n, err)
+		return n, streamErr(n, err)
 	}
 	if n > ceiling {
 		return n, fmt.Errorf("%w: chunk %s ran past %d bytes but the portal reported about %d; stopped",
@@ -238,14 +324,60 @@ func (s *Session) FetchChunk(ctx context.Context, exportDataID string, w io.Writ
 	return n, nil
 }
 
+// sniffLimit is the largest body checked for being an error document when
+// the portal gave no usable size.
+const sniffLimit = 1 << 20
+
+// looksLikeDocument reports whether a body reads as an HTML, XML, JSON or
+// text document rather than an archive. A zip starts "PK" and a PST
+// "!BDN", never with markup or a brace.
+func looksLikeDocument(b []byte, contentType string) bool {
+	if mt, _, err := mime.ParseMediaType(contentType); err == nil {
+		if strings.HasPrefix(mt, "text/") || mt == "application/json" || mt == "application/xml" ||
+			strings.HasSuffix(mt, "+json") || strings.HasSuffix(mt, "+xml") {
+			return true
+		}
+	}
+	b = bytes.TrimLeft(bytes.TrimPrefix(b, []byte("\xef\xbb\xbf")), " \t\r\n")
+	return len(b) > 0 && (b[0] == '<' || b[0] == '{' || b[0] == '[')
+}
+
+// documentKind names what a refused body looked like, for the error.
+func documentKind(b []byte, contentType string) string {
+	if mt, _, err := mime.ParseMediaType(contentType); err == nil && mt != "application/octet-stream" {
+		return mt
+	}
+	b = bytes.TrimLeft(b, " \t\r\n")
+	if len(b) > 0 && (b[0] == '{' || b[0] == '[') {
+		return "JSON"
+	}
+	return "HTML or XML"
+}
+
+// stallReader restarts the stall timer each time bytes arrive.
+type stallReader struct {
+	r     io.Reader
+	timer *time.Timer
+}
+
+func (s *stallReader) Read(p []byte) (int, error) {
+	n, err := s.r.Read(p)
+	if n > 0 {
+		s.timer.Reset(DownloadStallTimeout)
+	}
+	return n, err
+}
+
 // downloadClient returns a client with no timeout, for transfers that can
 // run for hours. The session's own client has a per-request timeout suited
 // to service calls, which would abort a large archive mid-stream. Every
-// redirect hop is held to DownloadURLPolicy, the same as the first URL.
-func (s *Session) downloadClient() *http.Client {
+// redirect hop is held to DownloadURLPolicy, the same as the first URL, and
+// every connection to DownloadAddrPolicy. done releases its connections.
+func (s *Session) downloadClient() (*http.Client, func()) {
 	inner := s.hc.CheckRedirect
+	transport, done := downloadTransport(s.hc.Transport)
 	return &http.Client{
-		Transport: s.hc.Transport,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= maxDownloadRedirects {
 				return fmt.Errorf("portal: the download redirected more than %d times", maxDownloadRedirects)
@@ -258,5 +390,68 @@ func (s *Session) downloadClient() *http.Client {
 			}
 			return nil
 		},
+	}, done
+}
+
+// downloadTransport wraps base so that a direct connection is refused when
+// the address it reaches (after DNS) is one DownloadAddrPolicy refuses. A
+// request that goes through a proxy from the environment is not checked
+// that way: the proxy resolves and connects to the host itself, so the
+// address this machine connects to is the proxy's, which is often rightly
+// on a private network. The URL itself was still checked by
+// DownloadURLPolicy.
+//
+// A caller-supplied RoundTripper that is not an *http.Transport is used as
+// it is; only tests supply one.
+func downloadTransport(base http.RoundTripper) (http.RoundTripper, func()) {
+	if base == nil {
+		base = http.DefaultTransport
 	}
+	t, ok := base.(*http.Transport)
+	if !ok {
+		return base, func() {}
+	}
+	direct := t.Clone()
+	proxy := direct.Proxy
+	direct.Proxy = nil
+	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: checkDownloadConn}
+	direct.DialContext = dialer.DialContext
+	direct.DialTLSContext = nil
+	if proxy == nil {
+		return direct, direct.CloseIdleConnections
+	}
+	proxied := t.Clone()
+	split := &proxySplit{proxy: proxy, direct: direct, proxied: proxied}
+	return split, func() {
+		direct.CloseIdleConnections()
+		proxied.CloseIdleConnections()
+	}
+}
+
+// checkDownloadConn runs on every connection attempt, with the address the
+// name resolved to.
+func checkDownloadConn(_, address string, _ syscall.RawConn) error {
+	ap, err := netip.ParseAddrPort(address)
+	if err != nil {
+		return fmt.Errorf("%w: cannot read the connected address", ErrUnsafeDownloadURL)
+	}
+	return DownloadAddrPolicy(ap.Addr())
+}
+
+// proxySplit sends a request through the proxy when the environment names
+// one for it, and directly (with the address check) otherwise.
+type proxySplit struct {
+	proxy           func(*http.Request) (*url.URL, error)
+	direct, proxied *http.Transport
+}
+
+func (p *proxySplit) RoundTrip(req *http.Request) (*http.Response, error) {
+	u, err := p.proxy(req)
+	if err != nil {
+		return nil, err
+	}
+	if u != nil {
+		return p.proxied.RoundTrip(req)
+	}
+	return p.direct.RoundTrip(req)
 }

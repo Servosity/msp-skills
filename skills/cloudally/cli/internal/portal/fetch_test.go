@@ -8,11 +8,16 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
+
+// zipBody starts the way a zip archive does.
+const zipBody = "PK\x03\x04archive"
 
 func TestStrictDownloadURLPolicy(t *testing.T) {
 	allowed := []string{
@@ -99,12 +104,21 @@ func openLinkSession(t *testing.T, link string) *Session {
 	return s
 }
 
-// withDownloadPolicy swaps DownloadURLPolicy for one test.
+// withDownloadPolicy swaps DownloadURLPolicy for one test, and lets
+// connections reach loopback, where the test servers listen.
 func withDownloadPolicy(t *testing.T, p func(*url.URL) error) {
 	t.Helper()
-	prev := DownloadURLPolicy
+	prev, prevAddr := DownloadURLPolicy, DownloadAddrPolicy
 	DownloadURLPolicy = p
-	t.Cleanup(func() { DownloadURLPolicy = prev })
+	DownloadAddrPolicy = allowLoopbackAddr
+	t.Cleanup(func() { DownloadURLPolicy, DownloadAddrPolicy = prev, prevAddr })
+}
+
+func allowLoopbackAddr(a netip.Addr) error {
+	if a.IsLoopback() {
+		return nil
+	}
+	return StrictDownloadAddr(a)
 }
 
 // allowOnlyHost lets one test server through and holds everything else to
@@ -126,7 +140,8 @@ func TestFetchChunkRefusesAnUnsafeLinkBeforeRequesting(t *testing.T) {
 	var hits atomic.Int32
 	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
-		_, _ = w.Write([]byte("internal-service-secret"))
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write([]byte(zipBody))
 	}))
 	defer internal.Close()
 
@@ -162,7 +177,8 @@ func TestFetchChunkChecksEveryRedirectHop(t *testing.T) {
 			http.Redirect(w, r, metadata.URL+"/latest/meta-data/", http.StatusFound)
 			return
 		}
-		_, _ = w.Write([]byte("archive"))
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write([]byte(zipBody))
 	}))
 	defer storage.Close()
 	su, _ := url.Parse(storage.URL)
@@ -188,14 +204,15 @@ func TestFetchChunkChecksEveryRedirectHop(t *testing.T) {
 			http.Redirect(w, r, "/final", http.StatusFound)
 			return
 		}
-		_, _ = w.Write([]byte("archive"))
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write([]byte(zipBody))
 	}))
 	defer storage2.Close()
 	s2u, _ := url.Parse(storage2.URL)
 	withDownloadPolicy(t, allowOnlyHost(s2u.Host))
 	s2 := openLinkSession(t, storage2.URL+"/bounce")
 	buf.Reset()
-	if _, err := s2.FetchChunk(context.Background(), "d1", &buf, SizeHint{}); err != nil || buf.String() != "archive" {
+	if _, err := s2.FetchChunk(context.Background(), "d1", &buf, SizeHint{}); err != nil || buf.String() != zipBody {
 		t.Fatalf("a same-host redirect should be followed: body=%q err=%v", buf.String(), err)
 	}
 }
@@ -302,5 +319,173 @@ func TestFetchChunkAcceptsTheReportedSize(t *testing.T) {
 	var buf bytes.Buffer
 	if n, err := s.FetchChunk(context.Background(), "d1", &buf, SizeHint{}); err != nil || n != int64(len(body)) {
 		t.Fatalf("unknown size: n=%d err=%v", n, err)
+	}
+}
+
+// TestFetchChunkRefusesAHostnameThatResolvesToLoopback lets the URL pass
+// its check (as any DNS name does) and proves the connection is still
+// refused once the name resolves to this machine.
+func TestFetchChunkRefusesAHostnameThatResolvesToLoopback(t *testing.T) {
+	var hits atomic.Int32
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		_, _ = w.Write([]byte(zipBody))
+	}))
+	defer internal.Close()
+	u, _ := url.Parse(internal.URL)
+	prev, prevAddr := DownloadURLPolicy, DownloadAddrPolicy
+	DownloadURLPolicy = func(*url.URL) error { return nil }
+	DownloadAddrPolicy = StrictDownloadAddr
+	t.Cleanup(func() { DownloadURLPolicy, DownloadAddrPolicy = prev, prevAddr })
+
+	s := openLinkSession(t, "http://localhost:"+u.Port()+"/admin")
+	var buf bytes.Buffer
+	_, err := s.FetchChunk(context.Background(), "d1", &buf, SizeHint{})
+	if !errors.Is(err, ErrUnsafeDownloadURL) || !strings.Contains(err.Error(), "resolves to a loopback") {
+		t.Fatalf("want the connection refused after DNS, got %v", err)
+	}
+	if hits.Load() != 0 {
+		t.Fatalf("the loopback service was reached %d time(s)", hits.Load())
+	}
+}
+
+// TestFetchChunkLetsAnEnvironmentProxyResolve proves a request sent through
+// a proxy is not refused for the proxy's own (here loopback) address: the
+// proxy, not this machine, connects to the host.
+func TestFetchChunkLetsAnEnvironmentProxyResolve(t *testing.T) {
+	var proxied atomic.Value
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxied.Store(r.URL.String())
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write([]byte(zipBody))
+	}))
+	defer proxy.Close()
+	pu, _ := url.Parse(proxy.URL)
+	prev, prevAddr := DownloadURLPolicy, DownloadAddrPolicy
+	DownloadURLPolicy = func(*url.URL) error { return nil }
+	DownloadAddrPolicy = StrictDownloadAddr
+	t.Cleanup(func() { DownloadURLPolicy, DownloadAddrPolicy = prev, prevAddr })
+
+	f := newFakePortal(t, "tok")
+	f.getHandler = func(string, map[string][]string) string {
+		return `{"success":true,"data":"http://storage.example.invalid/obj"}`
+	}
+	srv := f.server()
+	defer srv.Close()
+	transport := &http.Transport{Proxy: func(r *http.Request) (*url.URL, error) {
+		if r.URL.Hostname() == "storage.example.invalid" {
+			return pu, nil
+		}
+		return nil, nil
+	}}
+	s, err := Open(context.Background(), Config{BaseURL: srv.URL, RatePerSec: -1, HTTPClient: &http.Client{Transport: transport}}, "tok")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	var buf bytes.Buffer
+	if _, err := s.FetchChunk(context.Background(), "d1", &buf, SizeHint{}); err != nil || buf.String() != zipBody {
+		t.Fatalf("a proxied download should go through: body=%q err=%v", buf.String(), err)
+	}
+	if got, _ := proxied.Load().(string); got != "http://storage.example.invalid/obj" {
+		t.Fatalf("the proxy saw %q", got)
+	}
+}
+
+// TestFetchChunkEndsOnlyAStalledStream proves a stream that keeps arriving
+// may run longer than the stall timeout in total, and one that goes silent
+// is ended.
+func TestFetchChunkEndsOnlyAStalledStream(t *testing.T) {
+	prevStall := DownloadStallTimeout
+	DownloadStallTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { DownloadStallTimeout = prevStall })
+	storage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write([]byte("PK\x03\x04"))
+		w.(http.Flusher).Flush()
+		if r.URL.Path == "/stall" {
+			select {
+			case <-r.Context().Done():
+			case <-time.After(10 * time.Second):
+			}
+			return
+		}
+		for i := 0; i < 10; i++ {
+			time.Sleep(100 * time.Millisecond)
+			_, _ = w.Write([]byte("steady"))
+			w.(http.Flusher).Flush()
+		}
+	}))
+	defer storage.Close()
+	su, _ := url.Parse(storage.URL)
+	withDownloadPolicy(t, allowOnlyHost(su.Host))
+
+	start := time.Now()
+	var buf bytes.Buffer
+	n, err := openLinkSession(t, storage.URL+"/steady").FetchChunk(context.Background(), "d1", &buf, SizeHint{})
+	if err != nil || n != int64(4+10*len("steady")) {
+		t.Fatalf("a steady stream over %s must finish: n=%d err=%v", time.Since(start), n, err)
+	}
+	start = time.Now()
+	_, err = openLinkSession(t, storage.URL+"/stall").FetchChunk(context.Background(), "d1", &buf, SizeHint{})
+	if !errors.Is(err, ErrDownloadStalled) {
+		t.Fatalf("want ErrDownloadStalled, got %v", err)
+	}
+	if took := time.Since(start); took > 5*time.Second {
+		t.Fatalf("the stall took %s to notice", took)
+	}
+}
+
+func TestParseSizeHintReadsThousandsSeparators(t *testing.T) {
+	for in, want := range map[string]string{
+		"1,024.50 MB":      "1024.50 MB",
+		"12,345,678 Bytes": "12345678 Bytes",
+		"2,048 KB":         "2048 KB",
+		"1 024.50 MB":      "",
+	} {
+		h, ok := ParseSizeHint(in)
+		if want == "" {
+			if ok {
+				t.Fatalf("%q should stay unknown, got %+v", in, h)
+			}
+			continue
+		}
+		if !ok || h.Bytes != ParseSizeBytes(want) {
+			t.Fatalf("ParseSizeHint(%q) = %+v, %v; want the bytes of %q", in, h, ok, want)
+		}
+	}
+}
+
+// TestFetchChunkRefusesAnErrorDocumentOfUnknownSize covers a size that is
+// missing or unreadable: a short HTML, XML, JSON or text body is refused,
+// an archive-like one is kept.
+func TestFetchChunkRefusesAnErrorDocumentOfUnknownSize(t *testing.T) {
+	cases := []struct {
+		name, ctype, body string
+		refuse            bool
+	}{
+		{"xml error, binary type", "application/octet-stream", `<?xml version="1.0"?><Error><Code>AccessDenied</Code></Error>`, true},
+		{"html with a bom", "application/octet-stream", "\xef\xbb\xbf  <html><body>Forbidden</body></html>", true},
+		{"json error", "application/octet-stream", `{"error":"expired"}`, true},
+		{"text type", "text/plain; charset=utf-8", "PK but really text", true},
+		{"zip", "application/zip", zipBody, false},
+		{"zip, no type", "", zipBody, false},
+	}
+	for _, tc := range cases {
+		storage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", tc.ctype)
+			_, _ = w.Write([]byte(tc.body))
+		}))
+		su, _ := url.Parse(storage.URL)
+		withDownloadPolicy(t, allowOnlyHost(su.Host))
+		var buf bytes.Buffer
+		_, err := openLinkSession(t, storage.URL+"/obj").FetchChunk(context.Background(), "d1", &buf, SizeHint{})
+		storage.Close()
+		if tc.refuse {
+			if !errors.Is(err, ErrNotAnArchive) || buf.Len() != 0 {
+				t.Fatalf("%s: want ErrNotAnArchive with nothing written, got err=%v wrote=%d", tc.name, err, buf.Len())
+			}
+		} else if err != nil || buf.String() != tc.body {
+			t.Fatalf("%s: want it kept, got err=%v body=%q", tc.name, err, buf.String())
+		}
 	}
 }

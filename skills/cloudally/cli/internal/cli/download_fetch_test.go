@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"cloudally-pp-cli/internal/cliutil/testenv"
@@ -50,6 +52,18 @@ type dlStub struct {
 	creates  []string
 	// urlFailure, when set, is the portal's failure text for every link.
 	urlFailure string
+	// createBodies records every create body, in order.
+	createBodies []map[string]any
+	// createDelay holds each create this long before it answers.
+	createDelay time.Duration
+	// listCreated adds every accepted create to the job listing, the way
+	// the live portal shows a new job after a while.
+	listCreated bool
+	// taskEntities are the mailboxes the backup task serves, each with an
+	// O365MAIL and an O365CALENDAR backup.
+	taskEntities []string
+	// slow streams each body in eight pieces this far apart.
+	slow time.Duration
 
 	api, portal, storage *httptest.Server
 }
@@ -64,6 +78,22 @@ func newDLStub(t *testing.T) *dlStub {
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/partner-access-token") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"accessToken":"handoff-token"}`))
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/backup-tasks/") {
+			s.mu.Lock()
+			ents := []map[string]any{}
+			for i, e := range s.taskEntities {
+				ents = append(ents, map[string]any{
+					"id": fmt.Sprintf("e%d", i), "taskId": "task-1", "entity": e, "extId": "ext-" + e, "status": "ACTIVE",
+					"lastBackupDates": map[string]any{"O365MAIL": 20221231042000 + i, "O365CALENDAR": 20221231041000 + i},
+				})
+			}
+			s.mu.Unlock()
+			raw, _ := json.Marshal(map[string]any{"id": "task-1", "account": "acct-1", "type": "BACKUP", "source": "MS365",
+				"status": "ACTIVE", "numOfEntities": len(ents), "entities": ents})
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(raw)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -85,21 +115,40 @@ func newDLStub(t *testing.T) *dlStub {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		_, _ = w.Write(body)
+		s.mu.Lock()
+		slow := s.slow
+		s.mu.Unlock()
+		if slow <= 0 {
+			_, _ = w.Write(body)
+			return
+		}
+		w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+		step := (len(body) + 7) / 8
+		for off := 0; off < len(body); off += step {
+			_, _ = w.Write(body[off:min(off+step, len(body))])
+			w.(http.Flusher).Flush()
+			time.Sleep(slow)
+		}
 	}))
 	t.Cleanup(s.storage.Close)
 	s.portal = s.portalServer()
 	t.Cleanup(s.portal.Close)
 
 	su, _ := url.Parse(s.storage.URL)
-	prev := portal.DownloadURLPolicy
+	prev, prevAddr := portal.DownloadURLPolicy, portal.DownloadAddrPolicy
 	portal.DownloadURLPolicy = func(u *url.URL) error {
 		if u.Host == su.Host {
 			return nil
 		}
 		return portal.StrictDownloadURL(u)
 	}
-	t.Cleanup(func() { portal.DownloadURLPolicy = prev })
+	portal.DownloadAddrPolicy = func(a netip.Addr) error {
+		if a.IsLoopback() {
+			return nil
+		}
+		return portal.StrictDownloadAddr(a)
+	}
+	t.Cleanup(func() { portal.DownloadURLPolicy, portal.DownloadAddrPolicy = prev, prevAddr })
 	return s
 }
 
@@ -158,12 +207,23 @@ func (s *dlStub) portalServer() *httptest.Server {
 			_ = json.Unmarshal(raw, &body)
 			account, _ := body["account"].(string)
 			s.creates = append(s.creates, account)
+			s.createBodies = append(s.createBodies, body)
 			if s.onCreate != nil {
 				s.onCreate(body)
+			}
+			if s.createDelay > 0 {
+				s.mu.Unlock()
+				time.Sleep(s.createDelay)
+				s.mu.Lock()
 			}
 			if code := s.createCode[account]; code != 0 {
 				w.WriteHeader(code)
 				return
+			}
+			if s.listCreated {
+				sub, _ := body["source"].(string)
+				date, _ := body["date"].(float64)
+				s.jobs = append(s.jobs, dlJob{JobID: fmt.Sprintf("job-%d", len(s.jobs)+1), Account: account, SubSource: sub, Status: "INPROCESS", Snapshot: int64(date)})
 			}
 			writeEnvelope(w, map[string]any{"needRedirect": false})
 		case "getJobsDasboard":
