@@ -133,7 +133,13 @@ func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName strin
 	if err != nil {
 		return configErr(err)
 	}
-	creds := storedLogins(cfg, flags.configPath != "")
+	// The CLI's stored login belongs to the configured NAS: forget it only when
+	// that is the NAS being logged out of (or with --all), never when --nas
+	// names another NAS.
+	creds := []logoutCredentialFile{}
+	if all || (target != "" && dsm.SessionKey(target) == dsm.SessionKey(strings.TrimSpace(cfg.BaseURL))) {
+		creds = storedLogins(cfg, flags.configPath != "")
+	}
 
 	if rep.DryRun {
 		rep.SessionFiles, rep.StoredCredentials = files, creds

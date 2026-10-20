@@ -228,11 +228,13 @@ func newResponseMasker(secrets []string) *responseMasker {
 		// The secret exactly as held and its trimmed form are both secrets:
 		// trimming must never drop a held value below secretSubstringMin.
 		for _, v := range []string{raw, strings.TrimSpace(raw)} {
-			if strings.TrimSpace(v) == "" || m.exact[v] {
+			if v == "" || m.exact[v] {
 				continue
 			}
 			m.exact[v] = true
-			if len(v) >= secretSubstringMin {
+			// A whitespace-only secret is masked as a whole field only:
+			// masking every run of spaces inside text would destroy output.
+			if len(v) >= secretSubstringMin && strings.TrimSpace(v) != "" {
 				m.sub = append(m.sub, v)
 				m.forms = append(m.forms, v, url.QueryEscape(v), url.PathEscape(v), url.QueryEscape(url.QueryEscape(v)),
 					url.PathEscape(url.PathEscape(v)), html.EscapeString(v))
@@ -291,12 +293,12 @@ func decodedStates(s string) ([]string, bool) {
 // maskString masks secrets in one decoded string value: replaced whole when
 // any decoding of it is exactly a secret (any length), otherwise maskInside.
 func (m *responseMasker) maskString(s string) string {
-	states, complete := decodedStates(strings.TrimSpace(s))
+	states, complete := decodedStates(s)
 	if !complete {
 		return ResponseMask
 	}
 	for _, state := range states {
-		if m.exact[strings.TrimSpace(state)] {
+		if m.exact[state] || m.exact[strings.TrimSpace(state)] {
 			return ResponseMask
 		}
 	}

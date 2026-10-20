@@ -272,3 +272,37 @@ func TestAuthLogoutForgetsOnlyTheNamedNAS(t *testing.T) {
 		t.Fatalf("left %v", files)
 	}
 }
+
+// TestAuthLogoutOfAnotherNASKeepsTheStoredLogin: the login stored in the
+// config belongs to the configured NAS; `auth logout --nas beta` must not
+// clear it (Codex round 6).
+func TestAuthLogoutOfAnotherNASKeepsTheStoredLogin(t *testing.T) {
+	sweepIsolate(t)
+	dsm.ForgetVerifiedAddresses()
+	single := dsmtest.NewTwoFactorNAS(t, "")
+	fleetNAS := dsmtest.NewTwoFactorNAS(t, "")
+	freshShell(t)
+	t.Setenv("SYNOLOGY_BETA_ACCOUNT", dsmtest.TwoFactorAccount)
+	t.Setenv("SYNOLOGY_BETA_PASSWORD", fleetNAS.Password)
+	t.Setenv("SYNOLOGY_BETA_OTP_CODE", dsmtest.TwoFactorOTP)
+	if out, errText, code := runCLIErr(t, "fleet", "add", "beta", "--url", fleetNAS.URL(), "--check"); code != 0 {
+		t.Fatalf("fleet add beta --check: exit %d\n%s%s", code, out, errText)
+	}
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := `{"base_url":"` + single.URL() + `","account":"admin","password":"stored-pw-1"}`
+	if err := cliutil.AtomicWritePrivateFile(cfg.Path, []byte(stored), 0o600, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	rep, text, code := runLogout(t, "--nas", "beta")
+	if code != 0 || len(rep.Stored) != 0 {
+		t.Fatalf("auth logout --nas beta touched the configured NAS's stored login: exit %d\n%s", code, text)
+	}
+	raw, _ := os.ReadFile(cfg.Path)
+	var kept map[string]any
+	if err := json.Unmarshal(raw, &kept); err != nil || kept["account"] != "admin" || kept["password"] != "stored-pw-1" {
+		t.Fatalf("the configured NAS's stored login was cleared by a logout of another NAS: %s", raw)
+	}
+}

@@ -128,3 +128,18 @@ func TestMaskKeepsTheHeldSecretLength(t *testing.T) {
 		t.Fatalf("a held secret with a leading space survived masking: %s", out)
 	}
 }
+
+// TestMaskWhitespaceOnlySecretAsAWholeField: a password of eight spaces is a
+// held secret; echoed as a whole field (here percent-encoded) it is masked,
+// but runs of spaces inside other text are left alone.
+func TestMaskWhitespaceOnlySecretAsAWholeField(t *testing.T) {
+	const pw = "        "
+	body := `{"echo":"%20%20%20%20%20%20%20%20","plain":"        ","text":"a        b"}`
+	out := string(MaskResponse([]byte(body), pw))
+	if strings.Contains(out, `"echo":"%20%20`) || strings.Contains(out, `"plain":"        "`) {
+		t.Fatalf("a whitespace-only held secret echoed as a whole field survived: %s", out)
+	}
+	if !strings.Contains(out, `"text":"a        b"`) {
+		t.Fatalf("spaces inside other text were masked: %s", out)
+	}
+}

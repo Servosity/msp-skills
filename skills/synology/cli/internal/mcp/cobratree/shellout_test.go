@@ -2128,7 +2128,7 @@ func TestMCPReadOnlySwitch(t *testing.T) {
 				t.Fatalf("value %q enabled the read-only switch", value)
 			}
 		}
-		for _, value := range []string{"1", "true", "yes", "TRUE", "on", "enabled"} {
+		for _, value := range []string{"1", "true", "yes", "TRUE", "on", "enabled", "${READ_ONLY}", "${user_config.other}"} {
 			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
 			if !cliutil.IsMCPReadOnlyEnv() {
 				t.Fatalf("value %q left the read-only switch off", value)

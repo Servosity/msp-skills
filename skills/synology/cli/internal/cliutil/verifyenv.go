@@ -151,7 +151,14 @@ const MCPReadOnlyEnvVar = "SYNOLOGY_MCP_READ_ONLY"
 // they were off. An unresolved ${user_config...} placeholder (a host that
 // skipped the optional prompt) counts as blank.
 func IsMCPReadOnlyEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {
+	// HAND-FIX(mcp-read-only-fails-closed): only the switch's own unfilled
+	// MCPB placeholder reads as unset (the .mcpb field defaults to blank);
+	// any other ${...} text is a value, and every value turns read-only on.
+	v := os.Getenv(MCPReadOnlyEnvVar)
+	if strings.TrimSpace(v) == "${user_config.synology_mcp_read_only}" {
+		v = ""
+	}
+	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "", "0", "false", "no", "off":
 		return false
 	}

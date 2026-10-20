@@ -1186,12 +1186,12 @@
     {
       "id": "mcp-read-only-fails-closed",
       "summary": "SYNOLOGY_MCP_READ_ONLY fails closed: blank, 0, false, no and off (case-insensitive, trimmed, an unresolved ${user_config...} placeholder counts as blank) leave it off; any other value, including true, yes and on, turns it on; the generated TestMCPReadOnlySwitch 'other values' subtest is updated to that contract",
-      "why": "The generated check accepted exactly \"1\" and the .mcpb exposes the switch as a free-text field: measured on the shipped binary, SYNOLOGY_MCP_READ_ONLY=true, yes, TRUE and on all left 67 tools including fleet_sync, sync and export. Same fix as td-synnex mcp-read-only-fails-closed. TestReadOnlyEnvDropsEndpointWrites (values 1/true/yes) fails with the literal-1 check restored.",
+      "why": "The generated check accepted exactly \"1\" and the .mcpb exposes the switch as a free-text field: measured on the shipped binary, SYNOLOGY_MCP_READ_ONLY=true, yes, TRUE and on all left 67 tools including fleet_sync, sync and export. Same fix as td-synnex mcp-read-only-fails-closed. TestReadOnlyEnvDropsEndpointWrites (values 1/true/yes) fails with the literal-1 check restored. Codex round 6: a literal ${READ_ONLY} value was read as unset through EnvOverride and left the write tools in place; only the switch's own unfilled MCPB placeholder now reads as unset.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cliutil/verifyenv.go",
-          "contains": "switch strings.ToLower(strings.TrimSpace(EnvOverride(MCPReadOnlyEnvVar))) {",
+          "contains": "switch strings.ToLower(strings.TrimSpace(v)) {",
           "min_count": 1,
           "code_only": true
         },
@@ -1215,6 +1215,18 @@
           "file": "manifest.json",
           "contains": "Any other value, for example 1, true or yes",
           "min_count": 1
+        },
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "if strings.TrimSpace(v) == \"${user_config.synology_mcp_read_only}\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout_test.go",
+          "contains": "\"${READ_ONLY}\", \"${user_config.other}\"",
+          "min_count": 1,
+          "code_only": true
         }
       ]
     },
@@ -2035,7 +2047,7 @@
         },
         {
           "file": "cli/internal/dsm/guard.go",
-          "contains": "if strings.TrimSpace(v) == \"\" || m.exact[v] {",
+          "contains": "if v == \"\" || m.exact[v] {",
           "min_count": 1,
           "code_only": true
         },
