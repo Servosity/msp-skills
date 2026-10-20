@@ -1,7 +1,8 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/saas-alerts/handfixes.json
-// under the "decide-truncated-plan-surfaced" and "decide-ids-never-truncated" entries.
+// under the "decide-truncated-plan-surfaced", "decide-ids-never-truncated" and
+// "decide-ids-never-dropped" entries.
 
 package cli
 
@@ -37,7 +38,42 @@ func TestRuleTriggersDecideIDsAreNeverTruncated(t *testing.T) {
 	if err != nil || strings.Contains(stderr, "incomplete") {
 		t.Fatalf("an --ids decision under a page cap reported partial: err=%v stderr=%q\n%s", err, stderr, out)
 	}
-	if res := rqtDecode[rtDecideResult](t, out); res.Truncated || res.Summary.Succeeded != 2 {
+	res := rqtDecode[rtDecideResult](t, out)
+	if res.Truncated || res.Summary.Succeeded != 2 {
 		t.Fatalf("want 2 decided and truncated=false: %s", out)
+	}
+	// Supersession is only worked out from the fetched pages, so the cut list still says so.
+	if res.SupersessionUnchecked == "" || !strings.Contains(stderr, "could not mark one superseded") {
+		t.Fatalf("a capped --ids plan must say supersession was unchecked: stderr=%q\n%s", stderr, out)
+	}
+}
+
+// TestRuleTriggersDecideIDsIgnoreUndecodedRows: an undecodable row cannot hide
+// a requested id (each one missing from the pages is read directly), so it does
+// not fail a fully decided --ids run.
+func TestRuleTriggersDecideIDsIgnoreUndecodedRows(t *testing.T) {
+	api := newRQTAPI(t)
+	api.triggers = append(api.triggers, map[string]any{"id": "RT_JUNK", "status": "PENDING", "rule": 7})
+	rqtEnv(t, api)
+	dbPath := filepath.Join(t.TempDir(), "receipts.db")
+	out, stderr, err := rqtRun(t, "rule-triggers", "decide", "--decision", "reject", "--remarks", "fp", "--ids", "RT_B", "--confirm", "--db", dbPath, "--json")
+	res := rqtDecode[rtDecideResult](t, out)
+	if err != nil || res.Summary.Succeeded != 1 || res.SupersessionUnchecked == "" {
+		t.Fatalf("an undecodable unrelated row failed an --ids run: err=%v stderr=%q\n%s", err, stderr, out)
+	}
+}
+
+// TestRuleTriggersDecideIDsAccountMismatchIsReported: a requested id that the
+// --account selector excludes is reported as skipped, never dropped silently.
+func TestRuleTriggersDecideIDsAccountMismatchIsReported(t *testing.T) {
+	api := newRQTAPI(t)
+	rqtEnv(t, api)
+	out, _, err := rqtRun(t, "rule-triggers", "decide", "--decision", "reject", "--remarks", "fp", "--ids", "RT_B", "--account", "jane.doe@example.com", "--json")
+	if err != nil {
+		t.Fatalf("preview: %v\n%s", err, out)
+	}
+	res := rqtDecode[rtDecideResult](t, out)
+	if len(res.Planned) != 0 || rqtSkipReasons(res)["RT_B"] != rtSkipStatusMismatch {
+		t.Fatalf("RT_B (bob@example.com) must be skipped as a selection mismatch: %s", out)
 	}
 }

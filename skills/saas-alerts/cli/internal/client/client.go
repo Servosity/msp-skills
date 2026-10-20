@@ -1446,7 +1446,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		}
 
 		if !binaryResponse {
-			respBody = sanitizeJSONResponse(respBody)
+			respBody = withholdWebhookTokens(path, sanitizeJSONResponse(respBody)) // saas-alerts hand-fix: error bodies too
 		}
 
 		bodyText := truncateBody(respBody)

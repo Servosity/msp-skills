@@ -73,6 +73,11 @@ func newSubscriptionsTestEventCmd(flags *rootFlags) *cobra.Command {
 			var partialFailure *partialFailureReport
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)
+				if partialFailure == nil { // saas-alerts hand-fix: a 200 that lists delivery errors is a failed test event
+					if ok, why, whErrors := shTestEventOutcome(data, nil); !ok {
+						partialFailure = &partialFailureReport{Field: "delivery", Message: why, Details: whErrors}
+					}
+				}
 				if partialFailure != nil {
 					fmt.Fprintf(os.Stderr, "warning: partial failure detected in %s response: %s\n", "subscriptions", partialFailure.Message)
 					if len(partialFailure.ResourceNames) > 0 {

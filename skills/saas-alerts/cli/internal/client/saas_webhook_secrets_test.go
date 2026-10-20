@@ -101,3 +101,20 @@ func TestWithheldPlaceholderIsNeverWritten(t *testing.T) {
 		t.Fatalf("an update without token must pass: err=%v hits=%d", err, hits)
 	}
 }
+
+// TestWebhookTokenWithheldFromErrorBodies: an error answer that echoes a
+// subscription token does not carry it into the returned error.
+func TestWebhookTokenWithheldFromErrorBodies(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"message":"exists","existing":{"channelId":"ch-1","token":"test-secret-error"}}`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key"}, 5*time.Second, 0)
+	c.NoCache = true
+	_, err := c.Get(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", nil)
+	if err == nil || strings.Contains(err.Error(), "test-secret-error") || !strings.Contains(err.Error(), WebhookTokenWithheld) {
+		t.Fatalf("token reached the error: %v", err)
+	}
+}

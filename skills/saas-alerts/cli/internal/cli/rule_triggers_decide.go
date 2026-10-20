@@ -105,6 +105,11 @@ type rtDecideResult struct {
 	ReceiptError string            `json:"receipt_error"`
 	Note         string            `json:"note"`
 
+	// SupersessionUnchecked says why an --ids plan could not rule out a newer
+	// trigger superseding a requested one (the list was capped or had rows
+	// that did not decode); empty when every fetched page was read.
+	SupersessionUnchecked string `json:"supersession_unchecked"`
+
 	lookupErr error
 }
 
@@ -213,8 +218,11 @@ The default run, without --confirm, is a preview: it fetches the selected trigge
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			if result.Summary.Undecoded > 0 {
+			if result.Summary.Undecoded > 0 && len(opts.ids) == 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d fetched rule trigger row(s) could not be decoded; triggers matching the selection may be missing from this plan\n", result.Summary.Undecoded)
+			}
+			if result.SupersessionUnchecked != "" { // saas-alerts hand-fix: decide-ids-never-truncated
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: every requested id was resolved, but %s, so a newer trigger of the same rule beyond it could not mark one superseded\n", result.SupersessionUnchecked)
 			}
 			if result.Summary.ActionSafetyUnknown > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d trigger(s) skipped: the actions approving would fire are unknown (action_safety_unknown)\n", result.Summary.ActionSafetyUnknown)
@@ -266,7 +274,7 @@ The default run, without --confirm, is a preview: it fetches the selected trigge
 				}
 				return apiErr(safetyErr)
 			}
-			if result.Summary.Undecoded > 0 {
+			if result.Summary.Undecoded > 0 && len(opts.ids) == 0 { // an --ids selection reads each id it did not decode directly
 				undecodedErr := fmt.Errorf("%d fetched rule trigger row(s) could not be decoded, so the selection may be incomplete", result.Summary.Undecoded)
 				if result.Summary.Succeeded > 0 {
 					return partialFailureErr(undecodedErr)
@@ -362,8 +370,15 @@ func rtPlanDecisions(ctx context.Context, c *client.Client, opts rtDecideOptions
 			have[id] = true
 			set = append(set, t)
 		}
-		// Every requested id was found on a page or read directly, so the
-		// page cap cannot hide one: an --ids selection is complete.
+		// Every requested id was found on a page or read directly, so neither
+		// the page cap nor an undecodable row can hide one: an --ids selection
+		// is complete. Supersession is worked out from the fetched pages only,
+		// so a cut list still says so.
+		if live.Truncated {
+			result.SupersessionUnchecked = live.TruncatedReason
+		} else if live.Undecoded > 0 {
+			result.SupersessionUnchecked = fmt.Sprintf("%d fetched rule trigger row(s) could not be decoded", live.Undecoded)
+		}
 		result.Truncated, result.TruncatedWhy = false, "" // saas-alerts hand-fix: decide-ids-never-truncated
 	}
 	result.Fetched = len(set)
@@ -394,6 +409,14 @@ func rtPlanDecisions(ctx context.Context, c *client.Client, opts rtDecideOptions
 	for _, item := range annotated {
 		t := byID[item.TriggerID]
 		if !rtSelected(t, opts) {
+			if len(opts.ids) > 0 && rqContainsExact(opts.ids, t.ID) { // saas-alerts hand-fix: a requested id is never dropped silently
+				emails := make([]string, 0, len(t.Accounts))
+				for _, a := range t.Accounts {
+					emails = append(emails, a.Email)
+				}
+				result.Skipped = append(result.Skipped, rtDecideSkipped{TriggerID: t.ID, Reason: rtSkipStatusMismatch,
+					Detail: fmt.Sprintf("accounts %s do not match the selection (--account %s)", strings.Join(emails, ","), strings.Join(opts.accounts, ","))})
+			}
 			continue
 		}
 		if strings.EqualFold(t.Status, "PENDING") && item.Expired && !opts.includeExpired {
@@ -685,6 +708,9 @@ func rtPrintDecideHuman(cmd *cobra.Command, r rtDecideResult) error {
 	fmt.Fprintf(w, "%s: %s on %d trigger(s), %d skipped\n", r.Mode, r.Decision, len(r.Planned), len(r.Skipped))
 	if r.Truncated { // saas-alerts hand-fix
 		fmt.Fprintf(w, "incomplete: %s; matching triggers beyond it were not included\n", r.TruncatedWhy)
+	}
+	if r.SupersessionUnchecked != "" {
+		fmt.Fprintf(w, "supersession unchecked: %s\n", r.SupersessionUnchecked)
 	}
 	if len(r.Planned) > 0 && r.Mode == "preview" {
 		tw := newTabWriter(w)
