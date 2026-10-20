@@ -119,8 +119,17 @@ func TestDownloadEditedLabelIsAmbiguousNotEmpty(t *testing.T) {
 }
 
 // Item 3: fetch hands a failed job back to its batch, which creates it
-// exactly once more and can then finish.
+// exactly once more and can then finish. Every terminal failure counts,
+// not only the three names reconcile used to know (round 6 P1-5): an
+// ABORTED job was reported failed by fetch but stayed CREATED, so no
+// resume ever created it again.
 func TestDownloadFailedJobIsCreatedOnceMoreByItsBatch(t *testing.T) {
+	for _, st := range []string{"FAILED", "ABORTED", "STOPPED", "ERROR"} {
+		t.Run(st, func(t *testing.T) { testFailedJobIsCreatedOnceMore(t, st) })
+	}
+}
+
+func testFailedJobIsCreatedOnceMore(t *testing.T, failedStatus string) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
 	quickReconcile(t, s)
@@ -130,7 +139,7 @@ func TestDownloadFailedJobIsCreatedOnceMoreByItsBatch(t *testing.T) {
 	}
 	key := ledgerKeys(t)[0]
 	s.mu.Lock()
-	s.jobs[0].Status = "FAILED"
+	s.jobs[0].Status = failedStatus
 	s.mu.Unlock()
 
 	out, stderr, err := runDL(t, s, fetchArgs(t.TempDir(), "--batch", key)...)
@@ -169,8 +178,15 @@ func TestDownloadFailedJobIsCreatedOnceMoreByItsBatch(t *testing.T) {
 	}
 }
 
-// Item 3, the resume side: a resume finds a failed confirmed job itself.
+// Item 3, the resume side: a resume finds a failed confirmed job itself,
+// whatever word the portal uses for the failure.
 func TestDownloadResumeFindsAFailedJob(t *testing.T) {
+	for _, st := range []string{"CANCELLED", "ABORTED", "STOPPED", "ERROR"} {
+		t.Run(st, func(t *testing.T) { testResumeFindsAFailedJob(t, st) })
+	}
+}
+
+func testResumeFindsAFailedJob(t *testing.T, failedStatus string) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
 	quickReconcile(t, s)
@@ -179,13 +195,13 @@ func TestDownloadResumeFindsAFailedJob(t *testing.T) {
 		t.Fatalf("submit: %v\n%s", err, stderr)
 	}
 	s.mu.Lock()
-	s.jobs[0].Status = "CANCELLED"
+	s.jobs[0].Status = failedStatus
 	s.mu.Unlock()
-	if _, stderr, err := runDL(t, s, "download", "submit", "--batch", ledgerKeys(t)[0], "--resume", "--yes"); err != nil {
-		t.Fatalf("resume: %v\n%s", err, stderr)
+	for i := 0; i < 3; i++ {
+		_, _, _ = runDL(t, s, "download", "submit", "--batch", ledgerKeys(t)[0], "--resume", "--yes")
 	}
 	if n := len(s.createdAccounts()); n != 2 {
-		t.Fatalf("creates = %d, want 2: the cancelled job is created once more", n)
+		t.Fatalf("creates = %d after three resumes, want 2: the %s job is created exactly once more", n, failedStatus)
 	}
 }
 

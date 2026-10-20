@@ -41,20 +41,24 @@ var exportFinishedStatuses = map[string]bool{
 // watch polled forever, and fetch kept the job NOT_READY.
 var exportFailureWords = []string{"FAIL", "ERROR", "CANCEL", "ABORT", "STOP"}
 
-// exportJobFinished reports whether an export job has stopped moving. A
-// status that is neither listed nor carries a failure word is treated as
-// still running.
-func exportJobFinished(status string) bool {
+// exportJobFailed is the one terminal-failure classifier: a job whose
+// status carries a failure word ended without an archive and never will
+// produce one. Watch, fetch, fetch's advice and batch reconciliation all
+// use it, so a job one of them calls failed is JOB_FAILED in all of them.
+func exportJobFailed(status string) bool {
 	s := strings.ToUpper(strings.TrimSpace(status))
-	if exportFinishedStatuses[s] {
-		return true
-	}
 	for _, w := range exportFailureWords {
 		if strings.Contains(s, w) {
 			return true
 		}
 	}
 	return false
+}
+
+// exportJobFinished reports whether an export job has stopped moving. A
+// status that is neither listed nor a failure is treated as still running.
+func exportJobFinished(status string) bool {
+	return exportFinishedStatuses[strings.ToUpper(strings.TrimSpace(status))] || exportJobFailed(status)
 }
 
 // exportJobReady reports whether an export job's archive can be downloaded.
@@ -463,7 +467,8 @@ func newDownloadWatchCmd(flags *rootFlags) *cobra.Command {
 		Long: strings.Trim(`
 Polls one export job until it reaches a terminal state, so a script can gate
 the link step on it. Exits 0 when the job is READY_FOR_DOWNLOAD, 6 when it
-finished any other way (failed, cancelled), and with --once 8 when it is
+finished any other way (any status naming a failure: failed, cancelled,
+aborted, stopped, error), and with --once 8 when it is
 still being built. --timeout bounds each status check, not the wait: an
 export can take hours to build.
 `, "\n"),

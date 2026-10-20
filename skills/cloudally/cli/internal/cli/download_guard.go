@@ -39,7 +39,7 @@ import (
 //     batch confirms it, or retries it with --retry-unknown.
 //   - CREATED: the portal accepted the create. job_id is pinned once the
 //     batch confirms which portal job is this archive.
-//   - JOB_FAILED: the confirmed job finished failed or cancelled. Not live:
+//   - JOB_FAILED: the confirmed job ended in failure. Not live:
 //     the identity is free, for its own batch only, to be created once more.
 //   - REJECTED: the portal refused the create before running it. Not live.
 //
@@ -353,9 +353,12 @@ type downloadOwner struct {
 //     --retry-unknown was given; a confirmed one is never created again;
 //   - any other batch's live claim blocks, and so does another batch's
 //     JOB_FAILED claim: that archive is its batch's to create again.
-func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner downloadOwner, retryUnknown, newBatch bool) (int64, error) {
-	var claimID int64
-	err := g.inTx(ctx, func(tx *sql.Tx) error {
+//
+// reused is true when the claim was the batch's own UNKNOWN or accepted
+// one: an earlier create of this archive may exist, so nothing that
+// happens to this resend may release it (runDownloadBatch).
+func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner downloadOwner, retryUnknown, newBatch bool) (claimID int64, reused bool, err error) {
+	err = g.inTx(ctx, func(tx *sql.Tx) error {
 		now := isoUTC(time.Now())
 		live, err := g.liveClaims(ctx, tx, id, owner.batchKey)
 		if err != nil {
@@ -392,7 +395,7 @@ func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner do
 			}
 		}
 		if reuse != nil {
-			claimID = reuse.ID
+			claimID, reused = reuse.ID, true
 			_, err := tx.ExecContext(ctx, `UPDATE download_claims SET state = ?, label = ?, job_id = '', owner_run = ?, owner_host = ?, owner_pid = ?, updated_at = ? WHERE id = ?`,
 				dgInFlight, owner.label, g.run, g.host, g.pid, now, reuse.ID)
 			return err
@@ -421,7 +424,7 @@ func (g *downloadGuard) claim(ctx context.Context, id downloadIdentity, owner do
 		claimID, err = res.LastInsertId()
 		return err
 	})
-	return claimID, err
+	return claimID, reused, err
 }
 
 // settle records what the create for a claim returned: accepted is
@@ -751,19 +754,6 @@ func (g *downloadGuard) labels(ctx context.Context) (map[string]downloadIdentity
 	return out, rows.Err()
 }
 
-// neverSent reports whether a create's error text proves the request never
-// reached the portal: it failed while connecting, or before it was built.
-func neverSent(detail string) bool {
-	d := strings.ToLower(detail)
-	for _, marker := range []string{"dial tcp", "dial udp", "no such host", "connection refused", "network is unreachable",
-		"proxyconnect", "download needs", "unknown archive format"} {
-		if strings.Contains(d, marker) {
-			return true
-		}
-	}
-	return false
-}
-
 // seedEvidence is what one ledger row says about one archive.
 type seedEvidence struct {
 	id                     downloadIdentity
@@ -823,13 +813,9 @@ func (g *downloadGuard) seedFromLedgers(ctx context.Context) error {
 			return fmt.Errorf("batch ledger %s cannot be read (%v), so the archives it records cannot be checked; nothing was sent. Fix or move that file, then run again", path, err)
 		}
 		paths = append(paths, path)
-		// The first build wrote FAILED for every create error, timeouts and
-		// server errors after the request left included. A ledger without
-		// recorded include flags is from before that was fixed.
-		legacy := b.IncludeDeleted == nil || b.IncludeLegalHold == nil
 		for i := range b.Rows {
 			r := &b.Rows[i]
-			if !mayExist(*r) && !(legacy && r.Status == dlFailed && !neverSent(r.Detail)) {
+			if !mayExist(*r) && !legacyFailed(b, *r) {
 				continue
 			}
 			ev := seedEvidence{id: rowIdentity(b, r), batchKey: b.BatchKey, scope: b.Scope, label: r.Label, rank: rankUnknown, state: dgUnknown}

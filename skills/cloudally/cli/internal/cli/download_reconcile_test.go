@@ -206,7 +206,8 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	const key = "20261015-201500-acct"
 	writeLegacyLedger(t, key, []downloadRow{
 		{Entity: "a@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042000, Status: dlCreated, JobID: "job-a"},
-		// Refused before it left this machine, so it was never created.
+		// Its error says the connection was refused, but that build wrote
+		// FAILED for every error, so it is held as possibly created.
 		{Entity: "a@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041000, Status: dlFailed,
 			Detail: "portal: POST startRestoreOrDownload: dial tcp 10.0.0.1:443: connect: connection refused"},
 		{Entity: "b@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042001, Status: dlPlanned},
@@ -233,24 +234,23 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	}
 	for _, want := range []string{
 		"--resume --include-deleted=false --include-legal-hold=false --yes",
-		"--latest --entities a@contoso.com --sub-sources O365CALENDAR --yes",
 		"--latest --entities b@contoso.com --sub-sources O365MAIL --yes",
 	} {
 		if !strings.Contains(err.Error()+stderr, want) {
 			t.Fatalf("the refusal should offer %q:\n%v\n%s", want, err, stderr)
 		}
 	}
-	if strings.Contains(stderr, "--entities b@contoso.com --sub-sources O365CALENDAR,") || strings.Contains(stderr, "O365MAIL,O365CALENDAR") {
+	if strings.Contains(stderr, "--entities a@contoso.com") || strings.Contains(stderr, "--entities b@contoso.com --sub-sources O365CALENDAR,") || strings.Contains(stderr, "O365MAIL,O365CALENDAR") {
 		t.Fatalf("a row that may exist must not be offered:\n%s", stderr)
 	}
 
 	// One of the offered commands goes through and creates only its row.
 	if _, stderr, err := runDL(t, s, "download", "submit", "--account", "acct-1", "--task", "task-1", "--latest",
-		"--entities", "a@contoso.com", "--sub-sources", "O365CALENDAR", "--yes"); err != nil {
+		"--entities", "b@contoso.com", "--sub-sources", "O365MAIL", "--yes"); err != nil {
 		t.Fatalf("an offered command was refused: %v\n%s", err, stderr)
 	}
-	if got := s.createdAccounts(); len(got) != 1 || got[0] != "a@contoso.com" {
-		t.Fatalf("the offered command should create exactly a@'s calendar, got %v", got)
+	if got := s.createdAccounts(); len(got) != 1 || got[0] != "b@contoso.com" {
+		t.Fatalf("the offered command should create exactly b@'s mail, got %v", got)
 	}
 
 	// Stating the include flags resumes the old batch and records them.
@@ -261,13 +261,16 @@ func TestLegacyLedgersStillGuardAndResumeSafely(t *testing.T) {
 	if err != nil || after.IncludeDeleted == nil || after.IncludeLegalHold == nil || *after.IncludeDeleted || *after.IncludeLegalHold {
 		t.Fatalf("the stated flags should be recorded: %+v %v", after, err)
 	}
-	// a@'s calendar was created by the offered command, so the resume left
-	// it out and created only b@'s mail.
-	if got := sortedCopy(s.createdAccounts()); len(got) != 2 || got[0] != "a@contoso.com" || got[1] != "b@contoso.com" {
-		t.Fatalf("want a@ calendar once and b@ mail once, got %v", got)
+	// b@'s mail was created by the offered command, so the resume left it
+	// out; a@'s calendar may exist, so it is UNKNOWN and not sent.
+	if got := s.createdAccounts(); len(got) != 1 {
+		t.Fatalf("want only b@ mail, once, got %v", got)
 	}
-	if r := after.Rows[1]; r.Status != dlSkipped || r.HeldBy == "" || r.HeldBy == key {
-		t.Fatalf("a@'s calendar should be SKIPPED in the old batch: %+v", r)
+	if r := after.Rows[2]; r.Status != dlSkipped || r.HeldBy == "" || r.HeldBy == key {
+		t.Fatalf("b@'s mail should be SKIPPED in the old batch: %+v", r)
+	}
+	if r := after.Rows[1]; r.Status != dlUnknown {
+		t.Fatalf("a@'s legacy FAILED calendar should be held as UNKNOWN: %+v", r)
 	}
 }
 

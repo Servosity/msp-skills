@@ -45,8 +45,8 @@ import (
 // marked ambiguous (several portal jobs could be it) is never sent again.
 //
 // SKIPPED is an archive another batch holds in the download guard; it is
-// never this batch's. JOB_FAILED is a confirmed job that then finished
-// failed or cancelled: the archive does not exist, and a resume of this
+// never this batch's. JOB_FAILED is a confirmed job that then ended in
+// failure (exportJobFailed): the archive does not exist, and a resume of this
 // batch creates it once more.
 const (
 	dlPlanned   = "PLANNED"
@@ -496,18 +496,9 @@ func markAmbiguous(r *downloadRow) {
 	r.Detail = "a portal job of this mailbox, sub-source and snapshot is listed but cannot be proved to be this row's (its label is missing or different); it is not created again"
 }
 
-// jobEndedBadly reports a job that finished failed or cancelled: it will
-// never produce an archive.
-func jobEndedBadly(status string) bool {
-	switch strings.ToUpper(strings.TrimSpace(status)) {
-	case "FAILED", "CANCELLED", "CANCELED":
-		return true
-	}
-	return false
-}
-
-// markJobFailed records that a confirmed row's job finished failed or
-// cancelled. The archive does not exist; a resume creates it once more.
+// markJobFailed records that a confirmed row's job ended as a failure
+// (exportJobFailed). The archive does not exist; a resume creates it once
+// more.
 func markJobFailed(r *downloadRow, status string) {
 	r.Status, r.JobStatus = dlJobFailed, status
 	r.Detail = "the portal job " + r.JobID + " finished as " + status + " with no archive; a resume of this batch creates it once more"
@@ -523,7 +514,8 @@ type reconcileResult struct {
 //
 //   - A confirmed (CREATED) row is matched only by its pinned job id. When
 //     that job is not listed (an empty job drops out once it finishes) the
-//     row stays CREATED; when it is listed as failed or cancelled the row is
+//     row stays CREATED; when it is listed as a failure (exportJobFailed:
+//     FAILED, CANCELLED, ABORTED, STOPPED, ERROR, ...) the row is
 //     JOB_FAILED. It is never re-matched to another job.
 //   - REQUESTED, MISSING and UNKNOWN rows go through matchRow: found is
 //     CREATED, ambiguous is UNKNOWN and held.
@@ -557,7 +549,7 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 				continue
 			}
 			r.LastSeenAt, r.JobStatus = now, j.Status
-			if jobEndedBadly(j.Status) {
+			if exportJobFailed(j.Status) {
 				if _, err := guard.jobFailed(ctx, r.JobID); err != nil {
 					return res, err
 				}
@@ -586,7 +578,7 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 			}
 			confirmRow(r, m.job, now)
 			res.confirmed++
-			if jobEndedBadly(m.job.Status) {
+			if exportJobFailed(m.job.Status) {
 				if _, err := guard.jobFailed(ctx, m.job.JobID); err != nil {
 					return res, err
 				}
@@ -725,7 +717,10 @@ A create whose outcome was never learned (a timeout, a dropped connection, a
 server error after the request left, or a run killed mid-call) is UNKNOWN.
 --resume first looks for UNKNOWN and MISSING jobs on the portal and marks the
 ones it finds CREATED, and never sends an UNKNOWN row again unless
---retry-unknown is given; even then it looks first. A resume sends every row
+--retry-unknown is given; even then it looks first. A resend of an UNKNOWN
+or MISSING row that is refused or never sent leaves the row UNKNOWN: the
+first create may still exist. FAILED rows of a ledger from the first build
+(which recorded no include flags) are held as UNKNOWN for the same reason. A resume sends every row
 with the batch's recorded --format, --include-deleted and --include-legal-hold.
 
 Each create carries a unique job label, and a row is confirmed only by the
@@ -735,7 +730,8 @@ keeps its job for good. When a listed job of the same mailbox, sub-source and
 snapshot could be the row's but cannot be proved to be, the row is held as
 ambiguous: it is never created again, and the snapshot-wide 'download fetch'
 printed for it collects every archive of that snapshot. A confirmed job that
-finishes failed or cancelled is JOB_FAILED, and a resume creates it once more.
+ends in failure (any status naming one: FAILED, CANCELLED, ABORTED, STOPPED,
+ERROR) is JOB_FAILED, and a resume creates it once more.
 
 Every archive (account, task, mailbox, sub-source, snapshot, format and both
 include flags) is claimed in one download guard in the state directory right
@@ -1091,7 +1087,7 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 			fmt.Fprintf(stderr, "%d row(s) were found on the portal and are now CREATED, so they are not sent again\n", res.confirmed)
 		}
 		if res.jobFailed > 0 {
-			fmt.Fprintf(stderr, "%d confirmed job(s) finished failed or cancelled; this run creates each of those archives once more\n", res.jobFailed)
+			fmt.Fprintf(stderr, "%d confirmed job(s) ended in failure; this run creates each of those archives once more\n", res.jobFailed)
 		}
 		if err := saveBatch(batch); err != nil {
 			return fmt.Errorf("saving the batch ledger: %w", err)
@@ -1465,7 +1461,7 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 			id, label := rowIdentity(batch, r), r.Label
 			mu.Unlock()
 
-			claimID, cerr := guard.claim(keep, id, downloadOwner{batchKey: batch.BatchKey, label: label, scope: batch.Scope}, retryUnknown, newBatch)
+			claimID, reused, cerr := guard.claim(keep, id, downloadOwner{batchKey: batch.BatchKey, label: label, scope: batch.Scope}, retryUnknown, newBatch)
 			mu.Lock()
 			if cerr != nil {
 				var held errDownloadClaimed
@@ -1485,13 +1481,25 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 				mu.Unlock()
 				return
 			}
+			// A resend of a create that may already exist (the claim was
+			// reused, or the row was UNKNOWN or accepted) can never prove
+			// that earlier create absent. Whatever happens to it, refused,
+			// never sent, or rolled back, leaves the row and the claim
+			// UNKNOWN: FAILED would free the archive for a plain --resume
+			// or another batch to create again.
+			resend := reused || mayExist(*r)
 			prevStatus, prevDetail, prevRequested, prevAccepted := r.Status, r.Detail, r.RequestedAt, r.AcceptedAt
 			r.Status, r.RequestedAt, r.AcceptedAt, r.Detail = dlRequested, isoUTC(time.Now()), "", ""
 			r.HeldBy, r.Ambiguous = "", false
 			if err := saveBatch(batch); err != nil {
 				r.Status, r.Detail, r.RequestedAt, r.AcceptedAt = prevStatus, prevDetail, prevRequested, prevAccepted
-				// Nothing was sent: release the claim.
-				_ = guard.settle(keep, claimID, dlFailed, false)
+				rollback := dlFailed // nothing was sent: release the claim
+				if resend {
+					rollback = dlUnknown
+					r.Status = dlUnknown
+					r.Detail = "a resend was not sent (the ledger could not be saved: " + err.Error() + "); an earlier create of this archive may exist, so it stays UNKNOWN"
+				}
+				_ = guard.settle(keep, claimID, rollback, false)
 				notSent++
 				if saveErr == nil {
 					saveErr = err
@@ -1519,6 +1527,10 @@ func runDownloadBatch(ctx context.Context, cmd *cobra.Command, sess *portal.Sess
 			sent++
 			if err != nil {
 				r.Status, r.Detail = classifyDownloadCreateFailure(err, connected.Load()), err.Error()
+				if r.Status == dlFailed && resend {
+					r.Status = dlUnknown
+					r.Detail = "this resend was refused or never sent (" + err.Error() + "); an earlier create of this archive may still exist, so the row stays UNKNOWN"
+				}
 			} else {
 				r.AcceptedAt = isoUTC(time.Now())
 			}

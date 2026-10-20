@@ -249,7 +249,7 @@ func expiredArchiveAdvice(b *downloadBatch, r downloadRow, account string) strin
 // batch confirmed (one made in the portal, say) is only reported.
 func failedJobAdvice(ctx context.Context, guard *downloadGuard, job portal.DownloadJob) string {
 	base := fmt.Sprintf("the export job %s finished as %s and has no archive to download", job.JobID, job.Status)
-	if guard == nil || !jobEndedBadly(job.Status) {
+	if guard == nil || !exportJobFailed(job.Status) {
 		return base
 	}
 	c, err := guard.jobFailed(context.WithoutCancel(ctx), job.JobID)
@@ -370,7 +370,8 @@ are removed once they are an hour old.
 
 With --batch, only the jobs the batch confirmed as its own are downloaded;
 another export of the same snapshot is never taken in their place. A job that
-finished failed or cancelled is handed back to the batch that confirmed it,
+ended in failure (any status naming a failure: FAILED, CANCELLED, ABORTED,
+STOPPED, ERROR) is handed back to the batch that confirmed it,
 and that batch's resume creates it once more. Rows another batch holds are
 listed as HELD_BY_OTHER_BATCH, with that batch's fetch command.
 

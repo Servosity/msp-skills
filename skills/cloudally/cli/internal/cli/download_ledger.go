@@ -202,6 +202,15 @@ func ownedRows(b *downloadBatch) int {
 
 // mayExist reports whether a row's export was created or may have been:
 // it was sent and not cleanly refused, or the portal accepted it.
+// legacyFailed reports a FAILED row of a ledger from the first build, which
+// recorded no include flags and wrote FAILED for every create error,
+// timeouts and server errors after the request left included. Nothing in
+// such a row proves the request never reached the portal, so it is treated
+// as possibly created (held as UNKNOWN), never as safe to send again.
+func legacyFailed(b *downloadBatch, r downloadRow) bool {
+	return (b.IncludeDeleted == nil || b.IncludeLegalHold == nil) && r.Status == dlFailed
+}
+
 func mayExist(r downloadRow) bool {
 	switch r.Status {
 	case dlSkipped, dlJobFailed, dlFailed, dlPlanned:
@@ -282,13 +291,11 @@ func claimNewBatch(b *downloadBatch, newBatch bool) error {
 
 // neverCreatedCommands rebuilds, per mailbox, a submit command limited to
 // the rows a batch never created (never sent, or cleanly refused). An older
-// ledger's FAILED row counts only when its error proves the request never
-// left: that build wrote FAILED for timeouts and server errors too.
+// ledger's FAILED row never counts (legacyFailed).
 func neverCreatedCommands(b *downloadBatch) []string {
-	legacy := b.IncludeDeleted == nil || b.IncludeLegalHold == nil
 	var rows []downloadRow
 	for _, r := range b.Rows {
-		if mayExist(r) || r.Status == dlSkipped || (legacy && r.Status == dlFailed && !neverSent(r.Detail)) {
+		if mayExist(r) || r.Status == dlSkipped || legacyFailed(b, r) {
 			continue
 		}
 		rows = append(rows, r)

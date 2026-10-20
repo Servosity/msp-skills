@@ -397,9 +397,12 @@ func TestDownloadKilledAfterAcceptRecoversAndRecreatesOnce(t *testing.T) {
 	}
 }
 
-// P2-a: an older ledger's FAILED row is held unless its error proves the
-// request never left.
-func TestLegacyFailedRowsAreHeldUnlessNeverSent(t *testing.T) {
+// P2-a, round 6 P1-2: every FAILED row of an older ledger is held as
+// possibly created. That build wrote FAILED for every create error, and no
+// error text proves a request never reached the portal (a refused
+// connection to a proxy, or a cached DNS failure on one path, says nothing
+// about a retry that did get through), so no text heuristic releases one.
+func TestLegacyFailedRowsAreAlwaysHeld(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
 	quickReconcile(t, s)
@@ -408,19 +411,20 @@ func TestLegacyFailedRowsAreHeldUnlessNeverSent(t *testing.T) {
 		{Entity: "a@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042000, Status: dlFailed, Detail: "portal: startRestoreOrDownload: status 502"},
 		{Entity: "a@contoso.com", SubSource: "O365CALENDAR", SnapshotRaw: 20221231041000, Status: dlFailed, Detail: "portal: POST startRestoreOrDownload: dial tcp 10.0.0.1:443: connect: connection refused"},
 	})
-	// The old batch's resume refusal offers only what provably never left.
 	_, stderr, _ := runDL(t, s, "download", "submit", "--batch", "20261015-201500-old", "--resume", "--yes")
-	if !strings.Contains(stderr, "--entities a@contoso.com --sub-sources O365CALENDAR --yes") || strings.Contains(stderr, "--sub-sources O365MAIL") {
-		t.Fatalf("only the never-sent calendar may be offered:\n%s", stderr)
+	if strings.Contains(stderr, "--sub-sources O365CALENDAR --yes") || strings.Contains(stderr, "--sub-sources O365MAIL --yes") {
+		t.Fatalf("no legacy FAILED row may be offered as never sent:\n%s", stderr)
 	}
-	if _, _, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...); err == nil || ExitCode(err) != 2 {
-		t.Fatalf("a legacy create that failed after it left may exist and must block, got %v", err)
+	for _, sub := range []string{"O365MAIL", "O365CALENDAR"} {
+		if _, _, err := runDL(t, s, downloadSubmitArgs("--sub-sources", sub)...); err == nil || ExitCode(err) != 2 {
+			t.Fatalf("legacy FAILED %s may exist and must block a new batch, got %v", sub, err)
+		}
+		if state, _, _, _, _ := guardClaimRow(t, testGuard(t), sub); state != dgUnknown {
+			t.Fatalf("legacy FAILED %s seeded as %q, want UNKNOWN", sub, state)
+		}
 	}
-	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365CALENDAR")...); err != nil {
-		t.Fatalf("a legacy create that never left must not block: %v\n%s", err, stderr)
-	}
-	if got := s.createdAccounts(); len(got) != 1 {
-		t.Fatalf("creates = %v, want only the calendar", got)
+	if got := s.createdAccounts(); len(got) != 0 {
+		t.Fatalf("creates = %v, want none", got)
 	}
 }
 
