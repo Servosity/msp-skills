@@ -668,14 +668,22 @@ func (g *downloadGuard) jobReplaced(ctx context.Context, jobID string) (bool, er
 	return later > 0, err
 }
 
-// otherActivity reports whether any batch other than batchKey claimed or
-// settled anything since since. The portal's job count is account-wide, so
-// such activity makes that count say nothing about this batch alone.
-func (g *downloadGuard) otherActivity(ctx context.Context, batchKey string, since time.Time) (bool, error) {
-	var n int
-	err := g.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM download_claims WHERE batch_key <> ? AND updated_at >= ?`,
-		batchKey, isoUTC(since.Add(-time.Second))).Scan(&n)
-	return n > 0, err
+// countActivity reads what, outside this run's own claims, could move
+// the account's portal job count around since. unsettled: a create in flight
+// or with an unknown outcome (it may land at any time, superseded or not),
+// or one accepted within lag before since and not yet confirmed (its job
+// may not have been counted yet). changed: an unconfirmed claim that
+// changed at or after since. A confirmed (pinned) claim's job was listed,
+// so it was already counted. Timestamps are whole seconds, so a change in
+// the second before since also counts: that only ever withholds EMPTY.
+func (g *downloadGuard) countActivity(ctx context.Context, account string, since time.Time, lag time.Duration) (unsettled, changed bool, err error) {
+	var u, c int
+	err = g.db.QueryRowContext(ctx, `SELECT
+		COALESCE(SUM(state IN (?, ?) OR (state = ? AND job_id = '' AND updated_at >= ?)), 0),
+		COALESCE(SUM(job_id = '' AND updated_at >= ?), 0)
+		FROM download_claims WHERE account_id = ? AND owner_run <> ?`,
+		dgInFlight, dgUnknown, dgCreated, isoUTC(since.Add(-lag)), isoUTC(since), account, g.run).Scan(&u, &c)
+	return u > 0, c > 0, err
 }
 
 // narrowFlags records include flags an older ledger did not have on its

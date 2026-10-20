@@ -520,9 +520,9 @@ type reconcileResult struct {
 //   - REQUESTED, MISSING and UNKNOWN rows go through matchRow: found is
 //     CREATED, ambiguous is UNKNOWN and held.
 //   - Only after a run (final), and only when nothing listed could be the
-//     row's, is an unfound row inferred EMPTY (the dashboard count accounts
-//     for it) or MISSING. A pass before re-sending only ever confirms.
-func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBatch, jobs []portal.DownloadJob, final, allAccountedFor bool) (reconcileResult, error) {
+//     row's, is an unfound REQUESTED row EMPTY (when it is in empty, see
+//     emptyRows) or MISSING. A pass before re-sending only ever confirms.
+func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBatch, jobs []portal.DownloadJob, final bool, empty map[*downloadRow]bool) (reconcileResult, error) {
 	var res reconcileResult
 	// A run killed between a create and recording its answer leaves its
 	// claim IN_FLIGHT; recover those first so a confirmation found below
@@ -594,7 +594,7 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 		case !final, r.Status == dlUnknown, r.Status == dlCreated:
 			// Absence proves nothing for these: a job takes minutes to
 			// appear and an empty one never appears at all.
-		case allAccountedFor:
+		case empty[r]:
 			r.Status = dlEmpty
 			r.Detail = "created and finished with nothing to download"
 		default:
@@ -605,50 +605,105 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 	return res, nil
 }
 
-// reconcileBatch lists the portal after a run and settles each row it sent.
-//
-// The dashboard counts every job on the account, including ones that
-// finished with nothing to download, while the listing only carries jobs
-// that are running or have files. An unmatched row is inferred EMPTY only
-// when that count can have changed for this batch alone: it grew by
-// exactly as many jobs as were requested, and no other batch or restore on
-// this machine claimed or settled anything in the window (alone). A job
-// dropped by the portal while anything else ran would otherwise read as
-// EMPTY and never be sent again. Any doubt leaves the row MISSING.
-func reconcileBatch(ctx context.Context, sess *portal.Session, guard *downloadGuard, batch *downloadBatch, createdDelta, requested int, alone bool) (reconcileResult, error) {
+// reconcileBatch lists the portal after a run and settles each row it
+// sent; an unfound row is EMPTY only when it is in empty (emptyRows).
+func reconcileBatch(ctx context.Context, sess *portal.Session, guard *downloadGuard, batch *downloadBatch, empty map[*downloadRow]bool) (reconcileResult, error) {
 	jobs, err := sess.DownloadJobs(ctx)
 	if err != nil {
 		return reconcileResult{}, err
 	}
-	allAccountedFor := alone && requested > 0 && createdDelta == requested
-	return reconcileRows(ctx, guard, batch, jobs, true, allAccountedFor)
+	return reconcileRows(ctx, guard, batch, jobs, true, empty)
 }
 
-// activityElsewhere reports whether anything but batchKey claimed or
-// settled a download or a restore in this state directory since since. Any
-// error counts as activity: it only ever makes a row MISSING, not EMPTY.
-func activityElsewhere(ctx context.Context, guard *downloadGuard, batchKey string, since time.Time) bool {
-	if busy, err := guard.otherActivity(ctx, batchKey, since); err != nil || busy {
-		return true
+// countWindow is what a run read around its creates to tell an empty job
+// from a dropped create. The portal's job count grows for every job,
+// empty ones included, while the listing drops a job that finished with
+// nothing to download; the count is account-wide, so it says something
+// about this run's creates only when nothing else could have moved it.
+type countWindow struct {
+	counted bool // the count was read before and after
+	delta   int  // how much it grew
+	// outsideUnsettled: at the window's open or close, a download or
+	// restore outside this run was in flight, had an unknown outcome, or
+	// was accepted shortly before the window (it may be counted inside it).
+	outsideUnsettled bool
+	outsideChanged   bool // a download or restore outside this run changed inside the window
+	unreadable       bool // a guard could not be read: treated as activity
+}
+
+// emptyRows returns the rows an unfound result marks EMPTY, and nil when
+// none may be. A row qualifies only when all of these hold:
+//
+//   - it was sent, and accepted, in this run (sent), between the two reads;
+//   - the count grew by exactly the number of creates this run had
+//     accepted;
+//   - every other create this run sent has a known answer (refused, or
+//     never sent), and no row of the batch it did not send is UNKNOWN or
+//     REQUESTED with no answer: any of those may be in the count;
+//   - nothing outside this run was unsettled at the window's open or close,
+//     or changed inside it, and both guards could be read.
+//
+// Every other unfound row stays MISSING (or REQUESTED/UNKNOWN). Activity
+// the guards cannot see (another machine, the portal UI) is the residual.
+func emptyRows(batch *downloadBatch, sent []*downloadRow, w countWindow) map[*downloadRow]bool {
+	if !w.counted || w.outsideUnsettled || w.outsideChanged || w.unreadable {
+		return nil
+	}
+	accepted := map[*downloadRow]bool{}
+	sentNow := map[*downloadRow]bool{}
+	for _, r := range sent {
+		sentNow[r] = true
+		switch {
+		case r.Status == dlRequested && r.AcceptedAt != "":
+			accepted[r] = true
+		case r.Status == dlFailed, r.Status == dlSkipped, r.Status == dlCreated:
+			// Refused before it ran, or not sent at all (held elsewhere, or
+			// already confirmed): no job of it can be in the count.
+		default:
+			return nil
+		}
+	}
+	for i := range batch.Rows {
+		r := &batch.Rows[i]
+		if !sentNow[r] && (r.Status == dlUnknown || (r.Status == dlRequested && r.AcceptedAt == "")) {
+			return nil
+		}
+	}
+	if len(accepted) == 0 || w.delta != len(accepted) {
+		return nil
+	}
+	return accepted
+}
+
+// outsideActivity reads the download guard (this account) and the restore
+// guard (every account: a restore's job is counted too) for activity
+// outside this run around since; see countWindow. Any error is returned
+// and counts as activity.
+func outsideActivity(ctx context.Context, guard *downloadGuard, account string, since time.Time) (unsettled, changed bool, err error) {
+	unsettled, changed, err = guard.countActivity(ctx, account, since, reconcileDelay)
+	if err != nil {
+		return true, true, err
 	}
 	dir, err := cliutil.StateDir()
 	if err != nil {
-		return true
+		return true, true, err
 	}
 	path := filepath.Join(dir, restoreGuardFile)
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		return false
+	if _, serr := os.Stat(path); errors.Is(serr, os.ErrNotExist) {
+		return unsettled, changed, nil
 	}
 	db, err := sql.Open("sqlite", path+"?mode=ro&_pragma=busy_timeout(5000)")
 	if err != nil {
-		return true
+		return true, true, err
 	}
 	defer db.Close()
-	var n int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM restore_claims WHERE updated_at >= ?`, isoUTC(since.Add(-time.Second))).Scan(&n); err != nil {
-		return true
+	var u, c int
+	if err := db.QueryRowContext(ctx, `SELECT
+		COALESCE(SUM(state IN (?, ?) OR updated_at >= ?), 0), COALESCE(SUM(updated_at >= ?), 0) FROM restore_claims`,
+		claimSending, claimUnknown, isoUTC(since.Add(-reconcileDelay)), isoUTC(since)).Scan(&u, &c); err != nil {
+		return true, true, err
 	}
-	return n > 0
+	return unsettled || u > 0, changed || c > 0, nil
 }
 
 // reconcileBeforeResend lists the portal before a resume sends anything: it
@@ -660,7 +715,7 @@ func reconcileBeforeResend(ctx context.Context, sess *portal.Session, guard *dow
 	if err != nil {
 		return reconcileResult{}, err
 	}
-	return reconcileRows(ctx, guard, batch, jobs, false, false)
+	return reconcileRows(ctx, guard, batch, jobs, false, nil)
 }
 
 // recoverInterruptedRows turns every REQUESTED row whose create never
@@ -745,9 +800,12 @@ ledger saved, before the first create. --new-batch is the only override: it
 creates every export of the run again. Two runs never work on one batch at
 once.
 
-An unfound row is EMPTY only when the portal's job count grew by exactly the
-jobs this batch asked for and no other batch or restore in this state
-directory was running; any other activity makes it MISSING.
+An unfound row is EMPTY only when this run sent it and the portal accepted
+it, the portal's job count grew by exactly the creates this run had
+accepted, every other create this run sent has a known answer, no row of
+the batch it did not send is UNKNOWN, and no other download or restore in
+this state directory was in flight, unknown, accepted just before, or active
+while it ran. Any other unfound row is MISSING (or stays UNKNOWN).
 
 --timeout bounds each API call, not the run: archives stream for as long as
 they keep arriving, and the reconcile wait is not cut short.
@@ -1105,6 +1163,8 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 		return unsettledDownloadErr(batch)
 	}
 	windowStart := time.Now()
+	var w countWindow
+	openUnsettled, _, openErr := outsideActivity(ctx, r.guard, batch.AccountID, windowStart)
 	before, cerr := r.sess.JobCounts(ctx)
 	if cerr != nil {
 		tenantf(stderr, "warning: could not read the job count first (%v); empty jobs may read as missing\n", cerr)
@@ -1112,12 +1172,14 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 	if err := runDownloadBatch(ctx, r.cmd, r.sess, r.guard, batch, sendable, r.concurrency, retry, r.newBatch); err != nil {
 		return err
 	}
-	// Only rows that may have created a job count toward what the
-	// dashboard should have grown by.
-	wanted := 0
+	accepted, sentCount := 0, 0
 	for _, row := range sendable {
-		if row.Status == dlRequested || row.Status == dlUnknown {
-			wanted++
+		switch {
+		case row.Status == dlRequested && row.AcceptedAt != "":
+			accepted++
+			sentCount++
+		case row.Status == dlRequested, row.Status == dlUnknown:
+			sentCount++
 		}
 	}
 	if !r.noReconcile {
@@ -1127,20 +1189,21 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 			// The creates are recorded; only their confirmation is missing,
 			// which is an unsettled batch, not a crash.
 			return partialFailureErr(fmt.Errorf("stopped before reconciling, so the %d archive(s) requested are not confirmed yet; batch %s is saved, continue it with: cloudally-cli download submit --batch %s --resume --yes (%v)",
-				wanted, batch.BatchKey, batch.BatchKey, ctx.Err()))
+				sentCount, batch.BatchKey, batch.BatchKey, ctx.Err()))
 		case <-time.After(reconcileDelay):
 		}
-		delta, counted := 0, false
 		if after, aerr := r.sess.JobCounts(ctx); aerr == nil && cerr == nil {
-			delta, counted = after.Total-before.Total, true
-			fmt.Fprintf(stderr, "portal job count went from %d to %d (+%d) for %d requested\n",
-				before.Total, after.Total, delta, wanted)
+			w.counted, w.delta = true, after.Total-before.Total
+			fmt.Fprintf(stderr, "portal job count went from %d to %d (+%d) for %d accepted create(s)\n",
+				before.Total, after.Total, w.delta, accepted)
 		}
-		alone := counted && !activityElsewhere(ctx, r.guard, batch.BatchKey, windowStart)
-		if counted && !alone {
-			fmt.Fprintf(stderr, "another batch or restore was active while this one ran, so the job count cannot show which rows finished empty; rows not found are MISSING\n")
+		closeUnsettled, changed, closeErr := outsideActivity(ctx, r.guard, batch.AccountID, windowStart)
+		w.outsideUnsettled, w.outsideChanged = openUnsettled || closeUnsettled, changed
+		w.unreadable = openErr != nil || closeErr != nil
+		if w.counted && (w.outsideUnsettled || w.outsideChanged || w.unreadable) {
+			fmt.Fprintf(stderr, "another create or restore was unsettled or active while this one ran, so the job count cannot show which rows finished empty; rows not found are MISSING\n")
 		}
-		if _, err := reconcileBatch(ctx, r.sess, r.guard, batch, delta, wanted, alone); err != nil {
+		if _, err := reconcileBatch(ctx, r.sess, r.guard, batch, emptyRows(batch, sendable, w)); err != nil {
 			tenantf(stderr, "warning: reconcile failed (%v); rows stay REQUESTED and are unverified\n", err)
 		}
 		if err := saveBatch(batch); err != nil {

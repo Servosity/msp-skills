@@ -323,7 +323,7 @@ func TestReconcileIgnoresTheRowsOwnEarlierFailedJob(t *testing.T) {
 			Label: rowLabelPrefix + "second", RequestedAt: isoUTC(time.Now())}}}
 	old := portal.DownloadJob{JobID: "job-first", Account: "a@contoso.com", SubSource: "O365MAIL", SnapshotDate: 20221231042000,
 		Status: "FAILED", JobLabel: rowLabelPrefix + "first", InitDate: compactAt(time.Now().Add(-time.Hour))}
-	res, err := reconcileRows(ctx, g, b, []portal.DownloadJob{old}, false, false)
+	res, err := reconcileRows(ctx, g, b, []portal.DownloadJob{old}, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
