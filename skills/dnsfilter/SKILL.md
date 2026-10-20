@@ -1,6 +1,6 @@
 ---
 name: dnsfilter
-description: "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'. Trigger phrases: `why is this site blocked in DNSFilter`, `allow this domain for a client in DNSFilter`, `which DNSFilter roaming clients are out of date`, `DNSFilter unblock requests`, `use dnsfilter`, `run dnsfilter`."
+description: "Use when the user asks about DNSFilter across every client: why a domain is blocked or allowed for one client and which policy and rule did it, allowing a domain on the policies that actually blocked it (preview first), the pending end-user unblock request queue, which client orgs have roaming clients behind the latest agent release or on a pulled build, roaming clients that went silent, unprotected or bypassed, which policies already allow or block a domain, or a policy hygiene audit. Covers every DNSFilter API operation as commands. Trigger phrases: `why is this site blocked in DNSFilter`, `allow this domain for a client in DNSFilter`, `which DNSFilter roaming clients are out of date`, `DNSFilter unblock requests`, `which clients are on the bad roaming client version`, `use dnsfilter`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "DNSFilter"
@@ -601,7 +601,7 @@ Threat-categorized allow-list entries, unblocked security categories, unknown-do
 
 ## Auth Setup
 
-DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, then export DNSFILTER_API_KEY. A key created at the MSP organization sees every client organization under it. The REST API requires a paid plan.
+DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, in your MSP organization so the cross-client commands can see your client organizations. Set DNSFILTER_API_KEY to the bare token (`export DNSFILTER_API_KEY=<token>` on macOS / Linux, `$env:DNSFILTER_API_KEY = "<token>"` in PowerShell), or save it once with `dnsfilter-cli auth set-token`, which reads the token from stdin.
 
 Run `dnsfilter-cli doctor` to verify setup.
 

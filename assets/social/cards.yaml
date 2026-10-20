@@ -121,6 +121,10 @@ datto-rmm:
   vendor: "Datto RMM"
   example_command: "Which endpoints across all my clients have gone dark?"
 
+dnsfilter:
+  vendor: "DNSFilter"
+  example_command: "Why is this site blocked for Acme?"
+
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"

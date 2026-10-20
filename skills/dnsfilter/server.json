@@ -29,10 +29,41 @@
       },
       "environmentVariables": [
         {
+          "name": "DNSFILTER_BASE_URL",
+          "description": "Optional: DNSFilter API base URL (default https://api.dnsfilter.com).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.dnsfilter.com"
+        },
+        {
           "name": "DNSFILTER_API_KEY",
-          "description": "Set the DNSFILTER_API_KEY credential for the DNSFilter MCP server.",
+          "description": "DNSFilter API token (bare token, no Bearer prefix), from Account Settings, API Tokens.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "DNSFILTER_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DNSFILTER_MCP_READ_ONLY",
+          "description": "Optional: set to 1 so the MCP server offers DNSFilter reads only, without secret-bearing reads.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DNSFILTER_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by stdio.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit access.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

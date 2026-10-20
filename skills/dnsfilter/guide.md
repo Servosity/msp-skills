@@ -94,7 +94,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Authentication
 
-DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, then export DNSFILTER_API_KEY. A key created at the MSP organization sees every client organization under it. The REST API requires a paid plan.
+DNSFilter uses an API key sent as the raw value of the Authorization header (no Bearer prefix). Create one in the DNSFilter dashboard under Account Settings, API Tokens, in your MSP organization so the cross-client commands can see your client organizations. Set DNSFILTER_API_KEY to the bare token (`export DNSFILTER_API_KEY=<token>` on macOS / Linux, `$env:DNSFILTER_API_KEY = "<token>"` in PowerShell), or save it once with `dnsfilter-cli auth set-token`, which reads the token from stdin.
 
 ## Quick Start
 

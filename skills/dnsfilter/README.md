@@ -1,7 +1,7 @@
 # DNSFilter + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the DNSFilter
-> API. Not affiliated with, endorsed by, or sponsored by DNSFilter, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by DNSFilter, Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `dnsfilter-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `dnsfilter-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `dnsfilter-mcp --transport http` with `DNSFILTER_MCP_HTTP_TOKEN` set and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -134,36 +134,60 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your DNSFilter portal):
+Create an API token in the DNSFilter dashboard (in your MSP organization, so the cross-client commands see your client orgs) and set it as `DNSFILTER_API_KEY`. Use the token itself: DNSFilter expects the bare token in the `Authorization` header, with no `Bearer` prefix.
+
+macOS / Linux:
 
 ```bash
 DNSFILTER_API_KEY=<value> dnsfilter-cli doctor
 ```
+
+On Windows (PowerShell):
+
+```powershell
+$env:DNSFILTER_API_KEY = "<value>"
+dnsfilter-cli doctor
+```
+
+To save the token instead of exporting it each session, run `dnsfilter-cli auth set-token` (see [guide.md](./guide.md)).
 
 `doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `dnsfilter-cli ...` |
-
--->
+| Why is this domain blocked for this client, and which policy and rule did it? | `dnsfilter-cli why-blocked "example.com" --org "Acme Dental"` |
+| Allow it on the policies that actually blocked it (preview first) | `dnsfilter-cli allow "example.com" --org "Acme Dental" --note "TKT-4821"` |
+| What unblock requests are waiting across every client, grouped by domain? | `dnsfilter-cli unblocks triage` |
+| Which clients have roaming clients behind the latest agent release? | `dnsfilter-cli agents drift` |
+| Who is still on the roaming client build that got pulled? | `dnsfilter-cli agents drift --bad-version 1.7.15 --agent-type windows` |
+| Which roaming clients stopped checking in, or are unprotected or bypassed? | `dnsfilter-cli agents stale --older-than 7d` |
+| Which client policies already allow or block this domain or a parent domain? | `dnsfilter-cli lists where "example.com"` |
+| Which allow-listed domains are now categorized as threats, and which policies leave security categories unblocked? | `dnsfilter-cli policy-audit` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most DNSFilter integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most DNSFilter integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which of my 60 client orgs still have Windows roaming clients on the build DNSFilter just pulled" or "why is this site blocked for this one client right now".
 
-This skill syncs DNSFilter into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs DNSFilter into a **local SQLite mirror** with full-text search, so `agents drift`, `agents stale` and `lists where` answer one local query across every client org, joining roaming clients to their sites, sites to their organizations and policies. `agents drift` reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy. `why-blocked` and `allow` work live: they resolve the client's current policy (scheduled-policy slot included), walk DNSFilter's documented rule order, read the Query Log, and say which rule types the API does not expose, which is the chain a stateless API wrapper leaves the AI to assemble call by call.
+
+It complements the DNSFilter dashboard rather than replacing it: policies, deployments, reporting and the Query Log stay there.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+A blocked-site ticket is a chain, not a lookup: which policy the client's site or roaming client is using right now (scheduled policies switch by the quarter hour), that policy's allow list, block list and categories, and what the Query Log recorded. Then the fix has to land on the policy that actually blocked it, not a shared global one. A DNSFilter Community post, "Policy enforcement & reporting discrepancies with Roaming Client", describes a roaming client on a second site ignoring its category blocks while reports showed the site as blocked.
+
+Roaming client releases go wrong across the whole book at once. DNSFilter's status page logged the [Windows Roaming Client 1.7.15 auto-upgrade incident](https://status.dnsfilter.com/incidents/vc2qwqtx2sxz): auto-upgrade paused, the release pulled from general availability, and uninstall-and-reinstall as the workaround. Its help center documents [macOS machines losing connectivity when updating the Roaming Client from 1.x to 2.2](https://help.dnsfilter.com/hc/en-us/articles/41871975449363-Internet-connectivity-lost-when-updating-macOS-Roaming-Client-1-x-x-to-2-2-x). The first question each time is which clients are on the bad build.
+
+- `dnsfilter-cli why-blocked "example.com" --org "Acme Dental"` - the policy and rule that decided it for that client right now, with recent Query Log hits.
+- `dnsfilter-cli allow "example.com" --org "Acme Dental" --note "TKT-4821"` - the allow planned on the policies that actually blocked it; `--confirm` writes and reads back.
+- `dnsfilter-cli unblocks triage` - the pending unblock queue across every client, grouped by domain, threats flagged.
+- `dnsfilter-cli agents drift --bad-version 1.7.15 --agent-type windows` - every client org with roaming clients on the pulled build.
+- `dnsfilter-cli agents stale --older-than 7d` - roaming clients that went silent or are unprotected or bypassed.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -171,7 +195,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The DNSFilter MCP server runs locally, but it speaks HTTP natively: start it with `dnsfilter-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The DNSFilter MCP server runs locally, but it speaks HTTP natively: start it with `dnsfilter-mcp --transport http` and `DNSFILTER_MCP_HTTP_TOKEN` set (it serves `http://127.0.0.1:7777/mcp` by default and requires that token as a bearer header) and put it behind an HTTPS gateway that ChatGPT can sign in to with OAuth and that adds that bearer header (ChatGPT connectors do not send a fixed one). No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -183,14 +207,27 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my DNSFilter data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills. Secret fields DNSFilter returns, such as each site's secret key and API key tokens, are not written to the local mirror.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### What DNSFilter API key do I need?
+
+An API token created in the DNSFilter dashboard (see DNSFilter's API Tokens help article). Set DNSFILTER_API_KEY to the token itself: DNSFilter expects the bare token in the Authorization header, with no Bearer prefix. Create it in your MSP organization so the cross-client commands can see your client organizations; a token from a single client organization only sees that client.
+
+### Can the AI allow a domain or change a policy by itself?
+
+Only if you let it. allow prints the plan and writes nothing unless you add --confirm with a --note (the ticket number), refuses a domain in a security category unless you add --force, skips policies you cannot edit and leaves shared global policies alone unless you pass --include-global. Generated commands such as policies update or policies add-whitelist-domain send as soon as they run, so preview them with --dry-run. For an agent that should only read, set DNSFILTER_MCP_READ_ONLY=1 in the MCP server's environment.
+
+### Does why-blocked see every rule DNSFilter applies?
+
+No, and it says so. It evaluates the site or roaming client's current policy (including the scheduled-policy slot and a roaming client inheriting its site's policy) in DNSFilter's documented order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories. User, collection and LAN-subnet assignments, the org or MSP Universal Allow and Block Lists, and AppAware application rules are not exposed by the policy API, so they are not evaluated; when a Query Log hit names a policy outside the ones it checked, the output flags it.
+
+### Why do agents drift, agents stale or lists where say there is nothing to report?
+
+They read the local mirror, so run sync first: `dnsfilter-cli sync --resources organizations,networks,policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy.
+
+### Has it been tested against a live DNSFilter account?
+
+Not yet. It is built from DNSFilter's published OpenAPI spec and tested against a local mock, so it ships as Beta and Awaiting live verification. A few request shapes were inferred from the spec (some list filters sent in the request body, the bulk domain lookup requiring fqdns) and will be confirmed on the first live run; tell us what you see.
 
 ### What does it cost?
 
@@ -198,15 +235,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
-
--->
+| Read | `dnsfilter-cli` why-blocked; unblocks triage; agents drift; agents stale; lists where; policy-audit; allow (without --confirm, plan only); organizations index; organizations show; policies index; policies show; user-agents index; unblock-requests index; traffic-reports query-logs; domains user-lookup; search; sync | Allow |
+| Filtering policy and allow lists | allow --confirm; policies add-whitelist-domain; policies remove-whitelist-domain; policies add-blacklist-domain; policies remove-blacklist-domain; policies add-blacklist-category; policies remove-blacklist-category; policies bulk-actions-add-allowlist-domains; policies update; policies permissive-mode policies-update; policies add-allowed-application; scheduled-policies update; unblock-requests decision unblock-requests; block-pages update | Preview (allow without --confirm, or --dry-run), then a human-approved write. One allow or a weaker policy opens the site for every deployment on that policy. |
+| Write (routine) | networks create; networks update; organizations create; organizations update; user-agents update; user-agents tags; ip-addresses create; mac-addresses create; scheduled-reports create; dashboards create; notes domain-update | Preview with --dry-run, then a reviewed write |
+| Credential and access | networks index, networks show, networks all, networks msp and networks msp-all (rows carry each site's secret key); networks secret-key networks-generate; networks secret-key networks-rotate; networks secret-key networks-revoke; api-keys index; api-keys show; api-keys create; api-keys revoke api-keys; user-agents uninstall-pin; users change-password; distributors users-reset-password-url; organizations users organization-create; auth set-token | Human-in-the-loop only |
+| Destructive and commercial | import (one create per JSONL line, so it can reach any tier above); policies destroy; networks destroy; networks bulk-destroy; organizations destroy; organizations cancel; user-agents destroy; agent-local-user-bulk-deletes create; api-keys destroy; billing create; billing address-update; distributors organizations-cancel; distributors msps-update; trials | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **scope you grant the DNSFilter credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +253,4 @@ Beta. Validated against the DNSFilter API surface and being validated with MSPs 
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-20._
