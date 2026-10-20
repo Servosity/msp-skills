@@ -263,7 +263,7 @@ func newNovelInvestigateCmd(flags *rootFlags) *cobra.Command {
 			result.Synced = len(gaps) == 0
 			result.UnsyncedResources = gaps
 			result.Note = saasSyncGapNote(db, unsynced, incomplete, saasInvestigateSyncResources)
-			saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, &result.UnsyncedResources) // saas-alerts hand-fix: window older than the synced range
+			saasApplyWindowGap(db, now, since, &result.Synced, &result.Note, &result.UnsyncedResources) // saas-alerts hand-fix: window older than the synced range
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderInvestigateHuman(cmd, result)
@@ -745,7 +745,7 @@ func saasInvestigateMatchDevices(docs []map[string]any, email string) []saasInve
 }
 
 func saasRenderInvestigateHuman(cmd *cobra.Command, r saasInvestigateResult) error {
-	out := cmd.OutOrStdout()
+	out := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	if r.Note != "" {
 		fmt.Fprintf(out, "note: %s\n", r.Note)
 	}

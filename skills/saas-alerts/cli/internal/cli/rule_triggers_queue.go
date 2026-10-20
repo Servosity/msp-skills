@@ -218,7 +218,7 @@ func newNovelRuleTriggersQueueCmd(flags *rootFlags) *cobra.Command {
 }
 
 func rqPrintQueueHuman(cmd *cobra.Command, env rqQueueEnvelope) error {
-	w := cmd.OutOrStdout()
+	w := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	fmt.Fprintf(w, "source: %s, %d trigger(s) fetched, %d expired", env.Source, env.Fetched, env.ExpiredCount)
 	if env.FallbackReason != "" {
 		fmt.Fprintf(w, " (%s)", env.FallbackReason)

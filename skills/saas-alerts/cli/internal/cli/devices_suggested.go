@@ -66,7 +66,7 @@ func newDevicesSuggestedCmd(flags *rootFlags) *cobra.Command {
 				"confidence": formatCLIParamValue(flagConfidence),
 				"deviceName": formatCLIParamValue(flagDeviceName),
 				"pageSize":   formatCLIParamValue(flagPageSize),
-			}, map[string][]string{"confidence": {"confidence"}, "deviceName": {"device-name"}, "pageSize": {"page-size"}}, "", "offset"), nil, flagAll, "", "offset", "pageSize", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"confidence": {"confidence"}, "deviceName": {"device-name"}, "pageSize": {"page-size"}}, "searchAfter", "cursor"), nil, flagAll, "searchAfter", "cursor", "pageSize", 0, "meta.sort", "", "", cmd.ErrOrStderr()) // saas-alerts hand-fix: Unify v2 pages with searchAfter = meta.sort
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

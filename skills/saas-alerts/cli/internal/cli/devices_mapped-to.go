@@ -64,7 +64,7 @@ func newDevicesMappedToCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "devices", path, retainCLIQueryParams(cmd, map[string]string{
 				"deviceName": formatCLIParamValue(flagDeviceName),
 				"pageSize":   formatCLIParamValue(flagPageSize),
-			}, map[string][]string{"deviceName": {"device-name"}, "pageSize": {"page-size"}}, "", "offset"), nil, flagAll, "", "offset", "pageSize", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"deviceName": {"device-name"}, "pageSize": {"page-size"}}, "searchAfter", "cursor"), nil, flagAll, "searchAfter", "cursor", "pageSize", 0, "meta.sort", "", "", cmd.ErrOrStderr()) // saas-alerts hand-fix: Unify v2 pages with searchAfter = meta.sort
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

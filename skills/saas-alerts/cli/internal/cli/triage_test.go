@@ -194,7 +194,7 @@ func TestTriageMissingStoreReturnsEmptyEnvelope(t *testing.T) {
 	missing := saasMissingDBPath(t)
 	var got saasTriageResult
 	stdout, stderr := saasRunJSON(t, &got, "triage", "--db", missing, "--json")
-	if !strings.HasPrefix(stderr, "hint: no local mirror at "+missing) || !strings.Contains(stderr, "sync --resources customers,events --since 24h --db "+missing) {
+	if !strings.HasPrefix(stderr, "hint: no local mirror at "+missing) || !strings.Contains(stderr, "sync --resources customers,events --since 7d --db "+missing) {
 		t.Errorf("stderr = %q", stderr)
 	}
 	if !strings.Contains(stdout, `"groups": []`) || got.ScannedEvents != 0 || got.WindowEnd != "2026-10-14T12:00:00Z" {

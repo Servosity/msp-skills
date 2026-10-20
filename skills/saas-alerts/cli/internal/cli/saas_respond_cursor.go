@@ -8,26 +8,25 @@ package cli
 import (
 	"encoding/json"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
-// respondArrayCursor returns Respond's pagination.cursor pair
-// ([triggeredAt, id]) joined with a comma, or "" when raw is not that pair.
-// cursorValue (sync.go) owns the two-element rule.
+// respondArrayCursor returns an array cursor - Respond's pagination.cursor
+// pair ([triggeredAt, id]) or Unify's meta.sort - as a compact JSON array of
+// strings, or "" when raw is not a non-empty array of scalars.
+// respondCursorRequest re-expands it into repeated query keys.
 func respondArrayCursor(raw json.RawMessage) string {
-	var parts []json.RawMessage
-	if json.Unmarshal(raw, &parts) != nil {
-		return ""
-	}
-	return cursorValue(raw)
+	return unifySortCursor(raw)
 }
 
-// respondCursorRequest sends a comma-joined startAfter cursor as the repeated
-// startAfter keys GET /rule-triggers documents, replacing any startAfter the
-// path already carried (an operator's --start-after on the first page).
+// respondCursorRequest sends an array cursor (JSON array or comma list) as the
+// repeated startAfter keys GET /rule-triggers documents, or the repeated
+// searchAfter keys Unify v2 documents, replacing any value the path already
+// carried (an operator's --start-after or --search-after on the first page).
 func respondCursorRequest(path string, params map[string]string, cursorParam string) (string, map[string]string) {
 	v := params[cursorParam]
-	if cursorParam != "startAfter" || !strings.Contains(v, ",") {
+	if (cursorParam != "startAfter" && cursorParam != "searchAfter") || !(strings.HasPrefix(v, "[") || strings.Contains(v, ",")) {
 		return path, params
 	}
 	rest := make(map[string]string, len(params))
@@ -56,4 +55,18 @@ func respondEndOfPages(obj map[string]json.RawMessage, cursorParam, hasMoreField
 	}
 	raw, ok := rawAtPath(obj, hasMoreField)
 	return ok && strings.TrimSpace(string(raw)) == "false"
+}
+
+// unifyFullBarePage reports whether a bare-array Unify page (no meta.sort to
+// page from) filled the requested page, so more devices may exist. The spec's
+// example response is a bare array while its searchAfter description implies
+// an envelope; until a live tenant settles it, a full bare page is reported as
+// truncated, never complete. With no --page-size the server default is
+// unknown, so 100 (what the CLI used to request) is assumed.
+func unifyFullBarePage(pageSizeParam string, n int) bool {
+	limit, err := strconv.Atoi(strings.TrimSpace(pageSizeParam))
+	if err != nil || limit <= 0 {
+		limit = 100
+	}
+	return n >= limit
 }

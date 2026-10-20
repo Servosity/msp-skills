@@ -1400,7 +1400,7 @@ func containPrint(cmd *cobra.Command, flags *rootFlags, r containResult) error {
 	if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 		return printJSONFiltered(cmd.OutOrStdout(), r, flags)
 	}
-	w := cmd.OutOrStdout()
+	w := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	fmt.Fprintf(w, "%s: contain %s (organization %s, account %s, resolved from %s)\n",
 		r.Mode, r.Email, r.Resolution.OrganizationID, r.Resolution.AccountID, r.Resolution.Source)
 	if r.Resolution.Inferred {

@@ -695,11 +695,11 @@ func saasLocalMirrorMissing(cmd *cobra.Command, flags *rootFlags, dbPath, resour
 	if saasLocalMirrorExists(dbPath) {
 		return false, nil
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local mirror at %s; run: %s sync --resources %s --since 24h --db %s\n", dbPath, saasLocalCLIName, resources, dbPath)
+	fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local mirror at %s; run: %s sync --resources %s --since 7d --db %s\n", dbPath, saasLocalCLIName, resources, dbPath)
 	if wantsHumanTable(cmd.OutOrStdout(), flags) {
 		return true, nil
 	}
-	saasSelectKeepsSyncState(flags, "synced", "note") // saas-alerts hand-fix: --select keeps the unsynced signal
+	saasSelectKeepsSyncState(flags, "synced", "note", "unsynced_resources") // saas-alerts hand-fix: --select keeps the unsynced signal
 	return true, printJSONFilteredKeep(cmd.OutOrStdout(), empty, flags, keep...)
 }
 
@@ -820,13 +820,13 @@ func saasEventsWindowGap(db *store.Store, start time.Time) (time.Time, bool) {
 
 // saasApplyWindowGap folds an events window gap into synced/note. The note is
 // replaced only when nothing else already explains synced:false.
-func saasApplyWindowGap(db *store.Store, start time.Time, window string, synced *bool, note *string, gaps *[]string) {
-	floor, gap := saasEventsWindowGap(db, start)
+func saasApplyWindowGap(db *store.Store, now time.Time, window time.Duration, synced *bool, note *string, gaps *[]string) {
+	floor, gap := saasEventsWindowGap(db, now.Add(-window))
 	if !gap {
 		return
 	}
 	if *synced {
-		*note = fmt.Sprintf("the local store holds events only from %s, later than the start of this window; run: %s sync --resources events --since %s", saasFormatTime(floor), saasLocalCLIName, window)
+		*note = fmt.Sprintf("the local store holds events only from %s, later than the start of this window; run: %s sync --resources events --since %s", saasFormatTime(floor), saasLocalCLIName, saasSyncSinceArg(window))
 	}
 	*synced = false
 	if gaps != nil && !slices.Contains(*gaps, "events") {
@@ -851,6 +851,20 @@ func saasSelectKeepsSyncState(flags *rootFlags, fields ...string) {
 	}
 }
 
+// saasSyncSinceArg renders a window as a value `sync --since` accepts
+// (^\d+[dhwm]$), rounding up, so a compound --since such as 1h30m still yields
+// a runnable remedy.
+func saasSyncSinceArg(d time.Duration) string {
+	switch {
+	case d > 0 && d%(24*time.Hour) == 0:
+		return fmt.Sprintf("%dd", d/(24*time.Hour))
+	case d > 0 && d%time.Hour == 0:
+		return fmt.Sprintf("%dh", d/time.Hour)
+	default:
+		return fmt.Sprintf("%dm", (d+time.Minute-1)/time.Minute)
+	}
+}
+
 // saasUnsyncedNote explains an empty result from a never-synced store so it
 // does not read as all-clear. Empty when nothing is missing.
 func saasUnsyncedNote(missing []string, syncResources string) string {
@@ -861,7 +875,7 @@ func saasUnsyncedNote(missing []string, syncResources string) string {
 	if n := len(missing); n > 1 {
 		list = strings.Join(missing[:n-1], ", ") + " or " + missing[n-1]
 	}
-	return fmt.Sprintf("local store has no synced %s; run: %s sync --resources %s --since 24h", list, saasLocalCLIName, syncResources)
+	return fmt.Sprintf("local store has no synced %s; run: %s sync --resources %s --since 7d", list, saasLocalCLIName, syncResources)
 }
 
 // saasLocalSyncHints emits the unsynced-or-stale hint for the primary resource.

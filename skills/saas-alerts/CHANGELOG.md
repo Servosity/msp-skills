@@ -36,3 +36,6 @@ All notable changes to this skill are documented here. Format follows
 - Not yet run against a live SaaS Alerts tenant.
 - A partially rejected sync is reported as a `sync_warning`, so `sync --strict` can exit
   0 when some pages were refused.
+- Unify device lists page with `searchAfter` from `meta.sort`, as the Manage spec
+  describes. If a tenant returns a bare list instead, more than 1,000 devices cannot be
+  synced completely; sync and `devices list --all` report truncated, never complete.

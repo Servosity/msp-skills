@@ -503,7 +503,7 @@ func syncResource(ctx context.Context, c interface {
 	if stateErr != nil {
 		return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
 	}
-	existingCursor := persistedCursor
+	existingCursor := saasResumeCursor(resource, persistedCursor) // saas-alerts hand-fix: never resume a saved events offset
 	if !full {
 		if storedCount, err := db.Count(resource); err == nil && storedCount == 0 {
 			existingCursor = ""
@@ -1010,6 +1010,16 @@ func syncResource(ctx context.Context, c interface {
 	}
 
 	var reconcileErr error
+
+	if resource == "events" && saasEventsSyncFiltered(userParams) && outcome.complete { // saas-alerts hand-fix: a filtered events sync is never partner-wide complete (no prune, no watermark, no coverage floor)
+		outcome.complete = false
+		outcome.reason = "filtered_sync"
+		if !humanFriendly {
+			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"events","reason":"filtered_sync_not_complete","message":"query params narrowed this events sync, so its rows are stored but it does not count as a complete sync; triage, investigate, cross-tenant and coverage report synced:false until an unfiltered events sync finishes"}`+"\n")
+		} else {
+			fmt.Fprintln(os.Stderr, "  events: query params narrowed this sync, so it does not count as a complete events sync")
+		}
+	}
 
 	// Flat reconcile: prune local rows the API no longer returns, gated on a
 	// proven-complete sync.

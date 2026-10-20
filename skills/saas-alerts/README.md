@@ -221,7 +221,7 @@ Yes. The Respond API documents that a manual approval expires after 12 hours or 
 
 ### Why does triage say synced: false?
 
-triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events --since 7d`. They say synced: false, with a note naming the fix, when the data they need was never synced, when the last events sync did not finish (an automatic refresh fetches one page at a time), or when the window you asked about starts before the oldest events you synced. An empty or partial result is never presented as an all-clear, and --select always keeps the synced and note fields.
+triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events --since 7d`. They say synced: false, with a note naming the fix, when the data they need was never synced, when the last events sync did not finish (an automatic refresh fetches one page at a time), or when the window you asked about starts before the oldest events you synced. An events sync narrowed with --param stores its rows but does not count as complete. An empty or partial result is never presented as an all-clear, and --select always keeps the synced and note fields.
 
 ### Does contain work for Google Workspace accounts?
 
@@ -229,7 +229,7 @@ No. Respond response actions run against Microsoft 365 only, so contain refuses 
 
 ### Has it been tested against a live SaaS Alerts tenant?
 
-Not yet. Every endpoint traces to SaaS Alerts' published API specs and the Respond token exchange was checked against the live API without a key, but no partner has run it against real data yet. One known gap until then: a partially rejected sync is reported as a warning, so sync --strict can still exit 0 when some pages were refused; read the sync_warning events. Run it, and tell us what you find.
+Not yet. Every endpoint traces to SaaS Alerts' published API specs and the Respond token exchange was checked against the live API without a key, but no partner has run it against real data yet. Two things wait on a live tenant: a partially rejected sync is reported as a sync_warning, so sync --strict can still exit 0 when some pages were refused; and the Unify device lists page with searchAfter from the response's meta.sort as the Manage spec describes, but if a tenant returns a bare list instead, a partner with more than 1,000 devices cannot sync them completely (sync and devices list --all then say truncated, never complete). Run it, and tell us what you find.
 
 ### Does it replace the SaaS Alerts dashboard?
 

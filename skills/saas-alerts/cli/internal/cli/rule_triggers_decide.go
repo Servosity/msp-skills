@@ -672,7 +672,7 @@ func rtWriteReceipt(ctx context.Context, db *store.Store, out rtDecideOutcome, o
 }
 
 func rtPrintDecideHuman(cmd *cobra.Command, r rtDecideResult) error {
-	w := cmd.OutOrStdout()
+	w := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	fmt.Fprintf(w, "%s: %s on %d trigger(s), %d skipped\n", r.Mode, r.Decision, len(r.Planned), len(r.Skipped))
 	if len(r.Planned) > 0 && r.Mode == "preview" {
 		tw := newTabWriter(w)

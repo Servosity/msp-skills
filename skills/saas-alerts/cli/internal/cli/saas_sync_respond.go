@@ -197,3 +197,26 @@ func recordSaasEventsCoverage(db *store.Store, sinceTS string, lastSynced time.T
 	}
 	return db.SaveEventsCoverage(saasEventsCoverageFloor(sinceTS, lastSynced, full, prev, havePrev))
 }
+
+// saasEventsSyncFiltered reports whether user query params (--param,
+// --global-param, --resource-param events:...) narrow an events sync. Such a
+// sync stores what it fetched but must not advance the partner-wide watermark
+// or coverage floor: later incremental syncs would start after it and never
+// fetch the other customers' events for that period.
+func saasEventsSyncFiltered(p *syncUserParams) bool {
+	if p == nil {
+		return false
+	}
+	return len(p.flatGlobal) > 0 || len(p.trueGlobal) > 0 || len(p.perResource["events"]) > 0
+}
+
+// saasResumeCursor returns the saved cursor a sync may resume from. Events
+// page by offset over timeSort=desc, so a saved offset shifts as new events
+// arrive at the top and resuming it would skip them; an events walk always
+// restarts from the top of its window.
+func saasResumeCursor(resource, saved string) string {
+	if resource == "events" {
+		return ""
+	}
+	return saved
+}

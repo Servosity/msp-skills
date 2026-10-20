@@ -61,7 +61,7 @@ func TestSaasWindowOlderThanCoverageIsNotSynced(t *testing.T) {
 	for _, args := range [][]string{{"triage", "--since", "7d"}, {"cross-tenant", "--since", "7d"}, {"investigate", "jane.doe@example.com", "--since", "7d"}, {"coverage", "--silent", "72h"}} {
 		var got env
 		saasRunJSON(t, &got, append(args, "--db", dbPath, "--json")...)
-		if got.Synced || !strings.HasPrefix(got.Note, "the local store holds events only from ") || !strings.Contains(got.Note, "sync --resources events --since "+args[len(args)-1]) {
+		if got.Synced || !strings.HasPrefix(got.Note, "the local store holds events only from ") || !strings.Contains(got.Note, "sync --resources events --since 7d") {
 			t.Errorf("%v: synced=%v note=%q", args, got.Synced, got.Note)
 		}
 	}
@@ -69,5 +69,39 @@ func TestSaasWindowOlderThanCoverageIsNotSynced(t *testing.T) {
 	saasRunJSON(t, &ok, "triage", "--since", "12h", "--db", dbPath, "--json")
 	if !ok.Synced || ok.Note != "" {
 		t.Errorf("12h window inside 24h coverage: synced=%v note=%q", ok.Synced, ok.Note)
+	}
+}
+
+func TestSaasSyncSinceArg(t *testing.T) {
+	for d, want := range map[time.Duration]string{
+		7 * 24 * time.Hour: "7d", 72 * time.Hour: "3d", 36 * time.Hour: "36h",
+		90 * time.Minute: "90m", 90*time.Minute + time.Second: "91m",
+	} {
+		if got := saasSyncSinceArg(d); got != want {
+			t.Errorf("saasSyncSinceArg(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+// TestSaasCoverageChecksItsSevenDayWindow: events_7d needs seven synced days
+// even when --silent is shorter.
+func TestSaasCoverageChecksItsSevenDayWindow(t *testing.T) {
+	saasIsolate(t)
+	dbPath := saasSeedFixtureStore(t)
+	rw, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rw.SaveEventsCoverage(saasLocalNow().UTC().Add(-4 * 24 * time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	rw.Close()
+	var cov struct {
+		Synced bool   `json:"synced"`
+		Note   string `json:"note"`
+	}
+	saasRunJSON(t, &cov, "coverage", "--silent", "72h", "--db", dbPath, "--json")
+	if cov.Synced || !strings.Contains(cov.Note, "--since 7d") {
+		t.Errorf("coverage over a 4-day store: synced=%v note=%q", cov.Synced, cov.Note)
 	}
 }

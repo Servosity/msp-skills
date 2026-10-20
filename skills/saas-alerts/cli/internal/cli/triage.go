@@ -149,7 +149,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			gaps, incomplete := saasSyncGaps(db, unsynced, "events") // saas-alerts hand-fix: an unfinished sync is not synced
 			result.Synced = len(gaps) == 0
 			result.Note = saasSyncGapNote(db, unsynced, incomplete, saasTriageSyncResources)
-			saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, nil) // saas-alerts hand-fix: window older than the synced range
+			saasApplyWindowGap(db, now, since, &result.Synced, &result.Note, nil) // saas-alerts hand-fix: window older than the synced range
 			saasBuildTriage(&result, events, minRank, flagCustomer, flagLimit)
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
@@ -321,7 +321,7 @@ func saasBuildTriage(result *saasTriageResult, events []saasLocalEvent, minRank 
 }
 
 func saasRenderTriageHuman(cmd *cobra.Command, r saasTriageResult) error {
-	out := cmd.OutOrStdout()
+	out := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	if r.Note != "" {
 		fmt.Fprintf(out, "note: %s\n", r.Note)
 	}

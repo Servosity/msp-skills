@@ -7,8 +7,10 @@ package client
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -56,5 +58,27 @@ func TestWebhookTokenNeverLeavesTheClient(t *testing.T) {
 	}
 	if strings.Contains(string(data), "test-secret-wire") || !strings.Contains(string(data), WebhookTokenWithheld) {
 		t.Fatalf("token reached the caller: %s", data)
+	}
+}
+
+// TestWebhookTokenWithheldFromDryRunPreview: the --dry-run request preview of a
+// subscription write prints [withheld], not the delivery token.
+func TestWebhookTokenWithheldFromDryRunPreview(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := os.Stderr
+	os.Stderr = w
+	c := New(&config.Config{BaseURL: "http://127.0.0.1:1", AuthHeaderVal: "test-key"}, time.Second, 0)
+	_, _, derr := c.dryRun("POST", "http://127.0.0.1:1/outgoingWebhookApi/api/v1/subscriptions", "/outgoingWebhookApi/api/v1/subscriptions", nil, []byte(`{"url":"https://hooks.example.com/x","token":"test-secret-preview"}`), nil, "test-key")
+	w.Close()
+	os.Stderr = saved
+	if derr != nil {
+		t.Fatal(derr)
+	}
+	out, _ := io.ReadAll(r)
+	if strings.Contains(string(out), "test-secret-preview") || !strings.Contains(string(out), WebhookTokenWithheld) {
+		t.Fatalf("dry-run preview leaked the token: %s", out)
 	}
 }

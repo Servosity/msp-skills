@@ -944,7 +944,7 @@ func shSafeChannelID(id string, knownChannels map[string]bool) string {
 }
 
 func shPrintHuman(cmd *cobra.Command, r shResult) error {
-	w := cmd.OutOrStdout()
+	w := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	fmt.Fprintf(w, "%d subscription(s): %d enabled, %d disabled, %d with backlog (%d unsent packs), %d flagged\n",
 		r.Summary.Total, r.Summary.Enabled, r.Summary.Disabled, r.Summary.Backlog, r.Summary.UnsentPacks, r.Summary.Flagged)
 	if len(r.Subscriptions) > 0 {

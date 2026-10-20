@@ -183,7 +183,7 @@ func newNovelCoverageCmd(flags *rootFlags) *cobra.Command {
 			result.Synced = len(gaps) == 0
 			result.UnsyncedResources = gaps
 			result.Note = saasSyncGapNote(db, unsynced, incomplete, saasCoverageSyncResources)
-			saasApplyWindowGap(db, saasLocalNow().UTC().Add(-silent), flagSilent, &result.Synced, &result.Note, &result.UnsyncedResources) // saas-alerts hand-fix: --silent window older than the synced range
+			saasApplyWindowGap(db, saasLocalNow().UTC(), max(silent, saasCoverageEventWindow), &result.Synced, &result.Note, &result.UnsyncedResources) // saas-alerts hand-fix: the --silent and events_7d windows must both be synced
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderCoverageHuman(cmd, result)
@@ -537,7 +537,7 @@ func saasCountOrgRules(org *saasRespondOrg, ruleDocs []map[string]any) (confirme
 }
 
 func saasRenderCoverageHuman(cmd *cobra.Command, r saasCoverageResult) error {
-	out := cmd.OutOrStdout()
+	out := saasHumanWriter(cmd.OutOrStdout()) // saas-alerts hand-fix: tenant strings never drive the terminal
 	if r.Note != "" {
 		fmt.Fprintf(out, "note: %s\n", r.Note)
 	}

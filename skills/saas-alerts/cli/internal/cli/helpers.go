@@ -1386,6 +1386,11 @@ func paginatedGet(ctx context.Context, c interface {
 				clean[cursorParam] = next
 				continue
 			}
+			if cursorParam == "searchAfter" && unifyFullBarePage(clean["pageSize"], len(items)) { // saas-alerts hand-fix: a full bare page has no meta.sort to continue from
+				emitMissingPaginationCursorWarning(ctx, cursorLookupPath)
+				omitCompleteEvent = true
+				break
+			}
 		} else {
 			// Response is an object - look for array inside
 			var obj map[string]json.RawMessage

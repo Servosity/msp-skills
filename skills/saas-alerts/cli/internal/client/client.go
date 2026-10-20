@@ -1579,7 +1579,7 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	_ = queryPrinted
 	if body != nil {
 		var pretty json.RawMessage
-		if json.Unmarshal(body, &pretty) == nil {
+		if json.Unmarshal(withholdWebhookTokens(path, body), &pretty) == nil { // saas-alerts hand-fix: a webhook token never reaches the preview
 			enc := json.NewEncoder(os.Stderr)
 			enc.SetIndent("  ", "  ")
 			fmt.Fprintf(os.Stderr, "  Body:\n")
@@ -1670,6 +1670,8 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	}
 	if cfg != nil && strings.HasPrefix(cfg.AuthSource, "env:") { // saas-alerts hand-fix: name the variable, not a config file
 		location = "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
+	} else if cfg != nil && cfg.CredentialSource == "credentials file" { // saas-alerts hand-fix: auth set-token saves to credentials.toml
+		location = "the saved credentials file (saas-alerts-cli doctor shows its path; replace it with auth set-token)"
 	}
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }
