@@ -30,7 +30,7 @@ All notable changes to this skill are documented here. Format follows
   and turns the API row red when `base_url` is not the CloudAlly API.
 
 ### Security
-- Hardened before the first release after three review rounds of #400 (Codex
+- Hardened before the first release over several review rounds of #400 (Codex
   plus fresh-context agents driving the binary against local stubs).
 - Credentials: login and refresh calls refuse every redirect, and the portal
   session refuses one off its origin or to http; `auth logout` deletes the
@@ -52,7 +52,9 @@ All notable changes to this skill are documented here. Format follows
   that creates each archive once across batches and runs, the include flags
   recorded for `--resume`, and `--timeout` no longer cuts off a long archive
   stream.
-- Interrupts: Ctrl-C or a tool timeout cancels the run at a safe point and
-  prints how to resume.
+- Interrupts: Ctrl-C, SIGTERM, closing the terminal or a tool timeout cancels
+  the run at a safe point and prints how to resume.
+- `restore watch` reports success only for a success status; a partial or
+  unrecognised status needs a person (exit 5).
 - Thanks @sonofskywalker3 for the connector, and for the live CloudAlly behaviour
   it documents, in #400.

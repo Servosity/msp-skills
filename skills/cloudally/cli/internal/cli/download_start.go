@@ -78,7 +78,13 @@ func newDownloadStartCmd(flags *rootFlags) *cobra.Command {
 		Short: "Build a downloadable archive of one mailbox from a chosen backup date",
 		Long: strings.Trim(`
 Creates a download (export) job for ONE mailbox from the backup taken on or
-before the requested date, and prints the job id to follow.
+before the requested date. The portal returns no job id, so it prints the
+'download list' command to find it.
+
+The create runs as a one-archive batch through the same download guard and
+ledger as 'download submit': the batch key is printed, the same start again
+is refused (exit 2), and 'download submit --batch <key> --resume --yes'
+confirms the job without creating another.
 
 This is deliberately one mailbox per run: a download is a real job against a
 customer's data, and nothing about this command should make it easy to fan

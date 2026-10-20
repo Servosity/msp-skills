@@ -79,8 +79,8 @@ another host. **Three commands write a credential to disk:** `auth login` (and
   --new-batch` command. Agents must not run it on their own. The generated
   single-restore `recovery restore` commands and the MCP `cloudally_execute` tool are not
   behind the guard.
-- **An archive is created once per state directory.** `download submit` claims each
-  archive (account, task, mailbox, sub-source, snapshot, format, include flags) in
+- **An archive is created once per state directory.** `download submit` and
+  `download start` claim each archive (account, task, mailbox, sub-source, snapshot, format, include flags) in
   `download-guard.db` before creating it, so overlapping or concurrent batches never
   create the same export twice; `--new-batch` is the only override.
 - **Downloads only ever create EXPORT jobs.** The portal endpoint the download
