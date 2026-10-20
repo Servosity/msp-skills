@@ -24,7 +24,8 @@ All notable changes to this skill are documented here. Format follows
   release feed, or a named bad build) and silent, unprotected or bypassed clients,
   grouped by client org, from the local mirror.
 - `lists where` and `policy-audit`: every policy whose allow or block list holds a
-  domain or a parent domain, and a hygiene sweep for threat-categorized allow-list
+  domain or a parent domain (with the sites and roaming clients it governs, directly
+  or through any slot of a scheduled policy), and a hygiene sweep for threat-categorized allow-list
   entries, unblocked security categories and drift from a baseline policy.
 - Local SQLite mirror (`sync`, `search`, `analytics`). Secret fields DNSFilter returns
   (site secret keys, API key tokens) are never written to it or to the response cache,
@@ -36,6 +37,8 @@ All notable changes to this skill are documented here. Format follows
   and withholds `secret_key` from networks reads. Writes through `dnsfilter_execute`
   refuse parameters outside the endpoint's schema; `import` and file-path flags are not
   offered over MCP.
+- Scheduled policies resolve on Windows without Go installed (IANA time zone data is
+  embedded).
 - Safety: saved profiles never supply `--confirm`, `--force` or `--yes`; `--dry-run`
   covers local mutations too (export files, feedback, auth, profile delete); `--deliver`
   captures every command's output; tenant strings are escaped before they reach a

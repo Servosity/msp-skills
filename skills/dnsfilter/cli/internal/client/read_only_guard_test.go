@@ -39,11 +39,14 @@ func TestClientReadOnlyGuard(t *testing.T) {
 	if rec.calls != 0 {
 		t.Fatalf("%d refused requests reached the transport", rec.calls)
 	}
-	if _, _, err := c.do(ctx, "GET", "/v1/organizations", nil, nil, nil); err != nil {
-		t.Fatalf("ordinary GET refused: %v", err)
+	allowed := []string{"/v1/organizations", "/v1/notes/policies/7/secret-key.io", "/v1/domains/api-keys.example.com"}
+	for _, p := range allowed {
+		if _, _, err := c.do(ctx, "GET", p, nil, nil, nil); err != nil {
+			t.Fatalf("ordinary GET %s refused: %v", p, err)
+		}
 	}
-	if rec.calls != 1 {
-		t.Fatalf("ordinary GET did not reach the transport (calls=%d)", rec.calls)
+	if rec.calls != len(allowed) {
+		t.Fatalf("ordinary GETs did not reach the transport (calls=%d)", rec.calls)
 	}
 
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "")

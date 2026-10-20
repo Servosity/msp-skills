@@ -24,7 +24,7 @@ faqs:
   - q: "Does why-blocked see every rule DNSFilter applies?"
     a: "No, and it says so. It evaluates the site or roaming client's current policy (including the scheduled-policy slot and a roaming client inheriting its site's policy) in DNSFilter's documented order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories. User, collection and LAN-subnet assignments, the org or MSP Universal Allow and Block Lists, and AppAware application rules are not exposed by the policy API, so they are not evaluated; when a Query Log hit names a policy outside the ones it checked, the output flags it."
   - q: "Why do agents drift, agents stale or lists where say there is nothing to report?"
-    a: "They read the local mirror, so run sync first: `dnsfilter-cli sync --resources organizations,networks,policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy."
+    a: "They read the local mirror, so run sync first: `dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy."
   - q: "Has it been tested against a live DNSFilter account?"
     a: "Not yet. It is built from DNSFilter's published OpenAPI spec and tested against a local mock, so it ships as Beta and Awaiting live verification. A few request shapes were inferred from the spec (some list filters sent in the request body, the bulk domain lookup requiring fqdns) and will be confirmed on the first live run; tell us what you see."
   - q: "What does it cost?"
@@ -178,7 +178,7 @@ No, and it says so. It evaluates the site or roaming client's current policy (in
 
 ### Why do agents drift, agents stale or lists where say there is nothing to report?
 
-They read the local mirror, so run sync first: `dnsfilter-cli sync --resources organizations,networks,policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy.
+They read the local mirror, so run sync first: `dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy.
 
 ### Has it been tested against a live DNSFilter account?
 

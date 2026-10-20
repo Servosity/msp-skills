@@ -394,7 +394,7 @@ func TestComputeListsWhere(t *testing.T) {
 		ja(t, `{"id":"11","attributes":{"name":"Bolt Std","organization_id":2,"whitelist_domains":[],"blacklist_domains":["cdn.example.com"]}}`),
 		ja(t, `{"id":"12","attributes":{"name":"Other","organization_id":2,"whitelist_domains":["badexample.com"]}}`),
 	}
-	rows := computeListsWhere("cdn.example.com", policies, orgs, networks, agents)
+	rows, _ := computeListsWhere("cdn.example.com", policies, orgs, networks, agents, nil)
 	if len(rows) != 2 {
 		t.Fatalf("rows = %+v, want 2 (parent allow + exact block)", rows)
 	}
@@ -406,7 +406,7 @@ func TestComputeListsWhere(t *testing.T) {
 	if rows[1].List != "block" || rows[1].PolicyID != "11" {
 		t.Fatalf("block row = %+v", rows[1])
 	}
-	if got := computeListsWhere("example.org", policies, orgs, networks, agents); len(got) != 0 {
+	if got, _ := computeListsWhere("example.org", policies, orgs, networks, agents, nil); len(got) != 0 {
 		t.Fatalf("unrelated domain matched: %+v", got)
 	}
 }

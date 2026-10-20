@@ -74,7 +74,8 @@ const maxPathDecodeRounds = 4
 // dropped, percent-encoding is decoded repeatedly, backslash counts as a
 // separator, case is folded, empty segments (duplicate or trailing slashes)
 // are skipped, a segment is cut at ';' (matrix params), '.' (a format
-// suffix such as uninstall_pin.json), any '?' or '#' an encoded value
+// suffix such as uninstall_pin.json; never inside a hostname such as
+// secret-key.io, which is a domain value), any '?' or '#' an encoded value
 // smuggled in and a malformed escape left after decoding, and '-' reads as
 // '_'.
 func IsCredentialRequestPath(path string) bool {
@@ -91,7 +92,14 @@ func IsCredentialRequestPath(path string) bool {
 	}
 	p = strings.ToLower(strings.ReplaceAll(p, "\\", "/"))
 	for _, seg := range strings.Split(p, "/") {
-		if i := strings.IndexAny(seg, ";.?#%"); i >= 0 {
+		seg = strings.TrimFunc(seg, func(r rune) bool { return r <= ' ' || r == 0x7f })
+		// A hostname (secret-key.io, api-keys.example.com) is a domain value,
+		// not a format suffix: only a non-hostname segment is cut at '.'.
+		cut := ";?#%"
+		if !hostnameLike(seg) {
+			cut += "."
+		}
+		if i := strings.IndexAny(seg, cut); i >= 0 {
 			seg = seg[:i]
 		}
 		seg = strings.ReplaceAll(strings.TrimFunc(seg, func(r rune) bool { return r <= ' ' || r == 0x7f }), "-", "_")
@@ -100,6 +108,31 @@ func IsCredentialRequestPath(path string) bool {
 		}
 	}
 	return false
+}
+
+// formatSuffixes are the response-format extensions a Rails-style route
+// accepts after a segment (uninstall_pin.json). None is a DNS top-level
+// domain, so a dotted token ending in one is a path, never a hostname.
+var formatSuffixes = map[string]bool{"json": true, "xml": true, "csv": true, "txt": true, "text": true, "html": true, "htm": true, "js": true, "yaml": true, "yml": true, "atom": true, "rss": true, "pdf": true}
+
+// hostnameLabelRE is one DNS label (letters, digits, hyphen; no underscore).
+var hostnameLabelRE = regexp.MustCompile(`^[a-z0-9-]+$`)
+
+// hostnameLike reports whether a lowercased segment reads as a hostname:
+// two or more DNS labels and a last label that is not a format suffix.
+// uninstall_pin.json (underscore, .json) and uninstall-pin.json (.json) are
+// not; secret-key.io and api-keys.example.com are.
+func hostnameLike(seg string) bool {
+	labels := strings.Split(seg, ".")
+	if len(labels) < 2 || formatSuffixes[labels[len(labels)-1]] {
+		return false
+	}
+	for _, l := range labels {
+		if !hostnameLabelRE.MatchString(l) {
+			return false
+		}
+	}
+	return true
 }
 
 // lenientPercentDecode decodes every valid %XX escape and leaves a malformed
@@ -370,7 +403,14 @@ func plainTextNamesCredential(plain string) bool {
 			return true
 		}
 	}
-	for _, line := range strings.Split(plain, "\n") {
+	// A header needs a table under it: like the store's textNamesSecret, a
+	// one-line string ("Finance, password reset desk", or a prose list of
+	// field names) is not a CSV header.
+	lines := strings.Split(strings.TrimSpace(plain), "\n")
+	if len(lines) < 2 {
+		return false
+	}
+	for _, line := range lines {
 		fields := headerSplitRE.Split(strings.TrimSpace(line), -1)
 		if len(fields) < 2 {
 			continue

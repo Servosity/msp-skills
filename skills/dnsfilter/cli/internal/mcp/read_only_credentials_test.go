@@ -272,6 +272,15 @@ func TestContextToolDescribesDNSFilter(t *testing.T) {
 			t.Fatalf("tool_surface names %s, which is not registered", tool)
 		}
 	}
+	// Under the read-only switch the tip that explains read-only mode must
+	// survive the result funnel (a one-line list of field names is not a CSV
+	// header).
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	roFrame := callToolWire(t, newRegisteredServer(t), "context", map[string]any{})
+	if strings.Contains(roFrame, "[withheld") || !strings.Contains(roFrame, "Under DNSFILTER_MCP_READ_ONLY=1, dnsfilter_execute runs only GETs") {
+		t.Fatalf("read-only mode withheld the context tool's own tip: %.400s", roFrame)
+	}
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "")
 	hint := mcpSQLQueryError(context.Background(), errors.New("no such table: network"))
 	if strings.Contains(hint, "not one SQL table per resource") || !strings.Contains(hint, "resource_type='policies'") {
 		t.Fatalf("sql no-such-table hint is not truthful for this store: %s", hint)

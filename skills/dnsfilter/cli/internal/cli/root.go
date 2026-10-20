@@ -182,7 +182,7 @@ func Execute() (retErr error) {
 	// encoding/json leaves UTF-8 C1 controls (CSI, OSC, ST) unescaped; the
 	// wrapper rewrites them as \u00XX so an organization or roaming-client
 	// name cannot drive the terminal. isTerminal unwraps it.
-	rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})
+	rootCmd.SetOut(newStdoutWriter())
 	rootCmd.SetErr(stderrW())
 
 	executedCmd, err := rootCmd.ExecuteC()
@@ -196,9 +196,9 @@ func Execute() (retErr error) {
 	if errors.Is(err, pflag.ErrHelp) {
 		return nil
 	}
-	envelopeWriter := io.Writer(&c1EscapeWriter{w: os.Stdout})
+	envelopeWriter := io.Writer(newStdoutWriter())
 	if flags.deliverBuf != nil {
-		envelopeWriter = io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf)
+		envelopeWriter = io.MultiWriter(newStdoutWriter(), flags.deliverBuf)
 	}
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
@@ -423,7 +423,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 			}
 			if sink.Scheme != "stdout" && sink.Scheme != "" && !isProfileSave(cmd) {
 				flags.deliverBuf = &bytes.Buffer{}
-				w := io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf)
+				w := io.MultiWriter(newStdoutWriter(), flags.deliverBuf)
 				cmd.SetOut(w)
 				// help prints through the target command, which inherits
 				// root's writer, so root tees too.

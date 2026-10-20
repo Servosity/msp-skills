@@ -883,17 +883,51 @@ func responseCacheCredentialPath(path string) bool {
 		}
 		p = d
 	}
-	p = strings.NewReplacer("\\", "/", "-", "_").Replace(strings.ToLower(p))
+	p = strings.ReplaceAll(strings.ToLower(p), "\\", "/")
 	for _, seg := range strings.Split(p, "/") {
-		if i := strings.IndexAny(seg, ";.?#"); i >= 0 {
+		// A hostname (secret-key.io) is a domain value, not a format suffix:
+		// only a non-hostname segment is cut at '.' (same rule as the MCP
+		// layer's redact.IsCredentialRequestPath).
+		cut := ";?#"
+		if !credentialPathHostnameLike(seg) {
+			cut += "."
+		}
+		if i := strings.IndexAny(seg, cut); i >= 0 {
 			seg = seg[:i]
 		}
+		seg = strings.ReplaceAll(strings.TrimSpace(seg), "-", "_")
 		switch seg {
 		case "api_keys", "uninstall_pin", "secret_key", "redirect_link":
 			return true
 		}
 	}
 	return false
+}
+
+// credentialPathHostnameLike reports a segment that reads as a hostname: two
+// or more DNS labels (letters, digits, hyphen) whose last label is not a
+// response-format suffix such as json. uninstall-pin.json is not one;
+// secret-key.io is.
+func credentialPathHostnameLike(seg string) bool {
+	labels := strings.Split(seg, ".")
+	if len(labels) < 2 {
+		return false
+	}
+	switch labels[len(labels)-1] {
+	case "json", "xml", "csv", "txt", "text", "html", "htm", "js", "yaml", "yml", "atom", "rss", "pdf":
+		return false
+	}
+	for _, l := range labels {
+		if l == "" {
+			return false
+		}
+		for _, r := range l {
+			if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func ensureCachePerms(resourceDir, cacheFile string) {

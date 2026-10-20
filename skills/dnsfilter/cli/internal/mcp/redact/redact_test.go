@@ -70,3 +70,28 @@ func TestRawRedactsCompleteRecordsInTruncatedText(t *testing.T) {
 		t.Fatal("default mode must not rewrite text")
 	}
 }
+
+// TestHeaderHeuristicNeedsATable: like the store's textNamesSecret, only a
+// multi-line text can carry a CSV/table header; a one-line tenant string or a
+// prose list of field names is not withheld, a real CSV with a secret column
+// still is.
+func TestHeaderHeuristicNeedsATable(t *testing.T) {
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	for _, keep := range []string{
+		"Finance, password reset desk",
+		"every tool result withholds credential-named fields (secret_key, token, client_secret, password, pin).",
+	} {
+		if got := Final(keep); got != keep {
+			t.Fatalf("one-line text withheld: %q -> %q", keep, got)
+		}
+		b, _ := json.Marshal(map[string]string{"note": keep})
+		if got := Final(string(b)); got != string(b) {
+			t.Fatalf("one-line JSON string value rewritten: %s -> %s", b, got)
+		}
+	}
+	for _, csv := range []string{"id,name,password\n1,Finance,hunter2-hunter2\n", "ID  NAME     TOKEN\n1   Finance  abcdef123456\n"} {
+		if got := Final(csv); strings.Contains(got, "hunter2") || strings.Contains(got, "abcdef123456") {
+			t.Fatalf("multi-line table with a secret header was not withheld: %q", got)
+		}
+	}
+}

@@ -3733,25 +3733,21 @@ func objectEnvelopeRows(obj map[string]any) ([]map[string]any, bool) {
 }
 
 // scrubCell drops terminal control characters (ESC, BEL, C1) from a --csv or
-// --plain value and writes bidi controls as \u20XX: tenant strings
-// (organization, site and roaming-client names) reach the terminal through
-// these printers. Tab, CR and LF stay for CSV quoting and plainCellValue to
-// handle.
+// --plain value: tenant strings (organization, site and roaming-client names)
+// reach the terminal through these printers. Tab, CR and LF stay for CSV
+// quoting and plainCellValue to handle. Bidi controls are data and stay: a
+// file, pipe or --deliver sink keeps them, and the stdout writer escapes them
+// only when stdout is a terminal (c1EscapeWriter).
 func scrubCell(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		switch {
-		case r == '\t' || r == '\n' || r == '\r':
-			b.WriteRune(r)
-		case r < 0x20 || (r >= 0x7f && r <= 0x9f):
-		case cliutil.IsBidiControl(r):
-			fmt.Fprintf(&b, `\u%04x`, r)
-		default:
-			b.WriteRune(r)
+	return strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\n' || r == '\r' {
+			return r
 		}
-	}
-	return b.String()
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 func plainCellValue(v any) string {

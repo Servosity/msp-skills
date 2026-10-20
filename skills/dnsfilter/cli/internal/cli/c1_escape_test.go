@@ -52,6 +52,7 @@ func TestExecuteEscapesC1OnStdout(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
 	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	fakeStdoutTerminal(t, true)
 	stdout, stderr, err := executeArgs(t, "organizations", "show", "1", "--json")
 	if err != nil {
 		t.Fatalf("organizations show: %v\n%s%s", err, stdout, stderr)
@@ -124,6 +125,7 @@ func TestExecuteEscapesLoneC1OnStdout(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
 	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	fakeStdoutTerminal(t, true)
 	stdout, stderr, err := executeArgs(t, "organizations", "index", "--json")
 	if err != nil {
 		t.Fatalf("organizations index: %v\n%s%s", err, stdout, stderr)
@@ -133,5 +135,41 @@ func TestExecuteEscapesLoneC1OnStdout(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "RAW9B") {
 		t.Fatalf("organization missing from output: %q", stdout)
+	}
+	// A file or pipe is not a terminal: the bytes the API sent are kept.
+	fakeStdoutTerminal(t, false)
+	stdout, _, err = executeArgs(t, "organizations", "index", "--json", "--no-cache")
+	if err != nil || !strings.Contains(stdout, "Raw\x9b31mRAW9B") {
+		t.Fatalf("stdout to a file lost the raw byte: err=%v %q", err, stdout)
+	}
+}
+
+// fakeStdoutTerminal makes the stdout writer treat the process stdout as a
+// terminal (or not) for the rest of the test.
+func fakeStdoutTerminal(t *testing.T, tty bool) {
+	t.Helper()
+	old := stdoutIsTerminal
+	stdoutIsTerminal = func() bool { return tty }
+	t.Cleanup(func() { stdoutIsTerminal = old })
+}
+
+// The stdout writer escapes only for a terminal: a raw writer (file, pipe)
+// passes every byte, bidi and lone C1 included, unchanged.
+func TestStdoutWriterRawWhenNotTerminal(t *testing.T) {
+	in := []byte("{\"name\":\"Acme \u202aDental\u202c Raw\x9b31m\"}\n")
+	var out bytes.Buffer
+	if _, err := (&c1EscapeWriter{w: &out, raw: true}).Write(in); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out.Bytes(), in) {
+		t.Fatalf("raw writer changed the bytes: %q", out.Bytes())
+	}
+	fakeStdoutTerminal(t, false)
+	if !newStdoutWriter().raw {
+		t.Fatal("stdout that is not a terminal must be written raw")
+	}
+	fakeStdoutTerminal(t, true)
+	if newStdoutWriter().raw {
+		t.Fatal("a terminal stdout must be escaped")
 	}
 }

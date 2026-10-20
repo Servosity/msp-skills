@@ -40,6 +40,10 @@ func TestIsCredentialRequestPath(t *testing.T) {
 		"/v1/psa_integrations/redirect_link",
 		"/v1/user_agents/uninstall_pin%3Fx%3D1",
 		"/v1/user_agents/%20uninstall_pin%20",
+		"/v1/user_agents/uninstall-pin.json",
+		"/v1/user_agents/uninstall_pin.io",
+		"/v1/api_keys.json",
+		"/uninstall-pin.json",
 	}
 	for _, p := range hit {
 		if !IsCredentialRequestPath(p) {
@@ -54,6 +58,10 @@ func TestIsCredentialRequestPath(t *testing.T) {
 		"/v1/user_agents/uninstall_pinned",
 		"/v1/policies/9/add_whitelist_domain",
 		"/v1/api_keys_report",
+		"/secret-key.io",
+		"/api-keys.example.com",
+		"/v1/notes/policies/7/redirect-link.example.org",
+		"/v1/notes/policies/7/uninstall-pin.corp.local",
 	}
 	for _, p := range miss {
 		if IsCredentialRequestPath(p) {

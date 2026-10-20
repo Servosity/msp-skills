@@ -99,7 +99,7 @@ Do not use this CLI for:
 ### Policy hygiene across tenants
 - **`lists where`**  -  Find every policy across every client whose allow or block list holds a domain or a parent domain, with counts of the sites and roaming clients it governs. Reads the local mirror; sync first.
 
-  _Use to check precedent before allowing a domain, or to measure exposure when a domain makes the news. Run dnsfilter-cli sync --resources organizations,networks,policies,user-agents first; an empty mirror returns an empty result._
+  _Use to check precedent before allowing a domain, or to measure exposure when a domain makes the news. Run dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents first; an empty mirror returns an empty result._
 
   ```bash
   dnsfilter-cli lists where example.com --agent

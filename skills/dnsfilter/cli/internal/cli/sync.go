@@ -547,6 +547,20 @@ func syncResource(ctx context.Context, c interface {
 	}
 
 	cursor := existingCursor
+	// HAND-FIX(sync-complete-means-whole-fleet): last_attempt_complete = 1
+	// means the collection now holds every row the API returns unfiltered.
+	// A walk narrowed by a user param, resumed mid-collection from a saved
+	// cursor, or fetching only an incremental window the stored watermark
+	// does not already cover cannot prove that, so it records the attempt
+	// incomplete and never moves the watermark. A narrowed walk also starts
+	// from the top of its own listing and never writes its cursor into the
+	// resource-wide resume state.
+	scoped := syncParamsScope(userParams, resource, false)
+	if scoped {
+		cursor = ""
+	}
+	resumed := cursor != ""
+	sinceCovered := syncSinceCoveredByWatermark(sinceTS, effectiveSince, lastSynced)
 	pageSize := determinePaginationDefaults(resource)
 	sortParam := syncResourceSortParam(resource)
 	sortValue := syncResourceSortValue(resource)
@@ -976,11 +990,28 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		// Save cursor after each page for resumability
-		if err := db.SaveSyncProgress(resource, nextCursor, totalCount); err != nil {
+		progressCursor := nextCursor
+		if scoped {
+			progressCursor = persistedCursor
+		}
+		if err := db.SaveSyncProgress(resource, progressCursor, totalCount); err != nil {
 			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
 
 		cursor = nextCursor
+	}
+
+	// HAND-FIX(sync-complete-means-whole-fleet): only a whole, unfiltered
+	// walk is a complete snapshot, for pruning and for sync_state alike.
+	if outcome.complete {
+		switch {
+		case scoped:
+			outcome.complete, outcome.reason = false, "param_scoped"
+		case resumed:
+			outcome.complete, outcome.reason = false, "resumed_from_cursor"
+		case !sinceCovered:
+			outcome.complete, outcome.reason = false, "incremental_window"
+		}
 	}
 
 	var reconcileErr error
@@ -1058,6 +1089,9 @@ func syncResource(ctx context.Context, c interface {
 	if capExitHit {
 		finalCursor = capExitCursor
 	}
+	if scoped {
+		finalCursor = persistedCursor
+	}
 	cachedCount, countErr := db.Count(resource)
 	if countErr != nil {
 		return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("counting stored %s rows: %w", resource, countErr), Duration: time.Since(started)}
@@ -1091,6 +1125,9 @@ func syncResource(ctx context.Context, c interface {
 		watermark = requestedAt.Add(-syncWatermarkOverlap)
 	} else if capTruncated && sortEffective && timestampOrderSafe && timestampEvidence && !newestStoredAt.IsZero() {
 		watermark = newestStoredAt.Add(-syncWatermarkOverlap)
+	}
+	if !outcome.complete {
+		watermark = time.Time{}
 	}
 	if !watermark.IsZero() {
 		// A positional or opaque cursor was issued for the old since window.
@@ -1139,6 +1176,44 @@ func syncResourceWalksAfterClear(resource, sinceTS string, userParams *syncUserP
 	}
 	missing := unfilledRequiredSyncQueryParams(resource, userParams, syncConditionalQueryParams(resource, effectiveSince, syncResourceSortValue(resource)))
 	return len(missing) == 0
+}
+
+// syncParamsScope reports whether any user --param, --global-param or
+// --resource-param applies to resource's list requests (isDependent as in
+// syncUserParams.applyTo). Every such param is treated as row-selecting.
+// HAND-FIX(sync-complete-means-whole-fleet)
+func syncParamsScope(userParams *syncUserParams, resource string, isDependent bool) bool {
+	probe := map[string]string{}
+	userParams.applyTo(resource, probe, isDependent)
+	return len(probe) > 0
+}
+
+// syncSinceCoveredByWatermark reports whether an incremental walk's window
+// starts at or before the stored watermark, so the rows it did not fetch are
+// already in the mirror as of a complete walk. A walk with no since filter
+// covers trivially; a fresh mirror (no watermark) never does.
+// HAND-FIX(sync-complete-means-whole-fleet)
+func syncSinceCoveredByWatermark(sinceTS, effectiveSince string, watermark time.Time) bool {
+	if effectiveSince == "" {
+		return true
+	}
+	if watermark.IsZero() {
+		return false
+	}
+	if sinceTS == "" {
+		return true
+	}
+	start, err := time.Parse(time.RFC3339, sinceTS)
+	return err == nil && !start.After(watermark)
+}
+
+// syncCollectionComplete reports whether resource's latest sync attempt was a
+// complete walk.
+// HAND-FIX(sync-complete-means-whole-fleet)
+func syncCollectionComplete(db *store.Store, resource string) bool {
+	var complete int
+	err := db.DB().QueryRow(`SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, resource).Scan(&complete)
+	return err == nil && complete == 1
 }
 
 // paginationDefaults holds the resolved pagination parameter names and page size.
@@ -3268,6 +3343,14 @@ func syncOneParent(
 		cursor = nextCursor
 	}
 
+	// HAND-FIX(sync-complete-means-whole-fleet): a per-parent walk narrowed by
+	// a user param or a --since window is not that parent's whole child set,
+	// for pruning and for the collection's completion alike.
+	if outcome.complete && syncParamsScope(userParams, dep.Name, true) {
+		outcome.complete, outcome.reason = false, "param_scoped"
+	} else if outcome.complete && depSinceTS != "" {
+		outcome.complete, outcome.reason = false, "incremental_window"
+	}
 	if prune && outcome.complete && dep.ReconcileMode == "per_parent" {
 		deleted, rerr := db.ReconcilePartition(
 			dep.Name, dep.GenericScopeJSONPath, outcome.scopeVal,
@@ -3710,6 +3793,12 @@ func syncDependentResource(ctx context.Context, c interface {
 		fmt.Fprintf(stderrW(), "\n")
 	}
 	attemptComplete := parentCoverageComplete && reportedParents == len(parentRows) && completeParents == len(parentRows)
+	// HAND-FIX(sync-complete-means-whole-fleet): children of an incomplete
+	// parent collection cover only the parents it holds.
+	if attemptComplete && !syncCollectionComplete(db, dep.ParentTable) {
+		attemptComplete = false
+		coverageReason = "parent_collection_incomplete"
+	}
 	if !attemptComplete && coverageReason == "" {
 		coverageReason = "parent_partitions_incomplete"
 	}

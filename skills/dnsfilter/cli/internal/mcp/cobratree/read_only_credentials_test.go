@@ -76,12 +76,25 @@ func TestReadOnlyMirrorRefusesCredentialResourceArgs(t *testing.T) {
 		{"host": "uninstall_pin.json"},
 		{"resource": "api_keys/"},
 		{"org": "../psa_integrations/redirect_link"},
+		{"resource": "uninstall-pin.json"},
+		{"positional-resource": "uninstall_pin.json"},
 	} {
 		if msg := mirroredMCPReadOnlyRefusal(tail, args); msg == "" {
 			t.Fatalf("read-only let %v through", args)
 		}
 	}
 	if msg := mirroredMCPReadOnlyRefusal(tail, map[string]any{"resource": "networks", "follow": false, "host": "laptop-17", "fqdn": "facebook.com"}); msg != "" {
+		t.Fatalf("read-only refused a plain resource: %s", msg)
+	}
+	// A domain is sent as a query value or looked up locally, never as a
+	// path segment: a hostname whose first label is a credential word is
+	// not a credential request.
+	for _, args := range []map[string]any{{"fqdn": "secret-key.io"}, {"domain": "api-keys.example.com"}, {"fqdn": "uninstall-pin.example.net"}, {"host": "redirect-link.corp.local"}} {
+		if msg := mirroredMCPReadOnlyRefusal(tail, args); msg != "" {
+			t.Fatalf("read-only refused a hostname %v: %s", args, msg)
+		}
+	}
+	if msg := mirroredMCPReadOnlyRefusal(tail, map[string]any{"resource": "networks"}); msg != "" {
 		t.Fatalf("read-only refused a plain resource: %s", msg)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "")

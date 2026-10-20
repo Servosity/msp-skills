@@ -8,6 +8,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
@@ -131,7 +132,7 @@ func TestListsWhereIncompleteMirrorIsNotAnImpactAllClear(t *testing.T) {
 	run := mirrorRunner(t, &fixtureAPI{})
 	db := filepath.Join(t.TempDir(), "mirror.db")
 	seedMirror(t, db, map[string][]string{"policies": {mirrorPolicy}}, map[string]string{"policies": "complete"})
-	missing := []string{"organizations", "networks", "user-agents"}
+	missing := []string{"organizations", "networks", "scheduled-policies", "user-agents"}
 
 	out, _ := run("lists", "where", "example.com", "--db", db, "--json")
 	var rows []listsWhereRow
@@ -143,7 +144,7 @@ func TestListsWhereIncompleteMirrorIsNotAnImpactAllClear(t *testing.T) {
 	decodeIncomplete(t, "lists where --agent", agentOut, missing)
 
 	human, _ := run("lists", "where", "example.com", "--db", db, "--human-friendly")
-	if !strings.Contains(human, "policy 10") || !strings.Contains(human, "Incomplete local mirror") || !strings.HasSuffix(human, "--resources organizations,networks,user-agents\n") {
+	if !strings.Contains(human, "policy 10") || !strings.Contains(human, "Incomplete local mirror") || !strings.HasSuffix(human, "--resources organizations,networks,scheduled-policies,user-agents\n") {
 		t.Fatalf("lists where human output must keep the row and name the unsynced collections:\n%s", human)
 	}
 }
@@ -224,7 +225,7 @@ func TestNovelReadersCompleteMirrorOutputUnchanged(t *testing.T) {
 	db := filepath.Join(t.TempDir(), "mirror.db")
 	seedMirror(t, db,
 		map[string][]string{"user-agents": {mirrorAgent()}, "networks": {mirrorSite}, "organizations": {mirrorOrg}, "policies": {mirrorPolicy}},
-		map[string]string{"user-agents": "complete", "networks": "complete", "organizations": "complete", "policies": "complete"})
+		map[string]string{"user-agents": "complete", "networks": "complete", "organizations": "complete", "policies": "complete", "scheduled-policies": "complete"})
 
 	for _, c := range []struct {
 		args []string
@@ -289,5 +290,92 @@ func TestNovelReadersIncompleteCollectionsStates(t *testing.T) {
 	got, err = incompleteCollections(t.Context(), ro, "organizations", "networks")
 	if err != nil || !reflect.DeepEqual(got, []string{"organizations", "networks"}) {
 		t.Fatalf("legacy store: incompleteCollections = %v, %v", got, err)
+	}
+}
+
+// scheduleSlots builds a 672-slot policy_ids array: the first half of the
+// week uses first, the second half second (JSON numbers, as the API sends).
+func scheduleSlots(first, second int) string {
+	slots := make([]string, 672)
+	for i := range slots {
+		slots[i] = fmt.Sprint(first)
+		if i >= 336 {
+			slots[i] = fmt.Sprint(second)
+		}
+	}
+	return "[" + strings.Join(slots, ",") + "]"
+}
+
+// lists where counts a site or roaming client as governed by a policy when
+// any slot of its scheduled policy (own or inherited from the site) uses it.
+// Fully synced, a policy reached only through schedules reported sites=0
+// roaming_clients=0 while governing those deployments.
+func TestListsWhereCountsScheduleGovernedDeployments(t *testing.T) {
+	run := mirrorRunner(t, &fixtureAPI{})
+	db := filepath.Join(t.TempDir(), "mirror.db")
+	now := time.Now().UTC().Format(time.RFC3339)
+	client := func(id, rels string) string {
+		return `{"id":"` + id + `","attributes":{"hostname":"PC-` + id + `","agent_type":"windows","agent_version":"3.2.0","status":"active","agent_state":"protected","last_sync":"` + now + `"},"relationships":{` + rels + `}}`
+	}
+	seedMirror(t, db, map[string][]string{
+		"organizations": {mirrorOrg},
+		"policies": {mirrorPolicy,
+			`{"id":"11","attributes":{"name":"Annex","is_global_policy":false,"whitelist_domains":[],"blacklist_domains":["example.com"]},"relationships":{"organization":{"data":{"id":"1"}}}}`},
+		"scheduled-policies": {
+			`{"id":"7","attributes":{"name":"Office hours","timezone":"America/New_York","policy_ids":` + scheduleSlots(10, 11) + `}}`,
+			`{"id":"8","attributes":{"name":"Always Std","timezone":"UTC","policy_ids":` + scheduleSlots(10, 10) + `}}`},
+		"networks": {
+			`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"scheduled_policy":{"data":{"id":"7"}}}}`,
+			`{"id":"51","attributes":{"name":"Annex"},"relationships":{"organization":{"data":{"id":"1"}},"policy":{"data":{"id":"11"}}}}`},
+		"user-agents": {
+			client("a1", `"network":{"data":{"id":"50"}}`),                                        // inherits site 50's schedule (10 and 11)
+			client("a2", `"network":{"data":{"id":"51"}},"scheduled_policy":{"data":{"id":"8"}}`), // own schedule (10)
+			client("a3", `"network":{"data":{"id":"51"}}`),                                        // inherits site 51's policy 11
+		},
+	}, map[string]string{"organizations": "complete", "policies": "complete", "scheduled-policies": "complete", "networks": "complete", "user-agents": "complete"})
+
+	out, errOut := run("lists", "where", "example.com", "--db", db, "--json")
+	var rows []listsWhereRow
+	if err := json.Unmarshal([]byte(out), &rows); err != nil || len(rows) != 2 {
+		t.Fatalf("lists where over a complete mirror: err=%v\n%s%s", err, out, errOut)
+	}
+	byPolicy := map[string]listsWhereRow{}
+	for _, r := range rows {
+		byPolicy[r.PolicyID] = r
+	}
+	// Policy 10 governs only through schedules: site 50 (schedule 7), a1
+	// (site 50's schedule) and a2 (own schedule 8).
+	if r := byPolicy["10"]; r.Sites != 1 || r.RoamingClients != 2 || r.ScheduledSites != 1 || r.ScheduledRoamingClients != 2 {
+		t.Fatalf("policy 10 (schedule-only) counts = %+v, want sites=1 roaming=2 scheduled 1/2", r)
+	}
+	// Policy 11: site 51 directly plus site 50's schedule; a3 inherits 51, a1 site 50's schedule.
+	if r := byPolicy["11"]; r.Sites != 2 || r.RoamingClients != 2 || r.ScheduledSites != 1 || r.ScheduledRoamingClients != 1 {
+		t.Fatalf("policy 11 counts = %+v, want sites=2 roaming=2 scheduled 1/1", r)
+	}
+	if strings.Contains(errOut, "Incomplete local mirror") {
+		t.Fatalf("complete mirror flagged incomplete: %s", errOut)
+	}
+	human, _ := run("lists", "where", "example.com", "--db", db, "--human-friendly")
+	if !strings.Contains(human, `policy 10 "Std" sites=1 roaming=2 global=false (via a schedule slot: sites=1 roaming=2)`) {
+		t.Fatalf("human output does not show schedule-governed impact:\n%s", human)
+	}
+}
+
+// A deployment naming a schedule the mirror lacks has unknown policies: the
+// counts are not an all-clear even when every collection reads complete.
+func TestListsWhereMissingScheduleIsIncomplete(t *testing.T) {
+	run := mirrorRunner(t, &fixtureAPI{})
+	db := filepath.Join(t.TempDir(), "mirror.db")
+	seedMirror(t, db, map[string][]string{
+		"organizations": {mirrorOrg},
+		"policies":      {mirrorPolicy},
+		"networks":      {`{"id":"50","attributes":{"name":"HQ"},"relationships":{"organization":{"data":{"id":"1"}},"scheduled_policy":{"data":{"id":"9"}}}}`},
+	}, map[string]string{"organizations": "complete", "policies": "complete", "scheduled-policies": "complete", "networks": "complete", "user-agents": "complete"})
+
+	out, _ := run("lists", "where", "example.com", "--db", db, "--json")
+	decodeIncomplete(t, "lists where --json, unknown schedule", out, []string{"scheduled-policies"})
+	human, _ := run("lists", "where", "example.com", "--db", db, "--human-friendly")
+	if !strings.HasSuffix(human, "--resources scheduled-policies\n") {
+		t.Fatalf("unknown schedule not flagged:\n%s", human)
 	}
 }

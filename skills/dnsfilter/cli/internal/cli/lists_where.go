@@ -5,6 +5,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -12,8 +13,9 @@ import (
 )
 
 // whereCollections is every collection the lists where join reads: the
-// policies' lists, sites and roaming clients (impact counts) and org names.
-var whereCollections = []string{"organizations", "networks", "policies", "user-agents"}
+// policies' lists, sites, roaming clients and scheduled policies (impact
+// counts) and org names.
+var whereCollections = []string{"organizations", "networks", "policies", "scheduled-policies", "user-agents"}
 
 type listsWhereRow struct {
 	List           string `json:"list"` // allow or block
@@ -26,6 +28,12 @@ type listsWhereRow struct {
 	IsGlobal       bool   `json:"is_global"`
 	Sites          int    `json:"sites"`
 	RoamingClients int    `json:"roaming_clients"`
+	// ScheduledSites and ScheduledRoamingClients count the sites and roaming
+	// clients above that reach the policy through a slot of their scheduled
+	// policy (their own or inherited from the site): it governs them only in
+	// those 15-minute slots.
+	ScheduledSites          int `json:"scheduled_sites"`
+	ScheduledRoamingClients int `json:"scheduled_roaming_clients"`
 }
 
 func newNovelListsWhereCmd(flags *rootFlags) *cobra.Command {
@@ -38,7 +46,8 @@ func newNovelListsWhereCmd(flags *rootFlags) *cobra.Command {
 Do NOT use this command for the effective verdict for one client; use 'why-blocked' instead.
 Do NOT use this command for a security review of all allow lists; use 'policy-audit' instead.
 
-Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networks,policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).`,
+Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networks,policies,scheduled-policies,user-agents' first. An entry matches the domain itself or any parent of it (an entry for example.com matches cdn.example.com).
+sites and roaming_clients count every site and installed roaming client the policy governs: its own assignment, a roaming client inheriting its site's policy, or any slot of a scheduled policy (the client's own or inherited from its site). scheduled_sites and scheduled_roaming_clients say how many of those reach the policy through a schedule slot, so it governs them only part of the week.`,
 		Example: strings.Trim(`
   dnsfilter-cli lists where example.com --agent
   dnsfilter-cli lists where cdn.example.com`, "\n"),
@@ -57,7 +66,7 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("a domain argument is required, e.g. lists where example.com"))
 			}
-			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,policies,user-agents", incompleteMirrorJSON(make([]listsWhereRow, 0), whereCollections))
+			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,policies,scheduled-policies,user-agents", incompleteMirrorJSON(make([]listsWhereRow, 0), whereCollections))
 			if !ok {
 				return err
 			}
@@ -67,7 +76,7 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 			}
 			ctx := cmd.Context()
 			loaded := map[string][]jaRes{}
-			for _, rt := range []string{"policies", "organizations", "networks", "user-agents"} {
+			for _, rt := range []string{"policies", "organizations", "networks", "user-agents", "scheduled-policies"} {
 				if loaded[rt], err = loadLocal(ctx, db, rt); err != nil {
 					return err
 				}
@@ -76,7 +85,11 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 			if err != nil {
 				return err
 			}
-			rows := computeListsWhere(normalizeDomain(args[0]), loaded["policies"], loaded["organizations"], loaded["networks"], loaded["user-agents"])
+			rows, unresolved := computeListsWhere(normalizeDomain(args[0]), loaded["policies"], loaded["organizations"], loaded["networks"], loaded["user-agents"], loaded["scheduled-policies"])
+			if unresolved > 0 && !slices.Contains(incomplete, "scheduled-policies") {
+				// A deployment names a schedule the mirror lacks: its policies are unknown.
+				incomplete = append(incomplete, "scheduled-policies")
+			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				if len(incomplete) > 0 {
 					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+incompleteSyncNote(incomplete))
@@ -90,7 +103,11 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 				return nil
 			}
 			for _, r := range rows {
-				fmt.Fprintf(w, "%-5s %-28s %-24s policy %s %q sites=%d roaming=%d global=%v\n", humanText(r.List), humanText(r.Entry), humanText(r.OrgName), humanText(r.PolicyID), r.PolicyName, r.Sites, r.RoamingClients, r.IsGlobal)
+				fmt.Fprintf(w, "%-5s %-28s %-24s policy %s %q sites=%d roaming=%d global=%v", humanText(r.List), humanText(r.Entry), humanText(r.OrgName), humanText(r.PolicyID), r.PolicyName, r.Sites, r.RoamingClients, r.IsGlobal)
+				if r.ScheduledSites > 0 || r.ScheduledRoamingClients > 0 {
+					fmt.Fprintf(w, " (via a schedule slot: sites=%d roaming=%d)", r.ScheduledSites, r.ScheduledRoamingClients)
+				}
+				fmt.Fprintln(w)
 			}
 			if len(incomplete) > 0 {
 				// Unwalked sites or clients read as sites=0 roaming=0: no impact.
@@ -103,13 +120,39 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 	return cmd
 }
 
-// computeListsWhere is the pure join behind `lists where`.
-func computeListsWhere(domain string, policies, orgs, networks, agents []jaRes) []listsWhereRow {
+// computeListsWhere is the pure join behind `lists where`. unresolved counts
+// deployments whose scheduled policy is missing from schedules (or lists no
+// slot policy), so their policies, and the counts, are unknown.
+func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved int) {
 	sites, roaming := map[string]int{}, map[string]int{}
+	schedSites, schedRoaming := map[string]int{}, map[string]int{}
+	// slotPolicies returns every policy any of a schedule's 672 slots uses.
+	schedByID := byID(schedules)
+	slotPolicies := func(schedID string) map[string]bool {
+		ids := map[string]bool{}
+		if schedID == "" {
+			return ids
+		}
+		if sp, ok := schedByID[schedID]; ok {
+			for _, id := range sp.strs("policy_ids") {
+				if id != "0" {
+					ids[id] = true
+				}
+			}
+		}
+		if len(ids) == 0 {
+			unresolved++
+		}
+		return ids
+	}
 	for _, n := range networks {
 		ids := map[string]bool{n.relID("policy"): true}
 		for _, id := range n.relIDs("policies") {
 			ids[id] = true
+		}
+		for id := range slotPolicies(n.relID("scheduled_policy")) {
+			ids[id] = true
+			schedSites[id]++
 		}
 		for id := range ids {
 			if id != "" {
@@ -117,24 +160,33 @@ func computeListsWhere(domain string, policies, orgs, networks, agents []jaRes) 
 			}
 		}
 	}
-	sitePolicy := map[string]string{}
+	sitePolicy, siteSched := map[string]string{}, map[string]string{}
 	for _, n := range networks {
 		if n.relID("scheduled_policy") == "" {
 			sitePolicy[n.ID] = n.relID("policy")
+		} else {
+			siteSched[n.ID] = n.relID("scheduled_policy")
 		}
 	}
 	for _, a := range agents {
 		if isUninstalled(a) {
 			continue
 		}
-		id := a.relID("policy")
-		// A client without its own assignment inherits its site's policy
-		// (sites on a schedule have no single policy and are not counted).
-		if id == "" && a.relID("scheduled_policy") == "" {
-			id = sitePolicy[a.relID("network")]
+		id, sched := a.relID("policy"), a.relID("scheduled_policy")
+		// A client without its own assignment inherits its site's policy or
+		// its site's schedule.
+		if id == "" && sched == "" {
+			id, sched = sitePolicy[a.relID("network")], siteSched[a.relID("network")]
 		}
-		if id != "" {
-			roaming[id]++
+		ids := map[string]bool{id: true}
+		for sid := range slotPolicies(sched) {
+			ids[sid] = true
+			schedRoaming[sid]++
+		}
+		for id := range ids {
+			if id != "" {
+				roaming[id]++
+			}
 		}
 	}
 	orgByID := byID(orgs)
@@ -153,7 +205,7 @@ func computeListsWhere(domain string, policies, orgs, networks, agents []jaRes) 
 				if normalizeDomain(e) == domain {
 					match = "exact"
 				}
-				rows = append(rows, listsWhereRow{List: list.name, Entry: e, Match: match, PolicyID: p.ID, PolicyName: p.str("name"), OrgID: orgID, OrgName: orgByID[orgID].str("name"), IsGlobal: p.boolean("is_global_policy"), Sites: sites[p.ID], RoamingClients: roaming[p.ID]})
+				rows = append(rows, listsWhereRow{List: list.name, Entry: e, Match: match, PolicyID: p.ID, PolicyName: p.str("name"), OrgID: orgID, OrgName: orgByID[orgID].str("name"), IsGlobal: p.boolean("is_global_policy"), Sites: sites[p.ID], RoamingClients: roaming[p.ID], ScheduledSites: schedSites[p.ID], ScheduledRoamingClients: schedRoaming[p.ID]})
 			}
 		}
 	}
@@ -166,5 +218,5 @@ func computeListsWhere(domain string, policies, orgs, networks, agents []jaRes) 
 		}
 		return rows[i].PolicyID < rows[j].PolicyID
 	})
-	return rows
+	return rows, unresolved
 }

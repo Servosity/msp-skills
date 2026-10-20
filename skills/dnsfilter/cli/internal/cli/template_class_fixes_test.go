@@ -201,24 +201,42 @@ func TestRootHelpBrandCasing(t *testing.T) {
 	}
 }
 
-// --csv and --plain cells, and the novel commands' human output, write bidi
-// controls as \u20XX so a tenant name cannot reorder an allow preview.
-func TestScrubbersEscapeBidiControls(t *testing.T) {
-	name := "Acme \u202eexe.gnp\u202c Dental"
-	want := `Acme \u202eexe.gnp\u202c Dental`
-	if got := scrubCell(name); got != want {
-		t.Fatalf("scrubCell = %q, want %q", got, want)
+// Bidi controls are tenant data: --csv/--plain cells and humanText keep them,
+// so a file, pipe or --deliver sink gets the bytes the API sent, and the
+// stdout writer escapes them only when stdout is a terminal.
+func TestBidiEscapedOnlyForTerminal(t *testing.T) {
+	name := "Acme \u202aDental\u202c \u202eexe.gnp"
+	if got := scrubCell(name); got != name {
+		t.Fatalf("scrubCell altered bidi data: %q", got)
 	}
-	if got := humanText(name); got != want {
-		t.Fatalf("humanText = %q, want %q", got, want)
+	if got := humanText(name); got != name {
+		t.Fatalf("humanText altered bidi data: %q", got)
 	}
-	data, _ := json.Marshal([]map[string]any{{"id": "1", "name": name}})
-	var out bytes.Buffer
-	if err := printCSV(&out, data); err != nil {
-		t.Fatal(err)
-	}
-	if strings.ContainsRune(out.String(), '\u202e') || !strings.Contains(out.String(), want) {
-		t.Fatalf("--csv kept a raw bidi control: %q", out.String())
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"data":[{"id":"1","attributes":{"name":%q}}]}`, name)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+	escaped := `Acme \u202aDental\u202c \u202eexe.gnp`
+	for _, tty := range []bool{false, true} {
+		fakeStdoutTerminal(t, tty)
+		sink := filepath.Join(t.TempDir(), "orgs.csv")
+		stdout, stderr, err := executeArgs(t, "organizations", "index", "--csv", "--no-cache", "--deliver", "file:"+sink)
+		if err != nil {
+			t.Fatalf("tty=%v: %v\n%s%s", tty, err, stdout, stderr)
+		}
+		delivered, _ := os.ReadFile(sink)
+		if !strings.Contains(string(delivered), name) {
+			t.Fatalf("tty=%v: the --deliver file lost the bidi data: %q", tty, delivered)
+		}
+		if tty && (strings.ContainsRune(stdout, '\u202e') || !strings.Contains(stdout, escaped)) {
+			t.Fatalf("terminal stdout kept a raw bidi control: %q", stdout)
+		}
+		if !tty && !strings.Contains(stdout, name) {
+			t.Fatalf("stdout to a file or pipe lost the bidi data: %q", stdout)
+		}
 	}
 }
 

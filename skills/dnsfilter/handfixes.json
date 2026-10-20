@@ -774,23 +774,38 @@
     },
     {
       "id": "output-escapes-c1-controls",
-      "summary": "stdout is wrapped in c1EscapeWriter, which rewrites C1 controls (UTF-8 U+0080-U+009F and lone 8-bit 0x80-0x9F bytes) and bidi controls as \\u00XX/\\u20XX, decoding UTF-8 with a carry so valid multibyte sequences and C0 (a CSV cell's quoted CR) pass unchanged; the --deliver and envelope writers use it too, and isTerminal unwraps it; stderr uses the stricter writer of stderr-escapes-c0-controls",
-      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant organization or roaming-client name in --json, --agent or pretty-JSON output could drive the terminal. Ported from bitdefender (PR #402). Adversarial round 2 (P2): the writer matched only the UTF-8 form (C2 80-9F), and a raw API body passed through to --json, tail and search can carry a lone 8-bit 0x9b, which a non-UTF-8 terminal treats as CSI; the writer now decodes runes, escapes lone 0x80-0x9F bytes, and holds an incomplete sequence for the next write so a multibyte character split across writes is untouched. Proved under a real pty: an org name with a raw 0x9b gave 1 raw 0x9b on the terminal from the HEAD build's `organizations index --json`, 0 from the fixed build. The escapes are valid JSON and decode to the same text. TestC1EscapeWriterLoneC1BidiAndMultibyte (lone C1, a euro sign split across writes, emoji, CJK, bidi, CSV CRLF) and TestExecuteEscapesLoneC1OnStdout (real Execute()) fail when the lone-byte rule or the carry is reverted.",
+      "summary": "stdout goes through c1EscapeWriter (newStdoutWriter), which, when stdout is a terminal, rewrites C1 controls (UTF-8 U+0080-U+009F and lone 8-bit 0x80-0x9F bytes) and bidi controls as \\u00XX/\\u20XX, decoding UTF-8 with a carry so valid multibyte sequences and C0 pass unchanged; when stdout is a file or pipe it writes the bytes unchanged; --deliver sinks get the raw output; isTerminal unwraps it; stderr uses the stricter writer of stderr-escapes-c0-controls",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant organization or roaming-client name in --json or pretty-JSON output could drive the terminal. Ported from bitdefender (PR #402). Adversarial round 2 (P2): lone 8-bit 0x9b from a raw API body passed through; the writer decodes runes, escapes lone 0x80-0x9F bytes and carries an incomplete sequence to the next write. Round 3 (P2): the escape applied regardless of sink, so `--json > file` and piped output were rewritten (bidi U+202A/U+202C pasted from Windows dialogs became literal text); the writer now escapes only when stdout is a terminal (stdoutIsTerminal, a test seam over isTerminal(os.Stdout)). Proved under a real pty vs a file: the fixed build's `organizations index --json` shows 0 raw 0x9b and 0 raw bidi on the pty, while `--json > file` keeps the 1 raw 0x9b and 2 bidi bytes the API sent (the HEAD build wrote the literal escape into the file). TestStdoutWriterRawWhenNotTerminal, TestExecuteEscapesLoneC1OnStdout (terminal and file directions through Execute()), TestExecuteEscapesC1OnStdout and TestC1EscapeWriterLoneC1BidiAndMultibyte fail when the respective rule is reverted.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/root.go",
-          "contains": "rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})",
+          "contains": "rootCmd.SetOut(newStdoutWriter())",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/root.go",
-          "contains": "w := io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf)",
+          "contains": "w := io.MultiWriter(newStdoutWriter(), flags.deliverBuf)",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/root.go",
-          "contains": "envelopeWriter := io.Writer(&c1EscapeWriter{w: os.Stdout})",
+          "contains": "envelopeWriter := io.Writer(newStdoutWriter())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "return &c1EscapeWriter{w: os.Stdout, raw: !stdoutIsTerminal()}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "\tif c.raw {\n\t\treturn c.w.Write(p)\n\t}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "var stdoutIsTerminal = func() bool { return isTerminal(os.Stdout) }",
           "code_only": true
         },
         {
@@ -824,8 +839,17 @@
           "code_only": true
         },
         {
+          "file": "cli/internal/cli/c1_escape_test.go",
+          "contains": "func TestStdoutWriterRawWhenNotTerminal(t *testing.T) {",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/cli/root.go",
           "not_contains": "cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))"
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "&c1EscapeWriter{w: os.Stdout}"
         },
         {
           "file": "cli/internal/cli/c1_escape.go",
@@ -1539,7 +1563,7 @@
     },
     {
       "id": "novel-readers-require-complete-sync",
-      "summary": "agents stale, agents drift and lists where check sync_state.last_attempt_complete for every collection their answer joins (stale and drift: organizations, networks, user-agents; lists where: organizations, networks, policies, user-agents) through incompleteCollections (internal/cli/dnsfilter_common.go). When any is never synced, cleared, or interrupted, the command prints no all-clear and no clean empty result: JSON carries incomplete_collections plus a note ending in the exact 'dnsfilter-cli sync --resources <list>' (stale and lists where switch their bare array to the {meta, results} envelope --agent already prints, so --agent keeps its results array and only meta gains the fields; drift adds incomplete_collections next to its existing note), machine modes add a stderr hint, and the human all-clear line is replaced by the same note while real findings still print. stale no longer blames --org when the sites or orgs were never walked. A read-only store that predates the column counts every collection incomplete. With every collection complete the output is byte-identical (exit 0 kept in all cases, the agents stale nothing-checked convention).",
+      "summary": "agents stale, agents drift and lists where check sync_state.last_attempt_complete for every collection their answer joins (stale and drift: organizations, networks, user-agents; lists where: organizations, networks, policies, scheduled-policies, user-agents) through incompleteCollections (internal/cli/dnsfilter_common.go). When any is never synced, cleared, or interrupted, the command prints no all-clear and no clean empty result: JSON carries incomplete_collections plus a note ending in the exact 'dnsfilter-cli sync --resources <list>' (stale and lists where switch their bare array to the {meta, results} envelope --agent already prints, so --agent keeps its results array and only meta gains the fields; drift adds incomplete_collections next to its existing note), machine modes add a stderr hint, and the human all-clear line is replaced by the same note while real findings still print. stale no longer blames --org when the sites or orgs were never walked. A read-only store that predates the column counts every collection incomplete. With every collection complete the output is byte-identical (exit 0 kept in all cases, the agents stale nothing-checked convention).",
       "why": "The readers looked at the timestamp of ONE collection (user-agents for stale and drift, policies for lists where). So lists where with policies synced but sites, clients and orgs never walked returned rows with sites=0 roaming=0 and no hint (a false all-clear on impact); agents stale --org and agents drift --org over never-walked networks or organizations returned [] / agents_scanned=0 with exit 0 and blamed the filter; and a first-ever interrupted user-agents walk (or a --full cursor clear that never re-walked) still printed the stdout all-clear 'No roaming clients silent...' computed on partial data. Found by a prior reviewer after 19 Codex rounds. Proven 2026-10-20 by reverting each file: agents_stale.go fails TestStaleOrgOverUnwalkedSitesNamesTheSync and TestStalePartialClientWalkIsNotAnAllClear (partial, cleared); lists_where.go fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear; agents_drift.go wiring fails TestDriftIncompleteMirrorIsNotAnAllClear; an incompleteCollections that reports nothing fails all of them plus TestNovelReadersIncompleteCollectionsStates. TestNovelReadersCompleteMirrorOutputUnchanged (exact strings) passes on both the old and new code, and 35 command/mode pairs (human, --json, --agent, --select, --csv) were byte-identical between the old and new binary over a fully synced mirror.",
       "status": "active",
       "spec_encode_followup": "Press-side: generated local-data readers should gate on the sync_state completeness of every collection they join, not on one collection's last_synced_at (sync_hint.go readSyncHintState).",
@@ -1937,8 +1961,8 @@
     },
     {
       "id": "bidi-controls-escaped",
-      "summary": "Unicode bidi embedding, override and isolate controls (U+202A-U+202E, U+2066-U+2069) in tenant strings are written as \\u20XX everywhere they reach a terminal: cliutil.ScrubTerminal (human tables and the novel commands' humanText), scrubCell (--csv/--plain), the stderr TerminalWriter and the stdout c1EscapeWriter (so --json on a terminal too, as a valid lossless JSON escape)",
-      "why": "Adversarial round 2 (P2): an organization or policy name carrying RLO/PDF or an isolate reached the terminal unchanged in --plain, --csv, human tables, the novel human output (why-blocked, allow previews, agents stale/drift, lists where) and on stderr, so the operator could read a reordered domain or name (Trojan Source). --json stays data: the escape is applied at the same stdout boundary that already escapes C1, and decodes to the identical string, so JSON consumers see no change; %q arguments were already escaped by fmt. Bidi marks (LRM/RLM/ALM) are left alone because legitimate RTL names use them. Proved under a real pty with NO_COLOR=1: the HEAD build put 2 raw bidi controls on the terminal for organizations index --json, --plain and --csv, organizations show (human) and a 422 error on stderr; the fixed build 0 in every case. TestBidiControlsEscaped (stderr writer, ScrubTerminal), TestScrubbersEscapeBidiControls (scrubCell, humanText, printCSV) and TestC1EscapeWriterLoneC1BidiAndMultibyte fail when each rule is reverted.",
+      "summary": "Unicode bidi embedding, override and isolate controls (U+202A-U+202E, U+2066-U+2069) are escaped as \\u20XX only where a terminal displays them: by the stdout writer when stdout is a terminal and always by the stderr TerminalWriter; scrubCell (--csv/--plain) and ScrubTerminal/humanText keep them as data, so files, pipes and --deliver sinks get the tenant's bytes",
+      "why": "Adversarial round 2 (P2): RLO/PDF or an isolate in an organization or policy name reached the terminal unchanged in --plain, --csv, human tables, the novel human output and on stderr (Trojan Source spoofing of allow and why-blocked previews). Round 3 (P2): the round-2 fix escaped them in scrubCell and ScrubTerminal regardless of sink, so `--csv > file`, `--csv | ...` and `--csv --deliver file:` exports carried the literal text \\u202a instead of the name (names pasted from Windows dialogs often carry U+202A/U+202C). The escape now lives only at the two terminal boundaries; the data scrubbers drop C0, DEL and C1 exactly as before. Bidi marks (LRM/RLM/ALM) are left alone because legitimate RTL names use them. Proved under a real pty with NO_COLOR=1 vs files: the fixed build shows 0 raw bidi on the pty for --csv, --json, organizations show and a 422 on stderr, while `--csv > file`, `--csv | cat` and the --deliver file each keep the 2 raw bidi characters (the HEAD build wrote the literal escape into all three). TestBidiEscapedOnlyForTerminal (terminal and non-terminal stdout, each with a --deliver file, through Execute()), TestBidiControlsEscaped (stderr writer escapes, ScrubTerminal keeps) and TestC1EscapeWriterLoneC1BidiAndMultibyte fail when reverted either way.",
       "status": "active",
       "asserts": [
         {
@@ -1952,16 +1976,6 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/cliutil/text.go",
-          "contains": "\t\tcase IsBidiControl(r):\n\t\t\tfmt.Fprintf(&b, `\\u%04x`, r)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "\t\tcase cliutil.IsBidiControl(r):\n\t\t\tfmt.Fprintf(&b, `\\u%04x`, r)",
-          "code_only": true
-        },
-        {
           "file": "cli/internal/cliutil/termwriter.go",
           "contains": "case (r >= 0x80 && r <= 0x9f) || IsBidiControl(r):",
           "code_only": true
@@ -1972,13 +1986,21 @@
           "code_only": true
         },
         {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "cliutil.IsBidiControl(r)"
+        },
+        {
+          "file": "cli/internal/cliutil/text.go",
+          "not_contains": "\tcase IsBidiControl(r):"
+        },
+        {
           "file": "cli/internal/cliutil/termwriter_test.go",
           "contains": "func TestBidiControlsEscaped(t *testing.T) {",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/template_class_fixes_test.go",
-          "contains": "func TestScrubbersEscapeBidiControls(t *testing.T) {",
+          "contains": "func TestBidiEscapedOnlyForTerminal(t *testing.T) {",
           "code_only": true
         }
       ]
@@ -2007,8 +2029,8 @@
     },
     {
       "id": "mcp-read-only-resolved-path-refusal",
-      "summary": "under DNSFILTER_MCP_READ_ONLY the credential refusal runs on the RESOLVED request path (placeholders filled and percent-encoded, query split off), normalized for case, repeated percent-encoding, duplicate and trailing slashes, backslash, a format suffix (.json), matrix params and '-' for '_': dnsfilter_execute checks the path it is about to send, every Cobra-mirror argument and the recipe intent's argument are read as request paths, and the matched segment set is the one the response cache refuses (api_keys, uninstall_pin, secret_key, redirect_link)",
-      "why": "Adversarial round 2 (2026-10-20, P1): the read-only refusal checked only the registered template, so dnsfilter_execute {\"endpoint_id\":\"user-agents.show\",\"params\":{\"id\":\"uninstall_pin\",\"organization_id\":10}} passed (/v1/user_agents/{id}), sent GET /v1/user_agents/uninstall_pin and returned the PIN, a bare JSON string no key-name redaction can see. Now the resolved path is checked before any request (codeOrchResolvedPathRefusal), and the mirror (why_blocked --host uninstall_pin builds /v1/user_agents/<id> in the child CLI; tail API_KEYS) and the intent refuse any argument that reads as a credential path. redact.CredentialPathSegments is the response cache's set; TestCredentialPathSegmentsMatchResponseCache parses internal/client responseCacheCredentialPath and fails on drift. Proven over stdio 2026-10-20 against a mock that answers uninstall_pin with \"493817\": with read-only on, user-agents.show id=uninstall_pin (the receipt), UNINSTALL_PIN, uninstall_pin/, uninstall%5Fpin, uninstall_pin.json, users.show id=../api_keys, networks.show id=7/secret_key, why_blocked host=uninstall_pin and tail API_KEYS were all refused and the mock saw only the control call (/v1/user_agents/12345); with read-only off the receipt call reached the mock and returned 493817. Revert proofs: the resolved-path call, each normalization step (percent-decoding, case, backslash, segment cut, hyphen), the mirror-argument matcher, the intent check, and the shared segment set each fail their test when reverted.",
+      "summary": "under DNSFILTER_MCP_READ_ONLY the credential refusal runs on the RESOLVED request path (placeholders filled and percent-encoded, query split off), normalized for case, repeated percent-encoding, duplicate and trailing slashes, backslash, a format suffix (.json, cut only when the segment is not a hostname: secret-key.io and api-keys.example.com are domain values, uninstall_pin.json and uninstall-pin.json are paths), matrix params and '-' for '_': dnsfilter_execute checks the path it is about to send, every Cobra-mirror argument and the recipe intent's argument are read as request paths, and the matched segment set is the one the response cache refuses (api_keys, uninstall_pin, secret_key, redirect_link)",
+      "why": "Adversarial round 2 (2026-10-20, P1): the read-only refusal checked only the registered template, so dnsfilter_execute {\"endpoint_id\":\"user-agents.show\",\"params\":{\"id\":\"uninstall_pin\",\"organization_id\":10}} passed (/v1/user_agents/{id}), sent GET /v1/user_agents/uninstall_pin and returned the PIN, a bare JSON string no key-name redaction can see. Now the resolved path is checked before any request (codeOrchResolvedPathRefusal), and the mirror (why_blocked --host uninstall_pin builds /v1/user_agents/<id> in the child CLI; tail API_KEYS) and the intent refuse any argument that reads as a credential path. redact.CredentialPathSegments is the response cache's set; TestCredentialPathSegmentsMatchResponseCache parses internal/client responseCacheCredentialPath and fails on drift. Proven over stdio 2026-10-20 against a mock that answers uninstall_pin with \"493817\": with read-only on, user-agents.show id=uninstall_pin (the receipt), UNINSTALL_PIN, uninstall_pin/, uninstall%5Fpin, uninstall_pin.json, users.show id=../api_keys, networks.show id=7/secret_key, why_blocked host=uninstall_pin and tail API_KEYS were all refused and the mock saw only the control call (/v1/user_agents/12345); with read-only off the receipt call reached the mock and returned 493817. Revert proofs: the resolved-path call, each normalization step (percent-decoding, case, backslash, segment cut, hyphen), the mirror-argument matcher, the intent check, and the shared segment set each fail their test when reverted. Round 3 adversarial (2026-10-20, P2): cutting every segment at '.' made read-only MCP refuse why_blocked / lists_where / precedent_check for any domain whose first label is a credential word (secret-key.io), though those tools send the domain as a query value or a local lookup. A segment that reads as a hostname (two or more DNS labels, no underscore, last label not a format suffix such as json/xml/csv) is now compared whole. Proven over stdio: with read-only on, why_blocked fqdn=secret-key.io, lists_where api-keys.example.com and the intent with secret-key.io ran; tail uninstall-pin.json was still refused. Removing the hostname exemption or the format-suffix test each fails TestIsCredentialRequestPath / TestReadOnlyMirrorRefusesCredentialResourceArgs.",
       "status": "active",
       "spec_encode_followup": "Press-side: the read-only switch should check the resolved request path in the HTTP client itself, for every caller (the companion CLI child included).",
       "asserts": [
@@ -2039,7 +2061,27 @@
         },
         {
           "file": "cli/internal/mcp/redact/redact.go",
-          "contains": "if i := strings.IndexAny(seg, \";.?#%\"); i >= 0 {",
+          "contains": "cut := \";?#%\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if !hostnameLike(seg) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if i := strings.IndexAny(seg, cut); i >= 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if len(labels) < 2 || formatSuffixes[labels[len(labels)-1]] {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/resolved_path_test.go",
+          "contains": "func TestReadOnlyIntentAllowsHostnames(t *testing.T) {",
           "code_only": true
         },
         {
@@ -2092,7 +2134,7 @@
     {
       "id": "client-read-only-guard",
       "summary": "under DNSFILTER_MCP_READ_ONLY the HTTP client itself refuses every write (POST/PUT/PATCH/DELETE without read intent, and mutation-intent GETs) and every credential read (api_keys, uninstall_pin, secret_key, redirect_link path segments after decoding, case folding, '-' as '_' and a segment cut at '.' or ';'), before any request is built",
-      "why": "Round 2 adversarial reached the uninstall PIN in read-only MCP through user-agents.show with id=uninstall_pin: the MCP layer checked the endpoint template, not the resolved path. The MCP layer now checks resolved paths (mcp-read-only-resolved-path-refusal), but for mirror tools the real request is built inside the companion CLI the MCP server runs, so the parent can only inspect arguments. The MCP server passes its environment to that child, so a guard in internal/client is the one place every request from every route passes. responseCacheCredentialPath now normalizes the path the way a server would read it and serves both the cache rule and this guard. TestClientReadOnlyGuard sends ten refused shapes through a recording transport (zero calls allowed) and fails when the guard is removed.",
+      "why": "Round 2 adversarial reached the uninstall PIN in read-only MCP through user-agents.show with id=uninstall_pin: the MCP layer checked the endpoint template, not the resolved path. The MCP layer now checks resolved paths (mcp-read-only-resolved-path-refusal), but for mirror tools the real request is built inside the companion CLI the MCP server runs, so the parent can only inspect arguments. The MCP server passes its environment to that child, so a guard in internal/client is the one place every request from every route passes. responseCacheCredentialPath now normalizes the path the way a server would read it and serves both the cache rule and this guard. TestClientReadOnlyGuard sends ten refused shapes through a recording transport (zero calls allowed) and fails when the guard is removed. A hostname segment (secret-key.io, a notes domain) is compared whole, as in the MCP layer, so a domain value is never mistaken for a credential path; uninstall-pin.json is still cut at '.' and refused.",
       "status": "active",
       "asserts": [
         {
@@ -2108,6 +2150,244 @@
         {
           "file": "cli/internal/client/read_only_guard_test.go",
           "contains": "func TestClientReadOnlyGuard(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if !credentialPathHostnameLike(seg) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-complete-means-whole-fleet",
+      "summary": "sync marks a collection complete (last_attempt_complete = 1, watermark advanced) only after a whole, unfiltered walk: a walk narrowed by --param / --global-param / --resource-param, cut by --max-pages, resumed from a saved cursor, or fetching an incremental window the stored watermark does not cover records incomplete, keeps the prior watermark and never prunes; a narrowed walk also never writes its cursor into the resource-wide resume state; dependents are complete only under a complete parent collection",
+      "why": "Codex P1: filtered syncs counted as complete fleet snapshots. On a fresh mirror, `sync --resources organizations,networks,user-agents --resource-param user-agents:organization_id=1` marked user-agents complete, so `agents stale` (incompleteCollections in dnsfilter_common.go trusts last_attempt_complete) printed an all-clear while silently omitting org 2's unprotected clients (receipt: HEAD build returned results [] with no incomplete_collections). The generated syncResource set last_attempt_complete = 1 on any natural end of pagination, whatever narrowed the request. The same gap let `sync --full --resource-param ...` and `sync --full --since 7d` prune every row outside the filter or window (ReconcileAll trusts the same outcome.complete). Rule now: outcome.complete is downgraded (param_scoped, resumed_from_cursor, incremental_window) before both the prune decision and the final save, and the watermark only moves with a complete walk, so a watermark always means 'complete as of then'. An incremental walk (explicit --since or the default resume from the watermark) is complete only when its window starts at or before that watermark (syncSinceCoveredByWatermark): a fresh mirror plus --since 7d stays incomplete and sets no watermark, a plain repeated sync stays complete, and --since starting after the watermark leaves a gap and records incomplete. --full clears and walks everything, so it restores complete after a narrowed walk. A capped walk was already incomplete (outcome.complete false on a cap with a continuation); a --latest-only walk of a collection that fits its single page is a whole unfiltered walk and stays complete, a capped one does not. Dependent walks narrowed by --global-param / --resource-param or a --since window are incomplete per parent, and a dependent collection is complete only when its parent collection is (parent_collection_incomplete). Proven: each rule reverted alone fails its test (params never scoping fails TestSyncCompleteMeansWholeFleet, TestSyncNarrowedFullWalkNeverPrunes and TestSyncDependentsNeedACompleteParent; resumed counted fails TestSyncResumedWalkIsIncomplete; any window covered fails TestSyncIncrementalCompletion, TestSyncSinceCoveredByWatermark and TestSyncFullSinceNeverPrunes; the parent check or the per-parent downgrade removed fails TestSyncDependentsNeedACompleteParent).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "scoped := syncParamsScope(userParams, resource, false)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "resumed := cursor != \"\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "sinceCovered := syncSinceCoveredByWatermark(sinceTS, effectiveSince, lastSynced)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "case scoped:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "case resumed:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "case !sinceCovered:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "progressCursor = persistedCursor",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "finalCursor = persistedCursor",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if outcome.complete && syncParamsScope(userParams, dep.Name, true) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "} else if outcome.complete && depSinceTS != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if attemptComplete && !syncCollectionComplete(db, dep.ParentTable) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return len(probe) > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return err == nil && !start.After(watermark)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncCompleteMeansWholeFleet(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncIncrementalCompletion(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncResumedWalkIsIncomplete(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncDependentsNeedACompleteParent(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncNarrowedFullWalkNeverPrunes(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync_dnsfilter_handfix_test.go",
+          "contains": "func TestSyncFullSinceNeverPrunes(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "lists-where-counts-scheduled-policy-deployments",
+      "summary": "lists where counts a site or installed roaming client as governed by a policy when any of the 672 slots of its scheduled policy uses it (the site's schedule, the client's own schedule, or the site's schedule a client with no own assignment inherits), folded into sites / roaming_clients, with the schedule-reached subset in new scheduled_sites / scheduled_roaming_clients fields and a '(via a schedule slot: sites=N roaming=M)' suffix on the human line when non-zero. scheduled-policies joins the required-complete set and every sync hint (organizations,networks,policies,scheduled-policies,user-agents); a deployment naming a schedule missing from the mirror (or one listing no slot policy) adds scheduled-policies to incomplete_collections, so its unknown policies never read as zero impact.",
+      "why": "Codex review P1 (round 2, 2026-10-20): computeListsWhere skipped every scheduled assignment (sites on a schedule were not counted, and a client inheriting a scheduled site was dropped), so with every collection fully synced a policy used only through a schedule reported sites=0 roaming_clients=0 while governing those deployments, with no incompleteness warning: a false all-clear on exposure. why-blocked resolves only the CURRENT slot (correct for 'why is it blocked now'); impact needs every slot, because the policy governs the deployment part of the week. Proven 2026-10-20: ignoring schedule slots fails TestListsWhereCountsScheduleGovernedDeployments (policy 10: sites=0 roaming=0, want 1/2) and TestListsWhereMissingScheduleIsIncomplete; dropping scheduled-policies from whereCollections fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear; dropping the unknown-schedule append fails TestListsWhereMissingScheduleIsIncomplete. E2E over a fully synced mock tenant: the previous binary printed 'policy 10 \"Std\" sites=0 roaming=0', the fixed one 'sites=1 roaming=2 global=false (via a schedule slot: sites=1 roaming=2)'.",
+      "status": "active",
+      "spec_encode_followup": "Docs outside the CLI still name the four-collection sync for lists where (SKILL.md, guide.md, page.json, README.md, which.go WhyItMatters, docs/llms-full.txt, docs/skills/dnsfilter.md); they should add scheduled-policies.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "var whereCollections = []string{\"organizations\", \"networks\", \"policies\", \"scheduled-policies\", \"user-agents\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "func computeListsWhere(domain string, policies, orgs, networks, agents, schedules []jaRes) (_ []listsWhereRow, unresolved int) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "for _, id := range sp.strs(\"policy_ids\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "id, sched = sitePolicy[a.relID(\"network\")], siteSched[a.relID(\"network\")]",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "ScheduledSites: schedSites[p.ID], ScheduledRoamingClients: schedRoaming[p.ID]",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "if unresolved > 0 && !slices.Contains(incomplete, \"scheduled-policies\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "incomplete = append(incomplete, \"scheduled-policies\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "db, ok, err := openLocalMirror(cmd, flags, dbPath, \"organizations,networks,policies,scheduled-policies,user-agents\", incompleteMirrorJSON(make([]listsWhereRow, 0), whereCollections))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
+          "contains": "func TestListsWhereCountsScheduleGovernedDeployments(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
+          "contains": "func TestListsWhereMissingScheduleIsIncomplete(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tzdata-embedded",
+      "summary": "the CLI (and the MCP server, which links package cli) embeds the IANA time zone database via internal/cli/tzdata.go (import _ \"time/tzdata\")",
+      "why": "Codex P2: scheduled-policy resolution (why-blocked verdicts, allow's assignment fallback) loads zones such as America/New_York with time.LoadLocation, and Windows has no system zoneinfo, so on a machine without Go or ZONEINFO a valid schedule stayed unresolved. A system database is still preferred when present. Costs about 430 KB per binary. Proved: go tool nm finds 0 time/tzdata symbols in the HEAD darwin and windows/amd64 binaries and 3 in the fixed ones. TestBinaryEmbedsTZData asks the toolchain (go list -deps) whether cmd/dnsfilter-cli and cmd/dnsfilter-mcp link time/tzdata for the host and windows/amd64, and fails when the import is removed (a LoadLocation check cannot prove it on a host that has zoneinfo).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tzdata.go",
+          "contains": "import _ \"time/tzdata\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tzdata_test.go",
+          "contains": "func TestBinaryEmbedsTZData(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-header-needs-table",
+      "summary": "the read-only funnel's CSV/table-header heuristic applies only to text of two or more lines (the store's textNamesSecret rule), so a one-line string that lists field names (the context tool's own read-only tip) or a tenant name such as 'Finance, password reset desk' is not withheld; a multi-line table with a secret column still is",
+      "why": "Round 3 adversarial (2026-10-20, P2): plainTextNamesCredential split any line on commas and treated a bare 'token' or 'password' cell as a header, so in read-only mode the context tool's tip 'every tool result withholds credential-named fields (secret_key, token, client_secret, password, pin)' came back as '[withheld: credential]', as would any one-line tenant string naming a field. TestHeaderHeuristicNeedsATable and the read-only half of TestContextToolDescribesDNSFilter fail when the two-line requirement is removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "lines := strings.Split(strings.TrimSpace(plain), \"\\n\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if len(lines) < 2 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact_test.go",
+          "contains": "func TestHeaderHeuristicNeedsATable(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-execute-notes-resource-placeholder",
+      "summary": "dnsfilter_execute substitutes the {resource} path placeholder of the five notes endpoints (notes.domain-show, notes.domain-update, notes.batch-update.domain-notes, notes.notes.domain-batch-destroy, notes.notes.domain-destroy) from params, defaulting to policies like the CLI's --resource; the generated handler now applies an endpoint's TemplateParams, before the read-only resolved-path check",
+      "why": "Round 3 adversarial (2026-10-20, P2): the registry listed only {domain, id} as Positional and no TemplateParams, and the execute handler never applied TemplateParams anyway, so every notes call sent a literal {resource} and none could succeed. Proven over stdio: notes.domain-show {id:7, domain:example.com} sent GET /v1/notes/policies/7/example.com, with resource=msps GET /v1/notes/msps/7/example.com; under read-only resource=api_keys was refused (mock not hit) while default mode reached the mock. TestCodeOrchExecuteFillsNotesResource fails when the fill call or a registry entry's TemplateParams is removed.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the code-orchestration generator should list every path placeholder (Positional or TemplateParams) and the execute template should apply TemplateParams.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "path = codeOrchFillTemplateParams(path, ep.TemplateParams, params)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "func codeOrchFillTemplateParams(path string, bindings []codeOrchParamBinding, params map[string]any) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "TemplateParams: []codeOrchParamBinding{{PublicName: \"resource\", WireName: \"resource\", Default: \"policies\"}},",
+          "code_only": true,
+          "min_count": 5
+        },
+        {
+          "file": "cli/internal/mcp/notes_resource_test.go",
+          "contains": "func TestCodeOrchExecuteFillsNotesResource(t *testing.T) {",
           "code_only": true
         }
       ]

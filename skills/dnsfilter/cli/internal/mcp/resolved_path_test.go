@@ -100,3 +100,18 @@ func TestReadOnlyIntentRefusesCredentialPathArg(t *testing.T) {
 		t.Fatalf("unexpected refusal text: %s", text)
 	}
 }
+
+// TestReadOnlyIntentAllowsHostnames: the intent looks the domain up locally,
+// so a hostname whose first label is a credential word is not refused.
+func TestReadOnlyIntentAllowsHostnames(t *testing.T) {
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	savedPath, savedErr := recipeCLIPath, recipeCLIPathErr
+	t.Cleanup(func() { recipeCLIPath, recipeCLIPathErr = savedPath, savedErr })
+	recipeCLIPath, recipeCLIPathErr = "/nonexistent/dnsfilter-cli", nil
+	for _, d := range []string{"secret-key.io", "api-keys.example.com"} {
+		res, _ := handlePrecedentCheckBeforeAllowingADomain(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{"domain": d}}})
+		if res != nil && len(res.Content) > 0 && strings.Contains(res.Content[0].(mcplib.TextContent).Text, "refusing") {
+			t.Fatalf("intent refused hostname %s: %s", d, res.Content[0].(mcplib.TextContent).Text)
+		}
+	}
+}

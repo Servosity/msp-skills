@@ -5,6 +5,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"unicode/utf8"
 
 	"dnsfilter-pp-cli/internal/cliutil"
@@ -21,17 +22,34 @@ import (
 // in JSON output could drive or spoof the terminal. The escape is valid inside
 // a JSON string and decodes to the same text; in plain text it shows as six
 // harmless characters. Every other byte, including C0 such as a CSV cell's
-// quoted CR and every valid multibyte sequence, is written unchanged. Table,
-// CSV, plain and quiet output and the novel commands' human output also drop
-// or escape these controls themselves (cliutil.ScrubTerminal, scrubCell).
+// quoted CR and every valid multibyte sequence, is written unchanged. The
+// escaping is for a terminal only: when stdout is a file or a pipe (raw) the
+// bytes pass untouched, so `--csv > file` and piped JSON keep the tenant's
+// data; --deliver sinks never pass through this writer. Table, CSV, plain and
+// quiet output and the novel commands' human output also drop C0 and C1
+// themselves (cliutil.ScrubTerminal, scrubCell).
 type c1EscapeWriter struct {
 	w     io.Writer
+	raw   bool   // the destination is not a terminal: write bytes unchanged
 	carry []byte // an incomplete UTF-8 sequence held for the next Write
+}
+
+// stdoutIsTerminal reports whether the process stdout is a terminal. A
+// variable so tests can stand in for a pty.
+var stdoutIsTerminal = func() bool { return isTerminal(os.Stdout) }
+
+// newStdoutWriter wraps the process stdout, escaping only when it is a
+// terminal.
+func newStdoutWriter() *c1EscapeWriter {
+	return &c1EscapeWriter{w: os.Stdout, raw: !stdoutIsTerminal()}
 }
 
 func (c *c1EscapeWriter) Unwrap() io.Writer { return c.w }
 
 func (c *c1EscapeWriter) Write(p []byte) (int, error) {
+	if c.raw {
+		return c.w.Write(p)
+	}
 	in := p
 	if len(c.carry) > 0 {
 		in = append(append([]byte{}, c.carry...), p...)

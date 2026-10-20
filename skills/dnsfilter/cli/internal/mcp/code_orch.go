@@ -1896,7 +1896,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Path:           "/v1/notes/{resource}/{id}/{domain}",
 		Summary:        "Gets associated notes from a specific resource.",
 		Positional:     []string{"domain", "id"},
-		TemplateParams: []codeOrchParamBinding{},
+		TemplateParams: []codeOrchParamBinding{{PublicName: "resource", WireName: "resource", Default: "policies"}}, // hand-fix (handfixes.json: mcp-execute-notes-resource-placeholder)
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
@@ -1908,7 +1908,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Path:           "/v1/notes/{resource}/{id}/{domain}",
 		Summary:        "Updates notes for a resource with the specified data.",
 		Positional:     []string{"domain", "id"},
-		TemplateParams: []codeOrchParamBinding{},
+		TemplateParams: []codeOrchParamBinding{{PublicName: "resource", WireName: "resource", Default: "policies"}}, // hand-fix (handfixes.json: mcp-execute-notes-resource-placeholder)
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
@@ -1920,7 +1920,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Path:           "/v1/notes/{resource}/{id}/batch_update",
 		Summary:        "Updates notes for a resource with the specified data.",
 		Positional:     []string{"id"},
-		TemplateParams: []codeOrchParamBinding{},
+		TemplateParams: []codeOrchParamBinding{{PublicName: "resource", WireName: "resource", Default: "policies"}}, // hand-fix (handfixes.json: mcp-execute-notes-resource-placeholder)
 		QueryParams:    []codeOrchParamBinding{{PublicName: "append", WireName: "append"}, {PublicName: "notes", WireName: "notes", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "organization_ids", WireName: "organization_ids", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "single_note", WireName: "single_note"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
@@ -1932,7 +1932,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Path:           "/v1/notes/{resource}/{id}/notes/batch_destroy",
 		Summary:        "Deletes notes for a resource.",
 		Positional:     []string{"id"},
-		TemplateParams: []codeOrchParamBinding{},
+		TemplateParams: []codeOrchParamBinding{{PublicName: "resource", WireName: "resource", Default: "policies"}}, // hand-fix (handfixes.json: mcp-execute-notes-resource-placeholder)
 		QueryParams:    []codeOrchParamBinding{{PublicName: "domains", WireName: "domains"}},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
@@ -1944,7 +1944,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Path:           "/v1/notes/{resource}/{id}/notes/{domain}",
 		Summary:        "Deletes notes for a resource.",
 		Positional:     []string{"domain", "id"},
-		TemplateParams: []codeOrchParamBinding{},
+		TemplateParams: []codeOrchParamBinding{{PublicName: "resource", WireName: "resource", Default: "policies"}}, // hand-fix (handfixes.json: mcp-execute-notes-resource-placeholder)
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
@@ -3758,6 +3758,38 @@ func codeOrchReadOnlyRefusal(ep *codeOrchEndpoint) string {
 	return ""
 }
 
+// codeOrchFillTemplateParams substitutes the endpoint's template path
+// placeholders, taking each value from params (public or wire name, both
+// consumed) or the binding's default. Hand-wired (handfixes.json:
+// mcp-execute-notes-resource-placeholder): the generated handler declared
+// TemplateParams but never applied them, so the five notes endpoints sent a
+// literal {resource} and could not be called. Runs before the read-only
+// resolved-path check, which therefore sees the filled value.
+func codeOrchFillTemplateParams(path string, bindings []codeOrchParamBinding, params map[string]any) string {
+	for _, b := range bindings {
+		var value any
+		if b.Default != "" {
+			value = b.Default
+		}
+		for _, key := range []string{b.PublicName, b.WireName} {
+			if key == "" {
+				continue
+			}
+			if v, ok := params[key]; ok {
+				if v != nil && fmt.Sprint(v) != "" {
+					value = v
+				}
+				delete(params, key)
+			}
+		}
+		placeholder := "{" + b.WireName + "}"
+		if value != nil && strings.Contains(path, placeholder) {
+			path = strings.ReplaceAll(path, placeholder, mcpPathValue(value))
+		}
+	}
+	return path
+}
+
 // codeOrchResolvedPathRefusal refuses, under the read-only switch, a request
 // whose RESOLVED path (placeholders filled and percent-encoded, query split
 // off) reaches a credential endpoint, whatever the registered template was.
@@ -3813,6 +3845,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			delete(params, p)
 		}
 	}
+	path = codeOrchFillTemplateParams(path, ep.TemplateParams, params)
 
 	hdrs := make(map[string]string, len(ep.HeaderOverrides)+len(ep.HeaderParams))
 	for k, v := range ep.HeaderOverrides {
