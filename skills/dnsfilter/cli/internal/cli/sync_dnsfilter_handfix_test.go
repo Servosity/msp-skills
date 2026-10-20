@@ -307,3 +307,85 @@ func TestDefaultSyncSkipsApiKeys(t *testing.T) {
 		t.Fatal("api-keys must stay syncable by name")
 	}
 }
+
+// The secret-key generate / rotate and api-keys revoke commands write their
+// response through to the store. The response is the parent network or api
+// key record; the store must keep it on the parent partition without the
+// "typed-table upsert failed" warning (a false alarm on a successful
+// credential operation) and without the secret.
+func TestCredentialActionsWriteThroughWithoutWarning(t *testing.T) {
+	home := testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/v1/networks/100/secret_key") && (r.Method == http.MethodPost || r.Method == http.MethodPatch):
+			fmt.Fprint(w, `{"data":{"id":"100","type":"networks","attributes":{"name":"VISIBLE-HQ","secret_key":"`+syncHFSentinel+`"},"relationships":{"organization":{"data":{"id":"1","type":"organizations"}}}}}`)
+		case r.URL.Path == "/v1/api_keys/4/revoke" && r.Method == http.MethodPost:
+			fmt.Fprint(w, `{"data":{"id":"4","type":"api_keys","attributes":{"name":"VISIBLE-KEY","status":"revoked","token":"***`+syncHFSentinel+`"}}}`)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "fixture-key")
+
+	// The store writes its warning to os.Stderr directly.
+	captureStderr := func(fn func()) string {
+		t.Helper()
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		orig := os.Stderr
+		os.Stderr = w
+		done := make(chan string, 1)
+		go func() {
+			b, _ := io.ReadAll(r)
+			done <- string(b)
+		}()
+		defer func() { os.Stderr = orig }()
+		fn()
+		w.Close()
+		os.Stderr = orig
+		return <-done
+	}
+	for _, args := range [][]string{
+		{"networks", "secret-key", "networks-generate", "100"},
+		{"networks", "secret-key", "networks-rotate", "100"},
+		{"api-keys", "revoke", "api-keys", "4"},
+	} {
+		var out string
+		var runErr error
+		stderr := captureStderr(func() { out, runErr = syncHFRun(args...) })
+		if runErr != nil {
+			t.Fatalf("%v: %v\n%s", args, runErr, out)
+		}
+		if strings.Contains(stderr+out, "typed-table upsert failed") {
+			t.Fatalf("%v printed a false typed-table warning:\n%s%s", args, stderr, out)
+		}
+	}
+
+	var leaked []string
+	sawNetwork, sawKey := false, false
+	_ = filepath.Walk(home, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.Contains(filepath.Base(path), ".db") {
+			return nil
+		}
+		b, _ := os.ReadFile(path)
+		lower := bytes.ToLower(b)
+		sawNetwork = sawNetwork || bytes.Contains(lower, []byte("visible-hq"))
+		sawKey = sawKey || bytes.Contains(lower, []byte("visible-key"))
+		if bytes.Contains(lower, []byte("sentinel")) {
+			leaked = append(leaked, path)
+		}
+		return nil
+	})
+	if !sawNetwork || !sawKey {
+		t.Fatalf("the write-through rows were not found in the store (network=%v key=%v)", sawNetwork, sawKey)
+	}
+	if len(leaked) > 0 {
+		t.Fatalf("secret sentinel persisted in %v", leaked)
+	}
+}

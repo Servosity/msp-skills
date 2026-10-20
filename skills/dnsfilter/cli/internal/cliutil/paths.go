@@ -354,7 +354,7 @@ func warnSkippedPathOverride(name, raw string) {
 		return
 	}
 	pathWarned[key] = struct{}{}
-	fmt.Fprintf(os.Stderr, "warning: ignoring %s=%q: path must be absolute\n", name, raw)
+	fmt.Fprintf(Stderr(), "warning: ignoring %s=%q: path must be absolute\n", name, raw)
 }
 
 func defaultBase(kind PathKind) (string, error) {

@@ -98,7 +98,7 @@ func Load(configPath string) (*Config, error) {
 			parsed := *cfg
 			if err := parseConfigData(data, &parsed, sourcePath, owner); err != nil {
 				if sourcePath == legacyPath {
-					fmt.Fprintf(os.Stderr, "warning: legacy config parse skipped for %s: %v\n", sourcePath, err)
+					fmt.Fprintf(cliutil.Stderr(), "warning: legacy config parse skipped for %s: %v\n", sourcePath, err)
 				} else {
 					return nil, err
 				}
@@ -781,24 +781,24 @@ func (c *Config) scrubLegacyCredentials() {
 	data, err := os.ReadFile(c.legacySourcePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: cannot read legacy config to scrub credentials: %v\n", err)
+			fmt.Fprintf(cliutil.Stderr(), "warning: cannot read legacy config to scrub credentials: %v\n", err)
 		}
 		return
 	}
 	var legacy Config
 	if err := toml.Unmarshal(data, &legacy); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot parse legacy config to scrub credentials: %v\n", err)
+		fmt.Fprintf(cliutil.Stderr(), "warning: cannot parse legacy config to scrub credentials: %v\n", err)
 		return
 	}
 	legacy.clearCredentialFields()
 	scrubbed := legacy.persisted()
 	scrubbedData, err := toml.Marshal(scrubbed)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot marshal scrubbed legacy config: %v\n", err)
+		fmt.Fprintf(cliutil.Stderr(), "warning: cannot marshal scrubbed legacy config: %v\n", err)
 		return
 	}
 	if err := cliutil.AtomicWritePrivateFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot write scrubbed legacy config: %v\n", err)
+		fmt.Fprintf(cliutil.Stderr(), "warning: cannot write scrubbed legacy config: %v\n", err)
 	}
 }
 

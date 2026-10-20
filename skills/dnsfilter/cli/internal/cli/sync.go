@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"io"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -185,7 +184,7 @@ Resource scoping:
 						clearCursors = true
 					}
 				} else if humanFriendly {
-					fmt.Fprintln(os.Stderr, "warning: --latest-only ignored because --since is set; --since takes precedence")
+					fmt.Fprintln(stderrW(), "warning: --latest-only ignored because --since is set; --since takes precedence")
 				}
 			}
 			// effectiveLatestOnly drives the max_pages_cap_hit suppression
@@ -285,7 +284,7 @@ Resource scoping:
 			for res := range results {
 				if res.Err != nil {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
+						fmt.Fprintf(stderrW(), "  %s: error: %v\n", res.Resource, res.Err)
 					}
 					errCount++
 					failedResources = append(failedResources, res.Resource)
@@ -301,13 +300,13 @@ Resource scoping:
 					}
 				} else if res.Warn != nil {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: warning: %v\n", res.Resource, res.Warn)
+						fmt.Fprintf(stderrW(), "  %s: warning: %v\n", res.Resource, res.Warn)
 					}
 					totalSynced += res.Count
 					warnCount++
 				} else {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: %d synced (done)\n", res.Resource, res.Count)
+						fmt.Fprintf(stderrW(), "  %s: %d synced (done)\n", res.Resource, res.Count)
 					}
 					totalSynced += res.Count
 					successCount++
@@ -318,7 +317,7 @@ Resource scoping:
 			for _, res := range depResults {
 				if res.Err != nil {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
+						fmt.Fprintf(stderrW(), "  %s: error: %v\n", res.Resource, res.Err)
 					}
 					errCount++
 					failedResources = append(failedResources, res.Resource)
@@ -334,13 +333,13 @@ Resource scoping:
 					}
 				} else if res.Warn != nil {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: warning: %v\n", res.Resource, res.Warn)
+						fmt.Fprintf(stderrW(), "  %s: warning: %v\n", res.Resource, res.Warn)
 					}
 					totalSynced += res.Count
 					warnCount++
 				} else {
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "  %s: %d synced (done)\n", res.Resource, res.Count)
+						fmt.Fprintf(stderrW(), "  %s: %d synced (done)\n", res.Resource, res.Count)
 					}
 					totalSynced += res.Count
 					successCount++
@@ -351,10 +350,10 @@ Resource scoping:
 			totalResources := successCount + warnCount + errCount
 			if humanFriendly {
 				if warnCount > 0 {
-					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
+					fmt.Fprintf(stderrW(), "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
 						totalSynced, totalResources, warnCount, elapsed.Seconds())
 				} else {
-					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%.1fs)\n",
+					fmt.Fprintf(stderrW(), "Sync complete: %d records across %d resources (%.1fs)\n",
 						totalSynced, totalResources, elapsed.Seconds())
 				}
 			} else {
@@ -405,7 +404,7 @@ Resource scoping:
 					fmt.Fprintf(syncEventWriter, `{"event":"sync_warning","reason":"exit_policy_default_changed","errored":%d,"message":"%s"}`+"\n",
 						errCount, strings.ReplaceAll(msg, `"`, `\"`))
 				} else {
-					fmt.Fprintf(os.Stderr, "warning: %d resource(s) failed but exit code is 0 because the new default treats non-critical failures as warnings. Pass --strict to restore the old behavior, or annotate critical resources with x-critical: true.\n", errCount)
+					fmt.Fprintf(stderrW(), "warning: %d resource(s) failed but exit code is 0 because the new default treats non-critical failures as warnings. Pass --strict to restore the old behavior, or annotate critical resources with x-critical: true.\n", errCount)
 				}
 			}
 			if machineFormat {
@@ -495,7 +494,7 @@ func syncResource(ctx context.Context, c interface {
 			payloadJSON, _ := json.Marshal(payload)
 			fmt.Fprintf(syncEvents, "%s\n", payloadJSON)
 		} else {
-			fmt.Fprintf(os.Stderr, "  %s skipped (requires parent context: %s)\n",
+			fmt.Fprintf(stderrW(), "  %s skipped (requires parent context: %s)\n",
 				resource, strings.Join(missingKeys, ", "))
 		}
 		return syncResult{
@@ -537,7 +536,7 @@ func syncResource(ctx context.Context, c interface {
 	// when the user expected incremental behavior.
 	if effectiveSince != "" && sinceParam == "" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", resource)
+			fmt.Fprintf(stderrW(), "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", resource)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint does not declare a temporal filter parameter; incremental sync has no effect for this resource"}`+"\n", resource)
 		}
@@ -571,7 +570,7 @@ func syncResource(ctx context.Context, c interface {
 			payloadJSON, _ := json.Marshal(payload)
 			fmt.Fprintf(syncEvents, "%s\n", payloadJSON)
 		} else {
-			fmt.Fprintf(os.Stderr, "  %s skipped (missing required query params: %s)\n",
+			fmt.Fprintf(stderrW(), "  %s skipped (missing required query params: %s)\n",
 				resource, strings.Join(missing, ", "))
 		}
 		return syncResult{
@@ -726,7 +725,7 @@ func syncResource(ctx context.Context, c interface {
 		if hasMore && previousPageItemsSet && syncPageItemsEqual(previousPageItems, items) && syncPaginationPageIsStuck(pageSize.cursorType, cursor, nextCursor) {
 			outcome.reason = "stuck_page"
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: API returned the same page twice; aborting to prevent budget waste.\n", resource)
+				fmt.Fprintf(stderrW(), "\n  %s: API returned the same page twice; aborting to prevent budget waste.\n", resource)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"stuck_pagination","message":"API returned the same page twice for resource %s; aborting to prevent budget waste."}`+"\n", resource, resource)
 			}
@@ -742,7 +741,7 @@ func syncResource(ctx context.Context, c interface {
 			// consistency.
 			outcome.reason = "non_json_200_body"
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\nwarning: %s returned a 200 response with a non-JSON body; no rows were stored.\n", resource)
+				fmt.Fprintf(stderrW(), "\nwarning: %s returned a 200 response with a non-JSON body; no rows were stored.\n", resource)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","reason":"non_json_200_body"}`+"\n", resource)
 			}
@@ -809,7 +808,7 @@ func syncResource(ctx context.Context, c interface {
 				cause = "scalar item hydration failed for every ID"
 			}
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "warning: %s returned %d items but stored 0 — the local store will be empty for this resource. Likely cause: %s.\n", resource, fetchedThisPage, cause)
+				fmt.Fprintf(stderrW(), "warning: %s returned %d items but stored 0 — the local store will be empty for this resource. Likely cause: %s.\n", resource, fetchedThisPage, cause)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","consumed":%d,"stored":0,"reason":"%s"}`+"\n", resource, fetchedThisPage, reason)
 			}
@@ -826,7 +825,7 @@ func syncResource(ctx context.Context, c interface {
 				message = fmt.Sprintf("%s failed to hydrate %d scalar item(s) on this page — those rows were not stored. Check the item endpoint path and ID parameter.", resource, hydrateFailures)
 			}
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\nwarning: %s\n", message)
+				fmt.Fprintf(stderrW(), "\nwarning: %s\n", message)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","consumed":%d,"stored":%d,"count":%d,"reason":"%s"}`+"\n", resource, fetchedThisPage, stored, pageFailureCount, reason)
 			}
@@ -863,9 +862,9 @@ func syncResource(ctx context.Context, c interface {
 		currentRate := c.RateLimit()
 		if humanFriendly {
 			if currentRate > 0 {
-				fmt.Fprintf(os.Stderr, "\r  %s: %d synced [%.1f req/s]", resource, atomic.LoadInt64(&progressCount), currentRate)
+				fmt.Fprintf(cliutil.RawStderr(), "\r  %s: %d synced [%.1f req/s]", resource, atomic.LoadInt64(&progressCount), currentRate)
 			} else {
-				fmt.Fprintf(os.Stderr, "\r  %s: %d synced", resource, atomic.LoadInt64(&progressCount))
+				fmt.Fprintf(cliutil.RawStderr(), "\r  %s: %d synced", resource, atomic.LoadInt64(&progressCount))
 			}
 		} else {
 			if currentRate > 0 {
@@ -908,7 +907,7 @@ func syncResource(ctx context.Context, c interface {
 				if !latestOnly {
 					capExitHit = true
 					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
+						fmt.Fprintf(stderrW(), "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
 					} else {
 						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", resource, maxPages)
 					}
@@ -941,7 +940,7 @@ func syncResource(ctx context.Context, c interface {
 			// was fully enumerated — leave outcome.complete=false (reconcile SKIPS).
 			outcome.reason = "stuck_cursor"
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: API returned the same next cursor across two pages; aborting to prevent budget waste.\n", resource)
+				fmt.Fprintf(stderrW(), "\n  %s: API returned the same next cursor across two pages; aborting to prevent budget waste.\n", resource)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"stuck_pagination","message":"API returned the same next cursor across two pages for resource %s; aborting to prevent budget waste."}`+"\n", resource, resource)
 			}
@@ -1071,7 +1070,7 @@ func syncResource(ctx context.Context, c interface {
 		}
 		if extractFailureTotal < consumedTotal {
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\nwarning: %s consumed %d items, extracted %d primary keys, but stored 0 rows — extraction succeeded yet nothing landed. Investigate FTS triggers / transaction rollback / encoding.\n", resource, consumedTotal, consumedTotal-extractFailureTotal)
+				fmt.Fprintf(stderrW(), "\nwarning: %s consumed %d items, extracted %d primary keys, but stored 0 rows — extraction succeeded yet nothing landed. Investigate FTS triggers / transaction rollback / encoding.\n", resource, consumedTotal, consumedTotal-extractFailureTotal)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","consumed":%d,"stored":0,"extract_failures":%d,"reason":"stored_count_zero_after_extraction"}`+"\n", resource, consumedTotal, extractFailureTotal)
 			}
@@ -2270,10 +2269,10 @@ func cursorValue(raw json.RawMessage) string {
 func emitSyncMissingPaginationCursorWarning(syncEvents io.Writer, humanFriendly bool, resource, parent string) {
 	if humanFriendly {
 		if parent != "" {
-			fmt.Fprintf(os.Stderr, "\nwarning: %s returned a full page for parent %s without a next cursor; data may be truncated.\n", resource, parent)
+			fmt.Fprintf(stderrW(), "\nwarning: %s returned a full page for parent %s without a next cursor; data may be truncated.\n", resource, parent)
 			return
 		}
-		fmt.Fprintf(os.Stderr, "\nwarning: %s returned a full page without a next cursor; data may be truncated.\n", resource)
+		fmt.Fprintf(stderrW(), "\nwarning: %s returned a full page without a next cursor; data may be truncated.\n", resource)
 		return
 	}
 	if parent != "" {
@@ -2949,14 +2948,14 @@ type parentAnomaly struct {
 func emitParentAnomaly(syncEvents io.Writer, humanFriendly bool, resource string, a *parentAnomaly) {
 	if a.reason == "all_items_failed_id_extraction" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "\nwarning: %s returned %d items for parent %s but stored 0 — likely scalar item shape or unrecognized primary-key field name.\n", resource, a.consumed, a.parent)
+			fmt.Fprintf(stderrW(), "\nwarning: %s returned %d items for parent %s but stored 0 — likely scalar item shape or unrecognized primary-key field name.\n", resource, a.consumed, a.parent)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","parent":"%s","consumed":%d,"stored":0,"reason":"all_items_failed_id_extraction"}`+"\n", resource, a.parent, a.consumed)
 		}
 		return
 	}
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "\nwarning: %s had %d item(s) with no extractable primary key — those rows were dropped silently. Annotate the spec with x-resource-id to fix.\n", resource, a.count)
+		fmt.Fprintf(stderrW(), "\nwarning: %s had %d item(s) with no extractable primary key — those rows were dropped silently. Annotate the spec with x-resource-id to fix.\n", resource, a.count)
 	} else {
 		fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","parent":"%s","consumed":%d,"stored":%d,"count":%d,"reason":"primary_key_unresolved"}`+"\n", resource, a.parent, a.consumed, a.stored, a.count)
 	}
@@ -3045,7 +3044,7 @@ func syncOneParent(
 				rep.denied = true
 				rep.firstDenial = w
 				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: access denied for parent %s: %s\n", dep.Name, parentID, w.Reason)
+					fmt.Fprintf(stderrW(), "\n  %s: access denied for parent %s: %s\n", dep.Name, parentID, w.Reason)
 				} else {
 					fmt.Fprintln(syncEvents, syncWarningJSON(dep.Name, parentID, w.Status, w.Reason, w.Message))
 				}
@@ -3053,7 +3052,7 @@ func syncOneParent(
 				outcome.reason = "fetch_error"
 				rep.failure = err
 				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: error for parent %s: %v\n", dep.Name, parentID, err)
+					fmt.Fprintf(stderrW(), "\n  %s: error for parent %s: %v\n", dep.Name, parentID, err)
 				} else {
 					// Non-warning failures were previously silent in JSON mode —
 					// operators only saw the missing rows. Emit a structured
@@ -3104,7 +3103,7 @@ func syncOneParent(
 		if hasMore && previousPageItemsSet && syncPageItemsEqual(previousPageItems, items) && syncPaginationPageIsStuck(pageSize.cursorType, cursor, nextCursor) {
 			outcome.reason = "stuck_page"
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: API returned the same page twice for parent %s; aborting to prevent budget waste.\n", dep.Name, parentID)
+				fmt.Fprintf(stderrW(), "\n  %s: API returned the same page twice for parent %s; aborting to prevent budget waste.\n", dep.Name, parentID)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent":%q,"reason":"stuck_pagination","message":"API returned the same page twice for resource %s; aborting to prevent budget waste."}`+"\n", dep.Name, parentID, dep.Name)
 			}
@@ -3116,7 +3115,7 @@ func syncOneParent(
 		if len(items) == 0 && len(data) > 0 && !isJSONResponse(data) {
 			outcome.reason = "non_json_200_body"
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\nwarning: %s returned a 200 response with a non-JSON body for parent %s; no rows were stored.\n", dep.Name, parentID)
+				fmt.Fprintf(stderrW(), "\nwarning: %s returned a 200 response with a non-JSON body for parent %s; no rows were stored.\n", dep.Name, parentID)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","parent":"%s","reason":"non_json_200_body"}`+"\n", dep.Name, parentID)
 			}
@@ -3160,7 +3159,7 @@ func syncOneParent(
 			outcome.reason = "upsert_error"
 			rep.failure = fmt.Errorf("upserting batch for %s parent %s: %w", dep.Name, parentID, err)
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: upsert error for parent %s: %v\n", dep.Name, parentID, err)
+				fmt.Fprintf(stderrW(), "\n  %s: upsert error for parent %s: %v\n", dep.Name, parentID, err)
 			} else {
 				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, rep.failure))
 			}
@@ -3221,7 +3220,7 @@ func syncOneParent(
 			outcome.reason = "max_pages_cap"
 			if !latestOnly {
 				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items) for parent %s\n", dep.Name, maxPages, rep.stored, parentID)
+					fmt.Fprintf(stderrW(), "\n  %s: reached --max-pages limit (%d pages, %d items) for parent %s\n", dep.Name, maxPages, rep.stored, parentID)
 				} else {
 					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", dep.Name, parentID, maxPages)
 				}
@@ -3234,7 +3233,7 @@ func syncOneParent(
 		if nextCursor != "" && nextCursor == lastNextCursor {
 			outcome.reason = "stuck_cursor"
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: API returned the same next cursor across two pages for parent %s; aborting to prevent budget waste.\n", dep.Name, parentID)
+				fmt.Fprintf(stderrW(), "\n  %s: API returned the same next cursor across two pages for parent %s; aborting to prevent budget waste.\n", dep.Name, parentID)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent":"%s","reason":"stuck_pagination","message":"API returned the same next cursor across two pages for resource %s; aborting to prevent budget waste."}`+"\n", dep.Name, parentID, dep.Name)
 			}
@@ -3445,7 +3444,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	if err != nil || len(parentRows) == 0 {
 		if len(parentRows) == 0 {
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "  %s: skipping (parent table %s is empty, sync it first)\n", dep.Name, dep.ParentTable)
+				fmt.Fprintf(stderrW(), "  %s: skipping (parent table %s is empty, sync it first)\n", dep.Name, dep.ParentTable)
 			}
 			return syncResult{Resource: dep.Name, Duration: time.Since(started)}
 		}
@@ -3459,7 +3458,7 @@ func syncDependentResource(ctx context.Context, c interface {
 		parentCoverageComplete = false
 		coverageReason = "dogfood_parent_rows_cap_hit"
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: dogfood capped parent sync to %d of %d %s parents\n", dep.Name, len(parentRows), originalParentRows, dep.ParentTable)
+			fmt.Fprintf(stderrW(), "  %s: dogfood capped parent sync to %d of %d %s parents\n", dep.Name, len(parentRows), originalParentRows, dep.ParentTable)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent_table":"%s","reason":"dogfood_parent_rows_cap_hit","message":"dogfood capped dependent sync to %d of %d parent rows; run outside dogfood to verify full parent coverage"}`+"\n", dep.Name, dep.ParentTable, len(parentRows), originalParentRows)
 		}
@@ -3467,7 +3466,7 @@ func syncDependentResource(ctx context.Context, c interface {
 
 	var depProgress *dependentProgress
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "  %s: syncing for %d %s parents\n", dep.Name, len(parentRows), dep.ParentTable)
+		fmt.Fprintf(stderrW(), "  %s: syncing for %d %s parents\n", dep.Name, len(parentRows), dep.ParentTable)
 	} else {
 		fmt.Fprintf(syncEvents, `{"event":"sync_start","resource":"%s","parents":%d}`+"\n", dep.Name, len(parentRows))
 		depProgress = &dependentProgress{total: len(parentRows), lastEmit: dependentSyncProgressNow()}
@@ -3481,7 +3480,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	depSinceTS := sinceTS
 	if depSinceTS != "" && depSinceParam == "" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", dep.Name)
+			fmt.Fprintf(stderrW(), "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", dep.Name)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint does not declare a temporal filter parameter; incremental sync has no effect for this resource"}`+"\n", dep.Name)
 		}
@@ -3537,7 +3536,7 @@ func syncDependentResource(ctx context.Context, c interface {
 					return
 				}
 				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\r  %s: syncing for %s (%d/%d parents)", dep.Name, dep.ParentTable, atomic.AddInt64(&startedParents, 1), len(parentRows))
+					fmt.Fprintf(cliutil.RawStderr(), "\r  %s: syncing for %s (%d/%d parents)", dep.Name, dep.ParentTable, atomic.AddInt64(&startedParents, 1), len(parentRows))
 				}
 				reports <- syncOneParent(ctx, c, db, dep, job.row, pathParams, pageSize, depSinceParam, depSinceTS, maxPages, latestOnly, prune, userParams, syncEvents)
 			}
@@ -3688,7 +3687,7 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 		if depExtractFailureTotal < depConsumedTotal {
 			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\nwarning: %s consumed %d items, extracted %d primary keys, but stored 0 rows — extraction succeeded yet nothing landed. Investigate FTS triggers / transaction rollback / encoding.\n", dep.Name, depConsumedTotal, depConsumedTotal-depExtractFailureTotal)
+				fmt.Fprintf(stderrW(), "\nwarning: %s consumed %d items, extracted %d primary keys, but stored 0 rows — extraction succeeded yet nothing landed. Investigate FTS triggers / transaction rollback / encoding.\n", dep.Name, depConsumedTotal, depConsumedTotal-depExtractFailureTotal)
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_anomaly","resource":"%s","consumed":%d,"stored":0,"extract_failures":%d,"reason":"stored_count_zero_after_extraction"}`+"\n", dep.Name, depConsumedTotal, depExtractFailureTotal)
 			}
@@ -3708,7 +3707,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(stderrW(), "\n")
 	}
 	attemptComplete := parentCoverageComplete && reportedParents == len(parentRows) && completeParents == len(parentRows)
 	if !attemptComplete && coverageReason == "" {
@@ -4119,14 +4118,14 @@ func refreshLookupsFromSyncedStore(ctx context.Context, db *sql.DB, syncEvents i
 		},
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: lookup refresh skipped: %v\n", err)
+		fmt.Fprintf(stderrW(), "warning: lookup refresh skipped: %v\n", err)
 		return
 	}
 	if res.Inserted == 0 {
 		return
 	}
 	if humanFriendly {
-		fmt.Fprintf(os.Stderr, "Lookup refresh: %d entity lookup(s) derived from synced data\n", res.Inserted)
+		fmt.Fprintf(stderrW(), "Lookup refresh: %d entity lookup(s) derived from synced data\n", res.Inserted)
 	} else {
 		fmt.Fprintf(syncEvents, `{"event":"lookup_refresh","inserted":%d,"scanned":%d}`+"\n", res.Inserted, res.Scanned)
 	}

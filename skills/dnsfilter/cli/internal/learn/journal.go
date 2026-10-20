@@ -239,7 +239,7 @@ func JournalInvocation(entry JournalEntry) {
 	}
 	if err := AppendJournalEntry(entry); err != nil {
 		journalWarnOnce.Do(func() {
-			fmt.Fprintf(os.Stderr, "warning: learn journal write skipped: %v\n", err)
+			fmt.Fprintf(cliutil.Stderr(), "warning: learn journal write skipped: %v\n", err)
 		})
 	}
 }

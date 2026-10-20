@@ -5,6 +5,8 @@ package cli
 import (
 	"fmt"
 	"io"
+
+	"dnsfilter-pp-cli/internal/cliutil"
 )
 
 // c1EscapeWriter rewrites UTF-8 C1 control characters (U+0080-U+009F) as
@@ -53,3 +55,9 @@ func (c *c1EscapeWriter) Write(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
+
+// stderrW is the escaping stderr every CLI write goes through: C0 (except tab
+// and newline), DEL and C1 controls in API error text and warnings are
+// rewritten as \u00XX, and only the CLI's own colors pass. See
+// cliutil.TerminalWriter.
+func stderrW() io.Writer { return cliutil.Stderr() }

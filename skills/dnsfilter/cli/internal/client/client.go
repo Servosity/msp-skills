@@ -803,6 +803,9 @@ func (c *Client) readCache(path string, params map[string]string) (json.RawMessa
 }
 
 func (c *Client) readCacheWithHeaders(path string, params map[string]string, headers map[string]string) (json.RawMessage, bool) {
+	if responseCacheCredentialPath(path) {
+		return nil, false // never serve a credential read, even a file an older build left behind
+	}
 	resourceDir := c.cacheResourceDir(path)
 	cacheFile := filepath.Join(resourceDir, c.cacheKeyFor(http.MethodGet, path, params, headers, nil)+".json")
 	info, err := os.Stat(cacheFile)
@@ -826,15 +829,16 @@ func (c *Client) writeCache(path string, params map[string]string, data json.Raw
 }
 
 func (c *Client) writeCacheWithHeaders(path string, params map[string]string, headers map[string]string, data json.RawMessage) {
-	// handfixes.json: response-cache-never-holds-secrets. A GET body with a
-	// secret-named key (networks secret_key, api-keys token) is not cached:
-	// the TTL only gates reads, so the file would stay on disk.
-	if !bytes.Equal(store.ScrubPersistedSecrets(data), data) {
+	// handfixes.json: response-cache-never-holds-secrets. A credential read
+	// is not cached: the TTL only gates reads, so the file would stay on disk.
+	// Any copy an older build left for the same request is removed.
+	resourceDir := c.cacheResourceDir(path)
+	cacheFile := filepath.Join(resourceDir, c.cacheKeyFor(http.MethodGet, path, params, headers, nil)+".json")
+	if !responseCacheable(path, data) {
+		_ = os.Remove(cacheFile)
 		return
 	}
-	resourceDir := c.cacheResourceDir(path)
 	_ = os.MkdirAll(resourceDir, 0o700)
-	cacheFile := filepath.Join(resourceDir, c.cacheKeyFor(http.MethodGet, path, params, headers, nil)+".json")
 	ensureCachePerms(resourceDir, cacheFile)
 	// Drop the leftover inode so an already-open 0644 FD keeps the old body.
 	_ = os.Remove(cacheFile)
@@ -843,6 +847,38 @@ func (c *Client) writeCacheWithHeaders(path string, params map[string]string, he
 	if c.platformSession != nil {
 		c.writePlatformCacheMetadata(cacheFile)
 	}
+}
+
+// responseCacheable reports whether a GET body may be written to the on-disk
+// response cache: only a JSON object or array with no secret-named key, from
+// a path that is not a credential read. A bare JSON string (the roaming
+// client uninstall PIN is one) has no key for the name scrub to see.
+func responseCacheable(path string, data json.RawMessage) bool {
+	if responseCacheCredentialPath(path) {
+		return false
+	}
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || (trimmed[0] != '{' && trimmed[0] != '[') {
+		return false
+	}
+	return bytes.Equal(store.ScrubPersistedSecrets(data), data)
+}
+
+// responseCacheCredentialPath reports DNSFilter GETs whose answer is a
+// credential: API keys, the roaming client uninstall PIN, network secret
+// keys and the PSA integration redirect link (it carries a one-time token).
+func responseCacheCredentialPath(path string) bool {
+	p := strings.ToLower(path)
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	for _, seg := range strings.Split(p, "/") {
+		switch seg {
+		case "api_keys", "uninstall_pin", "secret_key", "redirect_link":
+			return true
+		}
+	}
+	return false
 }
 
 func ensureCachePerms(resourceDir, cacheFile string) {
@@ -1111,7 +1147,7 @@ func (c *Client) waitForRateLimitRefill(ctx context.Context, wait time.Duration)
 	if wait <= 0 {
 		wait = time.Second
 	}
-	fmt.Fprintf(os.Stderr, "rate-limit budget empty, waiting %s for refill\n", wait)
+	fmt.Fprintf(cliutil.Stderr(), "rate-limit budget empty, waiting %s for refill\n", wait)
 	if err := sleepContext(ctx, wait); err != nil {
 		return fmt.Errorf("timed out waiting %s for rate-limit budget to refill: %w", wait, err)
 	}
@@ -1384,7 +1420,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
 				}
-				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
+				fmt.Fprintf(cliutil.Stderr(), "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
 				if serr := sleepContext(opCtx, wait); serr != nil {
 					return nil, 0, serr
 				}
@@ -1468,7 +1504,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if c.platformSession != nil {
 					c.platformSession.RecordRateLimitRetry(wait)
 				}
-				fmt.Fprintf(os.Stderr, "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
+				fmt.Fprintf(cliutil.Stderr(), "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
 				if err := sleepContext(opCtx, wait); err != nil {
 					return nil, 0, err
 				}
@@ -1510,7 +1546,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if !retryWithinBudget(wait) {
 				return nil, resp.StatusCode, apiErr
 			}
-			fmt.Fprintf(os.Stderr, "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
+			fmt.Fprintf(cliutil.Stderr(), "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
 			if err := sleepContext(opCtx, wait); err != nil {
 				return nil, 0, err
 			}
@@ -1545,7 +1581,7 @@ func safeEndpointClass(method, path string) string {
 // using the auth material already resolved in `do()`. Never triggers a network
 // call — the caller is responsible for passing cached auth material only.
 func (c *Client) dryRun(method, targetURL, path string, params map[string]string, body []byte, headerOverrides map[string]string, authHeader string) (json.RawMessage, int, error) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", method, c.displayURL(targetURL, authHeader))
+	fmt.Fprintf(cliutil.Stderr(), "%s %s\n", method, c.displayURL(targetURL, authHeader))
 	queryPrinted := false
 	if params != nil {
 		keys := make([]string, 0, len(params))
@@ -1560,7 +1596,7 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			fmt.Fprintf(cliutil.Stderr(), "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
 			queryPrinted = true
 		}
 	}
@@ -1568,16 +1604,16 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	if body != nil {
 		var pretty json.RawMessage
 		if json.Unmarshal(body, &pretty) == nil {
-			enc := json.NewEncoder(os.Stderr)
+			enc := json.NewEncoder(cliutil.Stderr())
 			enc.SetIndent("  ", "  ")
-			fmt.Fprintf(os.Stderr, "  Body:\n")
+			fmt.Fprintf(cliutil.Stderr(), "  Body:\n")
 			enc.Encode(pretty)
 		}
 	}
 	if authHeader != "" {
-		fmt.Fprintf(os.Stderr, "  %s: %s\n", "Authorization", maskToken(authHeader))
+		fmt.Fprintf(cliutil.Stderr(), "  %s: %s\n", "Authorization", maskToken(authHeader))
 	}
-	fmt.Fprintf(os.Stderr, "\n(dry run - no request sent)\n")
+	fmt.Fprintf(cliutil.Stderr(), "\n(dry run - no request sent)\n")
 	return json.RawMessage(`{"dry_run": true}`), 0, nil
 }
 

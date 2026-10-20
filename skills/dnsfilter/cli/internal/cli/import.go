@@ -81,7 +81,7 @@ but do not stop the import.`,
 
 				var body map[string]any
 				if err := json.Unmarshal([]byte(line), &body); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: skipping invalid JSON line: %v\n", err)
+					fmt.Fprintf(stderrW(), "warning: skipping invalid JSON line: %v\n", err)
 					failed++
 					continue
 				}
@@ -100,7 +100,7 @@ but do not stop the import.`,
 							continue
 						}
 					}
-					fmt.Fprintf(os.Stderr, "warning: failed to import record: %v\n", err)
+					fmt.Fprintf(stderrW(), "warning: failed to import record: %v\n", err)
 					continue
 				}
 				success++
@@ -120,7 +120,7 @@ but do not stop the import.`,
 					return err
 				}
 			} else {
-				fmt.Fprintf(os.Stderr, "Import complete: %d succeeded, %d failed, %d skipped\n", success, failed, skipped)
+				fmt.Fprintf(stderrW(), "Import complete: %d succeeded, %d failed, %d skipped\n", success, failed, skipped)
 			}
 			if failed > 0 {
 				if terminalErr != nil {

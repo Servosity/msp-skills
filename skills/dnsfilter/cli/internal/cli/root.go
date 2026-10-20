@@ -183,7 +183,7 @@ func Execute() (retErr error) {
 	// wrapper rewrites them as \u00XX so an organization or roaming-client
 	// name cannot drive the terminal. isTerminal unwraps it.
 	rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})
-	rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})
+	rootCmd.SetErr(stderrW())
 
 	executedCmd, err := rootCmd.ExecuteC()
 	var journalFailedFlag, journalSuggestedFlag string
@@ -203,7 +203,7 @@ func Execute() (retErr error) {
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(stderrW(), "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 		}
 	}
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {
@@ -224,7 +224,7 @@ func Execute() (retErr error) {
 				// would never reach stderr now that main.go no longer prints
 				// err. Emit the hint explicitly so the suggestion still
 				// shows up under Cobra's error line.
-				fmt.Fprintf(os.Stderr, "hint: did you mean --%s?\n", suggestion)
+				fmt.Fprintf(stderrW(), "hint: did you mean --%s?\n", suggestion)
 				err = fmt.Errorf("%w\nhint: did you mean --%s?", err, suggestion)
 				journalSuggestedFlag = "--" + suggestion
 			}
@@ -234,14 +234,14 @@ func Execute() (retErr error) {
 	// updated), so a scheduled sink never silently keeps a previous report.
 	if err != nil && !envelopeWritten && flags.deliverBuf != nil {
 		if flags.deliverBuf.Len() == 0 {
-			fmt.Fprintf(os.Stderr, "warning: --deliver: the command failed before printing output; %s:%s was not updated\n", flags.deliverSink.Scheme, flags.deliverSink.Target)
+			fmt.Fprintf(stderrW(), "warning: --deliver: the command failed before printing output; %s:%s was not updated\n", flags.deliverSink.Scheme, flags.deliverSink.Target)
 		} else if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(stderrW(), "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 		}
 	}
 	if err == nil && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			fmt.Fprintf(stderrW(), "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
 			return derr
 		}
 	}

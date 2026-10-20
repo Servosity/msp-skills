@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"dnsfilter-pp-cli/internal/cliutil/testenv"
@@ -89,5 +90,50 @@ func TestDoctorWarnsOnSchemePrefixedKey(t *testing.T) {
 		if got := apiKeySchemePrefix(key); got != want {
 			t.Errorf("apiKeySchemePrefix(%q) = %q, want %q", key, got, want)
 		}
+	}
+}
+
+// doctor never answers from the response cache: after a healthy run, a host
+// that now 404s, or refuses connections, is reported as such.
+func TestDoctorProbesBypassResponseCache(t *testing.T) {
+	testenv.Isolate(t)
+	var gone atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if gone.Load() {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"error":"not found"}`)
+			return
+		}
+		fmt.Fprint(w, `{"data":{"id":"1","attributes":{"email":"tech@example.com"}}}`)
+	}))
+	t.Setenv("DNSFILTER_BASE_URL", srv.URL)
+	t.Setenv("DNSFILTER_API_KEY", "k")
+	run := func() map[string]any {
+		cmd := RootCmd()
+		cmd.SetArgs([]string{"doctor", "--json"})
+		var out, errOut bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&errOut)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("doctor: %v\n%s%s", err, out.String(), errOut.String())
+		}
+		report := map[string]any{}
+		if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+			t.Fatalf("doctor --json: %v\n%s", err, out.String())
+		}
+		return report
+	}
+	if r := run(); r["api"] != "reachable" || r["credentials"] != "valid" {
+		t.Fatalf("healthy run: api=%v credentials=%v", r["api"], r["credentials"])
+	}
+	gone.Store(true)
+	if r := run(); !strings.HasPrefix(fmt.Sprint(r["api"]), "ERROR") || r["credentials"] == "valid" {
+		t.Fatalf("after the host began to 404: api=%v credentials=%v (served from cache?)", r["api"], r["credentials"])
+	}
+	gone.Store(false)
+	run()
+	srv.Close()
+	if r := run(); !strings.HasPrefix(fmt.Sprint(r["api"]), "unreachable") {
+		t.Fatalf("after the host went away: api=%v (served from cache?)", r["api"])
 	}
 }

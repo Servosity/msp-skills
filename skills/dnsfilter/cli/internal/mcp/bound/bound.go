@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"dnsfilter-pp-cli/internal/mcp/redact"
 )
 
 const (
@@ -92,6 +94,10 @@ func UpstreamCursor(cursor string) (string, error) {
 }
 
 func endpointResponse(method string, data json.RawMessage, opts PageOptions) string {
+	// Hand-wired (handfixes.json: mcp-read-only-redacts-before-bounding): the
+	// full body is redacted before any list bounding or preview, so a
+	// truncated preview can only quote already-redacted bytes.
+	data = json.RawMessage(redact.Raw(string(data)))
 	trimmed := strings.TrimSpace(string(data))
 	if strings.EqualFold(method, "GET") && len(trimmed) > 0 && trimmed[0] == '[' {
 		var items []json.RawMessage
@@ -170,6 +176,8 @@ func JSON(v any) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Hand-wired (handfixes.json: mcp-read-only-redacts-before-bounding).
+	data = []byte(redact.Raw(string(data)))
 	if len(data) <= MaxBytes {
 		return string(data), nil
 	}
@@ -178,6 +186,7 @@ func JSON(v any) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	compact = []byte(redact.Raw(string(compact)))
 	if len(compact) <= MaxBytes {
 		return string(compact), nil
 	}
@@ -201,10 +210,16 @@ func JSON(v any) (string, error) {
 // output passes through unchanged; oversized output becomes a JSON preview
 // envelope so the result stays valid and self-describing.
 func Text(out string) string {
-	if len(out) <= MaxBytes {
-		return out
+	// Hand-wired (handfixes.json: mcp-read-only-redacts-before-bounding):
+	// mirrored stdout/stderr and error text are redacted before the preview.
+	// The budget decision stays on the unredacted length: a capped stdout
+	// that redaction happened to shrink under the budget still ends in a cut
+	// record, and only the preview leaves that tail out.
+	redacted := redact.Raw(out)
+	if len(out) <= MaxBytes && len(redacted) <= MaxBytes {
+		return redacted
 	}
-	return previewEnvelope([]byte(out), textResultNote)
+	return previewEnvelope([]byte(redacted), textResultNote)
 }
 
 // WithMetadata applies the platform output contract after MCP bounding. It

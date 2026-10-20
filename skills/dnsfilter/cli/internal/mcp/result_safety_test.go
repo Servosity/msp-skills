@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"dnsfilter-pp-cli/internal/cliutil"
+	"dnsfilter-pp-cli/internal/mcp/redact"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -182,7 +183,7 @@ func TestReadOnlyResultFunnelWithholdsCredentials(t *testing.T) {
 		if !strings.Contains(texts[0], `"name":"Main Office"`) || !strings.Contains(texts[0], `"has_secret_key":true`) {
 			t.Fatalf("redaction removed non-credential data: %s", texts[0])
 		}
-		if !strings.Contains(texts[0], credentialWithheldValue) {
+		if !strings.Contains(texts[0], redact.WithheldFieldPlaceholder) {
 			t.Fatalf("withheld marker missing: %s", texts[0])
 		}
 	})
@@ -202,11 +203,11 @@ func TestReadOnlyResultFunnelWithholdsCredentials(t *testing.T) {
 func TestReadOnlyFilterKeepsAuthHintReadable(t *testing.T) {
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
 	hint := `HTTP 401: Set your API key with: export DNSFILTER_API_KEY="your-token-here" (PowerShell: $env:DNSFILTER_API_KEY = "your-token-here")`
-	if got := readOnlyCredentialFilter(hint); got != hint {
+	if got := redact.Final(hint); got != hint {
 		t.Fatalf("auth hint withheld: %q", got)
 	}
 	refusal := "refusing GET api-keys.index while DNSFILTER_MCP_READ_ONLY=1: it returns or manages a credential"
-	if got := readOnlyCredentialFilter(refusal); got != refusal {
+	if got := redact.Final(refusal); got != refusal {
 		t.Fatalf("refusal withheld: %q", got)
 	}
 }

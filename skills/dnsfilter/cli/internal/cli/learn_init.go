@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"sync"
 
 	"dnsfilter-pp-cli/internal/learn/entities"
@@ -95,12 +94,12 @@ func runLearnInitOnce(ctx context.Context) {
 		dbPath := defaultDBPath("dnsfilter-cli")
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: learn init: open store: %v\n", err)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: learn init: open store: %v\n", err)
 			return
 		}
 		defer s.Close()
 		if err := initLearn(ctx, s.DB()); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: learn init: %v\n", err)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: learn init: %v\n", err)
 		}
 	})
 }

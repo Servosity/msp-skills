@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"dnsfilter-pp-cli/internal/cliutil"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -1906,7 +1907,7 @@ func withMigrationLock(ctx context.Context, conn *sql.Conn, deadline time.Time, 
 		// pinned connection returned to the pool with state that will
 		// confuse later queries.
 		if _, rerr := conn.ExecContext(context.Background(), "ROLLBACK"); rerr != nil {
-			fmt.Fprintf(os.Stderr, "warning: store migration rollback failed: %v\n", rerr)
+			fmt.Fprintf(cliutil.Stderr(), "warning: store migration rollback failed: %v\n", rerr)
 		}
 	}()
 
@@ -2025,7 +2026,7 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 	// Use explicit rowid for FTS5 compatibility with modernc.org/sqlite.
 	// Standard DELETE WHERE column=? may not work on FTS5 virtual tables.
 	if _, err = tx.Exec(`DELETE FROM resources_fts WHERE rowid = ?`, ftsRowid); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: FTS index cleanup failed: %v\n", err)
+		fmt.Fprintf(cliutil.Stderr(), "warning: FTS index cleanup failed: %v\n", err)
 	}
 
 	if _, err = tx.Exec(
@@ -2034,7 +2035,7 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 		ftsRowid, id, resourceType, searchableResourceContent(data),
 	); err != nil {
 		// FTS insert failure is non-fatal
-		fmt.Fprintf(os.Stderr, "warning: FTS index update failed: %v\n", err)
+		fmt.Fprintf(cliutil.Stderr(), "warning: FTS index update failed: %v\n", err)
 	}
 
 	return nil
@@ -6406,6 +6407,13 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 }
 
 func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage) (int, int, int, error) {
+	// HAND-FIX(action-response-stored-on-parent): a secret_key or revoke
+	// write-through carries the parent network / api key record, so it is
+	// stored on the parent's partition instead of a child table whose parent
+	// key it can never fill.
+	if parent, moved, kept := splitActionResponseItems(resourceType, items); len(moved) > 0 {
+		return s.upsertActionResponse(resourceType, parent, moved, kept)
+	}
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
 	tx, err := s.db.Begin()
@@ -6569,14 +6577,14 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	// a structured primary_key_unresolved anomaly without spamming stderr for
 	// write-through cache batches that did persist useful rows.
 	if extractFailures > 0 && stored == 0 && len(items) > 0 {
-		fmt.Fprintf(os.Stderr, "warning: %d/%d %s items returned but not cached locally (no extractable ID field; offline lookup against these rows will be incomplete; live queries unaffected)\n", skippedCount, len(items), resourceType)
+		fmt.Fprintf(cliutil.Stderr(), "warning: %d/%d %s items returned but not cached locally (no extractable ID field; offline lookup against these rows will be incomplete; live queries unaffected)\n", skippedCount, len(items), resourceType)
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, extractFailures, typedFailures, err
 	}
 	// Surface typed-table failures only after the outer transaction commits.
 	if typedFailures > 0 {
-		fmt.Fprintf(os.Stderr, "warning: %d/%d %s items: typed-table upsert failed; generic resources rows preserved\n", typedFailures, len(items), resourceType)
+		fmt.Fprintf(cliutil.Stderr(), "warning: %d/%d %s items: typed-table upsert failed; generic resources rows preserved\n", typedFailures, len(items), resourceType)
 	}
 	return stored, extractFailures, typedFailures, nil
 }

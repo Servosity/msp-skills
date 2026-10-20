@@ -118,9 +118,9 @@ func newPoliciesRemoveBlacklistDomainCmd(flags *rootFlags) *cobra.Command {
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)
 				if partialFailure != nil {
-					fmt.Fprintf(os.Stderr, "warning: partial failure detected in %s response: %s\n", "policies", partialFailure.Message)
+					fmt.Fprintf(stderrW(), "warning: partial failure detected in %s response: %s\n", "policies", partialFailure.Message)
 					if len(partialFailure.ResourceNames) > 0 {
-						fmt.Fprintf(os.Stderr, "         succeeded: %d operation(s)\n", len(partialFailure.ResourceNames))
+						fmt.Fprintf(stderrW(), "         succeeded: %d operation(s)\n", len(partialFailure.ResourceNames))
 					}
 				}
 			}
@@ -132,7 +132,7 @@ func newPoliciesRemoveBlacklistDomainCmd(flags *rootFlags) *cobra.Command {
 				var items []map[string]any
 				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
 					if err := printAutoTable(cmd.OutOrStdout(), items); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
+						fmt.Fprintf(stderrW(), "warning: table rendering failed, falling back to JSON: %v\n", err)
 					} else {
 						if partialFailure != nil && !flags.allowPartialFailure {
 							return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "policies", partialFailure.Message))
@@ -145,7 +145,7 @@ func newPoliciesRemoveBlacklistDomainCmd(flags *rootFlags) *cobra.Command {
 					}
 					if json.Unmarshal(data, &wrapped) == nil && len(wrapped.Data) > 0 {
 						if err := printAutoTable(cmd.OutOrStdout(), wrapped.Data); err != nil {
-							fmt.Fprintf(os.Stderr, "warning: table rendering failed, falling back to JSON: %v\n", err)
+							fmt.Fprintf(stderrW(), "warning: table rendering failed, falling back to JSON: %v\n", err)
 						} else {
 							if partialFailure != nil && !flags.allowPartialFailure {
 								return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "policies", partialFailure.Message))

@@ -26,7 +26,7 @@ import (
 // NTFS. label names the artifact in the warning.
 func verifyPrivatePerms(path string, _ os.FileInfo, label string) error {
 	if err := cliutil.VerifyCredsPerms(path); err != nil {
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(cliutil.Stderr(),
 			"warning: %s %s has permissive access (%v); on Windows this is advisory\n",
 			label, path, err)
 	}

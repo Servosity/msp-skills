@@ -92,7 +92,7 @@ native streaming instead of polling.`,
 			enc := json.NewEncoder(cmd.OutOrStdout()) // --deliver and the C1 escape see it
 
 			if follow {
-				fmt.Fprintf(os.Stderr, "Tailing %s every %s (Ctrl+C to stop)\n", resource, interval)
+				fmt.Fprintf(stderrW(), "Tailing %s every %s (Ctrl+C to stop)\n", resource, interval)
 			}
 
 			// Initial fetch
@@ -100,7 +100,7 @@ native streaming instead of polling.`,
 				if !follow {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
-				fmt.Fprintf(os.Stderr, "warning: initial fetch failed: %v\n", err)
+				fmt.Fprintf(stderrW(), "warning: initial fetch failed: %v\n", err)
 			}
 			if !follow {
 				return nil
@@ -112,11 +112,11 @@ native streaming instead of polling.`,
 			for {
 				select {
 				case <-sig:
-					fmt.Fprintln(os.Stderr, "\nShutting down gracefully...")
+					fmt.Fprintln(stderrW(), "\nShutting down gracefully...")
 					return nil
 				case <-ticker.C:
 					if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: poll failed: %v\n", err)
+						fmt.Fprintf(stderrW(), "warning: poll failed: %v\n", err)
 					}
 				}
 			}

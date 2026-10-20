@@ -278,7 +278,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					if !strings.HasPrefix(healthPath, "/") {
 						healthPath = "/" + healthPath
 					}
-					reachBody, reachErr := c.GetWithHeaders(cmd.Context(), healthPath, nil, map[string]string{client.HTMLResponseHeader: "true"})
+					// No cache read: a verdict served from the 5-minute response
+					// cache would say "reachable" while the host is down.
+					reachBody, reachErr := c.GetWithHeadersNoCache(cmd.Context(), healthPath, nil, map[string]string{client.HTMLResponseHeader: "true"})
 					var reachAPIErr *client.APIError
 					switch {
 					case reachErr == nil:

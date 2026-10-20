@@ -26,7 +26,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -74,12 +73,12 @@ func runPlaybookInitOnce(ctx context.Context) {
 		dbPath := defaultDBPath("dnsfilter-cli")
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: open store: %v\n", err)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: open store: %v\n", err)
 			return
 		}
 		defer s.Close()
 		if err := installPlaybooksFromEmbed(ctx, s, playbooks.FS); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: %v\n", err)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: %v\n", err)
 		}
 	})
 }
@@ -152,13 +151,13 @@ func installPlaybooksFromEmbed(ctx context.Context, s *store.Store, embedFS fs.F
 		jsonName := base + ".json"
 		jsonData, rerr := fs.ReadFile(embedFS, jsonName)
 		if rerr != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: read %s: %v\n", jsonName, rerr)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: read %s: %v\n", jsonName, rerr)
 			upsertFailed = true
 			continue
 		}
 		pb, perr := learn.ParsePlaybook(jsonData, jsonName)
 		if perr != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: parse %s: %v\n", jsonName, perr)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: parse %s: %v\n", jsonName, perr)
 			upsertFailed = true
 			continue
 		}
@@ -186,7 +185,7 @@ func installPlaybooksFromEmbed(ctx context.Context, s *store.Store, embedFS fs.F
 			// authored embed must supply at least one example query.
 			// Policy skip — does NOT flip upsertFailed; the install
 			// is still considered a clean pass.
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: %s has no query_family_examples; skipping (would be unreachable at recall time)\n", jsonName)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: %s has no query_family_examples; skipping (would be unreachable at recall time)\n", jsonName)
 			continue
 		}
 		var notesText string
@@ -198,7 +197,7 @@ func installPlaybooksFromEmbed(ctx context.Context, s *store.Store, embedFS fs.F
 				// failed so the sentinel is NOT advanced and the next
 				// invocation retries. Silently seeding empty notes
 				// here would lock out the retry behind a sentinel.
-				fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: read %s: %v\n", notesName, nerr)
+				fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: read %s: %v\n", notesName, nerr)
 				upsertFailed = true
 				continue
 			}
@@ -206,7 +205,7 @@ func installPlaybooksFromEmbed(ctx context.Context, s *store.Store, embedFS fs.F
 		}
 		jsonStr, merr := learn.MarshalPlaybook(pb)
 		if merr != nil {
-			fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: marshal %s: %v\n", jsonName, merr)
+			fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: marshal %s: %v\n", jsonName, merr)
 			upsertFailed = true
 			continue
 		}
@@ -245,7 +244,7 @@ func installPlaybooksFromEmbed(ctx context.Context, s *store.Store, embedFS fs.F
 				Source:                store.LearningSourceTaught,
 				PreserveExistingNotes: preserve,
 			}); uerr != nil {
-				fmt.Fprintf(os.Stderr, "warning: dnsfilter-cli: playbook init: upsert family=%q for %s: %v\n", family, jsonName, uerr)
+				fmt.Fprintf(stderrW(), "warning: dnsfilter-cli: playbook init: upsert family=%q for %s: %v\n", family, jsonName, uerr)
 				upsertFailed = true
 				continue
 			}

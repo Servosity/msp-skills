@@ -236,7 +236,7 @@ large datasets as it has no memory pressure.`,
 				return err
 			}
 			if outputFile != "" && !dryRunOK(flags) {
-				fmt.Fprintf(os.Stderr, "Exported %d records to %s\n", count, outputFile)
+				fmt.Fprintf(stderrW(), "Exported %d records to %s\n", count, outputFile)
 			}
 			return nil
 		},
