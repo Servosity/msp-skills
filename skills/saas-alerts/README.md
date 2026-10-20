@@ -134,7 +134,7 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the partner API key from the SaaS Alerts dashboard (**Settings > API**, **Show Api Key**):
+Set the partner API key from the SaaS Alerts dashboard (**Settings > API**, **GET APIKEY**; SaaS Alerts shows the key only until you leave the page, so copy it then):
 
 ```bash
 SAAS_ALERTS_API_KEY=<value> saas-alerts-cli doctor
@@ -205,7 +205,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Where do I get the SaaS Alerts API key?
 
-In the SaaS Alerts dashboard, open Settings > API and click Show Api Key (you may need to agree to the API Policy first). Set it as SAAS_ALERTS_API_KEY. That one partner key reaches the Reports, Manage and Webhooks APIs, and the CLI exchanges it for the Respond access token on first use, so there is no second credential to paste.
+In the SaaS Alerts dashboard, open Settings > API and click GET APIKEY. SaaS Alerts shows the key only until you leave that page, so copy it then. Set it as SAAS_ALERTS_API_KEY. That one partner key reaches the Reports, Manage and Webhooks APIs, and the CLI exchanges it for the Respond access token on first use, so there is no second credential to paste. If every call answers 401 Access denied, ask SaaS Alerts support to enable the REST API for your account.
 
 ### Why does the Respond API answer "Only secure origins are allowed"?
 
@@ -217,11 +217,11 @@ Only if you let it. contain, rule-triggers decide and subscriptions health --ree
 
 ### Do Respond triggers expire?
 
-Yes. The Respond API documents that a manual approval expires after 12 hours or when the rule triggers again, whichever is earlier, and the SaaS Alerts help center says a failed remediation is automatically ignored after the third 15-minute reminder. rule-triggers queue lists pending and failed triggers by that deadline, with the actions an approval would fire, and rule-triggers decide skips expired or superseded triggers unless you pass --include-expired.
+Yes. The Respond API documents that a manual approval expires after 12 hours or when the rule triggers again, whichever is earlier, and the SaaS Alerts help center says a failed remediation is automatically ignored after the third 15-minute reminder. rule-triggers queue lists pending and failed triggers by that deadline, with the actions an approval would fire, and rule-triggers decide skips expired or superseded triggers unless you pass --include-expired. The API does not say whether "triggers again" means anywhere or for the same customer, so the CLI counts a trigger as superseded only by a newer one of the same rule for the same organization and accounts: it may show a trigger Respond already expired (Respond then refuses the approve), but it never hides a live one.
 
 ### Why does triage say synced: false?
 
-triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events`. When the data they need was never synced they say synced: false with a note, so an empty result is never presented as an all-clear.
+triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events --since 7d`. They say synced: false, with a note naming the fix, when the data they need was never synced, when the last events sync did not finish (an automatic refresh fetches one page at a time), or when the window you asked about starts before the oldest events you synced. An empty or partial result is never presented as an all-clear, and --select always keeps the synced and note fields.
 
 ### Does contain work for Google Workspace accounts?
 

@@ -192,7 +192,7 @@ func TestInvestigateSelect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saasRequireKeys(t, stdout, "country_hops", "user")
+	saasRequireKeys(t, stdout, "country_hops", "user", "synced", "unsynced_resources") // --select keeps the sync-state fields
 	if !strings.Contains(stdout, `"records": 2`) || strings.Contains(stdout, "licenses") || !strings.Contains(stdout, `"to": "US"`) {
 		t.Errorf("--select output = %s", stdout)
 	}

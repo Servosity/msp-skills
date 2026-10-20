@@ -73,7 +73,7 @@
     },
     {
       "q": "Where do I get the SaaS Alerts API key?",
-      "a": "In the SaaS Alerts dashboard, open Settings > API and click Show Api Key (you may need to agree to the API Policy first). Set it as SAAS_ALERTS_API_KEY. That one partner key reaches the Reports, Manage and Webhooks APIs, and the CLI exchanges it for the Respond access token on first use, so there is no second credential to paste."
+      "a": "In the SaaS Alerts dashboard, open Settings > API and click GET APIKEY. SaaS Alerts shows the key only until you leave that page, so copy it then. Set it as SAAS_ALERTS_API_KEY. That one partner key reaches the Reports, Manage and Webhooks APIs, and the CLI exchanges it for the Respond access token on first use, so there is no second credential to paste. If every call answers 401 Access denied, ask SaaS Alerts support to enable the REST API for your account."
     },
     {
       "q": "Why does the Respond API answer \"Only secure origins are allowed\"?",
@@ -89,7 +89,7 @@
     },
     {
       "q": "Why does triage say synced: false?",
-      "a": "triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events`. When the data they need was never synced they say synced: false with a note, so an empty result is never presented as an all-clear."
+      "a": "triage, investigate, cross-tenant and coverage read the local store, so they need a sync first, for example `saas-alerts-cli sync --resources customers,events --since 7d`. They say synced: false, with a note naming the fix, when the data they need was never synced, when the last events sync did not finish (an automatic refresh fetches one page at a time), or when the window you asked about starts before the oldest events you synced. An empty or partial result is never presented as an all-clear, and --select always keeps the synced and note fields."
     },
     {
       "q": "Does contain work for Google Workspace accounts?",

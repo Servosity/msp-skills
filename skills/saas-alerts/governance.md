@@ -8,8 +8,8 @@
 ## What it authenticates as
 
 The skill drives the `saas-alerts-cli` binary (and `saas-alerts-mcp`) with your SaaS
-Alerts **partner API key**, shown under **Settings > API** in the SaaS Alerts dashboard
-(**Show Api Key**). It is the only credential: `SAAS_ALERTS_API_KEY`. The key goes out as the `api_key` header to
+Alerts **partner API key**, generated under **Settings > API** in the SaaS Alerts dashboard
+(**GET APIKEY**). It is the only credential: `SAAS_ALERTS_API_KEY`. The key goes out as the `api_key` header to
 the Reports, Manage and Webhooks APIs, and the CLI exchanges it with
 `POST /respondApi/api/v1/auth` for the short-lived Respond access token, which it keeps
 in memory for that process only and re-mints once if Respond rejects it. `SAAS_ALERTS_BASE_URL` is

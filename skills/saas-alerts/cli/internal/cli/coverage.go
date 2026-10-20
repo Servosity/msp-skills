@@ -145,7 +145,7 @@ func newNovelCoverageCmd(flags *rootFlags) *cobra.Command {
 			"Customers are ordered by their most severe flag (SILENT and NEVER_SEEN, then RESPOND_DISCONNECTED, RESPOND_NOT_CONNECTED and AMBIGUOUS_ORG_MATCH, NO_RULES and RULES_UNKNOWN), then oldest last event first. " +
 			"rule_count counts only confirmed ACTIVE synced rules; unknown_rule_refs counts rule references whose state is not known locally (never synced, or no status). NO_RULES needs both to be zero; with only unknown references the flag is RULES_UNKNOWN. " +
 			"A customer is matched to a Respond organization by id, else by an exact case-insensitive name only when exactly one organization has that name; several same-name organizations give match ambiguous with the candidate ids and an unknown protection state. " +
-			"synced is false (with a note) when customers or events were never synced or their last sync did not finish, so an empty list is not an all-clear.",
+			"synced is false (with a note) when customers or events were never synced, the last events sync did not finish, or the --silent window starts before the oldest synced events, so an empty list is not an all-clear.",
 		Example: strings.Trim(`
   saas-alerts-cli coverage --silent 72h --agent
   saas-alerts-cli coverage --silent 24h --select customers.customer_name,customers.flags --agent`, "\n"),
@@ -182,11 +182,13 @@ func newNovelCoverageCmd(flags *rootFlags) *cobra.Command {
 			gaps, incomplete := saasSyncGaps(db, unsynced, saasCoverageCheckedResources...) // saas-alerts hand-fix: an unfinished sync is not synced
 			result.Synced = len(gaps) == 0
 			result.UnsyncedResources = gaps
-			result.Note = saasSyncGapNote(unsynced, incomplete, saasCoverageSyncResources)
+			result.Note = saasSyncGapNote(db, unsynced, incomplete, saasCoverageSyncResources)
+			saasApplyWindowGap(db, saasLocalNow().UTC().Add(-silent), flagSilent, &result.Synced, &result.Note, &result.UnsyncedResources) // saas-alerts hand-fix: --silent window older than the synced range
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderCoverageHuman(cmd, result)
 			}
+			saasSelectKeepsSyncState(flags, "synced", "note", "unsynced_resources") // saas-alerts hand-fix
 			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, saasCoverageKeep...)
 		},
 	}

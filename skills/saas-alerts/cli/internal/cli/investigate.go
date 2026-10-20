@@ -211,7 +211,7 @@ func newNovelInvestigateCmd(flags *rootFlags) *cobra.Command {
 		Long: "Use this command for everything known about one account. Do NOT use this command for a fleet-wide digest; use 'triage' instead. Do NOT use it to act on the account; use 'contain' instead.\n\n" +
 			"Reads the local store only: run 'saas-alerts-cli sync --resources customers,events,rule-triggers,suppressions,devices' first (customers also syncs each customer's users). " +
 			"Events match the email in their userEmail field, the deprecated email field, or an email-shaped user name (case-insensitive), or carry the user id or UserId of a synced user with that email. " +
-			"synced is false (with a note, and unsynced_resources naming them) when events, users, rule-triggers, suppressions or devices were never synced or their last sync did not finish, so empty sections are not an all-clear.",
+			"synced is false (with a note, and unsynced_resources naming them) when events, users, rule-triggers, suppressions or devices were never synced or never finished a sync, when the last events sync did not finish, or when --since starts before the oldest synced events, so empty sections are not an all-clear.",
 		Example: strings.Trim(`
   saas-alerts-cli investigate jane.doe@example.com --since 7d --hop-window 2h --agent
   saas-alerts-cli investigate jane.doe@example.com --since 30d --select country_hops,user --agent`, "\n"),
@@ -262,11 +262,13 @@ func newNovelInvestigateCmd(flags *rootFlags) *cobra.Command {
 			gaps, incomplete := saasSyncGaps(db, unsynced, saasInvestigateCheckedResources...) // saas-alerts hand-fix: an unfinished sync is not synced
 			result.Synced = len(gaps) == 0
 			result.UnsyncedResources = gaps
-			result.Note = saasSyncGapNote(unsynced, incomplete, saasInvestigateSyncResources)
+			result.Note = saasSyncGapNote(db, unsynced, incomplete, saasInvestigateSyncResources)
+			saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, &result.UnsyncedResources) // saas-alerts hand-fix: window older than the synced range
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderInvestigateHuman(cmd, result)
 			}
+			saasSelectKeepsSyncState(flags, "synced", "note", "unsynced_resources") // saas-alerts hand-fix
 			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, saasInvestigateKeep...)
 		},
 	}

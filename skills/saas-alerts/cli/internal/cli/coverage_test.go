@@ -119,7 +119,7 @@ func TestCoverageMissingStoreAndSelect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saasRequireKeys(t, out, "customers")
+	saasRequireKeys(t, out, "customers", "synced", "unsynced_resources") // --select keeps the sync-state fields
 	if strings.Contains(out, "rule_count") || !strings.Contains(out, `"NEVER_SEEN"`) {
 		t.Errorf("--select output = %s", out)
 	}

@@ -98,7 +98,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			"Reads the local store only: run 'saas-alerts-cli sync --resources customers,events' first. " +
 			"Groups are per customer, product, account and event type. The account is the stable account id (user id, else UserId, else the lowercased userEmail or email, else an email-shaped user name); user is only a display label, and events that name no stable account are grouped as 'unknown account'. " +
 			"window_totals_by_severity counts every event in the whole window before --min-severity and --limit are applied; groups honor both. " +
-			"synced is false (with a note) when events were never synced or the last events sync did not finish (a page-capped refresh, for example), so an empty or partial digest is not an all-clear.",
+			"synced is false (with a note) when events were never synced, the last events sync did not finish (a page-capped refresh, for example), or --since starts before the oldest synced events, so an empty or partial digest is not an all-clear. --select always keeps synced and note.",
 		Example: strings.Trim(`
   saas-alerts-cli triage --since 24h --min-severity medium --agent
   saas-alerts-cli triage --since 7d --customer 6FxMluNmiTljhF4x3tZO --limit 20
@@ -148,12 +148,14 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			unsynced := saasUnsyncedResources(db, "events")
 			gaps, incomplete := saasSyncGaps(db, unsynced, "events") // saas-alerts hand-fix: an unfinished sync is not synced
 			result.Synced = len(gaps) == 0
-			result.Note = saasSyncGapNote(unsynced, incomplete, saasTriageSyncResources)
+			result.Note = saasSyncGapNote(db, unsynced, incomplete, saasTriageSyncResources)
+			saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, nil) // saas-alerts hand-fix: window older than the synced range
 			saasBuildTriage(&result, events, minRank, flagCustomer, flagLimit)
 
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return saasRenderTriageHuman(cmd, result)
 			}
+			saasSelectKeepsSyncState(flags, "synced", "note") // saas-alerts hand-fix
 			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, saasTriageKeep...)
 		},
 	}

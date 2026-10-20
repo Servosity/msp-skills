@@ -695,10 +695,11 @@ func saasLocalMirrorMissing(cmd *cobra.Command, flags *rootFlags, dbPath, resour
 	if saasLocalMirrorExists(dbPath) {
 		return false, nil
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local mirror at %s; run: %s sync --resources %s --since 7d --db %s\n", dbPath, saasLocalCLIName, resources, dbPath)
+	fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local mirror at %s; run: %s sync --resources %s --since 24h --db %s\n", dbPath, saasLocalCLIName, resources, dbPath)
 	if wantsHumanTable(cmd.OutOrStdout(), flags) {
 		return true, nil
 	}
+	saasSelectKeepsSyncState(flags, "synced", "note") // saas-alerts hand-fix: --select keeps the unsynced signal
 	return true, printJSONFilteredKeep(cmd.OutOrStdout(), empty, flags, keep...)
 }
 
@@ -747,10 +748,24 @@ func saasIncompleteResources(db *store.Store, resources ...string) []string {
 }
 
 // saasSyncGaps returns the never-synced and the incompletely synced resources,
-// the never-synced ones first, without duplicates.
+// the never-synced ones first, without duplicates. A resource whose sync stored
+// rows but has never finished (a first sync that stopped at a page cap) counts
+// as incomplete, not never-synced, so its note does not claim the store is empty.
+// It also returns unsynced with those resources removed, for the note.
 func saasSyncGaps(db *store.Store, unsynced []string, resources ...string) (gaps, incomplete []string) {
 	gaps = append(make([]string, 0, len(unsynced)), unsynced...)
-	for _, r := range saasIncompleteResources(db, resources...) {
+	// Only events is windowed: an unfinished events refresh leaves a hole in
+	// the time window. List resources (rule triggers, rules, organizations,
+	// devices, users) keep their last complete snapshot when a page-capped
+	// head-of-list refresh does not finish, so that is staleness (the stderr
+	// hint) rather than a hole; flagging it made investigate synced:false 15
+	// minutes after every full rule-triggers sync. A list resource that stored
+	// rows but never finished is still caught by saasStartedResources.
+	windowed := make([]string, 0, 1)
+	if slices.Contains(resources, "events") {
+		windowed = append(windowed, "events")
+	}
+	for _, r := range saasIncompleteResources(db, windowed...) {
 		if !slices.Contains(unsynced, r) {
 			incomplete = append(incomplete, r)
 			gaps = append(gaps, r)
@@ -759,9 +774,25 @@ func saasSyncGaps(db *store.Store, unsynced []string, resources ...string) (gaps
 	return gaps, incomplete
 }
 
+// saasStartedResources is unsynced minus the resources whose sync stored rows
+// without finishing; those move to incomplete for the note.
+func saasStartedResources(db *store.Store, unsynced, incomplete []string) (stillUnsynced, moreIncomplete []string) {
+	moreIncomplete = append(make([]string, 0, len(incomplete)), incomplete...)
+	for _, r := range unsynced {
+		var count int
+		if db != nil && db.DB().QueryRow(`SELECT total_count FROM sync_state WHERE resource_type = ? AND last_attempt_complete = 0`, r).Scan(&count) == nil && count > 0 {
+			moreIncomplete = append(moreIncomplete, r)
+			continue
+		}
+		stillUnsynced = append(stillUnsynced, r)
+	}
+	return stillUnsynced, moreIncomplete
+}
+
 // saasSyncGapNote explains synced:false: never-synced resources first, then
 // resources whose last sync did not finish. Empty when there is no gap.
-func saasSyncGapNote(unsynced, incomplete []string, syncResources string) string {
+func saasSyncGapNote(db *store.Store, unsynced, incomplete []string, syncResources string) string {
+	unsynced, incomplete = saasStartedResources(db, unsynced, incomplete)
 	if len(unsynced) > 0 {
 		return saasUnsyncedNote(unsynced, syncResources)
 	}
@@ -770,6 +801,54 @@ func saasSyncGapNote(unsynced, incomplete []string, syncResources string) string
 	}
 	list := strings.Join(incomplete, ",")
 	return fmt.Sprintf("the last %s sync did not finish, so newer rows may be missing from these results; run: %s sync --resources %s", strings.Join(incomplete, ", "), saasLocalCLIName, list)
+}
+
+// saasEventsWindowGap returns the events coverage floor and true when the
+// completed events syncs cover less than a window starting at start: a store
+// synced with --since 24h cannot answer a 7d question, and incremental syncs
+// only move forward, so the gap never closes by itself.
+func saasEventsWindowGap(db *store.Store, start time.Time) (time.Time, bool) {
+	if db == nil {
+		return time.Time{}, false
+	}
+	floor, ok, err := db.EventsCoverage()
+	if err != nil || !ok || floor.IsZero() {
+		return time.Time{}, false
+	}
+	return floor, start.Before(floor)
+}
+
+// saasApplyWindowGap folds an events window gap into synced/note. The note is
+// replaced only when nothing else already explains synced:false.
+func saasApplyWindowGap(db *store.Store, start time.Time, window string, synced *bool, note *string, gaps *[]string) {
+	floor, gap := saasEventsWindowGap(db, start)
+	if !gap {
+		return
+	}
+	if *synced {
+		*note = fmt.Sprintf("the local store holds events only from %s, later than the start of this window; run: %s sync --resources events --since %s", saasFormatTime(floor), saasLocalCLIName, window)
+	}
+	*synced = false
+	if gaps != nil && !slices.Contains(*gaps, "events") {
+		*gaps = append(*gaps, "events")
+	}
+}
+
+// saasSelectKeepsSyncState makes --select keep the completeness fields, so a
+// narrowed result can never drop the signal that it is partial or unsynced.
+func saasSelectKeepsSyncState(flags *rootFlags, fields ...string) {
+	if flags == nil || strings.TrimSpace(flags.selectFields) == "" {
+		return
+	}
+	have := map[string]bool{}
+	for _, f := range strings.Split(flags.selectFields, ",") {
+		have[strings.TrimSpace(f)] = true
+	}
+	for _, f := range fields {
+		if !have[f] {
+			flags.selectFields += "," + f
+		}
+	}
 }
 
 // saasUnsyncedNote explains an empty result from a never-synced store so it
@@ -782,7 +861,7 @@ func saasUnsyncedNote(missing []string, syncResources string) string {
 	if n := len(missing); n > 1 {
 		list = strings.Join(missing[:n-1], ", ") + " or " + missing[n-1]
 	}
-	return fmt.Sprintf("local store has no synced %s; run: %s sync --resources %s --since 24h (the events search stops at 10,000 rows per sync, so start with a short window)", list, saasLocalCLIName, syncResources)
+	return fmt.Sprintf("local store has no synced %s; run: %s sync --resources %s --since 24h", list, saasLocalCLIName, syncResources)
 }
 
 // saasLocalSyncHints emits the unsynced-or-stale hint for the primary resource.

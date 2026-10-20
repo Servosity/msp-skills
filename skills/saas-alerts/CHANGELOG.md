@@ -11,13 +11,16 @@ All notable changes to this skill are documented here. Format follows
   (`saas-alerts-mcp`) covering the Reports, Manage, Respond and Webhooks APIs with one
   partner API key. The Respond access token is minted from that key automatically.
 - `triage`, `investigate`, `cross-tenant` and `coverage` answer across every customer
-  from a local store, and say `synced: false` instead of an empty all-clear when the data
-  was never synced.
+  from a local store, and say `synced: false` with a note naming the fix, instead of an
+  empty or partial all-clear, when the data was never synced, the last events sync did not
+  finish, or the window asked about starts before the oldest synced events.
 - `rule-triggers queue` lists pending and failed Respond triggers by how soon they expire
   or auto-ignore; `rule-triggers decide` applies one decision to many triggers, previewed
   until `--confirm`.
 - `contain` blocks sign-in, expires sessions and resets the password for one Microsoft
   365 account in order, previewed until `--confirm`.
+- `rule-triggers list --all` follows Respond's cursor across every page, and Unify device
+  syncs page with `searchAfter`.
 - `subscriptions health` checks every webhook subscription, its unsent queue and domain,
   and plans re-enabling disabled ones (`--reenable --confirm`).
 - `SAAS_ALERTS_MCP_READ_ONLY=1` limits the MCP server to reads and previews.

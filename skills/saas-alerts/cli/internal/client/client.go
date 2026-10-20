@@ -1668,6 +1668,9 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	if cfg != nil && cfg.Path != "" {
 		location = cfg.Path
 	}
+	if cfg != nil && strings.HasPrefix(cfg.AuthSource, "env:") { // saas-alerts hand-fix: name the variable, not a config file
+		location = "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
+	}
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }
 

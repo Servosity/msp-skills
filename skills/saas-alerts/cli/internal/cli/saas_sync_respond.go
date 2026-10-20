@@ -8,6 +8,9 @@ package cli
 import (
 	"encoding/json"
 	"strings"
+	"time"
+
+	"saas-alerts-pp-cli/internal/store"
 )
 
 // saasRespondEndUnproven reports whether a rule-trigger page would end the walk
@@ -116,4 +119,81 @@ func saasEnvelopeDeclaresFailure(env map[string]json.RawMessage) bool {
 	}
 	code := strings.Trim(strings.TrimSpace(string(env["code"])), `"`)
 	return code != "" && code != "null" && code != "0" && code != "200"
+}
+
+// unifySortCursorPath is where Unify v2 (GET /manageApi/api/v1/unify/devices
+// and its mapped/unmapped/ignored siblings) returns the searchAfter value for
+// the next page, per the Manage 1.2.0 spec's searchAfter description.
+const unifySortCursorPath = "meta.sort"
+
+// unifyDeviceResource reports the synced Unify v2 device lists.
+func unifyDeviceResource(resource string) bool {
+	switch resource {
+	case "devices", "devices-ignored", "devices-mapped", "devices-unmapped":
+		return true
+	}
+	return false
+}
+
+// unifySortCursor keeps a non-empty meta.sort array of scalars as compact JSON
+// (appendArrayQueryParam re-expands it into repeated searchAfter keys); any
+// other shape is no cursor, so a full page without one is reported as
+// truncated rather than complete.
+func unifySortCursor(raw json.RawMessage) string {
+	var parts []json.RawMessage
+	if json.Unmarshal(raw, &parts) != nil || len(parts) == 0 {
+		return ""
+	}
+	vals := make([]string, 0, len(parts))
+	for _, part := range parts {
+		v := cursorValue(part)
+		if v == "" {
+			return ""
+		}
+		vals = append(vals, v)
+	}
+	out, err := json.Marshal(vals)
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// saasEventsCoverageFloor computes the new events coverage floor after a
+// completed events sync. sinceTS is the explicit --since start (RFC3339, or
+// empty), lastSynced the watermark the sync started from (zero for a first or
+// --full sync). A sync with no start covers the full history; an incremental
+// sync from the watermark keeps the previous floor; an explicit --since start
+// at or before the watermark extends the range, and one after it leaves a hole
+// between the watermark and that start, so the floor restarts there.
+func saasEventsCoverageFloor(sinceTS string, lastSynced time.Time, full bool, prev time.Time, havePrev bool) time.Time {
+	var start time.Time
+	if sinceTS != "" {
+		if t, err := time.Parse(time.RFC3339, sinceTS); err == nil {
+			start = t
+		}
+	} else if !lastSynced.IsZero() && !full {
+		if havePrev {
+			return prev
+		}
+		return lastSynced
+	}
+	if start.IsZero() {
+		return time.Time{}
+	}
+	if havePrev && !lastSynced.IsZero() && !full && !start.After(lastSynced) {
+		if prev.IsZero() || prev.Before(start) {
+			return prev
+		}
+	}
+	return start
+}
+
+// recordSaasEventsCoverage stores the floor after a completed events sync.
+func recordSaasEventsCoverage(db *store.Store, sinceTS string, lastSynced time.Time, full bool) error {
+	prev, havePrev, err := db.EventsCoverage()
+	if err != nil {
+		return err
+	}
+	return db.SaveEventsCoverage(saasEventsCoverageFloor(sinceTS, lastSynced, full, prev, havePrev))
 }

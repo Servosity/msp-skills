@@ -443,13 +443,17 @@
         {
           "file": "guide.md",
           "contains": "PowerShell: `$env:SAAS_ALERTS_API_KEY = \"<key>\"`"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "under Settings > API (click GET APIKEY; the key is shown only until you leave the page"
         }
       ]
     },
     {
       "id": "unfinished-sync-is-not-synced",
-      "summary": "triage, cross-tenant, investigate and coverage report synced:false (with a 'the last <resource> sync did not finish' note, and the resource in unsynced_resources) when a checked resource's latest sync attempt did not finish, not only when it was never synced",
-      "why": "In the default auto data source a stale store triggers a bounded, page-capped refresh: one page of the 100 newest events since the last sync. With more new events than that, the store missed every older one, yet triage said synced:true and the digest silently dropped critical alerts for whole customers (adversarial review 2026-10-20, P1; mock receipt: 3 of 4 criticals, synced:true). saasIncompleteResources reads sync_state.last_attempt_complete; a fully fetched refresh still marks the attempt complete (verified), so this does not false-RED a healthy store, and `sync --resources events` closes the gap (verified 180/180). TestSaasIncompleteSyncIsNotSynced fails with the check disabled (proven 2026-10-20). The never-synced remedy also moved from --since 7d to --since 24h because the events search stops at 10,000 rows per sync.",
+      "summary": "triage, cross-tenant, investigate and coverage report synced:false (with a 'the last <resource> sync did not finish' note, and the resource in unsynced_resources) when a checked resource's latest sync attempt did not finish, not only when it was never synced. Only events (the windowed resource) counts an unfinished attempt after a completed one; any resource that stored rows but never finished a sync is reported as unfinished, not as never synced",
+      "why": "In the default auto data source a stale store triggers a bounded, page-capped refresh: one page of the 100 newest events since the last sync. With more new events than that, the store missed every older one, yet triage said synced:true and the digest silently dropped critical alerts for whole customers (adversarial review 2026-10-20, P1; mock receipt: 3 of 4 criticals, synced:true). saasIncompleteResources reads sync_state.last_attempt_complete; a fully fetched refresh still marks the attempt complete (verified), so this does not false-RED a healthy store, and `sync --resources events` closes the gap (verified 180/180). TestSaasIncompleteSyncIsNotSynced fails with the check disabled (proven 2026-10-20). The never-synced remedy also moved from --since 7d to --since 24h because the events search stops at 10,000 rows per sync. Round 2 (2026-10-20): a head-of-list rule-triggers refresh after a full sync made investigate synced:false every 15 minutes, so list resources now count only a never-finished first sync (TestSaasListRefreshAfterFullSyncStaysSynced, TestSaasStartedButUnfinishedIsNotEmpty).",
       "status": "active",
       "asserts": [
         {
@@ -481,6 +485,11 @@
           "file": "cli/internal/cli/saas_sync_incomplete_test.go",
           "contains": "func TestSaasIncompleteSyncIsNotSynced(",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasStartedResources(db *store.Store, unsynced, incomplete []string) (stillUnsynced, moreIncomplete []string) {",
+          "code_only": true
         }
       ]
     },
@@ -509,7 +518,7 @@
     },
     {
       "id": "auth-hints-windows-twin",
-      "summary": "every press auth hint that prints `export SAAS_ALERTS_API_KEY=...` also prints the PowerShell form, and auth setup prints a PowerShell line",
+      "summary": "every press auth hint that prints `export SAAS_ALERTS_API_KEY=...` also prints the PowerShell form, and auth setup prints a PowerShell line; the hints name the dashboard button as GET APIKEY, the vendor help's wording",
       "why": "Windows is the primary MSP platform and the generated hints (auth setup, auth status, doctor auth_hint, the HTML-instead-of-JSON and 401 hints, the placeholder-credential error) were POSIX-only (adversarial review 2026-10-20, P2). Same pattern as backup-radar's auth-hints-windows-twin.",
       "status": "active",
       "asserts": [
@@ -534,6 +543,139 @@
         {
           "file": "cli/internal/client/client.go",
           "contains": "(PowerShell: $env:SAAS_ALERTS_API_KEY = \\\"<your-token-here>\\\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "events-window-coverage",
+      "summary": "a completed events sync records the earliest instant the store covers (saas_events_coverage); triage, cross-tenant, investigate and coverage report synced:false with a 'holds events only from' note when their window starts before it",
+      "why": "synced only said whether a sync ran and finished, never whether it covered the requested window, and incremental syncs only move forward, so after `sync --since 24h` a `triage --since 7d` returned synced:true over one day of a seven-day window (adversarial review round 2, 2026-10-20, P1; mock receipt 20 of 32 events, 7 of 11 criticals). Floor rules: no --since = full history; incremental keeps the floor; an explicit --since at or before the previous watermark extends it; one after the watermark leaves a hole, so the floor restarts. Verified e2e: the 7d gap is flagged, 12h is not, and `sync --resources events --since 7d` closes it. TestSaasWindowOlderThanCoverageIsNotSynced fails with the check disabled (proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/saas_events_coverage.go",
+          "contains": "func (s *Store) SaveEventsCoverage(floor time.Time) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "stateErr = recordSaasEventsCoverage(db, sinceTS, lastSynced, full)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasEventsCoverageFloor(sinceTS string, lastSynced time.Time, full bool, prev time.Time, havePrev bool) time.Time {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, nil)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cross_tenant.go",
+          "contains": "saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, nil)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/investigate.go",
+          "contains": "saasApplyWindowGap(db, start, flagSince, &result.Synced, &result.Note, &result.UnsyncedResources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "saasApplyWindowGap(db, saasLocalNow().UTC().Add(-silent), flagSilent, &result.Synced, &result.Note, &result.UnsyncedResources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_events_coverage_test.go",
+          "contains": "func TestSaasWindowOlderThanCoverageIsNotSynced(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unify-devices-search-after",
+      "summary": "Unify v2 device syncs (devices, devices-ignored, devices-mapped, devices-unmapped) page with pageSize 1000 and searchAfter = the previous response's meta.sort, sent as repeated searchAfter keys",
+      "why": "The generated sync sent only pageSize=100 with no cursor, so any partner with 100+ Unify devices stopped at page 1 with cursor_unavailable and investigate reported 'no synced devices' forever (adversarial review round 2, 2026-10-20, P1). Manage 1.2.0 documents pageSize max 1000 and searchAfter (string array) = previous meta.sort. The live envelope is unverified (the spec example is a bare array); a bare full page still ends as an unfinished sync, never as complete. Mock receipts: {data, meta.sort} envelope 2500/2500 in 4 requests; bare 700 complete; bare 1000 unfinished. TestUnifyDevicesSearchAfterRepeatedKeys fails with the syncGet expansion removed (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "Generator support for searchAfter-style array cursors taken from a response path.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "cursorParam:    \"searchAfter\",",
+          "min_count": 4,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if unifyDeviceResource(resource) && params[\"searchAfter\"] != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "nextCursor = unifySortCursor(raw)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_incomplete_test.go",
+          "contains": "func TestUnifyDevicesSearchAfterRepeatedKeys(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "select-keeps-sync-state",
+      "summary": "--select on triage, cross-tenant, investigate and coverage (and their missing-store envelopes) always keeps synced and note (plus unsynced_resources for investigate and coverage)",
+      "why": "An agent following the documented `coverage --select customers.customer_name,customers.flags --agent` lost the partial/unsynced signal from stdout (adversarial review round 2, 2026-10-20). The existing --select tests now assert the kept keys.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/saas_events_local.go",
+          "contains": "func saasSelectKeepsSyncState(flags *rootFlags, fields ...string) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/triage.go",
+          "contains": "saasSelectKeepsSyncState(flags, \"synced\", \"note\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/coverage.go",
+          "contains": "saasSelectKeepsSyncState(flags, \"synced\", \"note\", \"unsynced_resources\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-wrong-base-not-reachable",
+      "summary": "doctor reports ERROR api and credentials verdicts when the partner profile probe returns 404, instead of 'reachable (HTTP 404 at /)'",
+      "why": "check_doctor_truth (a verify_all hard gate, issue #282) failed: a SAAS_ALERTS_BASE_URL that is not the SaaS Alerts API root made doctor report the API as healthy. Same fix as threatdown; check_doctor_truth --slug saas-alerts passes healthy, expired and wrong-base (2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "base_url is not the SaaS Alerts API root. Point SAAS_ALERTS_BASE_URL at https://us-central1-the-byway-248217.cloudfunctions.net or unset it, and check base_url in the file named by config_path.",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "ERROR not verified (HTTP 404 from %s)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "placeholder-error-names-env-var",
+      "summary": "the placeholder-credential error names the SAAS_ALERTS_API_KEY environment variable when that is where the placeholder came from, instead of a config.toml that does not exist",
+      "why": "Adversarial review round 2 (2026-10-20): `SAAS_ALERTS_API_KEY=your-token-here customers list` pointed the MSP at <home>/config/config.toml.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "location = \"the \" + strings.TrimPrefix(cfg.AuthSource, \"env:\") + \" environment variable\"",
           "code_only": true
         }
       ]

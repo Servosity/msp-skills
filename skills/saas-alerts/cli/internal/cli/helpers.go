@@ -1060,21 +1060,21 @@ func classifyAPIErrorOnly(err error) error {
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
 			"\n      Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"+
-			"\n      In SaaS Alerts open Settings > API and click Show key under Manage API."+
+			"\n      In SaaS Alerts open Settings > API and click GET APIKEY."+
 			"\n      Run 'saas-alerts-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your API key."+
 			" Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"+
-			"\n      In SaaS Alerts open Settings > API and click Show key under Manage API."+
+			"\n      In SaaS Alerts open Settings > API and click GET APIKEY."+
 			"\n      Run 'saas-alerts-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
 			"\n      Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"+
 			"\n      Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"+
-			"\n      In SaaS Alerts open Settings > API and click Show key under Manage API."+
+			"\n      In SaaS Alerts open Settings > API and click GET APIKEY."+
 			"\n      Run 'saas-alerts-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 404"):
 		return notFoundErr(fmt.Errorf("%w\nhint: resource not found. Run the 'list' command to see available items", err))

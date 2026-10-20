@@ -1129,6 +1129,9 @@ func syncResource(ctx context.Context, c interface {
 		stateErr = db.SaveSyncProgress(resource, finalCursor, cachedCount)
 	} else {
 		stateErr = db.SaveSyncStateAt(resource, finalCursor, cachedCount, watermark)
+		if stateErr == nil && resource == "events" && outcome.complete { // saas-alerts hand-fix: record the window a completed events sync covers
+			stateErr = recordSaasEventsCoverage(db, sinceTS, lastSynced, full)
+		}
 	}
 	if stateErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
@@ -1195,37 +1198,37 @@ func cursorPageHasContinuation(cursorType string, hasMore bool, nextCursor strin
 // Values are detected from the API spec by the profiler at generation time.
 func determinePaginationDefaults(resource string) paginationDefaults {
 	switch resource {
-	case "devices":
+	case "devices": // saas-alerts hand-fix: Unify v2 pages with searchAfter = previous meta.sort, pageSize max 1000
 		return paginationDefaults{
-			cursorParam:    "",
-			cursorType:     "offset",
-			nextCursorPath: "",
+			cursorParam:    "searchAfter",
+			cursorType:     "cursor",
+			nextCursorPath: "meta.sort",
 			limitParam:     "pageSize",
-			limit:          100,
+			limit:          1000,
 		}
-	case "devices-ignored":
+	case "devices-ignored": // saas-alerts hand-fix: Unify v2 pages with searchAfter = previous meta.sort, pageSize max 1000
 		return paginationDefaults{
-			cursorParam:    "",
-			cursorType:     "offset",
-			nextCursorPath: "",
+			cursorParam:    "searchAfter",
+			cursorType:     "cursor",
+			nextCursorPath: "meta.sort",
 			limitParam:     "pageSize",
-			limit:          100,
+			limit:          1000,
 		}
-	case "devices-mapped":
+	case "devices-mapped": // saas-alerts hand-fix: Unify v2 pages with searchAfter = previous meta.sort, pageSize max 1000
 		return paginationDefaults{
-			cursorParam:    "",
-			cursorType:     "offset",
-			nextCursorPath: "",
+			cursorParam:    "searchAfter",
+			cursorType:     "cursor",
+			nextCursorPath: "meta.sort",
 			limitParam:     "pageSize",
-			limit:          100,
+			limit:          1000,
 		}
-	case "devices-unmapped":
+	case "devices-unmapped": // saas-alerts hand-fix: Unify v2 pages with searchAfter = previous meta.sort, pageSize max 1000
 		return paginationDefaults{
-			cursorParam:    "",
-			cursorType:     "offset",
-			nextCursorPath: "",
+			cursorParam:    "searchAfter",
+			cursorType:     "cursor",
+			nextCursorPath: "meta.sort",
 			limitParam:     "pageSize",
-			limit:          100,
+			limit:          1000,
 		}
 	case "events":
 		return paginationDefaults{
@@ -1870,6 +1873,9 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	if nextCursorPath != "" {
 		if raw, ok := rawAtPath(envelope, nextCursorPath); ok {
 			nextCursor = cursorValue(raw)
+			if nextCursorPath == unifySortCursorPath { // saas-alerts hand-fix: Unify meta.sort is an array of any length
+				nextCursor = unifySortCursor(raw)
+			}
 			if isFollowableNextURL(nextCursor) {
 				nextCursor = cursorFromNextURL(nextCursor, cursorParam)
 			}
@@ -2488,6 +2494,17 @@ func isNullOrEmptyJSON(data json.RawMessage) bool {
 func syncGet(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
 }, resource, parentResource, path string, params map[string]string) (json.RawMessage, error) {
+	// saas-alerts hand-fix: Unify searchAfter (the previous meta.sort) is a string array sent as repeated keys.
+	if unifyDeviceResource(resource) && params["searchAfter"] != "" {
+		path = appendArrayQueryParam(path, "searchAfter", params["searchAfter"], "form", true)
+		rest := make(map[string]string, len(params))
+		for k, v := range params {
+			if k != "searchAfter" {
+				rest[k] = v
+			}
+		}
+		params = rest
+	}
 	// saas-alerts hand-fix: rule-trigger startAfter is a two-element array sent as repeated keys.
 	if resource == "rule-triggers" && params["startAfter"] != "" {
 		path = appendArrayQueryParam(path, "startAfter", params["startAfter"], "form", true)

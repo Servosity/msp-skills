@@ -179,7 +179,7 @@ func TestCrossTenantSelect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saasRequireKeys(t, stdout, "whitelist_exclusions", "sources")
+	saasRequireKeys(t, stdout, "whitelist_exclusions", "sources", "synced") // --select keeps the sync-state fields
 	if !strings.Contains(stdout, `"key": "198.51.100.7"`) || strings.Contains(stdout, "event_count") {
 		t.Errorf("--select output = %s", stdout)
 	}

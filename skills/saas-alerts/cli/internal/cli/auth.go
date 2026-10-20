@@ -43,7 +43,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
 			fmt.Fprintln(w, "Get a key at: https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm")
-			fmt.Fprintln(w, "  In SaaS Alerts open Settings > API and click Show key under Manage API.")
+			fmt.Fprintln(w, "  In SaaS Alerts open Settings > API and click GET APIKEY.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
 			fmt.Fprintln(w, "  export SAAS_ALERTS_API_KEY=\"your-token-here\"")
@@ -142,7 +142,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export SAAS_ALERTS_API_KEY=\"your-token-here\" # Partner API key from SaaS Alerts Settings > API (Show key under Manage API).")
+				fmt.Fprintln(w, "  export SAAS_ALERTS_API_KEY=\"your-token-here\" # Partner API key from SaaS Alerts Settings > API (GET APIKEY).")
 				fmt.Fprintln(w, "  PowerShell:  $env:SAAS_ALERTS_API_KEY = \"your-token-here\"")
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | saas-alerts-cli auth set-token\n")
 				return authErr(fmt.Errorf("no credentials configured"))

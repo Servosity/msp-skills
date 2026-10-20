@@ -199,7 +199,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						report["auth"] = "not configured"
 						report["auth_hint"] = "Set your API key with: export SAAS_ALERTS_API_KEY=\"your-token-here\" (PowerShell: $env:SAAS_ALERTS_API_KEY = \"your-token-here\")"
 						report["auth_key_url"] = "https://help.saasalerts.kaseya.com/help/Content/How-To/using-the-saas-alerts-api.htm"
-						report["auth_instructions"] = "In SaaS Alerts open Settings > API and click Show key under Manage API."
+						report["auth_instructions"] = "In SaaS Alerts open Settings > API and click GET APIKEY."
 					} else {
 						authConfigured = true
 						report["auth"] = "configured"
@@ -294,6 +294,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						status := reachAPIErr.StatusCode
 						if vendor := looksLikeDoctorInterstitial([]byte(reachAPIErr.Body)); vendor != "" {
 							report["api"] = fmt.Sprintf("blocked by %s interstitial (HTTP %d) — the configured transport reached the wall.", vendor, status)
+						} else if status == 404 {
+							// hand-fix (doctor-wrong-base-not-reachable): no SaaS Alerts API here.
+							report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the SaaS Alerts API root. Point SAAS_ALERTS_BASE_URL at https://us-central1-the-byway-248217.cloudfunctions.net or unset it, and check base_url in the file named by config_path.", healthPath)
 						} else {
 							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
 						}
@@ -341,6 +344,13 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 								// first is supported here. Report not-verified at WARN so the
 								// verdict is honest and --fail-on warn can trip on it.
 								report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) — probe reached a non-auth endpoint; set auth.verify_path to a known-good authenticated GET", authAPIErr.StatusCode, verifyPath)
+								// hand-fix (handfixes.json doctor-wrong-base-not-reachable): a 404 on
+								// the partner profile probe means base_url is not the API root, so the
+								// api row must stop reading "reachable" too.
+								if authAPIErr.StatusCode == 404 {
+									report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", verifyPath)
+									report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the SaaS Alerts API root. Point SAAS_ALERTS_BASE_URL at https://us-central1-the-byway-248217.cloudfunctions.net or unset it, and check base_url in the file named by config_path.", verifyPath)
+								}
 							}
 						default:
 							report["credentials"] = fmt.Sprintf("error: %s", authErr)

@@ -456,7 +456,7 @@ Lists disabled subscriptions, unsent queue depth, and unverified domains; add --
 
 ## Auth Setup
 
-Create the key in SaaS Alerts under Settings > API (Show key under Manage API) and set it as SAAS_ALERTS_API_KEY (macOS/Linux: `export SAAS_ALERTS_API_KEY=<key>`; PowerShell: `$env:SAAS_ALERTS_API_KEY = "<key>"`). The same key works for the Reports, Manage, and Webhooks APIs. Respond calls need an extra access token: the CLI exchanges your key for one via POST /respondApi/api/v1/auth on first use, sends it as the accesstoken header, and re-mints it once if Respond rejects it. If every call returns 401 Access denied, ask SaaS Alerts support to enable the REST API for your account. SaaS Alerts publishes only the US API host; if your account is on another SaaS Alerts instance, set SAAS_ALERTS_BASE_URL to that host.
+Create the key in the SaaS Alerts dashboard under Settings > API (click GET APIKEY; the key is shown only until you leave the page, so copy it then) and set it as SAAS_ALERTS_API_KEY (macOS/Linux: `export SAAS_ALERTS_API_KEY=<key>`; PowerShell: `$env:SAAS_ALERTS_API_KEY = "<key>"`). The same key works for the Reports, Manage, and Webhooks APIs. Respond calls need an extra access token: the CLI exchanges your key for one via POST /respondApi/api/v1/auth on first use, sends it as the accesstoken header, and re-mints it once if Respond rejects it. If every call returns 401 Access denied, ask SaaS Alerts support to enable the REST API for your account. SaaS Alerts publishes only the US API host; if your account is on another SaaS Alerts instance, set SAAS_ALERTS_BASE_URL to that host.
 
 Run `saas-alerts-cli doctor` to verify setup.
 
