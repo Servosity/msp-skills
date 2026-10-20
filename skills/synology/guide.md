@@ -263,7 +263,7 @@ synology-cli doctor
 On Windows (PowerShell):
 
 ```powershell
-$env:SYNOLOGY_HOME = "C:\ProgramData\synology"
+$env:SYNOLOGY_HOME = "$env:LOCALAPPDATA\synology"
 synology-cli doctor
 ```
 
@@ -481,7 +481,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `synology-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $SYNOLOGY_ACCOUNT`
+- Verify the environment variable is set: `echo $SYNOLOGY_ACCOUNT` (PowerShell: `$env:SYNOLOGY_ACCOUNT`)
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run `synology-cli abb tasks` or `synology-cli fleet list` to see valid task ids and NAS names
@@ -489,7 +489,9 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ### API-specific
 - **DSM error 403 at login (a one-time code is required)**  -  Run 'synology-cli auth login' once with a fresh 6-digit code in SYNOLOGY_OTP_CODE (fleet: <prefix>_OTP_CODE and 'fleet sync'); the CLI caches the trusted-device token, then unset the OTP
 - **DSM error 102 on abb commands**  -  Active Backup for Business is not installed on that NAS; check with 'synology-cli package'
-- **DSM error 105 (insufficient permission)**  -  Use an administrator account, or grant the account the Active Backup for Business application in DSM
+- **DSM error 105 (insufficient permission)**  -  Use an account in the DSM administrators group: Active Backup for Business management and Storage Manager calls need administrator rights
+- **not a DSM WebAPI ... the password was not sent**  -  The address did not answer `SYNO.API.Info` the way DSM does, so no login was attempted. Check SYNOLOGY_BASE_URL (or the fleet entry's --url): use the https:// address if DSM redirects http:// to https:// (redirects are never followed), and make a reverse proxy in front of DSM pass `/webapi/query.cgi`
+- **the NAS certificate does not match the pinned SHA-256 fingerprint**  -  The NAS renewed its certificate. Check the fingerprint the error names in DSM (Control Panel > Security > Certificate), then re-pin with 'synology-cli fleet add <name> --pin-cert' (keeps the address, settings and mirrored history) or set SYNOLOGY_TLS_FINGERPRINT to the new value
 - **x509: certificate signed by unknown authority**  -  Most NAS units use a self-signed certificate: pin it with 'fleet add <name> --url ... --pin-cert' (fleet) or SYNOLOGY_TLS_FINGERPRINT=<sha256> (single NAS); SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate on a network you control
 - **fleet status shows UNKNOWN for a NAS**  -  Its last fleet sync failed or is old; run 'synology-cli fleet sync' and read that NAS's sync_error
 - **abb failures or fleet status lists a weekly task as no_run_in_window**  -  The default window is 24h (failures) / 26h (status); widen it for less frequent tasks, for example 'synology-cli abb failures --since 8d'

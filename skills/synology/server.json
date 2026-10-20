@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/synology-mcp",
   "title": "Synology MCP",
-  "description": "Every client NAS's Active Backup for Business jobs and storage health, mirrored into one local",
+  "description": "Active Backup for Business jobs and storage health from every client Synology NAS, in one database",
   "version": "0.1.0",
   "icons": [
     {

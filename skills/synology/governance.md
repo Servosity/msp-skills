@@ -10,10 +10,11 @@
 The skill drives the `synology-cli` binary (and `synology-mcp`). DSM has no API
 keys: the CLI logs in to each NAS with a DSM account through `SYNO.API.Auth`,
 sending the password as a form POST, and then uses the session id and SynoToken
-DSM returns. The account needs to be able to open Active Backup for Business (an
-administrator, or an account granted the Active Backup for Business application).
-A dedicated account per client NAS keeps the MSP's access separate from the
-client's own logins and easy to revoke.
+DSM returns. Use a DSM account in the administrators group: Active Backup for
+Business management and Storage Manager calls need administrator rights, and
+Active Backup's own Operator and Manager delegation roles are not tested with
+this CLI. A dedicated account per client NAS keeps the MSP's access separate
+from the client's own logins and easy to revoke.
 
 - **One NAS.** `SYNOLOGY_BASE_URL` (for example `https://192.168.1.50:5001`),
   `SYNOLOGY_ACCOUNT` and `SYNOLOGY_PASSWORD`.
@@ -27,11 +28,26 @@ client's own logins and easy to revoke.
   the CLI keeps it with that NAS's cached session and sends it on later logins.
   `SYNOLOGY_DEVICE_ID` (or `<prefix>_DEVICE_ID`) overrides the kept token.
 
+**The password goes only to a DSM.** Before every login (`auth login`, every
+live command, `fleet add --check`, `fleet sync`, `abb triage`, `doctor`) the CLI
+asks the address for `SYNO.API.Info` without credentials. Only a host that
+answers the way DSM does gets the account and password; anything else (a
+mistyped address, the client's router, a web page, a redirect) fails with "not
+a DSM WebAPI ... the password was not sent". Redirects are never followed, so a
+DSM that redirects `http://` to `https://` must be registered by its `https://`
+address.
+
 **What is written to disk.** Passwords and one-time codes are never written. The
 CLI does cache, per NAS, the DSM session id, the SynoToken and the two-factor
 trusted-device token in `session-<host>.json` in its data directory, created
-owner-only (mode 0600) on macOS and Linux; on Windows, protect the data directory
-with NTFS permissions. Anyone who can read that file can act as the CLI's DSM
+owner-only (mode 0600) on macOS and Linux. On Windows the data directory sits
+under your user profile (`%USERPROFILE%\.local\share\synology-cli`), which
+Windows already limits to your account, SYSTEM and Administrators; keep it there
+rather than under `C:\ProgramData` or a shared folder, or lock a relocated one
+with `icacls <dir> /inheritance:r /grant:r "%USERNAME%:(OI)(CI)F"`. `export` shows
+secret-named fields (passwords, tokens, encrypted share passwords) as
+`[redacted]`, as the local store and the response cache do. Anyone who can read
+the session file can act as the CLI's DSM
 session until it expires, and the trusted-device token spares a future login the
 second factor. `synology-cli auth logout` forgets the cached session and
 trusted-device token for the `SYNOLOGY_BASE_URL` NAS; `fleet remove` does not
@@ -49,7 +65,14 @@ certificate and expose the password to anyone on the network path: use them only
 on a network you control. A plain `http://` address (DSM's port 5000) is accepted
 with a warning, because it sends the password and session in clear text; a
 certificate pin on an `http://` address is refused rather than sending the
-password unprotected.
+password unprotected. When a NAS renews its certificate (a DSM self-signed
+renewal, or Let's Encrypt every 90 days or so), the pin stops matching and every
+call to that NAS fails with "the NAS certificate does not match the pinned
+SHA-256 fingerprint", naming the fingerprint the NAS presented. Check that
+fingerprint in DSM (Control Panel > Security > Certificate), then re-pin:
+`synology-cli fleet add <name> --pin-cert` for a registered NAS (keeps its
+address, settings and mirrored history) or a new `SYNOLOGY_TLS_FINGERPRINT` for
+a single NAS.
 
 ## Default-safe behavior
 
@@ -77,7 +100,15 @@ password unprotected.
   so an agent's `dry-run` is refused rather than ignored while the write runs.
   The read tools forward extra arguments to DSM as filters but refuse one that
   would override `api`, `method` or `version`, so a read tool can never be
-  turned into a write.
+  turned into a write. The same rule covers `sync --param`, `--global-param` and
+  `--resource-param` on the CLI and over MCP: they may add filters, never choose
+  the DSM operation or session.
+- **Agents cannot choose where a password or a file goes.** `fleet add`,
+  `fleet remove` and the streaming `tail` command are CLI only, not MCP tools;
+  `fleet_sync` over MCP reaches only NAS units the operator registered. MCP
+  `teach` takes its playbook inline, never from a file path, and the output
+  destination flags (`--deliver`, `--output`, `--db`, `--config`, `--home`) are
+  refused over MCP.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but adds no
   write gating - the preview-then-approve policy above still applies. See
   AGENTS.md.
@@ -90,8 +121,9 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. Nothing changes on a NAS. | `fleet status`, `fleet health`, `fleet list`, `abb failures`, `abb stale`, `abb device`, `abb trend`, `abb triage`, `abb tasks`, `abb results`, `abb result-detail`, `abb logs`, `abb transfers`, `abb storage`, `abb settings`, `abb hypervisors`, `hyperbackup tasks`, `hyperbackup task-status`, `storage`, `system`, `log`, `package`, `folder`, `user`, `group`, `session apis`, `sync`, `search`, `export` (`sync` fills the local mirror; `export --output` overwrites the file you name) | Allow |
-| **Write (routine)** | Starts or stops work on a NAS, or changes local state. | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet add`, `fleet remove` (change only the local registry and mirror); `fleet sync` (logs in to every registered NAS and rewrites the mirror) | Preview with `--dry-run`, then an approved write |
-| **Credential** | Logs in, or stores or clears a session. | `auth login` (caches the DSM session and the two-factor trusted-device token), `auth logout` | Human-in-the-loop only |
+| **Write (routine)** | Starts or stops work on a NAS, or refreshes the mirror. | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet sync` (sends each registered NAS's env-var login to that NAS's registered URL, caches its session and two-factor trusted-device token, and rewrites the mirror) | Preview with `--dry-run`, then an approved write |
+| **Credential** | Sends a password, or stores or clears a session. | `auth login` (sends the password to `SYNOLOGY_BASE_URL` and caches the DSM session and the two-factor trusted-device token), `auth logout` | Human-in-the-loop only |
+| **Admin (operator only)** | Decides which URL each NAS password is sent to. | `fleet add` (registers a NAS URL and the env vars whose login is sent there; `--check` logs in once), `fleet remove` (unregisters a NAS and deletes its mirror rows). CLI only: neither is offered as an MCP tool | Operator only, never an agent |
 | **Data egress** | Sends output off your machine. | `--deliver webhook:<url>` on any command (POSTs that command's output to the URL you name), `feedback --send` | Human-in-the-loop - a webhook sink moves client data off your machine |
 | **Destructive / Admin** | Deletes, restores, reconfigures or reboots. | None: no command deletes backups, restores data, changes DSM settings or powers a NAS off | Not applicable |
 
@@ -102,6 +134,9 @@ require a human for anything below the line.
   do in DSM.
 - **Run the MCP server read-only for unattended agents.** `SYNOLOGY_MCP_READ_ONLY=1`
   removes every write tool; an agent that only reports never needs them.
+- **Register NAS units yourself.** `fleet add` decides where each NAS password is
+  sent, so it is CLI only and never offered to an agent over MCP; check each
+  `--url` before you register it.
 - **Keep autonomous agents to Read plus previewed writes.** Have a human approve
   `abb backup`, `abb cancel` and `session logout`: the gate lives in your agent's
   policy, not in the binary's defaults.

@@ -2852,9 +2852,9 @@ Outcomes (question -> command your AI agent runs):
 - Which volumes, pools or disks are degraded, failing, hot or nearly full, and how many days until full? -> synology-cli fleet health --full-pct 85 --disk-temp 55
 - Which task protects BOB-LAPTOP, when did it last back up, and what happened on its recent runs? -> synology-cli abb device "BOB-LAPTOP"
 - Why did the Office PCs task fail? Show the failed run's error lines and the log from that window. -> synology-cli abb triage "Office PCs" --nas acme
-- Which tasks have a falling success rate, or ran far longer than usual last time? -> synology-cli abb trend --since 30d
-- Which Hyper Backup tasks does this NAS run, and where do they send the NAS's own backup? -> synology-cli hyperbackup tasks
-- Who is in the administrators group on this client's NAS? -> synology-cli group members --group administrators
+- Which tasks have the lowest success rate, or ran far longer than usual last time? -> synology-cli abb trend --since 30d
+- Which Hyper Backup tasks does a client's NAS run (live, the NAS in SYNOLOGY_BASE_URL), and to what kind of destination? -> synology-cli hyperbackup tasks
+- Who is in the administrators group on one client's NAS (live, the NAS in SYNOLOGY_BASE_URL)? -> synology-cli group members --group administrators
 
 FAQ:
 Q: Does this work with ChatGPT?
@@ -2866,7 +2866,7 @@ A: Register each one: `synology-cli fleet add acme --url https://nas.acme.exampl
 Q: Our NAS accounts use two-factor sign-in. Does that work?
 A: Yes. Run the first login with a fresh code in SYNOLOGY_OTP_CODE (or SYNOLOGY_<NAME>_OTP_CODE for a fleet NAS). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session (owner-only on macOS and Linux) and sends on later logins, so the code is not needed again.
 Q: My NAS uses DSM's self-signed certificate. Will it connect?
-A: Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control.
+A: Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM and run `synology-cli fleet add <name> --pin-cert` again; it keeps the address and mirrored history.
 Q: Can it change my clients' NAS units?
 A: Three commands act on a NAS: `abb backup` starts a backup, `abb cancel` cancels a running one, and `session logout` ends the CLI's own DSM session. Each sends immediately unless you add --dry-run. Everything else reads. Set SYNOLOGY_MCP_READ_ONLY=1 and the MCP server drops every command that is not read-only.
 Q: Is my Synology data safe?
@@ -2874,7 +2874,7 @@ A: Your data stays on your machine. The CLI, MCP server and the local mirror are
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-Governance: Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout) and send immediately unless you add --dry-run, so preview them and have a human approve. The strongest controls are the DSM account you give each NAS and SYNOLOGY_MCP_READ_ONLY=1, which drops every non-read-only tool from the MCP server.
+Governance: Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout) and send immediately unless you add --dry-run, so preview them and have a human approve. Registering a NAS (fleet add) decides where its password is sent, so it is CLI only and never offered to an agent; SYNOLOGY_MCP_READ_ONLY=1 drops every non-read-only tool from the MCP server.
 
 ### Tactical RMM (RMM)
 

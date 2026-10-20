@@ -306,7 +306,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **No confirmation prompts**  -  `abb backup`, `abb cancel` and `session logout` act on the NAS immediately with no confirmation prompt; preview with `--dry-run` first. `fleet add` and `fleet remove` change only the local registry.
+- **No confirmation prompts**  -  `abb backup`, `abb cancel` and `session logout` act on the NAS immediately with no confirmation prompt; preview with `--dry-run` first. `fleet add` and `fleet remove` are operator-only CLI commands, not MCP tools: they decide which URL each NAS password is sent to.
 
 ### Response envelope
 
@@ -319,7 +319,7 @@ Commands that read from the local store or the API wrap output in a provenance e
 }
 ```
 
-Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set  -  piped/agent consumers and explicit-format runs get pure JSON on stdout.
+Parse `.results` for data and `.meta.source` to know whether it's live or local. The fleet and abb report commands (`fleet status`, `fleet health`, `fleet list`, `abb failures`, `abb stale`, `abb device`, `abb trend`) wrap their rows in this envelope under `--agent`; with plain `--json` they print the bare row array. Live reads may be answered from a 5-minute response cache and are still labelled `live`; add `--no-cache` when you need the NAS's state right now. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set  -  piped/agent consumers and explicit-format runs get pure JSON on stdout.
 
 ## Paths and state
 
@@ -504,7 +504,7 @@ synology-cli teach-playbook \
   --notes-file ~/playbooks/<shape>-notes.md
 ```
 
-Playbook files are JSON with `steps`, `entity_slots`, `expected_tool_calls`. Notes files are markdown carrying the gotchas verbatim. File-free callers (MCP-only agents) pass the same content inline: `--playbook-json` and `--playbook-notes` on the integrated `teach` form, `--playbook-json` and `--notes` on `teach-playbook`. On the integrated `teach` form, the playbook flags are optional - omit them entirely for a resource-only teach. On the standalone `teach-playbook` form, at least one of the playbook and notes flags must be set; both empty is rejected. Playbooks are keyed on the structural query family (entities stripped) so a recipe taught from one entity-shaped query applies to every other query of the same shape, with `slots_resolved` binding the live query's canonical at recall time.
+Playbook files are JSON with `steps`, `entity_slots`, `expected_tool_calls`. Notes files are markdown carrying the gotchas verbatim. File-free callers (MCP-only agents, where the file flags are not offered) pass the same content inline: `--playbook-json` and `--playbook-notes` on the integrated `teach` form, `--playbook-json` and `--notes` on `teach-playbook`. On the integrated `teach` form, the playbook flags are optional - omit them entirely for a resource-only teach. On the standalone `teach-playbook` form, at least one of the playbook and notes flags must be set; both empty is rejected. Playbooks are keyed on the structural query family (entities stripped) so a recipe taught from one entity-shaped query applies to every other query of the same shape, with `slots_resolved` binding the live query's canonical at recall time.
 
 When you DO find a playbook on a future recall, treat it as ground truth: replay the steps with `slots_resolved` substitutions, skip the discovery that the choreography already documents, and read `notes` before any step.
 

@@ -50,20 +50,20 @@
       "command": "synology-cli abb triage \"Office PCs\" --nas acme"
     },
     {
-      "question": "Which tasks have a falling success rate, or ran far longer than usual last time?",
+      "question": "Which tasks have the lowest success rate, or ran far longer than usual last time?",
       "command": "synology-cli abb trend --since 30d"
     },
     {
-      "question": "Which Hyper Backup tasks does this NAS run, and where do they send the NAS's own backup?",
+      "question": "Which Hyper Backup tasks does a client's NAS run (live, the NAS in SYNOLOGY_BASE_URL), and to what kind of destination?",
       "command": "synology-cli hyperbackup tasks"
     },
     {
-      "question": "Who is in the administrators group on this client's NAS?",
+      "question": "Who is in the administrators group on one client's NAS (live, the NAS in SYNOLOGY_BASE_URL)?",
       "command": "synology-cli group members --group administrators"
     }
   ],
-  "different_vs_wrappers": "[rafalr100/synology-mcp](https://github.com/rafalr100/synology-mcp) is a general-purpose DSM server with 71 tools for one NAS, covering files, storage, users, packages and Hyper Backup, with power controls off unless you enable them. [cmeans/mcp-synology](https://github.com/cmeans/mcp-synology) focuses on files and system health and can hold several NAS connections. Neither covers Active Backup for Business. This one is built for it: `fleet sync` logs in to every client NAS you register and mirrors Active Backup jobs, per-device runs and storage health into one local database, so `fleet status`, `abb failures` and `abb stale` answer across every client in one query. A NAS that did not sync reads as not synced, never as OK.",
-  "different_vs_vendor": "Synology's AI Console connects third-party AI models to Synology MailPlus and Office for drafting and summarising; it does not answer questions about backups. Active Insight, Synology's cloud monitoring service, offers MSP delegation and alerts on abnormal events per host. This adds the per-device Active Backup answers an MSP asks every morning (failed runs, devices with no recent success, which task protects a machine), across every client NAS, in the AI agent you already use.",
+  "different_vs_wrappers": "[rafalr100/synology-mcp](https://github.com/rafalr100/synology-mcp) is a general-purpose DSM server with 71 tools for one NAS, covering files, storage, users, packages and Hyper Backup, with power controls off unless you enable them. [cmeans/mcp-synology](https://github.com/cmeans/mcp-synology) covers File Station, system health, Download Station and Synology Photos, with one config and login per NAS. Neither covers Active Backup for Business. This one is built for it: `fleet sync` logs in to every client NAS you register and mirrors Active Backup jobs, per-device runs and storage health into one local database, so `fleet status`, `abb failures` and `abb stale` answer across every client in one query. A NAS that did not sync reads as not synced, never as OK.",
+  "different_vs_vendor": "Synology's AI Console brings AI models into Synology's own apps (drafting and summarising in MailPlus and Office, AI search in Drive); it does not answer questions about backups. Active Insight, Synology's cloud monitoring service, offers MSP delegation and alerts on abnormal events per host. This adds the per-device Active Backup answers an MSP asks every morning (failed runs, devices with no recent success, which task protects a machine), across every client NAS, in the AI agent you already use.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -83,7 +83,7 @@
     },
     {
       "q": "My NAS uses DSM's self-signed certificate. Will it connect?",
-      "a": "Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control."
+      "a": "Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM and run `synology-cli fleet add <name> --pin-cert` again; it keeps the address and mirrored history."
     },
     {
       "q": "Can it change my clients' NAS units?",
@@ -98,22 +98,27 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     }
   ],
-  "governance_summary": "Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout) and send immediately unless you add --dry-run, so preview them and have a human approve. The strongest controls are the DSM account you give each NAS and SYNOLOGY_MCP_READ_ONLY=1, which drops every non-read-only tool from the MCP server.",
+  "governance_summary": "Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout) and send immediately unless you add --dry-run, so preview them and have a human approve. Registering a NAS (fleet add) decides where its password is sent, so it is CLI only and never offered to an agent; SYNOLOGY_MCP_READ_ONLY=1 drops every non-read-only tool from the MCP server.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet status, fleet health, fleet list, abb failures, abb stale, abb device, abb trend, abb triage, abb tasks, abb results, abb logs, abb transfers, hyperbackup tasks, storage, system, log, package, folder, user, group, sync, search, export. Local writes only: sync and fleet sync fill the local mirror, export --output overwrites the file you name",
+      "examples": "fleet status, fleet health, fleet list, abb failures, abb stale, abb device, abb trend, abb triage, abb tasks, abb results, abb logs, abb transfers, hyperbackup tasks, storage, system, log, package, folder, user, group, sync, search, export. Local writes only: sync fills the local mirror, export --output overwrites the file you name",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "abb backup (start a backup now), abb cancel (cancel a running backup), session logout (end the CLI's DSM session); fleet add and fleet remove change only the local registry and mirror; fleet sync logs in to every registered NAS",
+      "examples": "abb backup (start a backup now), abb cancel (cancel a running backup), session logout (end the CLI's DSM session); fleet sync (sends each registered NAS's env-var login to that NAS's registered URL, caches its session and rewrites the mirror)",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
       "tier": "Credential",
-      "examples": "auth login (logs in and caches the DSM session and two-factor trusted-device token), auth logout",
+      "examples": "auth login (sends the password to SYNOLOGY_BASE_URL and caches the DSM session and two-factor trusted-device token), auth logout",
       "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Admin (operator only)",
+      "examples": "fleet add (registers a NAS URL and the env vars whose login is sent there; --check logs in once), fleet remove. CLI only: neither is offered as an MCP tool",
+      "policy": "Operator only, never an agent"
     },
     {
       "tier": "Data egress",

@@ -67,8 +67,9 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
-Configuration**) and add:
+Open the Command Palette > **MCP: Open User Configuration** and add the block below. A
+workspace `.vscode/mcp.json` works too, but it is often committed to a repository: keep
+the DSM password out of a committed file (VS Code's `inputs` with `"password": true` prompts for it instead).
 
 ```json
 {
@@ -99,7 +100,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (`%USERPROFILE%\.gemini\settings.json` on Windows), Gemini CLI's config, and add the same shape as
 Claude Desktop:
 
 ```json
