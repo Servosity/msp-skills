@@ -210,6 +210,7 @@ func Load(configPath string) (*Config, error) {
 	// Base URL override (used by printing-press verify to point at mock/test servers)
 	if v := cliutil.EnvOverride("SAAS_ALERTS_BASE_URL"); v != "" {
 		cfg.BaseURL = v
+		cfg.markEnvOverride("BaseURL")
 	}
 	return cfg, nil
 }
@@ -716,6 +717,13 @@ func (c *Config) configForSave() Config {
 	if c.fileConfig != nil {
 		if c.envOverrides["SaasAlertsApiKey"] {
 			out.SaasAlertsApiKey = c.fileConfig.SaasAlertsApiKey
+		}
+		// hand-fix (handfixes.json env-base-url-never-persisted): an
+		// env-sourced base URL is a per-process override; persisting it made
+		// unsetting the variable a no-op and kept sending the saved API key to
+		// that host on every later run.
+		if c.envOverrides["BaseURL"] {
+			out.BaseURL = c.fileConfig.BaseURL
 		}
 	}
 	out.envOverrides = nil
