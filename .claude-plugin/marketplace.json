@@ -1324,6 +1324,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "td-synnex",
+      "source": "./skills/td-synnex",
+      "description": "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "td-synnex",
+        "td synnex",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

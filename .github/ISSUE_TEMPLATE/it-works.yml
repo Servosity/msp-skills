@@ -96,6 +96,7 @@ body:
         - superops
         - syncro
         - tactical-rmm
+        - td-synnex
         - threatdown
         - threatlocker
         - unifi-network

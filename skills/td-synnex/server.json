@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/td-synnex-mcp",
+  "title": "TD SYNNEX MCP",
+  "description": "StreamOne ION reseller API plus a local licence book: renewals, margin, seat true-up",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/td-synnex/td-synnex-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/td-synnex"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/td-synnex-v0.1.0/td-synnex-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "TD_SYNNEX_ACCOUNT_ID",
+          "description": "Your StreamOne ION reseller account ID (portal Quick Access > Account Information). Fills {accountId} in every API path.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "TD_SYNNEX_ACCESS_TOKEN",
+          "description": "Optional override; leave blank. Run `td-synnex-cli auth mint --refresh-token-stdin` once instead: it saves the token this server reads, and `auth mint --if-expiring 15m` keeps it fresh. A pasted access token expires after 2 hours and keeps overriding the saved one.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "TD_SYNNEX_REFRESH_TOKEN",
+          "description": "Leave blank. Read only by `td-synnex-cli auth mint` before its first exchange; the MCP server never uses it. ION refresh tokens are single-use, so pipe it to `auth mint --refresh-token-stdin` instead.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "TD_SYNNEX_BASE_URL",
+          "description": "Optional; leave blank. Sends every ION call to this base URL instead of https://ion.tdsynnex.com/api/v3, for tests and mock servers. It is never saved to the config file.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "TD_SYNNEX_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to remove every tool that can change StreamOne ION (orders, cancellations, cart checkout, customer and product changes, subscriptions set). Any value except blank, 0, false, no or off turns it on. It also removes sync and the learning writers; the tools it keeps still write the synced store, command journal and recall statistics.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "TD_SYNNEX_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "TD_SYNNEX_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to StreamOne ION. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "TD_SYNNEX_TAIL_MAX_PAGES",
+          "description": "Optional; leave blank. Raises the 50-page cap the CLI tail command drains per poll. Not used by MCP tools.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

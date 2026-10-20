@@ -2832,6 +2832,49 @@ A: No - it complements it. The UI stays your system of record and remote-access 
 
 Governance: The skill reads everything across your fleet - agents, clients, sites, checks, alerts, patches, software, services, and the cross-client rollups - and through the API it can also create and update config, delete records, run scripts and commands on endpoints, reboot or shut machines down, install Windows updates, and manage users, roles, and API keys. Reads are safe to run unattended, with one exception: listing API keys or reading the keystore, codesign token, or core settings can return stored secrets, so treat those as credential-tier. Keep an autonomous agent to reads plus previewed writes; require a human for anything that runs on an endpoint, deletes, or touches credentials. The CLI can only do what your API key is permitted to do, so scope the key to the workflow.
 
+### TD SYNNEX StreamOne ION (Billing)
+
+Page: https://msp-skills.compoundingteams.com/skills/td-synnex/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/install.sh)
+
+MSPs buying Microsoft 365, Azure and security through TD SYNNEX StreamOne ION check renewals, margin and seat counts one customer at a time. Ask your AI "what renews in the next 30 days with auto-renew off," "which customers am I selling at a loss," or "do my TD SYNNEX and Pax8 seats match what I bill," and get the answer from a local copy of your ION book in one query.
+
+Outcomes (question -> command your AI agent runs):
+- Which subscriptions renew in the next 30 days with auto-renew switched off? -> td-synnex-cli subscriptions renewals --within 30d --auto-renew off
+- Which customers am I selling at a loss or below list price? -> td-synnex-cli margin --by customer
+- Which SKUs carry the thinnest margin across every customer? -> td-synnex-cli margin --by sku
+- Do my TD SYNNEX and Pax8 seats agree for each customer and SKU? -> td-synnex-cli position trueup --with pax8-positions.csv --map company=customer_name --map sku=sku_key --map quantity=seats
+- Am I billing every seat I pay TD SYNNEX for? -> td-synnex-cli position trueup --billed psa-agreements.csv --map billed_qty=seats
+- Which orders are stuck on hold or failed this week? -> td-synnex-cli orders stuck --older-than 24h --since 7d
+- What seat, renewal and status changes went through ION in the last week? -> td-synnex-cli subscriptions changes --since 7d
+- What does one customer hold, what does it cost, and what is still open? -> td-synnex-cli customers show "Contoso"
+- What would changing this subscription to 12 seats send to ION? -> td-synnex-cli subscriptions set "10505" "108536" "1608355" --seats 12
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run td-synnex-mcp --transport http with TD_SYNNEX_MCP_HTTP_TOKEN set and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You paste your ION refresh token once.
+Q: Is my TD SYNNEX data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local store are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: How does it sign in to StreamOne ION?
+A: With an ION OAuth refresh token. In the ION portal open Settings > Users > Edit > OAuth credentials > Request New Credentials, then pipe the refresh token to td-synnex-cli auth mint --refresh-token-stdin and set TD_SYNNEX_ACCOUNT_ID to your ION account ID. ION refresh tokens are single-use and last 32 days, and access tokens last 2 hours. auth mint saves the new pair to a private credentials file before it prints anything, and running td-synnex-cli auth mint --if-expiring 15m on a schedule keeps it fresh. td-synnex-cli auth check shows how long both tokens stay valid.
+Q: Will this hit my ION API limits?
+A: subscriptions renewals, subscriptions changes, margin, position export, position trueup, orders stuck and customers show answer from the local store. When the store is stale they first refresh the first page (about 100 rows) of each resource, so with a larger book run td-synnex-cli sync before whole-book answers; add --data-source local (or set TD_SYNNEX_NO_AUTO_REFRESH=1) to never call the API from them. Live calls respect the --rate-limit throttle.
+Q: Can it change subscriptions or place orders?
+A: Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Keep orders, cancellations and suspensions human-approved.
+Q: Are the margin numbers exact?
+A: Not yet proven. margin, subscriptions renewals, position export and customers show use the price and cost ION reports for each subscription and do not multiply them by seats (an amount ION does not send is reported as unknown, never as 0), and no MSP has yet confirmed the connector against a live ION tenant. Check one multi-seat subscription against the ION portal before you rely on the totals.
+Q: Can I run the Pax8 or PSA true-up from Claude Desktop or ChatGPT?
+A: Not the file comparison. position trueup --with and --billed read export files from your disk, so they run where your agent has a shell (Claude Code, Codex, Cowork) or in your terminal. Over MCP the tool refuses file paths, because a tool that reads any path an agent names could read your credentials file, and it only lists SKUs a customer holds in more than one TD SYNNEX subscription.
+Q: Does this replace the ION portal?
+A: No. Ordering, provisioning and invoicing stay in StreamOne ION. This skill answers the questions that span every customer, from your terminal or agent.
+
+Governance: The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. Writes are not gated by default except subscriptions set, which needs --confirm: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue.
+
 ### ThreatDown (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/threatdown/

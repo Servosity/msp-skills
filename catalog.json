@@ -1538,6 +1538,26 @@
       "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking."
     },
     {
+      "name": "td-synnex",
+      "system": "TD SYNNEX StreamOne ION cloud marketplace: customers, subscriptions, orders, renewals and per-customer margin",
+      "status": "beta",
+      "skill_path": "skills/td-synnex",
+      "cli_binary": "td-synnex-cli",
+      "mcp_binary": "td-synnex-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "TD SYNNEX",
+      "vendor_trademark_owner": "TD SYNNEX Corporation",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/install.sh)",
+      "install_mcp_doc": "skills/td-synnex/mcp-install.md",
+      "description": "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors."
+    },
+    {
       "name": "threatdown",
       "system": "ThreatDown OneView: endpoint protection, detections, isolation and response jobs across every managed customer site",
       "status": "beta",

@@ -1,5 +1,5 @@
 {
-  "count": 82,
+  "count": 83,
   "connectors": [
     {
       "slug": "abnormal",
@@ -814,6 +814,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/tactical-rmm/"
+    },
+    {
+      "slug": "td-synnex",
+      "display_name": "TD SYNNEX StreamOne ION",
+      "tagline": "Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/td-synnex/"
     },
     {
       "slug": "threatdown",
