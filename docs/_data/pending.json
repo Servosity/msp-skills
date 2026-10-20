@@ -471,7 +471,7 @@
   "saas-alerts": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "saas-alerts-v0.1.0",
     "current_hash": "sha256:93d0232fb3246527ad4e3ab12649f5702aa259023cf717819d5d51a0c5ad9e66",
     "released_hash": null
   },
