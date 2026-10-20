@@ -37,12 +37,13 @@ All notable changes to this skill are documented here. Format follows
   partner token sidecar; the portal URL must be https.
 - MCP: no tool takes a local file path, `download fetch` and `import` are
   CLI-only, and `download link` is off the read-only surface.
-- Local data is kept per CloudAlly user (not per token or API key), so a
-  refresh never loses the restore ledger and a restricted partner user never
-  reads the administrator's cache; an untrusted auth record stops the restore
+- Synced rows and the restore ledger are kept per CloudAlly user (not per token
+  or API key), so a refresh never loses the restore ledger and a restricted
+  partner user never reads the administrator's synced cache; an untrusted auth record stops the restore
   commands instead of opening an empty store.
-- Restores: a machine-wide guard (`restore-guard.db`) sends each restore once
-  across every login, token, date spelling and concurrent run; `--resume`
+- Restores: a guard in the state directory (`restore-guard.db`) sends each
+  restore once across every login, token, date spelling and concurrent run that
+  uses it; `--resume`
   keeps the batch's target account and options; `--new-batch` is the only
   override.
 - Downloads: owner-only files and folders, no write through a link or over an

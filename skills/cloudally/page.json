@@ -38,8 +38,8 @@
       "command": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31"
     },
     {
-      "question": "Restore every mailbox on the task to October 1st.",
-      "command": "cloudally-cli restore submit --account 5f1c2a --task 64b0e9 --date 2026-10-01 --yes"
+      "question": "Plan, then restore every mailbox on the task to October 1st.",
+      "command": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01"
     },
     {
       "question": "Archive every mailbox as it stood on December 31st in the customer's own timezone.",
@@ -55,7 +55,7 @@
     }
   ],
   "different_vs_wrappers": "[cloudally](https://github.com/jancotanis/cloudally) (a Ruby gem) and [n8n-nodes-cloudally](https://github.com/davejlong/n8n-nodes-cloudally) (n8n workflow nodes) wrap CloudAlly's documented API. This one is a single binary that works as a CLI and an MCP server and goes past the documented API where it stops: it reads each mailbox's past backups from the customer portal, creates downloads the way the portal does (the documented export call creates nothing), plans and ledgers bulk restores and downloads to one date, and sweeps every customer's backup health in one command.",
-  "different_vs_vendor": "The CloudAlly partner and customer portals restore and export one mailbox and one date at a time through a wizard. This works from the AI agent you already use, handles whole tasks and multiple years at once, shows a plan before anything changes, and keeps a local record of every restore and download it started.",
+  "different_vs_vendor": "The CloudAlly partner and customer portals restore and export one mailbox and one date at a time through a wizard. This works from the AI agent you already use, handles a whole task at once (several dates per restore batch, one date per download batch), shows a plan before anything changes, and keeps a local record of every restore and download it started.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -71,7 +71,7 @@
     },
     {
       "q": "Can it change or delete my customers' backups?",
-      "a": "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools; even with it off, the MCP restore and download tools only preview."
+      "a": "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint at once (including recovery restore and tasks delete) and download_link returns live links."
     },
     {
       "q": "Why does a December 31st download hold December 30th?",
@@ -106,7 +106,7 @@
     {
       "tier": "Restore",
       "examples": "restore submit and the recovery restore commands, which write backed-up items back into live mailboxes, sites and drives",
-      "policy": "Human-in-the-loop - run restore plan or --dry-run first"
+      "policy": "Human-in-the-loop - run restore plan first"
     },
     {
       "tier": "Destructive",
@@ -115,7 +115,7 @@
     },
     {
       "tier": "Credential",
-      "examples": "auth login, auth use-account, auth set-token, auth logout, session login and refresh, access-token and sign-in-token, user update-password",
+      "examples": "auth login, auth use-account, auth set-token, auth logout, session login, partner-login and refresh, access-token and sign-in-token, user update-password",
       "policy": "Human-in-the-loop only"
     },
     {

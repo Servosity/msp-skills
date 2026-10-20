@@ -168,7 +168,7 @@ cloudally-cli doctor
 | Which mailboxes across all my customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --group-by account` |
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
-| Restore every mailbox on the task to October 1st | `cloudally-cli restore submit --account 5f1c2a --task 64b0e9 --date 2026-10-01 --yes` |
+| Restore every mailbox on the task to October 1st | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01`, then the same flags on `restore submit` plus `--yes` once the human confirms the plan |
 | Archive every mailbox as it stood on December 31st, in the customer's timezone | `cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes` |
 | Download every finished archive to disk | `cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31` |
 | What did we restore for this customer since September? | `cloudally-cli restore history --account 5f1c2a --since 2026-09-01` |
@@ -217,7 +217,7 @@ A CloudAlly API application key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_S
 
 ### Can it change or delete my customers' backups?
 
-It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its backed-up data. `restore submit`, `download submit` and `download start` print exactly what they would do and stop until you pass `--yes`, and download jobs are only ever EXPORT jobs. The generated API commands (`recovery restore` and every delete or unsubscribe) send at once with no confirmation, so [governance.md](./governance.md) marks them human-only. `CLOUDALLY_MCP_READ_ONLY=1` gives an MCP agent read-only tools; even with it off, the MCP restore and download tools only preview, and submitting happens from a terminal.
+It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its backed-up data. `restore submit`, `download submit` and `download start` print exactly what they would do and stop until you pass `--yes`, and download jobs are only ever EXPORT jobs. The generated API commands (`recovery restore` and every delete or unsubscribe) send at once with no confirmation, so [governance.md](./governance.md) marks them human-only. `CLOUDALLY_MCP_READ_ONLY=1` gives an MCP agent read-only tools. With it off (the default), `restore_submit`, `download_submit` and `download_start` only preview, but `cloudally_execute` can call any API endpoint at once, including `recovery restore` and `tasks delete`, with no plan, ledger, guard or confirmation, and `download_link` returns live 60-second links; set it to 1 unless a human approves every call.
 
 ### Why does a December 31st download hold December 30th?
 
@@ -234,9 +234,9 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Read | `backup health`, `backup snapshots`, `restore plan`, `restore watch`, `restore history`, `download list`, `download watch`; every list / get / details / bills / backup-statuses read; `sync`, `search`, `export` (local writes only: the response cache, the local store, files you name) | Allow |
 | Sensitive read | `download link` (a 60-second presigned URL to a mailbox archive), `download fetch` (writes complete mailbox archives to disk) | Human-in-the-loop; never paste a link anywhere |
 | Write | `download submit`, `download start` (EXPORT jobs only); `backup-now`, `activate`, `pause`, `add-entity`, `cancel` on backup tasks; creating accounts, resellers and users (`import` included); settings and permission updates | Human-in-the-loop |
-| Restore | `restore submit` and the `recovery restore` commands (write back into live mailboxes, sites and drives) | Human-in-the-loop; run `restore plan` or `--dry-run` first |
+| Restore | `restore submit` and the `recovery restore` commands (write back into live mailboxes, sites and drives) | Human-in-the-loop; run `restore plan` first |
 | Destructive | `tasks delete` and its distributor and reseller variants (delete a backup task and its data), `remove-entity`, `unsubscribe`, `user delete`, `delete-user` | Human only |
-| Credential | `auth login`, `auth use-account`, `auth set-token`, `auth logout`, `session` login and refresh, `access-token`, `sign-in-token`, `user update-password` | Human-in-the-loop only |
+| Credential | `auth login`, `auth use-account`, `auth set-token`, `auth logout`, `session login`, `session partner-login` and `session refresh`, `access-token`, `sign-in-token`, `user update-password` | Human-in-the-loop only |
 | Data egress | `--deliver webhook:<url>`, `feedback --send`, and `feedback` when `CLOUDALLY_FEEDBACK_ENDPOINT` is set with `CLOUDALLY_FEEDBACK_AUTO_SEND=true` | Human-in-the-loop |
 
 The MCP `cloudally_execute` tool can call any endpoint of CloudAlly's spec by ID: each call follows the tiers above, and every non-GET call is refused while `CLOUDALLY_MCP_READ_ONLY=1`.
