@@ -34,6 +34,7 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 const BinaryResponseHeader = "X-Printing-Press-Binary-Response"
@@ -306,6 +307,13 @@ var ErrRedirectProtocolDowngrade = errors.New("refusing redirect: https to http 
 // ErrRedirectPrivateDestination is returned when a redirect leaves the origin for a local IP literal.
 var ErrRedirectPrivateDestination = errors.New("refusing redirect: loopback, private, link-local, or unspecified address")
 
+// ErrRedirectCredentialEndpoint refuses a hop to a credential endpoint or
+// the GET that creates a PSA integration (handfixes.json:
+// redirect-never-reaches-a-credential-endpoint): the read-only guard, the
+// write intent and the response-cache exclusion are all decided on the
+// requested path, so a redirect must not change which of them applies.
+var ErrRedirectCredentialEndpoint = errors.New("refusing redirect to a credential or write endpoint (api_keys, uninstall_pin, secret_key, redirect_link)")
+
 // A followed redirect can change scheme or land on a local address the caller
 // never asked to reach. Only http and https are allowed. An https-to-http
 // downgrade on any earlier hop is refused. An off-origin hop is refused when
@@ -452,6 +460,9 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		}
 		if err := redirectDestinationRefused(req.URL, via); err != nil {
 			return err
+		}
+		if responseCacheCredentialPath(req.URL.EscapedPath()) || responseCacheCredentialPath(req.URL.Path) {
+			return ErrRedirectCredentialEndpoint
 		}
 		// Never carry credential material across a host change or protocol
 		// downgrade. Go strips Authorization and Cookie in common cases, but
@@ -860,6 +871,9 @@ func responseCacheable(path string, data json.RawMessage) bool {
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 || (trimmed[0] != '{' && trimmed[0] != '[') {
 		return false
+	}
+	if _, _, binary := UnwrapBinaryResponse(data); binary {
+		return false // opaque bytes: the scrub cannot read them
 	}
 	return bytes.Equal(store.ScrubPersistedSecrets(data), data)
 }
@@ -1470,7 +1484,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// timeout). Back off before retrying — same exponential schedule as
 			// the 5xx path below — so a brief outage does not burn every attempt
 			// in a tight loop. ctx cancellation breaks out of the wait at once.
-			if attempt < maxRetries && canRetryAmbiguousFailure && !isPermanentDNSError(err) {
+			if attempt < maxRetries && canRetryAmbiguousFailure && !isPermanentDNSError(err) && !isRedirectRefusal(err) {
 				wait := time.Duration(math.Pow(2, float64(attempt))) * time.Second
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
@@ -1515,7 +1529,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// run through the JSON sanitizer or returned as raw json.RawMessage
 			// — return a self-describing base64 envelope instead. Textual and
 			// JSON responses fall through to the unchanged path.
-			if isBinaryResponseContentType(resp.Header.Get("Content-Type")) {
+			// Hand-wired (handfixes.json: binary-envelope-never-hides-text): a
+			// body labelled binary that is UTF-8 text (JSON, CSV) takes the
+			// text path, where the secret scrub, the response-cache rule and
+			// the read-only filter can read it; base64 would hide it from all
+			// three.
+			if isBinaryResponseContentType(resp.Header.Get("Content-Type")) && !bodyIsText(respBody) {
 				env, encErr := wrapBinaryResponse(resp.Header.Get("Content-Type"), respBody)
 				if encErr != nil {
 					return nil, 0, encErr
@@ -1799,6 +1818,12 @@ func isBinaryResponseContentType(ct string) bool {
 		return false
 	}
 	return true
+}
+
+// bodyIsText reports a body that is valid UTF-8 with no NUL byte: text the
+// filters can read, whatever its Content-Type says.
+func bodyIsText(body []byte) bool {
+	return utf8.Valid(body) && bytes.IndexByte(body, 0) < 0
 }
 
 // wrapBinaryResponse marshals body into a self-describing base64 envelope.
@@ -2250,6 +2275,14 @@ func clientMaxRetries() int {
 // isPermanentDNSError identifies known resolver failures that cannot succeed
 // by replaying the request. Timeouts, explicitly temporary failures, and
 // otherwise unclassified DNS errors remain retryable.
+// isRedirectRefusal reports a redirect this client refused: the same hop
+// would be refused again, so it is never retried (handfixes.json:
+// redirect-never-reaches-a-credential-endpoint).
+func isRedirectRefusal(err error) bool {
+	return errors.Is(err, ErrRedirectCredentialEndpoint) || errors.Is(err, ErrRedirectPrivateDestination) ||
+		errors.Is(err, ErrRedirectProtocolDowngrade) || errors.Is(err, ErrRedirectUnsupportedScheme)
+}
+
 func isPermanentDNSError(err error) bool {
 	var dnsErr *net.DNSError
 	if !errors.As(err, &dnsErr) {

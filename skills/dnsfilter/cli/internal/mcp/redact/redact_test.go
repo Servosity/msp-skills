@@ -106,3 +106,16 @@ func TestHeaderHeuristicNeedsATable(t *testing.T) {
 		}
 	}
 }
+
+// TestFinalWithholdsBinaryEnvelopes: a base64 binary envelope is opaque to
+// every rule, so read-only MCP withholds it.
+func TestFinalWithholdsBinaryEnvelopes(t *testing.T) {
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
+	env := `{"_pp_binary":true,"content_type":"application/zip","encoding":"base64","bytes":11,"data":"c2VjcmV0X2tleT1h"}`
+	if got := Final(env); strings.Contains(got, "c2VjcmV0X2tleT1h") {
+		t.Fatalf("a binary envelope passed read-only MCP: %s", got)
+	}
+	if got := Final(`{"data":` + env + `}`); strings.Contains(got, "c2VjcmV0X2tleT1h") {
+		t.Fatalf("a nested binary envelope passed read-only MCP: %s", got)
+	}
+}

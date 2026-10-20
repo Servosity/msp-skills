@@ -256,6 +256,12 @@ func encodeJSONCompact(v any) string {
 func redactValue(value any) (any, bool) {
 	switch v := value.(type) {
 	case map[string]any:
+		// Hand-wired (handfixes.json: binary-envelope-never-hides-text): a
+		// base64 binary envelope is opaque to every rule here, so read-only
+		// MCP withholds it whole.
+		if b, _ := v["_pp_binary"].(bool); b {
+			return WithheldFieldPlaceholder, true
+		}
 		changed := false
 		for key, child := range v {
 			if IsCredentialKey(key) {

@@ -3437,6 +3437,82 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "redirect-never-reaches-a-credential-endpoint",
+      "summary": "the HTTP client refuses, in every mode and without retrying, a redirect hop to a credential endpoint or the PSA integration GET (api_keys, uninstall_pin, secret_key, redirect_link), and never retries any refused redirect",
+      "why": "Codex round 11 (P1, 2026-10-20): the read-only guard, the write intent and the response-cache exclusion are decided on the requested path, but CheckRedirect followed a same-origin 302 from an allowed GET (user-agents.show) to /v1/user_agents/uninstall_pin with authentication, so read-only MCP returned the PIN and a redirect to the PSA GET performed a write. The template also retried every refused redirect as a transient network error until the deadline. TestRedirectNeverReachesACredentialEndpoint fails without the refusal.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if responseCacheCredentialPath(req.URL.EscapedPath()) || responseCacheCredentialPath(req.URL.Path) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func isRedirectRefusal(err error) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "&& !isPermanentDNSError(err) && !isRedirectRefusal(err) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/redirect_credential_test.go",
+          "contains": "func TestRedirectNeverReachesACredentialEndpoint(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "binary-envelope-never-hides-text",
+      "summary": "a response labelled binary whose body is UTF-8 text (JSON, CSV) is handled as text; a real binary envelope is never written to the response cache and is withheld whole by read-only MCP",
+      "why": "Codex round 11 (P1, 2026-10-20): a networks GET answered with Content-Type application/octet-stream and body {\"secret_key\":...} was base64-wrapped before the response-cache rule and the read-only filter ran; neither decodes base64, so the secret was cached and returned reversibly under DNSFILTER_MCP_READ_ONLY. TestBinaryLabelNeverHidesText (client) and TestFinalWithholdsBinaryEnvelopes (redact) fail against the previous code.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if isBinaryResponseContentType(resp.Header.Get(\"Content-Type\")) && !bodyIsText(respBody) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func bodyIsText(body []byte) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if _, _, binary := UnwrapBinaryResponse(data); binary {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/redact/redact.go",
+          "contains": "if b, _ := v[\"_pp_binary\"].(bool); b {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/binary_text_test.go",
+          "contains": "func TestBinaryLabelNeverHidesText(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agents-stale-unknown-state-not-healthy",
+      "summary": "agents stale counts only agent_state \"protected\" as healthy; a recently synced client with a missing, empty or unrecognized state is reported as state_unknown, never part of an all-clear",
+      "why": "Codex round 11 (P1, 2026-10-20): a client with agent_state null, \"\" or omitted reached `default: continue`, so a mirror of only such clients printed 'No roaming clients silent for more than 7d or unprotected.' The spec's states are protected, unprotected, bypassed and uninstalled. TestComputeStale's new state cases fail against the previous agents_stale.go.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "case a.str(\"agent_state\") != \"protected\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "reason, bucket = \"state_unknown\", ageBucket(now.Sub(last))",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

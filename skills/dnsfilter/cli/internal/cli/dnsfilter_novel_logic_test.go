@@ -364,8 +364,22 @@ func TestComputeDrift(t *testing.T) {
 
 func TestComputeStale(t *testing.T) {
 	agents, _, networks, orgs := driftFixtures(t)
+	for i := range agents {
+		if agents[i].str("agent_state") == "" {
+			agents[i].Attrs["agent_state"] = "protected"
+		}
+	}
 	agents = append(agents, ja(t, `{"id":"a5","attributes":{"hostname":"LAPTOP-9","agent_state":"bypassed","status":"active","last_sync":"2026-10-14"},"relationships":{"network":{"data":{"id":"51"}}}}`))
 	now, _ := time.Parse(time.RFC3339, "2026-10-14T12:00:00Z")
+	// Only "protected" is healthy: a recently synced client with no state
+	// (or an unknown one) is reported, never part of an all-clear.
+	for _, state := range []string{`"agent_state":null,`, `"agent_state":"",`, ``, `"agent_state":"degraded",`} {
+		unknown := ja(t, `{"id":"a6","attributes":{"hostname":"DESK-7",`+state+`"status":"active","last_sync":"2026-10-14"},"relationships":{"network":{"data":{"id":"50"}}}}`)
+		rows, _ := computeStale([]jaRes{unknown}, networks, orgs, "", 7*24*time.Hour, now)
+		if len(rows) != 1 || rows[0].Agents[0].Reason != "state_unknown" {
+			t.Fatalf("state %q: rows = %+v, want DESK-7 state_unknown", state, rows)
+		}
+	}
 	rows, scanned := computeStale(agents, networks, orgs, "", 7*24*time.Hour, now)
 	if scanned == 0 {
 		t.Fatalf("stale scan checked no clients")

@@ -149,7 +149,7 @@ dnsfilter-cli agents drift --agent
   ```bash
   dnsfilter-cli agents drift --bad-version 3.1.0 --agent
   ```
-- **`agents stale`**  -  List roaming clients that stopped checking in or are unprotected or bypassed, grouped by client org with age buckets. Reads the local mirror; sync first.
+- **`agents stale`**  -  List roaming clients that stopped checking in or are unprotected, bypassed or of unknown protection state, grouped by client org with age buckets. Reads the local mirror; sync first.
 
   _Use for the weekly check of endpoints that are silently unfiltered. Run dnsfilter-cli sync --full --resources organizations,networks,user-agents first._
 
@@ -881,7 +881,7 @@ Manage users
 
 - **`dnsfilter-cli agents drift`** - See which client orgs have roaming clients behind the latest agent release, or on a specific bad build, with auto-update state per org. Joins the synced fleet with the vendor's live release feed.
 
-- **`dnsfilter-cli agents stale`** - List roaming clients that stopped checking in or are unprotected or bypassed, grouped by client org with age buckets. Reads the local mirror; sync first.
+- **`dnsfilter-cli agents stale`** - List roaming clients that stopped checking in or are unprotected, bypassed or of unknown protection state, grouped by client org with age buckets. Reads the local mirror; sync first.
 
 
 ### allow

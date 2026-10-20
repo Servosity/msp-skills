@@ -22,7 +22,7 @@ type staleAgent struct {
 	AgentVersion string `json:"agent_version"`
 	AgentState   string `json:"agent_state"`
 	LastSync     string `json:"last_sync"`
-	Reason       string `json:"reason"` // silent, unprotected, bypassed, never_synced
+	Reason       string `json:"reason"` // silent, unprotected, bypassed, never_synced, state_unknown
 	AgeBucket    string `json:"age_bucket"`
 }
 
@@ -43,7 +43,7 @@ func newNovelAgentsStaleCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stale",
 		Short: "List roaming clients that stopped checking in or are unprotected, grouped by client org",
-		Long: `Use this command for roaming clients that are silent (last_sync older than --older-than) or not protected (unprotected or bypassed) across every client org.
+		Long: `Use this command for roaming clients that are silent (last_sync older than --older-than) or not protected (unprotected, bypassed, or no known protection state: only "protected" counts as healthy) across every client org.
 Do NOT use this command for version drift after an agent release; use 'agents drift' instead.
 
 Reads the local mirror: run 'dnsfilter-cli sync --full --resources organizations,networks,user-agents' first. Uninstalled clients are excluded.`,
@@ -176,6 +176,11 @@ func computeStale(agents, networks, orgs []jaRes, orgFilter string, window time.
 			reason, bucket = "silent", ageBucket(now.Sub(last))
 		case a.str("agent_state") == "unprotected" || a.str("agent_state") == "bypassed":
 			reason, bucket = a.str("agent_state"), ageBucket(now.Sub(last))
+		case a.str("agent_state") != "protected":
+			// handfixes.json: agents-stale-unknown-state-not-healthy. Only
+			// "protected" is healthy: a missing or unrecognized state is not
+			// an all-clear.
+			reason, bucket = "state_unknown", ageBucket(now.Sub(last))
 		default:
 			continue
 		}
