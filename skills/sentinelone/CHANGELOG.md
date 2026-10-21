@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.4] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `sentinelone-cli accounts expire-now create` ran `sentinelone-cli accounts expire-now expire-an-account`, POST `/accounts/{account_id}/expire-now`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `sentinelone-cli accounts expire-now expire-an-account` (POST `/accounts/{account_id}/expire-now`)
+  - `sentinelone-cli agents abort-scan` (POST `/agents/actions/abort-scan`)
+  - `sentinelone-cli dv cancel-running-query` (POST `/dv/cancel-query`)
+  - `sentinelone-cli firewall-control item-move-rules by-category` (POST `/firewall-control/{firewall_rule_category}/move-rules`)
+  - `sentinelone-cli firewall-control remove-tags remove-rule-tags-by-category` (POST `/firewall-control/{firewall_rule_category}/remove-tags`)
+  - `sentinelone-cli remote-scripts run` (POST `/remote-scripts/execute`)
+  - `sentinelone-cli reports delete` (POST `/reports/delete-reports`)
+  - `sentinelone-cli settings clear-pending-emails` (POST `/settings/notifications/cancel-pending-emails`)
+  - `sentinelone-cli singularity-marketplace enable-or-disable-application` (POST `/singularity-marketplace/applications/{mode}`)
+  - `sentinelone-cli sites expire-now expire-site` (POST `/sites/{site_id}/expire-now`)
+
 ## [0.2.3] - 2026-10-15
 
 ### Fixed

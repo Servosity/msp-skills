@@ -28,7 +28,7 @@
       "name": "acronis",
       "source": "./skills/acronis",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "backup-dr",
       "tags": [
         "acronis",
@@ -43,7 +43,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "rmm",
       "tags": [
         "action1",
@@ -73,7 +73,7 @@
       "name": "appdirect",
       "source": "./skills/appdirect",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "billing",
       "tags": [
         "appdirect",
@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "avanan",
@@ -295,7 +295,7 @@
       "name": "cork",
       "source": "./skills/cork",
       "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "cork",
@@ -388,7 +388,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -485,7 +485,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "huntress",
@@ -500,7 +500,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -578,7 +578,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -593,7 +593,7 @@
       "name": "maxio",
       "source": "./skills/maxio",
       "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "billing",
       "tags": [
         "maxio",
@@ -689,7 +689,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -704,7 +704,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -719,7 +719,7 @@
       "name": "pandadoc",
       "source": "./skills/pandadoc",
       "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "documentation",
       "tags": [
         "pandadoc",
@@ -749,7 +749,7 @@
       "name": "pipedrive",
       "source": "./skills/pipedrive",
       "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "crm",
       "tags": [
         "pipedrive",
@@ -855,7 +855,7 @@
       "name": "rootly",
       "source": "./skills/rootly",
       "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "incident-response",
       "tags": [
         "rootly",
@@ -870,7 +870,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "runzero",
@@ -900,7 +900,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -915,7 +915,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.7",
+      "version": "0.6.8",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -990,7 +990,7 @@
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "rmm",
       "tags": [
         "tactical-rmm",
@@ -1021,7 +1021,7 @@
       "name": "unifi-network",
       "source": "./skills/unifi-network",
       "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "network-monitoring",
       "tags": [
         "unifi-network",
@@ -1037,7 +1037,7 @@
       "name": "veeam",
       "source": "./skills/veeam",
       "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "backup-dr",
       "tags": [
         "veeam",
@@ -1097,7 +1097,7 @@
       "name": "connectwise-rmm",
       "source": "./skills/connectwise-rmm",
       "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "rmm",
       "tags": [
         "connectwise-rmm",
@@ -1113,7 +1113,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1144,7 +1144,7 @@
       "name": "threatdown",
       "source": "./skills/threatdown",
       "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "threatdown",
@@ -1159,7 +1159,7 @@
       "name": "connectsecure",
       "source": "./skills/connectsecure",
       "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "connectsecure",
@@ -1174,7 +1174,7 @@
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
       "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "network-monitoring",
       "tags": [
         "cisco-meraki",
@@ -1205,7 +1205,7 @@
       "name": "sophos-central",
       "source": "./skills/sophos-central",
       "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "sophos-central",
@@ -1221,7 +1221,7 @@
       "name": "cisco-duo",
       "source": "./skills/cisco-duo",
       "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "cisco-duo",
@@ -1237,7 +1237,7 @@
       "name": "watchguard",
       "source": "./skills/watchguard",
       "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "watchguard",
@@ -1252,7 +1252,7 @@
       "name": "sonicwall",
       "source": "./skills/sonicwall",
       "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "sonicwall",
@@ -1282,7 +1282,7 @@
       "name": "bitdefender",
       "source": "./skills/bitdefender",
       "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "bitdefender",
@@ -1345,7 +1345,7 @@
       "name": "saas-alerts",
       "source": "./skills/saas-alerts",
       "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "saas-alerts",

@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.9] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `immybot-cli access create` ran `immybot-cli access create-delete-azure-tenant-auth-details`, POST `/api/v1/auth/delete-azure-tenant-auth-details`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `immybot-cli access create-delete-azure-tenant-auth-details` (POST `/api/v1/auth/delete-azure-tenant-auth-details`)
+  - `immybot-cli application-locks create-request-cancellation` (POST `/api/v1/application-locks/request-cancellation`)
+  - `immybot-cli billing create-cancel-subscription` (POST `/api/v1/billing/cancel-subscription`)
+  - `immybot-cli computers ephemeral-agent-circuit-breaker create-reset` (POST `/api/v1/computers/{computerId}/ephemeral-agent-circuit-breaker/reset`)
+  - `immybot-cli maintenance-sessions actions create-by-id-rerun` (POST `/api/v1/maintenance-sessions/{sessionId}/actions/{actionId}/rerun`; re-runs a maintenance action (software install, patch or task) on the computer)
+  - `immybot-cli maintenance-sessions create-cancel` (POST `/api/v1/maintenance-sessions/cancel`)
+  - `immybot-cli metrics create-circuit-breakers-isolate` (POST `/api/v1/metrics/circuit-breakers/isolate`)
+  - `immybot-cli plugins create-api-v1-by-provider-link-id-by-catch-all` (POST `/plugins/api/v1/{providerLinkId}/{catchAll}`; passes an arbitrary POST through to a provider plugin's API)
+  - `immybot-cli provider-agents create-bulk-delete-pending` (POST `/api/v1/provider-agents/bulk-delete-pending`)
+  - `immybot-cli provider-links cross-references create-by-external-link-id-disable-client-linking` (POST `/api/v1/provider-links/{id}/cross-references/{externalLinkId}/disable-client-linking`)
+  - `immybot-cli scripts create-debug-cancel-by-cancellation-id` (POST `/api/v1/scripts/debug/cancel/{cancellationId}`)
+  - `immybot-cli system create-disable-immy-support-access` (POST `/api/v1/system/disable-immy-support-access`)
+
 ## [0.1.8] - 2026-10-15
 
 ### Fixed

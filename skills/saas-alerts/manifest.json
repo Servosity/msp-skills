@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "saas-alerts-mcp",
   "display_name": "SaaS Alerts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "All four SaaS Alerts APIs, plus cross-customer alert triage, the Respond approval queue and account containment.",
   "author": {
     "name": "Servosity Inc."

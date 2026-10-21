@@ -4,6 +4,26 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `cisco-meraki-cli devices reboot create` ran `cisco-meraki-cli devices reboot device`, POST `/devices/{serial}/reboot`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `cisco-meraki-cli devices appliance create-device-interfaces-ports-update` (POST `/devices/{serial}/appliance/interfaces/ports/update`; sets appliance port state, including enabled=false, which takes the port down)
+  - `cisco-meraki-cli devices cellular create-device-uplinks-bands-masks-update` (POST `/devices/{serial}/cellular/uplinks/bands/masks/update`; sets which cellular bands the uplink may use; a narrow mask drops the uplink)
+  - `cisco-meraki-cli devices reboot device` (POST `/devices/{serial}/reboot`)
+  - `cisco-meraki-cli devices sensor create-device-command` (POST `/devices/{serial}/sensor/commands`; sends a command to a sensor (downstream power off or cycle, for example))
+  - `cisco-meraki-cli networks bind network` (POST `/networks/{networkId}/bind`; binds a network to a template, replacing its configuration)
+  - `cisco-meraki-cli networks firmware-upgrades create-network-rollback` (POST `/networks/{networkId}/firmwareUpgrades/rollbacks`)
+  - `cisco-meraki-cli networks pii create-network-request` (POST `/networks/{networkId}/pii/requests`; submits a request to delete or restrict processing of a client's personal data)
+  - `cisco-meraki-cli networks split network` (POST `/networks/{networkId}/split`)
+  - `cisco-meraki-cli networks unbind network` (POST `/networks/{networkId}/unbind`)
+  - `cisco-meraki-cli organizations action-batches create-organization-action-batch` (POST `/organizations/{organizationId}/actionBatches`; creates and, with confirmed=true, runs a batch of arbitrary actions, destroy included)
+  - `cisco-meraki-cli organizations campus-gateway batch-organization-clusters-tunneling-update` (POST `/organizations/{organizationId}/campusGateway/clusters/tunneling/batchUpdate`; rewrites campus-gateway tunnel settings for many networks at once)
+  - `cisco-meraki-cli organizations integrations disable-organization-xdr-networks` (POST `/organizations/{organizationId}/integrations/xdr/networks/disable`)
+  - `cisco-meraki-cli organizations licensing move-organization-coterm-licenses` (POST `/organizations/{organizationId}/licensing/coterm/licenses/move`)
+  - `cisco-meraki-cli organizations spaces remove-organization-integration` (POST `/organizations/{organizationId}/spaces/integration/remove`)
+  - `cisco-meraki-cli organizations switch clone-organization-devices` (POST `/organizations/{organizationId}/switch/devices/clone`; overwrites the target switches' port and switch settings)
+
 ## [0.1.1] - 2026-10-15
 
 ### Fixed

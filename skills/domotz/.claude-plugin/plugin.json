@@ -1,6 +1,6 @@
 {
   "name": "domotz",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
   "author": {
     "name": "Servosity",

@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `pandadoc-cli documents draft create` ran `pandadoc-cli documents draft document-revert-to`, POST `/documents/{id}/draft`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `pandadoc-cli documents draft document-revert-to` (POST `/documents/{id}/draft`)
+  - `pandadoc-cli documents move-to-folder document` (POST `/documents/{id}/move-to-folder/{folder_id}`)
+  - `pandadoc-cli workspaces deactivate workspace` (POST `/workspaces/{workspace_id}/deactivate`)
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

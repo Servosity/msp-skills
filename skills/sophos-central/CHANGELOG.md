@@ -4,6 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `sophos-central-cli alerts create` ran `sophos-central-cli alerts act-on`, POST `/common/v1/alerts/{alertId}/actions`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `sophos-central-cli alerts act-on` (POST `/common/v1/alerts/{alertId}/actions`)
+  - `sophos-central-cli blocked-addresses delete-blocked-address-sets` (POST `/endpoint/v1/settings/blocked-addresses/bulk/delete`)
+  - `sophos-central-cli endpoints bulk-delete` (POST `/endpoint/v1/endpoints/delete`)
+  - `sophos-central-cli migrations create-receiving-job` (POST `/endpoint/v1/migrations`; starts a job that migrates endpoints from another tenant)
+  - `sophos-central-cli software add-special-static-package` (POST `/endpoint/v1/software/packages/static/{staticPackageId}/add`; adds a support-supplied software package to the tenant; Sophos calls it one-way)
+  - `sophos-central-cli xdr cancel-query-run` (POST `/xdr-query/v1/queries/runs/{runId}/cancel`)
+
 ## [0.1.1] - 2026-10-15
 
 ### Fixed

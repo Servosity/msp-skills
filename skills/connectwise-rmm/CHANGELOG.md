@@ -4,6 +4,12 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given this command the hidden alias `create`, so typing `create` in its place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `connectwise-rmm-cli tasks create` ran `connectwise-rmm-cli tasks schedule`, POST `/api/platform/v1/automation/endpoints/schedule-tasks`. The alias is removed; the command still runs under its own name. If a script reached it through `create`, call it by the name below:
+  - `connectwise-rmm-cli tasks schedule` (POST `/api/platform/v1/automation/endpoints/schedule-tasks`)
+
 ## [0.1.1] - 2026-10-15
 
 ### Fixed

@@ -4,6 +4,27 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `maxio-cli subscriptions purge-json create` ran `maxio-cli subscriptions purge-json purge-subscription`, POST `/subscriptions/{subscription_id}/purge.json`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `maxio-cli invoices issue-json issue-invoice` (POST `/invoices/{uid}/issue.json`)
+  - `maxio-cli invoices refunds-json refund-invoice` (POST `/invoices/{uid}/refunds.json`)
+  - `maxio-cli invoices void-json void-invoice` (POST `/invoices/{uid}/void.json`)
+  - `maxio-cli proforma-invoices void-json void-proforma-invoice` (POST `/proforma_invoices/{proforma_invoice_uid}/void.json`)
+  - `maxio-cli subscription-groups cancel-json cancel-subscriptions-in-group` (POST `/subscription_groups/{uid}/cancel.json`)
+  - `maxio-cli subscription-groups delayed-cancel-json initiate-delayed-cancellation-for-group` (POST `/subscription_groups/{uid}/delayed_cancel.json`)
+  - `maxio-cli subscription-groups service-credit-deductions-json deduct-subscription-group-service-credit` (POST `/subscription_groups/{uid}/service_credit_deductions.json`)
+  - `maxio-cli subscriptions advance-invoice issue` (POST `/subscriptions/{subscription_id}/advance_invoice/issue.json`)
+  - `maxio-cli subscriptions cancel-dunning-json cancel-dunning` (POST `/subscriptions/{subscription_id}/cancel_dunning.json`)
+  - `maxio-cli subscriptions delayed-cancel-json initiate-delayed-cancellation` (POST `/subscriptions/{subscription_id}/delayed_cancel.json`)
+  - `maxio-cli subscriptions hold-json pause-subscription` (POST `/subscriptions/{subscription_id}/hold.json`)
+  - `maxio-cli subscriptions migrations-json migrate-subscription-product` (POST `/subscriptions/{subscription_id}/migrations.json`)
+  - `maxio-cli subscriptions prepayments refund` (POST `/subscriptions/{subscription_id}/prepayments/{prepayment_id}/refunds.json`)
+  - `maxio-cli subscriptions price-points bulk-reset-subscription-components` (POST `/subscriptions/{subscription_id}/price_points/reset.json`)
+  - `maxio-cli subscriptions purge-json purge-subscription` (POST `/subscriptions/{subscription_id}/purge.json`)
+  - `maxio-cli subscriptions service-credit-deductions-json deduct-service-credit` (POST `/subscriptions/{subscription_id}/service_credit_deductions.json`)
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

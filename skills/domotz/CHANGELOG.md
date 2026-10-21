@@ -4,6 +4,12 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given this command the hidden alias `create`, so typing `create` in its place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `domotz-cli agent network create` ran `domotz-cli agent network add-excluded-device`, POST `/agent/{agent_id}/network/excluded-device/{device_id}`. The alias is removed; the command still runs under its own name. If a script reached it through `create`, call it by the name below:
+  - `domotz-cli agent network add-excluded-device` (POST `/agent/{agent_id}/network/excluded-device/{device_id}`; excludes a device from collector monitoring, which stops its monitoring)
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

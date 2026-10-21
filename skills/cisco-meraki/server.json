@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/cisco-meraki-mcp",
   "title": "Cisco Meraki MCP",
   "description": "Meraki Dashboard for MSPs: every API operation plus cross-org outages, renewals, and changes",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cisco-meraki/cisco-meraki-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/cisco-meraki-v0.1.1/cisco-meraki-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cisco-meraki-v0.1.2/cisco-meraki-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

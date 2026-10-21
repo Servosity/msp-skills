@@ -4,6 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `watchguard-cli endpoint-devices create` ran `watchguard-cli endpoint-devices action`, POST `/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/action`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `watchguard-cli endpoint-devices action` (POST `/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/action`)
+  - `watchguard-cli firebox-exceptions disable-global` (POST `/rest/firebox/management/v1/commands/{accountId}/global_exceptions/disable`)
+  - `watchguard-cli firebox-templates subscribe` (POST `/rest/firebox/management/v1/configuration/{accountId}/templates/subscribe`; subscribes or unsubscribes Firebox templates, replacing device configuration)
+  - `watchguard-cli threatsync-actions perform` (POST `/rest/threatsync/management/v1/{accountId}/actions`)
+  - `watchguard-cli threatsync-incident-actions perform` (POST `/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/actions`)
+
 ## [0.1.1] - 2026-10-16
 
 ### Fixed

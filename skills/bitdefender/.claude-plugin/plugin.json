@@ -1,6 +1,6 @@
 {
   "name": "bitdefender",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
   "author": {
     "name": "Servosity",
