@@ -74,7 +74,8 @@ if [ "${1:-}" = "--self-test" ]; then
 fi
 
 fail=0
-note() { echo "  - $1"; }
+# Explanations print as "hint:" so verify_all.sh can tell them from findings.
+note() { echo "  hint: $1"; }
 
 # Every file a commit could carry: tracked files that exist on disk, plus
 # untracked files that are not ignored (a plainly moved file lands here).

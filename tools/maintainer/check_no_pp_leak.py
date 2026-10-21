@@ -287,7 +287,14 @@ def main(argv: list[str]) -> int:
 
 
 def _self_test() -> int:
+    import contextlib
+    import io
+
     failures: list[str] = []
+
+    def quiet_run(*args: object) -> int:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return run(*args)  # type: ignore[arg-type]
 
     def expect(cond: bool, label: str) -> None:
         print(("  ok   " if cond else "  FAIL ") + label)
@@ -362,14 +369,14 @@ def _self_test() -> int:
         git("init", "-q")
         git("add", "-A")
         git("commit", "-q", "-m", "base")
-        rc = run(root, ["acme"], "HEAD", skills)
+        rc = quiet_run(root, ["acme"], "HEAD", skills)
         expect(rc == 0, "--base: a leak that already existed at base is listed, not blocking")
         write({"skills/acme/SKILL.md": "Run `acme-pp-cli sync`.\n"})
-        rc = run(root, ["acme"], "HEAD", skills)
+        rc = quiet_run(root, ["acme"], "HEAD", skills)
         expect(rc == 1, "--base: a NEW leak line blocks even while an old one is grandfathered")
-        rc = run(root, ["acme"], None, skills)
+        rc = quiet_run(root, ["acme"], None, skills)
         expect(rc == 1, "no --base: a full audit fails on every leak")
-        expect(run(root, ["acme"], "no-such-ref", skills) == 2, "an unresolvable --base is an error, never a pass")
+        expect(quiet_run(root, ["acme"], "no-such-ref", skills) == 2, "an unresolvable --base is an error, never a pass")
     if failures:
         print(f"\nFAIL: check_no_pp_leak self-test - {len(failures)} case(s)")
         return 1

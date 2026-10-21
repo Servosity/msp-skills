@@ -47,6 +47,25 @@ import release_matrix  # noqa: E402  (local tools/ module: CI's change-set class
 
 ROOT = registry.ROOT
 DIR_RE = re.compile(r"\A[a-z0-9][a-z0-9-]*\Z")  # security-gate.yml's slug charset
+# security-gate.yml's Scope step FAILS a PR that edits the gate's own logic,
+# before it scans anything (it cannot approve itself). Read from the workflow
+# so the two never drift; the list is the fallback, and --self-test asserts
+# the workflow still declares it.
+GATE_LOGIC_FALLBACK = (
+    "tools/maintainer/check_security_gate.py", ".semgrep.yml", ".github/workflows/security-gate.yml",
+    ".github/workflows/release.yml", ".github/CODEOWNERS",
+)
+
+
+def gate_logic_re() -> re.Pattern:
+    try:
+        text = (ROOT / ".github/workflows/security-gate.yml").read_text(encoding="utf-8")
+        m = re.search(r"grep -qE '(\^\(tools/maintainer/check_security_gate[^']*\)\$)'", text)
+        if m:
+            return re.compile(m.group(1))
+    except (OSError, re.error):
+        pass
+    return re.compile("^(" + "|".join(re.escape(p) for p in GATE_LOGIC_FALLBACK) + ")$")
 
 
 def _git(*args: str) -> tuple[int, str]:
@@ -124,8 +143,13 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
         for cs, cd in conn.items():
             if cs == s or cd == s:
                 picked.add(cs)
+    cs = release_matrix.change_set(base, worktree=True) if base_sha else None
+    if cs is not None:
+        rx = gate_logic_re()
+        gate_logic = sorted(f for f in cs[1] if rx.match(f))
+    else:
+        gate_logic = []
     if changed or full_fleet:
-        cs = release_matrix.change_set(base, worktree=True) if base_sha else None
         if cs is None:
             if changed:
                 full_fleet = True
@@ -168,6 +192,7 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
         "security_gate_slugs": security,
         "affected": sorted(affected),
         "changed_files": len(files),
+        "gate_logic_changed": gate_logic,
     }
 
 
@@ -175,11 +200,21 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
 # Attribution of a failed fleet-wide check
 # --------------------------------------------------------------------------- #
 
-_PATH = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)*[\w-][\w.-]*\.(?:md|json|ya?ml|sh|ps1|py|txt|toml|go|mod|sum|"
-                   r"html|png|jpe?g|gif|webp|mp4|svg|xml|csv))(?::\d+)?")
+# A location: a repo path (top-level folder prefix, or a file name with a known
+# extension, or an extensionless file the checks name: NOTICE, LICENSE,
+# Makefile, a git hook).
+_EXT = r"md|json|ya?ml|sh|ps1|py|txt|toml|go|mod|sum|html|png|jpe?g|gif|webp|mp4|svg|xml|csv|mcpb"
+_PATH = re.compile(r"(?<![\w/.-])((?:skills|tools|docs|assets|scripts|\.github|\.claude-plugin)/[\w./@+-]*[\w@+-]"
+                   rf"|(?:[\w.-]+/)*[\w-][\w.-]*\.(?:{_EXT})|(?:[\w.-]+/)*(?:NOTICE|LICENSE|Makefile))"
+                   r"(?::\d+)?(?![\w])")
 _BRACKET = re.compile(r"\[([a-z0-9_][a-z0-9-]*)\]")
 _MARKERS = re.compile(r"^\s*(?:(?:[-*]|FAIL:?|WARN:?|ERROR:?|\[BLOCK\])\s+)*")
 _LEAD = re.compile(r"([a-z0-9_][a-z0-9-]*):\s")
+# Lines that carry no finding: headers, verdict summaries, hints. Anything
+# else without a location is UNKNOWN, and an unknown line blocks.
+_INFO = re.compile(r"^\s*$|^\s*(?:==|--|##)|:\s*$|^\s*(?:hint|note|NOTE|See)\b"
+                   r"|\b(?:FAILED|failed|passed|PASS)\b|\b\d+ finding(?:s|\(s\))")
+_TRUNCATED = re.compile(r"\.\.\.\s*(?:and\s+)?\d+\s+more|\band \d+ more\b")
 
 
 def _skill_of(path: str) -> str | None:
@@ -187,58 +222,72 @@ def _skill_of(path: str) -> str | None:
     if len(parts) >= 3 and parts[0] == "skills":
         return parts[1]
     if len(parts) == 3 and parts[0] == "docs" and parts[1] == "skills":
-        return parts[2].rsplit(".", 1)[0]
+        return parts[2].rsplit(".", 1)[0].split(":", 1)[0]
     return None
 
 
-def attribute_line(line: str, known: set[str]) -> str | None:
-    """The skill (dir or slug) a failure line is about, "<repo>" when the line
-    is about a repo file outside any skill, or None when it names no location
-    (a header, a summary, a hint).
+def classify_line(line: str, known: set[str], affected: set[str]) -> tuple[str, str | None]:
+    """("skill", name), ("repo", None), ("info", None) or ("unknown", None).
 
-    Precedence: an explicit `[slug]` tag (the new checks print one); else the
-    earliest of a leading `slug: ` and a skills/<dir>/ or docs/skills/<slug>.md
-    path anywhere in the line; else a repo path, but only as the line's
-    SUBJECT (at its start: `README.md:12: ...`). A repo path mid-sentence is a
-    reference ("See docs/reprint-survival.md"), not the place that failed."""
-    m = _BRACKET.search(line)
-    if m and m.group(1) in known:
-        return m.group(1)
+    The SOURCE location wins: a line that starts with a path is about that
+    path, whatever its message mentions (`skills/zammad/README.md:3: [avanan]
+    ...` is zammad's; `README.md: broken link -> skills/avanan/x.md` is the
+    root README's). Then a leading `[slug]` tag or `slug:`. Then, for a line
+    that starts with prose, the first skill path it names ("missing
+    skills/zeta/social.png"). A line that also mentions an IN-SCOPE skill
+    anywhere is that skill's, so a mixed line always blocks. A line with no
+    location must be a recognised header, summary or hint; otherwise it is
+    unknown, and so is a truncation marker ("... and 12 more"), because the
+    findings it hides cannot be attributed."""
+    if _TRUNCATED.search(line):
+        return ("unknown", None)
+    mentioned = {p for p in (_skill_of(m.group(1)) for m in _PATH.finditer(line)) if p}
+    mentioned |= {m.group(1) for m in _BRACKET.finditer(line) if m.group(1) in known}
+    hit = sorted(mentioned & affected)
+    if hit:
+        return ("skill", hit[0])
     body = line[_MARKERS.match(line).end():]
-    start = len(line) - len(body)
-    cands: list[tuple[int, str]] = []
+    m = _PATH.match(body)
+    if m:
+        who = _skill_of(m.group(1))
+        return ("skill", who) if who else ("repo", None)
+    m = _BRACKET.match(body)
+    if m and m.group(1) in known:
+        return ("skill", m.group(1))
     m = _LEAD.match(body)
     if m and m.group(1) in known:
-        cands.append((start, m.group(1)))
-    for pm in _PATH.finditer(line):
+        return ("skill", m.group(1))
+    for pm in _PATH.finditer(body):
         who = _skill_of(pm.group(1))
-        if who is not None:
-            cands.append((pm.start(1), who))
-            break
-    if cands:
-        return min(cands)[1]
-    pm = _PATH.match(body)
-    if pm:
-        return "<repo>"
-    return None
+        if who:
+            return ("skill", who)
+    if _INFO.search(line):
+        return ("info", None)
+    return ("unknown", None)
+
+
+def attribute_line(line: str, known: set[str], affected: set[str] | None = None) -> str | None:
+    """The skill a failure line is about, "<repo>" for a repo-level file,
+    "<unknown>" for an unattributable failure line, or None for a header,
+    summary or hint."""
+    kind, who = classify_line(line, known, affected or set())
+    return {"skill": who, "repo": "<repo>", "unknown": "<unknown>"}.get(kind)
 
 
 def attribute(text: str, affected: set[str], known: set[str]) -> dict:
-    blocking, other, unknown = [], [], []
+    blocking, other = [], []
     for line in text.splitlines():
-        who = attribute_line(line, known)
-        if who is None:
+        kind, who = classify_line(line, known, affected)
+        if kind == "info":
             continue
-        if who == "<repo>" or who in affected:
-            blocking.append(line)
-        elif who in known:
+        if kind == "skill" and who not in affected and who in known:
             other.append((who, line))
         else:
-            unknown.append(line)
-    if blocking or unknown or not other:
-        why = ("names an in-scope connector or a repo-level file" if blocking or unknown
-               else "names no file or connector, so it cannot be attributed (fail closed)")
-        return {"classification": "blocking", "why": why, "slugs": [], "lines": (blocking + unknown)[:40]}
+            blocking.append(line)
+    if blocking or not other:
+        why = ("names an in-scope skill, a repo-level file, or a failure it cannot attribute"
+               if blocking else "names no file or connector, so it cannot be attributed (fail closed)")
+        return {"classification": "blocking", "why": why, "slugs": [], "lines": blocking[:40]}
     return {"classification": "out_of_scope", "why": "every failure names a connector outside the scope",
             "slugs": sorted({w for w, _ in other}), "lines": [ln for _, ln in other][:40]}
 
@@ -302,8 +351,8 @@ def build_verdict(scope: dict, records: list[dict], seconds: float, started: str
         "base_ref": scope["base_ref"],
         "base_sha": scope["base_sha"],
         "merge_base": scope["merge_base"],
-        "scope": {k: scope[k] for k in ("mode", "full_fleet", "reason", "notes", "connectors", "touched",
-                                        "security_gate_slugs", "changed_files")},
+        "scope": {k: scope.get(k) for k in ("mode", "full_fleet", "reason", "notes", "connectors", "touched",
+                                            "security_gate_slugs", "changed_files", "gate_logic_changed")},
         "counts": {s: sum(1 for c in checks if c["status"] == s)
                    for s in ("pass", "fail", "warn", "skip", "out_of_scope")},
         "blocking_failures": blocking,
@@ -447,20 +496,30 @@ def _self_test() -> int:
         ("  - skills/zeta/README.md: broken local link -> ../../CONTRIBUTING.md", "zeta"),
         ("  - missing skills/zeta/assets/social.png (expected 1200x630 PNG)", "zeta"),
         ("  - docs/skills/zeta.md: missing `title` front matter", "zeta"),
-        ("README.md:3: [acme] acme-pp-cli -> | acme |", "acme"),
+        ("        [zeta] env FOO is read but not declared", "zeta"),
+        ("README.md:3: [zeta] zeta-pp-cli -> | zeta |", "<repo>"),
+        ("skills/zeta/README.md:3: [other] the source location wins over a tag", "zeta"),
+        ("README.md: broken local link -> skills/zeta/missing.md", "<repo>"),
+        ("  skills/zeta/cli/NOTICE: copyright is not the project's", "zeta"),
+        ("skills/zeta/README.md:1: cross-reference to skills/acme/README.md", "acme"),
         ("CONTRIBUTING.md:40:an em-dash here", "<repo>"),
+        ("tools/maintainer/hooks/pre-push:3: something", "<repo>"),
         ("  - tools/maintainer/skills.json: not valid JSON", "<repo>"),
         ("See docs/reprint-survival.md and issue #252.", None),
         ("Skill contract check FAILED:", None),
-        ("FAIL: 2 finding(s)", None),
-        ("  - unknownthing: something", None),
+        ("FAIL: 2 finding(s) - a copyright line is not the project's.", None),
+        ("  hint: em-dash found; use ' - ', a colon, or parentheses", None),
+        ("==> 2. No em-dash in human-authored files", None),
+        ("  ... and 12 more", "<unknown>"),
+        ("  - unknownthing: something broke", "<unknown>"),
+        ("registry has 3 orphan entries", "<unknown>"),
     ):
-        got = attribute_line(line, known)
+        got = attribute_line(line, known, {"acme"})
         expect(got == want, f"{line.strip()[:60]!r} -> {want} (got {got})")
 
     print("attribute (a failed fleet-wide check):")
     a = attribute("Skill contract check FAILED:\n  - zeta: missing required file guide.md\n"
-                  "See CONTRIBUTING.md.\n", {"acme"}, known)
+                  "See CONTRIBUTING.md.\n  hint: fix the files above\n", {"acme"}, known)
     expect(a["classification"] == "out_of_scope" and a["slugs"] == ["zeta"],
            "only another connector failed -> out_of_scope, naming it")
     a = attribute("FAILED:\n  - zeta: x\n  - acme: y\n", {"acme"}, known)
@@ -470,7 +529,11 @@ def _self_test() -> int:
     a = attribute("check FAILED: something is wrong\n", {"acme"}, known)
     expect(a["classification"] == "blocking", "a failure naming nothing -> blocking (fail closed)")
     a = attribute("  - stranger: y\n  - zeta: x\n", {"acme"}, known)
-    expect(a["classification"] == "out_of_scope", "an unknown leading word is not mistaken for a connector")
+    expect(a["classification"] == "blocking", "an unattributable failure line among other-connector lines -> blocking")
+    a = attribute("FAIL: 2 finding(s)\n  skills/zeta/cli/x.go: bad\n  skills/acme/cli/NOTICE: bad\n", {"acme"}, known)
+    expect(a["classification"] == "blocking", "an in-scope extensionless file (NOTICE) among other failures -> blocking")
+    a = attribute("FAILED:\n  - zeta: x\n  ... and 3 more\n", {"acme"}, known)
+    expect(a["classification"] == "blocking", "a truncated list (findings it hides) -> blocking")
     a = attribute("skills/newskill/README.md:1:x\n", {"acme"}, known | {"newskill"})
     expect(a["classification"] == "out_of_scope", "a skill dir outside the scope -> out_of_scope")
 
@@ -537,6 +600,13 @@ def _self_test() -> int:
             expect(sc["connectors"] == [] and sc["security_gate_slugs"] == [conn[some]],
                    "--changed, a derived .mcpb pin re-mint -> no build row, but the security gate still "
                    "scans the slug (security-gate.yml scopes on any skills/<slug>/ path)")
+            fake([".semgrep.yml"], set())
+            sc = resolve_scope([], True, "HEAD")
+            expect(sc["gate_logic_changed"] == [".semgrep.yml"] and sc["connectors"] == [],
+                   "--changed, a security-gate LOGIC file -> recorded (CI's gate fails it by design)")
+            fake([".semgrep.yml"], set())
+            sc = resolve_scope([some], False, "HEAD")
+            expect(sc["gate_logic_changed"] == [".semgrep.yml"], "--slug sees a gate-logic change in the branch too")
             fake(["tools/maintainer/check_mcp_gate.py"], None, "machinery changed (tools/maintainer/check_mcp_gate.py)")
             sc = resolve_scope([], True, "HEAD")
             expect(sc["full_fleet"] and sc["connectors"] == sorted(conn) and "machinery" in sc["reason"],
@@ -569,6 +639,12 @@ def _self_test() -> int:
     expect(newest_patch("1.26", rel) == "go1.26.10", "1.26 -> go1.26.10 (newest stable patch, not an rc)")
     expect(newest_patch("1.25", rel) is None, "a minor with no release -> None (caller falls back)")
     expect(gate_go_spec() is not None, "security-gate.yml declares a go-version spec")
+    rx = gate_logic_re()
+    expect(all(rx.match(p) for p in GATE_LOGIC_FALLBACK) and rx.pattern != "^(" + "|".join(
+        re.escape(p) for p in GATE_LOGIC_FALLBACK) + ")$",
+        "security-gate.yml's own gate-logic pattern is read, and covers every gate-logic file")
+    expect(not rx.match("tools/maintainer/security_suppressions.json") and not rx.match("skills/x/README.md"),
+           "the gate-logic pattern does not fire on a data file or a skill")
 
     if failures:
         print(f"\nFAIL: verify_scope self-test - {len(failures)} case(s)")

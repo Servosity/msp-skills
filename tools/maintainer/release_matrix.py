@@ -631,14 +631,22 @@ def _self_test() -> int:
     expect(real_txt is not None and ledger_delta(real_txt, real_txt) == set(),
            "the shipped ledger against itself -> no rows")
     if real_txt is not None:
+        # Order-independent: drop the first PER-SKILL entry (a '*' entry is
+        # the fleet-wide case, asserted above) and compare against what the
+        # windows rows would actually see. Overlapping entries can make the
+        # expected set empty, which is still a correct answer.
         data = json.loads(real_txt)
-        first = data["entries"][0]
-        dropped = json.dumps(dict(data, entries=data["entries"][1:]))
-        want_slugs = {s for s in first.get("failures", {})
-                      if windows_known_failures.tests_for(s, data["entries"])
-                      != windows_known_failures.tests_for(s, data["entries"][1:])}
-        expect(bool(want_slugs) and ledger_delta(real_txt, dropped) == want_slugs,
-               f"dropping the shipped ledger's first entry -> exactly its skills {sorted(want_slugs)}")
+        idx = next((i for i, e in enumerate(data["entries"]) if "failures" in e), None)
+        if idx is None:
+            print("  skip the shipped ledger has no per-skill entry to drop")
+        else:
+            kept = data["entries"][:idx] + data["entries"][idx + 1:]
+            dropped = json.dumps(dict(data, entries=kept))
+            want_slugs = {s for s in data["entries"][idx]["failures"]
+                          if windows_known_failures.tests_for(s, data["entries"])
+                          != windows_known_failures.tests_for(s, kept)}
+            expect(ledger_delta(real_txt, dropped) == want_slugs,
+                   f"dropping one per-skill entry of the shipped ledger -> exactly {sorted(want_slugs)}")
 
     if failures:
         print(f"\nFAIL: release_matrix self-test - {len(failures)} case(s):")

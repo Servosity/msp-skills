@@ -80,5 +80,8 @@ check "mcp gate"               python3 tools/maintainer/check_mcp_gate.py --slug
 check "hand-fix ledger"        python3 tools/maintainer/check_handfixes.py --slug "$slug"
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
+# The parent accepts this connector's records only when this line exists: a
+# worker killed part-way leaves no completion record and fails the verdict.
+printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector complete" connector "$slug" pass 0 /dev/null >> "$rec"
 echo "  done  $slug ($failed failed)"
 exit 0

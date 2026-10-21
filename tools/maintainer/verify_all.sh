@@ -219,22 +219,29 @@ gate "hand-fix ledgers"     fleet "" 0 python3 tools/maintainer/check_handfixes.
 gate "copyright uniform"    fleet "" 0 python3 tools/maintainer/check_copyright.py
 gate "install docs"         fleet "" 0 python3 tools/maintainer/check_install_docs.py
 gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
+# ci.yml guards: every connector, rules read from the base (findings carry [slug]).
+gate "manifest env schema" fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "${BASE_SHA:-$base}"
 if [ "$FULL" = true ]; then
   # Today's full-fleet flags: --strict promotes a stale pin to a failure.
   gate "pinned release artifacts" fleet "" 1 python3 tools/maintainer/check_pinned_artifacts.py --strict
-  gate "manifest env schema"      fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "$base"
 else
   # ci.yml pins job flags.
   gate "pinned release artifacts" fleet "" 1 python3 tools/maintainer/check_pinned_artifacts.py --base "${BASE_SHA:-$base}" --no-network
-  while IFS= read -r d; do
-    [ -n "$d" ] || continue
-    reg="$(SLUGDIR="$d" python3 -c 'import os,sys; sys.path.insert(0,"tools/maintainer"); import registry
-d=os.environ["SLUGDIR"]; print(next((s for s in registry.skills() if registry.source_dir(s)==d), ""))')"
-    [ -n "$reg" ] && gate "manifest env schema" scoped "$reg" 1 python3 tools/maintainer/check_env_schema.py --slug "$reg" --base "$base"
-  done < "$WORK/touched.txt"
 fi
 
 echo "== Change-set gates (the PR diff, CI's flags) =="
+jget gate_logic_changed > "$WORK/gate_logic.txt"
+gate_logic_scope() { # security-gate.yml's Scope step: gate-logic edits fail by design
+  if [ -s "$WORK/gate_logic.txt" ]; then
+    echo "This change edits the security gate's own logic:"
+    sed 's/^/  /' "$WORK/gate_logic.txt"
+    echo "security-gate.yml fails such a PR before scanning anything (it cannot approve itself)."
+    echo "Keep these edits in a PR of their own; it needs a security maintainer's admin merge."
+    return 1
+  fi
+  echo "no security-gate logic file changed"
+}
+gate "security gate scope (gate-logic edits)" repo "" 0 gate_logic_scope
 # ci.yml guards: the new-hand-fix ratchet on the PR diff.
 gate "hand-fix ledger diff" repo "" 0 python3 tools/maintainer/check_handfixes.py --changed --base "$DIFF_BASE"
 # ci.yml guards: DCO sign-off on the commits this branch adds.
@@ -264,11 +271,18 @@ if [ "$n_conn" -gt 0 ]; then
   # Each worker writes only its own records and logs, so parallel runs never
   # share a file. xargs keeps the pool full; a worker always exits 0.
   xargs -P "$jobs" -n 2 bash tools/maintainer/verify_connector.sh "$WORK" < "$WORK/connectors.txt"
+  xrc=$?
+  if [ "$xrc" -ne 0 ]; then
+    printf '  FAIL  per-connector workers: xargs exited %s (a worker was killed or could not start)\n' "$xrc"
+    record "connector workers" repo "" fail 0 /dev/null
+  fi
   while IFS=' ' read -r s _d; do
     [ -n "$s" ] || continue
     r="$WORK/records/$s.tsv"
-    if [ ! -s "$r" ]; then
-      printf '  FAIL  %s: the per-connector worker recorded nothing\n' "$s"
+    if [ ! -s "$r" ] || ! grep -q "^connector complete$(printf '\t')" "$r"; then
+      # A worker that never finished: whatever it recorded is not a verdict.
+      [ -s "$r" ] && cat "$r" >> "$REC"
+      printf '  FAIL  %s: the per-connector worker did not finish (no completion record)\n' "$s"
       record "connector harness" connector "$s" fail 0 /dev/null
       continue
     fi
