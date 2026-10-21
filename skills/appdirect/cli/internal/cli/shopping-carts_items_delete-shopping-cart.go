@@ -21,7 +21,6 @@ func newShoppingCartsItemsDeleteShoppingCartCmd(flags *rootFlags) *cobra.Command
 
 	cmd := &cobra.Command{
 		Use:         "delete-shopping-cart <shoppingCartId>",
-		Aliases:     []string{"create"},
 		Short:       "Removes the specified items from the shopping cart.",
 		Example:     "  appdirect-cli shopping-carts items delete-shopping-cart 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "items.delete-shopping-cart", "pp:method": "POST", "pp:path": "/shoppingCarts/{shoppingCartId}/items/delete"},

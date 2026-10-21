@@ -18,7 +18,6 @@ func newOrganizationArchiveChecklistsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "archive-checklists",
-		Aliases:     []string{"create"},
 		Short:       "Archive multiple organization checklists",
 		Example:     "  ninjaone-cli organization archive-checklists",
 		Annotations: map[string]string{"pp:endpoint": "organization.archive-checklists", "pp:method": "POST", "pp:path": "/v2/organization/archive"},

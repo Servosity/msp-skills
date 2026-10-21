@@ -19,7 +19,6 @@ func newApplicationLocksCreateRequestCancellationCmd(flags *rootFlags) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:         "create-request-cancellation",
-		Aliases:     []string{"create"},
 		Short:       "Create request cancellation",
 		Example:     "  immybot-cli application-locks create-request-cancellation",
 		Annotations: map[string]string{"pp:endpoint": "application-locks.create-request-cancellation", "pp:method": "POST", "pp:path": "/api/v1/application-locks/request-cancellation"},

@@ -17,7 +17,6 @@ func newAgentsShutdownAgentsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "agents <agent_id>",
-		Aliases:     []string{"create"},
 		Short:       "POST /agents/{agent_id}/shutdown/",
 		Example:     "  tactical-rmm-cli agents shutdown agents 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "shutdown.agents", "pp:method": "POST", "pp:path": "/agents/{agent_id}/shutdown/"},

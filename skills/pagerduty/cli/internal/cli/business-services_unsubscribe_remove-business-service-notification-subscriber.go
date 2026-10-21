@@ -18,7 +18,6 @@ func newBusinessServicesUnsubscribeRemoveBusinessServiceNotificationSubscriberCm
 
 	cmd := &cobra.Command{
 		Use:         "remove-business-service-notification-subscriber <id>",
-		Aliases:     []string{"create"},
 		Short:       "Unsubscribes the matching Subscribers from a Business Service. Scoped OAuth requires: `subscribers.write`",
 		Example:     "  pagerduty-cli business-services unsubscribe remove-business-service-notification-subscriber 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "unsubscribe.remove-business-service-notification-subscriber", "pp:method": "POST", "pp:path": "/business_services/{id}/unsubscribe"},

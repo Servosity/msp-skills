@@ -18,9 +18,8 @@ func newOrganizationsIntegrationsDisableOrganizationXdrNetworksCmd(flags *rootFl
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "disable-organization-xdr-networks <organizationId>",
-		Aliases: []string{"create"},
-		Short:   "Disable XDR on networks",
+		Use:   "disable-organization-xdr-networks <organizationId>",
+		Short: "Disable XDR on networks",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

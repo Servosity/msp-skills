@@ -19,7 +19,6 @@ func newDeviceRebootDevicesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "devices <id>",
-		Aliases:     []string{"create"},
 		Short:       "Sends a command to restart the computer",
 		Example:     "  ninjaone-cli device reboot devices 550e8400-e29b-41d4-a716-446655440000 --mode NORMAL",
 		Annotations: map[string]string{"pp:endpoint": "reboot.devices", "pp:method": "POST", "pp:path": "/v2/device/{id}/reboot/{mode}"},

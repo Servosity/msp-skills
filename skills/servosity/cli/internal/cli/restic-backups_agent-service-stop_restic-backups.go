@@ -17,7 +17,6 @@ func newResticBackupsAgentServiceStopResticBackupsCmd(flags *rootFlags) *cobra.C
 
 	cmd := &cobra.Command{
 		Use:         "restic-backups <id>",
-		Aliases:     []string{"create"},
 		Short:       "Restic backups",
 		Example:     "  servosity-cli restic-backups agent-service-stop restic-backups 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "agent-service-stop.restic-backups", "pp:method": "POST", "pp:path": "/restic-backups/{id}/agent-service-stop/"},

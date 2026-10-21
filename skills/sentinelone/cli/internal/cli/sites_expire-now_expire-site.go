@@ -17,7 +17,6 @@ func newSitesExpireNowExpireSiteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "expire-site <site_id>",
-		Aliases:     []string{"create"},
 		Short:       "Expire the Site of the given ID (run 'sites' to get the ID).",
 		Annotations: map[string]string{"pp:endpoint": "expire-now.expire-site", "pp:method": "POST", "pp:path": "/sites/{site_id}/expire-now"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -17,7 +17,6 @@ func newFirewallControlRemoveTagsRemoveRuleTagsByCategoryCmd(flags *rootFlags) *
 
 	cmd := &cobra.Command{
 		Use:         "remove-rule-tags-by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
 		Short:       "Remove firewall tags from rules matching the filter.",
 		Annotations: map[string]string{"pp:endpoint": "remove-tags.remove-rule-tags-by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/remove-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {

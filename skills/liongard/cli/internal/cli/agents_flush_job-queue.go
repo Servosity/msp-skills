@@ -17,7 +17,6 @@ func newAgentsFlushJobQueueCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "job-queue <AgentID>",
-		Aliases:     []string{"create"},
 		Short:       "Empty an agent's job queue.",
 		Example:     "  liongard-cli agents flush job-queue 42",
 		Annotations: map[string]string{"pp:endpoint": "flush.job-queue", "pp:method": "POST", "pp:path": "/agents/{AgentID}/flush"},

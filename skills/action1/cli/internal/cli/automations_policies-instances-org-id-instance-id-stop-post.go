@@ -17,7 +17,6 @@ func newAutomationsPoliciesInstancesOrgIdInstanceIdStopPostCmd(flags *rootFlags)
 
 	cmd := &cobra.Command{
 		Use:         "policies-instances-org-id-instance-id-stop-post <orgId> <instanceId>",
-		Aliases:     []string{"create"},
 		Short:       "**Requires permission",
 		Example:     "  action1-cli automations policies-instances-org-id-instance-id-stop-post 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "automations.policies-instances-org-id-instance-id-stop-post", "pp:method": "POST", "pp:path": "/automations/instances/{orgId}/{instanceId}/stop"},

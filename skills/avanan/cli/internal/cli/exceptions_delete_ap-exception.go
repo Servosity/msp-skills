@@ -20,9 +20,8 @@ func newExceptionsDeleteApExceptionCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "ap-exception <exc_id>",
-		Aliases: []string{"create"},
-		Short:   "Delete Ap Exception.",
+		Use:   "ap-exception <exc_id>",
+		Short: "Delete Ap Exception.",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  avanan-cli exceptions delete ap-exception 550e8400-e29b-41d4-a716-446655440000 --exc-type whitelist --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "delete.ap-exception", "pp:method": "POST", "pp:path": "/v1.0/exceptions/{exc_type}/delete/{exc_id}"},

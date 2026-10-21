@@ -17,7 +17,6 @@ func newReportsDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "delete",
-		Aliases:     []string{"create"},
 		Short:       "Delete the reports that match the filter. To delete a specific report, use its ID (see Get Reports).",
 		Example:     "  sentinelone-cli reports delete",
 		Annotations: map[string]string{"pp:endpoint": "reports.delete", "pp:method": "POST", "pp:path": "/reports/delete-reports"},

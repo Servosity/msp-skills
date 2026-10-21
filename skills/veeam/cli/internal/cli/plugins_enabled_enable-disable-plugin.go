@@ -18,7 +18,6 @@ func newPluginsEnabledEnableDisablePluginCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "enable-disable-plugin <pluginId>",
-		Aliases:     []string{"create"},
 		Short:       "Modifies a status of a plugin with the specified ID.",
 		Example:     "  veeam-cli plugins enabled enable-disable-plugin 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "enabled.enable-disable-plugin", "pp:method": "POST", "pp:path": "/plugins/{pluginId}/enabled"},

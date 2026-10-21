@@ -17,7 +17,6 @@ func newAlertResetAlertSetActivityDataCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "alert-set-activity-data <uid>",
-		Aliases:     []string{"create"},
 		Short:       "Reset alert/condition and provide custom data for activity",
 		Example:     "  ninjaone-cli alert reset alert-set-activity-data 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "reset.alert-set-activity-data", "pp:method": "POST", "pp:path": "/v2/alert/{uid}/reset"},

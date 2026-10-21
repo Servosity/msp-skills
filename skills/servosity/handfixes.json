@@ -743,6 +743,38 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "no-create-alias-on-destructive-commands",
+   "class": "create-alias-on-destructive",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 4 commands listed in `why` whose POST deletes, cancels, purges, disables, stops or reboots something, so `<parent> create` no longer runs them",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (64 such commands in 21 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: restic-backups agent-service-stop restic-backups (POST /restic-backups/{id}/agent-service-stop/); restic-backups agent-service-stop-error restic-backups (POST /restic-backups/{id}/agent-service-stop-error/); restic-backups restic-interrupt restic-backups (POST /restic-backups/{id}/restic-interrupt/); restic-backups restic-prune restic-backups (POST /restic-backups/{id}/restic-prune/).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/restic-backups_agent-service-stop_restic-backups.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/restic-backups_agent-service-stop-error_restic-backups.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/restic-backups_restic-interrupt_restic-backups.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/restic-backups_restic-prune_restic-backups.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/create_alias_destructive_test.go",
+     "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

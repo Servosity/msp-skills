@@ -17,7 +17,6 @@ func newProjectsArchiveProjectCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "project <id>",
-		Aliases:     []string{"create"},
 		Short:       "Archives a project.",
 		Example:     "  pipedrive-cli projects archive project 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "archive.project", "pp:method": "POST", "pp:path": "/projects/{id}/archive"},

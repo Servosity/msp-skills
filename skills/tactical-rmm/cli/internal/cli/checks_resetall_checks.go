@@ -17,7 +17,6 @@ func newChecksResetallChecksCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "checks <agent_id>",
-		Aliases:     []string{"create"},
 		Short:       "POST /checks/{agent_id}/resetall/",
 		Example:     "  tactical-rmm-cli checks resetall checks 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "resetall.checks", "pp:method": "POST", "pp:path": "/checks/{agent_id}/resetall/"},

@@ -20,7 +20,6 @@ func newEndpointsBulkDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "bulk-delete",
-		Aliases:     []string{"create"},
 		Short:       "Delete a list of endpoints.",
 		Example:     "  sophos-central-cli endpoints bulk-delete --endpoint-ids '[\"fcf47d9f-7ba6-4ac9-bda2-1d4f6de49c0f\",\"3d8ecdb5-37bf-4f26-b47b-1b185781ff9b\"]'",
 		Args:        cobra.NoArgs,

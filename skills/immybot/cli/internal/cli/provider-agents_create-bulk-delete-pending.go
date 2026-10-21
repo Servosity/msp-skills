@@ -21,7 +21,6 @@ func newProviderAgentsCreateBulkDeletePendingCmd(flags *rootFlags) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:         "create-bulk-delete-pending",
-		Aliases:     []string{"create"},
 		Short:       "Create bulk delete pending",
 		Example:     "  immybot-cli provider-agents create-bulk-delete-pending",
 		Annotations: map[string]string{"pp:endpoint": "provider-agents.create-bulk-delete-pending", "pp:method": "POST", "pp:path": "/api/v1/provider-agents/bulk-delete-pending"},
