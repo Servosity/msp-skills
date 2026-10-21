@@ -297,22 +297,11 @@ gate "hand-fix ledger diff" repo "" 0 python3 tools/maintainer/check_handfixes.p
 if [ -n "$MB" ]; then
   gate "DCO sign-off" repo "" 0 env BASE="$MB" HEAD="$(jget head_sha)" bash tools/maintainer/check_dco.sh
 fi
-# Not in CI: the -pp- brand must not reach a user-facing surface. --base makes
-# it a ratchet, so the fleet's pre-existing leaks are listed, never blocking.
-if [ "$FULL" = true ]; then
-  gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py --all --base "$DIFF_BASE"
-else
-  pp_args=()
-  while IFS= read -r d; do
-    [ -n "$d" ] || continue
-    reg="$(SLUGDIR="$d" python3 -c 'import os,sys; sys.path.insert(0,"tools/maintainer"); import registry
-d=os.environ["SLUGDIR"]; print(next((s for s in registry.skills() if registry.source_dir(s)==d), ""))')"
-    [ -n "$reg" ] && pp_args+=(--slug "$reg")
-  done < "$WORK/affected.txt"
-  if [ ${#pp_args[@]} -gt 0 ]; then
-    gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py "${pp_args[@]}" --base "$DIFF_BASE"
-  fi
-fi
+# Not in CI: the -pp- brand must not reach a user-facing surface. Every
+# connector, every time (the shared catalogs name all of them, and a branch can
+# touch any of them); --base makes it a ratchet, so the fleet's pre-existing
+# leaks are listed, never blocking, and only a new or changed line fails.
+gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py --all --base "$DIFF_BASE"
 
 # ------------------------------------------------ per-connector (heavy) ----
 echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
@@ -337,6 +326,8 @@ if [ "$n_conn" -gt 0 ]; then
     fi
     while IFS="$(printf '\t')" read -r name _kind _slug st _secs log; do
       if [ "$st" = pass ]; then
+        # Known, non-blocking findings stay visible (and land in the verdict).
+        grep -E '\(known Windows failure, ledgered\)' "$log" 2>/dev/null | sed 's/^/    /'
         printf '  PASS  %s (%s)\n' "$name" "$s"
       else
         sed 's/^/    /' "$log" | tail -60

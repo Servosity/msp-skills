@@ -107,15 +107,17 @@ def leak_re(names: set[str], go: bool) -> re.Pattern:
 
 
 class Leak:
-    __slots__ = ("rel", "line", "slug", "name", "text", "pre_existing")
+    """`text` is the raw source line (what the --base ratchet compares);
+    `msg` is an optional explanation shown instead of it."""
+    __slots__ = ("rel", "line", "slug", "name", "text", "msg", "pre_existing")
 
-    def __init__(self, rel: str, line: int, slug: str, name: str, text: str) -> None:
-        self.rel, self.line, self.slug, self.name, self.text = rel, line, slug, name, text
+    def __init__(self, rel: str, line: int, slug: str, name: str, text: str, msg: str = "") -> None:
+        self.rel, self.line, self.slug, self.name, self.text, self.msg = rel, line, slug, name, text, msg
         self.pre_existing = False
 
     def render(self) -> str:
         tag = "  (pre-existing at base, not blocking)" if self.pre_existing else ""
-        return f"{self.rel}:{self.line}: [{self.slug}] {self.name} -> {self.text.strip()[:160]}{tag}"
+        return f"{self.rel}:{self.line}: [{self.slug}] {self.name} -> {(self.msg or self.text).strip()[:160]}{tag}"
 
 
 def _scan_text(rel: str, text: str, slug: str, rx: re.Pattern) -> list[Leak]:
@@ -157,7 +159,7 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     for sub in ("cli/internal", "cli/cmd"):
         for p in sorted((sd / sub).rglob("*.go")) if (sd / sub).is_dir() else []:
             src = _read(p)
-            if src is None:
+            if src is None or "-pp-" not in src:
                 continue
             lits, _ = lex(src)
             for lit in lits:
@@ -190,7 +192,8 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
                     if m and m.group(0) not in EXTERNAL_PP_TOOLS:
                         needle = json.dumps(v)[1:-1]
                         ln = next((i for i, ln_ in enumerate(lines, 1) if needle in ln_), 0)
-                        leaks.append(Leak(str(hf.relative_to(root)), ln, slug, m.group(0),
+                        raw = lines[ln - 1] if ln else needle
+                        leaks.append(Leak(str(hf.relative_to(root)), ln, slug, m.group(0), raw,
                                           f"{key} marker on {target} requires the leak to stay: {v}"))
     return leaks
 
@@ -374,6 +377,11 @@ def _self_test() -> int:
         write({"skills/acme/SKILL.md": "Run `acme-pp-cli sync`.\n"})
         rc = quiet_run(root, ["acme"], "HEAD", skills)
         expect(rc == 1, "--base: a NEW leak line blocks even while an old one is grandfathered")
+        write({"skills/acme/handfixes.json": broken["skills/acme/handfixes.json"][0]})
+        git("add", "-A")
+        git("commit", "-q", "-m", "a contains marker that keeps a leak")
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 0,
+               "--base: an UNCHANGED handfixes contains marker is pre-existing, not new")
         rc = quiet_run(root, ["acme"], None, skills)
         expect(rc == 1, "no --base: a full audit fails on every leak")
         expect(quiet_run(root, ["acme"], "no-such-ref", skills) == 2, "an unresolvable --base is an error, never a pass")

@@ -169,11 +169,14 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
                     reason = (reason + "; " if reason else "") + (
                         f"--changed: CI's classifier selected {len(rows & set(conn))} connector row(s) "
                         f"from {len(files)} changed file(s)")
+    branch_dirs = _touched_dirs(cs[1]) if cs is not None else set()
     if full_fleet:
         picked = set(conn)
     if slugs and not reason:
         reason = f"--slug: {', '.join(sorted(slugs))}"
-    security = sorted(d for d in touched if DIR_RE.match(d) and d in dirs)
+    # The security gate's scope is the BRANCH diff, whatever build scope was
+    # asked for: security-gate.yml scans every slug the PR touches.
+    security = sorted(d for d in (touched | branch_dirs) if DIR_RE.match(d) and d in dirs)
     affected = set(dirs) if full_fleet else _aliases(touched | {conn[s] for s in picked} | picked)
     return {
         "schema": 1,
@@ -211,6 +214,10 @@ _PATH = re.compile(r"(?<![\w/.-])((?:skills|tools|docs|assets|scripts|\.github|\
 # dotfiles included: `.gitignore:197:`), or a dotfile path.
 _GREP_LOC = re.compile(r"^([^:\n]+?):\d+(?::|\s|$)")   # spaces allowed: `Release Notes.md:1:`
 _DOT_LOC = re.compile(r"^(\.[A-Za-z][\w.-]*(?:/[\w.@+-]+)*)(?::|\s|$)")
+# `Release Notes.md: ...` or `README (/abs/README.md): ...` - a leading source
+# that carries spaces, recognised by ending in a file extension right before
+# the first ": " (so `Expected in NOTICE/LICENSE:` is not one).
+_COLON_LOC = re.compile(rf"^([^:\n]*\.(?:{_EXT})\)?)(?::\s|:$)")
 _BRACKET = re.compile(r"\[([a-z0-9_][a-z0-9-]*)\]")
 _MARKERS = re.compile(r"^\s*(?:(?:[-*]|FAIL:?|WARN:?|ERROR:?|\[BLOCK\]|R\d+)\s+)*")  # R1: install-docs rule id
 _LEAD = re.compile(r"([a-z0-9_][a-z0-9-]*):\s")
@@ -288,6 +295,9 @@ def classify_line(line: str, known: set[str], affected: set[str]) -> tuple[str, 
     m = _LEAD.match(body)
     if m and m.group(1) in known:
         return ("skill", m.group(1))
+    m = _COLON_LOC.match(body)
+    if m:
+        return _location(m.group(1).strip())
     for pm in _PATH.finditer(body):
         who = _skill_of(pm.group(1))
         if who:
@@ -389,6 +399,12 @@ def build_verdict(scope: dict, records: list[dict], seconds: float, started: str
     for r in records:
         c = {"name": r["name"], "kind": r["kind"], "slug": r.get("slug") or None,
              "status": r["status"], "seconds": r["seconds"], "blocking": False}
+        if r["status"] == "pass":
+            # Reported, not blocking: ledgered Windows failures the lint still
+            # sees, and -pp- leaks the ratchet grandfathers. Kept visible.
+            known_lines = [ln for ln in _tail(r["log"], 400) if _KNOWN.search(ln)]
+            if known_lines:
+                c["known_findings"] = known_lines[:40]
         if r["status"] == "out_of_scope":
             # verify_all.sh decided this: the failure names only connectors
             # outside the scope AND the merge base already fails the same way.
@@ -432,6 +448,9 @@ def build_verdict(scope: dict, records: list[dict], seconds: float, started: str
         "out_of_scope_failures": out_of_scope,
         "checks": checks,
     }
+
+
+_KNOWN = re.compile(r"\(known Windows failure, ledgered\)|\(pre-existing at base, not blocking\)")
 
 
 def read_records(path: Path) -> list[dict]:
@@ -593,6 +612,8 @@ def _self_test() -> int:
         ("  skills/zeta/cli/NOTICE: copyright is not the project's", "zeta"),
         ("skills/zeta/README.md:1: cross-reference to skills/acme/README.md", "acme"),
         ("Release Notes.md:1: See skills/zeta/README.md for an example", "<repo>"),
+        ("Release Notes.md: broken local link -> skills/zeta/missing.md", "<repo>"),
+        ("  - README (/abs/r/README.md): the catalog marker pair is missing", "<repo>"),
         ("CONTRIBUTING.md:40:an em-dash here", "<repo>"),
         ("tools/maintainer/hooks/pre-push:3: something", "<repo>"),
         ("  - tools/maintainer/skills.json: not valid JSON", "<repo>"),
@@ -731,6 +752,12 @@ def _self_test() -> int:
                "full fleet: every fleet failure blocks, nothing is out of scope")
         v = build_verdict(scope, [rec("shellcheck", "fleet", "", "warn", log_other)], 2, "t", known)
         expect(v["verdict"] == "pass" and v["counts"]["warn"] == 1, "a WARN is recorded, never blocking")
+        log_known = Path(tmp) / "known.log"
+        log_known.write_text("skills/acme/cli/x_test.go:9: [acme] mode-bits in TestX: y (known Windows failure, "
+                             "ledgered)\ncheck_unix_test_asserts: 1 connector(s), 0 new finding(s)\n", encoding="utf-8")
+        v = build_verdict(scope, [rec("unix-only test lint", "connector", "acme", "pass", log_known)], 2, "t", known)
+        expect(v["verdict"] == "pass" and len(v["checks"][0].get("known_findings", [])) == 1,
+               "a passing check keeps its ledgered known findings in the verdict")
 
     print("resolve_scope (CI's classifier injected):")
     conn = connectors()
@@ -765,6 +792,12 @@ def _self_test() -> int:
             sc = resolve_scope([], True, "HEAD")
             expect(sc["gate_logic_changed"] == [".semgrep.yml"] and sc["connectors"] == [],
                    "--changed, a security-gate LOGIC file -> recorded (CI's gate fails it by design)")
+            other = sorted(conn)[1]
+            fake([f"skills/{conn[other]}/cli/internal/x.go"], {other})
+            sc = resolve_scope([some], False, "HEAD")
+            expect(sc["connectors"] == [some] and sc["security_gate_slugs"] == sorted({conn[some], conn[other]}),
+                   "--slug: builds only the named connector, but the security gate scans everything the branch "
+                   "touched (as CI does)")
             fake([".semgrep.yml"], set())
             sc = resolve_scope([some], False, "HEAD")
             expect(sc["gate_logic_changed"] == [".semgrep.yml"], "--slug sees a gate-logic change in the branch too")
