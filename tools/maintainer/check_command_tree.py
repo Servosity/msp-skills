@@ -23,6 +23,9 @@ and whose action is destructive or hazardous. In order:
      /services/{agent_id}/{svcname}/), keyed by slug and API path. This also
      overrides a name that says create when creating runs something
      (Meraki's `create-organization-action-batch` executes its actions).
+     REVIEWED_SAFE is the opposite override: endpoints a word rule would flag
+     that were read and found not destructive (Maxio's `issue-service-credit`
+     adds a credit; NinjaOne's template `restore` un-archives).
   3. A DESTRUCTIVE_WORDS word in the command's action words: its own name
      (`purge-subscription`, `bulk-delete`) plus the last literal segment of its
      `pp:path` (`/invoices/{uid}/void.json` gives `void`; `/devices/{serial}/reboot`
@@ -284,6 +287,17 @@ REVIEWED_HAZARDS = {
         "subscribes or unsubscribes Firebox templates, replacing device configuration",
 }
 
+# The opposite override: endpoints a word rule would flag that were read and
+# found not destructive (Codex review round 6, P2). Keyed like REVIEWED_HAZARDS.
+REVIEWED_SAFE = {
+    ("maxio", "/subscriptions/{subscription_id}/service_credits.json"):
+        "issue-service-credit adds a credit balance; nothing is refunded or finalized",
+    ("maxio", "/subscription_groups/{uid}/service_credits.json"):
+        "issue-subscription-group-service-credit adds a credit balance",
+    ("ninjaone", "/v2/document-templates/{documentTemplateId}/restore"):
+        "restore un-archives a document template, reversing an archive",
+}
+
 DESTRUCTIVE_METHODS = frozenset({"DELETE"})
 
 # The overlay package paths inside each module. They never exist on disk.
@@ -491,6 +505,8 @@ def destructive_reason(node: dict, slug: str = "") -> str | None:
     reviewed = REVIEWED_HAZARDS.get((slug, ann.get("pp:path", "")))
     if reviewed:
         return "reviewed: " + reviewed
+    if (slug, ann.get("pp:path", "")) in REVIEWED_SAFE:
+        return None
     acts = action_words(node)
     hit = sorted(acts & DESTRUCTIVE_WORDS)
     if hit:
@@ -738,6 +754,10 @@ def self_test() -> int:
         bad.append(f"duplicate registration: expected 1 finding from the aliased copy, got {len(f)}")
     # A reviewed hazard fails only for its own connector.
     svc = node(["services", "services-agentid-2"], api="/services/{agent_id}/{svcname}/")
+    credit = node(["subscriptions", "service-credits-json", "issue-service-credit"],
+                  api="/subscriptions/{subscription_id}/service_credits.json")
+    if findings_for("maxio", [credit])[0] or not findings_for("other", [credit])[0]:
+        bad.append("REVIEWED_SAFE must clear a word match for its own slug only")
     batch = node(["organizations", "action-batches", "create-organization-action-batch"],
                  api="/organizations/{organizationId}/actionBatches")
     if not findings_for("cisco-meraki", [batch])[0]:

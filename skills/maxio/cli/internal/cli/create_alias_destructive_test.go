@@ -26,7 +26,6 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"subscription-groups", "cancel-json", "cancel-subscriptions-in-group"},
 		{"subscription-groups", "delayed-cancel-json", "initiate-delayed-cancellation-for-group"},
 		{"subscription-groups", "service-credit-deductions-json", "deduct-subscription-group-service-credit"},
-		{"subscription-groups", "service-credits-json", "issue-subscription-group-service-credit"},
 		{"subscriptions", "advance-invoice", "issue"},
 		{"subscriptions", "cancel-dunning-json", "cancel-dunning"},
 		{"subscriptions", "delayed-cancel-json", "initiate-delayed-cancellation"},
@@ -36,7 +35,6 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"subscriptions", "price-points", "bulk-reset-subscription-components"},
 		{"subscriptions", "purge-json", "purge-subscription"},
 		{"subscriptions", "service-credit-deductions-json", "deduct-service-credit"},
-		{"subscriptions", "service-credits-json", "issue-service-credit"},
 	} {
 		cmd := root
 		for _, name := range path {

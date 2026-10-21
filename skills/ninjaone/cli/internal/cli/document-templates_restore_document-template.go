@@ -17,6 +17,7 @@ func newDocumentTemplatesRestoreDocumentTemplateCmd(flags *rootFlags) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:         "document-template <documentTemplateId>",
+		Aliases:     []string{"create"},
 		Short:       "Restores a document template by id",
 		Example:     "  ninjaone-cli document-templates restore document-template 42",
 		Annotations: map[string]string{"pp:endpoint": "restore.document-template", "pp:method": "POST", "pp:path": "/v2/document-templates/{documentTemplateId}/restore"},

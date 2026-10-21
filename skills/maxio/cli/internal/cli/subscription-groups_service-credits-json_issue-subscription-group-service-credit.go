@@ -19,6 +19,7 @@ func newSubscriptionGroupsServiceCreditsJsonIssueSubscriptionGroupServiceCreditC
 
 	cmd := &cobra.Command{
 		Use:         "issue-subscription-group-service-credit <uid>",
+		Aliases:     []string{"create"},
 		Short:       "Issues service credit for a subscription group.",
 		Example:     "  maxio-cli subscription-groups service-credits-json issue-subscription-group-service-credit 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "service-credits-json.issue-subscription-group-service-credit", "pp:method": "POST", "pp:path": "/subscription_groups/{uid}/service_credits.json"},
