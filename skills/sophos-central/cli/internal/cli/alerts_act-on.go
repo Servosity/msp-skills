@@ -20,7 +20,6 @@ func newAlertsActOnCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "act-on <alertId>",
-		Aliases: []string{"create"},
 		Short:   "Take an action on a specific alert.",
 		Example: "  sophos-central-cli alerts act-on a5ded91c-6575-435c-a6b4-64b94f9048ff --action acknowledge",
 		Args: func(cmd *cobra.Command, args []string) error {

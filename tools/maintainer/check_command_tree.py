@@ -15,28 +15,43 @@ command list, so no reviewer sees it either.
 What it checks (FAIL)
 ---------------------
 Every command in a connector's real Cobra tree that carries the alias `create`
-and whose action is destructive. The action is judged from three places:
+and whose action is destructive or hazardous. In order:
 
-  * the HTTP method in the command's `pp:method` annotation (DELETE);
-  * the command's own name (`purge-subscription`, `bulk-delete`);
-  * the last literal segment of its `pp:path` annotation
-    (`/invoices/{uid}/void.json` gives `void`; `/devices/{serial}/reboot`
-    gives `reboot` for `devices reboot device`). Resource and group names are
-    nouns and are not read, so `quarantine export` is not a quarantine and
-    `uninstall-password generate-regenerate` is not an uninstall. A command
-    without `pp:path` (hand-written) is judged by its path below the
-    top-level resource.
+  1. HTTP method DELETE in the command's `pp:method` annotation.
+  2. REVIEWED_HAZARDS: endpoints read and judged destructive whose names do not
+     say so (Tactical RMM's service start/stop endpoint is POST
+     /services/{agent_id}/{svcname}/), keyed by slug and API path.
+  3. A DESTRUCTIVE_WORDS word in the command's action words: its own name
+     (`purge-subscription`, `bulk-delete`) plus the last literal segment of its
+     `pp:path` (`/invoices/{uid}/void.json` gives `void`; `/devices/{serial}/reboot`
+     gives `reboot` for `devices reboot device`). Resource and group names are
+     nouns and are not read, so `quarantine export` is not a quarantine and
+     `uninstall-password generate-regenerate` is not an uninstall. A leaf that
+     names itself a create ignores the path literal (a resource noun there),
+     but still counts its own words (`create-cancel-subscription`). A command
+     without `pp:path` (hand-written) is judged by its path below the
+     top-level resource.
+  4. A SUMMARY_VERBS verb leading the command's Short (the spec's operation
+     summary): `move-rules` whose summary is "Remove Firewall Rules ...".
+  5. A HAZARD_WORDS word (dispatchers such as `devices action`, remote
+     execution, installs, forced updates, invoices issued, moves) in the action
+     words of a leaf that neither names itself a create nor names a read
+     (READ_WORDS: `get-os-patch-compliance` and `action-logs-export` pass).
 
-A word counts when it equals one of DESTRUCTIVE_WORDS after splitting on
-punctuation and camelCase. The list is deliberately explicit (no prefix match)
-so a noun such as `blocks` is not read as the verb `block`.
+Words are matched exactly after splitting on punctuation and camelCase (no
+prefix match), so a noun such as `blocks` is not read as the verb `block`.
 
 What it reports (never fails)
 -----------------------------
-Command-local flags that shadow a persistent flag inherited from an ancestor,
-for example a local `--agent` string flag that silently replaces the global
-`--agent` agent-mode switch on that one command. These are listed as WARN lines
-and do not change the exit code.
+  * Command-local flags that shadow a persistent flag inherited from an
+    ancestor, for example a local `--agent` string flag that silently replaces
+    the global `--agent` agent-mode switch on that one command: one summary
+    line per flag (`--list-shadows` for each).
+  * The work list: commands that answer to `create` without being named a
+    create or judged by rules 1-5. Many are collection creates (POST /roles);
+    the words cannot tell those from non-create actions, so they are listed
+    (`--list-unjudged`), never failed. The durable fix is upstream: emit
+    `create` only for operations that create.
 
 Where the tree comes from
 -------------------------
@@ -59,7 +74,8 @@ Usage:
     python3 tools/maintainer/check_command_tree.py                 # every connector
     python3 tools/maintainer/check_command_tree.py --slug maxio     # one (repeatable)
     python3 tools/maintainer/check_command_tree.py --json out.json  # machine output
-    python3 tools/maintainer/check_command_tree.py --self-test      # classifier proof
+    python3 tools/maintainer/check_command_tree.py --self-test      # classifier + walker proof
+    python3 tools/maintainer/check_command_tree.py --list-unjudged  # print the work list
 
 Exit 0 = no destructive `create` alias anywhere checked; 1 = at least one, or a
 connector whose tree could not be read (a check that cannot look must not pass).
@@ -146,6 +162,94 @@ DESTRUCTIVE_WORDS = frozenset(
     }
 )
 
+# Added after Codex review round 2 and a read of every remaining aliased POST:
+# ending a contract or account, money moving back out, repository surgery,
+# restore-over-current-data and topology changes.
+DESTRUCTIVE_WORDS = DESTRUCTIVE_WORDS | frozenset(
+    {
+        "closure",
+        "deduct",
+        "finalization",
+        "finalize",
+        "migrate",
+        "migration",
+        "migrations",
+        "refund",
+        "refunds",
+        "repair",
+        "restore",
+        "split",
+        "unbind",
+    }
+)
+
+# Not destructive by name, but a POST answering to `create` must not reach them
+# either: dispatchers whose effect is chosen by a parameter (`devices action`
+# reboots with --action-type=1), remote execution and installs on managed
+# endpoints, forced updates, billing documents issued to customers, and moves.
+# Applied only when the leaf does not name itself a create and names no read.
+HAZARD_WORDS = frozenset(
+    {
+        "act",
+        "action",
+        "actions",
+        "control",
+        "execute",
+        "force",
+        "install",
+        "issue",
+        "move",
+        "ospatch",
+        "patch",
+        "schedule",
+    }
+)
+
+# A leaf that says it reads (`get-os-patch-compliance`, `action-logs-export`,
+# `run-query`) is a read, whatever noun follows. Destructive words still count.
+READ_WORDS = frozenset(
+    {"download", "export", "fetch", "get", "list", "lookup", "preview", "query", "search", "view"}
+)
+
+# Summary verbs strong enough to judge on: the spec's own operation summary
+# leads with one of these. Narrower than DESTRUCTIVE_WORDS because a summary
+# such as "Block an item" is often a create of a block-list entry.
+SUMMARY_VERBS = frozenset(
+    {
+        "cancel", "deactivate", "delete", "destroy", "disable", "erase", "expire", "kill",
+        "purge", "reboot", "remove", "reset", "restart", "revoke", "shutdown", "stop",
+        "suspend", "terminate", "uninstall", "unenroll", "unregister", "void", "wipe",
+    }
+)
+
+# Endpoints judged destructive by reading the vendor's operation, whose names
+# do not say so. Keyed by (slug, API path) because the path survives a reprint
+# that renames the command. Each was removed in the same change that listed it.
+REVIEWED_HAZARDS = {
+    ("action1", "/updates/{orgId}/approvals"):
+        "approves or declines update packages for deployment to endpoints",
+    ("avanan", "/v1.0/action/entity"):
+        "dispatches an action (quarantine, restore, ...) on a mail or file entity",
+    ("cisco-meraki", "/networks/{networkId}/bind"):
+        "binds a network to a template, replacing its configuration",
+    ("cisco-meraki", "/organizations/{organizationId}/switch/devices/clone"):
+        "overwrites the target switches' port and switch settings",
+    ("huntress", "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval"):
+        "approves every pending remediation, which Huntress then carries out on the hosts",
+    ("ninjaone", "/v2/device/{id}/script/run"):
+        "runs a script or built-in action on a device",
+    ("tactical-rmm", "/autotasks/{pk}/run/"):
+        "runs an automated task on its agents now",
+    ("tactical-rmm", "/scripts/{agent_id}/test/"):
+        "runs a script on an agent",
+    ("tactical-rmm", "/services/{agent_id}/{svcname}/"):
+        "starts, stops or restarts a Windows service on an agent",
+    ("tactical-rmm", "/software/{agent_id}/"):
+        "installs software on an agent",
+    ("watchguard", "/rest/firebox/management/v1/configuration/{accountId}/templates/subscribe"):
+        "subscribes or unsubscribes Firebox templates, replacing device configuration",
+}
+
 DESTRUCTIVE_METHODS = frozenset({"DELETE"})
 
 # The overlay package paths inside each module. They never exist on disk.
@@ -208,6 +312,7 @@ type shadow struct {
 
 type node struct {
 	Path        []string          `json:"path"`
+	Short       string            `json:"short"`
 	Aliases     []string          `json:"aliases"`
 	Hidden      bool              `json:"hidden"`
 	Runnable    bool              `json:"runnable"`
@@ -225,6 +330,7 @@ func walk(c *cobra.Command, path []string, persistent map[string]inherited, out 
 		p := append(append([]string{}, path...), sub.Name())
 		n := node{
 			Path:        p,
+			Short:       sub.Short,
 			Aliases:     append([]string{}, sub.Aliases...),
 			Hidden:      sub.Hidden,
 			Runnable:    sub.Runnable(),
@@ -320,20 +426,79 @@ def action_words(node: dict) -> set[str]:
     return out
 
 
-def destructive_reason(node: dict) -> str | None:
-    """Why this command's action is destructive, or None."""
+def summary_verbs(short: str) -> set[str]:
+    """The leading verb(s) of the command's one-line summary, singularised.
+
+    The generator copies the spec's operation summary into Short, and a summary
+    leads with the operation: "Remove Firewall Rules ..." on a command named
+    `move-rules`, "Start/Stop/Restart Windows Service ..." on `control`."""
+    first = (short or "").strip().split(None, 1)
+    if not first:
+        return set()
+    out: set[str] = set()
+    for w in re.split(r"[/,]", first[0].lower()):
+        w = re.sub(r"[^a-z]", "", w)
+        if not w:
+            continue
+        out.add(w)
+        if w.endswith("es"):
+            out.add(w[:-2])
+        if w.endswith("s"):
+            out.add(w[:-1])
+    return out
+
+
+def destructive_reason(node: dict, slug: str = "") -> str | None:
+    """Why this command's action is destructive or hazardous, or None."""
     ann = node.get("annotations") or {}
     method = (ann.get("pp:method") or "").upper()
     if method in DESTRUCTIVE_METHODS:
         return f"HTTP {method}"
-    hit = sorted(action_words(node) & DESTRUCTIVE_WORDS)
+    reviewed = REVIEWED_HAZARDS.get((slug, ann.get("pp:path", "")))
+    if reviewed:
+        return "reviewed: " + reviewed
+    acts = action_words(node)
+    hit = sorted(acts & DESTRUCTIVE_WORDS)
     if hit:
         return "action word " + ", ".join(repr(w) for w in hit)
+    verb = sorted(summary_verbs(node.get("short", "")) & SUMMARY_VERBS)
+    if verb:
+        return "summary verb " + ", ".join(repr(w) for w in verb)
+    path = node.get("path") or []
+    leaf = words(path[-1] if path else "")
+    if CREATE_ALIAS not in leaf and not (leaf & READ_WORDS):
+        hazard = sorted(acts & HAZARD_WORDS)
+        if hazard:
+            return "dispatch/execute word " + ", ".join(repr(w) for w in hazard)
     return None
+
+
+def is_named_create(node: dict) -> bool:
+    path = node.get("path") or []
+    return CREATE_ALIAS in words(path[-1] if path else "")
 
 
 def has_create_alias(node: dict) -> bool:
     return any((a or "").lower() == CREATE_ALIAS for a in node.get("aliases") or [])
+
+
+def unjudged_for(slug: str, nodes: list[dict]) -> list[dict]:
+    """Report-only work list: `create` on a command neither named a create nor
+    judged destructive. The gate cannot tell a collection create (POST /roles)
+    from a non-create action by its words alone, so these are listed, never
+    failed. The durable fix is upstream: emit `create` only for creates."""
+    out, seen = [], set()
+    for node in nodes:
+        if not has_create_alias(node) or is_named_create(node) or destructive_reason(node, slug):
+            continue
+        key = " ".join(node["path"])
+        if key in seen:
+            continue
+        seen.add(key)
+        ann = node.get("annotations") or {}
+        out.append({"slug": slug, "command": key, "method": ann.get("pp:method", ""),
+                    "api_path": ann.get("pp:path", ""), "short": node.get("short", "")})
+    return out
 
 
 def findings_for(slug: str, nodes: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -346,7 +511,7 @@ def findings_for(slug: str, nodes: list[dict]) -> tuple[list[dict], list[dict]]:
         # twice (ninjaone `document-templates archive`), and the two copies need
         # not carry the same aliases, so only identical FINDINGS are merged.
         if has_create_alias(node):
-            reason = destructive_reason(node)
+            reason = destructive_reason(node, slug)
             ann = node.get("annotations") or {}
             key = (" ".join(node["path"]), ann.get("pp:method", ""), ann.get("pp:path", ""), reason)
             if reason and key not in seen_fail:
@@ -454,11 +619,11 @@ def dump_tree(slug: str, timeout: int, fixture_go: str | None = None) -> tuple[l
 
 def self_test() -> int:
     """Both-directions proof of the classifier, no Go needed."""
-    def node(path, method="POST", api="", aliases=("create",)):
+    def node(path, method="POST", api="", aliases=("create",), short=""):
         ann = {"pp:method": method}
         if api:
             ann["pp:path"] = api
-        return {"path": list(path), "aliases": list(aliases), "annotations": ann}
+        return {"path": list(path), "aliases": list(aliases), "annotations": ann, "short": short}
 
     must_fail = [
         node(["subscriptions", "purge-json", "purge-subscription"], api="/subscriptions/{subscription_id}/purge.json"),
@@ -475,6 +640,16 @@ def self_test() -> int:
         node(["meeting-recordings", "leave", "meeting-recording"], api="/v1/meeting_recordings/{id}/leave"),
         node(["api-keys", "rotate", "api-key"], api="/v1/api_keys/{id}/rotate"),
         node(["subscriptions", "hold-json", "pause-subscription"], api="/subscriptions/{subscription_id}/hold.json"),
+        node(["networks", "unbind", "network"], api="/networks/{networkId}/unbind"),
+        node(["invoices", "refunds-json", "refund-invoice"], api="/invoices/{uid}/refunds.json"),
+        # Dispatchers and remote execution (Codex round 2).
+        node(["endpoint-devices", "action"], api="/rest/endpoint-security/v1/accounts/{accountId}/devices/action"),
+        node(["device", "windows-service", "control"], api="/v2/device/{id}/windows-service/{serviceId}/control"),
+        node(["patching", "patch-now"], api="/w/company/patch_now"),
+        # The summary names the action when the name does not.
+        node(["firewall-control", "move-rules", "by-category"], api="/firewall-control/{category}/move-rules",
+             short="Remove Firewall Rules, defined with the ID of the rules"),
+        node(["things", "rpc"], api="/things/rpc", short="Start/Stop/Restart the thing"),
         # Hand-written command (no pp:path): judged by its path below the top.
         {"path": ["jobs", "purge"], "aliases": ["create"], "annotations": {}},
     ]
@@ -488,6 +663,12 @@ def self_test() -> int:
         node(["accounts", "uninstall-password", "generate-regenerate"],
              api="/accounts/{account_id}/uninstall-password/generate"),
         node(["alert", "resolve", "alert"], api="/v2/alert/{alertUid}/resolve"),
+        node(["patches", "get-os-patch-compliance"], api="/api/platform/v2/os-patching/compliance/summary"),
+        node(["grid", "action-logs-export"], api="/v1/grid/action-logs/export"),
+        node(["api-resources", "resources-actions-create"], api="/resources/{resource_id}/actions"),
+        node(["live-discover", "run-query"], api="/live-discover/v1/queries/runs"),
+        node(["roles", "post"], api="/roles", short="Creates a role"),
+        node(["blocked-items", "post-by-id"], api="/endpoint/v1/settings/blocked-items", short="Block an item"),
         # Destructive, but no `create` alias: not this gate's business.
         node(["reports", "delete"], api="/reports/delete-reports", aliases=()),
         node(["reports", "delete"], api="/reports/delete-reports", aliases=("rm",)),
@@ -512,6 +693,10 @@ def self_test() -> int:
     f, _ = findings_for("selftest", dup)
     if len(f) != 1:
         bad.append(f"duplicate registration: expected 1 finding from the aliased copy, got {len(f)}")
+    # A reviewed hazard fails only for its own connector.
+    svc = node(["services", "services-agentid-2"], api="/services/{agent_id}/{svcname}/")
+    if not findings_for("tactical-rmm", [svc])[0] or findings_for("other", [svc])[0]:
+        bad.append("REVIEWED_HAZARDS must apply to its own slug only")
 
     # The Go walker itself, on a fixture tree, when Go and a connector exist.
     walker = "skipped (no go on PATH or no connector to borrow a module from)"
@@ -549,6 +734,8 @@ def main() -> int:
     ap.add_argument("--self-test", action="store_true", help="prove the classifier both directions")
     ap.add_argument("--list-shadows", action="store_true",
                     help="print every flag shadow instead of a per-flag summary")
+    ap.add_argument("--list-unjudged", action="store_true",
+                    help="print every `create` alias the gate does not judge (report only)")
     args = ap.parse_args()
 
     if args.self_test:
@@ -570,7 +757,7 @@ def main() -> int:
         for fut in concurrent.futures.as_completed(futs):
             results[futs[fut]] = fut.result()
 
-    fails, shadows, errors = [], [], []
+    fails, shadows, errors, unjudged = [], [], [], []
     commands = 0
     for slug in sorted(results):
         nodes, err = results[slug]
@@ -581,6 +768,7 @@ def main() -> int:
         f, sh = findings_for(slug, nodes)
         fails.extend(f)
         shadows.extend(sh)
+        unjudged.extend(unjudged_for(slug, nodes))
 
     if args.list_shadows:
         for sh in shadows:
@@ -601,6 +789,14 @@ def main() -> int:
                 where += f", +{len(ranked) - 6} more connector(s)"
             print(f"  WARN  local --{flag} shadows a persistent --{flag} on {len(hits)} command(s): "
                   f"{where} (report only; --list-shadows for each)")
+    if args.list_unjudged:
+        for u in unjudged:
+            print(f"  NOTE  [{u['slug']}] `{u['command']}` answers to `{CREATE_ALIAS}` "
+                  f"({u['method']} {u['api_path']}): {u['short'][:90]}")
+    if unjudged:
+        print(f"  NOTE  {len(unjudged)} command(s) in {len({u['slug'] for u in unjudged})} connector(s) "
+              f"answer to `{CREATE_ALIAS}` without being named a create or judged destructive "
+              f"(report only; --list-unjudged for each)")
     for e in errors:
         print(f"  FAIL  [{e['slug']}] command tree unreadable: {e['error']}")
     for f in fails:
@@ -610,6 +806,7 @@ def main() -> int:
     if args.json:
         Path(args.json).write_text(
             json.dumps({"create_alias_on_destructive": fails, "flag_shadows": shadows,
+                        "create_alias_unjudged": unjudged,
                         "errors": errors, "connectors": len(slugs), "commands": commands},
                        indent=1) + "\n",
             encoding="utf-8",

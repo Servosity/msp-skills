@@ -21,7 +21,6 @@ func newFireboxTemplatesSubscribeCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "subscribe",
-		Aliases:     []string{"create"},
 		Short:       "Subscribes, unsubscribes, or changes the order of Firebox templates on a Firebox.",
 		Example:     "  watchguard-cli firebox-templates subscribe --device 266318 --templates '[\"tmpl_456\",\"tmpl_123\"]'",
 		Args:        cobra.NoArgs,

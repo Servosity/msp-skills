@@ -22,7 +22,6 @@ func newDeviceScriptRunOnDeviceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "run-on-device <id>",
-		Aliases:     []string{"create"},
 		Short:       "Run script or built-in action on a device",
 		Example:     "  ninjaone-cli device script run-on-device 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "script.run-on-device", "pp:method": "POST", "pp:path": "/v2/device/{id}/script/run"},

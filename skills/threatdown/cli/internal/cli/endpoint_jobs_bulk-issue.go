@@ -64,7 +64,6 @@ func newEndpointJobsBulkIssueCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "bulk-issue",
-		Aliases:     []string{"create"},
 		Short:       "Use this endpoint to issue a job across multiple accounts you manage.",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "endpoint_jobs.bulk-issue", "pp:method": "POST", "pp:path": "/v1/jobs/bulk", "pp:requires-input": "true"},

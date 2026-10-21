@@ -20,6 +20,8 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
 		{"automations", "policies-instances-org-id-instance-id-stop-post"},
+		{"enterprise", "request-closure"},
+		{"updates", "approvals", "updates-org-id"},
 	} {
 		cmd := root
 		for _, name := range path {

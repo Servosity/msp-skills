@@ -18,7 +18,6 @@ func newDeviceWindowsServiceControlCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "control <id> <serviceId>",
-		Aliases:     []string{"create"},
 		Short:       "Start/Stop/Restart Windows Service on a device",
 		Example:     "  ninjaone-cli device windows-service control 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "windows-service.control", "pp:method": "POST", "pp:path": "/v2/device/{id}/windows-service/{serviceId}/control"},

@@ -19,7 +19,11 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"endpoint-devices", "action"},
 		{"firebox-exceptions", "disable-global"},
+		{"firebox-templates", "subscribe"},
+		{"threatsync-actions", "perform"},
+		{"threatsync-incident-actions", "perform"},
 	} {
 		cmd := root
 		for _, name := range path {

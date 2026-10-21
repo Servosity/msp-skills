@@ -19,6 +19,7 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"alerts", "act-on"},
 		{"blocked-addresses", "delete-blocked-address-sets"},
 		{"endpoints", "bulk-delete"},
 		{"xdr", "cancel-query-run"},

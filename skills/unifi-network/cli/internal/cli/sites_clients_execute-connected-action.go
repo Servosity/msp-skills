@@ -17,9 +17,8 @@ func newSitesClientsExecuteConnectedActionCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "execute-connected-action <siteId> <clientId>",
-		Aliases: []string{"create"},
-		Short:   "Perform an action on a specific connected client.",
+		Use:   "execute-connected-action <siteId> <clientId>",
+		Short: "Perform an action on a specific connected client.",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  unifi-network-cli sites clients execute-connected-action 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --action example-value",
 		Annotations: map[string]string{"pp:endpoint": "clients.execute-connected-action", "pp:method": "POST", "pp:path": "/v1/sites/{siteId}/clients/{clientId}/actions"},

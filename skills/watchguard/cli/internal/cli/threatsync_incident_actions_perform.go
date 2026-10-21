@@ -21,9 +21,8 @@ func newThreatsyncIncidentActionsPerformCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "perform <incidentId>",
-		Aliases: []string{"create"},
-		Short:   "Performs an action for a specific incident.",
+		Use:   "perform <incidentId>",
+		Short: "Performs an action for a specific incident.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -21,9 +21,8 @@ func newCasesActionCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "action <account_id>",
-		Aliases: []string{"create"},
-		Short:   "Case Management operation the vendor has not documented: POST /oneview/v1/casemgmt/accounts/{account_id}/cases/action",
+		Use:   "action <account_id>",
+		Short: "Case Management operation the vendor has not documented: POST /oneview/v1/casemgmt/accounts/{account_id}/cases/action",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

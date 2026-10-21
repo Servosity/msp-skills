@@ -17,7 +17,6 @@ func newWinupdateInstallWinupdateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "winupdate <agent_id>",
-		Aliases:     []string{"create"},
 		Short:       "POST /winupdate/{agent_id}/install/",
 		Example:     "  tactical-rmm-cli winupdate install winupdate 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "install.winupdate", "pp:method": "POST", "pp:path": "/winupdate/{agent_id}/install/"},

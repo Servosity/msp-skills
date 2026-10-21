@@ -19,10 +19,15 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"contracts", "finalize", "contracts"},
 		{"restic-backups", "agent-service-stop", "restic-backups"},
 		{"restic-backups", "agent-service-stop-error", "restic-backups"},
 		{"restic-backups", "restic-interrupt", "restic-backups"},
+		{"restic-backups", "restic-migrate", "restic-backups"},
 		{"restic-backups", "restic-prune", "restic-backups"},
+		{"restic-backups", "restic-repair-index", "restic-backups"},
+		{"restic-backups", "restic-repair-snapshots", "restic-backups"},
+		{"restic-backups", "start-restore", "restic-backups"},
 	} {
 		cmd := root
 		for _, name := range path {

@@ -19,6 +19,7 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"action", "post-entity"},
 		{"exceptions", "delete", "ap-exception"},
 	} {
 		cmd := root

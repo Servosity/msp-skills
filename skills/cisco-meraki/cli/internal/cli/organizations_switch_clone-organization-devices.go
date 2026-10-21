@@ -20,9 +20,8 @@ func newOrganizationsSwitchCloneOrganizationDevicesCmd(flags *rootFlags) *cobra.
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "clone-organization-devices <organizationId>",
-		Aliases: []string{"create"},
-		Short:   "Clone port-level and some switch-level configuration settings from a source switch to one or more target switches.",
+		Use:   "clone-organization-devices <organizationId>",
+		Short: "Clone port-level and some switch-level configuration settings from a source switch to one or more target switches.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

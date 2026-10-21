@@ -18,7 +18,6 @@ func newUpdatesApprovalsUpdatesOrgIdCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "updates-org-id <orgId>",
-		Aliases:     []string{"create"},
 		Short:       "**Requires one of the following permissions: `approve_updates`** Manages approval status for multiple packages in bulk.",
 		Example:     "  action1-cli updates approvals updates-org-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "approvals.updates-org-id", "pp:method": "POST", "pp:path": "/updates/{orgId}/approvals"},

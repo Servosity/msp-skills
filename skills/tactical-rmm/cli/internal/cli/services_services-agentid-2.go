@@ -17,7 +17,6 @@ func newServicesServicesAgentid2Cmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "services-agentid-2 <agent_id> <svcname>",
-		Aliases:     []string{"create"},
 		Short:       "POST /services/{agent_id}/{svcname}/",
 		Example:     "  tactical-rmm-cli services services-agentid-2 550e8400-e29b-41d4-a716-446655440000 example-resource",
 		Annotations: map[string]string{"pp:endpoint": "services.services-agentid-2", "pp:method": "POST", "pp:path": "/services/{agent_id}/{svcname}/"},

@@ -18,7 +18,6 @@ func newNetworksSplitNetworkCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "network <networkId>",
-		Aliases: []string{"create"},
 		Short:   "Split a combined network into individual networks for each type of device",
 		Example: "  cisco-meraki-cli networks split network L_646829496481105433",
 		Args: func(cmd *cobra.Command, args []string) error {

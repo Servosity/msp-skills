@@ -17,7 +17,6 @@ func newScriptsTestScriptsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "scripts <agent_id>",
-		Aliases:     []string{"create"},
 		Short:       "POST /scripts/{agent_id}/test/",
 		Example:     "  tactical-rmm-cli scripts test scripts 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "test.scripts", "pp:method": "POST", "pp:path": "/scripts/{agent_id}/test/"},

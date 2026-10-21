@@ -21,7 +21,6 @@ func newSubscriptionsPrepaymentsRefundCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "refund <subscription_id> <prepayment_id>",
-		Aliases:     []string{"create"},
 		Short:       "Refunds a prepayment applied to a subscription, either fully or partially.",
 		Example:     "  maxio-cli subscriptions prepayments refund 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "prepayments.refund", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/prepayments/{prepayment_id}/refunds.json"},

@@ -21,9 +21,14 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	for _, path := range [][]string{
 		{"agents", "reboot", "agents-agents"},
 		{"agents", "shutdown", "agents"},
+		{"autotasks", "run", "autotasks"},
 		{"checks", "reset", "checks"},
 		{"checks", "resetall", "checks"},
+		{"scripts", "test", "scripts"},
+		{"services", "services-agentid-2"},
+		{"software", "software-agentid-2"},
 		{"software", "uninstall", "software"},
+		{"winupdate", "install", "winupdate"},
 	} {
 		cmd := root
 		for _, name := range path {

@@ -17,7 +17,6 @@ func newDevicePatchSubmitOspatchApplyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "submit-ospatch-apply <id>",
-		Aliases:     []string{"create"},
 		Short:       "Submit a job to start a device OS patch apply",
 		Example:     "  ninjaone-cli device patch submit-ospatch-apply 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "patch.submit-ospatch-apply", "pp:method": "POST", "pp:path": "/v2/device/{id}/patch/os/apply"},

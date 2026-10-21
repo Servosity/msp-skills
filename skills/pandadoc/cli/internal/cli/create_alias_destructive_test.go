@@ -20,6 +20,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
 		{"documents", "draft", "document-revert-to"},
+		{"documents", "move-to-folder", "document"},
 		{"workspaces", "deactivate", "workspace"},
 	} {
 		cmd := root

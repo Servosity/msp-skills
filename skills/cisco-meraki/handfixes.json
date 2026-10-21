@@ -1590,8 +1590,8 @@
   {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
-   "summary": "The generator's hidden Cobra alias `create` is removed from the 4 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
-   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (69 such commands in 21 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: devices reboot device (POST /devices/{serial}/reboot); networks firmware-upgrades create-network-rollback (POST /networks/{networkId}/firmwareUpgrades/rollbacks); organizations integrations disable-organization-xdr-networks (POST /organizations/{organizationId}/integrations/xdr/networks/disable); organizations spaces remove-organization-integration (POST /organizations/{organizationId}/spaces/integration/remove).",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 9 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (118 such commands in 27 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: devices reboot device (POST /devices/{serial}/reboot); networks bind network (POST /networks/{networkId}/bind); networks firmware-upgrades create-network-rollback (POST /networks/{networkId}/firmwareUpgrades/rollbacks); networks split network (POST /networks/{networkId}/split); networks unbind network (POST /networks/{networkId}/unbind); organizations integrations disable-organization-xdr-networks (POST /organizations/{organizationId}/integrations/xdr/networks/disable); organizations licensing move-organization-coterm-licenses (POST /organizations/{organizationId}/licensing/coterm/licenses/move); organizations spaces remove-organization-integration (POST /organizations/{organizationId}/spaces/integration/remove); organizations switch clone-organization-devices (POST /organizations/{organizationId}/switch/devices/clone).",
    "status": "active",
    "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
    "asserts": [
@@ -1600,7 +1600,19 @@
      "not_contains": "[]string{\"create\"}"
     },
     {
+     "file": "cli/internal/cli/networks_bind_network.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
      "file": "cli/internal/cli/networks_firmware-upgrades_create-network-rollback.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/networks_split_network.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/networks_unbind_network.go",
      "not_contains": "[]string{\"create\"}"
     },
     {
@@ -1608,7 +1620,15 @@
      "not_contains": "[]string{\"create\"}"
     },
     {
+     "file": "cli/internal/cli/organizations_licensing_move-organization-coterm-licenses.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
      "file": "cli/internal/cli/organizations_spaces_remove-organization-integration.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/organizations_switch_clone-organization-devices.go",
      "not_contains": "[]string{\"create\"}"
     },
     {

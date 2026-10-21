@@ -19,9 +19,8 @@ func newNetworksBindNetworkCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "network <networkId>",
-		Aliases: []string{"create"},
-		Short:   "Bind a network to a template.",
+		Use:   "network <networkId>",
+		Short: "Bind a network to a template.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -19,15 +19,24 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"invoices", "issue-json", "issue-invoice"},
+		{"invoices", "refunds-json", "refund-invoice"},
 		{"invoices", "void-json", "void-invoice"},
 		{"proforma-invoices", "void-json", "void-proforma-invoice"},
 		{"subscription-groups", "cancel-json", "cancel-subscriptions-in-group"},
 		{"subscription-groups", "delayed-cancel-json", "initiate-delayed-cancellation-for-group"},
+		{"subscription-groups", "service-credit-deductions-json", "deduct-subscription-group-service-credit"},
+		{"subscription-groups", "service-credits-json", "issue-subscription-group-service-credit"},
+		{"subscriptions", "advance-invoice", "issue"},
 		{"subscriptions", "cancel-dunning-json", "cancel-dunning"},
 		{"subscriptions", "delayed-cancel-json", "initiate-delayed-cancellation"},
 		{"subscriptions", "hold-json", "pause-subscription"},
+		{"subscriptions", "migrations-json", "migrate-subscription-product"},
+		{"subscriptions", "prepayments", "refund"},
 		{"subscriptions", "price-points", "bulk-reset-subscription-components"},
 		{"subscriptions", "purge-json", "purge-subscription"},
+		{"subscriptions", "service-credit-deductions-json", "deduct-service-credit"},
+		{"subscriptions", "service-credits-json", "issue-service-credit"},
 	} {
 		cmd := root
 		for _, name := range path {

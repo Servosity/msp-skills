@@ -21,8 +21,12 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	for _, path := range [][]string{
 		{"alert", "reset", "alert-set-activity-data"},
 		{"checklist", "archive-template"},
+		{"device", "patch", "submit-ospatch-apply"},
 		{"device", "reboot", "devices"},
+		{"device", "script", "run-on-device"},
+		{"device", "windows-service", "control"},
 		{"document-templates", "archive", "document-template"},
+		{"document-templates", "restore", "document-template"},
 		{"knowledgebase", "archive-knowledge-base-articles"},
 		{"organization", "archive-checklists"},
 	} {

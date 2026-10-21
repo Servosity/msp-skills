@@ -18,7 +18,6 @@ func newSubscriptionsAdvanceInvoiceIssueCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "issue <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Generate an invoice in advance for a subscription's next renewal date. [See our docs](https://maxio.zendesk.",
 		Example:     "  maxio-cli subscriptions advance-invoice issue 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "advance-invoice.issue", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/advance_invoice/issue.json"},

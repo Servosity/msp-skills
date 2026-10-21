@@ -595,8 +595,8 @@
   {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
-   "summary": "The generator's hidden Cobra alias `create` is removed from the 6 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
-   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (69 such commands in 21 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: alert reset alert-set-activity-data (POST /v2/alert/{uid}/reset); checklist archive-template (POST /v2/checklist/archive); device reboot devices (POST /v2/device/{id}/reboot/{mode}); document-templates archive document-template (POST /v2/document-templates/{documentTemplateId}/archive); knowledgebase archive-knowledge-base-articles (POST /v2/knowledgebase/articles/archive); organization archive-checklists (POST /v2/organization/archive).",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 10 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (118 such commands in 27 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: alert reset alert-set-activity-data (POST /v2/alert/{uid}/reset); checklist archive-template (POST /v2/checklist/archive); device patch submit-ospatch-apply (POST /v2/device/{id}/patch/os/apply); device reboot devices (POST /v2/device/{id}/reboot/{mode}); device script run-on-device (POST /v2/device/{id}/script/run); device windows-service control (POST /v2/device/{id}/windows-service/{serviceId}/control); document-templates archive document-template (POST /v2/document-templates/{documentTemplateId}/archive); document-templates restore document-template (POST /v2/document-templates/{documentTemplateId}/restore); knowledgebase archive-knowledge-base-articles (POST /v2/knowledgebase/articles/archive); organization archive-checklists (POST /v2/organization/archive).",
    "status": "active",
    "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
    "asserts": [
@@ -609,11 +609,27 @@
      "not_contains": "[]string{\"create\"}"
     },
     {
+     "file": "cli/internal/cli/device_patch_submit-ospatch-apply.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
      "file": "cli/internal/cli/device_reboot_devices.go",
      "not_contains": "[]string{\"create\"}"
     },
     {
+     "file": "cli/internal/cli/device_script_run-on-device.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/device_windows-service_control.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
      "file": "cli/internal/cli/document-templates_archive_document-template.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/document-templates_restore_document-template.go",
      "not_contains": "[]string{\"create\"}"
     },
     {
