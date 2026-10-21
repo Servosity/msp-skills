@@ -137,6 +137,18 @@ def _read(p: Path) -> str | None:
         return None
 
 
+_IMPORT_BLOCK = re.compile(r"^import\s*\((.*?)^\)", re.M | re.S)
+_IMPORT_LINE = re.compile(r"^import\s+(?:[\w.]+\s+)?(\"[^\"\n]*\")", re.M)
+
+
+def import_spans(src: str) -> list[tuple[int, int]]:
+    """Source ranges holding import paths: only there may `<module>-pp-cli/`
+    appear, because the module keeps its press name on purpose."""
+    spans = [(m.start(1), m.end(1)) for m in _IMPORT_BLOCK.finditer(src)]
+    spans += [(m.start(1), m.end(1)) for m in _IMPORT_LINE.finditer(src)]
+    return spans
+
+
 def skill_dir(root: Path, slug: str, meta: dict) -> Path:
     d = meta.get("source_dir", slug)
     return root / "skills" / (d if isinstance(d, str) else slug)
@@ -146,7 +158,8 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     sd = skill_dir(root, slug, meta)
     names = own_names(root, sd.name, meta) | {slug}
     rx = leak_re(names, go=False)
-    rx_go = leak_re(names, go=True)
+    rx_go = leak_re(names, go=True)            # import paths: `<module>-pp-cli/internal/x` is fine
+    rx_go_any = leak_re(names | {"%s"}, go=False)  # every other Go string: a following / is a leaked path
     leaks: list[Leak] = []
     files = sorted(p for p in sd.glob("*.md")) + sorted((sd / "references").rglob("*.md"))
     files += [sd / f for f in SKILL_FILES]
@@ -162,14 +175,20 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
             if src is None or "-pp-" not in src:
                 continue
             lits, _ = lex(src)
+            imports = import_spans(src)
             for lit in lits:
-                m = rx_go.search(lit.value)
-                if m:
-                    # The line that holds the MATCH, not the literal's first
-                    # line: a raw `...` string spans lines and maps 1:1 onto
-                    # the source; an interpreted "..." string is one line.
+                in_import = any(a <= lit.start < b for a, b in imports)
+                seen_lines: set[int] = set()
+                # EVERY match, each on its own source line: a grandfathered
+                # leak must not hide a new one later in the same string.
+                for m in (rx_go if in_import else rx_go_any).finditer(lit.value):
+                    # A raw `...` string spans lines and maps 1:1 onto the
+                    # source; an interpreted "..." string is one line.
                     at = lit.start + 1 + m.start() if src[lit.start] == "`" else lit.start
                     ln = src.count("\n", 0, at) + 1
+                    if ln in seen_lines:
+                        continue
+                    seen_lines.add(ln)
                     s0 = src.rfind("\n", 0, at) + 1
                     e0 = src.find("\n", at)
                     line = src[s0:e0 if e0 >= 0 else len(src)]
@@ -321,6 +340,8 @@ def _self_test() -> int:
         "skills/acme/cli/internal/cli/root.go":
             'package cli\n\nimport "acme-pp-cli/internal/store"\n\n// acme-pp-cli in a comment is not shown to anyone\n'
             'var use = "acme-cli"\nvar _ = store.X\nvar _ = "sample-pp-cli" // a generated test placeholder name\n',
+        "skills/acme/cli/internal/cli/blk.go":
+            'package cli\n\nimport (\n\t"fmt"\n\n\tx "acme-pp-cli/internal/cliutil"\n)\n\nvar _ = fmt.Sprint\nvar _ = x.Y\n',
         "README.md": "# Fleet\n\n| acme | `acme-cli` |\n",
         "catalog.json": "{}\n",
     }
@@ -330,6 +351,9 @@ def _self_test() -> int:
         "skills/acme/manifest.json": ('{"name": "acme-pp-mcp"}\n', "a manifest naming acme-pp-mcp (9 live)"),
         "skills/acme/cli/internal/cli/api.go": ('package cli\n\nvar hint = "Run \'%s-pp-cli api\' to list"\n',
                                                 "a %s-pp- help string in Go (avanan, datagate)"),
+        "skills/acme/cli/internal/cli/cfg.go": ('package cli\n\nimport "fmt"\n\nfunc p() { fmt.Println("Config: '
+                                                '~/.config/acme-pp-cli/config.toml") }\n',
+                                                "a config PATH in a Go string (not an import)"),
         "skills/acme/handfixes.json": (json.dumps({"handfixes": [{"id": "m", "asserts": [
             {"file": "README.md", "contains": "acme-pp-cli doctor"}]}]}),
             "a handfixes contains marker that forces a leak to survive"),
@@ -388,6 +412,13 @@ def _self_test() -> int:
         write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-pp-cli doctor\n`\n"})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
                "--base: a new leak on line 2 of an unchanged multi-line Go string blocks")
+        write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-pp-cli doctor\n`\n"})
+        git("add", "-A")
+        git("commit", "-q", "-m", "a grandfathered leak in a multi-line string")
+        write({"skills/acme/cli/internal/cli/long.go":
+               "package cli\n\nvar long = `Usage:\n  acme-pp-cli doctor\n  acme-pp-cli sync\n`\n"})
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: a NEW leak later in a string that already has a grandfathered one blocks")
         write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-cli doctor\n`\n"})
         write({"skills/acme/handfixes.json": broken["skills/acme/handfixes.json"][0]})
         git("add", "-A")
