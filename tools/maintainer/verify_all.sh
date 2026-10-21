@@ -107,6 +107,7 @@ if run python3 tools/maintainer/check_handfixes.py;       then pass "hand-fix le
 if run python3 tools/maintainer/check_copyright.py;       then pass "copyright uniform";   else fail "copyright uniform";   fi
 if run python3 tools/maintainer/check_security_gate.py --all; then pass "security gate";   else fail "security gate";       fi
 if run python3 tools/maintainer/check_mcp_gate.py --all;  then pass "MCP tools callable";  else fail "MCP tools callable";  fi
+if run python3 tools/maintainer/check_command_tree.py;    then pass "no destructive create alias"; else fail "no destructive create alias"; fi
 if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
 
 echo "== Plugin manifest validation (claude plugin validate --strict) =="
