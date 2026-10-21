@@ -60,7 +60,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import registry  # noqa: E402  (local tools/ module)
-from check_unix_test_asserts import lex  # noqa: E402  (shared Go string lexer)
+from check_unix_test_asserts import code_mask, lex  # noqa: E402  (shared Go lexer)
 
 SLUG_RE = re.compile(r"\A[a-z0-9][a-z0-9-]*\Z")
 SHARED_FILES = ("README.md", "catalog.json", "docs/_data/catalog.json", "docs/llms.txt",
@@ -138,15 +138,34 @@ def _read(p: Path) -> str | None:
         return None
 
 
-_IMPORT_BLOCK = re.compile(r"^import\s*\((.*?)^\)", re.M | re.S)
-_IMPORT_LINE = re.compile(r"^import\s+(?:[\w.]+\s+)?(\"[^\"\n]*\")", re.M)
+_IMPORT_KW = re.compile(r"^import\b", re.M)
 
 
 def import_spans(src: str) -> list[tuple[int, int]]:
     """Source ranges holding import paths: only there may `<module>-pp-cli/`
-    appear, because the module keeps its press name on purpose."""
-    spans = [(m.start(1), m.end(1)) for m in _IMPORT_BLOCK.finditer(src)]
-    spans += [(m.start(1), m.end(1)) for m in _IMPORT_LINE.finditer(src)]
+    appear, because the module keeps its press name on purpose. Found in the
+    CODE only (comments and string bodies masked), so text that merely looks
+    like an import block cannot lend a real string the exemption."""
+    code = code_mask(src)
+    spans: list[tuple[int, int]] = []
+    for m in _IMPORT_KW.finditer(code):
+        i = m.end()
+        while i < len(code) and code[i] in " \t":
+            i += 1
+        if i < len(code) and code[i] == "(":
+            depth, j = 0, i
+            while j < len(code):
+                if code[j] == "(":
+                    depth += 1
+                elif code[j] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            spans.append((i, j))
+        else:
+            e = code.find("\n", i)
+            spans.append((i, e if e >= 0 else len(code)))
     return spans
 
 
@@ -473,6 +492,11 @@ def _self_test() -> int:
         write({"skills/acme/cli/internal/cli/long.go": imp + 'var help = `\n\t"acme-pp-cli/internal/store"\n`\n'})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
                "--base: an import line copied into a help string is new (the base had no LEAK on it)")
+        fake = ('package cli\n\n/*\nimport (\n*/\nvar hint = "~/.config/acme-pp-cli/config.toml"\n/*\n)\n*/\n')
+        expect(len(scan_go("x.go", fake, "acme", {"acme"})) == 1,
+               "an import block faked inside comments grants no exemption")
+        real = 'package cli\n\nimport (\n\t// a comment ) with a paren\n\t"acme-pp-cli/internal/store"\n)\n'
+        expect(not scan_go("x.go", real, "acme", {"acme"}), "a real import block (with a paren in a comment) is exempt")
         write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n" * 2})
         write({"skills/acme/cli/internal/cli/long.go": imp})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,

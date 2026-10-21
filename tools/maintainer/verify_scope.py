@@ -350,14 +350,26 @@ def attribute(text: str, affected: set[str], known: set[str]) -> dict:
             "slugs": sorted({w for w, _ in other}), "lines": [ln for _, ln in other][:40]}
 
 
-_NORM_NUM = re.compile(r":\d+")
+# Only the LOCATION's line and column are ignored (a finding moves when lines
+# are added above it); a number inside the finding itself is content.
+_LOC_NUM = re.compile(r"^(\s*(?:[-*]\s+)?(?:R\d+\s+)?[^\s:]+?):\d+(?::\d+)?(?=:|\s|$)")
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _norm(line: str) -> str:
     line = _ANSI.sub("", line)
     line = re.sub(r"(?<![\w.])\./", "", line)
-    return " ".join(_NORM_NUM.sub(":N", line).split())
+    return " ".join(_LOC_NUM.sub(r"\1:N", line, count=1).split())
+
+
+def lines_pre_existing(head_text: str, base_text: str) -> bool:
+    """Every non-blank line of head_text, as a multiset, already in base_text
+    (location line numbers ignored). For per-skill checks with no
+    attribution of their own."""
+    from collections import Counter
+    head = Counter(_norm(ln) for ln in head_text.splitlines() if ln.strip())
+    base = Counter(_norm(ln) for ln in base_text.splitlines())
+    return all(base[k] >= n for k, n in head.items())
 
 
 def pre_existing(head_text: str, base_text: str, affected: set[str], known: set[str]) -> dict:
@@ -557,12 +569,19 @@ def main(argv: list[str]) -> int:
     bp.add_argument("--scope", required=True)
     bp.add_argument("--head-log", required=True)
     bp.add_argument("--base-log", required=True)
+    bp.add_argument("--all-lines", action="store_true",
+                    help="compare every line (a per-skill check), not only attributed findings")
     a = ap.parse_args(argv)
     if a.cmd == "gate-go":
         print(gate_go() or "")
         return 0
     if a.cmd == "baseline":
         sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
+        if a.all_lines:
+            ok = lines_pre_existing(Path(a.head_log).read_text(encoding="utf-8", errors="replace"),
+                                    Path(a.base_log).read_text(encoding="utf-8", errors="replace"))
+            print(json.dumps({"pre_existing": ok}))
+            return 0 if ok else 1
         r = pre_existing(Path(a.head_log).read_text(encoding="utf-8", errors="replace"),
                          Path(a.base_log).read_text(encoding="utf-8", errors="replace"),
                          set(sc["affected"]), known_names())
@@ -725,6 +744,15 @@ def _self_test() -> int:
            "the base passes (this change broke zeta: a deleted asset, a tighter vocab.json) -> NEW, blocks")
     r = pre_existing(head + "  - yotta: missing x\n", head, {"acme"}, known | {"yotta"})
     expect(not r["pre_existing"], "one more out-of-scope finding than the base -> NEW, blocks")
+    expect(not pre_existing("check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] TODO ticket:101\n",
+                            "check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] TODO ticket:100\n",
+                            {"acme"}, known)["pre_existing"],
+           "a number INSIDE a finding is content: ticket:100 -> ticket:101 is new")
+    expect(pre_existing("x\nskills/zeta/install.sh:498:6: warning: y [SC2154]\n",
+                        "x\nskills/zeta/install.sh:501:6: warning: y [SC2154]\n", {"acme"}, known)["pre_existing"],
+           "a location's line:column moving is not new")
+    expect(not lines_pre_existing("plugin zeta: bad field x\nplugin zeta: bad field x\n", "plugin zeta: bad field x\n"),
+           "per-skill lines are a multiset too")
     one = "check_install_docs FAILED:\n  - R1 skills/zeta/mcp-install.md:10: names `mcp-remote`\n"
     two = one + "  - R1 skills/zeta/mcp-install.md:20: names `mcp-remote`\n"
     expect(not pre_existing(two, one, {"acme"}, known)["pre_existing"],

@@ -115,6 +115,49 @@ def lex(src: str) -> tuple[list[Lit], list[tuple[int, str]]]:
     return lits, marks
 
 
+def code_mask(src: str) -> str:
+    """src with every comment and every string/rune literal BODY replaced by
+    spaces (newlines and the quote characters kept), so offsets still line up
+    and a keyword search sees only real code."""
+    out = list(src)
+    i, n = 0, len(src)
+
+    def blank(a: int, b: int) -> None:
+        for k in range(a, b):
+            if out[k] != "\n":
+                out[k] = " "
+
+    while i < n:
+        c = src[i]
+        if c == "/" and src.startswith("//", i):
+            j = src.find("\n", i)
+            j = n if j < 0 else j
+            blank(i, j)
+            i = j
+            continue
+        if c == "/" and src.startswith("/*", i):
+            j = src.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            blank(i, j)
+            i = j
+            continue
+        if c == "`":
+            j = src.find("`", i + 1)
+            j = n - 1 if j < 0 else j
+            blank(i + 1, j)
+            i = j + 1
+            continue
+        if c in "\"'":
+            j = i + 1
+            while j < n and src[j] != c and src[j] != "\n":
+                j += 2 if src[j] == "\\" else 1
+            blank(i + 1, min(j, n))
+            i = j + 1
+            continue
+        i += 1
+    return "".join(out)
+
+
 class Func:
     __slots__ = ("name", "start", "end", "line")
 

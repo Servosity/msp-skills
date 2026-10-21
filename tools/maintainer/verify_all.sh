@@ -222,14 +222,8 @@ baseline_confirms() {
   [ "$brc" -ne 0 ] || return 1
   if [ -n "$slug" ]; then
     # A per-skill check: every line it printed must already be printed at the base.
-    python3 - "$log" "$blog" <<'PY'
-import re, sys
-norm = lambda l: " ".join(re.sub(r":\d+", ":N", l).split())
-head, base = (open(p, encoding="utf-8", errors="replace").read().splitlines() for p in sys.argv[1:3])
-from collections import Counter
-h, b = Counter(norm(l) for l in head if l.strip()), Counter(norm(l) for l in base)
-sys.exit(0 if all(b[k] >= n for k, n in h.items()) else 1)
-PY
+    python3 tools/maintainer/verify_scope.py baseline --all-lines --scope "$WORK/scope.json" \
+      --head-log "$log" --base-log "$blog" >/dev/null 2>&1
     return
   fi
   python3 tools/maintainer/verify_scope.py baseline --scope "$WORK/scope.json" --head-log "$log" --base-log "$blog" >/dev/null 2>&1
