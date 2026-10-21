@@ -34,7 +34,6 @@ func newDevicesApplianceCreateDeviceInterfacesPortsUpdateCmd(flags *rootFlags) *
 
 	cmd := &cobra.Command{
 		Use:     "create-device-interfaces-ports-update <serial>",
-		Aliases: []string{"create"},
 		Short:   "Update configurations for an appliance's specified port",
 		Example: "  cisco-meraki-cli devices appliance create-device-interfaces-ports-update Q2QN-9J8L-SLPD",
 		Args: func(cmd *cobra.Command, args []string) error {

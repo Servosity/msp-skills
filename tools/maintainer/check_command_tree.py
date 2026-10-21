@@ -241,6 +241,12 @@ REVIEWED_HAZARDS = {
         "creates and, with confirmed=true, runs a batch of arbitrary actions, destroy included",
     ("cisco-meraki", "/devices/{serial}/sensor/commands"):
         "sends a command to a sensor (downstream power off or cycle, for example)",
+    ("cisco-meraki", "/devices/{serial}/appliance/interfaces/ports/update"):
+        "sets appliance port state, including enabled=false, which takes the port down",
+    ("cisco-meraki", "/devices/{serial}/cellular/uplinks/bands/masks/update"):
+        "sets which cellular bands the uplink may use; a narrow mask drops the uplink",
+    ("cisco-meraki", "/organizations/{organizationId}/campusGateway/clusters/tunneling/batchUpdate"):
+        "rewrites campus-gateway tunnel settings for many networks at once",
     ("cisco-meraki", "/networks/{networkId}/pii/requests"):
         "submits a request to delete or restrict processing of a client's personal data",
     ("immybot", "/api/v1/maintenance-sessions/{sessionId}/actions/{actionId}/rerun"):

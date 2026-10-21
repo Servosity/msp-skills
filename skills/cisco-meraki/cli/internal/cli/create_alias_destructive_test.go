@@ -19,6 +19,8 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"devices", "appliance", "create-device-interfaces-ports-update"},
+		{"devices", "cellular", "create-device-uplinks-bands-masks-update"},
 		{"devices", "reboot", "device"},
 		{"devices", "sensor", "create-device-command"},
 		{"networks", "bind", "network"},
@@ -27,6 +29,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"networks", "split", "network"},
 		{"networks", "unbind", "network"},
 		{"organizations", "action-batches", "create-organization-action-batch"},
+		{"organizations", "campus-gateway", "batch-organization-clusters-tunneling-update"},
 		{"organizations", "integrations", "disable-organization-xdr-networks"},
 		{"organizations", "licensing", "move-organization-coterm-licenses"},
 		{"organizations", "spaces", "remove-organization-integration"},
