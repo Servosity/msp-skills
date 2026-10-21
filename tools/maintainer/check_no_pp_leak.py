@@ -109,11 +109,12 @@ def leak_re(names: set[str], go: bool) -> re.Pattern:
 class Leak:
     """`text` is the raw source line (what the --base ratchet compares);
     `msg` is an optional explanation shown instead of it."""
-    __slots__ = ("rel", "line", "slug", "name", "text", "msg", "pre_existing")
+    __slots__ = ("rel", "line", "slug", "name", "text", "msg", "pre_existing", "rescan")
 
     def __init__(self, rel: str, line: int, slug: str, name: str, text: str, msg: str = "") -> None:
         self.rel, self.line, self.slug, self.name, self.text, self.msg = rel, line, slug, name, text, msg
         self.pre_existing = False
+        self.rescan = None  # the scanner that found it, to re-run on the base text
 
     def render(self) -> str:
         tag = "  (pre-existing at base, not blocking)" if self.pre_existing else ""
@@ -154,12 +155,85 @@ def skill_dir(root: Path, slug: str, meta: dict) -> Path:
     return root / "skills" / (d if isinstance(d, str) else slug)
 
 
+# Each scanner reads ONE file's text, so the --base ratchet can run the very
+# same scanner over that file's base version and compare findings.
+
+
+def scan_doc(rel: str, text: str, slug: str) -> list[Leak]:
+    return _scan_text(rel, text, slug, ANY_PP_NAME)
+
+
+def scan_go(rel: str, src: str, slug: str, names: set[str]) -> list[Leak]:
+    """String literals only (never comments). `<module>-pp-cli/...` is exempt
+    inside import declarations only; in any other string a following `/` is a
+    leaked path (`~/.config/acme-pp-cli/config.toml`)."""
+    if "-pp-" not in src:
+        return []
+    rx_import = leak_re(names, go=True)
+    rx_other = leak_re(names | {"%s"}, go=False)
+    out: list[Leak] = []
+    lits, _ = lex(src)
+    imports = import_spans(src)
+    for lit in lits:
+        in_import = any(a <= lit.start < b for a, b in imports)
+        seen_lines: set[int] = set()
+        # EVERY match, each on its own source line: a grandfathered leak must
+        # not hide a new one later in the same string.
+        for m in (rx_import if in_import else rx_other).finditer(lit.value):
+            # A raw `...` string spans lines and maps 1:1 onto the source; an
+            # interpreted "..." string is one line.
+            at = lit.start + 1 + m.start() if src[lit.start] == "`" else lit.start
+            ln = src.count("\n", 0, at) + 1
+            if ln in seen_lines:
+                continue
+            seen_lines.add(ln)
+            s0 = src.rfind("\n", 0, at) + 1
+            e0 = src.find("\n", at)
+            out.append(Leak(rel, ln, slug, m.group(0), src[s0:e0 if e0 >= 0 else len(src)]))
+    return out
+
+
+def scan_handfixes(rel: str, text: str, slug: str) -> list[Leak]:
+    """A `contains` (or `regex`) marker on a non-Go file that requires a leak
+    keeps it alive; a `not_contains` marker is the assertion it is gone."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    out: list[Leak] = []
+    lines = text.splitlines()
+    for entry in data.get("handfixes", []) if isinstance(data, dict) else []:
+        for a in entry.get("asserts", []) if isinstance(entry, dict) else []:
+            if not isinstance(a, dict):
+                continue
+            target = str(a.get("file", ""))
+            if target.endswith((".go", "go.mod", "go.sum")):
+                continue
+            for key in ("contains", "regex"):
+                v = a.get(key)
+                m = ANY_PP_NAME.search(v) if isinstance(v, str) else None
+                if m and m.group(0) not in EXTERNAL_PP_TOOLS:
+                    needle = json.dumps(v)[1:-1]
+                    ln = next((i for i, ln_ in enumerate(lines, 1) if needle in ln_), 0)
+                    raw = lines[ln - 1] if ln else needle
+                    out.append(Leak(rel, ln, slug, m.group(0), raw,
+                                    f"{key} marker on {target} requires the leak to stay: {v}"))
+    return out
+
+
+def scan_shared_text(rel: str, text: str, owner: dict[str, str]) -> list[Leak]:
+    rx = leak_re(set(owner), go=False)
+    out: list[Leak] = []
+    for i, line in enumerate(text.splitlines(), 1):
+        for m in rx.finditer(line):
+            base = re.sub(r"-pp-(?:cli|mcp)$", "", m.group(0))
+            out.append(Leak(rel, i, owner.get(base, "?"), m.group(0), line))
+    return out
+
+
 def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     sd = skill_dir(root, slug, meta)
     names = own_names(root, sd.name, meta) | {slug}
-    rx = leak_re(names, go=False)
-    rx_go = leak_re(names, go=True)            # import paths: `<module>-pp-cli/internal/x` is fine
-    rx_go_any = leak_re(names | {"%s"}, go=False)  # every other Go string: a following / is a leaked path
     leaks: list[Leak] = []
     files = sorted(p for p in sd.glob("*.md")) + sorted((sd / "references").rglob("*.md"))
     files += [sd / f for f in SKILL_FILES]
@@ -167,57 +241,26 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     for p in files:
         text = _read(p) if p.is_file() else None
         if text is not None:
-            leaks += _scan_text(str(p.relative_to(root)), text, slug, ANY_PP_NAME)
-    # Go string literals (not comments, not import paths).
+            rel = str(p.relative_to(root))
+            leaks += _tag(scan_doc(rel, text, slug), lambda r, t, s=slug: scan_doc(r, t, s))
     for sub in ("cli/internal", "cli/cmd"):
         for p in sorted((sd / sub).rglob("*.go")) if (sd / sub).is_dir() else []:
             src = _read(p)
-            if src is None or "-pp-" not in src:
-                continue
-            lits, _ = lex(src)
-            imports = import_spans(src)
-            for lit in lits:
-                in_import = any(a <= lit.start < b for a, b in imports)
-                seen_lines: set[int] = set()
-                # EVERY match, each on its own source line: a grandfathered
-                # leak must not hide a new one later in the same string.
-                for m in (rx_go if in_import else rx_go_any).finditer(lit.value):
-                    # A raw `...` string spans lines and maps 1:1 onto the
-                    # source; an interpreted "..." string is one line.
-                    at = lit.start + 1 + m.start() if src[lit.start] == "`" else lit.start
-                    ln = src.count("\n", 0, at) + 1
-                    if ln in seen_lines:
-                        continue
-                    seen_lines.add(ln)
-                    s0 = src.rfind("\n", 0, at) + 1
-                    e0 = src.find("\n", at)
-                    line = src[s0:e0 if e0 >= 0 else len(src)]
-                    leaks.append(Leak(str(p.relative_to(root)), ln, slug, m.group(0), line))
-    # handfixes.json: a `contains` marker on a non-Go file keeps a leak alive.
+            if src is not None:
+                rel = str(p.relative_to(root))
+                leaks += _tag(scan_go(rel, src, slug, names),
+                              lambda r, t, s=slug, n=names: scan_go(r, t, s, n))
     hf = sd / "handfixes.json"
     text = _read(hf) if hf.is_file() else None
     if text is not None:
-        try:
-            data = json.loads(text)
-        except ValueError:
-            data = {}
-        lines = text.splitlines()
-        for entry in data.get("handfixes", []) if isinstance(data, dict) else []:
-            for a in entry.get("asserts", []) if isinstance(entry, dict) else []:
-                if not isinstance(a, dict):
-                    continue
-                target = str(a.get("file", ""))
-                if target.endswith((".go", "go.mod", "go.sum")):
-                    continue
-                for key in ("contains", "regex"):
-                    v = a.get(key)
-                    m = ANY_PP_NAME.search(v) if isinstance(v, str) else None
-                    if m and m.group(0) not in EXTERNAL_PP_TOOLS:
-                        needle = json.dumps(v)[1:-1]
-                        ln = next((i for i, ln_ in enumerate(lines, 1) if needle in ln_), 0)
-                        raw = lines[ln - 1] if ln else needle
-                        leaks.append(Leak(str(hf.relative_to(root)), ln, slug, m.group(0), raw,
-                                          f"{key} marker on {target} requires the leak to stay: {v}"))
+        rel = str(hf.relative_to(root))
+        leaks += _tag(scan_handfixes(rel, text, slug), lambda r, t, s=slug: scan_handfixes(r, t, s))
+    return leaks
+
+
+def _tag(leaks: list[Leak], rescan) -> list[Leak]:
+    for lk in leaks:
+        lk.rescan = rescan
     return leaks
 
 
@@ -231,16 +274,11 @@ def scan_shared(root: Path, slugs: list[str], skills: dict) -> list[Leak]:
             owner.setdefault(n, s)
     if not owner:
         return []
-    rx = leak_re(set(owner), go=False)
     leaks: list[Leak] = []
     for rel in SHARED_FILES:
         text = _read(root / rel)
-        if text is None:
-            continue
-        for i, line in enumerate(text.splitlines(), 1):
-            for m in rx.finditer(line):
-                base = re.sub(r"-pp-(?:cli|mcp)$", "", m.group(0))
-                leaks.append(Leak(rel, i, owner.get(base, "?"), m.group(0), line))
+        if text is not None:
+            leaks += _tag(scan_shared_text(rel, text, owner), lambda r, t, o=owner: scan_shared_text(r, t, o))
     return leaks
 
 
@@ -251,13 +289,21 @@ def git_show(root: Path, base: str, rel: str) -> str | None:
 
 
 def mark_pre_existing(root: Path, base: str, leaks: list[Leak]) -> None:
-    cache: dict[str, set[str] | None] = {}
+    """A finding is pre-existing only when the SAME scanner, run over that
+    file's base version, reports the same leak on an identical line, counted:
+    a leaking line copied next to an existing import, or a second copy of an
+    existing leak line, is new."""
+    from collections import Counter
+
+    budget: dict[str, Counter] = {}
     for lk in leaks:
-        if lk.rel not in cache:
+        if lk.rel not in budget:
             text = git_show(root, base, lk.rel)
-            cache[lk.rel] = None if text is None else {ln.strip() for ln in text.splitlines()}
-        old = cache[lk.rel]
-        if old is not None and lk.text.strip() in old:
+            found = lk.rescan(lk.rel, text) if (text is not None and lk.rescan) else []
+            budget[lk.rel] = Counter((f.name, f.text.strip()) for f in found)
+        key = (lk.name, lk.text.strip())
+        if budget[lk.rel][key] > 0:
+            budget[lk.rel][key] -= 1
             lk.pre_existing = True
 
 
@@ -419,6 +465,19 @@ def _self_test() -> int:
                "package cli\n\nvar long = `Usage:\n  acme-pp-cli doctor\n  acme-pp-cli sync\n`\n"})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
                "--base: a NEW leak later in a string that already has a grandfathered one blocks")
+        # An import line copied verbatim into a user-facing string is a NEW leak.
+        imp = 'package cli\n\nimport (\n\t"acme-pp-cli/internal/store"\n)\n\nvar _ = store.X\n'
+        write({"skills/acme/cli/internal/cli/long.go": imp})
+        git("add", "-A")
+        git("commit", "-q", "-m", "an import")
+        write({"skills/acme/cli/internal/cli/long.go": imp + 'var help = `\n\t"acme-pp-cli/internal/store"\n`\n'})
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: an import line copied into a help string is new (the base had no LEAK on it)")
+        write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n" * 2})
+        write({"skills/acme/cli/internal/cli/long.go": imp})
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: a SECOND copy of a grandfathered leak line is new (counted, not a set)")
+        write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n"})
         write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-cli doctor\n`\n"})
         write({"skills/acme/handfixes.json": broken["skills/acme/handfixes.json"][0]})
         git("add", "-A")
