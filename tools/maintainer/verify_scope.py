@@ -352,14 +352,22 @@ def attribute(text: str, affected: set[str], known: set[str]) -> dict:
 
 # Only the LOCATION's line and column are ignored (a finding moves when lines
 # are added above it); a number inside the finding itself is content.
-_LOC_NUM = re.compile(r"^(\s*(?:[-*]\s+)?(?:R\d+\s+)?[^\s:]+?):\d+(?::\d+)?(?=:|\s|$)")
+# A column is ignored only in a format that HAS one (shellcheck -f gcc:
+# `path:line:col: warning: ...`); in grep's `path:line:text` the next number
+# is the file's own text.
+_LOC_PREFIX = r"^(\s*(?:[-*]\s+)?(?:R\d+\s+)?[^\s:]+?)"
+_LOC_COL = re.compile(_LOC_PREFIX + r":\d+:\d+(?=: (?:warning|error|note|info|style)\b)")
+_LOC_NUM = re.compile(_LOC_PREFIX + r":\d+(?=:|\s|$)")
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _norm(line: str) -> str:
     line = _ANSI.sub("", line)
     line = re.sub(r"(?<![\w.])\./", "", line)
-    return " ".join(_LOC_NUM.sub(r"\1:N", line, count=1).split())
+    line, n = _LOC_COL.subn(r"\1:N:N", line, count=1)
+    if not n:
+        line = _LOC_NUM.sub(r"\1:N", line, count=1)
+    return " ".join(line.split())
 
 
 def lines_pre_existing(head_text: str, base_text: str) -> bool:
@@ -748,6 +756,9 @@ def _self_test() -> int:
                             "check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] TODO ticket:100\n",
                             {"acme"}, known)["pre_existing"],
            "a number INSIDE a finding is content: ticket:100 -> ticket:101 is new")
+    expect(not pre_existing("x\nskills/zeta/README.md:12:101: a - b\n", "x\nskills/zeta/README.md:12:100: a - b\n",
+                            {"acme"}, known)["pre_existing"],
+           "grep output: digits right after path:line are the file's text, not a column -> new")
     expect(pre_existing("x\nskills/zeta/install.sh:498:6: warning: y [SC2154]\n",
                         "x\nskills/zeta/install.sh:501:6: warning: y [SC2154]\n", {"acme"}, known)["pre_existing"],
            "a location's line:column moving is not new")

@@ -164,8 +164,11 @@ def import_spans(src: str) -> list[tuple[int, int]]:
                 j += 1
             spans.append((i, j))
         else:
-            e = code.find("\n", i)
-            spans.append((i, e if e >= 0 else len(code)))
+            # `import [name] "path"`: exactly that one literal, nothing after
+            # it on the line (`import _ "fmt"; var Help = "..."`).
+            q = re.compile(r"(?:[\w.]+[ \t]+)?([\"`])").match(code, i)
+            if q:
+                spans.append((q.start(1), q.start(1) + 1))
     return spans
 
 
@@ -497,6 +500,10 @@ def _self_test() -> int:
                "an import block faked inside comments grants no exemption")
         real = 'package cli\n\nimport (\n\t// a comment ) with a paren\n\t"acme-pp-cli/internal/store"\n)\n'
         expect(not scan_go("x.go", real, "acme", {"acme"}), "a real import block (with a paren in a comment) is exempt")
+        one = 'package cli\n\nimport x "acme-pp-cli/internal/store"; var Help = "~/.config/acme-pp-cli/config.toml"\n'
+        got = scan_go("x.go", one, "acme", {"acme"})
+        expect(len(got) == 1 and "config.toml" in got[0].text,
+               "a single-line import exempts only its own path, not a string later on the line")
         write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n" * 2})
         write({"skills/acme/cli/internal/cli/long.go": imp})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
