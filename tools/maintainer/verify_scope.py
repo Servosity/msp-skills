@@ -207,14 +207,38 @@ _EXT = r"md|json|ya?ml|sh|ps1|py|txt|toml|go|mod|sum|html|png|jpe?g|gif|webp|mp4
 _PATH = re.compile(r"(?<![\w/.-])((?:skills|tools|docs|assets|scripts|\.github|\.claude-plugin)/[\w./@+-]*[\w@+-]"
                    rf"|(?:[\w.-]+/)*[\w-][\w.-]*\.(?:{_EXT})|(?:[\w.-]+/)*(?:NOTICE|LICENSE|Makefile))"
                    r"(?::\d+)?(?![\w])")
+# A diagnostic that STARTS with its source: grep-style `path:line:` (any path,
+# dotfiles included: `.gitignore:197:`), or a dotfile path.
+_GREP_LOC = re.compile(r"^(\S+?):\d+(?::|\s|$)")
+_DOT_LOC = re.compile(r"^(\.[A-Za-z][\w.-]*(?:/[\w.@+-]+)*)(?::|\s|$)")
 _BRACKET = re.compile(r"\[([a-z0-9_][a-z0-9-]*)\]")
 _MARKERS = re.compile(r"^\s*(?:(?:[-*]|FAIL:?|WARN:?|ERROR:?|\[BLOCK\])\s+)*")
 _LEAD = re.compile(r"([a-z0-9_][a-z0-9-]*):\s")
-# Lines that carry no finding: headers, verdict summaries, hints. Anything
-# else without a location is UNKNOWN, and an unknown line blocks.
-_INFO = re.compile(r"^\s*$|^\s*(?:==|--|##)|:\s*$|^\s*(?:hint|note|NOTE|See)\b"
-                   r"|\b(?:FAILED|failed|passed|PASS)\b|\b\d+ finding(?:s|\(s\))")
+# Complete lines that carry no finding: the headers and verdict lines the
+# fleet checks print (each taken from a real failing run). Anything else with
+# no location is UNKNOWN, and an unknown line blocks.
+_BOILERPLATE = re.compile("|".join((
+    r"^\s*$",
+    r"^==> \d+\. .+$",                                         # ci_guards section headers
+    r"^\s*hint: .+$",                                          # ci_guards explanations
+    r"^(?:All CI guards passed\.|CI guards FAILED\. Fix the items above\.)$",
+    r"^[A-Z][A-Za-z -]* check FAILED:$",                       # Skill contract / Markdown local-link / ...
+    r"^check_[a-z_]+ FAILED:$",
+    r"^check_[a-z_]+: FAIL$",
+    r"^FAIL: manifest env schema does not match .*\(\d+ finding\(s\) across \d+ skill\(s\)\):$",
+    r"^FAIL: hand-fix ledger regressions \(.*\):$",
+    r"^FAIL: \d+ finding\(s\) - a copyright line is not the project's\.$",
+    r"^\s*Expected in (?:Go|NOTICE/LICENSE): .+$",               # copyright's expected-line header
+    r"^\d+ finding\(s\)\. .+$",                                # check_install_docs summary
+    r"^check_cli_claims FAILED: \d+ finding\(s\)\.$",
+    r"^\s*NOTE: .+$",
+)))
+# Remediation text the checks print AFTER their findings. From the first such
+# line on, a line with no location is part of the trailer, not a finding.
+_TRAILER = re.compile(r"^\s*(?:Fix:|See |Remove the marker|Banned terms:|Generate them|"
+                      r"The MCP Registry answers|Contributor credit belongs|An UNREADABLE finding)")
 _TRUNCATED = re.compile(r"\.\.\.\s*(?:and\s+)?\d+\s+more|\band \d+ more\b")
+_ASSET_KINDS = ("social", "video")
 
 
 def _skill_of(path: str) -> str | None:
@@ -223,22 +247,29 @@ def _skill_of(path: str) -> str | None:
         return parts[1]
     if len(parts) == 3 and parts[0] == "docs" and parts[1] == "skills":
         return parts[2].rsplit(".", 1)[0].split(":", 1)[0]
+    if len(parts) >= 5 and parts[:2] == ["docs", "assets"] and parts[2] in _ASSET_KINDS:
+        return parts[3]   # docs/assets/social/<slug>/..., docs/assets/video/<slug>/...
     return None
 
 
+def _location(path: str) -> tuple[str, str | None]:
+    who = _skill_of(path.split(":", 1)[0])
+    return ("skill", who) if who else ("repo", None)
+
+
 def classify_line(line: str, known: set[str], affected: set[str]) -> tuple[str, str | None]:
-    """("skill", name), ("repo", None), ("info", None) or ("unknown", None).
+    """("skill", name), ("repo", None), ("blank", None) or ("unknown", None).
 
     The SOURCE location wins: a line that starts with a path is about that
     path, whatever its message mentions (`skills/zammad/README.md:3: [avanan]
-    ...` is zammad's; `README.md: broken link -> skills/avanan/x.md` is the
-    root README's). Then a leading `[slug]` tag or `slug:`. Then, for a line
-    that starts with prose, the first skill path it names ("missing
-    skills/zeta/social.png"). A line that also mentions an IN-SCOPE skill
-    anywhere is that skill's, so a mixed line always blocks. A line with no
-    location must be a recognised header, summary or hint; otherwise it is
-    unknown, and so is a truncation marker ("... and 12 more"), because the
+    ...` is zammad's; `README.md: broken link -> skills/avanan/x.md` and
+    `.gitignore:197: ... skills/zammad ...` are repo-level). Then a leading
+    `[slug]` tag or `slug:`. Then, for a line that starts with prose, the first
+    skill path it names ("missing skills/zeta/social.png"). A line that also
+    mentions an IN-SCOPE skill anywhere is that skill's, so a mixed line
+    always blocks. A truncation marker ("... and 12 more") is unknown: the
     findings it hides cannot be attributed."""
+    line = re.sub(r"(?<![\w.])\./", "", line)
     if _TRUNCATED.search(line):
         return ("unknown", None)
     mentioned = {p for p in (_skill_of(m.group(1)) for m in _PATH.finditer(line)) if p}
@@ -247,10 +278,10 @@ def classify_line(line: str, known: set[str], affected: set[str]) -> tuple[str, 
     if hit:
         return ("skill", hit[0])
     body = line[_MARKERS.match(line).end():]
-    m = _PATH.match(body)
-    if m:
-        who = _skill_of(m.group(1))
-        return ("skill", who) if who else ("repo", None)
+    for rx in (_GREP_LOC, _DOT_LOC, _PATH):
+        m = rx.match(body)
+        if m:
+            return _location(m.group(1))
     m = _BRACKET.match(body)
     if m and m.group(1) in known:
         return ("skill", m.group(1))
@@ -261,23 +292,40 @@ def classify_line(line: str, known: set[str], affected: set[str]) -> tuple[str, 
         who = _skill_of(pm.group(1))
         if who:
             return ("skill", who)
-    if _INFO.search(line):
-        return ("info", None)
+    if not line.strip():
+        return ("blank", None)
     return ("unknown", None)
 
 
+def attribute_lines(text: str, known: set[str], affected: set[str]) -> list[tuple[str, str | None, str]]:
+    """Every line as (kind, who, line), kind one of skill / repo / info /
+    unknown. A line with no location is info only when it is recognised
+    boilerplate or sits in a remediation trailer."""
+    out = []
+    trailer = False
+    for line in text.splitlines():
+        kind, who = classify_line(line, known, affected)
+        if kind == "blank":
+            kind = "info"
+        elif kind == "unknown":
+            if _TRAILER.match(line):
+                trailer = True
+            if not _TRUNCATED.search(line) and (trailer or _BOILERPLATE.match(line)):
+                kind = "info"
+        out.append((kind, who, line))
+    return out
+
+
 def attribute_line(line: str, known: set[str], affected: set[str] | None = None) -> str | None:
-    """The skill a failure line is about, "<repo>" for a repo-level file,
-    "<unknown>" for an unattributable failure line, or None for a header,
-    summary or hint."""
-    kind, who = classify_line(line, known, affected or set())
+    """One line on its own: the skill it is about, "<repo>", "<unknown>", or
+    None for recognised boilerplate (no trailer context)."""
+    kind, who, _ = attribute_lines(line, known, affected or set())[0] if line else ("info", None, "")
     return {"skill": who, "repo": "<repo>", "unknown": "<unknown>"}.get(kind)
 
 
 def attribute(text: str, affected: set[str], known: set[str]) -> dict:
     blocking, other = [], []
-    for line in text.splitlines():
-        kind, who = classify_line(line, known, affected)
+    for kind, who, line in attribute_lines(text, known, affected):
         if kind == "info":
             continue
         if kind == "skill" and who not in affected and who in known:
@@ -492,57 +540,117 @@ def _self_test() -> int:
     print("attribute_line:")
     for line, want in (
         ("skills/acme/README.md:12:an em-dash here", "acme"),
-        ("  - acme: missing required file guide.md", "acme"),
+        ("  - zeta: missing required file guide.md", "zeta"),
         ("  - skills/zeta/README.md: broken local link -> ../../CONTRIBUTING.md", "zeta"),
         ("  - missing skills/zeta/assets/social.png (expected 1200x630 PNG)", "zeta"),
         ("  - docs/skills/zeta.md: missing `title` front matter", "zeta"),
-        ("        [zeta] env FOO is read but not declared", "zeta"),
+        ("  - docs/assets/social/zeta/wide-1200x630.png is not a valid PNG", "zeta"),
+        ("  docs/assets/video/zeta/demo.mp4 is 12 bytes (expected > 1000)", "zeta"),
+        ("  - [zeta] ZETA_TOKEN is read by the binary but NOT declared", "zeta"),
+        ("  - R1 skills/zeta/mcp-install.md:194: names `mcp-remote`", "zeta"),
+        ("skills/zeta/install.sh:498:6: warning: x is referenced but not assigned. [SC2154]", "zeta"),
         ("README.md:3: [zeta] zeta-pp-cli -> | zeta |", "<repo>"),
         ("skills/zeta/README.md:3: [other] the source location wins over a tag", "zeta"),
         ("README.md: broken local link -> skills/zeta/missing.md", "<repo>"),
+        (".gitignore:197:# ignore skills/zeta/generated", "<repo>"),
+        ("./skills/zeta/cli/go.mod selects go1.26.1, below the go1.26.9 floor", "zeta"),
         ("  skills/zeta/cli/NOTICE: copyright is not the project's", "zeta"),
         ("skills/zeta/README.md:1: cross-reference to skills/acme/README.md", "acme"),
         ("CONTRIBUTING.md:40:an em-dash here", "<repo>"),
         ("tools/maintainer/hooks/pre-push:3: something", "<repo>"),
         ("  - tools/maintainer/skills.json: not valid JSON", "<repo>"),
-        ("See docs/reprint-survival.md and issue #252.", None),
         ("Skill contract check FAILED:", None),
+        ("check_install_docs FAILED:", None),
+        ("check_registry_state: FAIL", None),
         ("FAIL: 2 finding(s) - a copyright line is not the project's.", None),
         ("  hint: em-dash found; use ' - ', a colon, or parentheses", None),
         ("==> 2. No em-dash in human-authored files", None),
+        ("See docs/reprint-survival.md for how the ledger + this gate work.", None),
         ("  ... and 12 more", "<unknown>"),
-        ("  - unknownthing: something broke", "<unknown>"),
-        ("registry has 3 orphan entries", "<unknown>"),
+        ("  - unknownthing: validation failed", "<unknown>"),
+        ("registry has 3 orphan entries:", "<unknown>"),
     ):
         got = attribute_line(line, known, {"acme"})
         expect(got == want, f"{line.strip()[:60]!r} -> {want} (got {got})")
 
-    print("attribute (a failed fleet-wide check):")
-    a = attribute("Skill contract check FAILED:\n  - zeta: missing required file guide.md\n"
-                  "See CONTRIBUTING.md.\n  hint: fix the files above\n", {"acme"}, known)
-    expect(a["classification"] == "out_of_scope" and a["slugs"] == ["zeta"],
-           "only another connector failed -> out_of_scope, naming it")
-    a = attribute("FAILED:\n  - zeta: x\n  - acme: y\n", {"acme"}, known)
-    expect(a["classification"] == "blocking", "an in-scope connector failed too -> blocking")
-    a = attribute("skills/zeta/README.md:1:x\nREADME.md:9:y\n", {"acme"}, known)
-    expect(a["classification"] == "blocking", "a repo-level file failed too -> blocking")
-    a = attribute("check FAILED: something is wrong\n", {"acme"}, known)
-    expect(a["classification"] == "blocking", "a failure naming nothing -> blocking (fail closed)")
-    a = attribute("  - stranger: y\n  - zeta: x\n", {"acme"}, known)
-    expect(a["classification"] == "blocking", "an unattributable failure line among other-connector lines -> blocking")
-    a = attribute("FAIL: 2 finding(s)\n  skills/zeta/cli/x.go: bad\n  skills/acme/cli/NOTICE: bad\n", {"acme"}, known)
-    expect(a["classification"] == "blocking", "an in-scope extensionless file (NOTICE) among other failures -> blocking")
-    a = attribute("FAILED:\n  - zeta: x\n  ... and 3 more\n", {"acme"}, known)
-    expect(a["classification"] == "blocking", "a truncated list (findings it hides) -> blocking")
-    a = attribute("skills/newskill/README.md:1:x\n", {"acme"}, known | {"newskill"})
-    expect(a["classification"] == "out_of_scope", "a skill dir outside the scope -> out_of_scope")
+    print("attribute (real failing output of each fleet check, slug renamed to zeta):")
+    real = {
+        "ci_guards": "==> 1. No unresolved owner placeholder token anywhere\n==> 2. No em-dash in human-authored files\n"
+                     "skills/zeta/README.md:235:x - y\n  hint: em-dash found; use ' - ', a colon, or parentheses "
+                     "(CONTRIBUTING style rule)\n==> 3. No personal filesystem paths in human-authored files\n"
+                     "CI guards FAILED. Fix the items above.\n",
+        "copyright": "FAIL: 1 finding(s) - a copyright line is not the project's.\n  Expected in Go:             "
+                     "// Copyright 2026 Servosity Inc. See LICENSE.\n  Expected in NOTICE/LICENSE: Copyright 2026 "
+                     "Servosity Inc.\n  skills/zeta/cli/internal/cli/agent_context.go: // Copyright 2026 Someone Else\n"
+                     "\n  Contributor credit belongs in cli/NOTICE ('contributed by ...')\n  and SKILL.md `author`, "
+                     "not in per-file headers. See CONTRIBUTING.md.\n  An UNREADABLE finding is a gate failure, not "
+                     "a skip: fix the file's\n  permissions or encoding so the line can actually be checked.\n",
+        "env_schema": "FAIL: manifest env schema does not match what the binaries read (2 finding(s) across 1 "
+                      "skill(s)):\n\n  - [zeta] ZETA_API_TOKEN is read by the binary but NOT declared in "
+                      "manifest.json\n  - [zeta] server.json (mcpb) lists ZETA_API_TOKEN\n\n  Fix: a credential must "
+                      "be declared identically on all three install channels - skills/<slug>/manifest.json\n",
+        "handfixes": "FAIL: hand-fix ledger regressions (a reprint may have clobbered a live-validated fix):\n\n"
+                     "  - [zeta] handfix 'x' REGRESSED in cli/internal/x.go: expected 1x `y` in the file, found 0.\n"
+                     "\nSee docs/reprint-survival.md for how the ledger + this gate work.\n",
+        "install_docs": "check_install_docs FAILED:\n  - R1 skills/zeta/mcp-install.md:194: names `mcp-remote`\n"
+                        "\n1 finding(s). Every one is a doc describing an install or transport path the shipped "
+                        "artifact does not provide.\n",
+        "mcp_registry": "check_mcp_registry FAILED:\n  - [zeta] description: 150 characters, the registry allows "
+                        "at most 100.\n\nThe MCP Registry answers 422 on these and the publish step runs AFTER the "
+                        "release assets\nare uploaded, so the release looks complete while the connector never "
+                        "reaches the registry\nor the catalogues that fan out from it.\n",
+        "md_links": "Markdown local-link check FAILED:\n  - skills/zeta/README.md: broken local link -> ./nope.md\n",
+        "media_block": "check_media_block FAILED:\n  - zeta: skills/zeta/README.md has no <!-- media:start --> block\n"
+                       "\nFix: re-run the publish skill's media injection for the named skill so its README media "
+                       "block + demo assets are present and in budget.\n",
+        "no_todos": "check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] TODO: fill this\n\nRemove the "
+                    "marker, or add 'no-todos:ignore' on the line if it is a legitimate structural reference.\n",
+        "pinned": "check_pinned_artifacts: FAIL\n  - skills/zeta/README.md: zeta-v0.0.1/zeta-mcp.mcpb - new pin for "
+                  "an uncut tag\n",
+        "registry_state": "check_registry_state: FAIL\n  - zeta: live_verified DOWNGRADED from 'live-verified'\n",
+        "release_contract": "Release contract check FAILED:\n  - zeta: install.sh CLI_BIN is 'wrong-cli', expected "
+                            "'zeta-cli' (from skills.json)\n",
+        "social_assets": "Social assets check FAILED:\n  - docs/assets/social/zeta/wide-1200x630.png is not a valid "
+                         "PNG\n\nGenerate them (msp-skills-publish Step 6.5):\n  ~/.claude/skills/social-preview-"
+                         "generator/scripts/generate.py --repo . --mode both --out docs/assets/social\n",
+        "vocabulary": "check_vocabulary FAILED:\n  skills/zeta/README.md:3: banned term 'pp-cli': x\n\nBanned "
+                      "terms: rephrase in words an MSP would search for, or add\n'vocab:ignore' on the line ONLY "
+                      "if the term is quoted on purpose.\n",
+        "shellcheck_gcc": "skills/zeta/install.sh:498:6: warning: undefined_var_x is referenced but not assigned. "
+                          "[SC2154]\nskills/zeta/install.sh:499:10: error: Iterating over ls output is fragile. "
+                          "[SC2045]\n",
+    }
+    for name, text in real.items():
+        a = attribute(text, {"acme"}, known)
+        expect(a["classification"] == "out_of_scope" and a["slugs"] == ["zeta"],
+               f"{name}: a failure only in zeta, scope acme -> out_of_scope (got {a['classification']} "
+               f"{a.get('slugs')} {a['lines'][:1]})")
+        a = attribute(text, {"zeta"}, known)
+        expect(a["classification"] == "blocking", f"{name}: the same failure, scope zeta -> blocking")
+    for name, text, why in (
+        ("surface_coverage", "check_surface_coverage FAILED:\n  - README (/abs/README.md): the <!-- catalog:start -->"
+         " / <!-- catalog:end --> marker pair is missing\n", "the root README"),
+        ("gitleaks", "6:49PM INF scan completed in 7.96s\n6:49PM WRN leaks found: 1\n", "a secret scan names no file"),
+        ("an unknown line among other-connector lines", "Skill contract check FAILED:\n  - zeta: x\n"
+         "  - unknownthing: validation failed\n", "an unattributable line"),
+        ("a header with a colon is not a free pass", "Skill contract check FAILED:\n  - zeta: x\n"
+         "orphans found:\n", "an unrecognised header"),
+        ("an in-scope NOTICE among other failures", "FAIL: 2 finding(s) - a copyright line is not the project's.\n"
+         "  skills/zeta/cli/x.go: bad\n  skills/acme/cli/NOTICE: bad\n", "acme's NOTICE"),
+        ("a truncated list", "check_copyright FAILED:\n  - zeta: x\n  ... and 3 more\n", "hidden findings"),
+        ("a dotfile among other failures", "==> 2. No em-dash\nskills/zeta/README.md:1:x\n.gitignore:197:# "
+         "skills/zeta y\nCI guards FAILED. Fix the items above.\n", "a repo dotfile"),
+        ("nothing but headers", "Skill contract check FAILED:\n", "no attributable finding"),
+    ):
+        a = attribute(text, {"acme"}, known)
+        expect(a["classification"] == "blocking", f"{name} -> blocking ({why})")
 
     print("build_verdict:")
     with tempfile.TemporaryDirectory() as tmp:
         log_other = Path(tmp) / "other.log"
-        log_other.write_text("FAILED:\n  - zeta: missing\n", encoding="utf-8")
+        log_other.write_text("Skill contract check FAILED:\n  - zeta: missing\n", encoding="utf-8")
         log_mine = Path(tmp) / "mine.log"
-        log_mine.write_text("FAILED:\n  - acme: missing\n", encoding="utf-8")
+        log_mine.write_text("Skill contract check FAILED:\n  - acme: missing\n", encoding="utf-8")
         scope = {"affected": ["acme"], "full_fleet": False, "head_sha": "h", "dirty": False, "base_ref": "b",
                  "base_sha": "b", "merge_base": "m", "mode": "slug", "reason": "", "notes": [],
                  "connectors": ["acme"], "touched": ["acme"], "security_gate_slugs": ["acme"], "changed_files": 0}

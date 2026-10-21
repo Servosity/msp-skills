@@ -326,7 +326,10 @@ def ledger_delta(old_txt: str | None, new_txt: str | None) -> set[str] | None:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(text)
             return windows_known_failures.load(Path(tmp))
-        except windows_known_failures.LedgerError:
+        except Exception:  # noqa: BLE001 - LedgerError, or a wrong-typed field
+            # load() can also raise TypeError/AttributeError on a shape it
+            # does not anticipate (`"kind": []`). Any refusal or crash means
+            # the revision cannot be scoped: the whole fleet, never a crash.
             return None
         finally:
             os.unlink(tmp)
@@ -617,6 +620,9 @@ def _self_test() -> int:
         ("new revision fails validation (a regex for a test name)", led(star, with_failures({"alpha": ["Test.*"]})),
          None),
         ("ledger deleted (no new revision)", None, None),
+        ("new revision has a wrong-typed field (kind is a list)", led(star, dict(per, kind=[])), None),
+        ("new revision has a wrong-typed field (failures is a list)", led(star, dict(per, failures=["alpha"])), None),
+        ("new revision's entries is not a list", json.dumps({"entries": {"a": 1}}), None),
     ):
         got = ledger_delta(base, new)
         expect(got == want, f"{label} -> {'FULL fleet' if want is None else sorted(want) or 'no rows'}"

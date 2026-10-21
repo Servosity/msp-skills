@@ -59,6 +59,9 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "plain mv of a tracked file, em-dash in the moved file" fail \
     "printf 'a $em b\n' >> skills/acme/README.md; mv skills/acme/README.md skills/acme/guide2.md"
   st_case "plain mv of a tracked file, no violation" pass "mv skills/acme/README.md skills/acme/guide2.md"
+  st_case "a tracked file moved to a file named '-', em-dash in it" fail \
+    "printf 'a $em b\n' >> skills/acme/README.md; mv skills/acme/README.md ./-"
+  st_case "a file named '-' with no violation" pass "printf 'plain\n' > ./-"
   st_case "an ignored scratch file is not scanned" pass \
     "printf 'scratch/\n' > .gitignore; git add .gitignore; mkdir scratch; printf 'a $em b\n' > scratch/x.md"
   st_case "a personal path + a missing file" fail \
@@ -84,8 +87,11 @@ all_files() {
   { git ls-files -z --cached -- "$@"; git ls-files -z --others --exclude-standard -- "$@"; } \
     | python3 -c 'import os, sys
 names = sys.stdin.buffer.read().split(b"\0")
-sys.stdout.buffer.write(b"".join(n + b"\0" for n in names if n and os.path.isfile(n)))'
+sys.stdout.buffer.write(b"".join(b"./" + n + b"\0" for n in names if n and os.path.isfile(n)))'
 }
+# Names go out as ./path: a file literally named "-" would otherwise reach grep
+# as "read stdin" (even after --) and never be scanned. scan() strips the ./
+# again so findings read as repo paths.
 
 # The two lists, built once: ALL (every file) and HUMAN (minus the vendored Go
 # module trees and binaries).
@@ -101,7 +107,7 @@ all_files . ':(exclude)skills/*/cli/**' \
 scan() {
   local list="$lists/$1" out err="$lists/grep.err"
   shift
-  out="$(xargs -0 grep -nIH "$@" -- < "$list" 2>"$err")"
+  out="$(xargs -0 grep -nIH "$@" -- < "$list" 2>"$err" | sed 's#^\./##')"
   if [ -s "$err" ]; then
     echo "  could not scan every file (treated as a failure):"
     sed 's/^/    /' "$err"
@@ -188,7 +194,7 @@ while IFS= read -r gomod; do
     || sel=$(awk '/^go / {print $2}' "$gomod" 2>/dev/null)
   # Sort -V puts the lower version first; if that is not the floor, sel is below it.
   if [ "$(printf '%s\n%s\n' "$GO_FLOOR" "$sel" | sort -V | head -1)" != "$GO_FLOOR" ]; then
-    echo "$gomod selects go$sel, below the go$GO_FLOOR floor"
+    echo "${gomod#./} selects go$sel, below the go$GO_FLOOR floor"
     floor_bad=1
   fi
 done < <(all_files 'skills/*/cli/go.mod' | tr '\0' '\n')

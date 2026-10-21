@@ -111,8 +111,10 @@ fi
 jget() { # jget <key>: a scope field, lists one item per line
   python3 -c 'import json,sys
 v = json.load(open(sys.argv[1]))[sys.argv[2]]
-if isinstance(v, dict): print("\n".join(f"{k} {x}" for k, x in v.items()))
-elif isinstance(v, list): print("\n".join(v))
+if isinstance(v, dict):
+    if v: print("\n".join(f"{k} {x}" for k, x in v.items()))
+elif isinstance(v, list):
+    if v: print("\n".join(v))  # an empty list writes NOTHING, so [ -s ] means non-empty
 elif isinstance(v, bool): print(str(v).lower())
 elif v is not None: print(v)' "$WORK/scope.json" "$1"
 }
@@ -420,7 +422,9 @@ if command -v shellcheck >/dev/null 2>&1; then
   # extension (git runs a hook by name), so it is listed as ci.yml does.
   shs=()
   while IFS= read -r f; do shs+=("$f"); done < <(git ls-files '*.sh' 'tools/maintainer/hooks/*' 2>/dev/null)
-  if [ "${#shs[@]}" -gt 0 ]; then gate "shellcheck" fleet "" 0 shellcheck "${shs[@]}"; fi
+  # gcc format: one `path:line:col: level: message [SCnnnn]` line per finding,
+  # which verify_scope.py can attribute (the default format interleaves code).
+  if [ "${#shs[@]}" -gt 0 ]; then gate "shellcheck" fleet "" 0 shellcheck -f gcc "${shs[@]}"; fi
 else
   warn_rec "shellcheck not installed - skipped (CI runs it)"
 fi
