@@ -414,13 +414,13 @@ def classify_change(mb: str, files: list[str], new_rev: str | None = "HEAD",
     def pin_only(path: str) -> bool:
         try:
             return readme_pin_only(_git_show(mb, path), _git_show(new_rev, path))
-        except (subprocess.SubprocessError, OSError):
+        except (subprocess.SubprocessError, OSError, ValueError):  # ValueError: invalid UTF-8
             return False  # unreadable -> treat as a real change (build it)
 
     def win_delta() -> set[str] | None:
         try:
             return ledger_delta(_git_show(mb, WINDOWS_LEDGER_PATH), _git_show(new_rev, WINDOWS_LEDGER_PATH))
-        except (subprocess.SubprocessError, OSError):
+        except (subprocess.SubprocessError, OSError, ValueError):  # ValueError: invalid UTF-8
             return None
 
     return classify(files, pin_only, lambda: _registry_delta(mb, new_rev), win_delta, reasons)

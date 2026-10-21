@@ -209,10 +209,10 @@ _PATH = re.compile(r"(?<![\w/.-])((?:skills|tools|docs|assets|scripts|\.github|\
                    r"(?::\d+)?(?![\w])")
 # A diagnostic that STARTS with its source: grep-style `path:line:` (any path,
 # dotfiles included: `.gitignore:197:`), or a dotfile path.
-_GREP_LOC = re.compile(r"^(\S+?):\d+(?::|\s|$)")
+_GREP_LOC = re.compile(r"^([^:\n]+?):\d+(?::|\s|$)")   # spaces allowed: `Release Notes.md:1:`
 _DOT_LOC = re.compile(r"^(\.[A-Za-z][\w.-]*(?:/[\w.@+-]+)*)(?::|\s|$)")
 _BRACKET = re.compile(r"\[([a-z0-9_][a-z0-9-]*)\]")
-_MARKERS = re.compile(r"^\s*(?:(?:[-*]|FAIL:?|WARN:?|ERROR:?|\[BLOCK\])\s+)*")
+_MARKERS = re.compile(r"^\s*(?:(?:[-*]|FAIL:?|WARN:?|ERROR:?|\[BLOCK\]|R\d+)\s+)*")  # R1: install-docs rule id
 _LEAD = re.compile(r"([a-z0-9_][a-z0-9-]*):\s")
 # Complete lines that carry no finding: the headers and verdict lines the
 # fleet checks print (each taken from a real failing run). Anything else with
@@ -340,6 +340,30 @@ def attribute(text: str, affected: set[str], known: set[str]) -> dict:
             "slugs": sorted({w for w, _ in other}), "lines": [ln for _, ln in other][:40]}
 
 
+_NORM_NUM = re.compile(r":\d+")
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _norm(line: str) -> str:
+    line = _ANSI.sub("", line)
+    line = re.sub(r"(?<![\w.])\./", "", line)
+    return " ".join(_NORM_NUM.sub(":N", line).split())
+
+
+def pre_existing(head_text: str, base_text: str, affected: set[str], known: set[str]) -> dict:
+    """Is a failure that names only out-of-scope connectors ALREADY on the
+    base? Attribution alone cannot prove a failure is someone else's: deleting
+    a connector's social image from docs/assets/, tightening vocab.json or a
+    checker, or removing a file another skill links to all make OTHER
+    connectors fail. So an out-of-scope failure is exempt only when the merge
+    base, run with its own scripts, already prints every one of those
+    findings (line numbers ignored). Anything new blocks."""
+    base = {_norm(ln) for ln in base_text.splitlines()}
+    new = [ln for kind, who, ln in attribute_lines(head_text, known, affected)
+           if kind == "skill" and who not in affected and _norm(ln) not in base]
+    return {"pre_existing": not new, "new_lines": new[:40]}
+
+
 def known_names() -> set[str]:
     return set(skill_dirs()) | set(registry.skills())
 
@@ -365,24 +389,25 @@ def build_verdict(scope: dict, records: list[dict], seconds: float, started: str
     for r in records:
         c = {"name": r["name"], "kind": r["kind"], "slug": r.get("slug") or None,
              "status": r["status"], "seconds": r["seconds"], "blocking": False}
-        if r["status"] == "fail":
-            if r["kind"] == "fleet" and not scope["full_fleet"]:
-                if c["slug"]:
-                    a = ({"classification": "blocking"} if c["slug"] in affected else
-                         {"classification": "out_of_scope", "slugs": [c["slug"]], "lines": _tail(r["log"])})
-                else:
-                    try:
-                        text = Path(r["log"]).read_text(encoding="utf-8", errors="replace")
-                    except OSError:
-                        text = ""
-                    a = attribute(text, affected, known)
-                if a["classification"] == "out_of_scope":
-                    c["status"] = "out_of_scope"
-                    out_of_scope.append({"check": r["name"], "slugs": a["slugs"], "lines": a["lines"]})
-                else:
-                    c["blocking"] = True
+        if r["status"] == "out_of_scope":
+            # verify_all.sh decided this: the failure names only connectors
+            # outside the scope AND the merge base already fails the same way.
+            try:
+                text = Path(r["log"]).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                text = ""
+            if scope["full_fleet"]:
+                c["status"], c["blocking"] = "fail", True
+                c["detail"] = _tail(r["log"])
+                blocking.append(r["name"])
             else:
-                c["blocking"] = True
+                a = attribute(text, affected, known)
+                slugs = a["slugs"] or ([c["slug"]] if c["slug"] else [])
+                out_of_scope.append({"check": r["name"], "slugs": slugs,
+                                     "lines": a["lines"] if a["slugs"] else _tail(r["log"]),
+                                     "pre_existing_on_base": True})
+        elif r["status"] == "fail":
+            c["blocking"] = True
             if c["blocking"]:
                 c["detail"] = _tail(r["log"])
                 blocking.append(r["name"] + (f" ({c['slug']})" if c["slug"] and c["slug"] not in r["name"] else ""))
@@ -499,10 +524,21 @@ def main(argv: list[str]) -> int:
     vp.add_argument("--seconds", type=float, default=0.0)
     vp.add_argument("--started", default="")
     sub.add_parser("gate-go")
+    bp = sub.add_parser("baseline")
+    bp.add_argument("--scope", required=True)
+    bp.add_argument("--head-log", required=True)
+    bp.add_argument("--base-log", required=True)
     a = ap.parse_args(argv)
     if a.cmd == "gate-go":
         print(gate_go() or "")
         return 0
+    if a.cmd == "baseline":
+        sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
+        r = pre_existing(Path(a.head_log).read_text(encoding="utf-8", errors="replace"),
+                         Path(a.base_log).read_text(encoding="utf-8", errors="replace"),
+                         set(sc["affected"]), known_names())
+        print(json.dumps(r, indent=1))
+        return 0 if r["pre_existing"] else 1
     if a.cmd == "scope":
         print(json.dumps(resolve_scope(a.slug, a.changed, a.base), indent=1))
         return 0
@@ -556,6 +592,7 @@ def _self_test() -> int:
         ("./skills/zeta/cli/go.mod selects go1.26.1, below the go1.26.9 floor", "zeta"),
         ("  skills/zeta/cli/NOTICE: copyright is not the project's", "zeta"),
         ("skills/zeta/README.md:1: cross-reference to skills/acme/README.md", "acme"),
+        ("Release Notes.md:1: See skills/zeta/README.md for an example", "<repo>"),
         ("CONTRIBUTING.md:40:an em-dash here", "<repo>"),
         ("tools/maintainer/hooks/pre-push:3: something", "<repo>"),
         ("  - tools/maintainer/skills.json: not valid JSON", "<repo>"),
@@ -645,6 +682,19 @@ def _self_test() -> int:
         a = attribute(text, {"acme"}, known)
         expect(a["classification"] == "blocking", f"{name} -> blocking ({why})")
 
+    print("pre_existing (the merge base must already fail the same way):")
+    head = "Skill contract check FAILED:\n  - zeta: missing required file guide.md\n"
+    expect(pre_existing(head, head, {"acme"}, known)["pre_existing"],
+           "the base prints the same finding -> pre-existing")
+    expect(pre_existing("check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] x\n",
+                        "check_no_todos FAILED:\n  skills/zeta/SKILL.md:611: [TODO] x\n", {"acme"}, known)["pre_existing"],
+           "the same finding at another line number -> pre-existing")
+    r = pre_existing(head, "Skill contract check passed for 87 skill(s).\n", {"acme"}, known)
+    expect(not r["pre_existing"] and r["new_lines"],
+           "the base passes (this change broke zeta: a deleted asset, a tighter vocab.json) -> NEW, blocks")
+    r = pre_existing(head + "  - yotta: missing x\n", head, {"acme"}, known | {"yotta"})
+    expect(not r["pre_existing"], "one more out-of-scope finding than the base -> NEW, blocks")
+
     print("build_verdict:")
     with tempfile.TemporaryDirectory() as tmp:
         log_other = Path(tmp) / "other.log"
@@ -659,20 +709,23 @@ def _self_test() -> int:
             return {"name": name, "kind": kind, "slug": slug, "status": status, "seconds": 1.0, "log": str(log)}
 
         v = build_verdict(scope, [rec("build+vet", "connector", "acme", "pass", log_mine),
-                                  rec("skill contract", "fleet", "", "fail", log_other)], 2, "t", known)
+                                  rec("skill contract", "fleet", "", "out_of_scope", log_other)], 2, "t", known)
         expect(v["verdict"] == "pass" and v["out_of_scope_failures"][0]["slugs"] == ["zeta"],
-               "another connector's fleet failure -> PASS, listed under out_of_scope_failures")
+               "a confirmed out-of-scope fleet failure -> PASS, listed under out_of_scope_failures")
+        v = build_verdict(scope, [rec("skill contract", "fleet", "", "fail", log_other)], 2, "t", known)
+        expect(v["verdict"] == "fail",
+               "a fleet failure verify_all did NOT confirm as pre-existing -> FAIL, even if it names zeta")
         v = build_verdict(scope, [rec("skill contract", "fleet", "", "fail", log_mine)], 2, "t", known)
         expect(v["verdict"] == "fail" and v["blocking_failures"] == ["skill contract"],
                "this connector's fleet failure -> FAIL")
         v = build_verdict(scope, [rec("go test", "connector", "acme", "fail", log_mine)], 2, "t", known)
         expect(v["verdict"] == "fail", "a per-connector check failure -> FAIL")
-        v = build_verdict(scope, [rec("plugin validate", "fleet", "zeta", "fail", log_other)], 2, "t", known)
+        v = build_verdict(scope, [rec("plugin validate", "fleet", "zeta", "out_of_scope", log_other)], 2, "t", known)
         expect(v["verdict"] == "pass" and v["out_of_scope_failures"][0]["slugs"] == ["zeta"],
                "a per-skill fleet check for an out-of-scope skill -> listed, not blocking")
         v = build_verdict(scope, [rec("catalog idempotency", "repo", "", "fail", log_other)], 2, "t", known)
         expect(v["verdict"] == "fail", "a repo-level check failure -> FAIL")
-        v = build_verdict(dict(scope, full_fleet=True), [rec("skill contract", "fleet", "", "fail", log_other)],
+        v = build_verdict(dict(scope, full_fleet=True), [rec("skill contract", "fleet", "", "out_of_scope", log_other)],
                           2, "t", known)
         expect(v["verdict"] == "fail" and not v["out_of_scope_failures"],
                "full fleet: every fleet failure blocks, nothing is out of scope")

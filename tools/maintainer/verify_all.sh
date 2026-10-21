@@ -164,7 +164,14 @@ gate() {
   else
     st=fail
     if [ "$kind" = fleet ] && [ "$FULL" != true ] && fleet_out_of_scope "$log" "$slug"; then
-      printf '  OUT OF SCOPE  %s - fails only for: %s (listed in the verdict, not blocking)\n' "$label" "$OOS"
+      if baseline_confirms "$log" "$slug" "$@"; then
+        st=out_of_scope
+        printf '  OUT OF SCOPE  %s - fails only for: %s, exactly as on the merge base (listed in the verdict, not blocking)\n' "$label" "$OOS"
+      else
+        sed 's/^/    /' "$log"
+        printf '    (it names only %s, but the merge base does not fail this way, so this change caused it)\n' "$OOS"
+        printf '  FAIL  %s\n' "$label"
+      fi
     else
       sed 's/^/    /' "$log"
       printf '  FAIL  %s\n' "$label"
@@ -184,6 +191,46 @@ fleet_out_of_scope() { # <log> [slug]: true when the failure is only outside the
   res="$(python3 tools/maintainer/verify_scope.py attribute --scope "$WORK/scope.json" --log "$1" 2>/dev/null)" || return 1
   OOS="$(printf '%s' "$res" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(", ".join(d["slugs"]) if d["classification"]=="out_of_scope" else "")')"
   [ -n "$OOS" ]
+}
+
+# The merge base, checked out once (only when a failure needs it), with what
+# CI's checkout calls origin/main pointing at the base, so the base runs its
+# OWN scripts on its OWN tree.
+BASE_TREE=""
+make_base() {
+  [ -n "$BASE_TREE" ] && return 0
+  [ -n "$MB" ] || return 1
+  local d="$WORK/base"
+  git clone -q --shared --no-checkout . "$d" >/dev/null 2>&1 || return 1
+  git -C "$d" checkout -q --detach "$MB" >/dev/null 2>&1 || return 1
+  git -C "$d" update-ref refs/remotes/origin/main "${BASE_SHA:-$MB}" >/dev/null 2>&1 || return 1
+  BASE_TREE="$d"
+}
+
+# baseline_confirms <log> <slug> <command...>: true only when the merge base
+# already fails the same way. Attribution alone cannot prove a failure is
+# someone else's: deleting a connector's image under docs/assets/, tightening
+# vocab.json or a checker, or removing a file another skill links to all make
+# OTHER connectors fail. Anything the base does not already print blocks.
+baseline_confirms() {
+  local log="$1" slug="$2" blog brc
+  shift 2
+  make_base || return 1
+  blog="$log.base"
+  ( cd "$BASE_TREE" && "$@" ) >"$blog" 2>&1
+  brc=$?
+  [ "$brc" -ne 0 ] || return 1
+  if [ -n "$slug" ]; then
+    # A per-skill check: every line it printed must already be printed at the base.
+    python3 - "$log" "$blog" <<'PY'
+import re, sys
+norm = lambda l: " ".join(re.sub(r":\d+", ":N", l).split())
+head, base = (open(p, encoding="utf-8", errors="replace").read().splitlines() for p in sys.argv[1:3])
+sys.exit(0 if {norm(l) for l in head if l.strip()} <= {norm(l) for l in base} else 1)
+PY
+    return
+  fi
+  python3 tools/maintainer/verify_scope.py baseline --scope "$WORK/scope.json" --head-log "$log" --base-log "$blog" >/dev/null 2>&1
 }
 
 warn_rec() { printf '  WARN  %s\n' "$1"; record "$1" repo "" warn 0 /dev/null; }
