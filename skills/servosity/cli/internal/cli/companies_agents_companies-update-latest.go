@@ -17,7 +17,6 @@ func newCompaniesAgentsCompaniesUpdateLatestCmd(flags *rootFlags) *cobra.Command
 
 	cmd := &cobra.Command{
 		Use:         "companies-update-latest <id>",
-		Aliases:     []string{"create"},
 		Short:       "Companies update latest",
 		Example:     "  servosity-cli companies agents companies-update-latest 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "agents.companies-update-latest", "pp:method": "POST", "pp:path": "/companies/{id}/agents/update-latest/"},

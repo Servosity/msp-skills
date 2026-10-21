@@ -251,10 +251,21 @@ REVIEWED_HAZARDS = {
         "starts an incident workflow, running its automated actions",
     ("sophos-central", "/endpoint/v1/migrations"):
         "starts a job that migrates endpoints from another tenant",
+    # Codex review round 4 and the pass over the work list that followed.
+    ("servosity", "/companies/{id}/agents/update-latest/"):
+        "upgrades every backup agent in the company to the latest build",
+    ("servosity", "/resellers/{id}/agents/update-latest/"):
+        "upgrades every backup agent under the reseller to the latest build",
+    ("sophos-central", "/endpoint/v1/software/packages/static/{staticPackageId}/add"):
+        "adds a support-supplied software package to the tenant; Sophos calls it one-way",
+    ("domotz", "/agent/{agent_id}/network/excluded-device/{device_id}"):
+        "excludes a device from collector monitoring, which stops its monitoring",
     ("huntress", "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval"):
         "approves every pending remediation, which Huntress then carries out on the hosts",
     ("ninjaone", "/v2/device/{id}/script/run"):
         "runs a script or built-in action on a device",
+    ("tactical-rmm", "/agents/{agent_id}/meshcentral/"):
+        "recovers (reinstalls) the MeshCentral agent on the endpoint",
     ("tactical-rmm", "/autotasks/{pk}/run/"):
         "runs an automated task on its agents now",
     ("tactical-rmm", "/scripts/{agent_id}/test/"):

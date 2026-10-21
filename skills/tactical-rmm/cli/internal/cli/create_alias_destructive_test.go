@@ -19,6 +19,7 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"agents", "meshcentral", "agents-agents"},
 		{"agents", "reboot", "agents-agents"},
 		{"agents", "shutdown", "agents"},
 		{"autotasks", "run", "autotasks"},
