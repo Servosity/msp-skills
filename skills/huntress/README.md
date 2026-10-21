@@ -168,7 +168,7 @@ This skill syncs Huntress into a **local SQLite mirror** with full-text search. 
 
 ## The pain this closes
 
-On r/msp, the recurring Huntress complaint from multi-tenant shops is that visibility is scoped one organization at a time: there is no native cross-client incident queue, no fleet-wide posture rollup, and no built-in reconciliation of invoiced seats against deployed agents. At 20, 40, 80 client tenants, "which fire do I put out first?" becomes a tab-switching exercise, and billing drift is caught by hand at month-end.
+On r/msp, the recurring Huntress complaint from multi-tenant shops is that the dashboard has no native cross-client incident queue, no fleet-wide posture rollup, and no built-in reconciliation of invoiced seats against deployed agents. The API does list agents and incident reports across the whole account, but the incident list returns only the first 10 remediations per incident and the account-wide limit is 60 requests per minute. At 20, 40, 80 client tenants, "which fire do I put out first?" becomes a tab-switching exercise, and billing drift is caught by hand at month-end.
 
 This skill closes that gap:
 

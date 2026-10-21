@@ -20,7 +20,7 @@
   "pain_points": [
     "The Huntress portal scopes one organization at a time. Run dozens of client tenants and there is no single queue that tells you which incident - anywhere - is the oldest and most urgent right now.",
     "Invoiced seats and deployed agents drift apart silently; MSPs discover they are over- or under-billed only when someone reconciles by hand at month-end.",
-    "During an incident you need to know whether an IP or file hash touched any other client, but the API answers one org and one entity at a time - never the fleet-wide correlation."
+    "During an incident you need to know whether an IP or file hash touched any other client, but the API returns raw account-wide lists (only the first 10 remediations per incident, 60 requests per minute for the whole account) - the fleet-wide correlation is left to you."
   ],
   "outcomes": [
     {

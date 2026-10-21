@@ -3,14 +3,16 @@
 ## The pain
 
 Huntress is a favorite on r/msp, but the recurring complaint from multi-tenant
-shops is the same: visibility is scoped one organization at a time. There is no
+shops is the same: the dashboard has no
 native cross-client incident queue, no fleet-wide posture rollup, and no built-in
 way to reconcile invoiced seats against deployed agents. At 20, 40, or 80 client
 tenants, "which fire do I put out first?" becomes a tab-switching exercise across
 the portal, and billing drift between what you're invoiced and what you've actually
-deployed is caught only when someone reconciles by hand at month-end. The API can
-answer one org and one entity per call - it never returns the cross-tenant view an
-MSP owner actually needs at triage time or QBR time.
+deployed is caught only when someone reconciles by hand at month-end. The API does
+list agents and incident reports across the whole account, but the incident list
+returns only the first 10 remediations per incident and the whole account shares a
+limit of 60 requests per minute - raw lists, not the cross-tenant view an MSP owner
+actually needs at triage time or QBR time.
 
 ## What this skill does about it
 

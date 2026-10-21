@@ -88,7 +88,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/lion
 
 ## What makes this one different
 
-Most Liongard integrations and MCP servers proxy each question into a live API call. That is fine for one record and falls apart the moment you ask an estate-wide question - 'what changed across all 40 clients this week' becomes 40+ paginated calls. This skill syncs Liongard into a local SQLite mirror with full-text search, so cross-client questions become one local join: instant, offline, and the agent sees the answer, not the raw bulk data.
+Most Liongard integrations and MCP servers proxy each question into a live API call. That is fine for one record and falls apart the moment you ask an estate-wide question - 'what changed across all 40 clients this week' becomes a stack of paginated live calls. This skill syncs Liongard into a local SQLite mirror with full-text search, so cross-client questions become one local join: instant, offline, and the agent sees the answer, not the raw bulk data.
 
 It complements the Liongard portal rather than replacing it. The portal is built for clicking into one environment at a time; this skill answers the cross-estate questions - drift, stale collectors, offline agents, coverage gaps, one metric across every system - in a single command you can pipe into a report or hand to your AI agent.
 
