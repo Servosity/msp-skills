@@ -20,7 +20,9 @@ and whose action is destructive or hazardous. In order:
   1. HTTP method DELETE in the command's `pp:method` annotation.
   2. REVIEWED_HAZARDS: endpoints read and judged destructive whose names do not
      say so (Tactical RMM's service start/stop endpoint is POST
-     /services/{agent_id}/{svcname}/), keyed by slug and API path.
+     /services/{agent_id}/{svcname}/), keyed by slug and API path. This also
+     overrides a name that says create when creating runs something
+     (Meraki's `create-organization-action-batch` executes its actions).
   3. A DESTRUCTIVE_WORDS word in the command's action words: its own name
      (`purge-subscription`, `bulk-delete`) plus the last literal segment of its
      `pp:path` (`/invoices/{uid}/void.json` gives `void`; `/devices/{serial}/reboot`
@@ -234,6 +236,21 @@ REVIEWED_HAZARDS = {
         "binds a network to a template, replacing its configuration",
     ("cisco-meraki", "/organizations/{organizationId}/switch/devices/clone"):
         "overwrites the target switches' port and switch settings",
+    # Named creates whose "create" executes something (Codex review round 3).
+    ("cisco-meraki", "/organizations/{organizationId}/actionBatches"):
+        "creates and, with confirmed=true, runs a batch of arbitrary actions, destroy included",
+    ("cisco-meraki", "/devices/{serial}/sensor/commands"):
+        "sends a command to a sensor (downstream power off or cycle, for example)",
+    ("cisco-meraki", "/networks/{networkId}/pii/requests"):
+        "submits a request to delete or restrict processing of a client's personal data",
+    ("immybot", "/api/v1/maintenance-sessions/{sessionId}/actions/{actionId}/rerun"):
+        "re-runs a maintenance action (software install, patch or task) on the computer",
+    ("immybot", "/plugins/api/v1/{providerLinkId}/{catchAll}"):
+        "passes an arbitrary POST through to a provider plugin's API",
+    ("pagerduty", "/incident_workflows/{id}/instances"):
+        "starts an incident workflow, running its automated actions",
+    ("sophos-central", "/endpoint/v1/migrations"):
+        "starts a job that migrates endpoints from another tenant",
     ("huntress", "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval"):
         "approves every pending remediation, which Huntress then carries out on the hosts",
     ("ninjaone", "/v2/device/{id}/script/run"):
@@ -482,6 +499,15 @@ def has_create_alias(node: dict) -> bool:
     return any((a or "").lower() == CREATE_ALIAS for a in node.get("aliases") or [])
 
 
+def named_creates_for(slug: str, nodes: list[dict]) -> int:
+    """How many aliased commands are trusted as creates on their name alone."""
+    seen = set()
+    for node in nodes:
+        if has_create_alias(node) and is_named_create(node) and not destructive_reason(node, slug):
+            seen.add(" ".join(node["path"]))
+    return len(seen)
+
+
 def unjudged_for(slug: str, nodes: list[dict]) -> list[dict]:
     """Report-only work list: `create` on a command neither named a create nor
     judged destructive. The gate cannot tell a collection create (POST /roles)
@@ -695,6 +721,10 @@ def self_test() -> int:
         bad.append(f"duplicate registration: expected 1 finding from the aliased copy, got {len(f)}")
     # A reviewed hazard fails only for its own connector.
     svc = node(["services", "services-agentid-2"], api="/services/{agent_id}/{svcname}/")
+    batch = node(["organizations", "action-batches", "create-organization-action-batch"],
+                 api="/organizations/{organizationId}/actionBatches")
+    if not findings_for("cisco-meraki", [batch])[0]:
+        bad.append("a reviewed hazard must override the named-create exemption")
     if not findings_for("tactical-rmm", [svc])[0] or findings_for("other", [svc])[0]:
         bad.append("REVIEWED_HAZARDS must apply to its own slug only")
 
@@ -758,7 +788,7 @@ def main() -> int:
             results[futs[fut]] = fut.result()
 
     fails, shadows, errors, unjudged = [], [], [], []
-    commands = 0
+    commands = named = 0
     for slug in sorted(results):
         nodes, err = results[slug]
         if nodes is None:
@@ -769,6 +799,7 @@ def main() -> int:
         fails.extend(f)
         shadows.extend(sh)
         unjudged.extend(unjudged_for(slug, nodes))
+        named += named_creates_for(slug, nodes)
 
     if args.list_shadows:
         for sh in shadows:
@@ -797,6 +828,9 @@ def main() -> int:
         print(f"  NOTE  {len(unjudged)} command(s) in {len({u['slug'] for u in unjudged})} connector(s) "
               f"answer to `{CREATE_ALIAS}` without being named a create or judged destructive "
               f"(report only; --list-unjudged for each)")
+    if named:
+        print(f"  NOTE  {named} command(s) keep `{CREATE_ALIAS}` because their own name says create; "
+              f"a name is trusted, not proven (REVIEWED_HAZARDS overrides it)")
     for e in errors:
         print(f"  FAIL  [{e['slug']}] command tree unreadable: {e['error']}")
     for f in fails:
@@ -806,7 +840,7 @@ def main() -> int:
     if args.json:
         Path(args.json).write_text(
             json.dumps({"create_alias_on_destructive": fails, "flag_shadows": shadows,
-                        "create_alias_unjudged": unjudged,
+                        "create_alias_unjudged": unjudged, "named_creates_trusted": named,
                         "errors": errors, "connectors": len(slugs), "commands": commands},
                        indent=1) + "\n",
             encoding="utf-8",

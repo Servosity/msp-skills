@@ -20,10 +20,13 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
 		{"devices", "reboot", "device"},
+		{"devices", "sensor", "create-device-command"},
 		{"networks", "bind", "network"},
 		{"networks", "firmware-upgrades", "create-network-rollback"},
+		{"networks", "pii", "create-network-request"},
 		{"networks", "split", "network"},
 		{"networks", "unbind", "network"},
+		{"organizations", "action-batches", "create-organization-action-batch"},
 		{"organizations", "integrations", "disable-organization-xdr-networks"},
 		{"organizations", "licensing", "move-organization-coterm-licenses"},
 		{"organizations", "spaces", "remove-organization-integration"},

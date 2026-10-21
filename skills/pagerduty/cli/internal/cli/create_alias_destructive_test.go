@@ -21,6 +21,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	for _, path := range [][]string{
 		{"business-services", "unsubscribe", "remove-business-service-notification-subscriber"},
 		{"event-orchestrations", "integrations", "migrate-orchestration"},
+		{"incident-workflows", "instances", "create-incident-workflow"},
 	} {
 		cmd := root
 		for _, name := range path {

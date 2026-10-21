@@ -22,6 +22,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"alerts", "act-on"},
 		{"blocked-addresses", "delete-blocked-address-sets"},
 		{"endpoints", "bulk-delete"},
+		{"migrations", "create-receiving-job"},
 		{"xdr", "cancel-query-run"},
 	} {
 		cmd := root

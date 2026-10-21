@@ -26,7 +26,6 @@ func newNetworksPiiCreateNetworkRequestCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create-network-request <networkId>",
-		Aliases: []string{"create"},
 		Short:   "Submit a new delete or restrict processing PII request ## ALTERNATE PATH ```",
 		Example: "  cisco-meraki-cli networks pii create-network-request L_646829496481105433",
 		Args: func(cmd *cobra.Command, args []string) error {

@@ -24,9 +24,8 @@ func newOrganizationsActionBatchesCreateOrganizationActionBatchCmd(flags *rootFl
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "create-organization-action-batch <organizationId>",
-		Aliases: []string{"create"},
-		Short:   "Create an action batch",
+		Use:   "create-organization-action-batch <organizationId>",
+		Short: "Create an action batch",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
