@@ -41,7 +41,13 @@ jobs:
           fetch-depth: 0 # full history so the DCO range check works on PRs
 
       - name: Repo hygiene guards (placeholder, em-dash, personal paths)
-        run: bash tools/maintainer/ci_guards.sh
+        # Decides on each guard's OUTPUT, so a tracked file missing from disk
+        # can no longer turn a printed violation into "All CI guards passed"
+        # (the xargs/grep exit-status false GREEN). The self-test proves it.
+        run: |
+          set -euo pipefail
+          bash tools/maintainer/ci_guards.sh --self-test
+          bash tools/maintainer/ci_guards.sh
 
       - name: New hand-fixes recorded in their ledger (PR diff)
         if: github.event_name == 'pull_request'
@@ -147,8 +153,17 @@ jobs:
         #                       skills.json edit yields that skill's row; a
         #                       matrix-row checker or a build-feeding workflow
         #                       yields the FULL matrix; catalog.yml and the
-        #                       docs site yield nothing. Every case is asserted
-        #                       in both directions, offline.
+        #                       docs site yield nothing. A Windows known-failures
+        #                       edit yields exactly the skills whose exclusions
+        #                       changed, and the FULL matrix for an every-
+        #                       connector entry or a missing or invalid
+        #                       revision. Every case is asserted in both
+        #                       directions, offline.
+        #   verify_scope.py, check_no_pp_leak.py, check_unix_test_asserts.py
+        #                     - the scope, attribution and pre-PR checks behind
+        #                       tools/maintainer/verify_all.sh. They run locally
+        #                       before a PR; the self-tests here keep them from
+        #                       rotting between uses.
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
@@ -158,6 +173,9 @@ jobs:
           python3 tools/maintainer/check_release_pipeline.py --self-test
           python3 tools/maintainer/release_matrix.py --self-test
           python3 tools/maintainer/windows_known_failures.py --self-test
+          python3 tools/maintainer/verify_scope.py --self-test
+          python3 tools/maintainer/check_no_pp_leak.py --self-test
+          python3 tools/maintainer/check_unix_test_asserts.py --self-test
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -235,6 +253,25 @@ jobs:
 
       - name: Video assets (skills that opt in via has_video)
         run: python3 tools/maintainer/check_video_assets.py
+
+      # Four gates the publish flow calls mandatory that ran only in
+      # verify_all.sh, so a PR that skipped it merged without them. Each is
+      # stdlib-only and fleet-wide in about a second, and each passed on main
+      # (6416a241b) when it moved here.
+      - name: Social preview assets (every skill + the pack)
+        run: python3 tools/maintainer/check_social_assets.py
+
+      - name: README media block (every connector)
+        run: python3 tools/maintainer/check_media_block.py
+
+      - name: Surface coverage (catalog + README hero, install and agent blocks)
+        run: python3 tools/maintainer/check_surface_coverage.py
+
+      - name: Registry state never regresses (live_verified downgrade, shape)
+        # Compares skills.json with origin/main, which the fetch-depth: 0
+        # checkout above provides. An unreadable baseline is an error (exit 2),
+        # never a pass.
+        run: python3 tools/maintainer/check_registry_state.py
 
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'
@@ -411,6 +448,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: ${{ matrix.skill.dir }}/go.mod
+          # Module + build cache for these VERIFICATION rows only. Without a
+          # dependency path setup-go logged "Dependencies file is not found"
+          # and every row ran cold. One key over every connector's go.sum: a
+          # cache per connector would be 84 entries and overrun the
+          # repository's cache quota, while the heavy shared dependencies
+          # (modernc sqlite, mcp-go, cobra) are the same everywhere.
+          # release.yml stays uncached on purpose, so a cache written from a
+          # PR run can never reach a sealed artifact.
+          cache-dependency-path: skills/*/cli/go.sum
 
       - name: Build and vet
         run: |
@@ -496,6 +542,20 @@ jobs:
         # Needs no vendor credentials and no network: the stub binds 127.0.0.1
         # and the fixture config carries a literal auth_header.
         run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
+
+      - name: Test (linux, native)
+        # Until this step the only `go test` in CI ran on the Windows rows, so a
+        # test that only passes or only runs on Linux (a POSIX permission or
+        # signal test guarded by runtime.GOOS) was never executed anywhere, and
+        # pushes to main ran no test at all. Runs even when an earlier step
+        # failed, so one row reports every finding. -count=1: the restored
+        # build cache also holds test results, and a gate must run the tests.
+        # Before this became blocking, all 84 connectors passed `go test ./...`
+        # on Linux (Go 1.26.9, non-root), with no exclusions.
+        if: ${{ !cancelled() }}
+        run: |
+          cd ${{ matrix.skill.dir }}
+          go test -count=1 ./...
 
   # Windows is where most MSPs run these connectors, and until this job no
   # test and no binary ever ran there: `build` cross-compiles windows/amd64 and

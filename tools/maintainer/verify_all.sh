@@ -1,178 +1,335 @@
 #!/usr/bin/env bash
-# verify_all.sh - one command, one verdict. Runs every gate that protects the
-# monorepo so an onboarding (or any change) cannot slip a regression past.
+# The check functions run indirectly (through gate/check), which ShellCheck
+# cannot follow, so its never-invoked notice is off for this file.
+# shellcheck disable=SC2329
+# verify_all.sh - one command, one verdict: would CI pass, and is it ready for
+# a pull request? Runs every gate that protects the monorepo.
 #
-# Hard gates (must pass): go build+vet per module, skill contract, repo guards,
-# markdown links, release contract, manifest env schema, catalog idempotency,
-# release matrix sanity, install dry-run resolves cleanly.
-# Best-effort gates (warn if the tool is absent locally; CI installs them):
-# shell linting, secret scanning, workflow linting, and plugin manifest
-# validation (`claude plugin validate --strict` for the marketplace + each skill;
-# hard-fails when the claude CLI is present).
+#   bash tools/maintainer/verify_all.sh                 # the FULL fleet (default)
+#   bash tools/maintainer/verify_all.sh --slug axcient  # one connector (repeatable;
+#                                                       # a bare slug works too)
+#   bash tools/maintainer/verify_all.sh --changed [--base origin/main]
+#                                                       # what this branch changed
 #
-# Run locally:  bash tools/maintainer/verify_all.sh
-# Exit code is non-zero if any hard gate fails.
+# Scope. --changed asks CI's own change-set classifier (release_matrix.py) what
+# the change touches, so a change to shared machinery (a workflow, a matrix-row
+# checker, registry.py) checks the WHOLE fleet exactly as CI does, and a
+# derived-file-only change checks no connector. The heavy per-connector checks
+# (verify_connector.sh: build, vet, cross-compile, go test, Windows vet and
+# test compile, the Unix-only test lint, CLI claims, doctor, MCP gate, hand-fix
+# ledger) run for the connectors in scope; the cheap fleet-wide checks run for
+# everything. A fleet-wide check that fails ONLY for connectors outside the
+# scope does not block: it is listed under out_of_scope_failures in the verdict
+# and printed as OUT OF SCOPE (verify_scope.py attribute; a failure it cannot
+# attribute blocks). With no arguments every failure blocks.
+#
+# Parity with CI. The security gate runs with security-gate.yml's exact flags
+# (--slug --base --policy-base --require-scanners) for every slug CI's gate
+# would scan, and the full run keeps today's --all audit as well. The hand-fix
+# ledger diff, install docs, DCO, pinned-artifact and env-schema checks use the
+# same flags as their CI steps. On top of CI, before the PR exists: the -pp-
+# leak check and a Windows compile of every test plus a lint for Unix-only test
+# assertions, the classes that only the windows CI job used to find.
+#
+# Output. A machine-readable verdict (checks, verdict, seconds, head and base
+# SHAs, scope, out_of_scope_failures) is written to .verify/verdict.json (or
+# --verdict FILE). All scratch files are private mktemp paths, so parallel
+# sessions never share one. Exit code is non-zero if any blocking gate fails.
+#
+# Other flags: --jobs N (parallel connectors, default 3, or VERIFY_ALL_JOBS),
+# --keep-logs (keep the per-check logs and print where they are).
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-# Authenticate the GitHub API calls the install.sh dry-runs make below.
-# Unauthenticated = 60 req/hr; the fleet (19 skills today, 40-50 planned) each
-# paginating the releases API trips 403s on any fresh run - and gets worse as
-# the catalog grows. install.sh honors GITHUB_TOKEN (Bearer header); keep a
+usage() {
+  cat <<'USAGE'
+usage: bash tools/maintainer/verify_all.sh [--slug S]... [--changed] [--base REF]
+                                           [--verdict FILE] [--jobs N] [--keep-logs] [SLUG...]
+  no arguments   the full fleet (every connector, every gate)
+  --slug S       these skills only (repeatable; a bare SLUG works too)
+  --changed      what this branch changed against --base (default origin/main),
+                 scoped by CI's own classifier (release_matrix.py)
+  --verdict F    where the machine-readable verdict goes (default .verify/verdict.json)
+  --jobs N       connectors checked in parallel (default 3, or VERIFY_ALL_JOBS)
+  --keep-logs    keep every check's log and print the folder
+USAGE
+}
+
+slugs=()
+changed=0
+base="origin/main"
+verdict_path=".verify/verdict.json"
+jobs="${VERIFY_ALL_JOBS:-3}"
+keep=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --slug)      [ $# -ge 2 ] || { usage >&2; exit 2; }; slugs+=("$2"); shift 2 ;;
+    --slug=*)    slugs+=("${1#--slug=}"); shift ;;
+    --changed)   changed=1; shift ;;
+    --base)      [ $# -ge 2 ] || { usage >&2; exit 2; }; base="$2"; shift 2 ;;
+    --base=*)    base="${1#--base=}"; shift ;;
+    --verdict)   [ $# -ge 2 ] || { usage >&2; exit 2; }; verdict_path="$2"; shift 2 ;;
+    --verdict=*) verdict_path="${1#--verdict=}"; shift ;;
+    --jobs)      [ $# -ge 2 ] || { usage >&2; exit 2; }; jobs="$2"; shift 2 ;;
+    --jobs=*)    jobs="${1#--jobs=}"; shift ;;
+    --keep-logs) keep=1; shift ;;
+    -h|--help)   usage; exit 0 ;;
+    -*)          echo "verify_all: unknown option $1" >&2; usage >&2; exit 2 ;;
+    *)           slugs+=("$1"); shift ;;   # AGENTS.md documents `verify_all.sh <slug>`
+  esac
+done
+case "$jobs" in ''|*[!0-9]*) echo "verify_all: --jobs needs a number" >&2; exit 2 ;; esac
+[ "$jobs" -ge 1 ] || jobs=1
+
+# Authenticate the GitHub API calls the install.sh dry-runs make below
+# (unauthenticated = 60 requests an hour, which the fleet exceeds). Keep a
 # caller-provided token, else fall back to the gh CLI's if available.
 GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null)}"
 export GITHUB_TOKEN
 
-hard_fail=0
-pass() { printf '  PASS  %s\n' "$1"; }
-fail() { printf '  FAIL  %s\n' "$1"; hard_fail=1; }
-warn() { printf '  WARN  %s\n' "$1"; }
-run()  { if "$@" >/tmp/va.out 2>&1; then return 0; else cat /tmp/va.out; return 1; fi; }
-# Some gates carry information on SUCCESS too: a --warn gate that found things
-# but exited 0 anyway, or a gate that SKIPPED a check because its BASE was
-# unreachable. run() discards stdout on success, so those runs printed a bare
-# PASS and hid the finding - the opposite of what "one command, one verdict"
-# is for. run_show() always shows the output.
-run_show() { "$@" >/tmp/va.out 2>&1; _rc=$?; cat /tmp/va.out; return $_rc; }
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/verify_all.XXXXXX")" || { echo "verify_all: mktemp failed" >&2; exit 2; }
+cleanup() {
+  if [ "$keep" -eq 1 ]; then echo "logs kept in $WORK"; else rm -rf "$WORK"; fi
+}
+trap cleanup EXIT
+mkdir -p "$WORK/logs" "$WORK/records"
+REC="$WORK/records.tsv"
+: > "$REC"
+T0=$(date +%s)
+STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-echo "== Go build + vet (per vendored module) =="
-for mod in skills/*/cli; do
-  [ -f "$mod/go.mod" ] || continue
-  if ( cd "$mod" && go build ./... && go vet ./... ) >/tmp/va.out 2>&1; then
-    pass "$mod build+vet"
+# ---------------------------------------------------------------- scope ----
+scope_args=(--base "$base")
+[ "$changed" -eq 1 ] && scope_args+=(--changed)
+for s in ${slugs[@]+"${slugs[@]}"}; do scope_args+=(--slug "$s"); done
+if ! python3 tools/maintainer/verify_scope.py scope "${scope_args[@]}" > "$WORK/scope.json" 2> "$WORK/scope.err"; then
+  cat "$WORK/scope.err" >&2
+  echo "VERIFY_ALL: FAIL - could not resolve the scope." >&2
+  exit 2
+fi
+jget() { # jget <key>: a scope field, lists one item per line
+  python3 -c 'import json,sys
+v = json.load(open(sys.argv[1]))[sys.argv[2]]
+if isinstance(v, dict): print("\n".join(f"{k} {x}" for k, x in v.items()))
+elif isinstance(v, list): print("\n".join(v))
+elif isinstance(v, bool): print(str(v).lower())
+elif v is not None: print(v)' "$WORK/scope.json" "$1"
+}
+FULL="$(jget full_fleet)"
+BASE_SHA="$(jget base_sha)"
+MB="$(jget merge_base)"
+jget connector_dirs > "$WORK/connectors.txt"
+jget security_gate_slugs > "$WORK/security.txt"
+jget touched > "$WORK/touched.txt"
+jget affected > "$WORK/affected.txt"
+n_conn=$(grep -c . "$WORK/connectors.txt" || true)
+
+echo "== Scope =="
+echo "  mode:       $(jget mode)$([ "$FULL" = true ] && echo ' (full fleet)')"
+echo "  why:        $(jget reason)"
+echo "  head:       $(jget head_sha)$([ "$(jget dirty)" = true ] && echo ' (+ uncommitted changes)')"
+echo "  base:       $base = ${BASE_SHA:-unresolved}; merge base ${MB:-none}"
+echo "  connectors: $n_conn$([ "$n_conn" -gt 0 ] && [ "$n_conn" -le 12 ] && printf ' (%s)' "$(cut -d' ' -f1 "$WORK/connectors.txt" | tr '\n' ' ' | sed 's/ $//')")"
+note="$(jget notes)"; [ -n "$note" ] && echo "  note:       $note"
+if [ "$(jget dirty)" = true ]; then
+  echo "  note:       the security gate and the hand-fix diff read COMMITTED history, as CI does;"
+  echo "              commit before trusting this verdict for a PR."
+fi
+# A base the scoped checks diff against. The merge base matches CI's
+# BASE...HEAD; an unresolvable base is passed through so each check reports it.
+DIFF_BASE="${MB:-$base}"
+
+# ------------------------------------------------------------- helpers ----
+in_scope() { grep -qxF "$1" "$WORK/affected.txt"; }
+logfile() { printf '%s/logs/%s.log' "$WORK" "$(printf '%s__%s' "$1" "${2:-}" | tr -c 'A-Za-z0-9._-' '_')"; }
+record() { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$REC"; }
+
+# gate <name> <kind> <slug> <show> <command...>
+#   kind: repo | scoped (blocking), fleet (attributed when the scope is not the
+#   whole fleet). show=1 prints the output even on success (gates that report
+#   a SKIP or a pre-existing finding while passing).
+gate() {
+  local name="$1" kind="$2" slug="$3" show="$4"; shift 4
+  local log t0 st label
+  log="$(logfile "$name" "$slug")"
+  label="$name${slug:+ ($slug)}"
+  t0=$(date +%s)
+  if "$@" >"$log" 2>&1; then
+    st=pass
+    [ "$show" -eq 1 ] && sed 's/^/    /' "$log"
+    printf '  PASS  %s\n' "$label"
   else
-    cat /tmp/va.out; fail "$mod build+vet"
+    st=fail
+    if [ "$kind" = fleet ] && [ "$FULL" != true ] && fleet_out_of_scope "$log" "$slug"; then
+      printf '  OUT OF SCOPE  %s - fails only for: %s (listed in the verdict, not blocking)\n' "$label" "$OOS"
+    else
+      sed 's/^/    /' "$log"
+      printf '  FAIL  %s\n' "$label"
+    fi
   fi
+  record "$name" "$kind" "$slug" "$st" "$(( $(date +%s) - t0 ))" "$log"
+}
+
+OOS=""
+fleet_out_of_scope() { # <log> [slug]: true when the failure is only outside the scope
+  if [ -n "${2:-}" ]; then
+    OOS="$2"
+    ! in_scope "$2"
+    return
+  fi
+  local res
+  res="$(python3 tools/maintainer/verify_scope.py attribute --scope "$WORK/scope.json" --log "$1" 2>/dev/null)" || return 1
+  OOS="$(printf '%s' "$res" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(", ".join(d["slugs"]) if d["classification"]=="out_of_scope" else "")')"
+  [ -n "$OOS" ]
+}
+
+warn_rec() { printf '  WARN  %s\n' "$1"; record "$1" repo "" warn 0 /dev/null; }
+
+# ------------------------------------------------ maintainer self-tests ----
+echo "== Maintainer gate self-tests (each proved both directions) =="
+for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py check_release_pipeline.py \
+         release_matrix.py windows_known_failures.py verify_scope.py check_no_pp_leak.py \
+         check_unix_test_asserts.py; do
+  gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
 done
+gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
+gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
+matrix_sane() {
+  python3 tools/maintainer/release_matrix.py \
+    | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]'
+}
+gate "release matrix is valid JSON with skills + targets" repo "" 0 matrix_sane
 
-echo "== CLI claims vs built binary =="
-# Builds each CLI and checks that every command/flag the docs claim exists in the
-# real binary surface. HARD gate: it shipped behind --warn while the fleet
-# calibrated, and --warn exits 0 on real findings. A hard-mode run over all 65
-# connectors on 2026-09-07 returned 0 findings, so a finding here is a new
-# defect. The flag still exists for a local calibration run.
-if run_show python3 tools/maintainer/check_cli_claims.py; then pass "CLI claims"; else fail "CLI claims"; fi
+# ------------------------------------------------- fleet-wide (cheap) ----
+echo "== Fleet-wide gates (every skill) =="
+gate "registry state"       fleet "" 0 python3 tools/maintainer/check_registry_state.py
+gate "MCP registry schema"  fleet "" 0 python3 tools/maintainer/check_mcp_registry.py
+gate "skill contract"       fleet "" 0 python3 tools/maintainer/check_skill_contract.py
+gate "markdown links"       fleet "" 0 python3 tools/maintainer/check_md_links.py
+gate "release contract"     fleet "" 0 python3 tools/maintainer/check_release_contract.py
+gate "social assets"        fleet "" 0 python3 tools/maintainer/check_social_assets.py
+gate "no TODO markers"      fleet "" 0 python3 tools/maintainer/check_no_todos.py
+gate "vocabulary contract"  fleet "" 0 python3 tools/maintainer/check_vocabulary.py
+gate "video assets"         fleet "" 0 python3 tools/maintainer/check_video_assets.py
+gate "AEO answer-first"     fleet "" 0 python3 tools/maintainer/check_aeo.py
+gate "surface coverage"     fleet "" 0 python3 tools/maintainer/check_surface_coverage.py
+gate "README media block"   fleet "" 0 python3 tools/maintainer/check_media_block.py
+gate "hand-fix ledgers"     fleet "" 0 python3 tools/maintainer/check_handfixes.py
+gate "copyright uniform"    fleet "" 0 python3 tools/maintainer/check_copyright.py
+gate "install docs"         fleet "" 0 python3 tools/maintainer/check_install_docs.py
+gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
+if [ "$FULL" = true ]; then
+  # Today's full-fleet flags: --strict promotes a stale pin to a failure.
+  gate "pinned release artifacts" fleet "" 1 python3 tools/maintainer/check_pinned_artifacts.py --strict
+  gate "manifest env schema"      fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "$base"
+else
+  # ci.yml pins job flags.
+  gate "pinned release artifacts" fleet "" 1 python3 tools/maintainer/check_pinned_artifacts.py --base "${BASE_SHA:-$base}" --no-network
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    reg="$(SLUGDIR="$d" python3 -c 'import os,sys; sys.path.insert(0,"tools/maintainer"); import registry
+d=os.environ["SLUGDIR"]; print(next((s for s in registry.skills() if registry.source_dir(s)==d), ""))')"
+    [ -n "$reg" ] && gate "manifest env schema" scoped "$reg" 1 python3 tools/maintainer/check_env_schema.py --slug "$reg" --base "$base"
+  done < "$WORK/touched.txt"
+fi
 
-echo "== Manifest env schema vs the binaries' env reads =="
-# Asserts every operator-facing env var a connector READS is declared in its
-# manifest.json (server.mcp_config.env + user_config), and that nothing is
-# declared the binary never reads. Claude Desktop has no shell and no
-# config.toml, so an undeclared variable is a credential the operator is never
-# prompted for.
-#
-# HARD gate. It shipped behind --warn for fleet calibration, and --warn exits 0
-# on real findings - so `os.Getenv("COVE_PASSWORD")` with no manifest
-# declaration printed the defect and left the verdict green, which is not a gate
-# at all. The fleet has been clean since, so the crutch has no justification
-# left. The flag still exists for a local calibration run.
-#
-# --base makes the classification rules BASE-owned: without it a change-set can
-# add "COVE_" to internal_prefixes in env_schema_internal.json and silence its
-# own findings. origin/main is the local answer to "what did the rules say
-# before this change"; if it is unreachable the script says so loudly and falls
-# back to the working copy rather than failing (run_show keeps that notice
-# visible). A rules change therefore lands on the base branch first - the same
-# posture security_suppressions.json has.
-if run_show python3 tools/maintainer/check_env_schema.py --base origin/main; then pass "manifest env schema"; else fail "manifest env schema"; fi
+echo "== Change-set gates (the PR diff, CI's flags) =="
+# ci.yml guards: the new-hand-fix ratchet on the PR diff.
+gate "hand-fix ledger diff" repo "" 0 python3 tools/maintainer/check_handfixes.py --changed --base "$DIFF_BASE"
+# ci.yml guards: DCO sign-off on the commits this branch adds.
+if [ -n "$MB" ]; then
+  gate "DCO sign-off" repo "" 0 env BASE="$MB" HEAD="$(jget head_sha)" bash tools/maintainer/check_dco.sh
+fi
+# Not in CI: the -pp- brand must not reach a user-facing surface. --base makes
+# it a ratchet, so the fleet's pre-existing leaks are listed, never blocking.
+if [ "$FULL" = true ]; then
+  gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py --all --base "$DIFF_BASE"
+else
+  pp_args=()
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    reg="$(SLUGDIR="$d" python3 -c 'import os,sys; sys.path.insert(0,"tools/maintainer"); import registry
+d=os.environ["SLUGDIR"]; print(next((s for s in registry.skills() if registry.source_dir(s)==d), ""))')"
+    [ -n "$reg" ] && pp_args+=(--slug "$reg")
+  done < "$WORK/affected.txt"
+  if [ ${#pp_args[@]} -gt 0 ]; then
+    gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py "${pp_args[@]}" --base "$DIFF_BASE"
+  fi
+fi
 
-echo "== Doctor reports a verdict that tracks reality =="
-# Builds each CLI and runs `doctor --json` against a local stub in four states
-# (healthy / expired credential / wrong base URL / shipped placeholder),
-# asserting doctor never claims health in a state that is provably broken and
-# never withholds the remedy from an operator who did everything the install
-# asked. Issue #282: cipp printed an identical all-green report in three
-# mutually exclusive states, and zammad printed every row green against its own
-# placeholder host with the literal token "totally-bogus-token".
-if run python3 tools/maintainer/check_doctor_truth.py --all; then pass "doctor truth"; else fail "doctor truth"; fi
+# ------------------------------------------------ per-connector (heavy) ----
+echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
+if [ "$n_conn" -gt 0 ]; then
+  # Each worker writes only its own records and logs, so parallel runs never
+  # share a file. xargs keeps the pool full; a worker always exits 0.
+  xargs -P "$jobs" -n 2 bash tools/maintainer/verify_connector.sh "$WORK" < "$WORK/connectors.txt"
+  while IFS=' ' read -r s _d; do
+    [ -n "$s" ] || continue
+    r="$WORK/records/$s.tsv"
+    if [ ! -s "$r" ]; then
+      printf '  FAIL  %s: the per-connector worker recorded nothing\n' "$s"
+      record "connector harness" connector "$s" fail 0 /dev/null
+      continue
+    fi
+    while IFS="$(printf '\t')" read -r name _kind _slug st _secs log; do
+      if [ "$st" = pass ]; then
+        printf '  PASS  %s (%s)\n' "$name" "$s"
+      else
+        sed 's/^/    /' "$log" | tail -60
+        printf '  FAIL  %s (%s)\n' "$name" "$s"
+      fi
+    done < "$r"
+    cat "$r" >> "$REC"
+  done < "$WORK/connectors.txt"
+fi
 
-echo "== Repo gates =="
-if run python3 tools/maintainer/check_registry_state.py;  then pass "registry state";      else fail "registry state";      fi
-if run python3 tools/maintainer/check_mcp_registry.py;    then pass "MCP registry schema"; else fail "MCP registry schema"; fi
-if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
-if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
-if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi
-# Hard gate again: the never-cut-release backlog was cleared by the 2026-08-26
-# tag push, so a finding here is a new defect. --strict also promotes a stale
-# generated pin to a failure; the fix for that is `build-catalog.py`.
-if run_show python3 tools/maintainer/check_pinned_artifacts.py --strict; then pass "pinned release artifacts"; else fail "pinned release artifacts"; fi
-if run python3 tools/maintainer/check_social_assets.py;   then pass "social assets";       else fail "social assets";       fi
-if run python3 tools/maintainer/check_no_todos.py;        then pass "no TODO markers";     else fail "no TODO markers";     fi
-if run python3 tools/maintainer/check_vocabulary.py;      then pass "vocabulary contract"; else fail "vocabulary contract"; fi
-if run python3 tools/maintainer/check_video_assets.py;    then pass "video assets";        else fail "video assets";        fi
-if run python3 tools/maintainer/check_aeo.py;             then pass "AEO answer-first";    else fail "AEO answer-first";    fi
-if run python3 tools/maintainer/check_surface_coverage.py; then pass "surface coverage";   else fail "surface coverage";    fi
-if run python3 tools/maintainer/check_media_block.py;     then pass "README media block";  else fail "README media block";  fi
-if run python3 tools/maintainer/check_handfixes.py;       then pass "hand-fix ledgers";    else fail "hand-fix ledgers";    fi
-if run python3 tools/maintainer/check_copyright.py;       then pass "copyright uniform";   else fail "copyright uniform";   fi
-if run python3 tools/maintainer/check_security_gate.py --all; then pass "security gate";   else fail "security gate";       fi
-if run python3 tools/maintainer/check_mcp_gate.py --all;  then pass "MCP tools callable";  else fail "MCP tools callable";  fi
-if run_show python3 tools/maintainer/check_command_tree.py; then pass "no destructive create alias"; else fail "no destructive create alias"; fi
-if run bash    tools/maintainer/ci_guards.sh;             then pass "repo hygiene guards"; else fail "repo hygiene guards"; fi
+# -------------------------------------------------------- security gate ----
+echo "== Security gate (security-gate.yml flags) =="
+if [ -s "$WORK/security.txt" ]; then
+  # CI's toolchain too: setup-go installs the newest patch of the workflow's
+  # go-version spec, while a local `go` follows go.mod's (older) toolchain
+  # line, so a stdlib advisory fixed in the newer patch would block here and
+  # pass in CI. Offline, go.mod's toolchain is used (stricter) and said so.
+  gate_go="$(python3 tools/maintainer/verify_scope.py gate-go 2>/dev/null)"
+  if [ -n "$gate_go" ]; then
+    echo "  toolchain: $gate_go (what security-gate.yml's setup-go resolves today)"
+  else
+    echo "  toolchain: go.mod's (could not reach go.dev to resolve CI's; this is stricter than CI)"
+  fi
+  while IFS= read -r s; do
+    [ -n "$s" ] || continue
+    gate "security gate" scoped "$s" 0 env ${gate_go:+GOTOOLCHAIN="$gate_go"} \
+      python3 tools/maintainer/check_security_gate.py \
+      --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
+  done < "$WORK/security.txt"
+else
+  echo "  (no skill path changed against $base: security-gate.yml would pass trivially)"
+fi
+if [ "$FULL" = true ]; then
+  # Today's full audit of every skill, kept alongside the CI-parity runs.
+  gate "security gate full audit (--all)" fleet "" 0 python3 tools/maintainer/check_security_gate.py --all
+fi
 
+# --------------------------------------------------------- plugins ----
 echo "== Plugin manifest validation (claude plugin validate --strict) =="
 if command -v claude >/dev/null 2>&1; then
-  if run claude plugin validate . --strict; then pass "marketplace manifest"; else fail "marketplace manifest"; fi
+  gate "marketplace manifest" repo "" 0 claude plugin validate . --strict
   for d in skills/*/; do
-    slug="$(basename "$d")"
+    s="$(basename "$d")"
     [ -f "$d/.claude-plugin/plugin.json" ] || continue
-    if run claude plugin validate "skills/$slug" --strict; then pass "plugin $slug"; else fail "plugin $slug"; fi
+    gate "plugin validate" fleet "$s" 0 claude plugin validate "skills/$s" --strict
   done
 else
-  warn "claude CLI not installed - skipped plugin validate (install Claude Code to run it)"
+  warn_rec "claude CLI not installed - skipped plugin validate (CI runs it)"
 fi
 
-echo "== Release matrix sanity =="
-if python3 tools/maintainer/release_matrix.py | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]' 2>/tmp/va.out; then
-  pass "release matrix is valid JSON with skills + targets"
-else
-  cat /tmp/va.out; fail "release matrix"
-fi
-# The change-set classifier behind --changed-only (what a PR or a push to main
-# actually builds), proved both directions offline: a bot regen commit yields
-# no rows, a human README edit yields its row, a checker edit yields the fleet.
-if run python3 tools/maintainer/release_matrix.py --self-test; then pass "release matrix change-set classifier"; else fail "release matrix change-set classifier"; fi
-
-echo "== Catalog idempotency =="
-# build-catalog.py regenerates ALL of these from skills.json: the machine
-# catalog, the README marker blocks, the Jekyll data file, and every per-skill
-# docs page. The gate must prove regeneration is a no-op for every one of them,
-# else a stale committed surface ships (the 2026-06-05 staleness class of bug).
-cp catalog.json /tmp/cat.bak; cp README.md /tmp/readme.bak
-cp docs/_data/catalog.json /tmp/docscat.bak
-rm -rf /tmp/docsskills.bak; cp -R docs/skills /tmp/docsskills.bak
-# Generator failure must fail the gate outright - unchanged files after a
-# crashed regeneration would otherwise read as a PASS.
-if ! python3 tools/maintainer/build-catalog.py >/tmp/buildcat.out 2>&1; then
-  cat /tmp/buildcat.out
-  fail "build-catalog.py failed during the idempotency check"
-elif diff -q catalog.json /tmp/cat.bak >/dev/null \
-   && diff -q README.md /tmp/readme.bak >/dev/null \
-   && diff -q docs/_data/catalog.json /tmp/docscat.bak >/dev/null \
-   && diff -r docs/skills /tmp/docsskills.bak >/dev/null; then
-  pass "catalog + README + docs/_data/catalog.json + docs/skills already in sync (no drift)"
-else
-  fail "catalog/README/docs drift - regenerated; re-run was not a no-op"
-fi
-
-echo "== llms.txt idempotency =="
-cp docs/llms.txt /tmp/llms.bak; cp docs/llms-full.txt /tmp/llmsfull.bak
-if ! python3 tools/maintainer/build-llms.py >/tmp/buildllms.out 2>&1; then
-  cat /tmp/buildllms.out
-  fail "build-llms.py failed during the idempotency check"
-elif diff -q docs/llms.txt /tmp/llms.bak >/dev/null && diff -q docs/llms-full.txt /tmp/llmsfull.bak >/dev/null; then
-  pass "llms.txt + llms-full.txt already in sync (no drift)"
-else
-  fail "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
-fi
-
+# ------------------------------------------------ install.sh dry runs ----
 echo "== Install scripts resolve cleanly (dry run) =="
-for sh in skills/*/install.sh; do
-  slug="$(basename "$(dirname "$sh")")"
-  # First-release chicken-and-egg: a never-released skill (cli_hash_at_release
-  # null in skills.json) has no <slug>-v* tag yet, so the live tag lookup can
-  # never succeed. Pin the release base to the version it WILL ship as - the
-  # script's full logic still runs; only the tag lookup is bypassed.
+install_dry_run() { # <slug>
+  local slug="$1" sh="skills/$1/install.sh" pin local_tag out
+  # First-release chicken-and-egg: a never-released skill has no <slug>-v* tag
+  # yet, so pin the release base to the version it WILL ship as.
   pin="$(SLUG="$slug" python3 -c "
 import json, os
 slug = os.environ['SLUG']
@@ -182,66 +339,98 @@ if reg and not reg.get('markdown_only') and reg.get('cli_hash_at_release') in (N
 ")"
   if [ -n "$pin" ]; then
     out="$(DRY_RUN=1 MSP_SKILLS_RELEASE_BASE="https://github.com/servosity/msp-skills/releases/download/${slug}-v${pin}" bash "$sh" 2>&1 || true)"
-    if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
-      pass "$slug install.sh URLs resolve (first release pending - pinned ${slug}-v${pin})"
-    else
-      echo "$out"
-      if echo "$out" | grep -qiE '403|rate limit'; then
-        echo "  hint: GitHub API rate limit - run 'gh auth login' or export GITHUB_TOKEN, then re-run"
-      fi
-      fail "$(dirname "$sh") install.sh URL"
-    fi
   else
-    # Released skill: prefer pinning to the newest LOCAL <slug>-v* tag. The
-    # unpinned path makes ~5 paginated releases-API calls per skill per run;
-    # at fleet scale that trips GitHub secondary rate limits intermittently
-    # (403 -> "No release found" -> false FAIL). Local tags are deterministic.
-    # Fallback (shallow clones with no tags, e.g. CI): the live API path.
+    # Released: pin to the newest LOCAL tag (deterministic, no API calls);
+    # a clone with no tags falls back to the live API path.
     local_tag="$(git tag -l "${slug}-v*" --sort=-version:refname 2>/dev/null | head -1)"
     if [ -n "$local_tag" ]; then
       out="$(DRY_RUN=1 MSP_SKILLS_RELEASE_BASE="https://github.com/servosity/msp-skills/releases/download/${local_tag}" bash "$sh" 2>&1 || true)"
     else
       out="$(DRY_RUN=1 bash "$sh" 2>&1 || true)"
     fi
-    if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
-      pass "$slug install.sh URLs resolve${local_tag:+ (pinned from local tag ${local_tag})}"
-    else
-      echo "$out"
-      if echo "$out" | grep -qiE '403|rate limit'; then
-        echo "  hint: GitHub API rate limit - run 'gh auth login' or export GITHUB_TOKEN, then re-run"
-      fi
-      fail "$(dirname "$sh") install.sh URL"
-    fi
+  fi
+  echo "$out"
+  if echo "$out" | grep -q 'github.com/servosity/msp-skills' && ! echo "$out" | grep -qi 'PLACEHOLDER'; then
+    return 0
+  fi
+  if echo "$out" | grep -qiE '403|rate limit'; then
+    echo "hint: GitHub API rate limit - run 'gh auth login' or export GITHUB_TOKEN, then re-run"
+  fi
+  return 1
+}
+for sh in skills/*/install.sh; do
+  s="$(basename "$(dirname "$sh")")"
+  if [ "$FULL" = true ] || in_scope "$s"; then
+    gate "install.sh dry run" scoped "$s" 0 install_dry_run "$s"
   fi
 done
 
-echo "== Best-effort (warn if tool missing locally) =="
+# -------------------------------------------- generated-file idempotency ----
+echo "== Catalog + llms.txt idempotency =="
+# build-catalog.py regenerates the machine catalog, the README marker blocks,
+# the Jekyll data file and every per-skill docs page from skills.json; the gate
+# proves regeneration is a no-op for every one of them. A generator failure
+# fails outright (unchanged files after a crash would otherwise read as PASS).
+# Drift is left regenerated in the tree, ready to commit.
+catalog_idempotent() {
+  local bak="$WORK/catalog.bak"
+  mkdir -p "$bak"
+  cp catalog.json "$bak/catalog.json"; cp README.md "$bak/README.md"
+  cp docs/_data/catalog.json "$bak/docs-catalog.json"; cp -R docs/skills "$bak/docs-skills"
+  python3 tools/maintainer/build-catalog.py || { echo "build-catalog.py failed during the idempotency check"; return 1; }
+  if diff -q catalog.json "$bak/catalog.json" && diff -q README.md "$bak/README.md" \
+     && diff -q docs/_data/catalog.json "$bak/docs-catalog.json" && diff -r docs/skills "$bak/docs-skills"; then
+    return 0
+  fi
+  echo "catalog/README/docs drift - regenerated; re-run was not a no-op (commit the regenerated files)"
+  return 1
+}
+llms_idempotent() {
+  local bak="$WORK/llms.bak"
+  mkdir -p "$bak"
+  cp docs/llms.txt "$bak/llms.txt"; cp docs/llms-full.txt "$bak/llms-full.txt"
+  python3 tools/maintainer/build-llms.py || { echo "build-llms.py failed during the idempotency check"; return 1; }
+  if diff -q docs/llms.txt "$bak/llms.txt" && diff -q docs/llms-full.txt "$bak/llms-full.txt"; then
+    return 0
+  fi
+  echo "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
+  return 1
+}
+gate "catalog + README + docs/_data/catalog.json + docs/skills in sync" repo "" 0 catalog_idempotent
+gate "llms.txt + llms-full.txt in sync" repo "" 0 llms_idempotent
+
+# --------------------------------------------- best effort (local tools) ----
+echo "== Best-effort (warn if a tool is missing locally; CI installs them) =="
 if command -v shellcheck >/dev/null 2>&1; then
-  # NOT mapfile: macOS ships bash 3.2, where mapfile doesn't exist and the
-  # check silently no-ops. while-read is portable to every bash CI or a Mac runs.
+  # NOT mapfile: macOS ships bash 3.2. tools/maintainer/hooks/* has no .sh
+  # extension (git runs a hook by name), so it is listed as ci.yml does.
   shs=()
-  while IFS= read -r f; do shs+=("$f"); done < <(git ls-files '*.sh' 2>/dev/null || find . -name '*.sh' -not -path './.git/*')
-  if [ "${#shs[@]}" -gt 0 ] && shellcheck "${shs[@]}" >/tmp/va.out 2>&1; then pass "shellcheck"; else cat /tmp/va.out; fail "shellcheck"; fi
+  while IFS= read -r f; do shs+=("$f"); done < <(git ls-files '*.sh' 'tools/maintainer/hooks/*' 2>/dev/null)
+  if [ "${#shs[@]}" -gt 0 ]; then gate "shellcheck" fleet "" 0 shellcheck "${shs[@]}"; fi
 else
-  warn "shellcheck not installed - skipped (CI runs it)"
+  warn_rec "shellcheck not installed - skipped (CI runs it)"
 fi
-
 if command -v gitleaks >/dev/null 2>&1; then
-  if gitleaks detect --no-git --source . --config .gitleaks.toml --no-banner >/tmp/va.out 2>&1; then pass "gitleaks"; else cat /tmp/va.out; fail "gitleaks"; fi
+  gate "gitleaks" fleet "" 0 gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner
 else
-  warn "gitleaks not installed - skipped (CI runs it)"
+  warn_rec "gitleaks not installed - skipped (CI runs it)"
 fi
-
 if command -v actionlint >/dev/null 2>&1; then
-  if actionlint .github/workflows/*.yml >/tmp/va.out 2>&1; then pass "actionlint"; else cat /tmp/va.out; fail "actionlint"; fi
+  gate "actionlint" repo "" 0 actionlint .github/workflows/*.yml
 else
-  warn "actionlint not installed - skipped (CI runs it; try: go run github.com/rhysd/actionlint/cmd/actionlint@latest)"
+  warn_rec "actionlint not installed - skipped (try: go run github.com/rhysd/actionlint/cmd/actionlint@latest)"
 fi
 
+# --------------------------------------------------------------- verdict ----
 echo ""
-if [ "$hard_fail" -eq 0 ]; then
-  echo "VERIFY_ALL: PASS - every hard gate is green."
+echo "== Verdict =="
+python3 tools/maintainer/verify_scope.py verdict --scope "$WORK/scope.json" --records "$REC" \
+  --out "$verdict_path" --seconds "$(( $(date +%s) - T0 ))" --started "$STARTED"
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo "VERIFY_ALL: PASS - every blocking gate is green."
 else
-  echo "VERIFY_ALL: FAIL - fix the items marked FAIL above." >&2
+  echo "VERIFY_ALL: FAIL - fix the items marked FAIL above (the verdict lists them)." >&2
+  rc=1
 fi
-exit "$hard_fail"
+exit "$rc"

@@ -192,5 +192,6 @@ assets/social/*
 !assets/social/cards.yaml
 .gstack/
 
-# Codex review verdicts (worker convention)
+# Codex review verdicts (worker convention); local verify receipts
+.verify/
 .review/

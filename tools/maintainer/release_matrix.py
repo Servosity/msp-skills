@@ -55,14 +55,17 @@ copies that agree only because every skill happens to name its MCP binary
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import windows_known_failures  # noqa: E402  (local tools/ module)
 
 
 def skill_entries(with_assets: bool = True) -> list[dict]:
@@ -146,7 +149,6 @@ MACHINERY = (
     "tools/maintainer/check_doctor_truth.py",
     "tools/maintainer/windows_smoke.ps1",
     "tools/maintainer/windows_known_failures.py",
-    "tools/maintainer/windows_known_test_failures.json",
     "tools/maintainer/cli_hash.py",
     # A Go workspace in an ANCESTOR of skills/<slug>/cli. None exists today,
     # but `go build` walks up looking for one (GOWORK=auto), so introducing or
@@ -180,6 +182,17 @@ DERIVED_PREFIX = ("docs/skills/",)
 # not the fleet. release stamps (version, cli_hash_at_release) land here too
 # and cost that one row, which is cheap and correct.
 REGISTRY_PATH = "tools/maintainer/skills.json"
+
+# The Windows known-failures ledger is an INPUT too, classified by CONTENT. A
+# windows row reads only its own slug's effective exclusions from it
+# (windows_known_failures.py --slug), so an edit that changes which tests one
+# skill skips re-tests that skill and no other. Before 2026-10-21 it was
+# MACHINERY: #395 deleted a few lines and every push cost a 65 x 2 matrix. The
+# whole fleet still runs when the change cannot be scoped: any edit to a
+# `slugs: ["*"]` (every-connector) entry, or a revision that is missing,
+# unreadable or fails the ledger's own validation. The weekly full sweep still
+# bounds what any scoping could miss.
+WINDOWS_LEDGER_PATH = "tools/maintainer/windows_known_test_failures.json"
 
 # Mirrors build-catalog.py sync_skill_readme_mcpb: only the tag segment of a
 # `.mcpb` download URL under this repo's releases is generated. Anything else
@@ -217,25 +230,38 @@ def _skill_readme_slug(path: str) -> str | None:
     return None
 
 
+def _no_ledger_change() -> set[str] | None:
+    return set()
+
+
 def classify(
     files: list[str],
     pin_only: Callable[[str], bool],
     registry_delta: Callable[[], set[str] | None],
+    ledger_delta: Callable[[], set[str] | None] = _no_ledger_change,
+    reasons: list[str] | None = None,
 ) -> set[str] | None:
     """Pure core of --changed-only. Returns the set of slugs to build, or None
-    for "the FULL matrix" (machinery changed, or a registry diff could not be
-    read - fail open).
+    for "the FULL matrix" (machinery changed, or a registry or ledger diff
+    could not be scoped - fail open).
 
     `pin_only(path)` answers whether a changed skills/<slug>/README.md is a
     generated pin re-mint; `registry_delta()` answers which slugs' skills.json
-    entries changed. Both are injected so --self-test can drive this without
-    a git checkout, and so the git-backed versions below stay thin."""
+    entries changed; `ledger_delta()` answers which slugs' effective Windows
+    exclusions changed (None = the whole fleet). All are injected so
+    --self-test can drive this without a git checkout, and so the git-backed
+    versions below stay thin. `reasons`, when given, collects why a FULL
+    matrix was chosen (verify_all.sh records it in its verdict)."""
+    def full(why: str) -> None:
+        print(f"release_matrix: {why}; FULL matrix", file=sys.stderr)
+        if reasons is not None:
+            reasons.append(why)
+        return None
+
     slugs: set[str] = set()
     for f in files:
         if is_machinery(f):
-            print(f"release_matrix: machinery changed ({f}); FULL matrix",
-                  file=sys.stderr)
-            return None
+            return full(f"machinery changed ({f})")
     for f in files:
         if is_derived_path(f):
             print(f"release_matrix: derived file ({f}); no row", file=sys.stderr)
@@ -243,10 +269,17 @@ def classify(
         if f == REGISTRY_PATH:
             delta = registry_delta()
             if delta is None:
-                print("release_matrix: registry diff unreadable; FULL matrix",
-                      file=sys.stderr)
-                return None
+                return full("registry diff unreadable")
             print(f"release_matrix: registry entries changed for {sorted(delta)}",
+                  file=sys.stderr)
+            slugs |= delta
+            continue
+        if f == WINDOWS_LEDGER_PATH:
+            delta = ledger_delta()
+            if delta is None:
+                return full("Windows known-failures change cannot be scoped "
+                            "(an every-connector entry changed, or a revision is unreadable or invalid)")
+            print(f"release_matrix: Windows known-failure exclusions changed for {sorted(delta)}",
                   file=sys.stderr)
             slugs |= delta
             continue
@@ -260,8 +293,15 @@ def classify(
     return slugs
 
 
-def _git_show(rev: str, path: str) -> str | None:
-    """File content at a revision, or None if it does not exist there."""
+def _git_show(rev: str | None, path: str) -> str | None:
+    """File content at a revision, or None if it does not exist there.
+    rev None means the WORKING TREE (verify_all.sh --changed reads
+    uncommitted edits too; CI never passes None)."""
+    if rev is None:
+        try:
+            return (registry.ROOT / path).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return None
     p = subprocess.run(
         ["git", "show", f"{rev}:{path}"],
         capture_output=True, text=True, timeout=30,
@@ -269,12 +309,51 @@ def _git_show(rev: str, path: str) -> str | None:
     return p.stdout if p.returncode == 0 else None
 
 
-def _registry_delta(mb: str) -> set[str] | None:
-    """Slugs whose skills.json entry differs between merge-base and HEAD.
-    None (fail open) if either revision cannot be read or parsed."""
+def ledger_delta(old_txt: str | None, new_txt: str | None) -> set[str] | None:
+    """Slugs whose EFFECTIVE Windows exclusions differ between two ledger
+    revisions, or None for "the whole fleet". Effective = what
+    windows_known_failures.py --slug would hand that slug's windows row, so a
+    prose-only edit (why/fix/kind/_doc) or a test moved between two entries of
+    the same skill changes nothing and builds nothing. None when either
+    revision is missing or fails the ledger's own validation (the windows job
+    would refuse it for every row), or when any every-connector (`slugs:
+    ["*"]`) entry was added, removed or edited at all."""
+    def parse(text: str | None) -> list[dict] | None:
+        if text is None:
+            return None
+        fd, tmp = tempfile.mkstemp(suffix=".json")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            return windows_known_failures.load(Path(tmp))
+        except windows_known_failures.LedgerError:
+            return None
+        finally:
+            os.unlink(tmp)
+
+    old, new = parse(old_txt), parse(new_txt)
+    if old is None or new is None:
+        return None
+
+    def wildcard(entries: list[dict]) -> list[str]:
+        # Whole entries, not just their tests: any edit to an every-connector
+        # entry re-tests the fleet, which is the conservative reading.
+        return sorted(json.dumps(e, sort_keys=True) for e in entries if "failures" not in e)
+
+    if wildcard(old) != wildcard(new):
+        return None
+    named = {s for es in (old, new) for e in es if "failures" in e for s in e["failures"]}
+    return {s for s in named
+            if windows_known_failures.tests_for(s, old) != windows_known_failures.tests_for(s, new)}
+
+
+def _registry_delta(mb: str, new_rev: str | None = "HEAD") -> set[str] | None:
+    """Slugs whose skills.json entry differs between merge-base and HEAD (or
+    the working tree when new_rev is None). None (fail open) if either
+    revision cannot be read or parsed."""
     try:
         old_txt = _git_show(mb, REGISTRY_PATH)
-        new_txt = _git_show("HEAD", REGISTRY_PATH)
+        new_txt = _git_show(new_rev, REGISTRY_PATH)
         if old_txt is None or new_txt is None:
             return None
         old = json.loads(old_txt).get("skills", {})
@@ -284,6 +363,64 @@ def _registry_delta(mb: str) -> set[str] | None:
     if not isinstance(old, dict) or not isinstance(new, dict):
         return None
     return {s for s in set(old) | set(new) if old.get(s) != new.get(s)}
+
+
+def change_set(base_ref: str, direct: bool = False, worktree: bool = False) -> tuple[str, list[str]] | None:
+    """(diff base SHA, changed paths), or None when git cannot compute it.
+
+    `direct=False` diffs from the MERGE-BASE of base_ref and HEAD; `direct=True`
+    from base_ref itself (see changed_slugs). `worktree=True` (verify_all.sh
+    only, never CI) compares that base with the working tree instead of HEAD
+    and adds untracked files, so an uncommitted edit is scoped too."""
+    try:
+        if direct:
+            mb = subprocess.run(
+                ["git", "rev-parse", "--verify", f"{base_ref}^{{commit}}"],
+                capture_output=True, text=True, check=True, timeout=30,
+            ).stdout.strip()
+        else:
+            mb = subprocess.run(
+                ["git", "merge-base", base_ref, "HEAD"],
+                capture_output=True, text=True, check=True, timeout=30,
+            ).stdout.strip()
+        # --no-renames: with rename detection a move out of skills/<slug>/
+        # lists only the DESTINATION, and the skill that lost a file is never
+        # built. -z: paths arrive NUL-separated and unquoted, so a non-ASCII
+        # filename is not wrapped in "..." (core.quotePath) where it would
+        # fail every startswith() below and silently skip its skill.
+        diff = subprocess.run(
+            ["git", "diff", "--no-renames", "--name-only", "-z", mb] + ([] if worktree else ["HEAD"]),
+            capture_output=True, text=True, check=True, timeout=60,
+        ).stdout
+        if worktree:
+            diff += "\0" + subprocess.run(
+                ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+                capture_output=True, text=True, check=True, timeout=60,
+            ).stdout
+    except (subprocess.SubprocessError, OSError) as e:
+        print(f"release_matrix: --changed-only diff failed ({e}); "
+              "falling back to FULL matrix", file=sys.stderr)
+        return None
+    return mb, sorted({f for f in diff.split("\0") if f.strip()})
+
+
+def classify_change(mb: str, files: list[str], new_rev: str | None = "HEAD",
+                    reasons: list[str] | None = None) -> set[str] | None:
+    """classify() wired to git: the slugs `files` (changed between mb and
+    new_rev; None = the working tree) need built, or None for the FULL matrix."""
+    def pin_only(path: str) -> bool:
+        try:
+            return readme_pin_only(_git_show(mb, path), _git_show(new_rev, path))
+        except (subprocess.SubprocessError, OSError):
+            return False  # unreadable -> treat as a real change (build it)
+
+    def win_delta() -> set[str] | None:
+        try:
+            return ledger_delta(_git_show(mb, WINDOWS_LEDGER_PATH), _git_show(new_rev, WINDOWS_LEDGER_PATH))
+        except (subprocess.SubprocessError, OSError):
+            return None
+
+    return classify(files, pin_only, lambda: _registry_delta(mb, new_rev), win_delta, reasons)
 
 
 def changed_slugs(base_ref: str, entries: list[dict], direct: bool = False) -> list[dict] | None:
@@ -305,39 +442,11 @@ def changed_slugs(base_ref: str, entries: list[dict], direct: bool = False) -> l
     still needs that skill's row. Derived files (see classify) and non-skill
     changes produce no row.
     """
-    try:
-        if direct:
-            mb = subprocess.run(
-                ["git", "rev-parse", "--verify", f"{base_ref}^{{commit}}"],
-                capture_output=True, text=True, check=True, timeout=30,
-            ).stdout.strip()
-        else:
-            mb = subprocess.run(
-                ["git", "merge-base", base_ref, "HEAD"],
-                capture_output=True, text=True, check=True, timeout=30,
-            ).stdout.strip()
-        # --no-renames: with rename detection a move out of skills/<slug>/
-        # lists only the DESTINATION, and the skill that lost a file is never
-        # built. -z: paths arrive NUL-separated and unquoted, so a non-ASCII
-        # filename is not wrapped in "..." (core.quotePath) where it would
-        # fail every startswith() below and silently skip its skill.
-        diff = subprocess.run(
-            ["git", "diff", "--no-renames", "--name-only", "-z", mb, "HEAD"],
-            capture_output=True, text=True, check=True, timeout=60,
-        ).stdout
-    except (subprocess.SubprocessError, OSError) as e:
-        print(f"release_matrix: --changed-only diff failed ({e}); "
-              "falling back to FULL matrix", file=sys.stderr)
+    cs = change_set(base_ref, direct=direct)
+    if cs is None:
         return None
-    files = [f for f in diff.split("\0") if f.strip()]
-
-    def pin_only(path: str) -> bool:
-        try:
-            return readme_pin_only(_git_show(mb, path), _git_show("HEAD", path))
-        except (subprocess.SubprocessError, OSError):
-            return False  # unreadable -> treat as a real change (build it)
-
-    touched = classify(files, pin_only, lambda: _registry_delta(mb))
+    mb, files = cs
+    touched = classify_change(mb, files)
     if touched is None:
         return None
     return [e for e in entries if e["name"] in touched]
@@ -398,7 +507,9 @@ def _self_test() -> int:
         ("tools/maintainer/check_mcp_gate.py", True),
         ("tools/maintainer/check_cli_claims.py", True),
         ("tools/maintainer/windows_smoke.ps1", True),
-        ("tools/maintainer/windows_known_test_failures.json", True),
+        ("tools/maintainer/windows_known_failures.py", True),
+        # content-classified per slug now (ledger_delta), like skills.json
+        ("tools/maintainer/windows_known_test_failures.json", False),
         ("tools/maintainer/release_matrix.py", True),
         ("tools/maintainer/build-catalog.py", False),
         ("tools/maintainer/env_schema_internal.json", False),
@@ -457,6 +568,77 @@ def _self_test() -> int:
            "a move out of a skill (both sides listed, as --no-renames delivers it) -> that skill's row")
     expect(classify(["skills/go.work"], pins.get, empty_reg) is None,
            "a Go workspace at skills/ (ancestor of every cli/) -> FULL matrix")
+    expect(classify([WINDOWS_LEDGER_PATH], pins.get, empty_reg, lambda: {"alpha"}) == {"alpha"},
+           "Windows ledger change scoped to one slug -> that slug's row only")
+    expect(classify([WINDOWS_LEDGER_PATH], pins.get, empty_reg, lambda: set()) == set(),
+           "Windows ledger prose-only change -> EMPTY matrix")
+    expect(classify([WINDOWS_LEDGER_PATH], pins.get, empty_reg, lambda: None) is None,
+           "Windows ledger change that cannot be scoped -> FULL matrix (fail open)")
+    expect(classify([WINDOWS_LEDGER_PATH, "skills/cove/cli/go.mod"], pins.get, empty_reg,
+                    lambda: {"alpha"}) == {"alpha", "cove"},
+           "Windows ledger change + a skill change -> both rows")
+    why: list[str] = []
+    classify(["tools/maintainer/check_mcp_gate.py"], pins.get, empty_reg, reasons=why)
+    expect(why == ["machinery changed (tools/maintainer/check_mcp_gate.py)"],
+           "a FULL-matrix decision records its reason")
+
+    print("ledger_delta (effective Windows exclusions, old vs new):")
+
+    def led(*entries: dict) -> str:
+        return json.dumps({"entries": list(entries)})
+
+    star = {"id": "W", "kind": "real-bug", "slugs": ["*"], "tests": ["TestEverywhere"], "why": "w", "fix": "f"}
+    per = {"id": "B", "kind": "unix-only-test", "why": "w", "fix": "f",
+           "failures": {"alpha": ["TestA1"], "beta": ["TestB1"]}}
+    base = led(star, per)
+
+    def with_failures(fmap: dict) -> dict:
+        return dict(per, failures=fmap)
+
+    for label, new, want in (
+        ("identical", base, set()),
+        ("a test ADDED for one skill", led(star, with_failures({"alpha": ["TestA1", "TestA2"], "beta": ["TestB1"]})),
+         {"alpha"}),
+        ("a test REMOVED for one skill (the #395 shape)", led(star, with_failures({"alpha": ["TestA1"]})), {"beta"}),
+        ("a skill ADDED to the ledger", led(star, with_failures({"alpha": ["TestA1"], "beta": ["TestB1"],
+                                                                "gamma": ["TestG1"]})), {"gamma"}),
+        ("a whole entry REMOVED", led(star), {"alpha", "beta"}),
+        ("prose only (why / fix / kind)", led(star, dict(per, why="reworded", fix="later", kind="flaky")), set()),
+        ("a test moved between two entries of the same skill",
+         led(star, with_failures({"alpha": ["TestA1"]}),
+             {"id": "C", "kind": "flaky", "why": "w", "fix": "f", "failures": {"beta": ["TestB1"]}}), set()),
+        ("an every-connector ('*') test ADDED", led(dict(star, tests=["TestEverywhere", "TestNew"]), per), None),
+        ("an every-connector ('*') entry REMOVED", led(per), None),
+        ("an every-connector ('*') entry ADDED", led(star, per, dict(star, id="W2", tests=["TestOther"])), None),
+        ("an every-connector ('*') prose-only edit (any wildcard edit is fleet-wide)",
+         led(dict(star, why="reworded"), per), None),
+        ("new revision is malformed JSON", "{", None),
+        ("new revision fails validation (unknown kind)", led(star, dict(per, kind="whatever")), None),
+        ("new revision fails validation (a regex for a test name)", led(star, with_failures({"alpha": ["Test.*"]})),
+         None),
+        ("ledger deleted (no new revision)", None, None),
+    ):
+        got = ledger_delta(base, new)
+        expect(got == want, f"{label} -> {'FULL fleet' if want is None else sorted(want) or 'no rows'}"
+                            f" (got {'FULL fleet' if got is None else sorted(got) or 'no rows'})")
+    expect(ledger_delta(None, base) is None, "ledger added (no old revision) -> FULL fleet")
+    expect(ledger_delta("{", base) is None, "old revision unreadable -> FULL fleet")
+    real = WINDOWS_LEDGER_PATH
+    try:
+        real_txt = (registry.ROOT / real).read_text(encoding="utf-8")
+    except OSError:
+        real_txt = None
+    expect(real_txt is not None and ledger_delta(real_txt, real_txt) == set(),
+           "the shipped ledger against itself -> no rows")
+    if real_txt is not None:
+        data = json.loads(real_txt)
+        first = data["entries"][0]
+        dropped = json.dumps(dict(data, entries=data["entries"][1:]))
+        want_slugs = {s for s in first.get("failures", {})
+                      if windows_known_failures.tests_for(s, data["entries"])
+                      != windows_known_failures.tests_for(s, data["entries"][1:])}
+        expect(bool(want_slugs) and ledger_delta(real_txt, dropped) == want_slugs,
+               f"dropping the shipped ledger's first entry -> exactly its skills {sorted(want_slugs)}")
 
     if failures:
         print(f"\nFAIL: release_matrix self-test - {len(failures)} case(s):")

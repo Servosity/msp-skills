@@ -166,7 +166,10 @@ publishes last. Three consequences an agent has to hold:
 ## General
 
 - Sign commits (`git commit -s`); no em-dashes in committed files; run
-  `tools/maintainer/verify_all.sh <slug>` before pushing. See `CONTRIBUTING.md`.
+  `bash tools/maintainer/verify_all.sh --changed` (or `--slug <slug>`) while
+  iterating, and the full `bash tools/maintainer/verify_all.sh` once on the final
+  commit after the last rebase. Its verdict (`.verify/verdict.json`) names the
+  head and base SHAs it checked. See `CONTRIBUTING.md`.
 - CI builds only what a change-set touched, on PRs AND on pushes to `main`
   (`release_matrix.py --changed-only`; see `tools/maintainer/README.md`). A
   docs-only or catalog-bot commit builds nothing; a change to a matrix-row

@@ -8,7 +8,11 @@ the statusline, you do not need anything in this folder - see the root
 
 | Script | What it does |
 | --- | --- |
-| `verify_all.sh` | One command, one verdict: runs every gate below. `bash tools/maintainer/verify_all.sh` |
+| `verify_all.sh` | One command, one verdict: would CI pass, and is it ready for a PR? No arguments checks the full fleet; `--slug <s>` (repeatable) checks those skills; `--changed [--base origin/main]` checks what the branch changed, scoped by CI's own classifier (a shared-machinery change checks the whole fleet, as CI does). Heavy per-connector checks run for the connectors in scope, cheap fleet-wide checks for everything; a fleet failure only in other connectors is listed under `out_of_scope_failures`, never dropped. Writes `.verify/verdict.json` (checks, verdict, seconds, head and base SHAs, scope). |
+| `verify_connector.sh` | The per-connector half of `verify_all.sh` (build, vet, cross-compile, `go test`, Windows vet and test compile, the Unix-only test lint, CLI claims, doctor, MCP gate, hand-fix ledger). |
+| `verify_scope.py` | Scope, failure attribution and verdict for `verify_all.sh`; `--self-test` proves each. |
+| `check_no_pp_leak.py` | No connector's own `-pp-` name in a user-facing file, a Go string or a hand-fix `contains` marker (a `not_contains` marker is honored). `--base` makes it a ratchet: lines already present at the base are listed, not blocking. |
+| `check_unix_test_asserts.py` | Lints connector tests for assertions that only hold on Unix (POSIX errno text, mode bits, `#!` stubs, files left open, GOOS-blind literals, a `time.Now()` key on `INSERT OR IGNORE`), the classes the Windows CI job used to find only after a PR. Ledgered known Windows failures are reported, not blocking. |
 | `build-catalog.py` | Regenerates `catalog.json`, the README catalog table and generated blocks, the docs site pages, the issue-form connector dropdowns, and each skill README's `.mcpb` pin. `--released-tags FILE` (catalog.yml passes the complete-published release list) keeps a pin from ever naming a tag whose release is a stranded draft or is missing an asset. |
 | `release_matrix.py` | Prints the GitHub Actions build matrix (skills x os/arch). `--changed-only <base>` (merge-base; ci.yml PRs) and `--changed-since <sha>` (two-point diff; ci.yml pushes, from `github.event.before`) scope it to the skills a change-set touched, so a docs-only or catalog-bot commit builds nothing and a build-machinery edit builds the fleet. `--self-test` proves the classifier both ways. |
 | `release_state.py` | Reports each skill's release state (up-to-date, version-pending, binary-pending, never-released) and writes `docs/_data/pending.json`. `--released-tags FILE` replaces "the tag exists" with "the tag names a published release". |
@@ -18,7 +22,7 @@ the statusline, you do not need anything in this folder - see the root
 | `check_dco.sh` | Verifies every commit carries a DCO `Signed-off-by` line. |
 | `check_mcp_gate.py` | Boots a skill's MCP server over stdio and asserts the tenant gate does not default-deny. Probes the read-only tools the gate wraps in-process; skips Cobra mirrors (the child CLI gates those) and destructive tools. Needs no credentials. |
 | `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also reports, without failing, command-local flags that shadow a global flag such as `--agent`. `--self-test` proves the classifier both ways. |
-| `ci_guards.sh` | Repo hygiene: no em-dashes, no personal paths, no obvious secrets. |
+| `ci_guards.sh` | Repo hygiene: no em-dashes, no personal paths, no obvious secrets. Decides on each guard's output, so a file missing from disk cannot turn a violation into a pass; `--self-test` proves it. |
 | `gen_governance.py` | Drafts a skill's `governance.md` from its CLI surface. |
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
 | `skills.json` | Per-skill metadata: owner/repo, binary names, vendor, status. |
@@ -40,7 +44,8 @@ skills changed since its merge-base, and a push to `main` builds the skills chan
 `docs/skills/`, the `.mcpb` pin in a skill README, ...) and build nothing, except that a bot
 commit which also stamps a sealed release (`stamp_release.py`) builds that one connector's
 row, as the stamp PR it replaces did; a hand edit to the same README builds that skill; a change to a matrix-row checker or a build-feeding workflow
-builds all 65. A weekly full-matrix sweep (Sunday 06:00 UTC, also `workflow_dispatch`) bounds
+builds all 65. A Windows known-failures ledger edit builds exactly the skills whose exclusions
+changed (an every-connector entry, or a missing or invalid revision, builds the fleet). A weekly full-matrix sweep (Sunday 06:00 UTC, also `workflow_dispatch`) bounds
 anything scoping could miss. Before 2026-09-07 every push to `main` built the whole fleet,
 which is ~210-240 runner-minutes per docs-only bot commit and, during a 21-tag release wave,
 enough to starve the release builds themselves.
