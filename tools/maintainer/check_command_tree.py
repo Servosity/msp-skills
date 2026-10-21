@@ -109,11 +109,14 @@ DESTRUCTIVE_WORDS = frozenset(
         "evict",
         "expire",
         "flush",
+        "hold",
         "interrupt",
         "isolate",
         "kill",
+        "leave",
         "lock",
         "offboard",
+        "pause",
         "prune",
         "purge",
         "reboot",
@@ -125,6 +128,8 @@ DESTRUCTIVE_WORDS = frozenset(
         "retire",
         "revert",
         "revoke",
+        "rollback",
+        "rotate",
         "shutdown",
         "stop",
         "suspend",
@@ -143,8 +148,44 @@ DESTRUCTIVE_WORDS = frozenset(
 
 DESTRUCTIVE_METHODS = frozenset({"DELETE"})
 
-# The overlay package path inside each module. It never exists on disk.
+# The overlay package paths inside each module. They never exist on disk.
 DUMP_PKG = "internal/zz_check_command_tree_dump"
+FIXTURE_PKG = "internal/zz_check_command_tree_fixture"
+
+# Self-test fixture for the Go walker itself (see self_test).
+FIXTURE_GO = r"""package zzfixture
+
+import "github.com/spf13/cobra"
+
+func noop(*cobra.Command, []string) error { return nil }
+
+func RootCmd() *cobra.Command {
+	root := &cobra.Command{Use: "fixture"}
+	root.PersistentFlags().Bool("agent", false, "agent mode")
+	root.PersistentFlags().Bool("dry-run", false, "dry run")
+
+	// The same group registered twice; only the SECOND copy carries the alias.
+	for _, aliases := range [][]string{nil, {"create"}} {
+		grp := &cobra.Command{Use: "subscriptions"}
+		grp.AddCommand(&cobra.Command{Use: "purge-subscription", Aliases: aliases, RunE: noop,
+			Annotations: map[string]string{"pp:method": "POST", "pp:path": "/subscriptions/{id}/purge.json"}})
+		root.AddCommand(grp)
+	}
+
+	tickets := &cobra.Command{Use: "tickets"}
+	tickets.PersistentFlags().Bool("dry-run", false, "group-level dry run") // shadows root
+	list := &cobra.Command{Use: "list", RunE: noop}
+	list.Flags().String("agent", "", "agent id filter") // shadows root --agent
+	get := &cobra.Command{Use: "get", RunE: noop}
+	tickets.AddCommand(list, get, &cobra.Command{Use: "create-ticket", Aliases: []string{"create"}, RunE: noop,
+		Annotations: map[string]string{"pp:method": "POST", "pp:path": "/tickets"}})
+	root.AddCommand(tickets)
+	// Merge get's inherited flags: its Flags() now holds tickets' --dry-run
+	// and root's --agent. Neither is a shadow.
+	_ = get.InheritedFlags()
+	return root
+}
+"""
 
 DUMP_GO = r"""// Command-tree dump for tools/maintainer/check_command_tree.py.
 // Supplied through `go build -overlay`; never written into the connector.
@@ -157,7 +198,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	cli "__MODULE__/internal/cli"
+	cli "__IMPORT__"
 )
 
 type shadow struct {
@@ -209,10 +250,10 @@ func walk(c *cobra.Command, path []string, persistent map[string]inherited, out 
 		for k, v := range persistent {
 			next[k] = v
 		}
+		// Cobra merges inherited flags nearest-parent first, so a group that
+		// redeclares a persistent flag becomes the owner its descendants see.
 		sub.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-			if _, ok := next[f.Name]; !ok {
-				next[f.Name] = inherited{flag: f, owner: p}
-			}
+			next[f.Name] = inherited{flag: f, owner: p}
 		})
 		walk(sub, p, next, out)
 	}
@@ -298,18 +339,18 @@ def has_create_alias(node: dict) -> bool:
 def findings_for(slug: str, nodes: list[dict]) -> tuple[list[dict], list[dict]]:
     """Return (create_alias_failures, flag_shadow_reports) for one connector."""
     fails, shadows = [], []
-    seen: set[str] = set()
+    seen_fail: set[tuple] = set()
+    seen_shadow: set[tuple] = set()
     for node in nodes:
-        # A generator defect can register the same group twice (ninjaone
-        # `document-templates archive`); report each command path once.
-        key = " ".join(node.get("path") or [])
-        if key in seen:
-            continue
-        seen.add(key)
+        # Every node is judged. A generator defect can register the same group
+        # twice (ninjaone `document-templates archive`), and the two copies need
+        # not carry the same aliases, so only identical FINDINGS are merged.
         if has_create_alias(node):
             reason = destructive_reason(node)
-            if reason:
-                ann = node.get("annotations") or {}
+            ann = node.get("annotations") or {}
+            key = (" ".join(node["path"]), ann.get("pp:method", ""), ann.get("pp:path", ""), reason)
+            if reason and key not in seen_fail:
+                seen_fail.add(key)
                 fails.append(
                     {
                         "slug": slug,
@@ -321,6 +362,10 @@ def findings_for(slug: str, nodes: list[dict]) -> tuple[list[dict], list[dict]]:
                     }
                 )
         for sh in node.get("shadows") or []:
+            key = (" ".join(node["path"]), sh["flag"], " ".join(sh["owner"]))
+            if key in seen_shadow:
+                continue
+            seen_shadow.add(key)
             shadows.append(
                 {
                     "slug": slug,
@@ -351,8 +396,11 @@ def connector_slugs() -> list[str]:
     return out
 
 
-def dump_tree(slug: str, timeout: int) -> tuple[list[dict] | None, str]:
-    """Compile and run the walker against skills/<slug>/cli. (nodes, error)."""
+def dump_tree(slug: str, timeout: int, fixture_go: str | None = None) -> tuple[list[dict] | None, str]:
+    """Compile and run the walker against skills/<slug>/cli. (nodes, error).
+
+    With `fixture_go`, the walker reads that fixture's RootCmd() instead (the
+    self-test), still compiled inside the connector's module for its cobra."""
     cli_dir = SKILLS / slug / "cli"
     try:
         module = module_path(cli_dir)
@@ -361,10 +409,17 @@ def dump_tree(slug: str, timeout: int) -> tuple[list[dict] | None, str]:
     tmp = Path(tempfile.mkdtemp(prefix="cmdtree-"))
     try:
         src = tmp / "main.go"
-        src.write_text(DUMP_GO.replace("__MODULE__", module), encoding="utf-8")
+        replace = {str((cli_dir / DUMP_PKG / "main.go").resolve()): str(src)}
+        import_path = module + "/internal/cli"
+        if fixture_go is not None:
+            # Self-test: walk a fixture tree instead of the connector's own.
+            fx = tmp / "fixture.go"
+            fx.write_text(fixture_go, encoding="utf-8")
+            replace[str((cli_dir / FIXTURE_PKG / "fixture.go").resolve())] = str(fx)
+            import_path = module + "/" + FIXTURE_PKG
+        src.write_text(DUMP_GO.replace("__IMPORT__", import_path), encoding="utf-8")
         overlay = tmp / "overlay.json"
-        target = str((cli_dir / DUMP_PKG / "main.go").resolve())
-        overlay.write_text(json.dumps({"Replace": {target: str(src)}}), encoding="utf-8")
+        overlay.write_text(json.dumps({"Replace": replace}), encoding="utf-8")
         exe = tmp / ("treedump.exe" if os.name == "nt" else "treedump")
         build = subprocess.run(
             ["go", "build", "-overlay", str(overlay), "-o", str(exe), "./" + DUMP_PKG],
@@ -415,6 +470,11 @@ def self_test() -> int:
         node(["checks", "resetall", "checks"], api="/checks/{agent_id}/resetall/"),
         node(["registered-devices", "block-device"], api="/admin/v1/registered_devices/blocked/{compkey}"),
         node(["plugins", "enableDisablePlugin"], api="/plugins/{pluginId}/enabled"),
+        node(["networks", "firmware-upgrades", "create-network-rollback"],
+             api="/networks/{networkId}/firmwareUpgrades/rollbacks"),
+        node(["meeting-recordings", "leave", "meeting-recording"], api="/v1/meeting_recordings/{id}/leave"),
+        node(["api-keys", "rotate", "api-key"], api="/v1/api_keys/{id}/rotate"),
+        node(["subscriptions", "hold-json", "pause-subscription"], api="/subscriptions/{subscription_id}/hold.json"),
         # Hand-written command (no pp:path): judged by its path below the top.
         {"path": ["jobs", "purge"], "aliases": ["create"], "annotations": {}},
     ]
@@ -446,13 +506,37 @@ def self_test() -> int:
     _, sh = findings_for("selftest", [shadow_node])
     if len(sh) != 1 or sh[0]["flag"] != "agent" or sh[0]["shadows"] != "root":
         bad.append("flag-shadow report did not surface a local --agent")
+    # Two registrations of one path: the copy WITH the alias must still fail.
+    dup = [node(["subscriptions", "purge-json", "purge-subscription"], api="/subscriptions/{id}/purge.json", aliases=()),
+           node(["subscriptions", "purge-json", "purge-subscription"], api="/subscriptions/{id}/purge.json")]
+    f, _ = findings_for("selftest", dup)
+    if len(f) != 1:
+        bad.append(f"duplicate registration: expected 1 finding from the aliased copy, got {len(f)}")
+
+    # The Go walker itself, on a fixture tree, when Go and a connector exist.
+    walker = "skipped (no go on PATH or no connector to borrow a module from)"
+    slugs = connector_slugs()
+    if shutil.which("go") and slugs:
+        nodes, err = dump_tree(slugs[0], 600, fixture_go=FIXTURE_GO)
+        if nodes is None:
+            bad.append("walker fixture did not run: " + err)
+        else:
+            f, sh = findings_for("fixture", nodes)
+            got_fail = sorted(x["command"] for x in f)
+            got_sh = sorted((x["command"], x["flag"], x["shadows"]) for x in sh)
+            want_sh = [("tickets", "dry-run", "root"), ("tickets list", "agent", "root")]
+            if got_fail != ["subscriptions purge-subscription"]:
+                bad.append(f"walker fixture: create-alias findings {got_fail}, want the duplicate's aliased copy only")
+            if got_sh != want_sh:
+                bad.append(f"walker fixture: shadows {got_sh}, want {want_sh}")
+            walker = f"walker fixture ok via {slugs[0]}'s module"
     if bad:
         print("FAIL: check_command_tree self-test")
         for b in bad:
             print("  - " + b)
         return 1
     print(f"PASS: check_command_tree self-test ({len(must_fail)} must-fail, "
-          f"{len(must_pass)} must-pass, 1 shadow)")
+          f"{len(must_pass)} must-pass, 1 shadow, 1 duplicate; {walker})")
     return 0
 
 
@@ -463,6 +547,8 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=4, help="connectors compiled in parallel (default 4)")
     ap.add_argument("--timeout", type=int, default=600, help="per-connector timeout in seconds")
     ap.add_argument("--self-test", action="store_true", help="prove the classifier both directions")
+    ap.add_argument("--list-shadows", action="store_true",
+                    help="print every flag shadow instead of a per-flag summary")
     args = ap.parse_args()
 
     if args.self_test:
@@ -496,9 +582,25 @@ def main() -> int:
         fails.extend(f)
         shadows.extend(sh)
 
-    for sh in shadows:
-        print(f"  WARN  [{sh['slug']}] `{sh['command']}` declares its own --{sh['flag']}, "
-              f"shadowing the persistent --{sh['flag']} from {sh['shadows']} (report only)")
+    if args.list_shadows:
+        for sh in shadows:
+            print(f"  WARN  [{sh['slug']}] `{sh['command']}` declares its own --{sh['flag']}, "
+                  f"shadowing the persistent --{sh['flag']} from {sh['shadows']} (report only)")
+    else:
+        by_flag: dict[str, list[dict]] = {}
+        for sh in shadows:
+            by_flag.setdefault(sh["flag"], []).append(sh)
+        for flag in sorted(by_flag, key=lambda k: (-len(by_flag[k]), k)):
+            hits = by_flag[flag]
+            per_slug: dict[str, int] = {}
+            for sh in hits:
+                per_slug[sh["slug"]] = per_slug.get(sh["slug"], 0) + 1
+            ranked = sorted(per_slug.items(), key=lambda kv: (-kv[1], kv[0]))
+            where = ", ".join(f"{s} x{n}" for s, n in ranked[:6])
+            if len(ranked) > 6:
+                where += f", +{len(ranked) - 6} more connector(s)"
+            print(f"  WARN  local --{flag} shadows a persistent --{flag} on {len(hits)} command(s): "
+                  f"{where} (report only; --list-shadows for each)")
     for e in errors:
         print(f"  FAIL  [{e['slug']}] command tree unreadable: {e['error']}")
     for f in fails:

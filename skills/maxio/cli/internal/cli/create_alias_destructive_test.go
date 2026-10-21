@@ -12,10 +12,10 @@ import (
 
 // TestDestructiveCommandsDoNotAnswerToCreate pins the removal of the hidden
 // Cobra alias "create" that the generator gives a POST endpoint command. On
-// these commands the POST deletes, cancels, purges, disables, stops or reboots
-// something, so "<parent> create" ran the destructive call while reading like
-// a harmless create. tools/maintainer/check_command_tree.py is the fleet gate;
-// this test keeps the fix alive through a reprint of this connector.
+// these commands the POST deletes, cancels, disables, stops, rolls back or
+// otherwise destroys or disrupts something, so "<parent> create" ran that call
+// while reading like a harmless create. tools/maintainer/check_command_tree.py
+// is the fleet gate; this test keeps the fix alive through a reprint.
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
@@ -25,6 +25,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"subscription-groups", "delayed-cancel-json", "initiate-delayed-cancellation-for-group"},
 		{"subscriptions", "cancel-dunning-json", "cancel-dunning"},
 		{"subscriptions", "delayed-cancel-json", "initiate-delayed-cancellation"},
+		{"subscriptions", "hold-json", "pause-subscription"},
 		{"subscriptions", "price-points", "bulk-reset-subscription-components"},
 		{"subscriptions", "purge-json", "purge-subscription"},
 	} {

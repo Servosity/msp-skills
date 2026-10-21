@@ -18,7 +18,6 @@ func newSubscriptionsHoldJsonPauseSubscriptionCmd(flags *rootFlags) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:         "pause-subscription <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Places the subscription on hold, preventing it from renewing.",
 		Example:     "  maxio-cli subscriptions hold-json pause-subscription 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "hold-json.pause-subscription", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/hold.json"},

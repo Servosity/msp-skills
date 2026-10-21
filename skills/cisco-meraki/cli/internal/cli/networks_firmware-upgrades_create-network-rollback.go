@@ -22,9 +22,8 @@ func newNetworksFirmwareUpgradesCreateNetworkRollbackCmd(flags *rootFlags) *cobr
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "create-network-rollback <networkId>",
-		Aliases: []string{"create"},
-		Short:   "Rollback a Firmware Upgrade For A Network",
+		Use:   "create-network-rollback <networkId>",
+		Short: "Rollback a Firmware Upgrade For A Network",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -17,7 +17,6 @@ func newMeetingRecordingsPauseMeetingRecordingCmd(flags *rootFlags) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:         "meeting-recording <id>",
-		Aliases:     []string{"create"},
 		Short:       "Pause an active recording session. The bot remains in the meeting but stops capturing audio/video.",
 		Example:     "  rootly-cli meeting-recordings pause meeting-recording 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "pause.meeting-recording", "pp:method": "POST", "pp:path": "/v1/meeting_recordings/{id}/pause"},
