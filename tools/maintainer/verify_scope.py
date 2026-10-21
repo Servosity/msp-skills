@@ -368,9 +368,19 @@ def pre_existing(head_text: str, base_text: str, affected: set[str], known: set[
     connectors fail. So an out-of-scope failure is exempt only when the merge
     base, run with its own scripts, already prints every one of those
     findings (line numbers ignored). Anything new blocks."""
-    base = {_norm(ln) for ln in base_text.splitlines()}
-    new = [ln for kind, who, ln in attribute_lines(head_text, known, affected)
-           if kind == "skill" and who not in affected and _norm(ln) not in base]
+    from collections import Counter
+
+    # A multiset, not a set: with line numbers gone, a second occurrence of
+    # the same finding normalises to the same text, and it must still block.
+    base = Counter(_norm(ln) for ln in base_text.splitlines())
+    new = []
+    for kind, who, ln in attribute_lines(head_text, known, affected):
+        if kind == "skill" and who not in affected:
+            key = _norm(ln)
+            if base[key] > 0:
+                base[key] -= 1
+            else:
+                new.append(ln)
     return {"pre_existing": not new, "new_lines": new[:40]}
 
 
@@ -715,6 +725,11 @@ def _self_test() -> int:
            "the base passes (this change broke zeta: a deleted asset, a tighter vocab.json) -> NEW, blocks")
     r = pre_existing(head + "  - yotta: missing x\n", head, {"acme"}, known | {"yotta"})
     expect(not r["pre_existing"], "one more out-of-scope finding than the base -> NEW, blocks")
+    one = "check_install_docs FAILED:\n  - R1 skills/zeta/mcp-install.md:10: names `mcp-remote`\n"
+    two = one + "  - R1 skills/zeta/mcp-install.md:20: names `mcp-remote`\n"
+    expect(not pre_existing(two, one, {"acme"}, known)["pre_existing"],
+           "a SECOND occurrence of a finding the base has once -> NEW, blocks (counts, not a set)")
+    expect(pre_existing(two, two, {"acme"}, known)["pre_existing"], "the same two occurrences on the base -> pre-existing")
 
     print("build_verdict:")
     with tempfile.TemporaryDirectory() as tmp:

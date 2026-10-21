@@ -165,9 +165,13 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
             for lit in lits:
                 m = rx_go.search(lit.value)
                 if m:
-                    ln = src.count("\n", 0, lit.start) + 1
-                    s0 = src.rfind("\n", 0, lit.start) + 1
-                    e0 = src.find("\n", lit.start)
+                    # The line that holds the MATCH, not the literal's first
+                    # line: a raw `...` string spans lines and maps 1:1 onto
+                    # the source; an interpreted "..." string is one line.
+                    at = lit.start + 1 + m.start() if src[lit.start] == "`" else lit.start
+                    ln = src.count("\n", 0, at) + 1
+                    s0 = src.rfind("\n", 0, at) + 1
+                    e0 = src.find("\n", at)
                     line = src[s0:e0 if e0 >= 0 else len(src)]
                     leaks.append(Leak(str(p.relative_to(root)), ln, slug, m.group(0), line))
     # handfixes.json: a `contains` marker on a non-Go file keeps a leak alive.
@@ -377,6 +381,14 @@ def _self_test() -> int:
         write({"skills/acme/SKILL.md": "Run `acme-pp-cli sync`.\n"})
         rc = quiet_run(root, ["acme"], "HEAD", skills)
         expect(rc == 1, "--base: a NEW leak line blocks even while an old one is grandfathered")
+        # A new leak inside an UNCHANGED multi-line raw string still blocks.
+        write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-cli doctor\n`\n"})
+        git("add", "-A")
+        git("commit", "-q", "-m", "a multi-line help string")
+        write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-pp-cli doctor\n`\n"})
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: a new leak on line 2 of an unchanged multi-line Go string blocks")
+        write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-cli doctor\n`\n"})
         write({"skills/acme/handfixes.json": broken["skills/acme/handfixes.json"][0]})
         git("add", "-A")
         git("commit", "-q", "-m", "a contains marker that keeps a leak")

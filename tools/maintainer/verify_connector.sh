@@ -20,6 +20,8 @@
 #   windows vet             GOOS=windows go vet (test files too)  [windows]
 #   windows test compile    GOOS=windows go test -c: every test
 #                           binary compiles AND links for Windows [windows]
+#   linux test compile      GOOS=linux go test -c (a Mac never builds
+#                           *_linux_test.go natively)             [build, new]
 #   unix-only test lint     check_unix_test_asserts.py            [windows, predicted]
 #   cli claims / doctor truth / mcp gate / hand-fix ledger        [build]
 
@@ -62,6 +64,11 @@ windows_vet() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go vet ./... ); }
 # it (a link error is a failure too), so nothing lands in the module.
 windows_test_compile() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go test -c -o /dev/null ./... ); }
 
+# CI's build row runs `go test` on linux/amd64. On a Mac the native `go test`
+# never compiles a *_linux_test.go file, so compile and link the Linux test
+# binaries too (they run in CI; a Mac cannot run them).
+linux_test_compile() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go test -c -o /dev/null ./... ); }
+
 if [ ! -f "$mod/go.mod" ]; then
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
   echo "$mod/go.mod not found" > "$logs/harness.log"
@@ -73,6 +80,7 @@ check "cross-compile"          cross_compile
 check "go test"                in_mod go test ./...
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
+check "linux test compile"     linux_test_compile
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
 check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"

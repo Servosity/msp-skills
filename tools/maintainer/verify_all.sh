@@ -226,7 +226,9 @@ baseline_confirms() {
 import re, sys
 norm = lambda l: " ".join(re.sub(r":\d+", ":N", l).split())
 head, base = (open(p, encoding="utf-8", errors="replace").read().splitlines() for p in sys.argv[1:3])
-sys.exit(0 if {norm(l) for l in head if l.strip()} <= {norm(l) for l in base} else 1)
+from collections import Counter
+h, b = Counter(norm(l) for l in head if l.strip()), Counter(norm(l) for l in base)
+sys.exit(0 if all(b[k] >= n for k, n in h.items()) else 1)
 PY
     return
   fi
