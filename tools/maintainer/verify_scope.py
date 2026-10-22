@@ -847,6 +847,73 @@ def windows_invalid(paths: list[str]) -> list[str]:
     return bad
 
 
+# CI's Windows workspace is D:\\a\\msp-skills\\msp-skills\\ (27 characters) and
+# Git for Windows keeps core.longpaths off, so a checked-out path stays under
+# MAX_PATH (260, its terminator included).
+WIN_MAX_REL = 259 - len("D:\\a\\msp-skills\\msp-skills\\")
+
+
+def too_long_for_windows(paths: list[str]) -> list[str]:
+    return [p for p in paths if len(p.encode("utf-16-le")) // 2 > WIN_MAX_REL]
+
+
+def _escapes(base_dir: str, target: str) -> bool:
+    """A path that names something outside the repository: absolute (POSIX or
+    a Windows drive), or relative and climbing above the root."""
+    if target.startswith(("/", "\\")) or re.match(r"[A-Za-z]:", target):
+        return True
+    norm = os.path.normpath(os.path.join(base_dir, target)).replace("\\", "/")
+    return norm == ".." or norm.startswith("../")
+
+
+def external_refs(root: Path = ROOT) -> list[str]:
+    """Committed content that reaches outside the repository: a symlink whose
+    target is outside it, a go.work `use` or a go.mod/go.work `replace` that
+    names a folder outside it. A host has those files and CI's fresh checkout
+    does not, so a check here could pass on them."""
+    p = subprocess.run(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=root, capture_output=True)
+    if p.returncode != 0:
+        raise OSError(f"git ls-tree failed: {p.stderr.decode(errors='replace').strip()}")
+    out = []
+    for ent in p.stdout.split(b"\0"):
+        if not ent:
+            continue
+        meta, path = ent.split(b"\t", 1)
+        mode, _typ, oid = meta.decode().split()
+        rel = os.fsdecode(path)
+        name = rel.rsplit("/", 1)[-1]
+        if mode != "120000" and name not in ("go.work", "go.mod"):
+            continue
+        blob = subprocess.run(["git", "cat-file", "blob", oid], cwd=root, capture_output=True).stdout
+        text = blob.decode("utf-8", "replace")
+        here = os.path.dirname(rel)
+        if mode == "120000":
+            if _escapes(here, text):
+                out.append(f"{rel}: a symlink to {text!r}, outside the repository")
+            continue
+        in_use = False
+        for line in text.splitlines():
+            line = line.split("//", 1)[0].strip()
+            targets = []
+            if in_use:
+                if line == ")":
+                    in_use = False
+                elif line:
+                    targets.append(line.strip('"'))
+            elif name == "go.work" and line.startswith("use"):
+                rest = line[3:].strip()
+                if rest == "(":
+                    in_use = True
+                elif rest:
+                    targets.append(rest.strip('"'))
+            if "=>" in line:
+                t = line.split("=>", 1)[1].strip().split()
+                if t and (t[0].startswith((".", "/", "\\")) or re.match(r"[A-Za-z]:", t[0])):
+                    targets.append(t[0].strip('"'))
+            out += [f"{rel}: {line!r} names {t!r}, outside the repository" for t in targets if _escapes(here, t)]
+    return out
+
+
 def repo_paths() -> list[str]:
     out: set[str] = set()
     for args in (["ls-tree", "-r", "-z", "--name-only", "HEAD"], ["ls-files", "-z", "-c", "-o", "--exclude-standard"]):
@@ -957,17 +1024,27 @@ def main(argv: list[str]) -> int:
         except OSError as e:
             print(e)
             return 2
-        groups, bad = path_collisions(paths), windows_invalid(paths)
+        try:
+            ext = external_refs()
+        except OSError as e:
+            print(e)
+            return 2
+        groups, bad, long_ = path_collisions(paths), windows_invalid(paths), too_long_for_windows(paths)
         for g in groups:
             print("  one file on a case-insensitive disk (macOS, Windows): " + "  ".join(g))
         for b in bad:
             print(f"  {b}: Windows cannot check this path out (a reserved device name, a trailing space or dot,"
                   " or a character Windows forbids)")
-        if groups or bad:
+        for p_ in long_:
+            print(f"  {p_}: {len(p_)} characters, longer than CI's Windows checkout allows ({WIN_MAX_REL};"
+                  " core.longpaths is off)")
+        for e in ext:
+            print(f"  {e}: CI's fresh checkout does not have it")
+        if groups or bad or long_ or ext:
             print("rename these: a macOS or Windows checkout cannot hold them as committed, so no check run")
             print("here (and not CI's Windows job) sees what Linux sees")
             return 1
-        print("every path checks out as committed on Linux, macOS and Windows")
+        print("every path checks out as committed on Linux, macOS and Windows, and nothing points outside the repository")
         return 0
     if a.cmd == "baseline":
         sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
@@ -1365,6 +1442,27 @@ def _self_test() -> int:
     expect(listing_errors({"m/p": pk(Error={"Err": "cannot find package"})}) != [] and
            listing_errors({"m/p": pk(DepsErrors=[{"Err": "missing"}])}) != [] and listing_errors(base_pk) == [],
            "a package go could not load (itself or a dependency) is an error, never a match")
+
+    expect(too_long_for_windows(["skills/a/" + ("a" * 120 + "/") * 2 + "x.txt"]) != [] and
+           too_long_for_windows(["skills/hubspot/cli/" + "x" * 140 + ".go"]) == [],
+           "a path past CI's Windows MAX_PATH is refused; today's longest (164) is not")
+    with tempfile.TemporaryDirectory() as td:
+        r = Path(td)
+        g = lambda *a: subprocess.run(["git", "-C", str(r), "-c", "user.name=t", "-c", "user.email=t@example.com", *a],
+                                      check=True, capture_output=True)
+        g("init", "-q")
+        (r / "s/c/internal").mkdir(parents=True)
+        os.symlink("/tmp/probe.txt", r / "s/c/internal/abs.go")
+        os.symlink("../../../../outside.go", r / "s/c/internal/up.go")
+        os.symlink("../c/go.mod", r / "s/c/internal/inside.go")
+        (r / "s/c/go.mod").write_text("module m\n\nreplace a/b => ../../../x\nreplace c/d => ./local\n", encoding="utf-8")
+        (r / "go.work").write_text("go 1.26\n\nuse (\n\t./s/c\n\t/tmp/helper\n)\n", encoding="utf-8")
+        g("add", "-A")
+        g("commit", "-qm", "x")
+        found = "\n".join(external_refs(r))
+        expect(all(x in found for x in ("abs.go", "up.go", "'../../../x'", "'/tmp/helper'")) and
+               "inside.go" not in found and "./local" not in found and "./s/c" not in found,
+               "symlinks, go.work use and replace that leave the repository are refused; ones inside it are not")
 
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],
