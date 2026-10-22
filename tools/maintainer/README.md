@@ -23,6 +23,10 @@ the statusline, you do not need anything in this folder - see the root
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
 | `skills.json` | Per-skill metadata: owner/repo, binary names, vendor, status. |
 | `release_batch.sh` | Runs a release batch in a throwaway worktree, pushes the version stamp, and prints probe-gated tag commands. Never tags. |
+| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change. See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
+| `resolve_registry.py` | Finishes a conflicted rebase or merge: per-entry three-way merge of `skills.json`, `marketplace.json` and `cards.yaml`, main's copy of derived files, regenerate, re-check, print the final registry diff. Stops on any other conflict. `--self-test`. |
+| `cut_tags.sh` | Cuts release tags one per push behind the pipeline probe and the CHANGELOG check; `--receipts` proves each release sealed complete and sweeps for drafts. `--self-test`. |
+| `stamp_release.py` | Stamps `cli_hash_at_release` from the tagged tree once a release has sealed, and dates its CHANGELOG heading. `catalog.yml` runs it in the post-release bot commit. `--self-test`. |
 | `check_release_pipeline.py` | Refuses a SHA (`--sha`) or a whole tag (`--tag T --sha S`) that must not be released. Run it before every `git tag`. |
 | `burned_versions.json` | Version numbers a destroyed release already spent. Retired forever; never cut again. |
 | `hooks/pre-push` | Optional hook: refuses a release-tag push the probe refuses. Install with `git config core.hooksPath tools/maintainer/hooks`. |
@@ -33,8 +37,9 @@ the statusline, you do not need anything in this folder - see the root
 skills changed since its merge-base, and a push to `main` builds the skills changed since
 `github.event.before` (the tip `main` had before that push). The catalog bot's
 `chore: regenerate derived files [bot]` commits touch only derived files (`pending.json`,
-`docs/skills/`, the `.mcpb` pin in a skill README, ...) and build nothing; a hand edit to the
-same README builds that skill; a change to a matrix-row checker or a build-feeding workflow
+`docs/skills/`, the `.mcpb` pin in a skill README, ...) and build nothing, except that a bot
+commit which also stamps a sealed release (`stamp_release.py`) builds that one connector's
+row, as the stamp PR it replaces did; a hand edit to the same README builds that skill; a change to a matrix-row checker or a build-feeding workflow
 builds all 65. A weekly full-matrix sweep (Sunday 06:00 UTC, also `workflow_dispatch`) bounds
 anything scoping could miss. Before 2026-09-07 every push to `main` built the whole fleet,
 which is ~210-240 runner-minutes per docs-only bot commit and, during a 21-tag release wave,
@@ -92,3 +97,86 @@ That installs [`hooks/pre-push`](./hooks/pre-push), which refuses any `refs/tags
 push the probe refuses, however the tag was typed. It is the second layer, not the first: an
 uninstalled hook protects nobody. (`core.hooksPath` replaces `.git/hooks` wholesale; if you
 keep your own hooks there, copy the file in instead.)
+
+## Merging, tagging and stamping
+
+The release chain is four tools. Run each from an up-to-date checkout of `main`, never from
+the branch being merged: they execute their own code. Every one has `--self-test`, which
+builds throwaway git repositories (and, for the merge and tag tools, a scripted fake GitHub)
+and proves each refusal and each pass both ways.
+
+```bash
+# 1. Merge one PR when it is green on the exact commit, on current main.
+python3 tools/maintainer/merge_when_green.py approve 412 --reviewer codex --head <sha> --evidence verdict.txt
+python3 tools/maintainer/merge_when_green.py 412 --dry-run   # every step, nothing pushed or merged
+python3 tools/maintainer/merge_when_green.py 412
+python3 tools/maintainer/merge_when_green.py status 412      # approvals and whether each is current
+
+# 2. Cut the tags, one per push, then prove they sealed.
+tools/maintainer/cut_tags.sh --dry-run <merged-sha> tags.txt
+tools/maintainer/cut_tags.sh <merged-sha> tags.txt
+tools/maintainer/cut_tags.sh --receipts tags.txt
+
+# 3. Nothing: the catalog bot stamps cli_hash_at_release after each release seals.
+```
+
+### `merge_when_green.py`
+
+In order: takes a per-branch lock (`repo_lock.py`, in the clone's shared git dir); refuses if a
+worktree with the branch checked out is dirty, mid-operation, in use by another live process,
+or holds unpushed commits (it never resets or cleans those; all its work happens in a private
+worktree it creates and removes); squashes the branch to one commit on its merge base,
+keeping every sign-off; rebases onto current `origin/main`, sending registry and derived-file
+conflicts to `resolve_registry.py` and stopping on anything else; regenerates the derived files;
+pushes with `--force-with-lease` pinned to the head it started from; waits for every workflow
+run, check run and commit status on that exact commit, with the branch-protection contexts
+present and SUCCESS; and merges with `--match-head-commit` only when all of it is green,
+main has not moved since the rebase, and the required approvals are current.
+
+A failing check is classified from its log. A **real** failure (a finding, a test or compile
+failure, an error annotation) is compared with the same check on the same base commit with
+the same tool versions; only when the base fails identically and main's newer tip passes with
+the same tool versions is the base shown to be stale, and only then does it rebase again. A
+known infrastructure **flake** is re-run at most twice, an **unknown** failure at most once.
+Where a failure sits in the tree is never a reason to clear or skip it.
+
+An approval records the head SHA, the base SHA and a byte-exact fingerprint of the change (a
+pinned `git diff --binary`, not `git patch-id`, which ignores whitespace even inside string
+literals). It stays current across a rebase only when the fingerprint is unchanged and main's
+new commits touch nothing under the connector's directory, nothing in `release_matrix.py`'s
+`MACHINERY` list, no directory the change's other files live in, and no registry entry of a
+slug it touches. The three registries are fingerprinted entry by entry and the regenerated
+derived files are left out (this tool regenerates and re-checks them on the commit it merges),
+so another connector merging first does not cost a re-review.
+
+Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved); 3 a conflict it will not
+resolve; 4 an approval is not current; 5 a check failed; 6 timed out.
+
+### `resolve_registry.py`
+
+Run inside the conflicted worktree, then `git rebase --continue` (or `git commit` for a merge of
+main into a branch, where it detects main as the merged-in side). It writes each registry in
+the format main's copy uses (detected by round-tripping its bytes) and places new entries by
+the file's convention: sorted in `skills.json`, appended in `marketplace.json`, sorted in
+`cards.yaml`. Registries git merged cleanly are verified per entry too, because a textual merge
+can produce valid JSON that names one slug twice. Exit 2 means nothing was changed.
+
+### `cut_tags.sh`
+
+Generalises the release-wave script. Per tag: skip it if it is already on the remote at this
+SHA, stop if it is anywhere else, run `check_release_pipeline.py --tag --sha` from this
+checkout and `changelog_section.py --check` from the tagged tree, push it alone, and wait for
+its Release run to register. `--receipts` waits for each release to be published with its
+complete asset set (`check_release_assets.py --with-mcpb`), reports a failed Release run as a
+stranded draft at once, and fails if any draft release exists anywhere in the repository.
+
+### `stamp_release.py`
+
+For a connector whose newest complete published release matches its registry and manifest
+version and whose `cli_hash_at_release` is still null, it writes the hash of `skills/<dir>/cli`
+at the tag (computed from git objects exactly as `cli_hash.py` computes it on a checkout) and
+dates the undated CHANGELOG heading with the publish date. It never overwrites a stamp that is
+set (a mismatch is printed as a WARN), and declines where a `.gitattributes`, a symlink or a
+submodule could make checkout bytes differ. `catalog.yml` runs it inside its existing
+post-release commit, in the `main-autocommit` concurrency group, so a sealed release no longer
+needs a separate stamp pull request.
