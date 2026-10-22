@@ -189,7 +189,7 @@ def scan_go(rel: str, src: str, slug: str, names: set[str]) -> list[Leak]:
     """String literals only (never comments). `<module>-pp-cli/...` is exempt
     inside import declarations only; in any other string a following `/` is a
     leaked path (`~/.config/acme-pp-cli/config.toml`)."""
-    # No raw-source prefilter: an escaped literal ("acme\\x2dpp-cli") shows
+    # No raw-source prefilter: an escaped literal ("acme\x2dpp-cli") shows
     # the leak only once decoded.
     rx_import = leak_re(names, go=True)
     rx_other = leak_re(names | {"%s"}, go=False)
