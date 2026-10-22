@@ -1131,6 +1131,8 @@ def graph_problem(a: dict, g: dict | None, rel: str, lines: tuple[int, int]) -> 
     mods: set[str] = set()
     for k in sl:
         u = units[k]
+        if u.get("embed"):
+            return f"{k} is filled by //go:embed; file contents are not covered by the hash"
         mods |= set(u.get("mods") or [])
         for r in u.get("refs") or []:
             if r not in sl and r not in excl:
@@ -1605,6 +1607,18 @@ def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
             problems.append(f"{k} differs between the gates: {by}")
     if gate_yml.count(SUMMARY_NAME) != 1:
         problems.append("the summary job no longer names itself security-gate only for pull_request runs")
+    summary = gate_yml.split(SUMMARY_NAME, 1)[-1]
+    guard_at = summary.find('if [ "$GUARD" != "success" ]')
+    base_at = summary.find("ref: ${{ needs.scope.outputs.base }}")
+    script_at = summary.find("check_security_gate.py --summarize")
+    if not (0 <= guard_at < base_at < script_at):
+        problems.append("the summary must check the guard, then run the BASE copy of --summarize")
+    if re.search(r"uses:\s*actions/cache@", gate_yml) or "actions/cache/restore@" not in gate_yml:
+        problems.append("scanner binaries must be restored with actions/cache/restore and verified, "
+                        "never with the auto-saving actions/cache")
+    for k in ("GOSEC_SHA256", "GOVULNCHECK_SHA256", "OSV_SCANNER_SHA256"):
+        if not re.search(rf'(?m)^\s*{k}:\s*"[0-9a-f]{{64}}"\s*$', gate_yml):
+            problems.append(f"security-gate.yml does not pin {k}")
     if re.search(r"(?m)^\s+name:\s*['\"]?security-gate['\"]?\s*$", gate_yml):
         problems.append("a job other than the summary is named security-gate")
     return problems
@@ -1624,6 +1638,13 @@ def _self_test_workflows() -> int:
                                                                "name: security-gate"), rel_yml, False),
         ("summary reports the required name on any event", gate_yml.replace(
             SUMMARY_NAME, "name: security-gate"), rel_yml, False),
+        ("summary runs the PR's copy of its logic", gate_yml.replace(
+            "ref: ${{ needs.scope.outputs.base }}", "ref: ${{ github.sha }}"), rel_yml, False),
+        ("summary no longer checks the guard first", gate_yml.replace(
+            'if [ "$GUARD" != "success" ]', 'if [ "$GUARD" = "never" ]'), rel_yml, False),
+        ("scanner cache restored without verification", gate_yml.replace(
+            "actions/cache/restore@v4", "actions/cache@v4"), rel_yml, False),
+        ("scanner hash pin removed", re.sub(r'(?m)^\s*GOSEC_SHA256:.*\n', "", gate_yml), rel_yml, False),
     ]
     for name, g, r, want in cases:
         probs = workflow_problems(g, r)
@@ -1777,6 +1798,8 @@ def self_test() -> int:
                                "type Store struct" % _line_of(m / "internal/store/store.go",
                                                               'q: "SELECT id FROM resources WHERE " + where')),
              {"G202": P1})
+        case("prebuilt .syso object in the package", lambda r, m: (m / "internal/store/blob.syso").write_bytes(
+             b"\x7fELF not really"), {"G202": P1})
         case("normalization placeholder planted in source", lambda r, m: edit(
              m, "internal/store/store.go", "func limitClause", "// {SLUG}\nfunc limitClause"),
              {"G202": P1})

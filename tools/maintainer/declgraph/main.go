@@ -65,6 +65,7 @@ type listPkg struct {
 	GoFiles    []string
 	CgoFiles   []string
 	SFiles     []string
+	SysoFiles  []string
 	Export     string
 	Standard   bool
 	Module     *listModule
@@ -83,6 +84,9 @@ type unit struct {
 	Refs  []string `json:"refs"`
 	Ext   []string `json:"ext"`
 	Mods  []string `json:"mods"`
+	// Embed marks a variable filled by //go:embed: its contents are files the
+	// declaration hash does not cover, so it can never be part of an approval.
+	Embed bool `json:"embed"`
 
 	refs map[string]bool
 	ext  map[string]bool
@@ -521,10 +525,10 @@ func main() {
 		for _, de := range p.DepsErrors {
 			s.errs = append(s.errs, fmt.Sprintf("%s: dependency error: %s", p.ImportPath, de.Err))
 		}
-		if len(p.CgoFiles) > 0 || len(p.SFiles) > 0 {
-			// cgo and assembly can call into Go code without a reference
-			// go/types can see.
-			s.errs = append(s.errs, fmt.Sprintf("%s: cgo or assembly files are not analyzable", p.ImportPath))
+		if len(p.CgoFiles) > 0 || len(p.SFiles) > 0 || len(p.SysoFiles) > 0 {
+			// cgo, assembly and prebuilt .syso objects can supply function bodies
+			// or call into Go code without a reference go/types can see.
+			s.errs = append(s.errs, fmt.Sprintf("%s: cgo, assembly or .syso files are not analyzable", p.ImportPath))
 			continue
 		}
 		c := &checked{lp: p, info: &types.Info{
@@ -601,6 +605,10 @@ func main() {
 			for _, d := range f.Decls {
 				switch d := d.(type) {
 				case *ast.FuncDecl:
+					if d.Body == nil {
+						// A body-less declaration is implemented outside Go source.
+						s.errs = append(s.errs, fmt.Sprintf("%s: function %s has no Go body", rel, d.Name.Name))
+					}
 					start := d.Pos()
 					if d.Doc != nil {
 						start = d.Doc.Pos()
@@ -682,6 +690,16 @@ func main() {
 								key = fmt.Sprintf("var %s._@%s:%d", pp, rel, s.fset.Position(sp.Pos()).Line)
 							}
 							u := s.newUnit(key, "var", rel, s.fset, start, sp.End(), src)
+							for _, cg := range []*ast.CommentGroup{sp.Doc, d.Doc} {
+								if cg == nil {
+									continue
+								}
+								for _, cm := range cg.List {
+									if strings.HasPrefix(cm.Text, "//go:embed") {
+										u.Embed = true
+									}
+								}
+							}
 							for _, nm := range sp.Names {
 								if obj := c.info.Defs[nm]; obj != nil {
 									s.objUnit[obj] = key
