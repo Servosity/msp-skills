@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Fortinet MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/fortinet-v0.1.1/fortinet-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Fortinet release on the [releases page](https://github.com/servosity/msp-skills/releases?q=fortinet).)
+[**Download Fortinet MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/fortinet-v0.1.2/fortinet-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Fortinet release on the [releases page](https://github.com/servosity/msp-skills/releases?q=fortinet).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
