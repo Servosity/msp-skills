@@ -376,7 +376,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
            && git -C "$VERIFY_LINUX_SRC" fetch -q --depth 1 "file://$(pwd)" "$head" \
            && git -C "$VERIFY_LINUX_SRC" checkout -q --detach FETCH_HEAD \
            && { [ ! -s "$WORK/overlay.lst" ] || tar --null -T "$WORK/overlay.lst" -cf - | tar -xf - -C "$VERIFY_LINUX_SRC"; } \
-           && ( cd "$VERIFY_LINUX_SRC" && xargs -0 rm -f < "$WORK/deleted.lst" ); }; then
+           && ( cd "$VERIFY_LINUX_SRC" && xargs -0 rm -f -- < "$WORK/deleted.lst" ); }; then
       echo "  could not snapshot the repository for the Linux checks: they will fail"
       VERIFY_LINUX_SRC=""
     fi
@@ -422,7 +422,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
                                && git -C /src checkout -q --detach FETCH_HEAD" \
            && { [ ! -s "$WORK/overlay.lst" ] \
                 || COPYFILE_DISABLE=1 tar $tarx --null -T "$WORK/overlay.lst" -cf - | in_volume tar -xf - -C /src; } \
-           && in_volume sh -c 'cd /src && xargs -0 rm -f' < "$WORK/deleted.lst"; }; then
+           && in_volume sh -c 'cd /src && xargs -0 rm -f --' < "$WORK/deleted.lst"; }; then
       echo "  could not snapshot the repository into a Linux volume: the Linux checks will fail"
       VERIFY_LINUX_SRC=""
     fi

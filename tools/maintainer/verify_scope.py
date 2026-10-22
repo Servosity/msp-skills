@@ -675,11 +675,26 @@ def context_diff(off: dict[str, dict], on: dict[str, dict]) -> list[str]:
     return lines
 
 
+def listing_errors(pkgs: dict[str, dict]) -> list[str]:
+    """Packages go could not load completely: a comparison over them proves nothing."""
+    out = []
+    for path, p in sorted(pkgs.items()):
+        for e in [p.get("Error")] + list(p.get("DepsErrors") or []):
+            if e:
+                out.append(f"  {path}: {e.get('Err', e) if isinstance(e, dict) else e}")
+    return out
+
+
 def cgo_context(d: str) -> int:
     off, err_off = go_list(d, "0")
     on, err_on = go_list(d, "1")
     if err_off or err_on:
         print(err_off or err_on)
+        return 2
+    errs = listing_errors(off) + listing_errors(on)
+    if errs:
+        print("go could not load every package, so the two contexts cannot be compared:")
+        print("\n".join(sorted(set(errs))))
         return 2
     diff = context_diff(build_inputs(off), build_inputs(on))
     if diff:
@@ -718,13 +733,17 @@ def ci_gowork(d: str, root: Path = ROOT) -> str:
 def windows_tree(slug: str, out: str, root: Path = ROOT) -> str:
     """CI's Windows job's checkout, built at out: actions/checkout with a
     cone-mode sparse-checkout of skills/<slug> and tools/maintainer, which also
-    holds the files directly in the root and in skills/. Copied from this
+    holds the files directly in each cone's ancestors (the root, skills/ and
+    tools/). Copied from this
     checkout (committed, staged, unstaged and new unignored files; nothing
     ignored), so a go.work, or a replace directive, that reaches outside that
     tree fails here as it does there. Returns the go.work Go finds for
     skills/<slug>/cli inside the tree (relative to it), or "off"."""
-    p = subprocess.run(["git", "ls-files", "-z", "-c", "-o", "--exclude-standard", "--",
-                        f"skills/{slug}", "tools/maintainer", ":(glob)*", ":(glob)skills/*"],
+    cone = [f"skills/{slug}", "tools/maintainer"]
+    # Cone mode also holds the files directly in every ancestor of a cone.
+    tops = {"/".join(c.split("/")[:n]) for c in cone for n in range(len(c.split("/")))}
+    spec = cone + [":(glob)" + (f"{t}/*" if t else "*") for t in sorted(tops)]
+    p = subprocess.run(["git", "ls-files", "-z", "-c", "-o", "--exclude-standard", "--", *spec],
                        cwd=root, capture_output=True)
     if p.returncode != 0:
         raise OSError(f"git ls-files failed: {p.stderr.decode(errors='replace').strip()}")
@@ -1251,7 +1270,7 @@ def _self_test() -> int:
     with tempfile.TemporaryDirectory() as td:
         repo, out = Path(td) / "repo", Path(td) / "win"
         for f in ("README.md", "skills/list.md", "skills/x/cli/go.mod", "skills/x/cli/a.go", "skills/y/cli/go.mod",
-                  "tools/maintainer/t.py", "docs/d.md", "skills/x/cli/ignored.log"):
+                  "tools/maintainer/t.py", "tools/go.mod", "tools/other/o.py", "docs/d.md", "skills/x/cli/ignored.log"):
             (repo / f).parent.mkdir(parents=True, exist_ok=True)
             (repo / f).write_text("x\n", encoding="utf-8")
         (repo / ".gitignore").write_text("*.log\n", encoding="utf-8")
@@ -1259,8 +1278,12 @@ def _self_test() -> int:
         work = windows_tree("x", str(out), repo)
         got = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
         expect(got == [".gitignore", "README.md", "skills/list.md", "skills/x/cli/a.go", "skills/x/cli/go.mod",
-                       "tools/maintainer/t.py"] and work == "off",
-               "skills/<slug>, tools/maintainer and the root and skills/ files; never a sibling, docs/ or an ignored file")
+                       "tools/go.mod", "tools/maintainer/t.py"] and work == "off",
+               "the two cones and the files directly in root, skills/ and tools/; never a sibling, docs/ or an ignored file")
+
+    expect(listing_errors({"m/p": pk(Error={"Err": "cannot find package"})}) != [] and
+           listing_errors({"m/p": pk(DepsErrors=[{"Err": "missing"}])}) != [] and listing_errors(base_pk) == [],
+           "a package go could not load (itself or a dependency) is an error, never a match")
 
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],
