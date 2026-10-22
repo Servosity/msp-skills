@@ -139,12 +139,30 @@ present and SUCCESS; and merges with `--match-head-commit` only when all of it i
 main has not moved since the rebase, and the required approvals are current. A refused merge
 is re-validated from the top, never retried blindly.
 
+**One final gate, immediately before the merge call.** After the wait says green, everything
+the merge depends on is read again in one place, and the merge call is the very next thing it
+does: `main` (fetched, and this tool's own code compared with that `main`), the approvals'
+change fingerprint, every check, workflow run and status on the exact head (every page, against
+`total_count`, still green and with the same verdicts the wait saw), the PR (open, into main,
+this head) and `main` once more. Any change sends the run back to validate from the top; a
+same-head re-run that has turned pending or red is never merged on the strength of the earlier
+green. After the merge, the head's checks are read again and compared with the gate's: any
+difference (or no readable listing) exits **8**. Every fetch of `main` during a run, not only
+the first, re-checks the tool's freshness against it, comparing the code loaded at start (not
+the files on disk now), so rules that `main` changes mid-run stop the run (exit 2: restart
+from updated main) instead of validating with the old ones.
+
+**Residual window.** The seconds between the gate's last reads and GitHub executing the merge
+remain. Only server-side enforcement closes them: a merge queue, or requiring every aggregate
+check in branch protection (today only `security-gate` is required). The after-merge
+comparison and the parent/tree proof below detect what lands in that window.
+
 **Accepted, detected risk: main moving inside the merge call.** GitHub's merge call pins the
 head (`--match-head-commit`, the validated SHA) but cannot pin the base, and this repository's
 branch protection is not strict (by decision: no strict mode or merge queue for now). So a
 commit can still land on `main` in the second between the tool's last look at `main` and the
-merge. The tool narrows that window (it re-reads the PR and `main` immediately before the call
-and goes round again if either moved) and never misses it: afterwards it proves the merge
+merge. The tool narrows that window (the final gate re-reads the PR and `main` immediately before
+the call and goes round again if either moved) and never misses it: afterwards it proves the merge
 commit's parent is the validated base and its tree is the green tree. If not, it names what the
 intervening commits touched, waits for `main`'s own push CI on the merge commit, and exits **7**
 when that CI is green or **8** when it is red or never reports. A release chain must stop on 8,
@@ -181,7 +199,8 @@ prints it in the README footer.
 
 Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved, stale copy of the tool); 3 a
 conflict it will not resolve; 4 an approval is not current; 5 a check failed; 6 timed out; 7
-merged in a race, main's CI then green; 8 merged in a race, main's CI red or unverified (stop).
+merged in a race, main's CI then green; 8 merged, but main's CI is red or unverified after a race,
+or the head's checks changed between the final gate and the merge (stop the chain).
 
 ### `resolve_registry.py`
 
@@ -212,7 +231,11 @@ Before every push it waits
 until fewer than `CUT_TAGS_MAX_IN_FLIGHT` (default 4) Release runs are in flight across the
 repository: one tag per push is not enough by itself (52 tags pushed one at a time still put 52
 runs in flight together, exhausted the Actions-token API limit, and left 9 partial drafts and 9
-tags without a release), and an unreadable count stops the push. A release-tag lock (a `flock`
+tags without a release), and an unreadable count stops the push. The count comes from one
+unfiltered listing of every Release run, counted locally: separate per-status queries miss a run
+that changes status between them. It is used only when every page reports the same
+`total_count` and the distinct runs read equal it (read again up to `CUT_TAGS_LIST_TRIES`,
+default 3, times); one complete listing takes about 25 s today (663 runs, 7 pages). A release-tag lock (a `flock`
 in the clone's shared git dir) is held from the capacity check through the push and the run's
 registration, for cutting and for `--rerun-failed`, so two runs in one clone cannot both see room
 under the cap; separate clones do not share it. A small holder process owns the lock (no git

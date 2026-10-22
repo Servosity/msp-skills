@@ -282,16 +282,29 @@ fetch_and_check_self() { # fetch tags + main, refuse a stale copy of this script
 }
 
 in_flight() { # Release runs not yet completed, repo-wide (every wave counts)
-  # GitHub's own total_count per active status: a listing of the newest N runs
-  # would miss a long-running release older than N completed ones.
-  local total=0 s n
-  for s in queued in_progress waiting pending requested; do
-    n=$(gh api "repos/$GH_REPO/actions/workflows/release.yml/runs?status=$s&per_page=1" \
-      --jq .total_count </dev/null 2>/dev/null) || return 1
-    case "$n" in "" | *[!0-9]*) return 1 ;; esac
-    total=$((total + n))
+  # ONE unfiltered listing of every Release run, counted here. Separate
+  # per-status queries miss a run that changes status between them (requested
+  # -> queued after the queued query, before the requested one), and a newest-N
+  # listing misses an old long-running release. Complete only when every page
+  # reports the same total_count and the distinct run ids read equal it; a run
+  # counts as in flight if any sighting of it is not completed.
+  local out n try=0
+  while [ "$try" -lt "${CUT_TAGS_LIST_TRIES:-3}" ]; do
+    out=$(gh api "repos/$GH_REPO/actions/workflows/release.yml/runs?per_page=100" --paginate \
+      --jq '"T \(.total_count)", (.workflow_runs[] | "R \(.id) \(.status)")' </dev/null 2>/dev/null) || return 1
+    if n=$(printf '%s\n' "$out" | awk '
+        $1 == "T" && NF == 2 && $2 ~ /^[0-9]+$/ { tot[$2] = 1; pages++; t = $2; next }
+        $1 == "R" && NF == 3 { if (!($2 in seen)) { seen[$2] = 1; ids++ } if ($3 != "completed") act[$2] = 1; next }
+        NF == 0 { next }
+        { bad = 1 }
+        END { k = 0; for (x in tot) k++; a = 0; for (x in act) a++
+              if (bad || pages == 0 || k != 1 || ids != t) exit 1; print a }'); then
+      printf '%s\n' "$n"
+      return 0
+    fi
+    try=$((try + 1))
   done
-  printf '%s\n' "$total"
+  return 1
 }
 
 wait_for_capacity() { # block until fewer than the cap of Release runs are in flight
@@ -835,15 +848,6 @@ case "$1 $2" in
   "run list")
     tag=""; prev=""; want=""
     for a in "$@"; do [ "$prev" = "--branch" ] && tag=$a; [ "$prev" = "-q" ] && want=$a; prev=$a; done
-    if [ -z "$tag" ]; then
-      n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
-      echo x >>"$state/counts.txt"
-      if [ $(($(wc -l <"$state/counts.txt") % 3)) -eq 0 ]; then
-        oldest=$(grep -l in_progress "$state"/runs/* 2>/dev/null | head -1)
-        [ -n "$oldest" ] && echo completed >"$oldest"
-      fi
-      echo "$n"; exit 0
-    fi
     if grep -qx "$tag" "$state/no-run.txt" 2>/dev/null; then exit 0; fi
     case "$*" in
       *databaseId,headSha*)
@@ -891,10 +895,35 @@ case "$1 $2" in
       *) cat "$state/releases/$3.json" ;;
     esac ;;
   "api repos/fake/repo/releases") cat "$state/drafts.txt" 2>/dev/null || true ;;
-  "api repos/fake/repo/actions/workflows/release.yml/runs?status=in_progress&per_page=1")
+  "api repos/fake/repo/actions/workflows/release.yml/runs?"*)
+    # Every Release run is a file in runs/ holding its status. The unfiltered
+    # listing pages as "T <total_count>" then "R <id> <status>" rows; the
+    # per-status form (status=X) is the old counting method, kept to show its
+    # defect. short-listing: total_count one more than the rows; split-total N:
+    # the next N listings see a run created between two pages; flip: a run in
+    # "requested" moves to "queued" after every read.
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
     n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
     [ -f "$state/slow-count" ] && sleep 0.3  # widen the check-then-push window for the concurrency test
+    case "$2" in
+      *status=*)
+        st=${2#*status=}; st=${st%%&*}
+        reply=$(grep -lx "$st" "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ') ;;
+      *)
+        reply=$(
+          total=$(ls "$state/runs" | grep -c .)
+          [ -f "$state/short-listing" ] && total=$((total + 1))
+          echo "T $total"
+          if [ -s "$state/split-total" ] && [ "$(cat "$state/split-total")" -gt 0 ]; then
+            echo $(($(cat "$state/split-total") - 1)) >"$state/split-total"
+            echo "T $((total + 1))"
+          fi
+          for f in "$state"/runs/*; do [ -f "$f" ] && echo "R ${f##*/} $(cat "$f")"; done
+        ) ;;
+    esac
+    if [ -f "$state/flip" ]; then
+      grep -lx requested "$state"/runs/* 2>/dev/null | while IFS= read -r f; do echo queued >"$f"; done
+    fi
     echo x >>"$state/counts.txt"
     if [ -f "$state/drain-at" ]; then
       # Deterministic: a run finishes only while someone is held at the cap.
@@ -906,8 +935,7 @@ case "$1 $2" in
       oldest=$(grep -l in_progress "$state"/runs/* 2>/dev/null | head -1)
       [ -n "$oldest" ] && echo completed >"$oldest"
     fi
-    echo "$n" ;;
-  "api repos/fake/repo/actions/workflows/release.yml/runs?status="*) echo 0 ;;
+    printf '%s\n' "$reply" ;;
   *) echo "fake gh: unhandled $*" >&2; exit 2 ;;
 esac
 FAKE
@@ -1073,6 +1101,53 @@ RETIRE
   if [ "$(grep -vcx 1 "$tmp/origin.git/pushes.txt")" -eq 0 ] \
     && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -ge 8 ]; then rc=0; fi
   expect "every push carried exactly one ref (one tag per push)" "$rc"
+
+  echo "the in-flight count is one complete listing (a status change between reads):"
+  for s in zz-g1 zz-g2; do
+    connector "$s" 0.1.0
+    printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
+  done
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "two more connectors" -s
+  git -C "$tmp/repo" push -q origin main
+  sha4=$(git -C "$tmp/repo" rev-parse HEAD)
+  printf 'zz-g1-v0.1.0\n' >"$tmp/tags-g1.txt"
+  printf 'zz-g2-v0.1.0\n' >"$tmp/tags-g2.txt"
+  rm -f "$tmp"/runs/*
+  for r in 1 2 3; do echo in_progress >"$tmp/runs/aa-going-$r"; done
+  echo requested >"$tmp/runs/aa-requested"
+  : >"$tmp/flip"
+  echo 99 >"$tmp/drain-at"  # nothing finishes during these cases
+  sum=0
+  for st in queued in_progress waiting pending requested; do
+    sum=$((sum + $(gh api "repos/fake/repo/actions/workflows/release.yml/runs?status=$st&per_page=1" --jq .total_count)))
+  done
+  rc=1; [ "$sum" -eq 3 ] && rc=0
+  expect "(the old five per-status queries count 3: the run moving requested -> queued between them is missed)" "$rc"
+  echo requested >"$tmp/runs/aa-requested"
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=2 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "WAIT 4 Release run(s) in flight (cap 4)" && has "FLIGHT-TIMEOUT" \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
+  expect "one unfiltered listing counts that run: 4 in flight at a cap of 4, so nothing is pushed" $?
+  rm -f "$tmp/flip"
+  echo completed >"$tmp/runs/aa-requested"
+  : >"$tmp/short-listing"
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
+  expect "a listing with fewer runs than its total_count is never counted: nothing is pushed" $?
+  rm -f "$tmp/short-listing"
+  echo 9 >"$tmp/split-total"
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
+  expect "pages that keep disagreeing on total_count are never counted: nothing is pushed" $?
+  echo 1 >"$tmp/split-total"
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g2.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] && has "ALL-PUSHED 1 of 1" \
+    && [ "$(git --git-dir "$tmp/origin.git" rev-parse refs/tags/zz-g2-v0.1.0)" = "$sha4" ]
+  expect "one inconsistent listing is read again; consistent, 3 of a cap of 4 lets the tag through" $?
+  rm -f "$tmp/split-total" "$tmp/drain-at" "$tmp"/runs/*
 
   echo "receipts mode:"
   # A connector newer than this checkout: only the tagged tree knows its assets.

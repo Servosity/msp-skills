@@ -124,6 +124,18 @@ TOOL_FILES = ("merge_when_green.py", "resolve_registry.py", "release_matrix.py",
               "build-catalog.py")  # build-catalog.py: its patterns define what the review masks hide
 TOOLS_DIR = Path(__file__).resolve().parent
 
+
+def _read_tool(f: str) -> str | None:
+    p = TOOLS_DIR / f
+    return p.read_text(encoding="utf-8", errors="surrogateescape") if p.exists() else None
+
+
+# The rules THIS process runs, read once at start. Freshness compares main
+# against them, not against the files on disk now: a shared checkout pulled
+# mid-run would otherwise make the stale rules in memory look fresh.
+LOADED_TOOLS = {f: _read_tool(f) for f in TOOL_FILES}
+rr._form_options_re()  # build-catalog.py's masks, loaded together with that snapshot
+
 FINGERPRINT_VERSION = "msp-skills-change-fingerprint/2"
 FLAKE_RERUNS = 2
 UNKNOWN_RERUNS = 1
@@ -774,6 +786,8 @@ class Merger:
         self.state = State(git, opts.pr)
         self.rebases = 0
         self.lock: Path | None = None
+        self.tools = LOADED_TOOLS  # the rules this run validates with
+        self.green: list[list[str]] | None = None  # the check verdicts of the last green wait
 
     def say(self, msg: str) -> None:
         self.out(_printable(msg))
@@ -809,8 +823,7 @@ class Merger:
         except repo_lock.LockHeld as exc:
             raise Stop(EXIT_REFUSED, f"another run owns this branch: {exc}")
         self.say(f"==> locked branch {branch}")
-        self._fetch(branch)
-        check_tool_freshness(self.git, o.remote, o.allow_stale_tools, self.say)
+        self._fetch(branch)  # also checks this tool against the main it fetched
         remote_head = self.git.out("rev-parse", f"refs/remotes/{o.remote}/{branch}")
         if remote_head != head:
             raise Stop(EXIT_REFUSED, f"the PR head moved while starting ({head[:12]} -> {remote_head[:12]}); re-run")
@@ -847,18 +860,11 @@ class Merger:
             result = self._wait_for_checks(current, base, required)
             if result == "rebase":
                 continue
-            self._fetch(branch)
-            tip = self.git.out("rev-parse", f"refs/remotes/{o.remote}/main")
-            if tip != base:
-                self.say(f"==> main moved during the wait ({base[:12]} -> {tip[:12]}); rebasing again")
+            verdicts = self._final_gate(current, base, required, branch)
+            if verdicts is None:  # something changed since the green verdict: validate again
                 self._count_rebase()
                 continue
-            pr = self._checked_pr(current, branch)
-            ok, missing = self._approvals(base, current, record=True)
-            if not ok:
-                raise Stop(EXIT_APPROVAL, "green, but a required approval is not current: " + "; ".join(missing)
-                           + f". Re-review {current[:12]} and record it with `approve {o.pr} --head {current}`.")
-            outcome = self._merge(current, base)
+            outcome = self._merge(current, base, verdicts)  # the very next call: nothing in between
             if outcome == "retry":
                 self._count_rebase()
                 continue
@@ -900,12 +906,16 @@ class Merger:
     def _count_rebase(self) -> None:
         self.rebases += 1
         if self.rebases > self.o.max_rebases:
-            raise Stop(EXIT_TIMEOUT, f"rebased {self.o.max_rebases} times and main is still moving; try later")
+            raise Stop(EXIT_TIMEOUT, f"validated again {self.o.max_rebases} times and main or the checks are "
+                                     "still moving; try later")
 
     def _fetch(self, branch: str) -> None:
+        """Fetch main and the branch. Every fetch of main re-checks this tool
+        against that main: rules that changed mid-run stop the run."""
         r = self.o.remote
         self.git.run("fetch", "-q", "--no-tags", r, f"+refs/heads/main:refs/remotes/{r}/main",
                      f"+refs/heads/{branch}:refs/remotes/{r}/{branch}")
+        check_tool_freshness(self.git, r, self.o.allow_stale_tools, self.say, self.tools)
 
     def _wait_for_catalog_bot(self) -> None:
         deadline = self.clock() + self.o.bot_wait_s
@@ -1117,13 +1127,12 @@ class Merger:
                 self.say(f"    waiting: {len(pending)} pending" + (f", {len(failed)} failed" if failed else ""))
                 self.sleep(self.o.poll_s)
                 continue
-            key = json.dumps([sorted((c["name"], c["conclusion"]) for c in snap["checks"]),
-                              sorted((r["name"], r.get("conclusion")) for r in snap["runs"]),
-                              sorted((s["context"], s["state"]) for s in snap["statuses"])])
+            key = verdicts_of(snap)
             now = self.clock()
             if key != last_key:
                 last_key, green_since = key, now
             if now - green_since >= self.o.settle_s:
+                self.green = key
                 self.say(f"==> green on {sha[:12]}: {len(snap['checks'])} check run(s), "
                          f"{len(snap['statuses'])} status(es), {len(snap['runs'])} workflow run(s)")
                 return "green"
@@ -1199,19 +1208,56 @@ class Merger:
                           f"{tip[:12]} passes with the same tool versions")
 
     # -- merge and reports -------------------------------------------------- #
-    def _merge(self, sha: str, base: str) -> int | str:
-        """One merge attempt, never a blind retry. GitHub's merge call can pin
-        the head (--match-head-commit) but not the base, and this repository's
-        protection is not strict, so: look at main once more immediately before
-        the call, and PROVE afterwards that the merge commit sits on the
-        validated base with the validated tree. A refused merge goes back to the
-        top (re-fetch, re-validate) as "retry"."""
+    def _final_gate(self, sha: str, base: str, required: list[str], branch: str) -> list[list[str]] | None:
+        """EVERY precondition of the merge, re-read in one place, as late as
+        possible: `_run` calls `_merge` straight after it. Re-reads main (and,
+        through `_fetch`, this tool's freshness against that main), the PR,
+        the approvals' change fingerprint, and every check on the exact head
+        (complete and paginated; still green; verdicts unchanged since the
+        wait said green). Returns those verdicts, which `_merge` compares with
+        the head's checks once more after the merge, or None when anything
+        changed, which sends the run back to validate from the top.
+        Residual window: the seconds between these reads and GitHub executing
+        the merge. Only server-side enforcement (a merge queue, or every
+        aggregate check required) closes it; the after-merge comparison and
+        the parent/tree proof detect it."""
         o = self.o
-        self._checked_pr(sha)  # last look: still open, still into main, still this head
+        self._fetch(branch)
+        tip = self.git.out("rev-parse", f"refs/remotes/{o.remote}/main")
+        if tip != base:
+            self.say(f"==> main moved during the wait ({base[:12]} -> {tip[:12]}); validating again")
+            return None
+        ok, missing = self._approvals(base, sha, record=True)
+        if not ok:
+            raise Stop(EXIT_APPROVAL, "green, but a required approval is not current: " + "; ".join(missing)
+                       + f". Re-review {sha[:12]} and record it with `approve {o.pr} --head {sha}`.")
+        snap = self.gh.snapshot(sha)
+        pending, failed = self._evaluate(snap, required)
+        now = verdicts_of(snap)
+        if pending or failed or now != self.green:
+            what = (pending + [f"{f.get('name')} {f.get('conclusion')}" for f in failed]) or _changed(self.green, now)
+            self.say(f"==> the checks on {sha[:12]} changed after the green verdict ({'; '.join(what[:5])}); "
+                     "validating again")
+            return None
+        # Last, the cheapest reads: the PR (open, into main, this head) and main.
+        pr = self._checked_pr(sha, branch)
+        if pr.get("mergeable") == "CONFLICTING":
+            raise Stop(EXIT_CONFLICT, "GitHub reports the PR as CONFLICTING")
         tip = self._remote_main()
         if tip != base:
             self.say(f"==> main moved to {tip[:12]} just before the merge; validating again")
-            return "retry"
+            return None
+        return now
+
+    def _merge(self, sha: str, base: str, verdicts: list[list[str]]) -> int | str:
+        """One merge attempt, never a blind retry, straight after _final_gate.
+        GitHub's merge call can pin the head (--match-head-commit) but not the
+        base, and this repository's protection is not strict, so PROVE
+        afterwards that the head's checks still read as the gate saw them and
+        that the merge commit sits on the validated base with the validated
+        tree. A refused merge goes back to the top (re-fetch, re-validate) as
+        "retry"."""
+        o = self.o
         ok, text = self.gh.merge(o.pr, sha)
         pr = self.gh.pr(o.pr)
         if not ok:
@@ -1228,6 +1274,12 @@ class Merger:
         if not merge or self.git.run("cat-file", "-e", f"{merge}^{{commit}}", check=False).returncode != 0:
             raise Stop(EXIT_ERROR, f"merged, but the merge commit {merge[:12] or '(none reported)'} cannot be read "
                                    "to prove it sits on the validated base; check main by hand")
+        after = self._verdicts_after_merge(sha)
+        if after != verdicts:
+            raise Stop(EXIT_RACE_RED, f"merged #{o.pr} as {merge[:12]}, but the checks on {sha[:12]} changed between "
+                                      f"the final gate and the merge ({'; '.join(_changed(verdicts, after)[:5])}): "
+                                      "stop the chain; nothing may be tagged or released from main until its CI on "
+                                      f"{merge[:12]} is green")
         parent = self.git.out("rev-parse", f"{merge}^1")
         same_tree = self.git.out("rev-parse", f"{merge}^{{tree}}") == self.git.out("rev-parse", f"{sha}^{{tree}}")
         if parent == base and same_tree:
@@ -1249,6 +1301,20 @@ class Merger:
                                          "commits before releasing.")
         raise Stop(EXIT_RACE_RED, race + f" Main's CI on {merge[:12]} is {verdict.upper()} ({detail}): stop the "
                                          "chain; nothing may be tagged or released from main until it is green.")
+
+    def _verdicts_after_merge(self, sha: str) -> list[list[str]] | None:
+        """The head's check verdicts read again after the merge, or None when
+        no complete listing can be read (which never matches: unverified)."""
+        for _ in range(3):
+            try:
+                snap = self.gh.snapshot(sha)
+            except Exception as exc:  # unreadable after a merge is "unverified" (exit 8), never exit 1
+                self.say(f"    the checks on {sha[:12]} could not be read after the merge ({str(exc)[:200]})")
+                snap = {"incomplete": "lookup failed"}
+            if not snap.get("incomplete"):
+                return verdicts_of(snap)
+            self.sleep(self.o.poll_s)
+        return None
 
     def _watch_main_ci(self, merge: str) -> tuple[str, str]:
         """("green" | "red" | "unverified", detail) for the push-to-main CI of
@@ -1304,24 +1370,46 @@ class Merger:
             self.lock = None
 
 
+def verdicts_of(snap: dict) -> list[list[str]]:
+    """Every check run, workflow run and status on a commit as comparable
+    (kind, name, status, conclusion) rows: a same-SHA re-run that is pending,
+    or ends differently, changes them."""
+    rows = [["check", str(c.get("name")), str(c.get("status")), str(c.get("conclusion"))] for c in snap["checks"]]
+    rows += [["run", str(r.get("name")), str(r.get("status")), str(r.get("conclusion"))] for r in snap["runs"]]
+    rows += [["status", str(x.get("context")), str(x.get("state")), ""] for x in snap["statuses"]]
+    return sorted(rows)
+
+
+def _changed(before: list[list[str]] | None, after: list[list[str]] | None) -> list[str]:
+    if before is None or after is None:
+        return ["no complete check listing could be read" if after is None else "no green verdict recorded"]
+    b, a = {tuple(r) for r in before}, {tuple(r) for r in after}
+    return ([f"was {' '.join(r)}" for r in sorted(b - a)] + [f"now {' '.join(r)}" for r in sorted(a - b)]) or ["same"]
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def check_tool_freshness(git: Git, remote: str, allow: bool, out: Callable[[str], None]) -> None:
-    """Refuse to run code that differs from origin/main's copy of it."""
+def check_tool_freshness(git: Git, remote: str, allow: bool, out: Callable[[str], None],
+                         loaded: dict[str, str | None] | None = None) -> None:
+    """Refuse to run code that differs from the copy on the main just fetched
+    into refs/remotes/<remote>/main. Called after EVERY fetch of main, so a
+    main that changes these rules mid-run stops the run instead of being
+    validated with the rules loaded at start."""
     ref = f"refs/remotes/{remote}/main"
+    loaded = LOADED_TOOLS if loaded is None else loaded
     stale, absent = [], []
     for f in TOOL_FILES:
         theirs = git.show(ref, f"tools/maintainer/{f}")
         if theirs is None:
             absent.append(f)
-        elif theirs != (TOOLS_DIR / f).read_text(encoding="utf-8", errors="surrogateescape"):
+        elif theirs != loaded.get(f):
             stale.append(f)
     if absent:
         out(f"NOTE origin/main has no copy of {', '.join(absent)} to compare this one with")
     if stale:
-        msg = (f"this checkout's {', '.join(stale)} differ(s) from origin/main's; run from an up-to-date "
+        msg = (f"the running {', '.join(stale)} differ(s) from origin/main's; restart from an up-to-date "
                "checkout of main (a stale copy carries a stale registry and stale rules)")
         if not allow:
             raise Stop(EXIT_REFUSED, msg)
@@ -1450,6 +1538,7 @@ class FakeGitHub:
         self.before_merge: Callable[["FakeGitHub"], None] | None = None
         self.merge_calls = 0
         self.snapshots = 0
+        self.snapshot_error_after_merge = False
         self._next = 1000
 
     def _git(self, *a: str) -> str:
@@ -1472,10 +1561,14 @@ class FakeGitHub:
         self.ids[self._next] = (sha, name, attempt)
         self.logs = getattr(self, "logs", {})
         self.logs[self._next] = log
+        if conclusion == "pending":  # a re-run still going
+            return {"id": self._next, "name": name, "status": "in_progress", "conclusion": None, "app": "github-actions"}
         return {"id": self._next, "name": name, "status": "completed", "conclusion": conclusion, "app": "github-actions"}
 
     def snapshot(self, sha: str) -> dict:
         self.snapshots += 1
+        if self.snapshot_error_after_merge and self.state == "MERGED":
+            raise Stop(EXIT_ERROR, "gh api failed: HTTP 502: Bad Gateway")
         if self.on_snapshot:
             self.on_snapshot(self, sha, self.snapshots)
         cache = getattr(self, "cache", {})
@@ -1485,10 +1578,10 @@ class FakeGitHub:
             if key not in cache:
                 cache[key] = self._check(sha, name)
         checks = [cache[(sha, nm, self.attempts[(sha, nm)])] for nm in self.names]
-        runs = [{"name": "CI", "status": "completed", "event": "pull_request",
-                 "conclusion": next(c["conclusion"] for c in checks if c["name"] == "guards")},
-                {"name": "security-gate", "status": "completed", "event": "pull_request",
-                 "conclusion": next(c["conclusion"] for c in checks if c["name"] == "security-gate")}]
+        by = {c["name"]: c for c in checks}
+        runs = [{"name": run, "status": by[check]["status"], "event": "pull_request",
+                 "conclusion": by[check]["conclusion"]} for run, check in (("CI", "guards"),
+                                                                          ("security-gate", "security-gate"))]
         return {"runs": runs, "checks": checks, "statuses": [{"context": "CodeRabbit", "state": "success"}]}
 
     def job_log(self, job_id: int) -> str:
@@ -1597,12 +1690,15 @@ def _self_test() -> int:
             # The fixture's stand-in build-catalog.py differs from the real one by
             # design, so fixture runs allow it; the freshness test passes False.
             kw.setdefault("allow_stale_tools", True)
+            tools = kw.pop("tools", None)
             opts = Options(pr=fake.n, poll_s=0, settle_s=0, timeout_s=60, bot_wait_s=0, **kw)
             clk = [0.0]  # a fake clock: every sleep advances it, so timeouts end at once
 
             def fake_sleep(s: float, c=clk) -> None:
                 c[0] += max(s, 1.0)
             m = Merger(Git(work, env), fake, opts, out=logs.append, sleep=fake_sleep, clock=lambda c=clk: c[0])
+            if tools is not None:
+                m.tools = tools  # the rules "loaded at start", for the mid-run freshness cases
             return m.run(), logs
 
         def approve(work: Path, fake: FakeGitHub, head: str, ev: str = "Looks right.\nVERDICT: APPROVED\n") -> int:
@@ -2144,6 +2240,80 @@ def _self_test() -> int:
                "a copy that differs from origin/main's refuses to run")
         rc, logs = merger(work, fake, require=(), dry_run=True, allow_stale_tools=True)
         expect(rc == 0 and any("--allow-stale-tools" in s for s in logs), "... unless --allow-stale-tools, which says so")
+
+        # T8g: main changes the rules mid-run. The run starts fresh (its loaded
+        # rules are the fixture main's own copies); main then moves during the
+        # wait, and the next fetch of main checks freshness again.
+        for label, change, want in (
+                ("main changing resolve_registry.py during the wait stops the run at the next fetch "
+                 "(no merge with the old rules)", "tools/maintainer/resolve_registry.py", EXIT_REFUSED),
+                ("main moving with an unrelated commit during the wait is re-validated and merged "
+                 "(freshness re-checked, still fresh)", "skills/delta/cli/main.go", 0)):
+            origin, work, branch = world()
+            new_connector_pr(work, extra_commit=False)
+            loaded = {f: Git(work, env).show("refs/remotes/origin/main", f"tools/maintainer/{f}") for f in TOOL_FILES}
+
+            def move_main(fk: FakeGitHub, sha: str, n: int, w=work, path=change) -> None:
+                if n == 1:
+                    main_commit(w, lambda x, q=path: ((x / q).parent.mkdir(parents=True, exist_ok=True),
+                                                      (x / q).write_text("# newer on main\n")), f"main: {path}")
+            fake = FakeGitHub(origin, env, 30, branch, "skill: bravo", green, on_snapshot=move_main)
+            rc, logs = merger(work, fake, require=(), allow_stale_tools=False, tools=loaded)
+            expect(rc == want and (fake.merged is None) == (want != 0)
+                   and (want == 0 or any("resolve_registry.py differ(s) from origin/main" in s for s in logs)),
+                   f"{label} (rc={rc})")
+
+        # T8h: checks change on the SAME head after the wait said green (a
+        # re-run). The final gate re-reads them right before the merge call;
+        # the merge then compares them once more.
+        print("the final gate (checks re-read immediately before the merge):")
+
+        def rerun_at(table: dict):
+            def hook(fk: FakeGitHub, sha: str, n: int) -> None:
+                if n in table:
+                    fk.attempts[(sha, "security-gate")] = table[n]
+            return hook
+
+        def by_attempt(table: dict) -> Callable[[str, str, int], tuple[str, str]]:
+            def r(sha: str, name: str, attempt: int) -> tuple[str, str]:
+                return table.get(attempt, ("success", LOG_OK)) if name == "security-gate" else ("success", LOG_OK)
+            return r
+
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 31, branch, "skill: bravo", by_attempt({2: ("failure", LOG_REAL)}),
+                          on_snapshot=rerun_at({2: 2}))
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_CHECKS and fake.merge_calls == 0 and fake.merged is None
+               and any("changed after the green verdict" in s for s in logs),
+               f"a same-head re-run that turns red after the green wait is never merged (rc={rc})")
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 32, branch, "skill: bravo", by_attempt({2: ("pending", "")}),
+                          on_snapshot=rerun_at({2: 2, 3: 3}))
+        rc, logs = merger(work, fake, require=())
+        expect(rc == 0 and fake.merge_calls == 1 and any("changed after the green verdict" in s for s in logs),
+               f"one still running at the gate sends the run back to wait; green again, it merges (rc={rc})")
+
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 33, branch, "skill: bravo", by_attempt({2: ("failure", LOG_REAL)}))
+
+        def rerun_inside_merge(fk: FakeGitHub) -> None:
+            fk.attempts[(fk._git("rev-parse", f"refs/heads/{fk.branch}"), "security-gate")] = 2
+        fake.before_merge = rerun_inside_merge
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and fake.merged is not None
+               and any("changed between the final gate and the merge" in s for s in logs),
+               f"checks that change inside the merge call: exit 8, the chain stops (rc={rc})")
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 34, branch, "skill: bravo", green)
+        fake.snapshot_error_after_merge = True
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and fake.merged is not None
+               and any("no complete check listing" in s for s in logs),
+               f"checks that cannot be read after the merge: exit 8, unverified, not exit 0 or 1 (rc={rc})")
 
         # T9: failing checks.
         print("failing checks (flake, real, unknown, stale base):")
