@@ -532,9 +532,9 @@
     "released_hash": "sha256:76123cea18190958f8c64e88568f875888e24b29166d6cc31a4191dd5a54bb01"
   },
   "syncro": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "syncro-v0.1.4",
+    "latest_tag": "syncro-v0.1.5",
     "current_hash": "sha256:76cf1fef37fde7d580fca7506cd9789b0857f1cc8060409ff17d90b373d180de",
     "released_hash": "sha256:76cf1fef37fde7d580fca7506cd9789b0857f1cc8060409ff17d90b373d180de"
   },
@@ -546,9 +546,9 @@
     "released_hash": "sha256:efb4472d5a17c0909c8d29530c13ad9b0b4339fa728a72c82a12475a9626c1ba"
   },
   "td-synnex": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "td-synnex-v0.1.0",
+    "latest_tag": "td-synnex-v0.1.1",
     "current_hash": "sha256:f617c4921b169c1ec42c0b183e65baef620a41d33386c484e8134334ec947554",
     "released_hash": "sha256:f617c4921b169c1ec42c0b183e65baef620a41d33386c484e8134334ec947554"
   },
