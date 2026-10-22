@@ -379,7 +379,7 @@ rerun_failed() {
   # executes release.yml AS IT IS AT THE TAGGED COMMIT, so every candidate must
   # pass main's pipeline probe on that commit first, and the run must be for it.
   local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
-  local why attempt now i
+  local why attempt now i requested
   fetch_and_check_self
   new_tempfile
   errf=$NEW_TMP
@@ -477,23 +477,30 @@ rerun_failed() {
       continue
       ;;
     esac
-    if gh run rerun "$bid" -R "$GH_REPO" --failed </dev/null >/dev/null 2>&1; then
-      # Hold the lock until the new attempt is visibly registered: until then
-      # the next capacity check could still see room it does not have.
-      i=0
-      now=$attempt
-      while [ "$i" -lt "${CUT_TAGS_RUN_TRIES:-30}" ]; do
-        now=$(run_attempt "$bid")
-        case "$now" in "" | *[!0-9]*) ;; *) [ "$now" -gt "$attempt" ] && break ;; esac
-        i=$((i + 1))
-        sleep "${CUT_TAGS_RUN_SLEEP:-5}"
-      done
-      case "$now" in "" | *[!0-9]*) now=$attempt ;; esac
-      [ "$now" -gt "$attempt" ] || die "RERUN-NOT-SEEN $bt $bid: re-run requested but no new attempt registered; stopping"
+    requested=ok
+    gh run rerun "$bid" -R "$GH_REPO" --failed </dev/null >/dev/null 2>&1 || requested=error
+    # Whatever the request returned, hold the lock until the new attempt is
+    # visibly registered: an error can still mean GitHub accepted it (a lost
+    # response), and until it registers the next capacity check would see
+    # room it does not have. No new attempt after an error is a stop, not a
+    # guess.
+    i=0
+    now=$attempt
+    while [ "$i" -lt "${CUT_TAGS_RUN_TRIES:-30}" ]; do
+      now=$(run_attempt "$bid")
+      case "$now" in "" | *[!0-9]*) ;; *) [ "$now" -gt "$attempt" ] && break ;; esac
+      i=$((i + 1))
+      sleep "${CUT_TAGS_RUN_SLEEP:-5}"
+    done
+    case "$now" in "" | *[!0-9]*) now=$attempt ;; esac
+    if [ "$now" -le "$attempt" ]; then
+      [ "$requested" = ok ] && die "RERUN-NOT-SEEN $bt $bid: re-run requested but no new attempt registered; stopping"
+      die "RERUN-REFUSED $bt $bid: the request failed and no new attempt registered; stopping (cannot tell what GitHub did)"
+    fi
+    if [ "$requested" = ok ]; then
       say "RERUN $bt $bid (attempt $now)"
     else
-      say "RERUN-REFUSED $bt $bid"
-      fail=1
+      say "RERUN $bt $bid (attempt $now; the request errored but GitHub registered it)"
     fi
     tag_unlock # the re-run is registered (or refused): the next one may count capacity
     batch="$batch$bt $bid
@@ -847,7 +854,9 @@ case "$1 $2" in
       *status*) cat "$state/releases/$tag.status" 2>/dev/null || true ;;
     esac ;;
   "run rerun")
-    echo "rerun $3" >>"$state/calls.txt"; echo 0 >"$state/rerun/$3" ;;
+    if [ -f "$state/rerun-refused" ]; then echo "HTTP 403" >&2; exit 1; fi
+    echo "rerun $3" >>"$state/calls.txt"; echo 0 >"$state/rerun/$3"
+    if [ -f "$state/rerun-lost-response" ]; then echo "connection reset" >&2; exit 1; fi ;;
   "run view")
     case "$*" in *"--json attempt"*)
       # A re-run's new attempt registers only on the second look (Actions
@@ -1212,6 +1221,18 @@ PY
   rm -f "$tmp/never-register"
   [ "$rc" -ne 0 ] && has "RERUN-NOT-SEEN r15-v0.1.0 7015" && lock_free
   expect "a re-run whose new attempt never registers stops the run, and the lock is free afterwards" $?
+  rm -f "$tmp/rerun/7015" "$tmp/reg-7015" "$tmp/runs/rr-7015"
+  : >"$tmp/rerun-lost-response"
+  out=$(CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-r15.txt" 2>&1) && rc=0 || rc=$?
+  rm -f "$tmp/rerun-lost-response"
+  has "RERUN r15-v0.1.0 7015 (attempt 2; the request errored but GitHub registered it)" && has "DONE r15-v0.1.0 7015"
+  expect "a re-run whose response is lost but which GitHub accepted waits for its registration, then goes on" $?
+  rm -f "$tmp/rerun/7015" "$tmp/reg-7015" "$tmp/runs/rr-7015"
+  : >"$tmp/rerun-refused"
+  out=$(CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-r15.txt" 2>&1) && rc=0 || rc=$?
+  rm -f "$tmp/rerun-refused"
+  [ "$rc" -ne 0 ] && has "RERUN-REFUSED r15-v0.1.0 7015" && ! has "DONE r15-v0.1.0" && lock_free
+  expect "a refused re-run with no new attempt stops the run (no guess), and the lock is free" $?
   # A failing pre-push hook that leaves a child running (holding whatever
   # descriptors it inherited): the lock must still be free once cut_tags exits.
   connector zz-f1 0.1.0
