@@ -453,8 +453,8 @@ def _self_test() -> int:
         outcomes = {}
         try:
             os.environ["PATH"] = f"{stubdir}{os.pathsep}{old_path}"
-            rr.CALL_CAP_S = 1.0
             for mode in ("truncate", "stall"):
+                rr.CALL_CAP_S = 1.0 if mode == "stall" else 10.0  # only the stall needs a tight bound
                 os.environ["STUB_MODE"] = mode
                 t0 = time.monotonic()
                 try:
@@ -491,11 +491,7 @@ def _self_test() -> int:
             proc.kill()
             _o, err = proc.communicate()
             prc = "hung"
-        try:
-            os.kill(int(stub_pid.read_text()), 0)
-            stub_alive = True
-        except (ProcessLookupError, ValueError, FileNotFoundError):
-            stub_alive = False
+        stub_alive = rr.process_alive(stub_pid.read_text() if stub_pid.exists() else "")
         lock_file = Path(subprocess.run(["git", "-C", str(work), "rev-parse", "--git-common-dir"], capture_output=True,
                                         text=True).stdout.strip())
         lock_file = (lock_file if lock_file.is_absolute() else work / lock_file) / "msp-skills-locks" / "release.lock"

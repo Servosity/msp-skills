@@ -874,42 +874,43 @@ class Merger:
 
     # -- top level -------------------------------------------------------- #
     def run(self) -> int:
-        """One rule decides the exit once the merge call has been made: the
-        PR may be merged, so every outcome other than 0 (proven), 7 or 8 is 8
-        (stop the chain, check main by hand). Cleanup never changes it."""
+        """ONE rule decides the exit once the FIRST merge call has been made
+        (the PR may be merged): any outcome other than a proven 0 or 7, any
+        call timeout, or any interrupt at any later point, cleanup included
+        and across merge retries, latches exit 8 (stop the chain, check main
+        by hand). A refused first call can make that 8 a false alarm; 8 means
+        "go look", never "something is wrong for certain"."""
+        interrupted = False
         try:
             code = self._run()
         except Stop as s:
             code, why = s.code, str(s)
         except KeyboardInterrupt as exc:  # SIGINT, or SIGTERM/SIGHUP via rr.install_interrupt_handlers
             code, why = EXIT_INTERRUPTED, f"interrupted ({exc or 'SIGINT'}); the blocked call's children were killed"
+            interrupted = True
         except Exception as exc:  # anything unexpected stops the run, it never merges
             code, why = EXIT_ERROR, f"internal error: {type(exc).__name__}: {exc}"
         else:
             why = ""
-        if self.merge_called and code not in (EXIT_OK, EXIT_RACE, EXIT_RACE_RED):
-            why = (f"after the merge call, {why or f'exit {code}'}: the PR may be merged and nothing proved it; "
-                   "stop the chain and check main by hand")
-            code = EXIT_RACE_RED
-        if self.merge_called and code in (EXIT_OK, EXIT_RACE) and self._timeouts() > self.timeouts_at_merge:
-            # Any call killed at its bound after the merge call is fatal, even
-            # if a later read came back complete: what it would have said is unknown.
-            why = (f"a call timed out after the merge call (exit {code} otherwise): the merge is unverified; "
-                   "stop the chain and check main by hand")
-            code = EXIT_RACE_RED
-        if why:
-            self.say(f"STOP ({code}): {why}")
         try:
             self._cleanup()
-        except KeyboardInterrupt as exc:  # interrupted during cleanup: the rest of cleanup has still run
-            new = EXIT_RACE_RED if self.merge_called else EXIT_INTERRUPTED
-            self.say(f"STOP ({new}): interrupted during cleanup ({exc or 'SIGINT'}) after exit {code}"
-                     + ("; the merge is not confirmed: stop the chain and check main by hand" if self.merge_called
-                        else ""))
-            code = new
-        except Exception as exc:  # a cleanup failure (a timeout) never changes the exit
+        except KeyboardInterrupt as exc:  # the rest of cleanup has still run
+            interrupted = True
+            code, why = EXIT_INTERRUPTED, (why + "; " if why else "") + f"interrupted during cleanup ({exc or 'SIGINT'})"
+        except Exception as exc:  # a cleanup failure is reported; before a merge call it never changes the exit
             self.say(f"WARN cleanup did not complete ({type(exc).__name__}: {str(exc)[:200]}); remove "
                      f"{self.tmp or 'the private worktree'} by hand")
+        if self.merge_called:
+            timed_out = self._timeouts() > self.timeouts_at_merge
+            if code not in (EXIT_OK, EXIT_RACE, EXIT_RACE_RED) or timed_out or interrupted:
+                cause = ("a call timed out" if timed_out else "it was interrupted" if interrupted
+                         else why or f"exit {code}")
+                why = (f"after the first merge call, {cause}"
+                       + (f" ({why})" if why and cause != why else "")
+                       + ": the PR may be merged and nothing proved it; stop the chain and check main by hand")
+                code = EXIT_RACE_RED
+        if why:
+            self.say(f"STOP ({code}): {why}")
         return code
 
     def _timeouts(self) -> int:
@@ -1390,7 +1391,8 @@ class Merger:
         (a timeout, an unreadable answer) is exit 8: the PR may be merged, and
         the chain must stop until main is checked."""
         o = self.o
-        self.timeouts_at_merge = self._timeouts()
+        if not self.merge_called:  # the baseline is the FIRST merge call's; a retry never resets it
+            self.timeouts_at_merge = self._timeouts()
         self.merge_called = True
         try:
             ok, text = self.gh.merge(o.pr, sha)
@@ -1768,6 +1770,8 @@ class FakeGitHub:
         self.break_origin_after_merge = False  # the proof's fetch then fails
         self.pr_lag_after_merge = 0  # PR reads after a successful merge that still say OPEN
         self.close_on_refuse = False  # a refused merge call leaves the PR CLOSED (unknown what landed)
+        self.timeout_after_refuse = False  # after a refusal, the next checks read times out (incomplete)
+        self._time_out_next = 0
         self.remaining_seen: list[float] = []  # what the deadline left, at each snapshot
         self.timeouts = 0
         self.merge_stalls = False
@@ -1831,7 +1835,11 @@ class FakeGitHub:
                                                                           ("security-gate", "security-gate"))]
         snap = {"runs": runs, "checks": checks, "statuses": [{"context": "CodeRabbit", "state": "success"}],
                 "combined_state": "success"}
-        snap.update({k: v for k, v in script.items() if k not in ("error", "sleep")})
+        snap.update({k: v for k, v in script.items() if k not in ("error", "sleep", "stall")})
+        if self._time_out_next:  # as the real adapter: the listing timed out, counted, snapshot incomplete
+            self._time_out_next -= 1
+            self.timeouts += 1
+            snap["incomplete"] = "check runs: lookup failed (gh api --paginate did not finish within 1s (killed))"
         return snap
 
     def job_log(self, job_id: int) -> str:
@@ -1871,6 +1879,8 @@ class FakeGitHub:
             self.refuse_merges -= 1
             if self.close_on_refuse:
                 self.state = "CLOSED"
+            if self.timeout_after_refuse:
+                self._time_out_next = 1
             return False, "Base branch was modified. Review and try the merge again."
         if self.before_merge:
             self.before_merge(self)  # e.g. a commit lands on main inside the call
@@ -2821,7 +2831,7 @@ def _self_test() -> int:
         fake = FakeGitHub(origin, env, 45, branch, "skill: bravo", green)
         fake.refuse_merges, fake.close_on_refuse = 1, True
         rc, logs = merger(work, fake, require=())
-        expect(rc == EXIT_RACE_RED and any("after the merge call" in s for s in logs),
+        expect(rc == EXIT_RACE_RED and any("after the first merge call" in s for s in logs),
                f"after a merge call, a stop that would be exit 1 (the PR CLOSED after a refusal) is 8 (rc={rc})")
         # An interrupt during cleanup after a proven merge (exit 0 so far): the
         # remaining cleanup still runs, and the exit is 8, not 0.
@@ -2845,6 +2855,38 @@ def _self_test() -> int:
         expect(rc == EXIT_RACE_RED and worktrees == 1 and fake.merged is not None,
                f"an interrupt during cleanup after a proven merge: the rest of cleanup runs and the exit is 8 "
                f"(rc={rc}, worktrees={worktrees})")
+        # The latch, sequence 1: a cleanup call that times out after a proven
+        # merge (exit 0 so far) is exit 8.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 50, branch, "skill: bravo", green)
+        real_run3 = Git.run
+
+        def remove_times_out_after_merge(self, *args, fk=fake, **kw):
+            if args[:2] == ("worktree", "remove") and fk.state == "MERGED":
+                self.timeouts += 1  # as Git._bounded counts it
+                raise rr.CallTimeout("git worktree remove did not finish within 1s (killed)")
+            return real_run3(self, *args, **kw)
+        Git.run = remove_times_out_after_merge  # type: ignore[method-assign]
+        try:
+            rc, logs = merger(work, fake, require=())
+        finally:
+            Git.run = real_run3  # type: ignore[method-assign]
+        expect(rc == EXIT_RACE_RED and fake.merged is not None
+               and any("after the first merge call, a call timed out" in s for s in logs),
+               f"a cleanup call that times out after a proven merge latches exit 8, not 0 (rc={rc})")
+        # The latch, sequence 2: the first merge call is refused, a check read
+        # then times out during re-validation, and the second call merges and
+        # is proven: still exit 8 (a retry never resets the baseline).
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 51, branch, "skill: bravo", green)
+        fake.refuse_merges, fake.timeout_after_refuse = 1, True
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and fake.merge_calls == 2 and fake.merged is not None
+               and any("after the first merge call, a call timed out" in s for s in logs),
+               f"a timeout between a refused first call and a proven second one latches exit 8 (rc={rc}, "
+               f"calls={fake.merge_calls})")
         # Cleanup that fails (a timeout) after exit 8 keeps 8 and still frees the lock.
         origin, work, branch = world()
         new_connector_pr(work, extra_commit=False)
@@ -2888,7 +2930,7 @@ def _self_test() -> int:
         fake = FakeGitHub(origin, env, 46, branch, "skill: bravo", green)
         fake.after_merge = [{"sleep": True}, {}]
         rc, logs = merger(work, fake, require=())
-        expect(rc == EXIT_RACE_RED and any("a call timed out after the merge call" in s for s in logs),
+        expect(rc == EXIT_RACE_RED and any("after the first merge call, a call timed out" in s for s in logs),
                f"a post-merge read that times out, then a complete green read: still exit 8 (rc={rc})")
 
         # Cancellation. SIGTERM (raised like Ctrl-C by the handlers main()
@@ -2935,11 +2977,7 @@ def _self_test() -> int:
                 env["PATH"] = old_env_path
             th.join(timeout=5)
             took = time.monotonic() - t0
-            try:
-                os.kill(int(push_pid.read_text()), 0)
-                push_alive = True
-            except (ProcessLookupError, ValueError, FileNotFoundError):
-                push_alive = False
+            push_alive = rr.process_alive(push_pid.read_text() if push_pid.exists() else "")
             try:
                 relock = repo_lock.acquire(branch_lock_name(branch), root=work)
                 repo_lock.release(relock)
@@ -2962,7 +3000,8 @@ def _self_test() -> int:
             except BaseException as exc:
                 rc, logs = f"raised {type(exc).__name__}", []
             th.join(timeout=5)
-            expect(rc == EXIT_RACE_RED and fake.merged is not None and any("after the merge call" in s for s in logs),
+            expect(rc == EXIT_RACE_RED and fake.merged is not None
+                   and any("after the first merge call" in s for s in logs),
                    f"SIGTERM after the merge call (a post-merge read blocked): exit 8, not 130 (rc={rc})")
         finally:
             for sig_, h in prev_handlers.items():
@@ -2989,31 +3028,7 @@ def _self_test() -> int:
         finally:
             os.environ["PATH"] = old_path
         took = time.monotonic() - t0
-        stalled_pid = int(pidfile.read_text()) if pidfile.exists() else -1
-
-        def running(pid: int) -> bool:
-            try:
-                os.kill(pid, 0)
-            except (ProcessLookupError, OverflowError, ValueError):
-                return False
-            except PermissionError:
-                return True
-            # A killed orphan is reparented to whichever process reaps it, and
-            # until then it is a zombie that kill(0) still finds. A zombie has
-            # stopped running (CI's Linux runner, a container whose PID 1 does
-            # not reap).
-            try:
-                with open(f"/proc/{pid}/stat", encoding="ascii", errors="replace") as fh:
-                    return fh.read().rsplit(")", 1)[1].split()[0] != "Z"
-            except (OSError, IndexError):
-                return True
-
-        # The kill is delivered asynchronously: give the signal a moment to land.
-        settle = time.monotonic() + 2
-        still = running(stalled_pid)
-        while still and time.monotonic() < settle:
-            time.sleep(0.05)
-            still = running(stalled_pid)
+        still = rr.process_alive(pidfile.read_text() if pidfile.exists() else "")
         expect("lookup failed" in raised and "did not finish within 1s" in raised and took < 10 and not still
                and not donefile.exists(),
                f"gh calls that stall are each killed at the deadline's remaining 1s, and the snapshot reads as "

@@ -448,13 +448,23 @@ in_flight() { # Release runs not yet completed, repo-wide (every wave counts)
 }
 
 wait_for_capacity() { # block until fewer than the cap of Release runs are in flight
-  local i=0 n cap=${CUT_TAGS_MAX_IN_FLIGHT:-4}
+  # A listing that cannot be counted (a failed gh call, pages that change while
+  # releases run) means "unknown, keep waiting": logged, never a push, and
+  # retried within the same CUT_TAGS_FLIGHT_TRIES x _FLIGHT_SLEEP budget as a
+  # full cap. Only that budget running out stops the run (a single transient
+  # failure once stopped a whole wave).
+  local i=0 n waited=0 cap=${CUT_TAGS_MAX_IN_FLIGHT:-4} tries=${CUT_TAGS_FLIGHT_TRIES:-120}
   while :; do
-    n=$(in_flight) || die "FLIGHT-UNKNOWN cannot count Release runs in flight (gh failed); stopping rather than over-committing"
-    [ "$n" -lt "$cap" ] && return 0
-    [ "$i" -eq 0 ] && say "WAIT $n Release run(s) in flight (cap $cap); waiting for one to finish"
+    if n=$(in_flight); then
+      [ "$n" -lt "$cap" ] && return 0
+      [ "$waited" -eq 1 ] || say "WAIT $n Release run(s) in flight (cap $cap); waiting for one to finish"
+      waited=1
+    else
+      n=unknown
+      say "FLIGHT-UNKNOWN cannot count Release runs in flight (try $((i + 1)) of $tries); not pushing, waiting"
+    fi
     i=$((i + 1))
-    [ "$i" -lt "${CUT_TAGS_FLIGHT_TRIES:-120}" ] || die "FLIGHT-TIMEOUT still $n Release run(s) in flight; stopping"
+    [ "$i" -lt "$tries" ] || die "FLIGHT-TIMEOUT Release runs in flight still $n after $tries tries; stopping"
     sleep "${CUT_TAGS_FLIGHT_SLEEP:-30}"
   done
 }
@@ -1053,6 +1063,11 @@ case "$1 $2" in
       wait "$!"
       echo late >"$state/gh-stall.late"
     fi
+    if [ -s "$state/flight-fail" ] && [ "$(cat "$state/flight-fail")" -gt 0 ]; then  # a transient gh failure
+      echo $(($(cat "$state/flight-fail") - 1)) >"$state/flight-fail"
+      echo "HTTP 502: Bad Gateway" >&2
+      exit 1
+    fi
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
     n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
     [ -f "$state/slow-count" ] && sleep 0.3  # widen the check-then-push window for the concurrency test
@@ -1244,10 +1259,23 @@ RETIRE
   printf '# Changelog\n\n## [0.1.7] - 2026-10-22\n\n### Fixed\n- A fix.\n' >"$tmp/repo/skills/zz-one/CHANGELOG.md"
   git -C "$tmp/repo" commit -q -am "zz-one 0.1.7" -s
   git -C "$tmp/repo" push -q origin main
-  out=$(PATH="$tmp/nogh:$PATH" bash -c 'mkdir -p "$1"; printf "#!/bin/sh\nexit 1\n" >"$1/gh"; chmod +x "$1/gh"; shift; bash "$@"' _ "$tmp/nogh" "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-unknown.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+  out=$(CUT_TAGS_FLIGHT_TRIES=3 CUT_TAGS_FLIGHT_SLEEP=0 PATH="$tmp/nogh:$PATH" bash -c 'mkdir -p "$1"; printf "#!/bin/sh\nexit 1\n" >"$1/gh"; chmod +x "$1/gh"; shift; bash "$@"' _ "$tmp/nogh" "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-unknown.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && [ "$(printf '%s\n' "$out" | grep -c FLIGHT-UNKNOWN)" -eq 3 ] && has "FLIGHT-TIMEOUT" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-one-v0.1.7 >/dev/null
-  expect "when the in-flight count cannot be read, nothing is pushed" $?
+  expect "a count that stays unreadable is waited out (each try logged), then stops at the budget; nothing pushed" $?
+  connector zz-p1 0.1.0
+  printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/zz-p1/CHANGELOG.md"
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "zz-p1" -s
+  git -C "$tmp/repo" push -q origin main
+  printf 'zz-p1-v0.1.0\n' >"$tmp/tags-p1.txt"
+  rm -f "$tmp"/runs/*
+  echo 2 >"$tmp/flight-fail"
+  out=$(CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=5 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-p1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c FLIGHT-UNKNOWN)" -eq 2 ] && has "ALL-PUSHED 1 of 1" \
+    && git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-p1-v0.1.0 >/dev/null
+  expect "the in-flight listing fails twice (logged, waited), then reads 0: the tag is pushed (the #423 wave)" $?
+  rm -f "$tmp"/runs/* "$tmp/flight-fail"
   rc=1
   if [ "$(grep -vcx 1 "$tmp/origin.git/pushes.txt")" -eq 0 ] \
     && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -ge 8 ]; then rc=0; fi
@@ -1283,14 +1311,14 @@ RETIRE
   rm -f "$tmp/flip"
   echo completed >"$tmp/runs/aa-requested"
   : >"$tmp/short-listing"
-  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=2 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" && has "FLIGHT-TIMEOUT" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
   expect "a listing with fewer runs than its total_count is never counted: nothing is pushed" $?
   rm -f "$tmp/short-listing"
   echo 9 >"$tmp/split-total"
-  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=2 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" && has "FLIGHT-TIMEOUT" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
   expect "pages that keep disagreeing on total_count are never counted: nothing is pushed" $?
   echo 1 >"$tmp/split-total"
@@ -1414,7 +1442,12 @@ PY
   cat >"$tmp/on-done-702.sh" <<'SEAL'
 printf '{"isDraft": false, "assets": []}' >"${CT_STATE:?}/releases/r3-v0.1.0.json"
 SEAL
+  echo 2 >"$tmp/flight-fail" # the same liveness rule in recovery: two unreadable counts are waited out
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
+  rm -f "$tmp/flight-fail"
+  rc=1
+  if [ "$(printf '%s\n' "$out" | grep -c FLIGHT-UNKNOWN)" -eq 2 ]; then rc=0; fi
+  expect "recovery logs two unreadable in-flight counts, waits them out, and still re-runs (checked next)" "$rc"
   rc=1
   if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort -n | tr '\n' ' ')" = "701 702 7011 " ]; then rc=0; fi
   expect "exactly the failed runs whose release is not published, on a safe pipeline and live version, are re-run" "$rc"

@@ -560,6 +560,32 @@ class CallTimeout(RuntimeError):
         self.stdout = stdout
 
 
+def process_alive(pid_text: str, wait: float = 2.0) -> bool:
+    """For the self-tests: is the process still running after up to `wait`
+    seconds? A killed orphan stays a zombie until whoever inherits it reaps it
+    (kill(pid, 0) still finds one; in a container whose PID 1 does not reap,
+    it stays one), so a zombie counts as gone. `ps` works on macOS and Linux."""
+    import time
+    try:
+        pid = int(pid_text)
+    except ValueError:
+        return False
+    end = time.monotonic() + wait
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            pass
+        st = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+        if not st or st.startswith("Z"):
+            return False
+        if time.monotonic() >= end:
+            return True
+        time.sleep(0.05)
+
+
 def run_bounded(argv: list[str], *, timeout: float | None = None, input=None, capture_output: bool = False,
                 check: bool = False, **kw) -> subprocess.CompletedProcess:
     """subprocess.run with a hard bound. The child runs in its own process
@@ -1431,11 +1457,7 @@ def _self_test() -> int:
             for sig, h in prev.items():
                 signal.signal(sig, h)
         took = time.monotonic() - t0
-        try:
-            os.kill(int(gpid.read_text()), 0)
-            alive = True
-        except (ProcessLookupError, ValueError, FileNotFoundError):
-            alive = False
+        alive = process_alive(gpid.read_text() if gpid.exists() else "")
         expect(got == "Interrupted(SIGTERM)" and took < 10 and not alive,
                f"SIGTERM during a blocked call raises Interrupted and kills the call's whole group ({got}, {took:.1f}s)")
 
