@@ -313,7 +313,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none; pulls what dock
   elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=docker
     local v img="" vol
-    for v in $(cut -d' ' -f2 "$WORK/connectors.txt" | while read -r d; do
+    for v in $(cat "$WORK/connectors.txt" "$WORK/modules.txt" 2>/dev/null | cut -d' ' -f2 | while read -r d; do
                  awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "skills/$d/cli/go.mod" \
                    || awk '/^go / {print $2; exit}' "skills/$d/cli/go.mod"; done | sort -u); do
       # The same tag can be cached for another platform (an arm64 pull):
@@ -328,6 +328,15 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none; pulls what dock
       docker volume create "$vol" >/dev/null 2>&1
       [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" chown "$(id -u):$(id -g)" /v >/dev/null 2>&1
     done
+    # The repository as it would be committed (tracked plus untracked,
+    # unignored files), once, for every container: repo-level inputs are
+    # there, the worktree is never written to, and Docker never needs to
+    # read a protected macOS folder.
+    VERIFY_LINUX_SNAPSHOT="$WORK/repo"
+    mkdir -p "$VERIFY_LINUX_SNAPSHOT"
+    git ls-files -co --exclude-standard -z | tar --null -T - -cf - | tar -xf - -C "$VERIFY_LINUX_SNAPSHOT" \
+      || echo "  could not snapshot the repository for the Linux container: the Linux checks will fail"
+    export VERIFY_LINUX_SNAPSHOT
   else
     VERIFY_LINUX_MODE=none
   fi
@@ -367,6 +376,32 @@ if [ "$n_conn" -gt 0 ]; then
     cat "$r" >> "$REC"
   done < "$WORK/connectors.txt"
 fi
+if [ "$FULL" = true ]; then
+  # Every other skills/*/cli module gets CI's Linux build and vet too (the
+  # full run always built and vetted every module on disk).
+  : > "$WORK/modules.txt"
+  for g in skills/*/cli/go.mod; do
+    d="$(basename "$(dirname "$(dirname "$g")")")"
+    cut -d' ' -f2 "$WORK/connectors.txt" | grep -qxF "$d" || printf '%s %s\n' "$d" "$d" >> "$WORK/modules.txt"
+  done
+  if [ -s "$WORK/modules.txt" ]; then
+    [ -n "${VERIFY_LINUX_MODE:-}" ] || linux_prepare
+    VERIFY_MODULE_ONLY=1 xargs -P "$jobs" -n 2 bash tools/maintainer/verify_connector.sh "$WORK" < "$WORK/modules.txt"
+    while IFS=' ' read -r s _d; do
+      r="$WORK/records/$s.tsv"
+      if [ ! -s "$r" ] || ! grep -q "^connector complete$(printf '\t')" "$r"; then
+        [ -s "$r" ] && cat "$r" >> "$REC"
+        printf '  FAIL  %s: the module worker did not finish\n' "$s"
+        record "connector harness" connector "$s" fail 0 /dev/null
+        continue
+      fi
+      while IFS="$(printf '\t')" read -r name _kind _slug st _secs log; do
+        if [ "$st" = pass ]; then printf '  PASS  %s (%s)\n' "$name" "$s"; else sed 's/^/    /' "$log" | tail -60; printf '  FAIL  %s (%s)\n' "$name" "$s"; fi
+      done < "$r"
+      cat "$r" >> "$REC"
+    done < "$WORK/modules.txt"
+  fi
+fi
 
 # -------------------------------------------------------- security gate ----
 echo "== Security gate (security-gate.yml flags) =="
@@ -381,12 +416,57 @@ if [ -s "$WORK/security.txt" ]; then
   else
     echo "  toolchain: go.mod's (could not reach go.dev to resolve CI's; this is stricter than CI)"
   fi
+  # CI's gate runs on linux/amd64 with cgo ON. The analyzers load packages
+  # for the context they are given: GOOS/GOARCH always, and cgo on only where
+  # this host can build cgo for linux/amd64 (a native linux/amd64 host with a
+  # C compiler). Elsewhere cgo is off, so a cgo-only file would never be
+  # scanned: the context check below fails closed on one, for EVERY slug the
+  # gate scans (not just the build scope). Read from `go list -json`, names whole.
+  if [ "$(uname -s)" = Linux ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] && command -v gcc >/dev/null 2>&1; then
+    gate_cgo=1
+  else
+    gate_cgo=0
+  fi
+  security_context() { # <module dir>
+    [ "$gate_cgo" = 1 ] && { echo "linux/amd64 with cgo: the gate reads what CI's gate reads"; return 0; }
+    ( cd "$1" && python3 - <<'PY'
+import json, os, subprocess, sys
+
+def files(env):
+    p = subprocess.run(["go", "list", "-e", "-json", "./..."], env=dict(os.environ, **env),
+                       capture_output=True, text=True)
+    if p.returncode != 0 and not p.stdout:
+        print(p.stderr)
+        sys.exit(2)
+    out, dec, s, i = set(), json.JSONDecoder(), p.stdout, 0
+    while True:
+        while i < len(s) and s[i].isspace():
+            i += 1
+        if i >= len(s):
+            return out
+        obj, i = dec.raw_decode(s, i)
+        for key in ("GoFiles", "CgoFiles", "TestGoFiles", "XTestGoFiles"):
+            for f in obj.get(key) or []:
+                out.add(os.path.join(obj.get("Dir", ""), f))
+
+ctx = {"GOOS": "linux", "GOARCH": "amd64", "GOFLAGS": "", "GOENV": "off"}
+missing = sorted(files(dict(ctx, CGO_ENABLED="1")) - files(dict(ctx, CGO_ENABLED="0")))
+if missing:
+    print("files CI's security gate (linux/amd64, cgo on) scans that this host's gate (cgo off) cannot:")
+    for m in missing:
+        print("  " + m)
+    print("run verify_all.sh on a linux/amd64 host with a C compiler, or rely on CI for this skill")
+    sys.exit(1)
+print("no cgo-only files: this host's gate reads every file CI's gate reads")
+PY
+    )
+  }
   while IFS= read -r s; do
     [ -n "$s" ] || continue
-    # GOOS/GOARCH: the analyzers load packages for the build context they
-    # are given; CI's gate runs on linux/amd64, so a *_linux.go file must be
-    # in what they read here too.
-    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 ${gate_go:+GOTOOLCHAIN="$gate_go"} \
+    if [ -f "skills/$s/cli/go.mod" ]; then
+      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli"
+    fi
+    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= ${gate_go:+GOTOOLCHAIN="$gate_go"} \
       python3 tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"

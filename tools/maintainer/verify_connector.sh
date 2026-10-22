@@ -21,7 +21,6 @@
 #   windows vet             GOOS=windows go vet (test files too)            [windows]
 #   windows test compile    GOOS=windows go test -c: every test
 #                           binary compiles AND links for Windows           [windows]
-#   security gate context   no cgo-only file the local gate cannot scan     [security-gate]
 #   unix-only test lint     check_unix_test_asserts.py                      [windows, predicted]
 #   cli claims / doctor truth / mcp gate / hand-fix ledger                  [build]
 
@@ -78,73 +77,43 @@ go_version() { # the version CI's setup-go installs: the toolchain line, else th
 }
 
 linux_run() { # linux_run <shell command>: run it in skills/<dir>/cli, in CI's Linux context
+  # The environment is EXPLICIT, never inherited: no GOFLAGS (a -run=^$ would
+  # skip every test), no go env file (GOENV=off), cgo on, CI=true, and the
+  # toolchain CI's setup-go selects from go.mod, pinned with GOTOOLCHAIN even
+  # where a newer local go would otherwise build with itself.
+  local ver
+  ver="$(go_version)"
   case "$linux_mode" in
     native)
-      ( cd "$mod" && CGO_ENABLED=1 CI=true bash -c "$1" ) ;;
+      ( cd "$mod" && env -i PATH="$PATH" HOME="${HOME:-/tmp}" TMPDIR="${TMPDIR:-/tmp}" \
+          GOPATH="$(go env GOPATH)" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" \
+          GOENV=off GOFLAGS= GOTOOLCHAIN="go$ver" CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CI=true \
+          bash -c "$1" ) ;;
     docker)
-      # Docker cannot read a worktree under a protected macOS folder, and a
-      # test must not write into the worktree anyway: run on a private copy
-      # of the whole skill directory (tests may read ../README.md and such).
-      local copy ver
-      copy="$work/linux/$slug"
-      rm -rf "$copy"; mkdir -p "$copy/skills"
-      cp -R "skills/$dir" "$copy/skills/" || return 1
-      ver="$(go_version)"
+      # The whole repository as it would be committed (tracked plus untracked,
+      # unignored files), snapshotted once by verify_all.sh: repo-level inputs
+      # (a Go workspace, a fixture a test reads from ../../..) are there as in
+      # CI's checkout, and no test writes into the worktree. Docker could not
+      # read a worktree under a protected macOS folder anyway.
+      [ -n "${VERIFY_LINUX_SNAPSHOT:-}" ] && [ -d "$VERIFY_LINUX_SNAPSHOT/skills/$dir/cli" ] || {
+        echo "no repository snapshot for the Linux container (VERIFY_LINUX_SNAPSHOT)"; return 1; }
       docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
-        -e HOME=/tmp -e CI=true -e CGO_ENABLED=1 -e GOTOOLCHAIN=local \
+        -e HOME=/tmp -e CI=true -e CGO_ENABLED=1 -e GOTOOLCHAIN=local -e GOENV=off -e GOFLAGS= \
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
-        -v "$copy:/src" -w "/src/skills/$dir/cli" \
+        -v "$VERIFY_LINUX_SNAPSHOT:/src" -w "/src/skills/$dir/cli" \
         "golang:${ver}-bookworm" bash -c "$1" ;;
     *)
       echo "CI's Linux build row (linux/amd64, cgo on) cannot run here: this host is not"
-      echo "linux/amd64 with cgo, and no Docker daemon is reachable. Install Docker or OrbStack,"
-      echo "or run on Linux. Not a pass: these results come only from a real Linux run."
+      echo "linux/amd64 with a C compiler, and no Docker daemon is reachable. Install Docker or"
+      echo "OrbStack, or run on Linux. Not a pass: these results come only from a real Linux run."
       return 1 ;;
   esac
 }
 
 linux_build_vet() { linux_run 'go version && go build ./... && go vet ./...'; }
 linux_test()      { linux_run 'go test -count=1 ./...'; }   # as CI: never a cached result
-
-# The security gate itself still runs on this host (its scanners live here),
-# with GOOS=linux GOARCH=amd64 but cgo OFF from a non-Linux host. A file only
-# a cgo-on build selects would be compiled above but never scanned, so that
-# fails closed. Read from `go list -json`, which keeps every file name whole.
-security_context() {
-  [ "$linux_mode" = native ] && { echo "native linux/amd64 with cgo: the gate reads what CI's gate reads"; return 0; }
-  ( cd "$mod" && python3 - <<'PY'
-import json, os, subprocess, sys
-
-def files(env):
-    p = subprocess.run(["go", "list", "-e", "-json", "./..."], env=dict(os.environ, **env),
-                       capture_output=True, text=True)
-    if p.returncode != 0 and not p.stdout:
-        print(p.stderr)
-        sys.exit(2)
-    out, dec, s, i = set(), json.JSONDecoder(), p.stdout, 0
-    while True:
-        while i < len(s) and s[i].isspace():
-            i += 1
-        if i >= len(s):
-            return out
-        obj, i = dec.raw_decode(s, i)
-        for key in ("GoFiles", "CgoFiles", "TestGoFiles", "XTestGoFiles"):
-            for f in obj.get(key) or []:
-                out.add(os.path.join(obj.get("Dir", ""), f))
-
-ctx = {"GOOS": "linux", "GOARCH": "amd64"}
-missing = sorted(files(dict(ctx, CGO_ENABLED="1")) - files(dict(ctx, CGO_ENABLED="0")))
-if missing:
-    print("files CI's security gate (linux/amd64, cgo on) scans that this host's gate cannot:")
-    for m in missing:
-        print("  " + m)
-    sys.exit(1)
-print("no cgo-only files: this host's gate reads every file CI's gate reads")
-PY
-  )
-}
 
 if [ ! -f "$mod/go.mod" ]; then
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
@@ -153,17 +122,22 @@ if [ ! -f "$mod/go.mod" ]; then
 fi
 
 check "linux build+vet"        linux_build_vet
+if [ "${VERIFY_MODULE_ONLY:-0}" = 1 ]; then
+  # A module outside the connector set (the full run builds and vets every
+  # skills/*/cli, as verify_all.sh always did); CI's matrix has no row for it.
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector complete" connector "$slug" pass 0 /dev/null >> "$rec"
+  echo "  done  $slug (module only)"
+  exit 0
+fi
 check "linux go test"          linux_test
 check "cross-compile"          cross_compile
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
-check "security gate context"  security_context
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
 check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"
 check "mcp gate"               python3 tools/maintainer/check_mcp_gate.py --slug "$slug"
 check "hand-fix ledger"        python3 tools/maintainer/check_handfixes.py --slug "$slug"
-rm -rf "$work/linux/$slug"
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
 # The parent accepts this connector's records only when this line exists: a

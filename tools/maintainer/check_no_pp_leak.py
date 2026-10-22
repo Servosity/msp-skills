@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import re
 import subprocess
 import sys
@@ -163,13 +164,22 @@ def _scan_text(rel: str, text: str, slug: str, rx: re.Pattern) -> list[Leak]:
     return out
 
 
+READ_ERRORS: list[str] = []
+
+
 def _read(p: Path) -> str | None:
+    """A file's text, or None when it does not exist. Any OTHER read error is
+    recorded and fails the run: an unreadable file is not a file without a
+    leak."""
     try:
         # surrogateescape: lossless, so the ratchet's exact comparison sees
         # a changed invalid byte (errors="replace" made them all U+FFFD).
         with open(p, encoding="utf-8", errors="surrogateescape", newline="") as fh:
             return fh.read()
-    except OSError:
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    except OSError as e:
+        READ_ERRORS.append(f"{p}: {e}")
         return None
 
 
@@ -431,6 +441,11 @@ def run(root: Path, slugs: list[str], base: str | None, skills: dict) -> int:
     leaks += scan_shared(root, slugs, skills)
     if base:
         mark_pre_existing(root, base, leaks)
+    if READ_ERRORS:
+        print("check_no_pp_leak: could not read every input (not a pass):")
+        for e in READ_ERRORS:
+            print(f"  {e}")
+        return 2
     new = [lk for lk in leaks if not lk.pre_existing]
     old = [lk for lk in leaks if lk.pre_existing]
     for lk in new + old:
@@ -649,6 +664,15 @@ def _self_test() -> int:
         rc = quiet_run(root, ["acme"], None, skills)
         expect(rc == 1, "no --base: a full audit fails on every leak")
         expect(quiet_run(root, ["acme"], "no-such-ref", skills) == 2, "an unresolvable --base is an error, never a pass")
+        locked = root / "skills/acme/SKILL.md"
+        locked.write_text("Run acme-pp-cli\n", encoding="utf-8")
+        locked.chmod(0)
+        unreadable = not os.access(locked, os.R_OK)
+        if unreadable:
+            expect(quiet_run(root, ["acme"], None, skills) == 2, "an unreadable input is an error, never a pass")
+        READ_ERRORS.clear()
+        locked.chmod(0o644)
+        locked.unlink()
     if failures:
         print(f"\nFAIL: check_no_pp_leak self-test - {len(failures)} case(s)")
         return 1
