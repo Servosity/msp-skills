@@ -136,6 +136,13 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
         mb = out if rc == 0 and out else None
     rc, porcelain = _git("status", "--porcelain", "--untracked-files=normal")
     dirty = rc != 0 or bool(porcelain)
+    snapshot = None
+    if os.environ.get("VERIFY_ALL_REAL_HEAD"):
+        # verify_all.sh runs on a clean checkout of the commit `git add -A`
+        # would make; report the developer's own HEAD, and whether that
+        # commit carries uncommitted changes.
+        snapshot, head = head, os.environ["VERIFY_ALL_REAL_HEAD"]
+        dirty = dirty or os.environ.get("VERIFY_ALL_DIRTY") == "1"
     notes: list[str] = []
     if not base_sha:
         notes.append(f"base {base!r} does not resolve; base-relative checks report it")
@@ -197,6 +204,7 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
         "merge_base": mb,
         "head_sha": head,
         "dirty": dirty,
+        "snapshot_sha": snapshot,
         "full_fleet": full_fleet,
         "reason": reason,
         "notes": notes,
@@ -482,6 +490,7 @@ def build_verdict(scope: dict, records: list[dict], seconds: float, started: str
         "seconds": round(seconds, 1),
         "head_sha": scope["head_sha"],
         "dirty": scope["dirty"],
+        "snapshot_sha": scope.get("snapshot_sha"),
         "base_ref": scope["base_ref"],
         "base_sha": scope["base_sha"],
         "merge_base": scope["merge_base"],
@@ -795,24 +804,6 @@ def windows_tree(slug: str, out: str, root: Path = ROOT) -> str:
         cur = cur.parent
 
 
-def snapshot_delta(root: Path = ROOT) -> tuple[list[bytes], list[bytes]]:
-    """How the working tree differs from HEAD, as the commit `git add -A`
-    would make it: the files that commit holds are every path on disk that is
-    in the index or untracked and not ignored. Returns (overlay, deleted):
-    those files that are new or changed against HEAD, and HEAD's paths that
-    commit would not hold (deleted from disk, or removed from the index and
-    then ignored). Paths are raw bytes, as git prints them with -z."""
-    def ls(*args: str) -> set[bytes]:
-        p = subprocess.run(["git", *args], cwd=root, capture_output=True)
-        if p.returncode != 0:
-            raise OSError(f"git {' '.join(args)} failed: {p.stderr.decode(errors='replace').strip()}")
-        return {x for x in p.stdout.split(b"\0") if x}
-    head = ls("ls-tree", "-r", "-z", "--name-only", "HEAD")
-    final = {x for x in ls("ls-files", "-z", "-c", "-o", "--exclude-standard") if os.path.lexists(root / os.fsdecode(x))}
-    changed = ls("diff", "-z", "--name-only", "--no-renames", "HEAD") | (final - head)
-    return sorted(final & changed), sorted(head - final)
-
-
 def _fold(p: str) -> str:
     return unicodedata.normalize("NFD", p).casefold()
 
@@ -836,7 +827,8 @@ _WIN_RESERVED = ({"AUX", "CON", "CONIN$", "CONOUT$", "NUL", "PRN"}
 def windows_invalid(paths: list[str]) -> list[str]:
     """Paths Git for Windows refuses to check out (its is_valid_win32_path):
     a reserved device name in any component, with or without an extension
-    (aux.go, CON, com1.txt), a component ending in a space or a dot, or one of
+    (aux.go, CON, com1.txt), an NTFS alias of .git (git~1), a component
+    ending in a space or a dot, or one of
     < > : " | ? * \\ or a control character. CI's Windows job could not
     materialize them, so no copy of its checkout here can either."""
     bad = []
@@ -844,8 +836,11 @@ def windows_invalid(paths: list[str]) -> list[str]:
         for c in p.split("/"):
             if c in (".", ".."):
                 continue
-            stem = c.split(".", 1)[0].rstrip(" ")
-            if (stem.upper() in _WIN_RESERVED or c.endswith((" ", "."))
+            stem, low = c.split(".", 1)[0].rstrip(" "), c.lower()
+            # core.protectNTFS (on by default for Git for Windows): the NTFS
+            # aliases of .git are refused too (git~1, .git. , .git::$INDEX_ALLOCATION).
+            ntfs_dotgit = low.rstrip(". ") == ".git" or low == "git~1" or low.startswith(".git::$index_allocation")
+            if (stem.upper() in _WIN_RESERVED or c.endswith((" ", ".")) or ntfs_dotgit
                     or any(ch in '<>:"|?*\\' or ord(ch) < 32 for ch in c)):
                 bad.append(p)
                 break
@@ -901,9 +896,6 @@ def main(argv: list[str]) -> int:
     sub.add_parser("path-collisions")
     gw = sub.add_parser("gowork")
     gw.add_argument("--dir", required=True)
-    od = sub.add_parser("overlay")
-    od.add_argument("--overlay", required=True)
-    od.add_argument("--deleted", required=True)
     sub.add_parser("scanner-pins")
     wt = sub.add_parser("windows-tree")
     wt.add_argument("--slug", required=True)
@@ -941,15 +933,6 @@ def main(argv: list[str]) -> int:
         except OSError as e:
             print(e, file=sys.stderr)
             return 2
-        return 0
-    if a.cmd == "overlay":
-        try:
-            ov, de = snapshot_delta()
-        except OSError as e:
-            print(e, file=sys.stderr)
-            return 2
-        Path(a.overlay).write_bytes(b"".join(x + b"\0" for x in ov))
-        Path(a.deleted).write_bytes(b"".join(x + b"\0" for x in de))
         return 0
     if a.cmd == "scanner-pins":
         pins = scanner_pins()
@@ -1364,29 +1347,6 @@ def _self_test() -> int:
            "security-gate.yml declares every scanner pin")
     expect(scanner_pins('  GOSEC_VERSION: "v2.29.0"\n') == {}, "a missing pin is refused, never defaulted")
 
-    print("snapshot delta (what `git add -A` would commit):")
-    with tempfile.TemporaryDirectory() as td:
-        r = Path(td)
-        g = lambda *a: subprocess.run(["git", "-C", str(r), "-c", "user.name=t", "-c", "user.email=t@example.com", *a],
-                                      check=True, capture_output=True)
-        g("init", "-q")
-        for f in ("same", "mod", "gone", "cached", "cached_ignored", "staged_gone"):
-            (r / f).write_text("1\n", encoding="utf-8")
-        g("add", "-A")
-        g("commit", "-qm", "base")
-        (r / "mod").write_text("2\n", encoding="utf-8")
-        (r / "gone").unlink()
-        g("rm", "-q", "--cached", "cached", "cached_ignored")
-        g("rm", "-q", "staged_gone")
-        (r / "new").write_text("n\n", encoding="utf-8")
-        (r / "junk.log").write_text("j\n", encoding="utf-8")
-        (r / ".gitignore").write_text("*.log\ncached_ignored\n", encoding="utf-8")
-        ov, de = snapshot_delta(r)
-        expect([x.decode() for x in ov] == [".gitignore", "cached", "mod", "new"],
-               "overlay: changed, new, and index-only removals still on disk and not ignored")
-        expect([x.decode() for x in de] == ["cached_ignored", "gone", "staged_gone"],
-               "deleted: gone from disk, staged deletions, and index-only removals that are now ignored")
-
     print("CI's sparse Windows checkout:")
     with tempfile.TemporaryDirectory() as td:
         repo, out = Path(td) / "repo", Path(td) / "win"
@@ -1417,7 +1377,10 @@ def _self_test() -> int:
     expect(windows_invalid(["cli/internal/cli/aux.go", "x/CON", "y/com1.txt", "z/nul .md", "a/b./c", "q/a:b",
                             "t/x "]) == ["cli/internal/cli/aux.go", "x/CON", "y/com1.txt", "z/nul .md", "a/b./c",
                                          "q/a:b", "t/x "], "every Windows-reserved shape is refused")
-    expect(windows_invalid(["auxiliary.go", "console/x.go", "com10.go", "./a/../b.go", "nulls.md"]) == [],
+    expect(windows_invalid(["assets/git~1/example.txt", "a/GIT~1", "b/.git::$INDEX_ALLOCATION/x"]) ==
+           ["assets/git~1/example.txt", "a/GIT~1", "b/.git::$INDEX_ALLOCATION/x"], "NTFS aliases of .git are refused")
+    expect(windows_invalid(["auxiliary.go", "console/x.go", "com10.go", "./a/../b.go", "nulls.md", "git~2/x",
+                            ".github/x.yml", ".gitignore"]) == [],
            "names that only start like a device name are fine")
 
     print("newest_patch (setup-go's reading of a bare minor):")

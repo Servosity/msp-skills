@@ -109,6 +109,46 @@ cleanup() {
   if [ "$keep" -eq 1 ]; then echo "logs kept in $WORK"; else rm -rf "$WORK"; fi
 }
 trap cleanup EXIT
+
+# The change under test is a commit git itself makes, never a model of the
+# working tree: `git add -A` into a private index (the developer's own index
+# is untouched), then write-tree and commit-tree. Everything below runs in a
+# clean clone checked out at that commit, with no global or system git config
+# (committed bytes, as CI's checkout has them), so git decides ignore rules,
+# index-only removals, .gitattributes normalization and submodule entries.
+if [ -z "${VERIFY_ALL_REAL_HEAD:-}" ]; then
+  real_head="$(git rev-parse --verify HEAD)" || { echo "verify_all: no HEAD commit" >&2; exit 2; }
+  base_sha="$(git rev-parse --verify --quiet "$base^{commit}")" || base_sha="$base"
+  snap="$real_head"; dirty=0
+  if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+    dirty=1
+    idx="$WORK/index"
+    if ! { { cp "$(git rev-parse --git-path index)" "$idx" 2>/dev/null || GIT_INDEX_FILE="$idx" git read-tree HEAD; } \
+           && GIT_INDEX_FILE="$idx" git add -A \
+           && tree="$(GIT_INDEX_FILE="$idx" git write-tree)" \
+           && snap="$(GIT_AUTHOR_NAME=verify_all GIT_AUTHOR_EMAIL=verify_all@localhost GIT_COMMITTER_NAME=verify_all \
+                      GIT_COMMITTER_EMAIL=verify_all@localhost git commit-tree "$tree" -p "$real_head" \
+                      -m "verify_all: the working tree as git add -A would commit it")"; }; then
+      echo "VERIFY_ALL: FAIL - could not make a commit of the working tree." >&2; exit 2
+    fi
+  fi
+  if ! { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git clone -q --shared --no-checkout . "$WORK/tree" \
+         && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$WORK/tree" checkout -q --detach "$snap"; }; then
+    echo "VERIFY_ALL: FAIL - could not check out the commit under test." >&2; exit 2
+  fi
+  # The clone's remote-tracking refs are this repository's (the checks that
+  # name origin/main, the tags the pin checks read).
+  git for-each-ref --format='%(objectname) %(refname)' refs/remotes refs/tags \
+    | while read -r o r; do git -C "$WORK/tree" update-ref "$r" "$o"; done
+  case "$verdict_path" in /*) ;; *) verdict_path="$(pwd)/$verdict_path" ;; esac
+  inner=(--base "$base_sha" --verdict "$verdict_path" --jobs "$jobs")
+  [ "$changed" -eq 1 ] && inner+=(--changed)
+  [ "$keep" -eq 1 ] && inner+=(--keep-logs)
+  for s in ${slugs[@]+"${slugs[@]}"}; do inner+=(--slug "$s"); done
+  echo "verify_all: checking $snap$([ "$dirty" = 1 ] && echo " (HEAD $real_head + the working tree, as git add -A would commit it)")"
+  VERIFY_ALL_REAL_HEAD="$real_head" VERIFY_ALL_DIRTY="$dirty" bash "$WORK/tree/tools/maintainer/verify_all.sh" "${inner[@]}"
+  exit $?
+fi
 mkdir -p "$WORK/logs" "$WORK/records"
 REC="$WORK/records.tsv"
 : > "$REC"
@@ -159,8 +199,7 @@ echo "  base:       $base = ${BASE_SHA:-unresolved}; merge base ${MB:-none}"
 echo "  connectors: $n_conn$([ "$n_conn" -gt 0 ] && [ "$n_conn" -le 12 ] && printf ' (%s)' "$(cut -d' ' -f1 "$WORK/connectors.txt" | tr '\n' ' ' | sed 's/ $//')")"
 note="$(jget notes)"; [ -n "$note" ] && echo "  note:       $note"
 if [ "$(jget dirty)" = true ]; then
-  echo "  note:       the security gate and the hand-fix diff read COMMITTED history, as CI does;"
-  echo "              commit before trusting this verdict for a PR."
+  echo "  note:       checked as the commit \`git add -A\` would make ($(jget snapshot_sha)); commit it before the PR."
 fi
 # A base the scoped checks diff against. The merge base matches CI's
 # BASE...HEAD; an unresolvable base is passed through so each check reports it.
@@ -348,19 +387,12 @@ echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
 # CI's Linux build row (build, vet, go test on linux/amd64 with cgo on) runs in
 # that context: natively on such a host, else in a linux/amd64 container,
 # else every connector's Linux checks fail closed. Decided once, here.
-overlay_lists() { # $WORK/overlay.lst and $WORK/deleted.lst (NUL lists): the commit `git add -A` would make, against HEAD
-  python3 tools/maintainer/verify_scope.py overlay --overlay "$WORK/overlay.lst" --deleted "$WORK/deleted.lst"
-}
 linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SRC (the snapshot)
   # The snapshot is what CI's build job checks out (actions/checkout: depth 1,
-  # git metadata included) for this commit, with the working tree's staged,
-  # unstaged and untracked changes and deletions laid on top, on a LINUX disk
-  # (case-sensitive, Linux permissions and locking), never written back.
+  # git metadata included) for the commit under test, on a LINUX disk
+  # (case-sensitive, Linux permissions and locking).
   local head v img="" vol
   head="$(git rev-parse HEAD)"
-  local ovok=1
-  overlay_lists || { echo "  could not list the working tree's changes: the Linux checks will fail"; ovok=0
-                     : > "$WORK/overlay.lst"; : > "$WORK/deleted.lst"; }
   # The snapshot's checkout is git's own, untouched by this host's git config
   # (a global core.autocrlf or attributes file would rewrite committed bytes);
   # the repository's .gitattributes still apply, as in CI.
@@ -384,9 +416,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     VERIFY_LINUX_SRC="$WORK/repo"
     if ! { git init -q "$VERIFY_LINUX_SRC" \
            && git -C "$VERIFY_LINUX_SRC" fetch -q --depth 1 "file://$(pwd)" "$head" \
-           && git -C "$VERIFY_LINUX_SRC" checkout -q --detach FETCH_HEAD \
-           && { [ ! -s "$WORK/overlay.lst" ] || tar --null -T "$WORK/overlay.lst" -cf - | tar -xf - -C "$VERIFY_LINUX_SRC"; } \
-           && ( cd "$VERIFY_LINUX_SRC" && xargs -0 rm -f -- < "$WORK/deleted.lst" ); }; then
+           && git -C "$VERIFY_LINUX_SRC" checkout -q --detach FETCH_HEAD; }; then
       echo "  could not snapshot the repository for the Linux checks: they will fail"
       VERIFY_LINUX_SRC=""
     fi
@@ -411,12 +441,10 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     done
     # A private volume for this run, removed when it ends. It is filled from a
     # BARE depth-1 clone (git objects only, so this host's case-insensitive
-    # disk never holds the checkout) and the overlay, streamed in without
-    # macOS metadata.
+    # disk never holds the checkout).
     VERIFY_LINUX_VOLUME="msp-skills-verify-src-$(basename "$WORK" | tr -c 'A-Za-z0-9' '-')$$"
     VERIFY_LINUX_SRC="$VERIFY_LINUX_VOLUME"
-    local tarx="" seed="$WORK/seed.git"
-    tar --version 2>/dev/null | grep -q bsdtar && tarx="--no-xattrs"
+    local seed="$WORK/seed.git"
     # (safe.directory: the seed belongs to this host's user, which the
     # container's user is not when the caller is root)
     in_volume() { docker run --rm -i --platform linux/amd64 --user "$VERIFY_LINUX_USER" -e HOME=/tmp \
@@ -429,10 +457,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
            && docker volume create "$VERIFY_LINUX_VOLUME" >/dev/null \
            && docker run --rm --platform linux/amd64 -v "$VERIFY_LINUX_VOLUME:/src" "$img" chown "$VERIFY_LINUX_USER" /src \
            && in_volume sh -c "git init -q /src && git -C /src fetch -q --depth 1 file:///seed refs/heads/verify \
-                               && git -C /src checkout -q --detach FETCH_HEAD" \
-           && { [ ! -s "$WORK/overlay.lst" ] \
-                || COPYFILE_DISABLE=1 tar $tarx --null -T "$WORK/overlay.lst" -cf - | in_volume tar -xf - -C /src; } \
-           && in_volume sh -c 'cd /src && xargs -0 rm -f --' < "$WORK/deleted.lst"; }; then
+                               && git -C /src checkout -q --detach FETCH_HEAD"; }; then
       echo "  could not snapshot the repository into a Linux volume: the Linux checks will fail"
       VERIFY_LINUX_SRC=""
     fi
@@ -441,7 +466,6 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     VERIFY_LINUX_MODE=none
     VERIFY_LINUX_SRC=""
   fi
-  [ "$ovok" = 1 ] || VERIFY_LINUX_SRC=""  # a snapshot without the changes is not this tree
   export VERIFY_LINUX_MODE VERIFY_LINUX_SRC
   echo "  linux build row: $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] && echo ' (linux/amd64 container on a Linux volume, golang:<go.mod toolchain>, cgo on)')"
 }
