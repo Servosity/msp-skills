@@ -60,6 +60,7 @@ Output lines are `skills/<slug>/cli/<file>:<line>: [<slug>] <rule> in <func>: <w
 from __future__ import annotations
 
 import argparse
+import functools
 import bisect
 import codecs
 import json
@@ -177,10 +178,10 @@ def code_mask(src: str, blank_strings: bool = True) -> str:
 
 
 class Func:
-    __slots__ = ("name", "start", "end", "line")
+    __slots__ = ("name", "start", "end", "line", "decl")
 
-    def __init__(self, name: str, start: int, end: int, line: int) -> None:
-        self.name, self.start, self.end, self.line = name, start, end, line
+    def __init__(self, name: str, start: int, end: int, line: int, decl: int = 0) -> None:
+        self.name, self.start, self.end, self.line, self.decl = name, start, end, line, decl
 
 
 _FUNC_DECL = re.compile(r"\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)")
@@ -233,7 +234,7 @@ def functions(src: str, marks: list[tuple[int, str]] | None = None) -> list[Func
         if open_at < 0:
             continue
         end = _block_end(code, open_at)
-        out.append(Func(m.group(1), open_at, end, src.count("\n", 0, m.start()) + 1))
+        out.append(Func(m.group(1), open_at, end, src.count("\n", 0, m.start()) + 1, m.start()))
     return out
 
 
@@ -359,7 +360,24 @@ _PERM_ASSERT = re.compile(r"\.(?:Perm\(\)|Mode\(\))\s*(?:&\s*0[oO]?[0-7]+\s*)?(?
                           r"|(?:!=|==)\s*\w*\.?(?:Perm\(\)|Mode\(\)\.Perm\(\))")
 _OPEN = re.compile(r"\b([A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*:?=\s*os\.(?:Create|CreateTemp|OpenFile)\(")
 _GOOS = re.compile(r"\bruntime\.GOOS\b|\bgoruntime\.GOOS\b")
-_SKIP = re.compile(r"\bt\.Skipf?\(")
+# The names a test calls Skip on: `t`, plus every parameter the function or
+# its literals declare as *testing.T, *testing.B, *testing.F or testing.TB
+# (`func helper(tb testing.TB)` skips with tb.Skip).
+_TESTING_PARAM = re.compile(r"\b([A-Za-z_]\w*)\s+(?:\*\s*testing\.(?:T|B|F)|testing\.TB)\b")
+
+
+def testing_names(code: str) -> tuple[str, ...]:
+    return tuple(sorted({"t"} | {m.group(1) for m in _TESTING_PARAM.finditer(code)}))
+
+
+@functools.lru_cache(maxsize=None)
+def _skip_re(names: tuple[str, ...]) -> re.Pattern:
+    return re.compile(r"\b(?:" + "|".join(map(re.escape, names)) + r")\.Skipf?\(")
+
+
+@functools.lru_cache(maxsize=None)
+def _exit_stmt(names: tuple[str, ...]) -> re.Pattern:
+    return re.compile(r"(?m)^[ \t]*(?:(?:" + "|".join(map(re.escape, names)) + r")\.Skip(?:f|Now)?\(|return\b)")
 
 
 # --- Exact guard syntax. Conditions are read from code with comments masked
@@ -371,7 +389,6 @@ _GOOS_NE = re.compile(r"\A\(*\s*(?:go)?runtime\.GOOS\s*!=\s*\"windows\"\s*\)*\Z|
                       r"\A\(*\s*\"windows\"\s*!=\s*(?:go)?runtime\.GOOS\s*\)*\Z")
 _GOOS_EQ = re.compile(r"\A\(*\s*(?:go)?runtime\.GOOS\s*==\s*\"windows\"\s*\)*\Z|"
                       r"\A\(*\s*\"windows\"\s*==\s*(?:go)?runtime\.GOOS\s*\)*\Z")
-_EXIT_STMT = re.compile(r"(?m)^[ \t]*(?:t\.Skip(?:f|Now)?\(|return\b)")
 
 
 def _block_end(text: str, open_brace: int) -> int:
@@ -483,7 +500,7 @@ def _enclosing_end(code: str, pos: int) -> int:
     return len(code)
 
 
-def guard_model(gcode: str, code: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+def guard_model(gcode: str, code: str, names: tuple[str, ...] = ("t",)) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
     """(not-windows spans, after-exit spans). A not-windows span is the body
     of an `if` whose condition implies non-Windows. An after-exit span runs
     from the end of an `if` that always runs on Windows and exits (t.Skip or
@@ -501,7 +518,7 @@ def guard_model(gcode: str, code: str) -> tuple[list[tuple[int, int]], list[tupl
             nw.append((st.start + cm.end() if cm else st.open, st.end))
         elif always_on_windows(st.cond):
             if any(_top_level(code, st.open, st.open + 1 + mm.start())
-                   for mm in _EXIT_STMT.finditer(code[st.open + 1:st.end])):
+                   for mm in _exit_stmt(names).finditer(code[st.open + 1:st.end])):
                 after.append((st.end, _enclosing_end(code, st.start)))
     return nw, after
 
@@ -529,7 +546,7 @@ def windows_reassigns(gcode: str, code: str, var: str, decl: int) -> bool:
     return False
 
 
-def skips_on_windows(gcode: str, code: str, src_body: str) -> bool:
+def skips_on_windows(gcode: str, code: str, src_body: str, names: tuple[str, ...] = ("t",)) -> bool:
     """Mode-bit assertions only (the documented trade-off): any `if` whose
     condition mentions runtime.GOOS == "windows", conditions included, that
     skips or returns as a top-level statement; or a function that skips
@@ -540,9 +557,9 @@ def skips_on_windows(gcode: str, code: str, src_body: str) -> bool:
     for st in if_statements(gcode, code):
         if re.search(r"\b(?:go)?runtime\.GOOS\s*==\s*\"windows\"", st.cond) and any(
                 _top_level(code, st.open, st.open + 1 + mm.start())
-                for mm in _EXIT_STMT.finditer(code[st.open + 1:st.end])):
+                for mm in _exit_stmt(names).finditer(code[st.open + 1:st.end])):
             return True
-    return bool(_SKIP.search(code)) and "windows" in src_body.lower()
+    return bool(_skip_re(names).search(code)) and "windows" in src_body.lower()
 
 
 _FUNC_LIT = re.compile(r"\bfunc\s*\(")
@@ -672,8 +689,9 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
         # neither counts nor fires. Literal values are read from the lexer.
         code = masked[f.start:f.end]
         gcode = guards[f.start:f.end]
-        nw_spans, after_exit = guard_model(gcode, code)
-        mode_exit = skips_on_windows(gcode, code, body)  # mode bits only (documented trade-off)
+        names = testing_names(masked[f.decl:f.end])  # the signature too: `func helper(tb testing.TB)`
+        nw_spans, after_exit = guard_model(gcode, code, names)
+        mode_exit = skips_on_windows(gcode, code, body, names)  # mode bits only (documented trade-off)
         closures = func_literal_spans(code)
         flits = [lit for lit in lits if f.start <= lit.start < f.end]
 
@@ -1067,6 +1085,12 @@ _ST_CASES = (
     ("proxmox #398 fixed (GOOS skip)", "a_test.go",
      "package cli\nfunc TestWritableDir(t *testing.T) {\n\tif runtime.GOOS == \"windows\" {\n\t\tt.Skip(\"POSIX\")\n\t}\n\tif err := os.Chmod(dir, 0o770); err != nil {\n\t\tt.Fatal(err)\n\t}\n}\n",
      set()),
+    ("a testing.TB helper named tb that tb.Skips on Windows before the chmod", "a_test.go",
+     "package cli\nfunc checkWritableDir(tb testing.TB) {\n\tif runtime.GOOS == \"windows\" {\n\t\ttb.Skip(\"POSIX\")\n\t}\n\tif err := os.Chmod(dir, 0o770); err != nil {\n\t\ttb.Fatal(err)\n\t}\n}\n",
+     set()),
+    ("a *testing.T named tb with no Windows skip is still flagged", "a_test.go",
+     "package cli\nfunc TestWritableDir(tb *testing.T) {\n\tif err := os.Chmod(dir, 0o770); err != nil {\n\t\ttb.Fatal(err)\n\t}\n}\n",
+     {"mode-bits"}),
     ("a private 0600 chmod is portable", "a_test.go",
      "package cli\nfunc TestPrivate(t *testing.T) {\n\tos.WriteFile(p, b, 0o644)\n\tif err := os.Chmod(p, 0o600); err != nil {\n\t\tt.Fatal(err)\n\t}\n}\n",
      set()),
