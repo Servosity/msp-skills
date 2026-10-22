@@ -133,9 +133,9 @@
     "released_hash": null
   },
   "connectsecure": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "connectsecure-v0.1.1",
+    "latest_tag": "connectsecure-v0.1.2",
     "current_hash": "sha256:5226b20f455f194d401a9da6b4775209e7e5e45a2bbc42f1078f2b9564d2df45",
     "released_hash": "sha256:5226b20f455f194d401a9da6b4775209e7e5e45a2bbc42f1078f2b9564d2df45"
   },
