@@ -132,14 +132,19 @@ if [ -z "${VERIFY_ALL_REAL_HEAD:-}" ]; then
       echo "VERIFY_ALL: FAIL - could not make a commit of the working tree." >&2; exit 2
     fi
   fi
-  if ! { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git clone -q --shared --no-checkout . "$WORK/tree" \
+  # The remote-tracking refs and tags the clone gets (the checks that name
+  # origin/main, the tags the pin checks read).
+  git for-each-ref --format='%(objectname) %(refname)' refs/remotes refs/tags > "$WORK/refs.txt"
+  src="$(git rev-parse --show-toplevel)"
+  # Everything from here works on scratch repositories: no repository-local
+  # git setting of the caller (a hook's GIT_DIR or GIT_INDEX_FILE, say) may
+  # follow it there, or a checkout would write the caller's index.
+  for v in $(git rev-parse --local-env-vars); do unset "$v"; done
+  if ! { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git clone -q --shared --no-checkout "$src" "$WORK/tree" \
          && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$WORK/tree" checkout -q --detach "$snap"; }; then
     echo "VERIFY_ALL: FAIL - could not check out the commit under test." >&2; exit 2
   fi
-  # The clone's remote-tracking refs are this repository's (the checks that
-  # name origin/main, the tags the pin checks read).
-  git for-each-ref --format='%(objectname) %(refname)' refs/remotes refs/tags \
-    | while read -r o r; do git -C "$WORK/tree" update-ref "$r" "$o"; done
+  while read -r o r; do git -C "$WORK/tree" update-ref "$r" "$o"; done < "$WORK/refs.txt"
   case "$verdict_path" in /*) ;; *) verdict_path="$(pwd)/$verdict_path" ;; esac
   inner=(--base "$base_sha" --verdict "$verdict_path" --jobs "$jobs")
   [ "$changed" -eq 1 ] && inner+=(--changed)

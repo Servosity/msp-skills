@@ -853,28 +853,62 @@ def windows_invalid(paths: list[str]) -> list[str]:
 WIN_MAX_REL = 259 - len("D:\\a\\msp-skills\\msp-skills\\")
 
 
+# Git for Windows creates a folder only below MAX_PATH - 12 (248).
+WIN_MAX_REL_DIR = 247 - len("D:\\a\\msp-skills\\msp-skills\\")
+
+
 def too_long_for_windows(paths: list[str]) -> list[str]:
-    return [p for p in paths if len(p.encode("utf-16-le")) // 2 > WIN_MAX_REL]
+    def n(x: str) -> int:
+        return len(x.encode("utf-16-le")) // 2
+    out = []
+    for p in paths:
+        parts = p.split("/")
+        if n(p) > WIN_MAX_REL or any(n("/".join(parts[:k])) > WIN_MAX_REL_DIR for k in range(1, len(parts))):
+            out.append(p)
+    return out
 
 
-def _escapes(base_dir: str, target: str) -> bool:
-    """A path that names something outside the repository: absolute (POSIX or
-    a Windows drive), or relative and climbing above the root."""
-    if target.startswith(("/", "\\")) or re.match(r"[A-Za-z]:", target):
-        return True
-    norm = os.path.normpath(os.path.join(base_dir, target)).replace("\\", "/")
-    return norm == ".." or norm.startswith("../")
+def _outside(root: Path, base_dir: str, target: str) -> bool:
+    """Whether target, read from a file in base_dir, names something outside
+    the repository: absolute (POSIX or a Windows drive), or resolving, every
+    symlink on the way followed, to a place above the root."""
+    if not target or target.startswith(("/", "\\")) or re.match(r"[A-Za-z]:", target):
+        return bool(target)
+    real_root = os.path.realpath(root)
+    real = os.path.realpath(os.path.join(root, base_dir, target))
+    return real != real_root and not real.startswith(real_root + os.sep)
+
+
+def _unquote(t: str) -> str:
+    t = t.strip()
+    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"`":
+        if t[0] == '"':
+            try:
+                return json.loads(t)
+            except ValueError:
+                return t[1:-1]
+        return t[1:-1]
+    return t
+
+
+_C_SOURCE = (".s", ".S", ".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".m", ".f", ".F", ".for", ".f90", ".syso")
+_INCLUDE = re.compile(r'^\s*(?://\s*)?#\s*(?:include|import|include_next)\s*[<"]([^>"]+)[>"]', re.M)
+_GO_TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|`[^`]*`|\S+')
+_CGO_DIR = re.compile(r"^\s*(?://)?\s*#cgo\b[^:]*:(.*)$", re.M)
 
 
 def external_refs(root: Path = ROOT) -> list[str]:
-    """Committed content that reaches outside the repository: a symlink whose
-    target is outside it, a go.work `use` or a go.mod/go.work `replace` that
-    names a folder outside it. A host has those files and CI's fresh checkout
-    does not, so a check here could pass on them."""
+    """Committed content that reaches outside the repository, which a host
+    has and CI's fresh checkout does not, so a check here could pass on it: a
+    symlink that resolves outside (every link on the way followed); a go.work
+    `use` or a go.mod/go.work `replace` naming a folder outside; a C, header or
+    assembly #include, or a #cgo flag, naming an absolute path or one outside.
+    It reads the checkout of the commit under test."""
     p = subprocess.run(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=root, capture_output=True)
     if p.returncode != 0:
         raise OSError(f"git ls-tree failed: {p.stderr.decode(errors='replace').strip()}")
     out = []
+    todo: list[tuple[str, str]] = []  # (path, blob) of files whose text is read
     for ent in p.stdout.split(b"\0"):
         if not ent:
             continue
@@ -882,35 +916,61 @@ def external_refs(root: Path = ROOT) -> list[str]:
         mode, _typ, oid = meta.decode().split()
         rel = os.fsdecode(path)
         name = rel.rsplit("/", 1)[-1]
-        if mode != "120000" and name not in ("go.work", "go.mod"):
-            continue
-        blob = subprocess.run(["git", "cat-file", "blob", oid], cwd=root, capture_output=True).stdout
-        text = blob.decode("utf-8", "replace")
         here = os.path.dirname(rel)
         if mode == "120000":
-            if _escapes(here, text):
-                out.append(f"{rel}: a symlink to {text!r}, outside the repository")
+            if _outside(root, here, name):
+                out.append(f"{rel}: a symlink that resolves outside the repository ({os.path.realpath(root / rel)})")
+        elif name in ("go.work", "go.mod") or name.endswith(_C_SOURCE) or name.endswith(".go"):
+            todo.append((rel, oid))
+    # One git process for every blob, not one per file.
+    cat = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True,
+                         input="".join(o + "\n" for _, o in todo).encode())
+    if cat.returncode != 0:
+        raise OSError(f"git cat-file failed: {cat.stderr.decode(errors='replace').strip()}")
+    buf, pos, texts = cat.stdout, 0, []
+    for _ in todo:
+        nl = buf.index(b"\n", pos)
+        size = int(buf[pos:nl].split()[2])
+        texts.append(buf[nl + 1:nl + 1 + size].decode("utf-8", "replace"))
+        pos = nl + 1 + size + 1
+    for (rel, _), text in zip(todo, texts):
+        name = rel.rsplit("/", 1)[-1]
+        here = os.path.dirname(rel)
+        is_go_file = name.endswith(".go")
+        if name in ("go.work", "go.mod"):
+            in_use = False
+            for line in text.splitlines():
+                line = line.split("//", 1)[0].strip()
+                targets = []
+                if in_use:
+                    if line == ")":
+                        in_use = False
+                    elif line:
+                        targets.append(_unquote(line))
+                elif name == "go.work" and line.startswith("use"):
+                    rest = line[3:].strip()
+                    if rest == "(":
+                        in_use = True
+                    elif rest:
+                        targets.append(_unquote(rest))
+                if "=>" in line:
+                    tok = _GO_TOKEN.match(line.split("=>", 1)[1].strip())
+                    rhs = _unquote(tok.group(0)) if tok else ""
+                    if rhs.startswith((".", "/", "\\")) or re.match(r"[A-Za-z]:", rhs):
+                        targets.append(rhs)
+                out += [f"{rel}: {line!r} names {t!r}, outside the repository" for t in targets if _outside(root, here, t)]
             continue
-        in_use = False
-        for line in text.splitlines():
-            line = line.split("//", 1)[0].strip()
-            targets = []
-            if in_use:
-                if line == ")":
-                    in_use = False
-                elif line:
-                    targets.append(line.strip('"'))
-            elif name == "go.work" and line.startswith("use"):
-                rest = line[3:].strip()
-                if rest == "(":
-                    in_use = True
-                elif rest:
-                    targets.append(rest.strip('"'))
-            if "=>" in line:
-                t = line.split("=>", 1)[1].strip().split()
-                if t and (t[0].startswith((".", "/", "\\")) or re.match(r"[A-Za-z]:", t[0])):
-                    targets.append(t[0].strip('"'))
-            out += [f"{rel}: {line!r} names {t!r}, outside the repository" for t in targets if _escapes(here, t)]
+        if is_go_file and 'import "C"' not in text and "#cgo" not in text:
+            continue
+        for m in _INCLUDE.finditer(text):
+            inc = m.group(1)
+            if (inc.startswith(("/", "\\")) or re.match(r"[A-Za-z]:", inc) or inc.startswith("..")) and _outside(root, here, inc):
+                out.append(f"{rel}: #include {inc!r} is outside the repository")
+        for m in _CGO_DIR.finditer(text):
+            for flag in m.group(1).split():
+                val = re.sub(r"^-(?:I|L|isystem|iquote|include|F)", "", flag)
+                if val != flag and val and _outside(root, here, val.replace("${SRCDIR}", ".")):
+                    out.append(f"{rel}: #cgo {flag!r} is outside the repository")
     return out
 
 
@@ -1444,6 +1504,7 @@ def _self_test() -> int:
            "a package go could not load (itself or a dependency) is an error, never a match")
 
     expect(too_long_for_windows(["skills/a/" + ("a" * 120 + "/") * 2 + "x.txt"]) != [] and
+           too_long_for_windows(["skills/axcient/assets/" + "a" * 203 + "/x"]) != [] and
            too_long_for_windows(["skills/hubspot/cli/" + "x" * 140 + ".go"]) == [],
            "a path past CI's Windows MAX_PATH is refused; today's longest (164) is not")
     with tempfile.TemporaryDirectory() as td:
@@ -1456,13 +1517,24 @@ def _self_test() -> int:
         os.symlink("../../../../outside.go", r / "s/c/internal/up.go")
         os.symlink("../c/go.mod", r / "s/c/internal/inside.go")
         (r / "s/c/go.mod").write_text("module m\n\nreplace a/b => ../../../x\nreplace c/d => ./local\n", encoding="utf-8")
+        (r / "s/c/go.work").write_text('go 1.26\n\nreplace github.com/spf13/pflag => "/tmp/pflag"\n', encoding="utf-8")
         (r / "go.work").write_text("go 1.26\n\nuse (\n\t./s/c\n\t/tmp/helper\n)\n", encoding="utf-8")
+        # a chain: every hop looks internal, the whole resolves to /tmp
+        deep = r / "s/c" / "/".join(["d"] * 20)
+        deep.mkdir(parents=True)
+        os.symlink(os.path.relpath(r, deep), deep / "root")
+        os.symlink("/".join(["d"] * 20) + "/root/" + "../" * 20 + "tmp/probe.txt", r / "s/c/chain.go")
+        (r / "s/c/probe_linux_amd64.s").write_text('#include "/tmp/probe.h"\n#include "textflag.h"\n', encoding="utf-8")
+        (r / "s/c/cg.go").write_text('package c\n\n// #cgo CFLAGS: -I/opt/x -I${SRCDIR}/inc\n// #include "../../../x.h"\nimport "C"\n',
+                                     encoding="utf-8")
         g("add", "-A")
         g("commit", "-qm", "x")
         found = "\n".join(external_refs(r))
-        expect(all(x in found for x in ("abs.go", "up.go", "'../../../x'", "'/tmp/helper'")) and
-               "inside.go" not in found and "./local" not in found and "./s/c" not in found,
-               "symlinks, go.work use and replace that leave the repository are refused; ones inside it are not")
+        expect(all(x in found for x in ("abs.go", "up.go", "'../../../x'", "'/tmp/helper'", "'/tmp/pflag'", "chain.go",
+                                        "'/tmp/probe.h'", "'-I/opt/x'", "'../../../x.h'")) and
+               not any(x in found for x in ("inside.go", "./local", "./s/c'", "textflag.h", "SRCDIR")),
+               "symlinks (chains too), go.work use and quoted replace, #include and #cgo flags that leave the "
+               "repository are refused; ones inside it are not")
 
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],
