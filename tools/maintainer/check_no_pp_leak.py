@@ -253,8 +253,26 @@ def scan_go(rel: str, src: str, slug: str, names: set[str]) -> list[Leak]:
     return out
 
 
-_HF_MARKER = re.compile(r'"(contains|regex)"\s*:\s*("(?:[^"\\\n]|\\.)*")')
-_HF_FILE = re.compile(r'"file"\s*:\s*("(?:[^"\\\n]|\\.)*")')
+_JSON_TOKEN = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+
+
+def _json_pairs(text: str) -> list[tuple[str, str, int, int]]:
+    """(decoded key, decoded string value, value offset, key offset) for every
+    `"key": "value"` pair, keys and values both DECODED (`"cont\\u0061ins"` is
+    `contains`), source offsets kept."""
+    out = []
+    toks = list(_JSON_TOKEN.finditer(text))
+    for k, kt in enumerate(toks[:-1]):
+        vt = toks[k + 1]
+        if not re.fullmatch(r"\s*:\s*", text[kt.end():vt.start()]):
+            continue
+        try:
+            key, val = json.loads(kt.group(0)), json.loads(vt.group(0))
+        except ValueError:
+            continue
+        if isinstance(key, str) and isinstance(val, str):
+            out.append((key, val, vt.start(), kt.start()))
+    return out
 
 
 def _json_object_span(text: str, pos: int) -> tuple[int, int]:
@@ -283,32 +301,25 @@ def _json_object_span(text: str, pos: int) -> tuple[int, int]:
 def scan_handfixes(rel: str, text: str, slug: str) -> list[Leak]:
     """A `contains` (or `regex`) marker on a non-Go file that requires a leak
     keeps it alive; a `not_contains` marker is the assertion it is gone. Each
-    finding sits on the line of ITS OWN marker token, with that exact line,
-    so the ratchet sees a changed marker or target."""
+    finding sits on the line of ITS OWN marker value, with that exact line,
+    so the ratchet sees a changed marker or target. Keys are decoded too."""
     out: list[Leak] = []
     lines = lines_of(text)
-    for m in _HF_MARKER.finditer(text):
-        try:
-            v = json.loads(m.group(2))
-        except ValueError:
-            continue
-        if not isinstance(v, str):
+    pairs = _json_pairs(text)
+    for key, v, voff, koff in pairs:
+        if key not in ("contains", "regex"):
             continue
         hit = ANY_PP_NAME.search(v)
         if not hit or hit.group(0) in EXTERNAL_PP_TOOLS:
             continue
-        o, e = _json_object_span(text, m.start())
-        fm = _HF_FILE.search(text, o, e + 1)
-        try:
-            target = json.loads(fm.group(1)) if fm else ""
-        except ValueError:
-            target = fm.group(1) if fm else ""
-        if not isinstance(target, str) or target.endswith((".go", "go.mod", "go.sum")):
+        o, e = _json_object_span(text, koff)
+        target = next((val for k2, val, vo2, ko2 in pairs if k2 == "file" and o <= ko2 <= e), "")
+        if target.endswith((".go", "go.mod", "go.sum")):
             continue
-        ln = text.count("\n", 0, m.start()) + 1
-        raw = lines[ln - 1] if ln - 1 < len(lines) else m.group(0)
+        ln = text.count("\n", 0, voff) + 1
+        raw = lines[ln - 1] if ln - 1 < len(lines) else v
         out.append(Leak(rel, ln, slug, hit.group(0), raw,
-                        f"{m.group(1)} marker on {target} requires the leak to stay: {v}"))
+                        f"{key} marker on {target} requires the leak to stay: {v}"))
     return out
 
 
@@ -573,6 +584,10 @@ def _self_test() -> int:
         expect([g.line for g in got] == [2, 5] and "new.md" in got[1].msg,
                "two identical markers each sit on their own line, with their own target")
         uni = '{"handfixes": [{"id": "a", "asserts": [{"file": "a.md", "contains": "acme' + chr(92) + 'u002dpp-cli"}]}]}\n'
+        ekey = '{"handfixes": [{"id": "a", "asserts": [{"file": "guide.md", "cont' + chr(92) + 'u0061ins": "acme-pp-cli"}]}]}\n'
+        expect(len(scan_handfixes("h.json", ekey, "acme")) == 1, "an escaped KEY (cont\\u0061ins) is still a contains marker")
+        nc = '{"handfixes": [{"id": "a", "asserts": [{"file": "guide.md", "not_contains": "acme-pp-cli"}]}]}\n'
+        expect(not scan_handfixes("h.json", nc, "acme"), "a not_contains marker is honored")
         got = scan_handfixes("h.json", uni, "acme")
         expect(len(got) == 1 and got[0].line == 1, "an escaped marker is decoded and keeps its real line")
         # An import line copied verbatim into a user-facing string is a NEW leak.

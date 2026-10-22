@@ -343,13 +343,16 @@ if [ -s "$WORK/security.txt" ]; then
   # pass in CI. Offline, go.mod's toolchain is used (stricter) and said so.
   gate_go="$(python3 tools/maintainer/verify_scope.py gate-go 2>/dev/null)"
   if [ -n "$gate_go" ]; then
-    echo "  toolchain: $gate_go (what security-gate.yml's setup-go resolves today)"
+    echo "  toolchain: $gate_go (what security-gate.yml's setup-go resolves today), linux/amd64 build context"
   else
     echo "  toolchain: go.mod's (could not reach go.dev to resolve CI's; this is stricter than CI)"
   fi
   while IFS= read -r s; do
     [ -n "$s" ] || continue
-    gate "security gate" scoped "$s" 0 env ${gate_go:+GOTOOLCHAIN="$gate_go"} \
+    # GOOS/GOARCH: the analyzers load packages for the build context they
+    # are given; CI's gate runs on linux/amd64, so a *_linux.go file must be
+    # in what they read here too.
+    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 ${gate_go:+GOTOOLCHAIN="$gate_go"} \
       python3 tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"

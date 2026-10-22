@@ -268,10 +268,15 @@ jobs:
         run: python3 tools/maintainer/check_surface_coverage.py
 
       - name: Registry state never regresses (live_verified downgrade, shape)
-        # Compares skills.json with origin/main, which the fetch-depth: 0
-        # checkout above provides. An unreadable baseline is an error (exit 2),
-        # never a pass.
-        run: python3 tools/maintainer/check_registry_state.py
+        # Compares skills.json with BASE: the PR base, or on a push to main
+        # github.event.before, because by then the runner's origin/main
+        # already contains the push and would compare it with itself. On the
+        # weekly sweep there is no base and origin/main (from the fetch-depth:
+        # 0 checkout above) is used. An unreadable baseline is an error, never
+        # a pass.
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: python3 tools/maintainer/check_registry_state.py ${BASE:+--base "$BASE"}
 
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'
