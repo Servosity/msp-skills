@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "backup-radar-mcp",
   "display_name": "Backup Radar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
   "author": {
     "name": "Servosity Inc."

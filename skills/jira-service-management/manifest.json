@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "jira-service-management-mcp",
   "display_name": "Jira Service Management",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
   "author": {
     "name": "Servosity Inc."
