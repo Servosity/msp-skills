@@ -41,9 +41,12 @@
 # FAILED while its release is still a draft (or was never created), it re-runs
 # the failed jobs (`gh run rerun <id> --failed`), CUT_TAGS_RERUN_BATCH (3) at a
 # time under the same in-flight cap, waiting for each batch to finish, then
-# prints the receipts. A release already published with assets missing is
-# immutable and is reported, not touched. It never deletes a release and never
-# moves or re-pushes a tag.
+# prints the receipts. A re-run executes release.yml as it is at the tagged
+# commit, so each candidate must pass origin/main's pipeline probe on that
+# commit, and the failed run must be for that commit. A release already
+# published with assets missing is immutable and is reported, not touched.
+# With --dry-run it only lists what it would re-run. It never deletes a
+# release and never moves or re-pushes a tag.
 #
 # Receipts mode: a pushed tag only STARTS a release. For each tag it waits for
 # the release to be published and runs check_release_assets.py --with-mcpb on
@@ -210,18 +213,25 @@ rerun_failed() {
   # Recovery after a wave whose runs failed (e.g. the Actions-token API limit:
   # "HTTP 403: API rate limit exceeded for installation" at create-release).
   # A draft is still mutable, so re-running the FAILED jobs of its run finishes
-  # it. Never deletes a release, never moves or re-pushes a tag.
-  local fail=0 t info id st concl rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
+  # it. Never deletes a release, never moves or re-pushes a tag. A re-run
+  # executes release.yml AS IT IS AT THE TAGGED COMMIT, so every candidate must
+  # pass main's pipeline probe on that commit first, and the run must be for it.
+  local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
+  local trustwt
   fetch_and_check_self
+  worktree_at "$MAIN_SHA"
+  trustwt=$NEW_WT
   errf=$(mktemp)
   while IFS= read -r t; do
     [ -n "$t" ] || continue
     handled=$((handled + 1))
     info=$(gh run list -R "$GH_REPO" --workflow release.yml --branch "$t" --limit 1 \
-      --json databaseId,status,conclusion -q '.[0] | "\(.databaseId) \(.status) \(.conclusion)"' </dev/null 2>/dev/null || true)
+      --json databaseId,status,conclusion,headSha \
+      -q '.[0] | "\(.databaseId) \(.status) \(.conclusion) \(.headSha)"' </dev/null 2>/dev/null || true)
     id=${info%% *}
     st=$(printf '%s' "$info" | awk '{print $2}')
     concl=$(printf '%s' "$info" | awk '{print $3}')
+    hsha=$(printf '%s' "$info" | awk '{print $4}')
     # Only GitHub's explicit "release not found" means missing; any other
     # failure (a 403, a rate limit, the network) is an unknown state.
     if ! rel=$(gh release view "$t" -R "$GH_REPO" --json isDraft -q .isDraft </dev/null 2>"$errf"); then
@@ -254,12 +264,36 @@ rerun_failed() {
         continue
         ;;
     esac
+    if ! commit=$(git -C "$REPO" rev-parse -q --verify "refs/tags/$t^{commit}"); then
+      say "UNKNOWN-STATE $t: the tag is not in this clone, so its release pipeline cannot be checked; not re-running"
+      fail=1
+      continue
+    fi
+    if [ "$hsha" != "$commit" ]; then
+      say "UNKNOWN-STATE $t: run $id is for $hsha, not the tagged commit $commit; not re-running"
+      fail=1
+      continue
+    fi
+    if ! (cd "$trustwt" && "$PYTHON" tools/maintainer/check_release_pipeline.py --repo "$REPO" --sha "$commit") \
+      </dev/null >"$errf" 2>&1; then
+      sed 's/^/    /' "$errf"
+      say "PROBE-REFUSED $t: release.yml at $commit must not be re-run (it could seal an incomplete immutable release)"
+      fail=1
+      continue
+    fi
     queue="$queue$t $id
 "
     n_q=$((n_q + 1))
   done <<<"$TAG_LIST"
   [ "$handled" -eq "$TAG_COUNT" ] || die "INCOMPLETE checked $handled of $TAG_COUNT listed tags"
-  say "rerun-failed: $n_q failed run(s) to re-run, ${CUT_TAGS_RERUN_BATCH:-3} at a time"
+  say "rerun-failed: $n_q failed run(s) to re-run, ${CUT_TAGS_RERUN_BATCH:-3} at a time$([ "$dry" = 1 ] && echo ' (dry run: nothing is re-run)')"
+  if [ "$dry" = 1 ]; then
+    while IFS= read -r entry; do
+      [ -n "$entry" ] && say "WOULD-RERUN ${entry%% *} ${entry##* }"
+    done <<<"$queue"
+    rm -f "$errf"
+    return "$fail"
+  fi
   while IFS= read -r entry; do
     [ -n "$entry" ] || continue
     wait_for_capacity
@@ -438,7 +472,7 @@ self_test() {
   # reporting that case, so the harness runs without it (the tool runs it calls
   # are separate processes with their own set -e).
   set +e
-  local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before before_wait before_push
+  local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before before_wait before_push good bad at v
   real_repo=$(git -C "$TOOLS" rev-parse --show-toplevel)
   tmp=$(mktemp -d)
   # shellcheck disable=SC2064  # expand now: tmp is local
@@ -725,25 +759,48 @@ PY
   expect "receipts for a missing tags file fail instead of reporting an empty success" $?
 
   echo "recovery (--rerun-failed):"
-  # a, b, c failed with their release still a draft or never created; d sealed
-  # fine; e published with assets missing (immutable); f has no run at all.
+  # 1-3 failed with their release still a draft or never created; 4 sealed
+  # fine; 5 published with assets missing (immutable); 6 has no run at all; 7's
+  # release state is unreadable; 8's lookup gets a 403; 9 is tagged on a commit
+  # whose release.yml publishes first (re-running it could seal an empty
+  # immutable release); 10's run is for a different commit than its tag.
+  good=$(git -C "$tmp/repo" rev-parse HEAD)
+  git -C "$tmp/repo" checkout -q --detach "$good"
+  sed 's/ --draft//g' "$tmp/repo/.github/workflows/release.yml" >"$tmp/release.yml.unsafe"
+  cp "$tmp/release.yml.unsafe" "$tmp/repo/.github/workflows/release.yml"
+  git -C "$tmp/repo" commit -q -am "publish-first pipeline" -s
+  bad=$(git -C "$tmp/repo" rev-parse HEAD)
+  git -C "$tmp/repo" checkout -q main
+  for v in 1 2 3 4 5 6 7 8 9 10; do
+    at=$good
+    [ "$v" = 9 ] && at=$bad
+    git -C "$tmp/repo" push -q origin "$at:refs/tags/zz-new-v1.0.$v"
+  done
+  rm -f "$tmp"/runs/*
   printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.1.json"
   printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.3.json"
   printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.4.json"
   printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.5.json"
   printf '{"assets": []}' >"$tmp/releases/zz-new-v1.0.7.json"  # draft state unreadable
   echo "HTTP 403: API rate limit exceeded for installation" >"$tmp/releases/zz-new-v1.0.8.error"
-  for v in 1 2 3 4 5 7 8; do
-    case $v in 4) echo "70$v completed success" ;; *) echo "70$v completed failure" ;; esac >"$tmp/releases/zz-new-v1.0.$v.runinfo"
+  for v in 1 2 3 4 5 7 8 9 10; do
+    at=$good
+    [ "$v" = 9 ] && at=$bad
+    [ "$v" = 10 ] && at=$bad
+    case $v in 4) echo "70$v completed success $at" ;; *) echo "70$v completed failure $at" ;; esac \
+      >"$tmp/releases/zz-new-v1.0.$v.runinfo"
   done
-  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 8 >"$tmp/tags-recover.txt"
+  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 8 9 10 >"$tmp/tags-recover.txt"
   : >"$tmp/calls.txt"
   : >"$tmp/drafts.txt"
+  out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --dry-run --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
+  ! grep -q "^rerun" "$tmp/calls.txt" && has "WOULD-RERUN zz-new-v1.0.1 701" && has "WOULD-RERUN zz-new-v1.0.3 703"
+  expect "--dry-run --rerun-failed lists what it would re-run and re-runs nothing" $?
   pushes_before=$(grep -c . "$tmp/origin.git/pushes.txt")
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
   rc=1
   if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort | tr '\n' ' ')" = "701 702 703 " ]; then rc=0; fi
-  expect "exactly the failed runs whose release is not published are re-run" "$rc"
+  expect "exactly the failed runs whose release is not published, on a safe pipeline, are re-run" "$rc"
   rc=1
   if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 703 done 703 " ]; then rc=0; fi
   expect "re-runs go out in batches of 2, each batch finished before the next starts" "$rc"
@@ -751,6 +808,10 @@ PY
     && has "OK zz-new-v1.0.4" && has "UNKNOWN-STATE zz-new-v1.0.7" && has "UNKNOWN-STATE zz-new-v1.0.8" \
     && [ "$rrc" -ne 0 ]
   expect "sealed-but-partial, no run, unreadable state and a 403 on the lookup are all reported, never re-run" $?
+  has "PROBE-REFUSED zz-new-v1.0.9" && has "CREATE-IS-DRAFT"
+  expect "a tag whose commit carries a publish-first release.yml is refused by main's probe, never re-run" $?
+  has "UNKNOWN-STATE zz-new-v1.0.10: run 7010 is for $bad, not the tagged commit $good"
+  expect "a run that is not for the tagged commit is never re-run" $?
   ! grep -q FORBIDDEN "$tmp/calls.txt" && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -eq "$pushes_before" ]
   expect "recovery never deletes a release and never pushes a tag" $?
 
@@ -813,7 +874,7 @@ main() {
   if [ "$mode" = receipts ]; then
     receipts
   elif [ "$mode" = rerun ]; then
-    rerun_failed
+    rerun_failed "$dry"
   else
     cut "$1" "$dry"
   fi

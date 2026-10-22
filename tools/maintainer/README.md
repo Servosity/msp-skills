@@ -204,10 +204,13 @@ run is still going is reported as in flight, any other fails the run.
 `--rerun-failed` is the recovery for such a wave. For each listed tag whose latest Release run
 failed while its release is still a draft (or was never created), it re-runs the failed jobs
 (`gh run rerun <id> --failed`), `CUT_TAGS_RERUN_BATCH` (default 3) at a time under the same
-in-flight cap, waits for each batch, then prints the receipts. A release already published with
-assets missing is immutable and is reported for a version bump; a tag with no run, or a release
-whose state cannot be read, is reported too. It never deletes a release and never moves or
-re-pushes a tag.
+in-flight cap, waits for each batch, then prints the receipts. Because a re-run executes
+`release.yml` as it is at the tagged commit, each candidate must pass `origin/main`'s pipeline
+probe on that commit (a publish-first workflow could seal an empty immutable release), and the
+failed run must be for that commit. A release already published with assets missing is
+immutable and is reported for a version bump; a tag with no run, or a release whose state
+cannot be read (including a 403 on the lookup), is reported too. `--dry-run` lists what it would
+re-run. It never deletes a release and never moves or re-pushes a tag.
 
 ### `stamp_release.py`
 

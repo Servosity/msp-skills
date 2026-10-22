@@ -41,7 +41,11 @@ What it does, in order
     be stale, and only then does it rebase again. Flakes are re-run at most
     twice, unknown failures at most once. Where in the tree a failure sits is
     never a reason to clear or skip it.
- 8. Merges (squash, --match-head-commit) only when everything is green on that
+ 8. Re-reads the PR and re-asserts every start-time precondition (open, not a
+    draft, into main, same repository, same branch and head) while waiting and
+    immediately before the merge call: `gh pr merge` merges into whatever base
+    the PR names at that instant.
+ 9. Merges (squash, --match-head-commit) only when everything is green on that
     exact commit, main has not moved since the rebase (if it has, it goes round
     again, bounded), and every required review approval is CURRENT. A refused
     merge goes round again too; there is no blind retry. GitHub's merge call
@@ -766,16 +770,7 @@ class Merger:
 
     def _run(self) -> int:
         o = self.o
-        pr = self.gh.pr(o.pr)
-        if pr.get("state") != "OPEN":
-            raise Stop(EXIT_REFUSED, f"PR #{o.pr} is {pr.get('state')}, not OPEN")
-        if pr.get("isDraft"):
-            raise Stop(EXIT_REFUSED, f"PR #{o.pr} is a draft")
-        if pr.get("baseRefName") != "main":
-            raise Stop(EXIT_REFUSED, f"PR #{o.pr} targets {pr.get('baseRefName')}, not main")
-        if pr.get("isCrossRepository"):
-            raise Stop(EXIT_REFUSED, f"PR #{o.pr} is from a fork: this tool runs the branch's generators "
-                                     "and pushes to the branch, so it handles same-repository branches only")
+        pr = self._checked_pr()
         branch, head = pr["headRefName"], pr["headRefOid"]
         self.say(f"==> PR #{o.pr} {branch} at {head[:12]}" + (" (dry run: nothing is pushed or merged)" if o.dry_run else ""))
         try:
@@ -826,9 +821,7 @@ class Merger:
                 self.say(f"==> main moved during the wait ({base[:12]} -> {tip[:12]}); rebasing again")
                 self._count_rebase()
                 continue
-            pr = self.gh.pr(o.pr)
-            if pr.get("headRefOid") != current:
-                raise Stop(EXIT_REFUSED, f"the PR head moved to {str(pr.get('headRefOid'))[:12]}; not merging")
+            pr = self._checked_pr(current, branch)
             ok, missing = self._approvals(base, current, record=True)
             if not ok:
                 raise Stop(EXIT_APPROVAL, "green, but a required approval is not current: " + "; ".join(missing)
@@ -838,6 +831,30 @@ class Merger:
                 self._count_rebase()
                 continue
             return outcome
+
+    def _checked_pr(self, head: str | None = None, branch: str | None = None) -> dict:
+        """The PR, re-read, with EVERY start-time precondition asserted again:
+        open, not a draft, targeting main, from this repository, and (once
+        known) on the same branch and head. Called at the start, while waiting
+        and immediately before the merge call, because a PR can be retargeted,
+        drafted or pushed to at any moment and `gh pr merge` merges into
+        whatever base the PR names at that instant."""
+        o = self.o
+        pr = self.gh.pr(o.pr)
+        if pr.get("state") != "OPEN":
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr} is {pr.get('state')}, not OPEN")
+        if pr.get("isDraft"):
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr} is a draft")
+        if pr.get("baseRefName") != "main":
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr} targets {pr.get('baseRefName')}, not main; not merging")
+        if pr.get("isCrossRepository"):
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr} is from a fork: this tool runs the branch's generators "
+                                     "and pushes to the branch, so it handles same-repository branches only")
+        if branch is not None and pr.get("headRefName") != branch:
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr} now comes from {pr.get('headRefName')}, not {branch}")
+        if head is not None and pr.get("headRefOid") != head:
+            raise Stop(EXIT_REFUSED, f"the PR head moved to {str(pr.get('headRefOid'))[:12]}; not merging")
+        return pr
 
     def _count_rebase(self) -> None:
         self.rebases += 1
@@ -1030,9 +1047,7 @@ class Merger:
         deadline = self.clock() + self.o.timeout_s
         last_key, green_since = None, None
         while self.clock() < deadline:
-            pr = self.gh.pr(self.o.pr)
-            if pr.get("headRefOid") != sha:
-                raise Stop(EXIT_REFUSED, f"the PR head moved to {str(pr.get('headRefOid'))[:12]} while waiting")
+            pr = self._checked_pr(sha)
             if pr.get("mergeable") == "CONFLICTING":
                 raise Stop(EXIT_CONFLICT, "GitHub reports the PR as CONFLICTING (pull_request CI never runs then)")
             snap = self.gh.snapshot(sha)
@@ -1138,6 +1153,7 @@ class Merger:
         validated base with the validated tree. A refused merge goes back to the
         top (re-fetch, re-validate) as "retry"."""
         o = self.o
+        self._checked_pr(sha)  # last look: still open, still into main, still this head
         tip = self._remote_main()
         if tip != base:
             self.say(f"==> main moved to {tip[:12]} just before the merge; validating again")
@@ -1342,6 +1358,7 @@ class FakeGitHub:
         self.merged: str | None = None
         self.merge_oid: str | None = None
         self.refuse_merges = 0
+        self.base_ref = "main"
         self.before_merge: Callable[["FakeGitHub"], None] | None = None
         self.merge_calls = 0
         self.snapshots = 0
@@ -1354,7 +1371,7 @@ class FakeGitHub:
     def pr(self, n: int) -> dict:
         head = self._git("rev-parse", f"refs/heads/{self.branch}") if self.state == "OPEN" else self.merged
         return {"number": n, "state": self.state, "isDraft": False, "headRefName": self.branch, "headRefOid": head,
-                "baseRefName": "main", "isCrossRepository": False, "mergeable": "MERGEABLE", "title": self.title,
+                "baseRefName": self.base_ref, "isCrossRepository": False, "mergeable": "MERGEABLE", "title": self.title,
                 "mergeCommit": {"oid": self.merge_oid} if self.merge_oid else None}
 
     def required_contexts(self) -> list[str]:
@@ -1785,6 +1802,34 @@ def _self_test() -> int:
         rc, logs = merger(work, fake, require=())
         expect(rc == EXIT_RACE and any("RACE" in s and "skills/delta/cli/main.go" in s for s in logs),
                "main moving inside the merge call is detected and reported with what it touched (exit 7)")
+
+        # T8c2: the PR is retargeted while its checks run.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+
+        def retarget(fk: FakeGitHub, sha: str, n: int) -> None:
+            fk.base_ref = "release"
+        fake = FakeGitHub(origin, env, 27, branch, "skill: bravo", green, on_snapshot=retarget)
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_REFUSED and fake.merged is None and any("targets release, not main" in s for s in logs),
+               "a PR retargeted away from main while it waits is never merged")
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 28, branch, "skill: bravo", green)
+        orig_approvals = Merger._approvals
+
+        def approvals_then_retarget(self, base, head, record, fk=fake):  # retarget after the last checks
+            out = orig_approvals(self, base, head, record)
+            if record:
+                fk.base_ref = "release"
+            return out
+        Merger._approvals = approvals_then_retarget  # type: ignore[method-assign]
+        try:
+            rc, logs = merger(work, fake, require=())
+        finally:
+            Merger._approvals = orig_approvals  # type: ignore[method-assign]
+        expect(rc == EXIT_REFUSED and fake.merged is None and fake.merge_calls == 0,
+               "a PR retargeted after the final checks is caught by the look immediately before the merge call")
 
         # T8d: ownership-aware lock release.
         print("lock ownership:")
