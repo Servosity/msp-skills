@@ -137,3 +137,4 @@ On Windows the credential goes to Credential Manager through a direct `CredWrite
 ## No compiled binary
 
 connect-tool ships Markdown plus stdlib Python helpers. There is no compiled CLI and no MCP server of its own to install, because it has no vendor API of its own: it connects the tools that do. Its `install.sh` / `install.ps1` / `mcp-install.md` are intentionally absent for that reason, and the catalog lists it as markdown-only on the same basis.
+
