@@ -245,13 +245,16 @@ def load_suppressions(ref: str | None = None) -> set[tuple[str, str]]:
 
 
 def changed_files(base: str, slug: str) -> list[Path] | None:
-    code, out, _ = run(["git", "-C", str(REPO), "diff", "--name-only", f"{base}...HEAD"])
+    # -z: raw names. Without it git quotes unusual names ("skills/x/\303\251.py"), the
+    # prefix test below misses them, and that file is never scanned in diff mode.
+    git = ["git", "-C", str(REPO), "-c", "core.quotePath=false", "diff", "-z", "--name-only"]
+    code, out, _ = run(git + [f"{base}...HEAD"])
     if code != 0:
-        code, out, _ = run(["git", "-C", str(REPO), "diff", "--name-only", base])
+        code, out, _ = run(git + [base])
         if code != 0:
             return None
     prefix = f"skills/{slug}/"
-    return [REPO / f for f in out.splitlines() if f.startswith(prefix)]
+    return [REPO / f for f in out.split("\0") if f and f.startswith(prefix)]
 
 
 def scan_go_patterns(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
@@ -1094,20 +1097,17 @@ def finding_lines(f: dict) -> tuple[int, int] | None:
 
 
 def unit_at(g: dict, nfile: str, lo: int, hi: int) -> str | None:
-    """The innermost declaration containing lines lo..hi, or None if that is not
-    exactly one declaration."""
-    best: list[tuple[int, str]] = []
-    for k, u in g.get("units", {}).items():
-        if u.get("file") != nfile or u.get("kind") == "file":
-            continue
-        if u["start"] <= lo and hi <= u["end"]:
-            best.append((u["end"] - u["start"], k))
-    if not best:
+    """The one declaration whose lines contain lo..hi, or None. Line numbers cannot
+    tell two declarations that share a line apart (a new function can start right
+    after a reviewed one's closing brace), so a finding on any line that more than
+    one declaration touches is never attributed to either."""
+    touching = [k for k, u in g.get("units", {}).items()
+                if u.get("file") == nfile and u.get("kind") != "file"
+                and u["start"] <= hi and lo <= u["end"]]
+    if len(touching) != 1:
         return None
-    best.sort()
-    if len(best) > 1 and best[0][0] == best[1][0]:
-        return None
-    return best[0][1]
+    u = g["units"][touching[0]]
+    return touching[0] if u["start"] <= lo and hi <= u["end"] else None
 
 
 def graph_problem(a: dict, g: dict | None, rel: str, lines: tuple[int, int]) -> str | None:
@@ -1616,6 +1616,19 @@ def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
     if re.search(r"uses:\s*actions/cache@", gate_yml) or "actions/cache/restore@" not in gate_yml:
         problems.append("scanner binaries must be restored with actions/cache/restore and verified, "
                         "never with the auto-saving actions/cache")
+    # -I: a PR can add tools/maintainer/json.py (or ./re.py, ./pip/) and Python would
+    # import it ahead of the standard library from the script's or current directory.
+    gate_code = [ln for ln in gate_yml.splitlines() if not ln.lstrip().startswith("#")]
+    for ln in gate_code:
+        if re.search(r"\bpython3\b(?!\s+-I\b)", ln) and "python-version" not in ln:
+            problems.append(f"security-gate.yml runs Python without -I: {ln.strip()[:80]}")
+            break
+    if not re.search(r"python3 -I tools/maintainer/check_security_gate\.py", release_yml):
+        problems.append("release.yml runs the gate without python3 -I")
+    upload = re.search(r"uses: actions/upload-artifact@\S+\n\s+with:\n\s+name: scanners\n\s+path: ([^\n]+)", gate_yml)
+    if not upload or upload.group(1).strip() != "${{ runner.temp }}/handoff":
+        problems.append("the scanner artifact must be built from a fresh handoff directory of verified "
+                        "binaries only, never the restored cache directory")
     for k in ("GOSEC_SHA256", "GOVULNCHECK_SHA256", "OSV_SCANNER_SHA256"):
         if not re.search(rf'(?m)^\s*{k}:\s*"[0-9a-f]{{64}}"\s*$', gate_yml):
             problems.append(f"security-gate.yml does not pin {k}")
@@ -1645,6 +1658,16 @@ def _self_test_workflows() -> int:
         ("scanner cache restored without verification", gate_yml.replace(
             "actions/cache/restore@v4", "actions/cache@v4"), rel_yml, False),
         ("scanner hash pin removed", re.sub(r'(?m)^\s*GOSEC_SHA256:.*\n', "", gate_yml), rel_yml, False),
+        ("a row runs the gate without -I", gate_yml.replace(
+            "python3 -I tools/maintainer/check_security_gate.py \\", "python3 tools/maintainer/check_security_gate.py \\"),
+         rel_yml, False),
+        ("scope runs inline Python without -I", gate_yml.replace("python3 -I - <<'PY'", "python3 - <<'PY'"),
+         rel_yml, False),
+        ("scanner artifact uploads the restored cache directory", gate_yml.replace(
+            "name: scanners\n          path: ${{ runner.temp }}/handoff", "name: scanners\n          path: ${{ runner.temp }}/scanner-cache"),
+         rel_yml, False),
+        ("release runs the gate without -I", gate_yml, rel_yml.replace(
+            "python3 -I tools/maintainer/check_security_gate.py", "python3 tools/maintainer/check_security_gate.py"), False),
     ]
     for name, g, r, want in cases:
         probs = workflow_problems(g, r)
@@ -1798,6 +1821,10 @@ def self_test() -> int:
                                "type Store struct" % _line_of(m / "internal/store/store.go",
                                                               'q: "SELECT id FROM resources WHERE " + where')),
              {"G202": P1})
+        case("new function starting on the approved function's closing line", lambda r, m: edit(
+             m, "internal/store/store.go", "\treturn p\n}\n",
+             "\treturn p\n} ; func tail(w string) string { return \"SELECT \" + w +\n" + "\t\"\" +\n" * 20 + "\t\"\" }\n"),
+             {"G202": P1}, where={"G202": "} ; func tail"})
         case("prebuilt .syso object in the package", lambda r, m: (m / "internal/store/blob.syso").write_bytes(
              b"\x7fELF not really"), {"G202": P1})
         case("normalization placeholder planted in source", lambda r, m: edit(

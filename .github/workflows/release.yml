@@ -138,7 +138,7 @@ jobs:
           # release time, so the release never ran osv at all. Install it for parity.
           retry go install "github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}" || rc=1
           # semgrep is not a required scanner (its rules mirror the builtin patterns).
-          retry python3 -m pip install --quiet "semgrep==${SEMGREP_VERSION}" \
+          retry python3 -I -m pip install --quiet "semgrep==${SEMGREP_VERSION}" \
             || echo "::warning::semgrep ${SEMGREP_VERSION} did not install (not a required scanner)"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           if [ "$rc" -ne 0 ]; then
@@ -177,7 +177,7 @@ jobs:
           fi
           # --require-scanners: fail CLOSED if a required scanner is missing/errors, so a
           # broken install cannot let a release bypass the supply-chain gate.
-          python3 tools/maintainer/check_security_gate.py --slug "$slug" --require-scanners
+          python3 -I tools/maintainer/check_security_gate.py --slug "$slug" --require-scanners
 
   # Create the GitHub Release as a DRAFT, once, before the matrix build jobs
   # upload to it. The `publish` job at the bottom is what seals it, and only

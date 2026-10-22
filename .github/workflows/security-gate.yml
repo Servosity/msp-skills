@@ -87,7 +87,7 @@ jobs:
           INPUT_BASE: ${{ inputs.base }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import json, os, re, subprocess, sys
           base = os.environ["PR_BASE"] if os.environ["EVENT"] == "pull_request" else os.environ["INPUT_BASE"]
           p = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"],
@@ -152,7 +152,7 @@ jobs:
           go-version: "1.26"
           cache: false
       - name: Gate self-test (template approvals and the summary, both directions)
-        run: python3 tools/maintainer/check_security_gate.py --self-test
+        run: python3 -I tools/maintainer/check_security_gate.py --self-test
 
   scanners:
     needs: scope
@@ -175,7 +175,7 @@ jobs:
         id: restore
         uses: actions/cache/restore@v4
         with:
-          path: ${{ runner.temp }}/scanners/bin
+          path: ${{ runner.temp }}/scanner-cache
           key: scanners-v2-${{ runner.os }}-${{ runner.arch }}-go${{ env.SCANNER_GO }}-gosec-${{ env.GOSEC_VERSION }}-govulncheck-${{ env.GOVULNCHECK_VERSION }}-osv-${{ env.OSV_SCANNER_VERSION }}
       - name: Verify or build each pinned scanner (bounded retries, fail-closed)
         id: verify
@@ -183,8 +183,12 @@ jobs:
           CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
         run: |
           set -euo pipefail
-          bin="$RUNNER_TEMP/scanners/bin"
-          mkdir -p "$bin"
+          # Restored files are untrusted: only the three named binaries are ever
+          # read from here, and only after their sha256 checks out. What the rows
+          # receive is a fresh handoff directory holding exactly those three.
+          bin="$RUNNER_TEMP/scanner-cache"
+          out="$RUNNER_TEMP/handoff/bin"
+          mkdir -p "$bin" "$out"
           [ "$(go env GOVERSION)" = "go$SCANNER_GO" ] || { echo "::error::scanner toolchain is $(go env GOVERSION), want go$SCANNER_GO"; exit 1; }
           clean=true
           sha() { sha256sum "$1" | cut -d' ' -f1; }
@@ -216,7 +220,8 @@ jobs:
           get gosec github.com/securego/gosec/v2/cmd/gosec github.com/securego/gosec/v2 "$GOSEC_VERSION" "$GOSEC_SHA256"
           get govulncheck golang.org/x/vuln/cmd/govulncheck golang.org/x/vuln "$GOVULNCHECK_VERSION" "$GOVULNCHECK_SHA256"
           get osv-scanner github.com/google/osv-scanner/cmd/osv-scanner github.com/google/osv-scanner "$OSV_SCANNER_VERSION" "$OSV_SCANNER_SHA256"
-          sha256sum "$bin"/*
+          for t in gosec govulncheck osv-scanner; do install -m 0755 "$bin/$t" "$out/$t"; done
+          sha256sum "$out"/*
           save=false
           if [ "$clean" = true ] && [ "$CACHE_HIT" != true ]; then save=true; fi
           echo "save=$save" >> "$GITHUB_OUTPUT"
@@ -224,7 +229,7 @@ jobs:
         if: steps.verify.outputs.save == 'true'
         uses: actions/cache/save@v4
         with:
-          path: ${{ runner.temp }}/scanners/bin
+          path: ${{ runner.temp }}/scanner-cache
           key: scanners-v2-${{ runner.os }}-${{ runner.arch }}-go${{ env.SCANNER_GO }}-gosec-${{ env.GOSEC_VERSION }}-govulncheck-${{ env.GOVULNCHECK_VERSION }}-osv-${{ env.OSV_SCANNER_VERSION }}
       - name: Download the pinned semgrep wheels once (bounded retries)
         run: |
@@ -232,9 +237,9 @@ jobs:
           # semgrep is deliberately not a REQUIRED scanner (its rules mirror the
           # always-on builtin patterns; see REQUIRED_SCANNERS in check_security_gate.py),
           # so a failure here warns and the rows run without it, as before.
-          wheels="$RUNNER_TEMP/scanners/wheels"
+          wheels="$RUNNER_TEMP/handoff/wheels"
           for attempt in 1 2 3; do
-            if python3 -m pip download --quiet --only-binary=:all: --dest "$wheels" "semgrep==$SEMGREP_VERSION"; then exit 0; fi
+            if python3 -I -m pip download --quiet --only-binary=:all: --dest "$wheels" "semgrep==$SEMGREP_VERSION"; then exit 0; fi
             echo "::warning::semgrep wheel download attempt $attempt failed"
             sleep $((attempt * 15))
           done
@@ -245,7 +250,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: scanners
-          path: ${{ runner.temp }}/scanners
+          path: ${{ runner.temp }}/handoff
           retention-days: 1
           if-no-files-found: error
 
@@ -284,14 +289,17 @@ jobs:
         run: |
           set -euo pipefail
           bin="$RUNNER_TEMP/scanners/bin"
-          chmod +x "$bin"/*
+          # Exactly the three scanners, nothing else, ever goes on PATH.
+          [ "$(find "$bin" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')" = "gosec govulncheck osv-scanner " ] \
+            || { echo "::error::unexpected files in the scanner handoff (fail-closed)"; exit 1; }
+          chmod +x "$bin"/gosec "$bin"/govulncheck "$bin"/osv-scanner
           check() { go version -m "$bin/$1" | awk '$1 == "mod" { print $2, $3 }' | grep -qxF "$2 $3" || { echo "::error::$1 is not $3 (fail-closed)"; exit 1; }; }
           check gosec github.com/securego/gosec/v2 "$GOSEC_VERSION"
           check govulncheck golang.org/x/vuln "$GOVULNCHECK_VERSION"
           check osv-scanner github.com/google/osv-scanner "$OSV_SCANNER_VERSION"
           echo "$bin" >> "$GITHUB_PATH"
           if [ -d "$RUNNER_TEMP/scanners/wheels" ]; then
-            python3 -m pip install --quiet --no-index --find-links "$RUNNER_TEMP/scanners/wheels" "semgrep==$SEMGREP_VERSION" \
+            python3 -I -m pip install --quiet --no-index --find-links "$RUNNER_TEMP/scanners/wheels" "semgrep==$SEMGREP_VERSION" \
               || echo "::warning::semgrep install failed (semgrep is not a required scanner)"
           fi
       - name: Pre-warm scanner caches for this connector
@@ -322,7 +330,7 @@ jobs:
           # osv-scanner) is a P1, not a silent skip - a broken install cannot disable
           # the gate. --policy-base: suppressions, the dependency allowlist, template
           # approvals and the analyzer approvals rely on all come from the base.
-          if python3 tools/maintainer/check_security_gate.py \
+          if python3 -I tools/maintainer/check_security_gate.py \
                --slug "$SLUG" --base "$BASE_SHA" --policy-base "$BASE_SHA" --require-scanners; then
             verdict=pass
           else
@@ -331,7 +339,7 @@ jobs:
             echo "::error::entry to tools/maintainer/security_suppressions.json in a separate, reviewed PR."
           fi
           mkdir -p "$RUNNER_TEMP/verdict"
-          VERDICT="$verdict" python3 -c 'import json, os; print(json.dumps({"slug": os.environ["SLUG"], "verdict": os.environ["VERDICT"], "sha": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"]}))' \
+          VERDICT="$verdict" python3 -I -c 'import json, os; print(json.dumps({"slug": os.environ["SLUG"], "verdict": os.environ["VERDICT"], "sha": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"]}))' \
             > "$RUNNER_TEMP/verdict/verdict-$SLUG.json"
           [ "$verdict" = pass ]
       - name: Report this connector's verdict to the summary
@@ -383,5 +391,5 @@ jobs:
         env:
           GATE_NEEDS: ${{ toJSON(needs) }}
         run: |
-          python3 tools/maintainer/check_security_gate.py --summarize \
+          python3 -I tools/maintainer/check_security_gate.py --summarize \
             --verdicts "$RUNNER_TEMP/verdicts" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
