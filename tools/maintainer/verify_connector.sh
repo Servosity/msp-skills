@@ -76,21 +76,45 @@ linux_test_compile() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go test -c -o /dev
 # the compiler).
 linux_vet() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go vet ./... ); }
 
-# CI's Linux rows run with cgo ON (a C compiler is present); a cross-target
-# check from a Mac runs with it OFF, so a cgo-only file (`//go:build cgo`, or
-# `import "C"`) would be built, vetted and scanned by CI and by nothing here.
-# No connector has one today; if one appears, fail closed rather than pass a
-# file this machine never read. A Linux host builds it natively.
-cgo_context() {
-  if [ "$(uname -s)" = Linux ]; then echo "Linux host: native checks build cgo files"; return 0; fi
-  hits="$(grep -rlE '^//go:build .*\bcgo\b|^// \+build .*\bcgo\b|^import "C"' --include='*.go' "$mod" 2>/dev/null)"
-  if [ -n "$hits" ]; then
-    echo "cgo-only Go files that CI's Linux rows build with cgo but this host cannot check:"
-    printf '%s\n' "$hits"
-    echo "run verify_all.sh on Linux, or rely on CI for this connector"
+# What CI's Linux rows build that this host never checks. CI runs linux/amd64
+# with cgo ON (a C compiler is present). This host runs its NATIVE go test
+# and vet, plus linux/amd64 cross checks with whatever cgo setting that
+# cross-target gets (off from a Mac). `go list` evaluates the real build
+# constraints, so the comparison is exact, not a guess at tag spellings:
+#   * a test file CI runs that this host's native go test never builds
+#     (a *_linux_test.go on a Mac) would be certified without ever running;
+#   * a file CI compiles that neither the native nor the cross checks select
+#     (`//go:build cgo` with cgo off) would be certified without being read.
+# Either fails closed. No connector has one today; a Linux host with cgo on
+# checks everything natively. Non-test *_linux.go sources ARE read here (the
+# cross build, vet, test compile and security gate), but only CI executes
+# them under test.
+_files() { # <format> <env...>: sorted absolute paths go list selects
+  local fmt="$1"; shift
+  ( cd "$mod" && env "$@" go list -e -f "$fmt" ./... ) | tr ' ' '\n' | grep . | sort -u
+}
+ci_context() {
+  # Go templates, not shell expansions:
+  # shellcheck disable=SC2016
+  local t='{{$d := .Dir}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}'
+  # shellcheck disable=SC2016
+  local a='{{$d := .Dir}}{{range .GoFiles}}{{$d}}/{{.}} {{end}}{{range .CgoFiles}}{{$d}}/{{.}} {{end}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}'
+  local tmp missing_tests missing_files
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/ci_context.XXXXXX")" || return 1
+  _files "$t" GOOS=linux GOARCH=amd64 CGO_ENABLED=1 > "$tmp/ci_tests" || { rm -rf "$tmp"; return 1; }
+  _files "$t" > "$tmp/host_tests" || { rm -rf "$tmp"; return 1; }
+  _files "$a" GOOS=linux GOARCH=amd64 CGO_ENABLED=1 > "$tmp/ci_all" || { rm -rf "$tmp"; return 1; }
+  { _files "$a"; _files "$a" GOOS=linux GOARCH=amd64; } | sort -u > "$tmp/seen"
+  missing_tests="$(comm -23 "$tmp/ci_tests" "$tmp/host_tests")"
+  missing_files="$(comm -23 "$tmp/ci_all" "$tmp/seen")"
+  rm -rf "$tmp"
+  if [ -n "$missing_tests" ] || [ -n "$missing_files" ]; then
+    [ -n "$missing_tests" ] && { echo "test files CI's Linux rows RUN that this host's go test never builds:"; printf '%s\n' "$missing_tests" | sed 's/^/  /'; }
+    [ -n "$missing_files" ] && { echo "files CI's Linux rows compile (cgo on) that no check here selects:"; printf '%s\n' "$missing_files" | sed 's/^/  /'; }
+    echo "run verify_all.sh on Linux with cgo enabled, or rely on CI for this connector"
     return 1
   fi
-  echo "no cgo-only files: the cross-target checks read everything CI's Linux rows build"
+  echo "every file CI's Linux rows build is built here, and every test they run runs here"
 }
 
 if [ ! -f "$mod/go.mod" ]; then
@@ -106,7 +130,7 @@ check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "linux test compile"     linux_test_compile
 check "linux vet"              linux_vet
-check "cgo context"            cgo_context
+check "ci build context"       ci_context
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
 check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"

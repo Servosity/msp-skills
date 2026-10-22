@@ -36,7 +36,7 @@ if [ "${1:-}" = "--self-test" ]; then
   [ -n "$floor" ] || { echo "FAIL: ci_guards self-test cannot read GO_FLOOR from $SELF" >&2; exit 1; }
   bad=0
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/ci_guards.selftest.XXXXXX")" || exit 2
-  trap 'rm -rf "$tmp"' EXIT
+  trap 'chmod -R u+rwx "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
   st_case() { # <label> <want: pass|fail> <setup command string>
     local label="$1" want="$2" setup="$3" d rc got
     d="$tmp/case$RANDOM$RANDOM"
@@ -76,6 +76,8 @@ if [ "${1:-}" = "--self-test" ]; then
     "printf 'module acme-pp-cli\n\ngo 1.1.0\n' > skills/acme/cli/go.mod; rm skills/acme/guide.md"
   st_case "a go.mod at the floor, selected by a toolchain line" pass \
     "printf 'module acme-pp-cli\n\ngo 1.1\n\ntoolchain go%s\n' \"\$floor\" > skills/acme/cli/go.mod"
+  st_case "a tracked file in an unreadable directory fails closed" fail \
+    "mkdir -p docs/locked; printf 'a $em b\n' > docs/locked/README.md; git add docs/locked/README.md; git -c user.name=t -c user.email=t@example.com commit -qm l; chmod 000 docs/locked; [ -r docs/locked ] && rm -rf docs/locked"
   st_case "an unreadable file fails closed" fail \
     "printf 'x\n' > skills/acme/locked.md; chmod 000 skills/acme/locked.md; [ -r skills/acme/locked.md ] && printf 'a $em b\n' > skills/acme/locked.md"
   if [ "$bad" -eq 0 ]; then echo "PASS: ci_guards self-test - every case discriminates"; exit 0; fi
@@ -92,9 +94,21 @@ note() { echo "  hint: $1"; }
 # NUL-separated. A tracked file missing from disk is skipped, never fatal.
 all_files() {
   { git ls-files -z --cached -- "$@"; git ls-files -z --others --exclude-standard -- "$@"; } \
-    | python3 -c 'import os, sys
-names = sys.stdin.buffer.read().split(b"\0")
-sys.stdout.buffer.write(b"".join(b"./" + n + b"\0" for n in names if n and os.path.isfile(n)))'
+    2>>"${GIT_LIST_ERR:-/dev/null}" | python3 -c 'import os, stat, sys
+out = []
+for n in sys.stdin.buffer.read().split(b"\0"):
+    if not n:
+        continue
+    try:
+        st = os.stat(n)
+    except (FileNotFoundError, NotADirectoryError):
+        continue          # missing from disk (moved or deleted): nothing to scan
+    except OSError:
+        out.append(n)     # present but unreadable: keep it, grep reports it, the guard fails
+        continue
+    if stat.S_ISREG(st.st_mode):
+        out.append(n)
+sys.stdout.buffer.write(b"".join(b"./" + n + b"\0" for n in out))'
 }
 # Names go out as ./path: a file literally named "-" would otherwise reach grep
 # as "read stdin" (even after --) and never be scanned. scan() strips the ./
@@ -104,9 +118,18 @@ sys.stdout.buffer.write(b"".join(b"./" + n + b"\0" for n in names if n and os.pa
 # module trees and binaries).
 lists="$(mktemp -d "${TMPDIR:-/tmp}/ci_guards.XXXXXX")" || exit 2
 trap 'rm -rf "$lists"' EXIT
+GIT_LIST_ERR="$lists/git.err"
 all_files . > "$lists/all"
 all_files . ':(exclude)skills/*/cli/**' \
   ':(exclude)*.png' ':(exclude)*.jpg' ':(exclude)*.gif' ':(exclude)*.pdf' > "$lists/human"
+if [ -s "$GIT_LIST_ERR" ]; then
+  # git could not list part of the tree (an unreadable directory): what it
+  # skipped was never scanned, so that is a failure, not a pass.
+  echo "==> 0. Every file could be listed"
+  sed 's/^/  /' "$GIT_LIST_ERR"
+  note "git could not list part of the tree; fix the permissions so every file can be scanned"
+  fail=1
+fi
 
 # scan <all|human> <grep args...>: print every match (file:line:text) and
 # succeed iff there is at least one. A file grep cannot read is reported and
