@@ -69,8 +69,9 @@
     "threatdown_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 to drop the MCP server's write tools (including the respond job verbs) and refuse every non-GET call, and endpoints diag-log, through threatdown_execute. Leave blank for the full tool set.",
-      "required": false
+      "description": "Set to exactly 1 to drop the MCP server's write tools (including the respond job verbs) and refuse every non-GET call, and endpoints diag-log, through threatdown_execute. Leave blank for the full tool set. Preset to 1; clear it only when you want the agent to make changes.",
+      "required": false,
+      "default": "1"
     },
     "threatdown_mcp_http_token": {
       "type": "string",

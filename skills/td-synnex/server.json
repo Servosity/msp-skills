@@ -56,7 +56,8 @@
           "name": "TD_SYNNEX_MCP_READ_ONLY",
           "description": "Optional. Set to 1 to remove every tool that can change StreamOne ION (orders, cancellations, cart checkout, customer and product changes, subscriptions set). Any value except blank, 0, false, no or off turns it on. It also removes sync and the learning writers; the tools it keeps still write the synced store, command journal and recall statistics.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "TD_SYNNEX_MCP_HTTP_TOKEN",

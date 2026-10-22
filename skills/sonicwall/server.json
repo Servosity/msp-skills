@@ -57,7 +57,8 @@
           "name": "SONICWALL_MCP_READ_ONLY",
           "description": "Optional. Set to 1 to hide tools that change NSM, MySonicWall or firewall state and refuse non-GET execute calls. Tools still write local state: the response cache, posture snapshots and learning entries.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "SONICWALL_MCP_HTTP_TOKEN",

@@ -69,8 +69,9 @@
     "connectsecure_mcp_read_only": {
       "type": "string",
       "title": "Read-only mode",
-      "description": "Set to 1 to make the MCP server refuse every write (any non-GET call) and hide the sync, export and tail tools (import is never an MCP tool). Credential reads are still answered, so this does not replace scoping the API user. Leave blank for full access.",
-      "required": false
+      "description": "Set to 1 to make the MCP server refuse every write (any non-GET call) and hide the sync, export and tail tools (import is never an MCP tool). Credential reads are still answered, so this does not replace scoping the API user. Leave blank for full access. Preset to 1; clear it only when you want the agent to make changes.",
+      "required": false,
+      "default": "1"
     },
     "connectsecure_user_agent": {
       "type": "string",

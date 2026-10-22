@@ -59,9 +59,10 @@
     "sonicwall_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP mode",
-      "description": "Optional. Set to 1 to hide tools that change NSM, MySonicWall or firewall state and refuse non-GET execute calls. Tools still write local state: the response cache, posture snapshots and learning entries.",
+      "description": "Optional. Set to 1 to hide tools that change NSM, MySonicWall or firewall state and refuse non-GET execute calls. Tools still write local state: the response cache, posture snapshots and learning entries. Preset to 1; clear it only when you want the agent to make changes.",
       "sensitive": false,
-      "required": false
+      "required": false,
+      "default": "1"
     },
     "sonicwall_mcp_http_token": {
       "type": "string",

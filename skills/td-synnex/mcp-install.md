@@ -1,5 +1,11 @@
 # TD SYNNEX MCP - install for every agent that speaks MCP
 
+> **Security note (until this connector is reprinted).** Do not run HTTP mode
+> (`--transport http`), not even on localhost. This build checks a token, but it
+> predates the fix release's request size and time limits. The MCP tools can
+> also make changes with your credentials. Use the default stdio transport. If
+> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
+
 This page wires the TD SYNNEX MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -7,7 +13,8 @@ it's simpler. Everyone else: pick your agent below.
 **Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
 launch `td-synnex-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
 Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint, so you expose `td-synnex-mcp` over HTTPS first.
+endpoint, so they need HTTP mode, which is paused for this connector until
+it is reprinted (see the security note above).
 
 ## Prerequisite: install the MCP binary
 
@@ -41,7 +48,7 @@ Add (or merge with your existing `mcpServers` block):
         "TD_SYNNEX_ACCESS_TOKEN": "",
         "TD_SYNNEX_REFRESH_TOKEN": "",
         "TD_SYNNEX_BASE_URL": "",
-        "TD_SYNNEX_MCP_READ_ONLY": "",
+        "TD_SYNNEX_MCP_READ_ONLY": "1",
         "TD_SYNNEX_MCP_HTTP_TOKEN": "",
         "TD_SYNNEX_USER_AGENT": "",
         "TD_SYNNEX_TAIL_MAX_PAGES": "",
@@ -51,6 +58,9 @@ Add (or merge with your existing `mcpServers` block):
   }
 }
 ```
+
+`TD_SYNNEX_MCP_READ_ONLY` is `1` in every config on this page. Remove this line
+only when you want the agent to make changes.
 
 Before the first start, mint a token with the CLI (the MCP server cannot do it): `td-synnex-cli auth mint --refresh-token-stdin`, piping in the refresh token from **ION portal > Settings > Users > Edit > OAuth credentials > Request New Credentials**. The server reads the token that command saves. Leave `TD_SYNNEX_ACCESS_TOKEN` and `TD_SYNNEX_REFRESH_TOKEN` empty: a pasted access token expires after 2 hours and keeps overriding the saved one. Keep it fresh with `td-synnex-cli auth mint --if-expiring 15m` from cron or Task Scheduler. Set `TD_SYNNEX_MCP_READ_ONLY` to `1` to remove every tool that can change ION (any value except blank, `0`, `false`, `no` or `off` turns it on); leave the other empty values empty unless you need them.
 
@@ -76,7 +86,7 @@ Configuration**) and add:
         "TD_SYNNEX_ACCESS_TOKEN": "",
         "TD_SYNNEX_REFRESH_TOKEN": "",
         "TD_SYNNEX_BASE_URL": "",
-        "TD_SYNNEX_MCP_READ_ONLY": "",
+        "TD_SYNNEX_MCP_READ_ONLY": "1",
         "TD_SYNNEX_MCP_HTTP_TOKEN": "",
         "TD_SYNNEX_USER_AGENT": "",
         "TD_SYNNEX_TAIL_MAX_PAGES": "",
@@ -105,7 +115,7 @@ Claude Desktop:
         "TD_SYNNEX_ACCESS_TOKEN": "",
         "TD_SYNNEX_REFRESH_TOKEN": "",
         "TD_SYNNEX_BASE_URL": "",
-        "TD_SYNNEX_MCP_READ_ONLY": "",
+        "TD_SYNNEX_MCP_READ_ONLY": "1",
         "TD_SYNNEX_MCP_HTTP_TOKEN": "",
         "TD_SYNNEX_USER_AGENT": "",
         "TD_SYNNEX_TAIL_MAX_PAGES": "",
@@ -121,60 +131,21 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (expose the binary over HTTPS first)
+# Remote agents (paused until this connector is reprinted)
 
-All remote agents need `td-synnex-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp` by
-default and refuses to start until `TD_SYNNEX_MCP_HTTP_TOKEN` is set; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`). Mint the ION token with `td-synnex-cli auth mint` first, as above:
+ChatGPT, Microsoft 365 Copilot / Copilot Studio and the Gemini app only connect
+to an MCP server over HTTPS, which means running `td-synnex-mcp` in HTTP mode.
+Do not do that with this build (see the security note at the top of this page),
+and do not put this server behind a tunnel or reverse proxy. Use a local agent
+above, or the Claude Code / Codex Skill, until the fix release brings these
+steps back.
+
+The HTTP-mode launch command is kept below for reference. It is commented out on
+purpose, so pasting it does nothing:
 
 ```bash
-TD_SYNNEX_ACCOUNT_ID=<value> TD_SYNNEX_MCP_HTTP_TOKEN=<a long random value> td-synnex-mcp --transport http
+# TD_SYNNEX_ACCOUNT_ID=<value> TD_SYNNEX_MCP_HTTP_TOKEN=<a long random value> td-synnex-mcp --transport http
 ```
-
-On Windows PowerShell, set the same two variables first (`$env:TD_SYNNEX_ACCOUNT_ID = "<value>"`, `$env:TD_SYNNEX_MCP_HTTP_TOKEN = "<a long random value>"`) and then start the server with the same flag. Callers must send `Authorization: Bearer <that value>`.
-
-Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
-URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
-internet; gate it behind SSO / Cloudflare Access for team use.
-
-## ChatGPT (Developer Mode)
-
-In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
-Settings > Apps > Advanced > **Developer mode**, then create a custom connector
-pointing at your tunnel's HTTPS URL.
-
-Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
-
-## Microsoft 365 Copilot / Copilot Studio
-
-**Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
-and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
-`td-synnex-mcp` you installed is not enough on its own. You also need a **Copilot Studio
-license** and a **tenant admin** to enable it. This is a build-and-host task, not a
-self-serve install.
-
-Once `td-synnex-mcp` is hosted over HTTPS (above), the lowest-code route:
-
-1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
-   Context Protocol**.
-2. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth
-   (OAuth 2.0 or API key). Copilot Studio builds the Power Platform connector behind
-   the scenes; generative orchestration must be **on**.
-3. Publish the agent into Microsoft 365 Copilot.
-
-Alternative (dev-ish): build a **declarative agent** with the Microsoft 365 Agents
-Toolkit in VS Code (**Add an Action > Start with an MCP Server**, point at the remote
-URL), then sideload - requires admin-enabled Custom App Upload + Copilot Access.
-
-Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
-
-## Gemini app / web (Google)
-
-Same remote pattern as ChatGPT - point Gemini's connector at your hosted HTTPS
-endpoint. For a local, no-hosting path on Google, use **Gemini CLI** (above) instead.
 
 ---
 

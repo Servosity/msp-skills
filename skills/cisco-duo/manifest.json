@@ -57,8 +57,9 @@
     "cisco_duo_mcp_read_only": {
       "type": "string",
       "title": "Read-only mode",
-      "description": "Set to 1 for a read-only server: lockout fix, phone-swap, enrollment chase, sync, import and export are hidden, and the API execute tool refuses every non-GET call. Leave blank for the full tool set.",
-      "required": false
+      "description": "Set to 1 for a read-only server: lockout fix, phone-swap, enrollment chase, sync, import and export are hidden, and the API execute tool refuses every non-GET call. Leave blank for the full tool set. Preset to 1; clear it only when you want the agent to make changes.",
+      "required": false,
+      "default": "1"
     },
     "cisco_duo_base_url": {
       "type": "string",

@@ -51,7 +51,8 @@
           "name": "BACKUP_RADAR_MCP_READ_ONLY",
           "description": "Optional. Set to 1, true or yes to hide the backups_ingest and backups_retire tools and the sync, export, learnings_forget, learnings_reject and workflow_archive mirrors. Read tools still write local state: the response cache and learning entries.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "BACKUP_RADAR_MCP_HTTP_TOKEN",

@@ -49,8 +49,9 @@
     "bitdefender_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 so bitdefender_execute runs only GravityZone read methods and refuses writes and the Credential-tier reads (incident reads stay allowed). Leave blank for full access.",
-      "required": false
+      "description": "Set to exactly 1 so bitdefender_execute runs only GravityZone read methods and refuses writes and the Credential-tier reads (incident reads stay allowed). Leave blank for full access. Preset to 1; clear it only when you want the agent to make changes.",
+      "required": false,
+      "default": "1"
     },
     "bitdefender_mcp_http_token": {
       "type": "string",

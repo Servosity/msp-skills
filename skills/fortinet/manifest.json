@@ -98,9 +98,10 @@
     "fortinet_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP mode",
-      "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call.",
+      "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to make changes.",
       "required": false,
-      "sensitive": false
+      "sensitive": false,
+      "default": "1"
     },
     "fortinet_mcp_http_token": {
       "type": "string",

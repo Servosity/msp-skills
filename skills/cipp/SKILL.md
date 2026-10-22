@@ -39,6 +39,34 @@ If `--version` reports "command not found" after install, the runtime cannot see
 
 CIPP (CyberDrain Improved Partner Portal) is how MSPs manage many Microsoft 365 tenants from one place. This CLI wraps the full 496-endpoint API as typed commands, then goes further: `fanout --save` pulls tenants, users, licenses, and standards into a local SQLite database so you can run fleet-wide queries (`posture`, `licenses waste`, `users stale`), detect baseline drift (`standards drift`), and execute throttle-aware bulk operations (`bulk`) that survive Microsoft Graph 429s  -  all with --json, --dry-run, and typed exit codes.
 
+## Read this first: some CIPP GET calls change things
+
+39 CIPP endpoints are called with GET but named as actions (`Exec...`,
+`Remove...`). Some of them change your tenants or your CIPP instance, for
+example `RemoveStandard`, `ExecSendOrgMessage` and `ExecRunBackup`. Their CLI
+commands look like reads, and through the MCP server they run via `cipp_execute`
+with no confirmation step, the same as every other call, so MCP hosts must not
+auto-approve `cipp_execute`. Treat each of these commands as a change and
+confirm with the user before running it:
+
+`exec-add-spn`, `exec-alerts-list`, `exec-apipermission-list`,
+`exec-app-approval`, `exec-app-insights-query`, `exec-app-upload`,
+`exec-backend-urls`, `exec-beccheck`, `exec-bulk-license`, `exec-cippdbcache`,
+`exec-cpvrefresh`, `exec-create-default-groups`, `exec-csplicense list`,
+`exec-device-code-logon`, `exec-durable-functions`, `exec-extension-mapping`,
+`exec-extension-ninja-one-queue`, `exec-extension-sync`, `exec-extension-test`,
+`exec-gdapinvite-approved`, `exec-gdaptrace`, `exec-incidents-list`,
+`exec-list-app-id list`, `exec-list-backup`, `exec-mail-test`,
+`exec-mailbox-mobile-devices`, `exec-maintenance-scripts`,
+`exec-mdo-alerts-list`, `exec-permission-repair`, `exec-run-backup`,
+`exec-scheduler-billing-run`, `exec-send-org-message`,
+`exec-service-principals`, `exec-standard-convert`, `exec-standards-run`,
+`exec-universal-search`, `exec-universal-search-v2`, `remove-standard`,
+`remove-tenant-capabilities-cache`.
+
+The table with API paths and MCP endpoint IDs is in
+[mcp-install.md](./mcp-install.md#appendix-cipp-get-endpoints-named-as-actions).
+
 ## When to Use This CLI
 
 Reach for this CLI whenever an MSP task spans more than one Microsoft 365 tenant or needs to be scripted: cross-tenant posture and license reporting, baseline drift detection, burst onboarding/offboarding from a CSV, or any CIPP action wired into cron/RMM automation. It is the headless, agent-native alternative to clicking through the CIPP web UI one tenant at a time.

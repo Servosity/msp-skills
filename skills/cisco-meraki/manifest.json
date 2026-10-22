@@ -41,8 +41,9 @@
     "cisco_meraki_mcp_read_only": {
       "type": "string",
       "title": "Read-only mode",
-      "description": "Set to 1 to make the MCP server refuse every write: only GET endpoints are callable and fleet push --apply is refused. Secret-bearing GETs (SSID pre-shared keys, SNMP community strings) still return data. Leave blank to allow writes.",
-      "required": false
+      "description": "Set to 1 to make the MCP server refuse every write: only GET endpoints are callable and fleet push --apply is refused. Secret-bearing GETs (SSID pre-shared keys, SNMP community strings) still return data. Leave blank to allow writes. Preset to 1; clear it only when you want the agent to make changes.",
+      "required": false,
+      "default": "1"
     },
     "cisco_meraki_user_agent": {
       "type": "string",
