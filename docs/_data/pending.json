@@ -308,9 +308,9 @@
     "released_hash": "sha256:32de18a99d244b919130e152d7d113b43916abb35c9b4bc4d6bc471e160027e0"
   },
   "levelio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "levelio-v0.1.5",
+    "latest_tag": "levelio-v0.1.6",
     "current_hash": "sha256:f6d351481719ad1cb8bea2ac7ed78f50d9c8abe614fd3c9a37808a8ce9da0d70",
     "released_hash": "sha256:f6d351481719ad1cb8bea2ac7ed78f50d9c8abe614fd3c9a37808a8ce9da0d70"
   },
