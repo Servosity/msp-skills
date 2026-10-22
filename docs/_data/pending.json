@@ -497,16 +497,16 @@
     "released_hash": "sha256:53a9b307c6fac6d3937fa2417432d19b63fea959e44d8955953094423335c910"
   },
   "sherweb": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "sherweb-v0.1.5",
+    "latest_tag": "sherweb-v0.1.6",
     "current_hash": "sha256:f49d229f01cbc90bb03b3c4dd8d3102f95574fc2f7a6e16e554202d43c4c709e",
     "released_hash": "sha256:f49d229f01cbc90bb03b3c4dd8d3102f95574fc2f7a6e16e554202d43c4c709e"
   },
   "skykick": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "skykick-v0.1.5",
+    "latest_tag": "skykick-v0.1.6",
     "current_hash": "sha256:707f260ff6135dc60cff94537f93d0efc722b1dada827a68a28108f20a81aeca",
     "released_hash": "sha256:707f260ff6135dc60cff94537f93d0efc722b1dada827a68a28108f20a81aeca"
   },
@@ -525,9 +525,9 @@
     "released_hash": "sha256:ef12f6f11c457d06c199b70cb8a78241df007c3280a8c9958b1318f241a291d4"
   },
   "superops": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "superops-v0.1.9",
+    "latest_tag": "superops-v0.1.10",
     "current_hash": "sha256:76123cea18190958f8c64e88568f875888e24b29166d6cc31a4191dd5a54bb01",
     "released_hash": "sha256:76123cea18190958f8c64e88568f875888e24b29166d6cc31a4191dd5a54bb01"
   },
