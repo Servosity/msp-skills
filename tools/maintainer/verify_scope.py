@@ -350,24 +350,13 @@ def attribute(text: str, affected: set[str], known: set[str]) -> dict:
             "slugs": sorted({w for w, _ in other}), "lines": [ln for _, ln in other][:40]}
 
 
-# Only the LOCATION's line and column are ignored (a finding moves when lines
-# are added above it); a number inside the finding itself is content.
-# A column is ignored only in a format that HAS one (shellcheck -f gcc:
-# `path:line:col: warning: ...`); in grep's `path:line:text` the next number
-# is the file's own text.
-_LOC_PREFIX = r"^(\s*(?:[-*]\s+)?(?:R\d+\s+)?[^\s:]+?)"
-_LOC_COL = re.compile(_LOC_PREFIX + r":\d+:\d+(?=: (?:warning|error|note|info|style)\b)")
-_LOC_NUM = re.compile(_LOC_PREFIX + r":\d+(?=:|\s|$)")
-_ANSI = re.compile(r"\x1b\[[0-9;]*m")
-
-
 def _norm(line: str) -> str:
-    line = _ANSI.sub("", line)
-    line = re.sub(r"(?<![\w.])\./", "", line)
-    line, n = _LOC_COL.subn(r"\1:N:N", line, count=1)
-    if not n:
-        line = _LOC_NUM.sub(r"\1:N", line, count=1)
-    return " ".join(line.split())
+    """Identity, on purpose. The comparison is EXACT: every normalisation
+    tried (line numbers, columns, whitespace) erased finding content in some
+    format and let a changed failure pass as pre-existing. Exactness costs
+    nothing real: a finding's line number moves only when its own file
+    changed, and then the failure is plausibly this change's, so it blocks."""
+    return line
 
 
 def lines_pre_existing(head_text: str, base_text: str) -> bool:
@@ -744,9 +733,9 @@ def _self_test() -> int:
     head = "Skill contract check FAILED:\n  - zeta: missing required file guide.md\n"
     expect(pre_existing(head, head, {"acme"}, known)["pre_existing"],
            "the base prints the same finding -> pre-existing")
-    expect(pre_existing("check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] x\n",
-                        "check_no_todos FAILED:\n  skills/zeta/SKILL.md:611: [TODO] x\n", {"acme"}, known)["pre_existing"],
-           "the same finding at another line number -> pre-existing")
+    expect(not pre_existing("check_no_todos FAILED:\n  skills/zeta/SKILL.md:625: [TODO] x\n",
+                            "check_no_todos FAILED:\n  skills/zeta/SKILL.md:611: [TODO] x\n", {"acme"}, known)["pre_existing"],
+           "the same finding at another line number -> new (its file changed; the comparison is exact)")
     r = pre_existing(head, "Skill contract check passed for 87 skill(s).\n", {"acme"}, known)
     expect(not r["pre_existing"] and r["new_lines"],
            "the base passes (this change broke zeta: a deleted asset, a tighter vocab.json) -> NEW, blocks")
@@ -759,9 +748,11 @@ def _self_test() -> int:
     expect(not pre_existing("x\nskills/zeta/README.md:12:101: a - b\n", "x\nskills/zeta/README.md:12:100: a - b\n",
                             {"acme"}, known)["pre_existing"],
            "grep output: digits right after path:line are the file's text, not a column -> new")
-    expect(pre_existing("x\nskills/zeta/install.sh:498:6: warning: y [SC2154]\n",
-                        "x\nskills/zeta/install.sh:501:6: warning: y [SC2154]\n", {"acme"}, known)["pre_existing"],
-           "a location's line:column moving is not new")
+    expect(not pre_existing("x\nskills/zeta/README.md:12:100: warning: a - b\n",
+                            "x\nskills/zeta/README.md:12:101: warning: a - b\n", {"acme"}, known)["pre_existing"],
+           "digits that only LOOK like a column are content -> new")
+    expect(not pre_existing("x\nskills/zeta/README.md:3:a  - b\n", "x\nskills/zeta/README.md:3:a - b\n",
+                            {"acme"}, known)["pre_existing"], "a whitespace change inside a finding -> new")
     expect(not lines_pre_existing("plugin zeta: bad field x\nplugin zeta: bad field x\n", "plugin zeta: bad field x\n"),
            "per-skill lines are a multiset too")
     one = "check_install_docs FAILED:\n  - R1 skills/zeta/mcp-install.md:10: names `mcp-remote`\n"

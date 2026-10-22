@@ -189,8 +189,8 @@ def scan_go(rel: str, src: str, slug: str, names: set[str]) -> list[Leak]:
     """String literals only (never comments). `<module>-pp-cli/...` is exempt
     inside import declarations only; in any other string a following `/` is a
     leaked path (`~/.config/acme-pp-cli/config.toml`)."""
-    if "-pp-" not in src:
-        return []
+    # No raw-source prefilter: an escaped literal ("acme\\x2dpp-cli") shows
+    # the leak only once decoded.
     rx_import = leak_re(names, go=True)
     rx_other = leak_re(names | {"%s"}, go=False)
     out: list[Leak] = []
@@ -500,6 +500,8 @@ def _self_test() -> int:
                "an import block faked inside comments grants no exemption")
         real = 'package cli\n\nimport (\n\t// a comment ) with a paren\n\t"acme-pp-cli/internal/store"\n)\n'
         expect(not scan_go("x.go", real, "acme", {"acme"}), "a real import block (with a paren in a comment) is exempt")
+        esc = 'package cli\n\nvar Help = "Run acme' + chr(92) + 'x2dpp-cli doctor"\n'
+        expect(len(scan_go("x.go", esc, "acme", {"acme"})) == 1, "an escaped leak (\\x2d for '-') is still a leak")
         one = 'package cli\n\nimport x "acme-pp-cli/internal/store"; var Help = "~/.config/acme-pp-cli/config.toml"\n'
         got = scan_go("x.go", one, "acme", {"acme"})
         expect(len(got) == 1 and "config.toml" in got[0].text,

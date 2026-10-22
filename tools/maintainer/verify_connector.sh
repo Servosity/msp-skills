@@ -77,7 +77,7 @@ fi
 
 check "build+vet"              build_vet
 check "cross-compile"          cross_compile
-check "go test"                in_mod go test ./...
+check "go test"                in_mod go test -count=1 ./...   # as CI: never a cached result
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "linux test compile"     linux_test_compile
