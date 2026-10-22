@@ -42,16 +42,16 @@
     "released_hash": "sha256:ca812033d6a5512b9db3f31c245c1a182213884d293b1848899a1e20d9ae0da0"
   },
   "autotask": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "autotask-v0.1.6",
+    "latest_tag": "autotask-v0.1.7",
     "current_hash": "sha256:c34a12d17cdf1eeac1aaf0d126971b8c0f4e320511a2c9942bd4b5d3d94fdac9",
     "released_hash": "sha256:c34a12d17cdf1eeac1aaf0d126971b8c0f4e320511a2c9942bd4b5d3d94fdac9"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.6",
-    "latest_tag": "auvik-v0.2.5",
+    "latest_tag": "auvik-v0.2.6",
     "current_hash": "sha256:ad3bc85f6bb47a5bf9e372a2e34c9aa6f190e6e1ba52cf7b13922b2b6c550c84",
     "released_hash": "sha256:ad3bc85f6bb47a5bf9e372a2e34c9aa6f190e6e1ba52cf7b13922b2b6c550c84"
   },
