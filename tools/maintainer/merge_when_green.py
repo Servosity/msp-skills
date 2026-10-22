@@ -83,9 +83,10 @@ Exit codes: 0 merged (or the dry run would merge); 1 internal error; 2 refused
 (lock held, dirty or busy worktree, fork, head moved, stale copy of this tool);
 3 conflict the tool will not resolve; 4 a required approval is not current; 5 a
 check failed and was not shown to be a flake or a stale base; 6 timed out; 7
-merged, but main moved inside the merge call so the merge commit is not on the
-validated base (GitHub's merge call cannot pin the base; this is detected and
-reported, not prevented: see the README).
+merged, but main moved inside the merge call, and main's CI on the merge commit
+then passed; 8 the same race, and main's CI is red or could not be verified:
+stop the chain (GitHub's merge call cannot pin the base; the race is detected,
+verified and reported, not prevented: see the README).
 
 Pure stdlib plus the `gh` CLI.
 """
@@ -115,7 +116,7 @@ import repo_lock  # noqa: E402  (local tools/ module)
 import resolve_registry as rr  # noqa: E402  (local tools/ module)
 
 EXIT_OK, EXIT_ERROR, EXIT_REFUSED, EXIT_CONFLICT = 0, 1, 2, 3
-EXIT_APPROVAL, EXIT_CHECKS, EXIT_TIMEOUT, EXIT_RACE = 4, 5, 6, 7
+EXIT_APPROVAL, EXIT_CHECKS, EXIT_TIMEOUT, EXIT_RACE, EXIT_RACE_RED = 4, 5, 6, 7, 8
 
 # This tool's own code. It must be origin/main's (a stale shared checkout once
 # carried an older registry and gave wrong verdicts): --allow-stale-tools only.
@@ -587,6 +588,14 @@ class GitHub:
         done = [r for r in rows if r.get("status") == "completed"]
         return done[0] if done else None
 
+    def main_runs(self, sha: str) -> tuple[list[dict], bool]:
+        """Push-event workflow runs for a commit on main, and whether the
+        listing is complete against GitHub's total_count."""
+        url = f"repos/{self.slug}/actions/runs?head_sha={sha}&event=push&per_page=100"
+        runs = self._lines("api", "--paginate", url, "--jq", ".workflow_runs[] | {id, name, status, conclusion}")
+        total = self._lines("api", url, "--jq", "{n: .total_count}")
+        return runs, bool(total) and total[0].get("n") == len(runs)
+
     def catalog_busy(self) -> bool:
         rows = self._lines("api", f"repos/{self.slug}/actions/workflows/catalog.yml/runs?per_page=10",
                            "--jq", ".workflow_runs[] | {event, status}")
@@ -826,7 +835,10 @@ class Merger:
                     # worktree with the branch checked out (still clean, idle, pushed).
                     self._checked_pr(current, branch)
                     self._check_branch_worktrees(branch, current)
-                    self.git.run("push", f"--force-with-lease=refs/heads/{branch}:{current}", o.remote,
+                    # Exactly this one ref: push.followTags=true in someone's config
+                    # would otherwise add reachable annotated tags (unprobed releases).
+                    self.git.run("-c", "push.followTags=false", "push", "--no-follow-tags",
+                                 f"--force-with-lease=refs/heads/{branch}:{current}", o.remote,
                                  f"{new}:refs/heads/{branch}", cwd=self.wt)
                     self.say(f"==> pushed {new[:12]} (lease {current[:12]})")
                     current = new
@@ -1220,11 +1232,36 @@ class Merger:
                      f"the green head {sha[:12]}")
             return EXIT_OK
         between = changed_paths(self.git, base, parent) if self.git.is_ancestor(base, parent) else ["(main rewritten)"]
-        raise Stop(EXIT_RACE, f"RACE: merged as {merge[:12]}, but main moved inside the merge call: its parent is "
-                              f"{parent[:12]}, not the validated base {base[:12]}"
-                              + ("" if same_tree else "; the merged tree is not the green one")
-                              + f". Main's commits in that window touched: {', '.join(between[:15]) or 'nothing'}."
-                              " CI on main re-checks the merged commit; read it before releasing.")
+        race = (f"RACE: merged as {merge[:12]}, but main moved inside the merge call: its parent is "
+                f"{parent[:12]}, not the validated base {base[:12]}"
+                + ("" if same_tree else "; the merged tree is not the green one")
+                + f". Main's commits in that window touched: {', '.join(between[:15]) or 'nothing'}.")
+        self.say("==> " + race)
+        # The merge landed on a base nobody validated. Verify the result the
+        # only way left: main's own push CI for that merge commit, waited for
+        # here so a chain cannot run on (tag, release) until it has a verdict.
+        verdict, detail = self._watch_main_ci(merge)
+        if verdict == "green":
+            raise Stop(EXIT_RACE, race + f" Main's CI on {merge[:12]} is GREEN ({detail}); read the intervening "
+                                         "commits before releasing.")
+        raise Stop(EXIT_RACE_RED, race + f" Main's CI on {merge[:12]} is {verdict.upper()} ({detail}): stop the "
+                                         "chain; nothing may be tagged or released from main until it is green.")
+
+    def _watch_main_ci(self, merge: str) -> tuple[str, str]:
+        """("green" | "red" | "unverified", detail) for the push-to-main CI of
+        `merge`. Waits until every run for that commit has completed (and at
+        least one CI run exists), within the check timeout."""
+        deadline = self.clock() + self.o.timeout_s
+        while self.clock() < deadline:
+            runs, complete = self.gh.main_runs(merge)
+            ci = [r for r in runs if r.get("name") == "CI"]
+            if complete and ci and all(r.get("status") == "completed" for r in runs):
+                bad = [f"{r.get('name')}={r.get('conclusion')}" for r in runs
+                       if r.get("conclusion") not in ("success", "skipped", "neutral")]
+                return ("red", ", ".join(bad)) if bad else ("green", f"{len(runs)} run(s) passed")
+            self.say(f"    waiting for main's CI on {merge[:12]} ({len(runs)} run(s) so far)")
+            self.sleep(self.o.poll_s)
+        return "unverified", f"no complete CI verdict within {int(self.o.timeout_s)}s"
 
     def _dry_run_report(self, new: str, current: str, base: str, required: list[str], missing: list[str]) -> int:
         if new != current:
@@ -1398,6 +1435,7 @@ class FakeGitHub:
         self.merge_oid: str | None = None
         self.refuse_merges = 0
         self.base_ref = "main"
+        self.main_ci: str | None = "success"
         self.before_merge: Callable[["FakeGitHub"], None] | None = None
         self.merge_calls = 0
         self.snapshots = 0
@@ -1461,6 +1499,13 @@ class FakeGitHub:
 
     def catalog_busy(self) -> bool:
         return False
+
+    def main_runs(self, sha: str) -> tuple[list[dict], bool]:
+        """Main's push CI for a merge commit: "success", "failure", or None
+        (never reports)."""
+        if self.main_ci is None:
+            return [], True
+        return [{"id": 9, "name": "CI", "status": "completed", "conclusion": self.main_ci}], True
 
     def merge(self, n: int, sha: str) -> tuple[bool, str]:
         self.merge_calls += 1
@@ -1540,7 +1585,11 @@ def _self_test() -> int:
             # design, so fixture runs allow it; the freshness test passes False.
             kw.setdefault("allow_stale_tools", True)
             opts = Options(pr=fake.n, poll_s=0, settle_s=0, timeout_s=60, bot_wait_s=0, **kw)
-            m = Merger(Git(work, env), fake, opts, out=logs.append, sleep=lambda s: None)
+            clk = [0.0]  # a fake clock: every sleep advances it, so timeouts end at once
+
+            def fake_sleep(s: float, c=clk) -> None:
+                c[0] += max(s, 1.0)
+            m = Merger(Git(work, env), fake, opts, out=logs.append, sleep=fake_sleep, clock=lambda c=clk: c[0])
             return m.run(), logs
 
         def approve(work: Path, fake: FakeGitHub, head: str, ev: str = "Looks right.\nVERDICT: APPROVED\n") -> int:
@@ -1614,6 +1663,17 @@ def _self_test() -> int:
                    "the squash commit keeps the sign-off and lists the squashed subjects")
             expect(sh("git", "--git-dir", str(origin), "rev-list", "--count", f"{merged}^..{merged}", cwd=tmp) == "1",
                    "the pushed head is a single commit")
+
+        # T1b: push.followTags=true and an annotated tag reachable from the push.
+        origin, work, branch = world()
+        new_connector_pr(work)  # two commits: squashed, so a push happens
+        sh("git", "tag", "-a", "decoy-annotated", "-m", "decoy", "main", cwd=work)
+        sh("git", "config", "push.followTags", "true", cwd=work)
+        fake = FakeGitHub(origin, env, 30, branch, "skill: bravo", green)
+        rc, logs = merger(work, fake, require=())
+        tags_on_origin = sh("git", "--git-dir", str(origin), "tag", "-l", cwd=tmp)
+        expect(rc == 0 and any("pushed" in s for s in logs) and "decoy-annotated" not in tags_on_origin,
+               "with push.followTags=true, the branch push carries no tag")
 
         # T2: unknown conflict stops, pushes nothing, merges nothing.
         print("unknown conflict:")
@@ -1861,17 +1921,22 @@ def _self_test() -> int:
                "a refused merge is re-validated from the top, then merged (no blind retry)")
         expect(any("on the validated base" in s for s in logs),
                "a clean merge is proven: the merge commit's parent is the validated base, its tree the green tree")
-        origin, work, branch = world()
-        new_connector_pr(work, extra_commit=False)
-        fake = FakeGitHub(origin, env, 23, branch, "skill: bravo", green)
+        for main_ci, want, label in (("success", EXIT_RACE, "main's CI then passes: exit 7, reported with what "
+                                                             "the window touched"),
+                                     ("failure", EXIT_RACE_RED, "main's CI then fails: exit 8, the chain stops"),
+                                     (None, EXIT_RACE_RED, "main's CI never reports: exit 8, unverified")):
+            origin, work, branch = world()
+            new_connector_pr(work, extra_commit=False)
+            fake = FakeGitHub(origin, env, 23, branch, "skill: bravo", green)
+            fake.main_ci = main_ci
 
-        def land_on_main(fk: FakeGitHub, w=work) -> None:
-            main_commit(w, lambda x: (x / "skills/delta/cli/main.go").write_text("package main // raced\n"),
-                        "lands inside the merge call")
-        fake.before_merge = land_on_main
-        rc, logs = merger(work, fake, require=())
-        expect(rc == EXIT_RACE and any("RACE" in s and "skills/delta/cli/main.go" in s for s in logs),
-               "main moving inside the merge call is detected and reported with what it touched (exit 7)")
+            def land_on_main(fk: FakeGitHub, w=work) -> None:
+                main_commit(w, lambda x: (x / "skills/delta/cli/main.go").write_text("package main // raced\n"),
+                            "lands inside the merge call")
+            fake.before_merge = land_on_main
+            rc, logs = merger(work, fake, require=())
+            expect(rc == want and any("RACE" in s and "skills/delta/cli/main.go" in s for s in logs),
+                   f"main moving inside the merge call is detected; {label} (rc={rc})")
 
         # T8c2: the PR is retargeted while its checks run.
         origin, work, branch = world()

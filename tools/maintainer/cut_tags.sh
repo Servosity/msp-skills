@@ -179,8 +179,59 @@ load_tags() { # <abs path>: sets TAG_LIST and TAG_COUNT, or dies
   [ "$TAG_COUNT" -gt 0 ] || die "REFUSE tags file lists no tags: $f"
 }
 
+fetch_retry() { # <fetch args...>: a fetch, retried (another cutter may hold the ref locks)
+  local i=0
+  while [ "$i" -lt 5 ]; do
+    git -C "$REPO" fetch -q "$@" </dev/null && return 0
+    i=$((i + 1))
+    sleep 1
+  done
+  return 1
+}
+
+# --------------------------------------------------------------------------- #
+# The release-tag lock: one cutter (or re-runner) at a time between "is there
+# capacity?" and "its Release run is registered", so two runs can never both
+# see room under the cap and both push. A flock(2) on a file in the clone's
+# shared git dir (the same primitive and place as repo_lock.py): the kernel
+# drops it if this script dies. It is taken by a short python child on fd 9,
+# which this shell keeps open, so the lock lives exactly as long as we want.
+# It covers every worktree of one clone; separate clones do not share it.
+# --------------------------------------------------------------------------- #
+LOCK_OPEN=0
+
+tag_lock() {
+  if [ "$LOCK_OPEN" = 0 ]; then
+    local common
+    common=$(git -C "$REPO" rev-parse --git-common-dir) || die "REFUSE cannot find the clone's git dir"
+    case "$common" in /*) ;; *) common="$REPO/$common" ;; esac
+    mkdir -p "$common/msp-skills-locks" || die "REFUSE cannot create the lock directory"
+    exec 9>>"$common/msp-skills-locks/release-tags.lock" || die "REFUSE cannot open the release-tag lock"
+    LOCK_OPEN=1
+  fi
+  "$PYTHON" - <<'PY' || die "LOCK-TIMEOUT another cut_tags run held the release-tag lock too long; stopping"
+import fcntl, json, os, socket, sys, time
+deadline = time.time() + float(os.environ.get("CUT_TAGS_LOCK_WAIT", "7200"))
+while True:
+    try:
+        fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except OSError:
+        if time.time() > deadline:
+            sys.exit(1)
+        time.sleep(0.2)
+os.ftruncate(9, 0)
+os.write(9, (json.dumps({"pid": os.getppid(), "host": socket.gethostname(), "tool": "cut_tags"}) + "\n").encode())
+PY
+}
+
+tag_unlock() {
+  [ "$LOCK_OPEN" = 1 ] || return 0
+  "$PYTHON" -c 'import fcntl, os; os.ftruncate(9, 0); fcntl.flock(9, fcntl.LOCK_UN)' || true
+}
+
 fetch_and_check_self() { # fetch tags + main, refuse a stale copy of this script
-  git -C "$REPO" fetch -q "$REMOTE" --tags "+refs/heads/main:refs/remotes/$REMOTE/main"
+  fetch_retry "$REMOTE" --tags "+refs/heads/main:refs/remotes/$REMOTE/main" || die "REFUSE cannot fetch $REMOTE"
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
   local theirs
   if theirs=$(git -C "$REPO" show "$MAIN_SHA:tools/maintainer/cut_tags.sh" 2>/dev/null); then
@@ -367,6 +418,7 @@ rerun_failed() {
   fi
   while IFS= read -r entry; do
     [ -n "$entry" ] || continue
+    tag_lock
     wait_for_capacity
     bt=$(printf '%s' "$entry" | awk '{print $1}')
     bid=$(printf '%s' "$entry" | awk '{print $2}')
@@ -374,6 +426,7 @@ rerun_failed() {
     # Everything that justified this re-run is read again now: another operator
     # may have finished it, sealed the release, or main may have changed.
     if ! why=$(still_rerunnable "$bt" "$bid" "$commit" "$errf"); then
+      tag_unlock
       say "SKIP $bt: $why"
       case "$why" in "it already succeeded"* | "it is running"*) ;; *) fail=1 ;; esac
       continue
@@ -384,6 +437,7 @@ rerun_failed() {
       say "RERUN-REFUSED $bt $bid"
       fail=1
     fi
+    tag_unlock # the re-run is registered (or refused): the next one may count capacity
     batch="$batch$bt $bid
 "
     n_b=$((n_b + 1))
@@ -411,7 +465,7 @@ probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on 
   # itself, so the two files from main's tip ARE main's probe; extracting them
   # per check is cheap, so the probe is never older than the moment it runs.
   local d rc=0
-  git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
+  fetch_retry "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" || return 1
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
   new_tempdir
   d=$NEW_TMP
@@ -430,7 +484,7 @@ probe_rerun_from_main() { # <tag> <commit>: may this cut tag's release run again
   # meet except "not cut yet": the commit's pipeline drafts and seals last, the
   # version is not burned, the commit's manifest carries that version.
   local d rc=0
-  git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
+  fetch_retry "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" || return 1
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
   new_tempdir
   d=$NEW_TMP
@@ -481,13 +535,18 @@ cut() {
     ver=${t##*-v}
     # Capacity first: the checks below must be the last thing before the push,
     # not something done before an hour-long wait (main can retire a version
-    # or someone can cut the tag meanwhile).
-    [ "$dry" = 1 ] || wait_for_capacity
+    # or someone can cut the tag meanwhile). The lock is held from here until
+    # this tag's Release run is registered.
+    if [ "$dry" != 1 ]; then
+      tag_lock
+      wait_for_capacity
+    fi
     remote_at=$(remote_tag_commit "$t") || die "REFUSE $t: cannot ask $REMOTE whether it exists"
     if [ -n "$remote_at" ]; then
       if [ "$remote_at" = "$full" ]; then
         say "SKIP $t (already cut at this SHA)"
         handled=$((handled + 1))
+        tag_unlock
         continue
       fi
       die "EXISTS-ELSEWHERE $t points at $remote_at, not $full (stopping; never move a release tag)"
@@ -505,7 +564,9 @@ cut() {
       handled=$((handled + 1))
       continue
     fi
-    git -C "$REPO" push -q "$REMOTE" "${full}:refs/tags/${t}" </dev/null
+    # Exactly this one ref: a user's push.followTags=true would otherwise add
+    # every reachable annotated tag to the push, unprobed and uncapped.
+    git -C "$REPO" -c push.followTags=false push --no-follow-tags -q "$REMOTE" "${full}:refs/tags/${t}" </dev/null
     say "PUSHED $t"
     run=""
     i=0
@@ -518,6 +579,7 @@ cut() {
     done
     [ -n "$run" ] || die "NO-RUN $t: the tag is pushed but no Release run registered (check Actions; stopping)"
     say "RUN $t $run"
+    tag_unlock
     handled=$((handled + 1))
     sleep "${CUT_TAGS_SPACING:-15}"
   done <<<"$TAG_LIST"
@@ -607,7 +669,7 @@ self_test() {
   # reporting that case, so the harness runs without it (the tool runs it calls
   # are separate processes with their own set -e).
   set +e
-  local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before before_wait before_push good bad at v
+  local tmp failures=0 out rc rrc real_repo sha sha2 sha3 rs pushes_before before_wait before_push good bad at v pa pb ra rb
   real_repo=$(git -C "$TOOLS" rev-parse --show-toplevel)
   # Without set -e, an unchecked failure here would point every fixture write
   # at the filesystem root: stop instead.
@@ -649,7 +711,7 @@ PY
 
   # origin: a bare repo whose pre-receive hook records how many refs each push
   # carried and, for a tag, how many Release runs were in flight when it was
-  # pushed; it then starts that tag's (fake) Release run.
+  # pushed (its own run included), starting that tag's (fake) Release run.
   git init -q --bare "$tmp/origin.git"
   mkdir -p "$tmp/runs"
   cat >"$tmp/origin.git/hooks/pre-receive" <<'HOOK'
@@ -659,8 +721,10 @@ n=0
 while read -r _old _new ref; do
   n=$((n + 1))
   case "$ref" in refs/tags/*)
-    grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ' >>"$state/flight.txt"
-    echo in_progress >"$state/runs/${ref#refs/tags/}" ;;
+    # Start this tag's run FIRST, then count: runs in flight including it, so
+    # two pushes landing at once are both counted by whichever hook is later.
+    echo in_progress >"$state/runs/${ref#refs/tags/}"
+    grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ' >>"$state/flight.txt" ;;
   esac
 done
 echo "$n" >>"$(dirname "$0")/../pushes.txt"
@@ -748,8 +812,15 @@ case "$1 $2" in
   "api repos/fake/repo/actions/workflows/release.yml/runs?status=in_progress&per_page=1")
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
     n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
+    [ -f "$state/slow-count" ] && sleep 0.3  # widen the check-then-push window for the concurrency test
     echo x >>"$state/counts.txt"
-    if [ $(($(wc -l <"$state/counts.txt") % 3)) -eq 0 ]; then
+    if [ -f "$state/drain-at" ]; then
+      # Deterministic: a run finishes only while someone is held at the cap.
+      if [ "$n" -ge "$(cat "$state/drain-at")" ]; then
+        oldest=$(grep -l in_progress "$state"/runs/* 2>/dev/null | head -1)
+        [ -n "$oldest" ] && echo completed >"$oldest"
+      fi
+    elif [ $(($(wc -l <"$state/counts.txt") % 3)) -eq 0 ]; then
       oldest=$(grep -l in_progress "$state"/runs/* 2>/dev/null | head -1)
       [ -n "$oldest" ] && echo completed >"$oldest"
     fi
@@ -848,13 +919,22 @@ FAKE
   git -C "$tmp/repo" commit -q -m "five connectors" -s
   git -C "$tmp/repo" push -q origin main
   rm -f "$tmp"/runs/* "$tmp/flight.txt"
+  # Unrelated annotated tags reachable from the SHA, and push.followTags=true
+  # as a user might have it: every push must still carry exactly its one tag.
+  git -C "$tmp/repo" tag -a decoy-annotated-1 -m decoy HEAD
+  git -C "$tmp/repo" tag -a decoy-annotated-2 -m decoy HEAD~1
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=push.followTags GIT_CONFIG_VALUE_0=true
   echo in_progress >"$tmp/runs/aa-older-wave-1"  # long-running releases from an earlier wave
   echo in_progress >"$tmp/runs/aa-older-wave-2"
   out=$(CUT_TAGS_MAX_IN_FLIGHT=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-wave.txt" 2>&1) && rc=0 || rc=$?
   [ "$rc" -eq 0 ] && has "ALL-PUSHED 5 of 5" && has "WAIT 2 Release run(s) in flight (cap 2)" \
     && before_wait=${out%%WAIT *} && before_push=${out%%PUSHED *} && [ "${#before_wait}" -lt "${#before_push}" ] \
-    && [ "$(sort -n "$tmp/flight.txt" | tail -1)" -le 1 ] && [ "$(grep -c . "$tmp/flight.txt")" -eq 5 ]
-  expect "with a cap of 2 and 2 older runs still going, it waits first, then never pushes past 1 other in flight" $?
+    && [ "$(sort -n "$tmp/flight.txt" | tail -1)" -le 2 ] && [ "$(grep -c . "$tmp/flight.txt")" -eq 5 ]
+  expect "with a cap of 2 and 2 older runs still going, it waits first, then never has more than 2 in flight" $?
+  unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+  rc=1
+  if [ -z "$(git --git-dir "$tmp/origin.git" tag -l 'decoy-*')" ]; then rc=0; fi
+  expect "with push.followTags=true and annotated tags reachable, no tag but the requested one is pushed" "$rc"
   # While the run waits for capacity, main retires zz-c6-v0.1.0: the push must
   # be refused by the probe run AFTER the wait, against main as it is then.
   echo in_progress >"$tmp/runs/aa-older-wave-3"
@@ -868,6 +948,36 @@ RETIRE
   [ "$rc" -ne 0 ] && [ -f "$tmp/on-count.ran" ] && has "WAIT" && has "PROBE-REFUSED zz-c6-v0.1.0" && has "TAG-BURNED" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-c6-v0.1.0 >/dev/null
   expect "a version main retires while the push waits for capacity is refused (checks run after the wait)" $?
+
+  echo "two cutters at once share the cap (the release-tag lock):"
+  for s in zz-e1 zz-e2 zz-e3 zz-e4 zz-e5 zz-e6; do
+    connector "$s" 0.1.0
+    printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
+  done
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "six more connectors" -s
+  git -C "$tmp/repo" push -q origin main
+  printf 'zz-e1-v0.1.0\nzz-e2-v0.1.0\nzz-e3-v0.1.0\n' >"$tmp/tags-a.txt"
+  printf 'zz-e4-v0.1.0\nzz-e5-v0.1.0\nzz-e6-v0.1.0\n' >"$tmp/tags-b.txt"
+  rm -f "$tmp"/runs/* "$tmp/flight.txt"
+  echo in_progress >"$tmp/runs/aa-older-wave-4"
+  : >"$tmp/slow-count"
+  echo 2 >"$tmp/drain-at"
+  sha3=$(git -C "$tmp/repo" rev-parse HEAD)
+  CUT_TAGS_MAX_IN_FLIGHT=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha3" "$tmp/tags-a.txt" >"$tmp/out-a.txt" 2>&1 &
+  pa=$!
+  CUT_TAGS_MAX_IN_FLIGHT=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha3" "$tmp/tags-b.txt" >"$tmp/out-b.txt" 2>&1 &
+  pb=$!
+  wait "$pa"
+  ra=$?
+  wait "$pb"
+  rb=$?
+  rm -f "$tmp/slow-count" "$tmp/drain-at"
+  rc=1
+  if [ "$ra" -eq 0 ] && [ "$rb" -eq 0 ] && grep -q "ALL-PUSHED 3 of 3" "$tmp/out-a.txt" \
+    && grep -q "ALL-PUSHED 3 of 3" "$tmp/out-b.txt" && [ "$(grep -c . "$tmp/flight.txt")" -eq 6 ] \
+    && [ "$(sort -n "$tmp/flight.txt" | tail -1)" -le 2 ]; then rc=0; fi
+  expect "two concurrent cutters with a cap of 2 push all 6 tags and never have more than 2 in flight" "$rc"
   printf 'zz-one-v0.1.7\n' >"$tmp/tags-unknown.txt"
   connector zz-one 0.1.7
   printf '# Changelog\n\n## [0.1.7] - 2026-10-22\n\n### Fixed\n- A fix.\n' >"$tmp/repo/skills/zz-one/CHANGELOG.md"
