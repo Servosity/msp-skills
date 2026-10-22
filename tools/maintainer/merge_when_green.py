@@ -2889,6 +2889,8 @@ def _self_test() -> int:
             t0 = time.monotonic()
             try:
                 rc, logs = merger(work, fake, require=())
+            except BaseException as exc:  # an interrupt escaping the run is the defect: name it
+                rc, logs = f"raised {type(exc).__name__}", []
             finally:
                 env["PATH"] = old_env_path
             th.join(timeout=5)
@@ -2915,7 +2917,10 @@ def _self_test() -> int:
             fake = FakeGitHub(origin, env, 48, branch, "skill: bravo", green)
             fake.after_merge = [{"stall": True}]
             th = term_when(lambda: fake.state == "MERGED")
-            rc, logs = merger(work, fake, require=())
+            try:
+                rc, logs = merger(work, fake, require=())
+            except BaseException as exc:
+                rc, logs = f"raised {type(exc).__name__}", []
             th.join(timeout=5)
             expect(rc == EXIT_RACE_RED and fake.merged is not None and any("after the merge call" in s for s in logs),
                    f"SIGTERM after the merge call (a post-merge read blocked): exit 8, not 130 (rc={rc})")
