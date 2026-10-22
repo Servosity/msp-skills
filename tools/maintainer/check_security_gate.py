@@ -34,8 +34,11 @@ does not exist, unfixable by any contributor - while the Python that actually sh
 completely unread. That was false-RED and false-GREEN in the same verdict.
 
 Suppressions are BASE-OWNED, not self-grantable: a finding is suppressed only if its
-(file, rule) is listed in tools/maintainer/security_suppressions.json. Inline `// #nosec`
-is NOT honored (an attacker could add it in their own diff).
+(file, rule) is listed in tools/maintainer/security_suppressions.json. The builtin rules
+ignore inline `// #nosec`. KNOWN GAP: gosec itself still honors inline `#nosec` and
+`//gosec:disable` (it runs without -nosec), so a finding annotated that way never
+reaches this gate. The fleet carries about 1,200 such annotations, so closing it needs
+a vetted suppression wave and is tracked as its own change.
 
 Template approvals are BASE-OWNED too (tools/maintainer/template_approvals.json): a
 P1 in printing-press generated code is accepted without a per-connector suppression
@@ -1811,6 +1814,9 @@ def self_test() -> int:
         case("credential-looking value in the approved constant", lambda r, m: edit(
              m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"sk_live_0123456789abcdef"'),
              {"G101": P1, "G202": AP})
+        case("placeholder spelled with string escapes in the approved constant", lambda r, m: edit(
+             m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"\\x7bENV\\x7d_MCP_HTTP_TOKEN"'),
+             {"G101": P1, "G202": P1})
         case("second unsafe use added to the approved file", lambda r, m: edit(
              m, "internal/store/raw.go", "var _ = wordSize",
              "var _ = wordSize\n\nfunc peek(p uintptr) byte { return *(*byte)(unsafe.Pointer(p)) }"),

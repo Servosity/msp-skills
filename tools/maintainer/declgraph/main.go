@@ -406,6 +406,12 @@ func (s *state) collect(u *unit, node ast.Node, info *types.Info) {
 }
 
 func (s *state) finish(u *unit) {
+	// Check the text that is actually hashed, not only the source: a constant
+	// is hashed by its evaluated value, and a string escape ("\x7bENV\x7d") can
+	// spell a placeholder the source never contains.
+	if hasPlaceholder(u.text) {
+		s.errs = append(s.errs, fmt.Sprintf("%s: hashed text contains a normalization placeholder", u.Key))
+	}
 	u.Refs, u.Ext, u.Mods = []string{}, []string{}, []string{}
 	for k := range u.refs {
 		u.Refs = append(u.Refs, k)
