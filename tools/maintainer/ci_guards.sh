@@ -87,7 +87,7 @@ echo "==> 6. No connector selects a Go toolchain below the fleet floor"
 #
 # Raising the floor is a deliberate act: bump GO_FLOOR here in the same PR that
 # sweeps go.mod, so the guard and the fleet move together.
-GO_FLOOR="1.26.9"
+GO_FLOOR="1.26.10"
 floor_bad=0
 while IFS= read -r gomod; do
   # The effective toolchain is the `toolchain` line when present, else the `go`
