@@ -15,10 +15,11 @@
 # the change touches, so a change to shared machinery (a workflow, a matrix-row
 # checker, registry.py) checks the WHOLE fleet exactly as CI does, and a
 # derived-file-only change checks no connector. The heavy per-connector checks
-# (verify_connector.sh: build, vet, cross-compile, go test, Windows vet and
-# test compile, the Unix-only test lint, CLI claims, doctor, MCP gate, hand-fix
-# ledger) run for the connectors in scope; the cheap fleet-wide checks run for
-# everything. A fleet-wide check that fails ONLY for connectors outside the
+# (verify_connector.sh: CI's Linux build row - build, vet and go test on
+# linux/amd64 with cgo on, natively or in a container, failing closed when
+# neither exists - plus cross-compile, Windows vet and test compile, the
+# Unix-only test lint, CLI claims, doctor, MCP gate, hand-fix ledger) run for
+# the connectors in scope; the cheap fleet-wide checks run for everything. A fleet-wide check that fails ONLY for connectors outside the
 # scope does not block: it is listed under out_of_scope_failures in the verdict
 # and printed as OUT OF SCOPE (verify_scope.py attribute; a failure it cannot
 # attribute blocks). With no arguments every failure blocks.
@@ -302,7 +303,39 @@ gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py --a
 
 # ------------------------------------------------ per-connector (heavy) ----
 echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
+# CI's Linux build row (build, vet, go test on linux/amd64 with cgo on) runs in
+# that context: natively on such a host, else in a linux/amd64 container,
+# else every connector's Linux checks fail closed. Decided once, here.
+linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none; pulls what docker needs
+  if [ "$(uname -s)" = Linux ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
+     && [ "$(CGO_ENABLED=1 go env CGO_ENABLED 2>/dev/null)" = 1 ] && command -v gcc >/dev/null 2>&1; then
+    VERIFY_LINUX_MODE=native
+  elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    VERIFY_LINUX_MODE=docker
+    local v img="" vol
+    for v in $(cut -d' ' -f2 "$WORK/connectors.txt" | while read -r d; do
+                 awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "skills/$d/cli/go.mod" \
+                   || awk '/^go / {print $2; exit}' "skills/$d/cli/go.mod"; done | sort -u); do
+      # The same tag can be cached for another platform (an arm64 pull):
+      # only an amd64 image is CI's context.
+      if [ "$(docker image inspect -f '{{.Architecture}}' "golang:${v}-bookworm" 2>/dev/null)" != amd64 ]; then
+        docker pull -q --platform linux/amd64 "golang:${v}-bookworm" >/dev/null 2>&1 \
+          || echo "  could not pull golang:${v}-bookworm for linux/amd64 (offline?): those connectors' Linux checks will fail"
+      fi
+      [ -z "$img" ] && img="golang:${v}-bookworm"
+    done
+    for vol in msp-skills-verify-gomod msp-skills-verify-gocache-amd64; do
+      docker volume create "$vol" >/dev/null 2>&1
+      [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" chown "$(id -u):$(id -g)" /v >/dev/null 2>&1
+    done
+  else
+    VERIFY_LINUX_MODE=none
+  fi
+  export VERIFY_LINUX_MODE
+  echo "  linux build row: $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] && echo ' (linux/amd64 container, golang:<go.mod toolchain>, cgo on)')"
+}
 if [ "$n_conn" -gt 0 ]; then
+  linux_prepare
   # Each worker writes only its own records and logs, so parallel runs never
   # share a file. xargs keeps the pool full; a worker always exits 0.
   xargs -P "$jobs" -n 2 bash tools/maintainer/verify_connector.sh "$WORK" < "$WORK/connectors.txt"
@@ -363,6 +396,23 @@ fi
 if [ "$FULL" = true ]; then
   # Today's full audit of every skill, kept alongside the CI-parity runs.
   gate "security gate full audit (--all)" fleet "" 0 python3 tools/maintainer/check_security_gate.py --all
+fi
+
+echo "== No destructive create alias (check_command_tree.py) =="
+# Every on-disk module the scope covers, registered connector or not (#416's
+# fleet-wide run discovers every skills/<dir>/cli/go.mod; so does this).
+if [ "$FULL" = true ]; then
+  gate "no destructive create alias" fleet "" 1 python3 tools/maintainer/check_command_tree.py
+else
+  ct_args=()
+  while IFS= read -r d; do
+    [ -n "$d" ] && [ -f "skills/$d/cli/go.mod" ] && ct_args+=(--slug "$d")
+  done < <({ cut -d' ' -f2 "$WORK/connectors.txt"; cat "$WORK/touched.txt"; } | sort -u)
+  if [ ${#ct_args[@]} -gt 0 ]; then
+    gate "no destructive create alias" scoped "" 1 python3 tools/maintainer/check_command_tree.py "${ct_args[@]}"
+  else
+    echo "  (no Go module in scope)"
+  fi
 fi
 
 # --------------------------------------------------------- plugins ----

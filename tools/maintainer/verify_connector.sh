@@ -14,19 +14,16 @@
 # the verdict, and a non-zero exit would make xargs stop the other workers.
 #
 # Checks (CI job that blocks on the same thing, in brackets):
-#   build+vet               go build + go vet, native             [build]
-#   cross-compile           the six released GOOS/GOARCH targets  [build]
-#   go test                 the connector's tests, native         [build, new]
-#   windows vet             GOOS=windows go vet (test files too)  [windows]
+#   linux build+vet         go build + go vet in CI's Linux context
+#                           (linux/amd64, cgo on: native, or a container)  [build]
+#   linux go test           go test -count=1, same context                 [build, new]
+#   cross-compile           the six released GOOS/GOARCH targets            [build]
+#   windows vet             GOOS=windows go vet (test files too)            [windows]
 #   windows test compile    GOOS=windows go test -c: every test
-#                           binary compiles AND links for Windows [windows]
-#   linux test compile      GOOS=linux go test -c (a Mac never builds
-#                           *_linux_test.go natively)             [build, new]
-#   linux vet               GOOS=linux go vet (a Mac never vets
-#                           *_linux.go natively)                  [build]
-#   unix-only test lint     check_unix_test_asserts.py            [windows, predicted]
-#   cli claims / doctor truth / mcp gate / hand-fix ledger        [build]
-#   no destructive create alias   check_command_tree.py (#416)    [verify_all]
+#                           binary compiles AND links for Windows           [windows]
+#   security gate context   no cgo-only file the local gate cannot scan     [security-gate]
+#   unix-only test lint     check_unix_test_asserts.py                      [windows, predicted]
+#   cli claims / doctor truth / mcp gate / hand-fix ledger                  [build]
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
@@ -48,8 +45,6 @@ check() { # check <name> <command...>
 
 in_mod() { ( cd "$mod" && "$@" ); }
 
-build_vet() { in_mod go build ./... && in_mod go vet ./...; }
-
 cross_compile() {
   fail=0
   for pair in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
@@ -67,54 +62,88 @@ windows_vet() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go vet ./... ); }
 # it (a link error is a failure too), so nothing lands in the module.
 windows_test_compile() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go test -c -o /dev/null ./... ); }
 
-# CI's build row runs `go test` on linux/amd64. On a Mac the native `go test`
-# never compiles a *_linux_test.go file, so compile and link the Linux test
-# binaries too (they run in CI; a Mac cannot run them).
-linux_test_compile() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go test -c -o /dev/null ./... ); }
-# CI's build row vets on linux/amd64 too; a Mac's native vet never reads a
-# *_linux.go file (copylocks and friends live in the vet analyzers, not in
-# the compiler).
-linux_vet() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go vet ./... ); }
+# --- CI's Linux build row, run IN Linux. --------------------------------------
+# `Build and vet` and `Test (linux, native)` run on linux/amd64 with cgo on.
+# No check of file names or build tags from another OS can stand in for that
+# (a test that fails only when GOOS is linux, a cgo preamble that #errors on
+# __linux__), so these commands run in that context: natively on a linux/amd64
+# host with cgo, else in a linux/amd64 container (golang:<go.mod toolchain>,
+# the version setup-go's go-version-file selects in CI), else not at all, and
+# the check fails closed. verify_all.sh decides the mode once (VERIFY_LINUX_MODE).
+linux_mode="${VERIFY_LINUX_MODE:-none}"
 
-# What CI's Linux rows build that this host never checks. CI runs linux/amd64
-# with cgo ON (a C compiler is present). This host runs its NATIVE go test
-# and vet, plus linux/amd64 cross checks with whatever cgo setting that
-# cross-target gets (off from a Mac). `go list` evaluates the real build
-# constraints, so the comparison is exact, not a guess at tag spellings:
-#   * a test file CI runs that this host's native go test never builds
-#     (a *_linux_test.go on a Mac) would be certified without ever running;
-#   * a file CI compiles that neither the native nor the cross checks select
-#     (`//go:build cgo` with cgo off) would be certified without being read.
-# Either fails closed. No connector has one today; a Linux host with cgo on
-# checks everything natively. Non-test *_linux.go sources ARE read here (the
-# cross build, vet, test compile and security gate), but only CI executes
-# them under test.
-_files() { # <format> <env...>: sorted absolute paths go list selects
-  local fmt="$1"; shift
-  ( cd "$mod" && env "$@" go list -e -f "$fmt" ./... ) | tr ' ' '\n' | grep . | sort -u
+go_version() { # the version CI's setup-go installs: the toolchain line, else the go line
+  awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$mod/go.mod" 2>/dev/null \
+    || awk '/^go / {print $2; exit}' "$mod/go.mod"
 }
-ci_context() {
-  # Go templates, not shell expansions:
-  # shellcheck disable=SC2016
-  local t='{{$d := .Dir}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}'
-  # shellcheck disable=SC2016
-  local a='{{$d := .Dir}}{{range .GoFiles}}{{$d}}/{{.}} {{end}}{{range .CgoFiles}}{{$d}}/{{.}} {{end}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}'
-  local tmp missing_tests missing_files
-  tmp="$(mktemp -d "${TMPDIR:-/tmp}/ci_context.XXXXXX")" || return 1
-  _files "$t" GOOS=linux GOARCH=amd64 CGO_ENABLED=1 > "$tmp/ci_tests" || { rm -rf "$tmp"; return 1; }
-  _files "$t" > "$tmp/host_tests" || { rm -rf "$tmp"; return 1; }
-  _files "$a" GOOS=linux GOARCH=amd64 CGO_ENABLED=1 > "$tmp/ci_all" || { rm -rf "$tmp"; return 1; }
-  { _files "$a"; _files "$a" GOOS=linux GOARCH=amd64; } | sort -u > "$tmp/seen"
-  missing_tests="$(comm -23 "$tmp/ci_tests" "$tmp/host_tests")"
-  missing_files="$(comm -23 "$tmp/ci_all" "$tmp/seen")"
-  rm -rf "$tmp"
-  if [ -n "$missing_tests" ] || [ -n "$missing_files" ]; then
-    [ -n "$missing_tests" ] && { echo "test files CI's Linux rows RUN that this host's go test never builds:"; printf '%s\n' "$missing_tests" | sed 's/^/  /'; }
-    [ -n "$missing_files" ] && { echo "files CI's Linux rows compile (cgo on) that no check here selects:"; printf '%s\n' "$missing_files" | sed 's/^/  /'; }
-    echo "run verify_all.sh on Linux with cgo enabled, or rely on CI for this connector"
-    return 1
-  fi
-  echo "every file CI's Linux rows build is built here, and every test they run runs here"
+
+linux_run() { # linux_run <shell command>: run it in skills/<dir>/cli, in CI's Linux context
+  case "$linux_mode" in
+    native)
+      ( cd "$mod" && CGO_ENABLED=1 CI=true bash -c "$1" ) ;;
+    docker)
+      # Docker cannot read a worktree under a protected macOS folder, and a
+      # test must not write into the worktree anyway: run on a private copy
+      # of the whole skill directory (tests may read ../README.md and such).
+      local copy ver
+      copy="$work/linux/$slug"
+      rm -rf "$copy"; mkdir -p "$copy/skills"
+      cp -R "skills/$dir" "$copy/skills/" || return 1
+      ver="$(go_version)"
+      docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
+        -e HOME=/tmp -e CI=true -e CGO_ENABLED=1 -e GOTOOLCHAIN=local \
+        -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
+        -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
+        -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
+        -v "$copy:/src" -w "/src/skills/$dir/cli" \
+        "golang:${ver}-bookworm" bash -c "$1" ;;
+    *)
+      echo "CI's Linux build row (linux/amd64, cgo on) cannot run here: this host is not"
+      echo "linux/amd64 with cgo, and no Docker daemon is reachable. Install Docker or OrbStack,"
+      echo "or run on Linux. Not a pass: these results come only from a real Linux run."
+      return 1 ;;
+  esac
+}
+
+linux_build_vet() { linux_run 'go version && go build ./... && go vet ./...'; }
+linux_test()      { linux_run 'go test -count=1 ./...'; }   # as CI: never a cached result
+
+# The security gate itself still runs on this host (its scanners live here),
+# with GOOS=linux GOARCH=amd64 but cgo OFF from a non-Linux host. A file only
+# a cgo-on build selects would be compiled above but never scanned, so that
+# fails closed. Read from `go list -json`, which keeps every file name whole.
+security_context() {
+  [ "$linux_mode" = native ] && { echo "native linux/amd64 with cgo: the gate reads what CI's gate reads"; return 0; }
+  ( cd "$mod" && python3 - <<'PY'
+import json, os, subprocess, sys
+
+def files(env):
+    p = subprocess.run(["go", "list", "-e", "-json", "./..."], env=dict(os.environ, **env),
+                       capture_output=True, text=True)
+    if p.returncode != 0 and not p.stdout:
+        print(p.stderr)
+        sys.exit(2)
+    out, dec, s, i = set(), json.JSONDecoder(), p.stdout, 0
+    while True:
+        while i < len(s) and s[i].isspace():
+            i += 1
+        if i >= len(s):
+            return out
+        obj, i = dec.raw_decode(s, i)
+        for key in ("GoFiles", "CgoFiles", "TestGoFiles", "XTestGoFiles"):
+            for f in obj.get(key) or []:
+                out.add(os.path.join(obj.get("Dir", ""), f))
+
+ctx = {"GOOS": "linux", "GOARCH": "amd64"}
+missing = sorted(files(dict(ctx, CGO_ENABLED="1")) - files(dict(ctx, CGO_ENABLED="0")))
+if missing:
+    print("files CI's security gate (linux/amd64, cgo on) scans that this host's gate cannot:")
+    for m in missing:
+        print("  " + m)
+    sys.exit(1)
+print("no cgo-only files: this host's gate reads every file CI's gate reads")
+PY
+  )
 }
 
 if [ ! -f "$mod/go.mod" ]; then
@@ -123,20 +152,18 @@ if [ ! -f "$mod/go.mod" ]; then
   exit 0
 fi
 
-check "build+vet"              build_vet
+check "linux build+vet"        linux_build_vet
+check "linux go test"          linux_test
 check "cross-compile"          cross_compile
-check "go test"                in_mod go test -count=1 ./...   # as CI: never a cached result
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
-check "linux test compile"     linux_test_compile
-check "linux vet"              linux_vet
-check "ci build context"       ci_context
+check "security gate context"  security_context
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
 check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"
 check "mcp gate"               python3 tools/maintainer/check_mcp_gate.py --slug "$slug"
 check "hand-fix ledger"        python3 tools/maintainer/check_handfixes.py --slug "$slug"
-check "no destructive create alias" python3 tools/maintainer/check_command_tree.py --slug "$slug" --jobs 1
+rm -rf "$work/linux/$slug"
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
 # The parent accepts this connector's records only when this line exists: a
