@@ -560,9 +560,9 @@
     "released_hash": "sha256:fbca33ef73fe2e933075a8d0786c599ed6501600977bb1e2d711652763709a41"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.3.10",
-    "latest_tag": "threatlocker-v0.3.9",
+    "latest_tag": "threatlocker-v0.3.10",
     "current_hash": "sha256:70bbef1e695ba5dfc11a1a176c75342d20f48e3a3a2e353181f605c069122f5f",
     "released_hash": "sha256:70bbef1e695ba5dfc11a1a176c75342d20f48e3a3a2e353181f605c069122f5f"
   },
@@ -588,9 +588,9 @@
     "released_hash": "sha256:645cc4f82c27b678eeace93ef3153b624face4b40f75ec7396ee72b585518156"
   },
   "wordpress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "wordpress-v0.1.7",
+    "latest_tag": "wordpress-v0.1.8",
     "current_hash": "sha256:5a7fd1ca10c4846bf62bbaf77ec9c9c5be21c3e8d3d8686239ccdc6a2b334bcb",
     "released_hash": "sha256:5a7fd1ca10c4846bf62bbaf77ec9c9c5be21c3e8d3d8686239ccdc6a2b334bcb"
   },
