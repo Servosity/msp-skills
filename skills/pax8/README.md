@@ -204,7 +204,7 @@ Yes - it talks to the Pax8 Partner API with your own partner credentials. Create
 
 ### Will this hit my Pax8 API rate limits?
 
-After the first sync, the analytics commands (`reconcile`, `mrr`, `overage`, `spend`, `since`, `company show`, `search`) run against your **local SQLite mirror** with zero API calls. Live calls respect a `--rate-limit` throttle. No Pax8 list endpoint has a changed-since filter, so each sync re-reads your companies and subscriptions (and the other resources it mirrors), and what changed is found by diffing those snapshots locally.
+After the first sync, the analytics commands (`reconcile`, `mrr`, `overage`, `spend`, `since`, `company show`, `search`) run against your **local SQLite mirror** with zero API calls. Live calls respect a `--rate-limit` throttle. No Pax8 list endpoint has a changed-since filter, so each sync re-reads your companies and subscriptions (and the other resources it mirrors). The `since` command then reports stored subscription history plus current subscriptions created or updated within the window you choose.
 
 ### Does this replace the Pax8 portal?
 
