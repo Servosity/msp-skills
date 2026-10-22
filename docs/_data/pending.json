@@ -63,9 +63,9 @@
     "released_hash": "sha256:ac4db111086e84c771c52ac06d8b7867c4513e4b15a6834ab194fcd4a33bc5c2"
   },
   "aws-billing": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "aws-billing-v0.1.5",
+    "latest_tag": "aws-billing-v0.1.6",
     "current_hash": "sha256:2cf0daefba19a8fc5da6f11f2a1d1ed06ddb879f4bc392db55ef504b7784bf23",
     "released_hash": "sha256:2cf0daefba19a8fc5da6f11f2a1d1ed06ddb879f4bc392db55ef504b7784bf23"
   },
@@ -140,9 +140,9 @@
     "released_hash": "sha256:5226b20f455f194d401a9da6b4775209e7e5e45a2bbc42f1078f2b9564d2df45"
   },
   "connectwise-automate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "connectwise-automate-v0.1.4",
+    "latest_tag": "connectwise-automate-v0.1.5",
     "current_hash": "sha256:1bae7e2b00b54c1ad1a45d75e6fc66ae5400a96dcfb9df0654c0e4545418d516",
     "released_hash": "sha256:1bae7e2b00b54c1ad1a45d75e6fc66ae5400a96dcfb9df0654c0e4545418d516"
   },
