@@ -1043,10 +1043,14 @@ class Merger:
         pending, failed = [], []
         if snap.get("incomplete"):
             pending.append(f"the check listing is incomplete ({snap['incomplete']}); reading again")
-        if snap.get("combined_state") in ("failure", "error") and all(
-                s.get("state") == "success" for s in snap["statuses"]):
-            failed.append({"kind": "status", "name": "(combined commit status)",
-                           "conclusion": snap["combined_state"]})
+        # GitHub's combined state is authoritative over the listing it was read
+        # alongside (a context can change between the two reads). With no
+        # statuses at all GitHub reports "pending", which means nothing.
+        combined = snap.get("combined_state")
+        if snap["statuses"] and combined == "pending":
+            pending.append("the combined commit status is pending")
+        elif snap["statuses"] and combined in ("failure", "error"):
+            failed.append({"kind": "status", "name": "(combined commit status)", "conclusion": combined})
         names = {r.get("name") for r in snap["runs"]}
         for w in self.o.expect_workflows:
             if w not in names:
@@ -1819,15 +1823,15 @@ def _self_test() -> int:
         ok_statuses = [{"context": f"ctx{i}", "state": "success"} for i in range(30)]
         verdicts = []
         for statuses, total, combined in ((ok_statuses, 30, "success"), (ok_statuses, 31, "failure"),
-                                          (ok_statuses, 30, "failure")):
+                                          (ok_statuses, 30, "failure"), (ok_statuses, 30, "pending")):
             g2 = GitHub("o/r")
             g2._gh = stub_for(statuses, total, combined)  # type: ignore[method-assign]
             m2 = Merger(Git(work, env), g2, Options(pr=1, expect_workflows=("CI",)), out=lambda s: None)
             pending, failed = m2._evaluate(g2.snapshot("abc"), ["security-gate"])
             verdicts.append(("green" if not pending and not failed else "pending" if pending else "failed"))
-        expect(verdicts == ["green", "pending", "failed"],
+        expect(verdicts == ["green", "pending", "failed", "pending"],
                f"30 of 30 statuses is green; 30 of 31 (a failure on page two) is not; a failing combined state "
-               f"fails ({verdicts})")
+               f"fails; a pending combined state waits ({verdicts})")
 
         # T8b4: required checks must be readable.
         class _P:

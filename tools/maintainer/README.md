@@ -180,8 +180,11 @@ the file's convention: sorted in `skills.json`, appended in `marketplace.json`, 
 `cards.yaml`. Registries git merged cleanly are verified per entry too, because a textual merge
 can produce valid JSON that names one slug twice. A fully generated file takes main's copy; a
 partly generated one (README.md, the issue forms) takes one side's copy only when the other side
-changed nothing outside the generator's regions, so hand-written prose is never discarded. Exit
-2 means nothing was changed.
+changed nothing outside the generator's regions, so hand-written prose is never discarded. It
+replaces a conflicted file only if it is exactly what git wrote (a file edited by hand since is
+refused; `git checkout -m -- <path>` restores git's version), writes nothing if a conflicted file
+or the index changes while it plans, and after running the generators puts back only their own
+skill-README pin re-mints, stopping on any other change. Exit 2 means nothing was changed.
 
 ### `cut_tags.sh`
 
@@ -191,7 +194,9 @@ number of tags handled equals the number listed (a relative path read nothing on
 printed ALL-PUSHED). Per tag: skip it if it is already on the remote at this SHA, stop if it is
 anywhere else, run `check_release_pipeline.py --tag --sha` from a worktree at `origin/main`
 (the newest probe and burned-versions ledger) and `changelog_section.py --check` from a worktree
-at the SHA, push it alone, and wait for its Release run to register. Before every push it waits
+at the SHA, push it alone, and wait for its Release run to register. The probe is extracted from
+`origin/main` afresh for every tag, after any wait, so a version retired meanwhile is refused.
+Before every push it waits
 until fewer than `CUT_TAGS_MAX_IN_FLIGHT` (default 4) Release runs are in flight across the
 repository: one tag per push is not enough by itself (52 tags pushed one at a time still put 52
 runs in flight together, exhausted the Actions-token API limit, and left 9 partial drafts and 9
@@ -207,7 +212,9 @@ failed while its release is still a draft (or was never created), it re-runs the
 in-flight cap, waits for each batch, then prints the receipts. Because a re-run executes
 `release.yml` as it is at the tagged commit, each candidate must pass `origin/main`'s pipeline
 probe on that commit (a publish-first workflow could seal an empty immutable release), and the
-failed run must be for that commit. A release already published with assets missing is
+failed run must be for that commit; the probe's own tag policy applies too (a burned version
+is never re-released), and the run, its release and the probe are read again immediately before
+each re-run. A release already published with assets missing is
 immutable and is reported for a version bump; a tag with no run, or a release whose state
 cannot be read (including a 403 on the lookup), is reported too. `--dry-run` lists what it would
 re-run. It never deletes a release and never moves or re-pushes a tag.
@@ -218,7 +225,9 @@ For a connector whose newest complete published release matches its registry and
 version and whose `cli_hash_at_release` is still null, it writes the hash of `skills/<dir>/cli`
 at the tag (computed from git objects exactly as `cli_hash.py` computes it on a checkout) and
 dates the undated CHANGELOG heading with the publish date. It never overwrites a stamp that is
-set (a mismatch is printed as a WARN), and declines where a `.gitattributes`, a symlink or a
-submodule could make checkout bytes differ. `catalog.yml` runs it inside its existing
+set (a mismatch is printed as a WARN), reads the source directory and version from the tagged
+commit itself, and declines where a `.gitattributes`, a symlink or a submodule could make
+checkout bytes differ. Writes are compare-and-swap under `release.py`'s repo lock: if
+`skills.json` or a CHANGELOG changed after it was read, nothing is written. `catalog.yml` runs it inside its existing
 post-release commit, in the `main-autocommit` concurrency group, so a sealed release no longer
 needs a separate stamp pull request.

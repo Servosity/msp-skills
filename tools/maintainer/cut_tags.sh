@@ -245,8 +245,8 @@ still_rerunnable() { # <tag> <run id> <commit> <errfile>: re-read; print why not
       return 1
       ;;
   esac
-  probe_from_main --sha "$3" >"$4" 2>&1 || {
-    echo "origin/main's probe now refuses $3"
+  probe_rerun_from_main "$1" "$3" >"$4" 2>&1 || {
+    echo "origin/main's probe now refuses $1 at $3"
     return 1
   }
   return 0
@@ -315,7 +315,7 @@ rerun_failed() {
       fail=1
       continue
     fi
-    if ! probe_from_main --sha "$commit" >"$errf" 2>&1; then
+    if ! probe_rerun_from_main "$t" "$commit" >"$errf" 2>&1; then
       sed 's/^/    /' "$errf"
       say "PROBE-REFUSED $t: release.yml at $commit must not be re-run (it could seal an incomplete immutable release)"
       fail=1
@@ -389,6 +389,40 @@ probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on 
     return 1
   fi
   "$PYTHON" "$d/check_release_pipeline.py" --repo "$REPO" "$@" </dev/null || rc=$?
+  rm -rf "$d"
+  return "$rc"
+}
+
+probe_rerun_from_main() { # <tag> <commit>: may this cut tag's release run again?
+  # origin/main's probe, freshly fetched, with every requirement a NEW tag must
+  # meet except "not cut yet": the commit's pipeline drafts and seals last, the
+  # version is not burned, the commit's manifest carries that version.
+  local d rc=0
+  git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
+  MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
+  d=$(mktemp -d)
+  if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
+    ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/burned_versions.json" >"$d/burned_versions.json"; then
+    rm -rf "$d"
+    return 1
+  fi
+  "$PYTHON" - "$d" "$REPO" "$1" "$2" <<'PY' || rc=$?
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import check_release_pipeline as p
+repo, tag, sha = Path(sys.argv[2]), sys.argv[3], sys.argv[4]
+try:
+    fails = p.evaluate(p.workflow_at(sha, repo), p.blob_at(sha, p.WINDOWS_SMOKE_WORKFLOW, repo))
+    m = p.TAG_RE.match(tag)
+    mv = p.manifest_version_at(sha, m.group("slug"), repo) if m else None
+    fails += p.evaluate_tag(tag, burned=p.load_burned(), tag_local=False, tag_remote=False, manifest_version=mv)
+except Exception as exc:  # an unreadable workflow or ledger proves nothing: refuse
+    fails = [("PROBE-ERROR", str(exc))]
+for rid, why in fails:
+    print(f"  - [{rid}] {why}")
+sys.exit(1 if fails else 0)
+PY
   rm -rf "$d"
   return "$rc"
 }
@@ -848,11 +882,15 @@ PY
   expect "receipts for a missing tags file fail instead of reporting an empty success" $?
 
   echo "recovery (--rerun-failed):"
-  # 1-3 failed with their release still a draft or never created; 4 sealed
-  # fine; 5 published with assets missing (immutable); 6 has no run at all; 7's
-  # release state is unreadable; 8's lookup gets a 403; 9 is tagged on a commit
-  # whose release.yml publishes first (re-running it could seal an empty
-  # immutable release); 10's run is for a different commit than its tag.
+  # r1-r3 and r11 failed with their release still a draft or never created; r4
+  # sealed fine; r5 published with assets missing (immutable); r6 has no run;
+  # r7's release state is unreadable; r8's lookup gets a 403; r9 is tagged on a
+  # commit whose release.yml publishes first; r10's run is for another commit;
+  # r12's version is burned on main. Each rN is a real connector at 0.1.0.
+  for v in 1 2 3 4 5 6 7 8 9 10 11 12; do connector "r$v" 0.1.0; done
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "recovery connectors" -s
+  git -C "$tmp/repo" push -q origin main
   good=$(git -C "$tmp/repo" rev-parse HEAD)
   git -C "$tmp/repo" checkout -q --detach "$good"
   sed 's/ --draft//g' "$tmp/repo/.github/workflows/release.yml" >"$tmp/release.yml.unsafe"
@@ -860,52 +898,56 @@ PY
   git -C "$tmp/repo" commit -q -am "publish-first pipeline" -s
   bad=$(git -C "$tmp/repo" rev-parse HEAD)
   git -C "$tmp/repo" checkout -q main
-  for v in 1 2 3 4 5 6 7 8 9 10 11; do
+  printf '{\n  "burned": [\n    {"tag": "zz-c6-v0.1.0", "date": "2026-10-22", "why": "fixture"},\n    {"tag": "r12-v0.1.0", "date": "2026-10-22", "why": "fixture: retired after its failed release was deleted"}\n  ]\n}\n' \
+    >"$tmp/repo/tools/maintainer/burned_versions.json"
+  git -C "$tmp/repo" commit -q -am "retire r12-v0.1.0" -s
+  git -C "$tmp/repo" push -q origin main
+  for v in 1 2 3 4 5 6 7 8 9 10 11 12; do
     at=$good
     [ "$v" = 9 ] && at=$bad
-    git -C "$tmp/repo" push -q origin "$at:refs/tags/zz-new-v1.0.$v"
+    git -C "$tmp/repo" push -q origin "$at:refs/tags/r$v-v0.1.0"
   done
   rm -f "$tmp"/runs/*
-  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.1.json"
-  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.3.json"
-  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.11.json"
-  printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.4.json"
-  printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.5.json"
-  printf '{"assets": []}' >"$tmp/releases/zz-new-v1.0.7.json"  # draft state unreadable
-  echo "HTTP 403: API rate limit exceeded for installation" >"$tmp/releases/zz-new-v1.0.8.error"
-  for v in 1 2 3 4 5 7 8 9 10 11; do
+  for v in 1 3 11 12; do printf '{"isDraft": true, "assets": []}' >"$tmp/releases/r$v-v0.1.0.json"; done
+  printf '{"isDraft": false, "assets": []}' >"$tmp/releases/r4-v0.1.0.json"
+  printf '{"isDraft": false, "assets": []}' >"$tmp/releases/r5-v0.1.0.json"
+  printf '{"assets": []}' >"$tmp/releases/r7-v0.1.0.json"  # draft state unreadable
+  echo "HTTP 403: API rate limit exceeded for installation" >"$tmp/releases/r8-v0.1.0.error"
+  for v in 1 2 3 4 5 7 8 9 10 11 12; do
     at=$good
     [ "$v" = 9 ] && at=$bad
     [ "$v" = 10 ] && at=$bad
     case $v in 4) echo "70$v completed success $at" ;; *) echo "70$v completed failure $at" ;; esac \
-      >"$tmp/releases/zz-new-v1.0.$v.runinfo"
+      >"$tmp/releases/r$v-v0.1.0.runinfo"
   done
-  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 8 9 10 11 >"$tmp/tags-recover.txt"
+  printf 'r%s-v0.1.0\n' 1 2 3 4 5 6 7 8 9 10 11 12 >"$tmp/tags-recover.txt"
   : >"$tmp/calls.txt"
   : >"$tmp/drafts.txt"
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --dry-run --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
-  ! grep -q "^rerun" "$tmp/calls.txt" && has "WOULD-RERUN zz-new-v1.0.1 701" && has "WOULD-RERUN zz-new-v1.0.3 703"
+  ! grep -q "^rerun" "$tmp/calls.txt" && has "WOULD-RERUN r1-v0.1.0 701" && has "WOULD-RERUN r3-v0.1.0 703"
   expect "--dry-run --rerun-failed lists what it would re-run and re-runs nothing" $?
   pushes_before=$(grep -c . "$tmp/origin.git/pushes.txt")
-  # While the first batch runs, another operator seals zz-new-v1.0.3.
-  printf 'printf %s >"%s"\n' "'{\"isDraft\": false, \"assets\": []}'" "$tmp/releases/zz-new-v1.0.3.json" >"$tmp/on-done-702.sh"
+  # While the first batch runs, another operator seals r3.
+  printf 'printf %s >"%s"\n' "'{\"isDraft\": false, \"assets\": []}'" "$tmp/releases/r3-v0.1.0.json" >"$tmp/on-done-702.sh"
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
   rc=1
   if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort -n | tr '\n' ' ')" = "701 702 7011 " ]; then rc=0; fi
-  expect "exactly the failed runs whose release is not published, on a safe pipeline, are re-run" "$rc"
+  expect "exactly the failed runs whose release is not published, on a safe pipeline and live version, are re-run" "$rc"
   rc=1
   if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 7011 done 7011 " ]; then rc=0; fi
   expect "re-runs go out in batches of 2, each batch finished before the next starts" "$rc"
-  has "SKIP zz-new-v1.0.3: the release has been published since"
+  has "SKIP r3-v0.1.0: the release has been published since"
   expect "a release sealed by someone else between batches is re-checked and not re-run" $?
-  has "SEALED-PARTIAL zz-new-v1.0.5" && has "NO-RUN zz-new-v1.0.6" \
-    && has "OK zz-new-v1.0.4" && has "UNKNOWN-STATE zz-new-v1.0.7" && has "UNKNOWN-STATE zz-new-v1.0.8" \
+  has "SEALED-PARTIAL r5-v0.1.0" && has "NO-RUN r6-v0.1.0" \
+    && has "OK r4-v0.1.0" && has "UNKNOWN-STATE r7-v0.1.0" && has "UNKNOWN-STATE r8-v0.1.0" \
     && [ "$rrc" -ne 0 ]
   expect "sealed-but-partial, no run, unreadable state and a 403 on the lookup are all reported, never re-run" $?
-  has "PROBE-REFUSED zz-new-v1.0.9" && has "CREATE-IS-DRAFT"
+  has "PROBE-REFUSED r9-v0.1.0" && has "CREATE-IS-DRAFT"
   expect "a tag whose commit carries a publish-first release.yml is refused by main's probe, never re-run" $?
-  has "UNKNOWN-STATE zz-new-v1.0.10: run 7010 is for $bad, not the tagged commit $good"
+  has "UNKNOWN-STATE r10-v0.1.0: run 7010 is for $bad, not the tagged commit $good"
   expect "a run that is not for the tagged commit is never re-run" $?
+  has "PROBE-REFUSED r12-v0.1.0" && has "TAG-BURNED"
+  expect "a version main has retired is never re-released through recovery" $?
   ! grep -q FORBIDDEN "$tmp/calls.txt" && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -eq "$pushes_before" ]
   expect "recovery never deletes a release and never pushes a tag" $?
 
