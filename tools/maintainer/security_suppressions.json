@@ -1075,6 +1075,236 @@
       "file": "skills/saas-alerts/cli/cmd/saas-alerts-mcp/main.go",
       "rule": "G101",
       "reason": "saas-alerts only (generated, printing-press 4.33.5; same template file as the bitdefender main.go vetted in PR #401, differing only in import order and the display-name string, verified by diff; like bitdefender it reads the HTTP bearer token through cliutil.EnvOverride, the hand-fix that refuses an unresolved MCPB placeholder, recorded in skills/saas-alerts/handfixes.json). gosec G101 false-positive on the constant NAME 'httpTokenEnvVar' (the 'Token' substring). Its value is the NAME of an environment variable (SAAS_ALERTS_MCP_HTTP_TOKEN), not a credential; the token is read at runtime via cliutil.EnvOverride (an os.Getenv wrapper) and never appears in the source. Same class as the datagate, zammad, huntress, datto-bcdr, wordpress and sentinelone entries."
+    },
+    {
+      "file": "skills/appdirect/cli/internal/client/appdirect_token_url.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). const defaultAppDirectTokenURL is AppDirect's public OAuth2 token endpoint URL (https://marketplace.appdirect.com/oauth2/token), not a credential; client_id/client_secret come from config at request time."
+    },
+    {
+      "file": "skills/cisco-duo/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). resourceReadPaths and resourceDetailPaths are map[string]string of resource names to Duo Admin API paths (/admin/v1/...); every value is a URL path, none is credential material. The 'admin'/'auth' substrings trip the heuristic."
+    },
+    {
+      "file": "skills/cisco-duo/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The sync paths map is resource name -> Duo Admin API path (/admin/v1/..., /admin/v2/logs/...); every value is a URL path, not credential material."
+    },
+    {
+      "file": "skills/connectsecure/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). resourceReadPaths, resourceDetailPaths and resourceWritePaths map resource names to ConnectSecure API paths (/r/company/..., /w/company/...); keys like agent_credentials_mapping trip the heuristic, values are URL paths only."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The sync paths map is resource name -> FortiOS API path (/cmdb/..., /monitor/...); every value is a URL path, not credential material."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/fgtcloud/client.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). DefaultTokenURL is the public FortiCloud IAM token endpoint URL, not a credential; the API user and password come from config or the environment."
+    },
+    {
+      "file": "skills/google-workspace/cli/internal/cli/gws_tenants.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). googleTokenURL is Google's public OAuth2 token endpoint (https://oauth2.googleapis.com/token), not a credential; the service-account key is read from the operator-registered key file."
+    },
+    {
+      "file": "skills/gradient/cli/internal/config/gradient_keys.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). EnvVendorAPIKey and EnvPartnerAPIKey hold environment-variable NAMES (GRADIENT_VENDOR_API_KEY, GRADIENT_PARTNER_API_KEY), not credential values; the values are read with os.Getenv at run time."
+    },
+    {
+      "file": "skills/kaseya-bms/cli/internal/cli/kaseya_bms_auth.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). kbmsAuthEnvPassword holds the environment-variable NAME KASEYA_BMS_PASSWORD, not a password; the value is read from the environment at run time."
+    },
+    {
+      "file": "skills/quickbooks/cli/internal/cli/auth_refresh.go",
+      "rule": "G101",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). intuitTokenURL is Intuit's public OAuth 2.0 token endpoint; the 'bearer' path segment trips the heuristic. Client id, secret and refresh token come from env/config."
+    },
+    {
+      "file": "skills/connectsecure/cli/internal/cli/connectsecure_auth.go",
+      "rule": "G117",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). json.Marshal of the minted JWT cache entry: persisting the token is the cache's purpose; cliutil.AtomicWritePrivateFile writes it 0600 inside a 0700 cache dir, under a name derived from a SHA-256 of the credentials."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/fgtcloud/client.go",
+      "rule": "G117",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). json.Marshal of the FortiCloud token cache: persisting the token is the cache's purpose; writeCache writes a fresh temp file, chmods it 0600, then renames it into a 0700 dir, and removes the cache on failure."
+    },
+    {
+      "file": "skills/pipedrive/cli/internal/cli/digest.go",
+      "rule": "G201",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). digestQuery interpolates only `where` and `whenExpr`, which the digest command builds from package literals and the staleTouch const; every user value (owner, since cutoff, quiet-days) is bound through ? in args."
+    },
+    {
+      "file": "skills/pipedrive/cli/internal/cli/stale.go",
+      "rule": "G201",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). runStaleByOrg interpolates only `where`, assembled from package literals and the staleTouch const; quiet-days and pipeline are bound through ? placeholders in qargs."
+    },
+    {
+      "file": "skills/skykick/cli/internal/store/skykick_fleet.go",
+      "rule": "G201",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The DELETE statements interpolate a table name ranged from a compile-time slice of fleet_* table names; the only caller-influenced value (keep / cutoff) is bound as ?."
+    },
+    {
+      "file": "skills/runzero/cli/internal/inventory/inventory.go",
+      "rule": "G202",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). diffSection concatenates table and label, which its only caller (Diff) passes as literals (inv_assets, inv_services, inv_software and fixed COALESCE expressions); SQLite cannot bind identifiers, and baseline/latest are bound as ?."
+    },
+    {
+      "file": "skills/sentinelone/cli/internal/store/snapshots.go",
+      "rule": "G202",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). snapshotBound appends dir and f.op, which both callers pass as the literals \"DESC\" and \"<=\"; entity and the cutoff value are bound through ? placeholders."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/since.go",
+      "rule": "G202",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The two package-level queries concatenate sqlISOToDatetime called with the literals \"alert_time\" and \"last_seen\"; the only run-time value, the cutoff, is bound through ?."
+    },
+    {
+      "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
+      "rule": "G203",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). template.HTML of a fmt.Sprintf whose only argument is a float64 percentage formatted with %.1f; no string reaches the markup."
+    },
+    {
+      "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
+      "rule": "G204",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). exec.Command(chrome, fixed flags...) where findChrome returns a fixed candidate (LookPath of chrome/google-chrome/chromium or the macOS .app path), never user input; argv slice, no shell. Same call site as the existing builtin and semgrep entries for this file."
+    },
+    {
+      "file": "skills/auvik/cli/internal/cli/auvik_snapshot_lock_unix.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens <db path>.snapshot-lock, a zero-byte advisory lock sidecar, 0600; nothing is read from it. --db is refused over MCP (blockedDestinationFlags; verified with the real MCP binary), so only the operator chooses the path."
+    },
+    {
+      "file": "skills/backup-radar/cli/internal/cli/radar_local.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). readPathOrStdin reads the file named by push --from or coverage diff --devices; both are refused over MCP (push is mcp:hidden, --devices is in mcp:write-flags; verified with the real MCP binary), so only the operator names the file."
+    },
+    {
+      "file": "skills/bitdefender/cli/internal/cli/gz_open_unix.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). openNoBlock opens the --devices / --agreements export for readBoundedFile, which Lstat-checks a regular file, re-verifies the opened descriptor and caps the read at 50 MiB. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/cipp/cli/internal/cli/bulk.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Two reads: bulk --from (refused over MCP by blockedDestinationFlags \"from\"; verified with the real MCP binary) and the checkpoint file, a slugified name under the CLI's own cache dir."
+    },
+    {
+      "file": "skills/cipp/cli/internal/cli/fanout.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). readFanoutCheckpoint reads fanout-<checkpointSlug(endpoint)>.json under the CLI's own cache dir; the slug is sanitized, so the path cannot leave that dir."
+    },
+    {
+      "file": "skills/connectsecure/cli/internal/cli/connectsecure_auth.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads this CLI's own JWT cache: cache dir + connectsecure-token-<sha256 hex>.json; no caller input reaches the path."
+    },
+    {
+      "file": "skills/crowdstrike/cli/internal/cli/fleet_tenants.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads the CID list named by fleet tenants --expected. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/fleet_changes.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). diffBackups reads two backup files enumerated from the fleet changes --dir backup directory (default <data dir>/backups). MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/fortinet_fleet.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Three opens: readDevicesFile (the --devices / FORTINET_DEVICES / config-dir devices file), resolveToken (a token_file named in that devices file, refused if group/world readable) and writeNewPrivateFile (O_CREATE|O_EXCL 0600 under the backup dir; --out-dir is refused over MCP). MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/google-workspace/cli/internal/cli/gws_tenants.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Two reads: the tenants registry, a fixed file under the CLI's own config dir, and a registered tenant's service-account key path. Tenants are registered only by `tenants add`, which is not exposed over MCP (verified with the real MCP binary)."
+    },
+    {
+      "file": "skills/gradient/cli/internal/cli/usage_push.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads the counts file named by usage push --file. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/gradient/cli/internal/ledger/ledger.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens the CLI-owned ledger file under its config dir (or the operator's ledger-dir environment variable); no flag or tool-call input reaches the path."
+    },
+    {
+      "file": "skills/hudu/cli/internal/cli/onboard.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads onboard --template, which is refused over MCP (blockedDestinationFlags \"template\"; verified with the real MCP binary), so only the operator names the file."
+    },
+    {
+      "file": "skills/huntress/cli/internal/cli/transcendence.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads <dir of the resolved --db>/snapshots/drift-agents.json; --db is refused over MCP (verified with the real MCP binary) and the file name is fixed."
+    },
+    {
+      "file": "skills/jira-service-management/cli/internal/cli/cmdb_reconcile_open_unix.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). openNoFollow opens the cmdb reconcile --file export read-only with O_NOFOLLOW and O_NONBLOCK; the caller then requires a regular file. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/nerdio/cli/internal/cli/fleet_autoscale_audit.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads fleet autoscale-audit --baseline, which is refused over MCP (blockedDestinationFlags \"baseline\"; verified with the real MCP binary), so only the operator names the file."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/clusters_perms_unix.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens the CLI's own clusters.toml (config dir or the PROXMOX_CLUSTERS_FILE environment variable) read-only and non-blocking; type, mode and owner are checked on the opened descriptor. No flag or tool-call input reaches the path."
+    },
+    {
+      "file": "skills/servosity/cli/internal/cli/bill_reconcile.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads bill --reconcile; the flag is refused over MCP (verified with the real MCP binary), so only the operator names the file. servosity is an internal-only connector."
+    },
+    {
+      "file": "skills/servosity/cli/internal/cli/qbr.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). os.Create of qbr --out; --out is refused over MCP (blockedDestinationFlags; verified with the real MCP binary), so only the operator chooses the destination."
+    },
+    {
+      "file": "skills/servosity/cli/internal/cli/qbr_all.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). os.Create of qbr-all --out; --out is refused over MCP (blockedDestinationFlags; verified with the real MCP binary), so only the operator chooses the destination."
+    },
+    {
+      "file": "skills/sonicwall/cli/internal/config/sonicwall_config.go",
+      "rule": "G304",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads <config file>.nsm-login.json beside the user's own config file; --config and --home are refused over MCP (verified with the real MCP binary)."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/fortimgr/client.go",
+      "rule": "G402",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). InsecureSkipVerify only when the operator opts in (--insecure, FORTINET_SKIP_TLS_VERIFY or FORTINET_FMG_INSECURE) for a self-signed FortiManager; --insecure is in blockedRootFlags, so an MCP tool call cannot turn it on. https is enforced and redirects are refused."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/client/proxmox_routing.go",
+      "rule": "G402",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). strictPinConfig replaces chain verification with VerifyConnection, which rejects any leaf whose SHA-256 is not in the configured pin list on every handshake; with no valid pin it returns no config at all instead of a skip-verify one."
+    },
+    {
+      "file": "skills/google-workspace/cli/internal/cli/gws_fanout.go",
+      "rule": "G404",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). math/rand jitter for quota backoff timing, not a security value."
+    },
+    {
+      "file": "skills/gradient/cli/internal/ledger/ledger.go",
+      "rule": "G703",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). os.MkdirAll(v, 0o700) of the ledger dir taken from the operator's environment variable; the operator controls their own machine and no flag or tool-call input reaches it."
+    },
+    {
+      "file": "skills/quickbooks/cli/internal/cli/auth_refresh.go",
+      "rule": "G704",
+      "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The token refresh request goes to intuitTokenURL by default; the only override is the QUICKBOOKS_TOKEN_URL environment variable, an operator-set test hook, not tool-call or API input."
     }
   ]
 }
