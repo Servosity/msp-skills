@@ -368,6 +368,12 @@ fi
 echo "== Change-set gates (the PR diff, CI's flags) =="
 jget gate_logic_changed > "$WORK/gate_logic.txt"
 gate_logic_scope() { # security-gate.yml's Scope step: gate-logic edits fail by design
+  if [ "$(jget change_set_known)" != true ]; then
+    echo "No change set against $base could be computed (no merge base in this clone?), so which"
+    echo "files the branch changes, what security-gate.yml would scan and whether it edits the gate's"
+    echo "own logic are unknown. CI computes them from full history: fetch the base, or pass --base."
+    return 1
+  fi
   if [ -s "$WORK/gate_logic.txt" ]; then
     echo "This change edits the security gate's own logic:"
     sed 's/^/  /' "$WORK/gate_logic.txt"

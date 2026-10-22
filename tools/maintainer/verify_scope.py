@@ -205,6 +205,9 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
         "head_sha": head,
         "dirty": dirty,
         "snapshot_sha": snapshot,
+        # Without a change set, which files the branch changes (and so what
+        # security-gate.yml would scan or refuse) is unknown: verify_all fails.
+        "change_set_known": cs is not None,
         "full_fleet": full_fleet,
         "reason": reason,
         "notes": notes,
@@ -879,9 +882,6 @@ def _outside(root: Path, base_dir: str, target: str) -> bool:
     return real != real_root and not real.startswith(real_root + os.sep)
 
 
-_ASM_INCLUDE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.M)
-
-
 def _go_edit_json(path: Path) -> dict | None:
     """go.mod or go.work as Go itself parses it (`go mod|work edit -json`)."""
     sub = "work" if path.name == "go.work" else "mod"
@@ -897,17 +897,16 @@ def external_refs(root: Path = ROOT) -> list[str]:
     """Committed content that reaches outside the repository, which a host
     has and CI's fresh checkout does not, so a check here could pass on it.
     Decided on real paths, every symlink followed: a symlink that resolves
-    outside; a go.work `use` or a go.mod/go.work directory `replace`, read with
-    Go's own parser; an assembly `#include` (the Go assembler reads those
-    even with cgo off, so the host-side Windows checks would). C sources and
-    #cgo flags are compiled only in the Linux checks, which run in a
-    container in Docker mode and see nothing outside the repository there.
+    outside; a go.work `use` or a go.mod/go.work directory `replace` (read
+    with Go's own parser, through a symlink too), which the host-side
+    security gate resolves. What the compilers read (C sources, #cgo flags,
+    assembly includes) is checked by isolation instead: in Docker mode every
+    compile runs in a container that holds nothing outside the repository.
     It reads the checkout of the commit under test."""
     p = subprocess.run(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=root, capture_output=True)
     if p.returncode != 0:
         raise OSError(f"git ls-tree failed: {p.stderr.decode(errors='replace').strip()}")
     out = []
-    asm: list[tuple[str, str]] = []
     for ent in p.stdout.split(b"\0"):
         if not ent:
             continue
@@ -916,9 +915,8 @@ def external_refs(root: Path = ROOT) -> list[str]:
         rel = os.fsdecode(path)
         name = rel.rsplit("/", 1)[-1]
         here = os.path.dirname(rel)
-        if mode == "120000":
-            if _outside(root, here, name):
-                out.append(f"{rel}: a symlink that resolves outside the repository ({os.path.realpath(root / rel)})")
+        if mode == "120000" and _outside(root, here, name):
+            out.append(f"{rel}: a symlink that resolves outside the repository ({os.path.realpath(root / rel)})")
         elif name in ("go.mod", "go.work"):
             j = _go_edit_json(root / rel)
             if j is None:
@@ -927,21 +925,6 @@ def external_refs(root: Path = ROOT) -> list[str]:
             targets = [u.get("DiskPath", "") for u in j.get("Use") or []]
             targets += [r["New"]["Path"] for r in j.get("Replace") or [] if not r.get("New", {}).get("Version")]
             out += [f"{rel}: names {t!r}, outside the repository" for t in targets if _outside(root, here, t)]
-        elif name.endswith((".s", ".S")):
-            asm.append((rel, oid))
-    cat = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True,
-                         input="".join(o + "\n" for _, o in asm).encode())
-    if cat.returncode != 0:
-        raise OSError(f"git cat-file failed: {cat.stderr.decode(errors='replace').strip()}")
-    buf, pos = cat.stdout, 0
-    for rel, _ in asm:
-        nl = buf.index(b"\n", pos)
-        size = int(buf[pos:nl].split()[2])
-        text = buf[nl + 1:nl + 1 + size].decode("utf-8", "replace")
-        pos = nl + 1 + size + 1
-        for inc in _ASM_INCLUDE.findall(text):
-            if _outside(root, os.path.dirname(rel), inc):
-                out.append(f"{rel}: #include {inc!r} is outside the repository")
     return out
 
 
@@ -1495,16 +1478,17 @@ def _self_test() -> int:
         deep.mkdir(parents=True)
         os.symlink(os.path.relpath(r, deep), deep / "root")
         os.symlink("/".join(["d"] * 20) + "/root/" + "../" * 20 + "tmp/probe.txt", r / "s/c/chain.go")
-        (r / "s/c/probe_linux_amd64.s").write_text('#include "/tmp/probe.h"\n#include "textflag.h"\n', encoding="utf-8")
-        (r / "s/c/up_windows_amd64.s").write_text('#include "./' + "../" * 20 + 'tmp/probe.h"\n', encoding="utf-8")
+        (r / "s/c/w.data").write_text('go 1.26\n\nuse .\n\nreplace github.com/spf13/pflag => "/tmp/viaLink"\n', encoding="utf-8")
+        (r / "s/c/sub").mkdir()
+        os.symlink("../w.data", r / "s/c/sub/go.work")
         g("add", "-A")
         g("commit", "-qm", "x")
         found = "\n".join(external_refs(r))
         expect(all(x in found for x in ("abs.go", "up.go", "'../../../x'", "'/tmp/helper'", "'/tmp//pflag'", "chain.go",
-                                        "'/tmp/probe.h'", "up_windows_amd64.s")) and
-               not any(x in found for x in ("inside.go", "./local", "./s/c'", "textflag.h")),
-               "symlinks (chains too), go.work use and replace (read by Go's own parser) and assembly #include that "
-               "leave the repository are refused; ones inside it are not")
+                                        "'/tmp/viaLink'")) and
+               not any(x in found for x in ("inside.go", "./local", "./s/c'")),
+               "symlinks (chains too) and go.work use / replace (Go's own parser, through a symlink too) that leave "
+               "the repository are refused; ones inside it are not")
 
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],

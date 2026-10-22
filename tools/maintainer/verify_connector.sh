@@ -83,15 +83,9 @@ for v in $(compgen -e); do
 done
 export GOENV=off GOWORK=off
 
-# CI's Windows checkout, and the go.work Go finds inside it (or off).
+# Where the host-side Windows tree goes (native mode, or no Docker).
 win="$work/win/$slug"
-winwork=off
-[ "${VERIFY_MODULE_ONLY:-0}" = 1 ] \
-  || winwork="$(python3 tools/maintainer/verify_scope.py windows-tree --slug "$slug" --out "$win" 2>/dev/null)"
-wingo() { # wingo VAR=value... command...: on the Windows job's toolchain and workspace
-  env GOFLAGS= GOWORK="$([ "$winwork" = off ] && echo off || echo "$win/$winwork")" \
-    GOTOOLCHAIN="go$gover+auto" CI=true "$@"
-}
+here="$(pwd)"
 
 # ---- CI's build row, in Linux ------------------------------------------------
 linux_mode="${VERIFY_LINUX_MODE:-none}"
@@ -151,14 +145,46 @@ linux_cross()       { linux_run "$mod" "$CROSS"; }
 linux_test()        { linux_run "$mod" 'go test -count=1 ./...'; }   # as CI: never a cached result
 linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 
-# ---- CI's windows row: predictors on this host ------------------------------
-windows_vet()          { ( cd "$win/$mod" && wingo GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./... ); }
+# ---- CI's windows row: predictors ---------------------------------------
+# Each runs on a copy of the Windows job's sparse checkout, built from the
+# commit under test: in Docker mode inside the same linux/amd64 container (a
+# cross-compile to windows/amd64 with cgo off gives the same result anywhere,
+# and the container holds nothing outside the repository), else on this host.
+# shellcheck disable=SC2016,SC2089 # run with eval by the bash in the Windows tree
+WIN_PREP='ww="$(python3 "$TOOLS/verify_scope.py" windows-tree --slug "$SLUG" --out "$W")" || exit 2
+if [ "$ww" = off ]; then export GOWORK=off; else export GOWORK="$W/$ww"; fi
+cd "$W/$MOD" || exit 2
+export GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
+# shellcheck disable=SC2016 # $1 and $2 belong to the inner bash
+win_run() { # win_run <shell command>, at the module in the Windows tree ($W is its root, $TOOLS the tools)
+  case "$linux_mode" in
+    docker)
+      [ -n "${VERIFY_LINUX_SRC:-}" ] || { echo "no repository snapshot for the container (VERIFY_LINUX_SRC)"; return 1; }
+      docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
+        -e HOME=/tmp -e CI=true -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= \
+        -e GOMODCACHE=/gomod -e GOCACHE=/gocache -e SLUG="$slug" -e MOD="$mod" -e W=/tmp/win -e TOOLS=/src/tools/maintainer \
+        -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
+        -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
+        -v "$VERIFY_LINUX_SRC:/src" \
+        "golang:${gover}-bookworm" bash -c 'cd /src && eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
+    *)
+      # (native, or no Docker: the host's own disk is visible, documented)
+      rm -rf "$win"
+      env GOFLAGS= GOTOOLCHAIN="go$gover+auto" CI=true SLUG="$slug" MOD="$mod" W="$win" TOOLS="$here/tools/maintainer" \
+        bash -c 'eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
+  esac
+}
+
+# The commands below are expanded inside the Windows tree, not here.
+# shellcheck disable=SC2016
+windows_vet()          { win_run 'go vet ./...'; }
 # -o /dev/null with several packages: go links every test binary and discards
 # it (a link error is a failure too), so nothing lands in the module.
-windows_test_compile() { ( cd "$win/$mod" && wingo GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./... ); }
+windows_test_compile() { win_run 'go test -c -o /dev/null ./...'; }
 
+# shellcheck disable=SC2016
 windows_cgo_context() {
-  wingo GOOS=windows GOARCH=amd64 python3 tools/maintainer/verify_scope.py cgo-context --dir "$win/$mod" && return 0
+  win_run 'python3 "$TOOLS/verify_scope.py" cgo-context --dir .' && return 0
   echo "CI's Windows runner builds with cgo on (it has MinGW) and the Windows checks here build"
   echo "with cgo off, so they do not speak for it. Rely on CI's Windows job for this connector."
   return 1
@@ -166,17 +192,15 @@ windows_cgo_context() {
 
 # The lint evaluates build tags for the Go CI's Windows job selects (release
 # tags go1.1..go1.N), so it asks Go which one that is.
+# shellcheck disable=SC2016
 unix_lint() {
-  local v
-  v="$(cd "$win/$mod" && wingo GOOS=windows GOARCH=amd64 go env GOVERSION)" || { echo "go env GOVERSION failed: $v"; return 1; }
-  python3 tools/maintainer/check_unix_test_asserts.py --root "$win" --slug "$slug" --go-version "$v"
+  win_run 'python3 "$TOOLS/check_unix_test_asserts.py" --root "$W" --slug "$SLUG" --go-version "$(go env GOVERSION)"'
 }
-if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ] || [ -z "$gowork" ] || [ -z "$winwork" ]; then
+if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ] || [ -z "$gowork" ]; then
   # No module, or no way to know which Go CI installs for it: nothing below
   # can speak for CI, so the connector fails here, visibly.
   if [ ! -f "$mod/go.mod" ]; then echo "$mod/go.mod not found"
   elif [ -z "$gowork" ]; then echo "cannot tell which go.work CI's checkout uses for $mod"
-  elif [ -z "$winwork" ]; then echo "cannot build a copy of CI's sparse Windows checkout for $slug"
   else echo "cannot resolve the Go CI installs for $mod/go.mod (setup-go reads its go line; a bare X.Y needs go.dev's release index)"
   fi > "$logs/harness.log"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
