@@ -180,8 +180,7 @@ win_run() { # win_run <shell command>, at the module in the Windows tree ($W is 
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache -e SLUG="$slug" -e MOD="$mod" -e W=/tmp/win -e SRC=/seed \
         -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
         -e REV="${VERIFY_SNAPSHOT_SHA:-unset}" \
-        -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
-        -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
+        -v msp-skills-verify-gomod-win:/gomod -v msp-skills-verify-gocache-win:/gocache \
         -v "${VERIFY_LINUX_SEED:-/nonexistent}:/seed:ro" \
         "golang:${gover}-bookworm" bash -c 'eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
     *)

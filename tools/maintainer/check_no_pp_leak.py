@@ -85,7 +85,9 @@ def own_names(root: Path, slug: str, meta: dict) -> set[str]:
     try:
         for line in gomod.read_text(encoding="utf-8").splitlines():
             if line.startswith("module "):
-                names.add(re.sub(r"-pp-(?:cli|mcp)$", "", line.split()[1].strip()))
+                # The last element of the path: github.com/x/acme-pp-cli names acme.
+                mod = line.split()[1].strip().strip('"`').rstrip("/").rsplit("/", 1)[-1]
+                names.add(re.sub(r"-pp-(?:cli|mcp)$", "", mod))
                 break
     except OSError:
         pass
@@ -192,9 +194,12 @@ def _read(p: Path) -> str | None:
 
 # The pages a skill links to, in every text format GitHub renders or a reader
 # opens (compared case-insensitively: README.MD is a README).
-MARKDOWN_SUFFIXES = (".md", ".markdown", ".mdown", ".mkdn", ".mkd", ".mdwn", ".mdtxt", ".mdtext")
-REFERENCE_SUFFIXES = MARKDOWN_SUFFIXES + (".html", ".htm", ".xhtml", ".txt", ".text", ".rst", ".adoc", ".asciidoc",
-                                          ".asc", ".textile", ".rdoc", ".org", ".creole", ".mediawiki", ".wiki", ".pod")
+# (github/markup's markdown and markup lists, plus plain text and HTML.)
+MARKDOWN_SUFFIXES = (".md", ".markdown", ".mdown", ".mkdn", ".mkd", ".mdwn", ".mdtxt", ".mdtext", ".mdx", ".rmd",
+                     ".litcoffee")
+REFERENCE_SUFFIXES = MARKDOWN_SUFFIXES + (".html", ".htm", ".xhtml", ".txt", ".text", ".rst", ".rest", ".adoc",
+                                          ".asciidoc", ".asc", ".textile", ".rdoc", ".org", ".creole", ".mediawiki",
+                                          ".wiki", ".pod", ".pod6")
 
 
 def _files(d: Path, suffix: str | tuple[str, ...], recursive: bool) -> list[Path]:
@@ -759,6 +764,15 @@ def _self_test() -> int:
                "HTML, .markdown and upper-case .MD pages, and a Markdown-escaped name, are read as rendered")
         for f in ("usage.html", "esc.md", "usage.markdown", "LOUD.MD"):
             (root / "skills/acme/references" / f).unlink()
+        gm = root / "skills/acme/cli/go.mod"
+        old_mod = gm.read_text(encoding="utf-8") if gm.is_file() else None
+        gm.parent.mkdir(parents=True, exist_ok=True)
+        gm.write_text("module github.com/example/x360recover-pp-cli\n\ngo 1.26\n", encoding="utf-8")
+        expect("x360recover" in own_names(root, "acme", {}), "a qualified module path names its last element")
+        if old_mod is None:
+            gm.unlink()
+        else:
+            gm.write_text(old_mod, encoding="utf-8")
         for sub in ("references", "cli/internal"):
             d = root / "skills/acme" / sub
             d.mkdir(parents=True, exist_ok=True)

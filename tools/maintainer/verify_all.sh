@@ -451,7 +451,9 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
       fi
       [ -z "$img" ] && img="golang:${v}-bookworm"
     done
-    for vol in msp-skills-verify-gomod msp-skills-verify-gocache-amd64; do
+    # The Windows predictors get caches of their own: only they write them, and
+    # they run no connector code, so nothing a Linux test does can reach them.
+    for vol in msp-skills-verify-gomod msp-skills-verify-gocache-amd64 msp-skills-verify-gomod-win msp-skills-verify-gocache-win; do
       docker volume create "$vol" >/dev/null 2>&1
       [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" \
         sh -c '[ "$(stat -c %u:%g /v)" = "$1" ] || chown -R "$1" /v' sh "$VERIFY_LINUX_USER" >/dev/null 2>&1
