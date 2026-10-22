@@ -28,9 +28,9 @@
     "released_hash": "sha256:93b4ffcdec7e280cc13423e2606a07ab6489ac7aae2c69ef5613d3eafa187834"
   },
   "appdirect": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "appdirect-v0.1.6",
+    "latest_tag": "appdirect-v0.1.7",
     "current_hash": "sha256:3f018c15d5ee91c3261bf666a2c5927744c0e9fe36edfcb1a48d2bb2fd262907",
     "released_hash": "sha256:3f018c15d5ee91c3261bf666a2c5927744c0e9fe36edfcb1a48d2bb2fd262907"
   },
@@ -56,9 +56,9 @@
     "released_hash": "sha256:a1a2362eab5cc6f18ef00709c7bcedcef619653634a28ee41ce978fbe0373df6"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "avanan-v0.1.8",
+    "latest_tag": "avanan-v0.1.9",
     "current_hash": "sha256:ac4db111086e84c771c52ac06d8b7867c4513e4b15a6834ab194fcd4a33bc5c2",
     "released_hash": "sha256:ac4db111086e84c771c52ac06d8b7867c4513e4b15a6834ab194fcd4a33bc5c2"
   },
