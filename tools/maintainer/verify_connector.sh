@@ -52,10 +52,10 @@ check() { # check <name> <command...>
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" connector "$slug" "$st" "$(( $(date +%s) - t0 ))" "$log" >> "$rec"
 }
 
-go_version() { # the version CI's setup-go installs: the toolchain line, else the go line
-  awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$mod/go.mod" 2>/dev/null \
-    || awk '/^go / {print $2; exit}' "$mod/go.mod"
-}
+# The version CI's setup-go installs: the toolchain line, else the go line.
+# Read once, here at the repo root (the checks below run from other folders).
+gover="$(awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$mod/go.mod" 2>/dev/null \
+  || awk '/^go / {print $2; exit}' "$mod/go.mod" 2>/dev/null)"
 
 # Everything the go command reads from the environment that could change
 # which files it builds or how: cleared, then set explicitly per context.
@@ -66,18 +66,23 @@ CGO_CPPFLAGS CGO_CXXFLAGS CGO_FFLAGS CGO_LDFLAGS CC CXX"
 goclean() { # goclean VAR=value... command...: the command under an explicit Go environment
   local u=()
   for v in $GO_ENV_UNSET; do u+=(-u "$v"); done
-  env "${u[@]}" GOENV=off GOFLAGS= GOTOOLCHAIN="go$(go_version)" CI=true "$@"
+  env "${u[@]}" GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover" CI=true "$@"
 }
 
 # ---- CI's build row, in Linux ------------------------------------------------
 linux_mode="${VERIFY_LINUX_MODE:-none}"
 
 linux_run() { # linux_run <dir relative to the repo root> <shell command>
-  local cwd="$1" cmd="$2" ver
-  ver="$(go_version)"
+  local cwd="$1" cmd="$2"
   case "$linux_mode" in
     native)
-      ( cd "$cwd" && goclean GOOS=linux GOARCH=amd64 CGO_ENABLED=1 bash -c "$cmd" ) ;;
+      # Like the container: only what is listed here (no TZ, LANG or test
+      # settings from the caller), plus the PATH that finds go and gcc and
+      # where modules and the build cache live (which never change a result).
+      ( cd "$cwd" && env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" CI=true \
+          ${GOPATH:+GOPATH="$GOPATH"} ${GOMODCACHE:+GOMODCACHE="$GOMODCACHE"} ${GOCACHE:+GOCACHE="$GOCACHE"} \
+          ${GOPROXY:+GOPROXY="$GOPROXY"} \
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover" bash -c "$cmd" ) ;;
     docker)
       [ -n "${VERIFY_LINUX_SNAPSHOT:-}" ] && [ -d "$VERIFY_LINUX_SNAPSHOT/$mod" ] || {
         echo "no repository snapshot for the Linux container (VERIFY_LINUX_SNAPSHOT)"; return 1; }
@@ -89,7 +94,7 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
         -v "$VERIFY_LINUX_SNAPSHOT:/src" -w "/src/$cwd" \
-        "golang:${ver}-bookworm" bash -c "$cmd" ;;
+        "golang:${gover}-bookworm" bash -c "$cmd" ;;
     *)
       echo "CI's build row (linux/amd64, cgo on) cannot run here: this host is not linux/amd64"
       echo "with a C compiler, and no Docker daemon is reachable. Install Docker or OrbStack,"
