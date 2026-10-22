@@ -448,9 +448,9 @@
     "released_hash": "sha256:579d72521aa31fc6a3b9986fc1af4c3a82e6936a485b65d436da37aaf476df8f"
   },
   "rocketcyber": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "rocketcyber-v0.1.4",
+    "latest_tag": "rocketcyber-v0.1.5",
     "current_hash": "sha256:97c98ace6527c44fb5c6be01219216147df0674be126d34ff859926d75d994f3",
     "released_hash": "sha256:97c98ace6527c44fb5c6be01219216147df0674be126d34ff859926d75d994f3"
   },
@@ -476,9 +476,9 @@
     "released_hash": "sha256:4a42f231e7f65ca0d8a990c9d18c14e5490ea4c3559c34a5049fef2d834af61c"
   },
   "salesbuildr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "salesbuildr-v0.1.4",
+    "latest_tag": "salesbuildr-v0.1.5",
     "current_hash": "sha256:053dc902d520bba428cd4908766d1bd65ae2ca1ad4a99ad422cc65322382d6b9",
     "released_hash": "sha256:053dc902d520bba428cd4908766d1bd65ae2ca1ad4a99ad422cc65322382d6b9"
   },
