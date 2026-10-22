@@ -35,3 +35,4 @@ dependency.
 
 Beta. Validated against the HaloPSA API surface and being validated with MSPs running it
 live against their own production tenant in our weekly Build Sessions.
+

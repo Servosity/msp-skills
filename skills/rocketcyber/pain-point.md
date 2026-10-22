@@ -29,3 +29,4 @@ shows the dashboard but won't hand you the trend or the number.
 Beta. Validated against the RocketCyber Customer API v3 surface; the closed-loop
 receipt (a named MSP running it live in their production tenant at a Build Session)
 is tracked separately and added here as `video.md` once it exists.
+

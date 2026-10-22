@@ -70,3 +70,4 @@ verified against the live endpoint; full data paths exercised against mock
 fixtures - we do not operate an MSPbots tenant). The closed-loop receipt (a
 named MSP running it live in their production tenant at a Build Session) is
 tracked separately and added here as `video.md` once it exists.
+

@@ -45,3 +45,4 @@ that matters is usually the one no one looked at.
 Beta. Validated against the SentinelOne API surface; the closed-loop receipt (a named
 MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
+

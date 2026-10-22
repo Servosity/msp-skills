@@ -73,3 +73,4 @@ instant, offline, and free of rate limits and conditions-syntax traps.
 Beta. Validated against the ConnectWise Manage API surface; the closed-loop receipt (a named
 MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
+

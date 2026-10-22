@@ -34,3 +34,4 @@ SQLite and answers the questions the console can't:
 Beta. Validated against the KnowBe4 API surface; the closed-loop receipt (a named
 MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
+

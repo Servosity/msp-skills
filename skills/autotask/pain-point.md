@@ -45,3 +45,4 @@ as one offline query - no LiveReport, no export, no API round-trips per question
 Beta. Validated against the Autotask API surface; the closed-loop receipt (a named
 MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
+

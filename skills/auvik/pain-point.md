@@ -54,3 +54,4 @@ rows, bucketed by urgency, in one command against a local mirror - no export, no
 spreadsheet, no per-client loop. The week before a QBR, the refresh list writes
 itself. And when a client's billable count jumps, the answer to "which devices?"
 takes one command rather than a support ticket.
+

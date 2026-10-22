@@ -83,3 +83,4 @@ from the string it signed gets a 401 that looks exactly like a credential proble
 This CLI signs and sends through one code path, and implements the term the docs
 omit - the most-installed community MCP server for this API ships a self-declared
 "best-guess HMAC" it warns users to replace.
+

@@ -56,3 +56,4 @@ of FortiOS 7.4 REST endpoints (derived from Fortinet's public Ansible
 collection, not an official Fortinet specification) and tested against simulated FortiGate responses, not a real
 FortiGate. The closed-loop receipt (a named MSP running it against their own FortiGates at a
 Build Session) is tracked separately and added here as `video.md` once it exists.
+

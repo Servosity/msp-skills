@@ -69,3 +69,4 @@ The underlying CLI was generated and contributed by Ricardo Cabral
 ([@phoenix-server](https://github.com/phoenix-server)) and is redistributed here
 under Apache-2.0 with the original `NOTICE` preserved in
 [`cli/NOTICE`](./cli/NOTICE).
+

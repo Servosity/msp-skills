@@ -35,3 +35,4 @@ the book-wide questions directly - instantly and offline:
 Beta. Validated against the CrowdStrike API surface; the closed-loop receipt (a named
 MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
+

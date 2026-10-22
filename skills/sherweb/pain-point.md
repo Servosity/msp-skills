@@ -38,3 +38,4 @@ mirror, the cross-entity questions become single offline joins:
 Beta. Validated against the Sherweb Partner API surface; the closed-loop receipt
 (a named MSP running it live in their production partner account at a Build
 Session) is tracked separately and added here as `video.md` once it exists.
+

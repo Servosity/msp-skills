@@ -45,3 +45,4 @@ Beta. Built against the ConnectWise RMM partner API (every route confirmed on th
 gateway without credentials; behavior tested against a mock gateway); the closed-loop receipt (a named
 MSP running it live in their production tenant at a Build Session) is tracked
 separately and added here as `video.md` once it exists.
+

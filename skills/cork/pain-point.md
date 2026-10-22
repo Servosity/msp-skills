@@ -66,3 +66,4 @@ structurally unable to answer any of them in a single call. Syncing Cork into a
 local SQLite mirror turns the whole book of business into one queryable surface, so
 the answers come from a local join instead of a fan-out that hammers an API which
 publishes no rate limits.
+
