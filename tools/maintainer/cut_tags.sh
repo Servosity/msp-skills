@@ -900,8 +900,10 @@ case "$1 $2" in
     # listing pages as "T <total_count>" then "R <id> <status>" rows; the
     # per-status form (status=X) is the old counting method, kept to show its
     # defect. short-listing: total_count one more than the rows; split-total N:
-    # the next N listings see a run created between two pages; flip: a run in
-    # "requested" moves to "queued" after every read.
+    # the next N listings see a run deleted between two pages (the first page
+    # reports one more than the last, whose total the rows match, so only the
+    # page-agreement check catches it); flip: a run in "requested" moves to
+    # "queued" after every read.
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
     n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
     [ -f "$state/slow-count" ] && sleep 0.3  # widen the check-then-push window for the concurrency test
@@ -913,11 +915,11 @@ case "$1 $2" in
         reply=$(
           total=$(ls "$state/runs" | grep -c .)
           [ -f "$state/short-listing" ] && total=$((total + 1))
-          echo "T $total"
           if [ -s "$state/split-total" ] && [ "$(cat "$state/split-total")" -gt 0 ]; then
             echo $(($(cat "$state/split-total") - 1)) >"$state/split-total"
             echo "T $((total + 1))"
           fi
+          echo "T $total"
           for f in "$state"/runs/*; do [ -f "$f" ] && echo "R ${f##*/} $(cat "$f")"; done
         ) ;;
     esac
