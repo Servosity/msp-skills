@@ -1940,7 +1940,7 @@
       "cli_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:73fac681c661c8f03536962f792b93d39352293c64f15d860c856c74ace3d86f",
+      "cli_hash_at_release": "sha256:fbca33ef73fe2e933075a8d0786c599ed6501600977bb1e2d711652763709a41",
       "live_verified": {
         "status": "awaiting",
         "date": null,

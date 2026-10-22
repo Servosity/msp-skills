@@ -23,9 +23,8 @@ func newSuspiciousActivityCloseCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "close <account_id>",
-		Aliases: []string{"create"},
-		Short:   "Suspicious Activity operation the vendor has not documented: POST /oneview/v1/accounts/{account_id}/sa/close",
+		Use:   "close <account_id>",
+		Short: "Suspicious Activity operation the vendor has not documented: POST /oneview/v1/accounts/{account_id}/sa/close",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

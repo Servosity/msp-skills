@@ -10,6 +10,7 @@ All notable changes to this skill are documented here. Format follows
 - **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `threatdown-cli cases create` ran `threatdown-cli cases action`, POST `/v1/casemgmt/accounts/{account_id}/cases/action`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
   - `threatdown-cli cases action` (POST `/v1/casemgmt/accounts/{account_id}/cases/action`)
   - `threatdown-cli endpoint-jobs bulk-issue` (POST `/v1/jobs/bulk`)
+  - `threatdown-cli suspicious-activity close` (POST `/v1/accounts/{account_id}/sa/close`; closes every suspicious-activity detection in detection_id_list)
 
 ### Security
 - **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.

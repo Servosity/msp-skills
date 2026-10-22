@@ -281,6 +281,8 @@ REVIEWED_HAZARDS = {
         "rejects every pending remediation on the incident report, so none is carried out",
     ("ninjaone", "/v2/devices/approval/{mode}"):
         "approves or, with mode REJECT, rejects the listed devices waiting for approval",
+    ("threatdown", "/v1/accounts/{account_id}/sa/close"):
+        "closes every suspicious-activity detection in detection_id_list",
     ("appdirect", "/appwise/v2/data"):
         "publishes content events; action_delete or a ResourceDeleted event removes the resource from Search",
     ("huntress", "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval"):
@@ -876,6 +878,7 @@ def self_test() -> int:
          "/v1/incident_reports/{incident_report_id}/remediations/bulk_rejection"),
         ("ninjaone", ["devices", "node-approval-operation"], "/v2/devices/approval/{mode}"),
         ("appdirect", ["appwise", "events"], "/appwise/v2/data"),
+        ("threatdown", ["suspicious-activity", "close"], "/v1/accounts/{account_id}/sa/close"),
     ]:
         if not findings_for(slug, [node(path, api=api)])[0]:
             bad.append(f"expected FAIL for {slug} POST {api} (bulk resolve/snooze/reject/delete)")
@@ -909,7 +912,7 @@ def self_test() -> int:
             print("  - " + b)
         return 1
     print(f"PASS: check_command_tree self-test ({len(must_fail)} must-fail, "
-          f"{len(must_pass)} must-pass, 6 bulk, 1 shadow, 1 duplicate; {walker}; {enum})")
+          f"{len(must_pass)} must-pass, 7 bulk, 1 shadow, 1 duplicate; {walker}; {enum})")
     return 0
 
 
