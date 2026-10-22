@@ -183,56 +183,56 @@ class Func:
         self.name, self.start, self.end, self.line = name, start, end, line
 
 
-_FUNC_RE = re.compile(r"^[ \t]*func\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)", re.M)
+_FUNC_DECL = re.compile(r"\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)")
 
 
-def functions(src: str, marks: list[tuple[int, str]]) -> list[Func]:
-    """Top-level functions. The body is the first `{` after the name that is
-    outside the signature's parentheses and does not open a type literal
-    (`interface{}` / `struct{...}`, in parameters or results)."""
+def body_open(code: str, i: int) -> int:
+    """From just after a func's name (or `func` of a literal), the offset of
+    the body's `{`: the first brace outside the signature's parentheses and
+    brackets that does not open a type literal (`interface{}`, `struct{...}`,
+    read in MASKED code so a comment between the keyword and its brace is
+    blank). -1 when there is none."""
+    depth, n = 0, len(code)
+    while i < n:
+        ch = code[i]
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "{" and depth == 0:
+            if re.search(r"\b(?:interface|struct)\s*$", code[max(0, i - 64):i]):
+                i = _block_end(code, i) + 1
+                continue
+            return i
+        elif ch == "\n" and depth == 0 and re.search(r"[\w)\]};]\s*$", code[max(0, i - 4):i]):
+            # Go inserts a semicolon after a line ending in an identifier, `)`,
+            # `]` or `}`: the signature ended with no body (`var cb func() error`).
+            return -1
+        i += 1
+    return -1
+
+
+def functions(src: str, marks: list[tuple[int, str]] | None = None) -> list[Func]:
+    """Top-level function declarations, found in CODE (comments and strings
+    masked: a `func X(` inside a raw string declares nothing) at brace depth
+    0, wherever they sit on a line (`func a() {}; func TestB(...) {`)."""
+    code = code_mask(src)
     out: list[Func] = []
-    brace_idx = {off: k for k, (off, ch) in enumerate(marks)}
-    offsets = [off for off, _ in marks]
-    # Declarations are found in CODE: `func X(` inside a raw string or a
-    # comment declares nothing.
-    for m in _FUNC_RE.finditer(code_mask(src)):
-        open_at, paren, k = -1, 0, bisect.bisect_left(offsets, m.end())
-        while k < len(marks):
-            off, ch = marks[k]
-            if ch == "(":
-                paren += 1
-            elif ch == ")":
-                paren -= 1
-            elif ch == "{":
-                before = src[max(0, off - 16):off].rstrip()
-                if paren == 0 and not re.search(r"\b(?:interface|struct)$", before):
-                    open_at = off
-                    break
-                # a type literal: jump over its matching brace
-                depth = 0
-                while k < len(marks):
-                    o2, c2 = marks[k]
-                    if c2 == "{":
-                        depth += 1
-                    elif c2 == "}":
-                        depth -= 1
-                        if depth == 0:
-                            break
-                    k += 1
-            k += 1
+    depth_at = [0] * (len(code) + 1)
+    d = 0
+    for k, ch in enumerate(code):
+        depth_at[k] = d
+        if ch == "{":
+            d += 1
+        elif ch == "}":
+            d -= 1
+    for m in _FUNC_DECL.finditer(code):
+        if depth_at[m.start()] != 0:
+            continue
+        open_at = body_open(code, m.end())
         if open_at < 0:
             continue
-        depth, end = 0, -1
-        for off, ch in marks[brace_idx[open_at]:]:
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    end = off
-                    break
-        if end < 0:
-            continue
+        end = _block_end(code, open_at)
         out.append(Func(m.group(1), open_at, end, src.count("\n", 0, m.start()) + 1))
     return out
 
@@ -252,9 +252,15 @@ def _eval_constraint(expr: str) -> bool:
     pos = 0
 
     def tag(t: str) -> bool:
-        if t in ("windows", "amd64") or t.startswith("go1"):
+        # What `GOOS=windows GOARCH=amd64 go test` with the gc toolchain at
+        # go1.26 satisfies: the OS and arch, gc, GOAMD64's default v1, and
+        # every release tag up to go1.26. unix, cgo and custom tags are unset.
+        if t in ("windows", "amd64", "gc", "amd64.v1"):
             return True
-        return False  # unix, cgo, linux, darwin, custom tags: not set by a plain windows run
+        m = re.fullmatch(r"go1\.(\d+)", t)
+        if m:
+            return int(m.group(1)) <= GO_MINOR
+        return False
 
     def p_or() -> bool:
         nonlocal pos
@@ -292,6 +298,9 @@ def _eval_constraint(expr: str) -> bool:
         return True  # unparseable: assume it builds, so the lint still looks
 
 
+GO_MINOR = 26  # the fleet's toolchain minor; release tags go1.1..go1.26 are set
+
+
 def builds_on_windows(path: Path, src: str) -> bool:
     stem = path.name[:-3] if path.name.endswith(".go") else path.name
     if stem.endswith("_test"):
@@ -304,8 +313,16 @@ def builds_on_windows(path: Path, src: str) -> bool:
                 return False
         elif last in GOOS and last != "windows":
             return False
+    in_block = False
     for line in src.splitlines():
         s = line.strip()
+        if in_block:  # a //go:build line inside /* ... */ is comment text
+            if "*/" in s:
+                in_block = False
+            continue
+        if s.startswith("/*"):
+            in_block = "*/" not in s[2:]
+            continue
         if s.startswith("package "):
             break
         if s.startswith("//go:build "):
@@ -366,10 +383,18 @@ def _block_end(text: str, open_brace: int) -> int:
 
 
 def _split_top(expr: str, sep: str) -> list[str]:
-    """Split on a top-level operator (outside parens, brackets, braces)."""
+    """Split on a top-level operator (outside parens, brackets, braces and
+    string literals: `a||runtime.GOOS == "windows"||b` inside a raw string
+    is one operand)."""
     parts, depth, i, start = [], 0, 0, 0
     while i < len(expr):
         ch = expr[i]
+        if ch in "\"`'":
+            j = i + 1
+            while j < len(expr) and expr[j] != ch:
+                j += 2 if (expr[j] == "\\" and ch != "`") else 1
+            i = j + 1
+            continue
         if ch in "([{":
             depth += 1
         elif ch in ")]}":
@@ -489,8 +514,12 @@ def windows_reassigns(gcode: str, code: str, var: str, decl: int) -> bool:
         if _enclosing_end(code, st.start) != scope_end:
             continue
         block = code[st.open + 1:st.end]
+        v = re.escape(var)
+        shadow = re.search(rf"(?m)^[ \t]*(?:var\s+{v}\b|(?:[A-Za-z_]\w*\s*,\s*)*{v}\b(?:\s*,\s*[A-Za-z_]\w*)*\s*:=)", block)
         for am in re.finditer(r"(?m)^[ \t]*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*=(?!=)", block):
-            if var in [v.strip() for v in am.group(1).split(",")] and _top_level(code, st.open, st.open + 1 + am.start()):
+            if shadow and shadow.start() < am.start():
+                break  # a block-local `var :=` shadows the outer variable from here on
+            if var in [x.strip() for x in am.group(1).split(",")] and _top_level(code, st.open, st.open + 1 + am.start()):
                 return True
     return False
 
@@ -511,7 +540,7 @@ def skips_on_windows(gcode: str, code: str, src_body: str) -> bool:
     return bool(_SKIP.search(code)) and "windows" in src_body.lower()
 
 
-_FUNC_LIT = re.compile(r"\bfunc\s*\([^)]*\)\s*(?:\([^)]*\)|[\w.*\[\]]+)?\s*\{")
+_FUNC_LIT = re.compile(r"\bfunc\s*\(")
 
 
 def func_literal_spans(code: str) -> list[tuple[int, int, str]]:
@@ -522,8 +551,11 @@ def func_literal_spans(code: str) -> list[tuple[int, int, str]]:
     it may never run)."""
     out = []
     for m in _FUNC_LIT.finditer(code):
-        end = _block_end(code, m.end() - 1)
-        before = code[max(0, code.rfind("\n", 0, m.start()) + 1):m.start()]
+        bo = body_open(code, m.end() - 1)
+        if bo < 0:
+            continue  # a func TYPE (`func(int) error`), not a literal
+        end = _block_end(code, bo)
+        before = code[:m.start()]
         invoked = re.match(r"\s*\(", code[end + 1:end + 3] or "") is not None
         if invoked and re.search(r"\bgo\s*$", before):
             kind = "unknown"
@@ -535,7 +567,7 @@ def func_literal_spans(code: str) -> list[tuple[int, int, str]]:
             kind = "later"
         else:
             kind = "unknown"
-        out.append((m.end(), end, kind))
+        out.append((bo + 1, end, kind))
     return out
 
 
@@ -715,9 +747,43 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
             v = re.escape(var)
             rest = code[om.end():]
 
-            def scope_of(pos: int) -> tuple[int, int, str] | None:
-                inner = [c for c in closures if c[0] <= pos < c[1]]
-                return max(inner, key=lambda c: c[0]) if inner else None
+            open_pos = om.start()
+
+            def between(pos: int) -> list[tuple[int, int, str]]:
+                """The closures that hold pos but NOT the open, innermost
+                first: the open's own scope (a closure like `run := func()`
+                included) is the context both share."""
+                return sorted((c for c in closures if c[0] <= pos < c[1] and not (c[0] <= open_pos < c[1])),
+                              key=lambda c: -c[0])
+
+            def chain_effect(pos: int, deferred: bool) -> int | None:
+                """When a close at pos takes effect, seen from the open's own
+                scope: pos itself; the end of an inline closure (a defer
+                inside it runs there too); 'after the scope' (10**9) for a
+                deferred call or a closure that runs later; None when any
+                closure on the way may never run."""
+                chain = between(pos)
+                if not chain:
+                    return 10**9 if deferred else pos
+                eff: int | None = None
+                for k, (a, b, kind) in enumerate(chain):
+                    if kind == "unknown":
+                        return None
+                    if k == 0:
+                        eff = b if kind == "inline" else 10**9
+                    elif eff == 10**9 or kind == "later":
+                        eff = 10**9
+                    else:
+                        eff = b
+                return eff
+
+            redecl = [om.end() + r.start() for r in re.finditer(
+                rf"(?:\bvar\s+{v}\b|(?<![\w.]){v}\b(?:\s*,\s*[A-Za-z_]\w*)*\s*:=|,\s*{v}\b\s*:=)", rest)]
+
+            def same_binding(pos: int) -> bool:
+                """No redeclaration of the variable between the open and pos:
+                closing an inner `f` does not close the outer one."""
+                return not any(r < pos for r in redecl)
 
             def closed_at(pos: int) -> int | None:
                 """When the close at pos takes effect, in source order; a
@@ -725,27 +791,20 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
                 closes before TempDir cleanup); None when it may never run
                 on Windows (a non-Windows branch, a `go` call, a closure that
                 is only stored)."""
-                if not runs_on_windows(pos):
+                if not runs_on_windows(pos) or not same_binding(pos):
                     return None
-                line = code[code.rfind("\n", 0, pos) + 1:pos]
-                if re.search(r"\bgo\s+$", line):
+                before = code[:pos]  # keywords may sit on an earlier line: `defer` NEWLINE `f.Close()`
+                if re.search(r"\bgo\s*$", before):
                     return None
-                sc = scope_of(pos)
-                deferred = re.search(r"\bdefer\s+$", line) is not None
-                if sc is None:
-                    return 10**9 if deferred else pos
-                if sc[2] == "inline":
-                    return sc[1]
-                if sc[2] == "later":
-                    return 10**9
-                return None
+                deferred = re.search(r"\bdefer\s*$", before) is not None
+                return chain_effect(pos, deferred)
 
             closes = [om.end() + c.start() for c in re.finditer(rf"\b{v}\.Close\(", rest)]
             effective = sorted(p for p in (closed_at(c) for c in closes) if p is not None)
             # Returning the HANDLE (a whole return expression, from this
             # function's own scope, on a Windows path) hands it to the caller.
-            returned = any(var in _top_split(rm.group(1)) and scope_of(om.end() + rm.start()) is None
-                           and runs_on_windows(om.end() + rm.start())
+            returned = any(var in _top_split(rm.group(1)) and not between(om.end() + rm.start())
+                           and runs_on_windows(om.end() + rm.start()) and same_binding(om.end() + rm.start())
                            for rm in re.finditer(r"\breturn\b([^\n]*)", rest))
             if not effective and not returned:
                 add(f.start + om.start(), "open-file",
@@ -1120,6 +1179,59 @@ _ST_CASES = (
      set()),
     ("a `func` inside a raw string declares nothing", "a_test.go",
      "package cli\nvar src = `\n  func TestFake(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n  }\n`\n",
+     set()),
+    # Codex round 17: exact parsing and binding.
+    ("an operator inside a raw string is one operand", "a_test.go",
+     "package cli\nfunc TestRefused(t *testing.T) {\n\tif `a||runtime.GOOS == \"windows\"||b` == \"\" {\n\t\treturn\n\t}\n"
+     "\tif err == nil || !strings.Contains(err.Error(), \"connection refused\") {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     {"errno-text"}),
+    ("a block-local shadow is not a replacement", "a_test.go",
+     "package mcp\nfunc callStub(t *testing.T) string {\n\tbody := \"#!/bin/sh\\necho\\n\"\n"
+     "\tif runtime.GOOS == \"windows\" {\n\t\tbody := \"\"\n\t\tbody = \"@echo off\"\n\t\t_ = body\n\t}\n\treturn run(body)\n}\n",
+     {"shebang-stub"}),
+    ("an interface{} result type does not hide a closure body", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\tg := func() interface{} {\n\t\tf.Close()\n\t\treturn nil\n\t}\n\t_ = g\n\treturn f.Name()\n}\n",
+     {"open-file"}),
+    ("an inline closure inside a deferred one runs after the rename", "a_test.go",
+     "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tdefer func() {\n\t\tfunc() {\n\t\t\tf.Close()\n\t\t}()\n\t}()\n"
+     "\tos.Rename(f.Name(), dst)\n}\n",
+     {"open-file"}),
+    ("closing an inner shadow does not close the outer handle", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"a\")\n\t{\n"
+     "\t\tf, _ := os.CreateTemp(t.TempDir(), \"b\")\n\t\tf.Close()\n\t}\n\treturn f.Name()\n}\n",
+     {"open-file"}),
+    ("`defer` on the line before f.Close() still defers", "a_test.go",
+     "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tdefer\n\tf.Close()\n\tos.Rename(f.Name(), dst)\n}\n",
+     {"open-file"}),
+    ("a comment inside a struct result type does not hide the body", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) struct /* c */ { Path string } {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\treturn struct /* c */ { Path string }{f.Name()}\n}\n",
+     {"open-file"}),
+    ("a declaration after a `;` is read", "a_test.go",
+     "package cli\nfunc noop() {}; func TestRefused(t *testing.T) {\n\tif err == nil || !strings.Contains(err.Error(), \"connection refused\") {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     {"errno-text"}),
+    ("//go:build gc is built on Windows", "a_test.go",
+     "//go:build gc\n\npackage cli\nfunc TestW(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n}\n",
+     {"mode-bits"}),
+    ("//go:build amd64.v1 is built on Windows/amd64", "a_test.go",
+     "//go:build amd64.v1\n\npackage cli\nfunc TestW(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n}\n",
+     {"mode-bits"}),
+    ("//go:build !go1.27 is built by go1.26", "a_test.go",
+     "//go:build !go1.27\n\npackage cli\nfunc TestW(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n}\n",
+     {"mode-bits"}),
+    ("//go:build go1.27 is not built by go1.26", "a_test.go",
+     "//go:build go1.27\n\npackage cli\nfunc TestW(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n}\n",
+     set()),
+    ("a //go:build line inside a block comment is not a constraint", "a_test.go",
+     "/*\n  //go:build !windows\n*/\n\npackage cli\nfunc TestW(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n}\n",
+     {"mode-bits"}),
+    ("a func TYPE in a var declaration does not swallow the next function", "a_test.go",
+     "package cli\nvar hook func() error\n\nfunc TestW(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n}\n",
+     {"mode-bits"}),
+    ("open and close in the same stored closure (quotewerks' real shape) are one scope", "a_test.go",
+     "package cli\nfunc TestRows(t *testing.T) {\n\trun := func(stdin string) string {\n\t\tin, err := os.CreateTemp(t.TempDir(), \"stdin\")\n"
+     "\t\tif err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t\tdefer func() { _ = in.Close() }()\n\t\treturn \"\"\n\t}\n\trun(\"\")\n}\n",
      set()),
     ("renamed before closed", "a_test.go",
      "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tos.Rename(f.Name(), dst)\n\tf.Close()\n}\n",
