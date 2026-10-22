@@ -786,11 +786,20 @@ def resolve(repo: Path, main_side: str | None = None, regen: bool = True,
     unknown: list[str] = []
     main_formats: dict[str, object] = {}
     trio = _three_commits(repo, op, main_side) if op in ("rebase", "merge") else None
-    # The connector pages a generator rewrites: every connector either side, or
-    # the merge base, registers (a page outside this set is hand-written).
-    pages: set[str] = set()
-    for c in (trio or ("HEAD",)):
-        pages |= connector_pages(show_blob(repo, f"{c}:{SKILLS_JSON}"))
+    # The connector pages the generator will rewrite are those of the MERGED
+    # registry: a page whose connector the merge removes (or makes
+    # markdown-only) is never regenerated again, so it is hand-written now.
+    merged_skills: str | None = None
+    if SKILLS_JSON in conflicts:
+        st = conflicts[SKILLS_JSON]
+        try:
+            merged_skills = merge_registry_text(SKILLS_JSON, _stage_text(repo, st, 1),
+                                                _stage_text(repo, st, main_stage), _stage_text(repo, st, branch_stage))
+        except (UnknownFormat, MergeConflict):
+            merged_skills = None  # reported as unknown below; no page counts as generated
+    elif (repo / SKILLS_JSON).is_file():
+        merged_skills = (repo / SKILLS_JSON).read_text(encoding="utf-8")
+    pages = connector_pages(merged_skills)
     for path in sorted(conflicts):
         st = conflicts[path]
         try:
@@ -1367,6 +1376,30 @@ def _self_test() -> int:
         expect(resolve(w, out=quiet) == 2 and "branch notes" in (w / "docs/skills/notes.html").read_text(),
                "a file under docs/skills/ that no generator writes is hand-written: unknown conflict")
         run("git", "rebase", "--abort", cwd=w, check=False)
+        for case, demote, want in (("still a connector", False, 0), ("made markdown-only", True, 2)):
+            w = scenario(f"page-{case.replace(' ', '-')}")
+            (w / "docs/skills").mkdir(parents=True, exist_ok=True)
+            (w / "docs/skills/alpha.md").write_text("# alpha page\n\nbody\n")
+            run("git", "add", "-A", cwd=w)
+            run("git", "commit", "-q", "-s", "-m", "alpha page", cwd=w)
+            run("git", "checkout", "-q", "-b", "fix/alpha-page", cwd=w)
+            if demote:
+                reg = json.loads((w / SKILLS_JSON).read_text())
+                reg["skills"]["alpha"]["markdown_only"] = True
+                (w / SKILLS_JSON).write_text(json.dumps(reg, indent=2, ensure_ascii=True) + "\n")
+            (w / "docs/skills/alpha.md").write_text("# alpha page\n\nBRANCH body\n")
+            run("git", "commit", "-q", "-s", "-am", "branch page", cwd=w)
+            run("git", "checkout", "-q", "main", cwd=w)
+            (w / "docs/skills/alpha.md").write_text("# alpha page\n\nMAIN body\n")
+            run("git", "commit", "-q", "-s", "-am", "main page", cwd=w)
+            run("git", "checkout", "-q", "fix/alpha-page", cwd=w)
+            run("git", "rebase", "main", cwd=w, check=False)
+            conflicted = "docs/skills/alpha.md" in unmerged(w)
+            rc = resolve(w, out=quiet, regen=False)
+            expect(conflicted and rc == want,
+                   f"a connector page whose connector is {case} in the merged registry: "
+                   + ("main's copy, regenerated" if want == 0 else "hand-written now, unknown conflict"))
+            run("git", "rebase", "--abort", cwd=w, check=False)
 
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

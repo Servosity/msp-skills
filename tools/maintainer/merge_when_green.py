@@ -115,7 +115,8 @@ EXIT_APPROVAL, EXIT_CHECKS, EXIT_TIMEOUT, EXIT_RACE = 4, 5, 6, 7
 
 # This tool's own code. It must be origin/main's (a stale shared checkout once
 # carried an older registry and gave wrong verdicts): --allow-stale-tools only.
-TOOL_FILES = ("merge_when_green.py", "resolve_registry.py", "release_matrix.py", "repo_lock.py", "registry.py")
+TOOL_FILES = ("merge_when_green.py", "resolve_registry.py", "release_matrix.py", "repo_lock.py", "registry.py",
+              "build-catalog.py")  # build-catalog.py: its patterns define what the review masks hide
 TOOLS_DIR = Path(__file__).resolve().parent
 
 FINGERPRINT_VERSION = "msp-skills-change-fingerprint/2"
@@ -220,10 +221,12 @@ def fingerprint(git: Git, base: str, head: str) -> str:
         catalog.json, docs/_data/catalog.json, docs/llms*.txt and each
         registered connector's docs/skills/<slug>.md. This tool regenerates
         and re-checks those on the commit it merges, so no hand edit to them
-        can land. Any other file under docs/skills/ is an ordinary file."""
+        can land. Any other file under docs/skills/ (including the page of a
+        connector the change removes or makes markdown-only, which nothing
+        regenerates any more) is an ordinary file."""
     mb = git.out("merge-base", base, head)
     paths = changed_paths(git, mb, head)
-    pages = _pages(git, mb, head)
+    pages = _pages(git, head)  # only what the RESULTING registry regenerates
     h = hashlib.sha256()
     h.update(FINGERPRINT_VERSION.encode() + b"\n")
     literal: list[str] = []
@@ -272,7 +275,7 @@ def footprint(git: Git, base: str, head: str) -> Footprint:
     entries, the hand-written parts of README/issue forms it edits, and the
     directory of every other file it changes."""
     mb = git.out("merge-base", base, head)
-    pages = _pages(git, mb, head)
+    pages = _pages(git, head)
     fp = Footprint()
     for p in changed_paths(git, mb, head):
         parts = p.split("/")
@@ -318,7 +321,7 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
         return [f"main was rewritten: the approval's base {old_base[:12]} is not an ancestor of {new_base[:12]}"]
     hits = []
     names = changed_paths(git, old_base, new_base)
-    pages = _pages(git, old_base, new_base)
+    pages = _pages(git, new_base)
     for p in names:
         if release_matrix.is_machinery(p):
             hits.append(f"main changed {p} (shared build machinery)")
@@ -338,11 +341,15 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
         if reg not in names:
             continue
         try:
-            slugs = rr.registry_slugs(rr.changed_entries(reg, git.show(old_base, reg), git.show(new_base, reg)))
+            changed = rr.changed_entries(reg, git.show(old_base, reg), git.show(new_base, reg))
         except rr.UnknownFormat as exc:
             hits.append(f"main's {reg} cannot be compared per entry ({exc})")
             continue
-        for s in sorted(slugs & fp.slugs):
+        # A registry-wide field (owner, repo, the marketplace's own name, the
+        # cards header) feeds every generated URL and page: always a dependency.
+        for k in sorted(k for k in changed if k.startswith("top:") or k == "header"):
+            hits.append(f"main changed the registry-wide {k} in {reg}")
+        for s in sorted(rr.registry_slugs(changed) & fp.slugs):
             hits.append(f"main changed the {reg} entry for {s}")
     return hits
 
@@ -509,9 +516,27 @@ class GitHub:
                                    "isCrossRepository,mergeable,title,url,mergeCommit").stdout)
 
     def required_contexts(self) -> list[str]:
+        """The branch-protection required contexts. Fails CLOSED: an error
+        (403, rate limit, 5xx) must not read as "nothing is required", which
+        would accept a skipped required check. Only GitHub's explicit "not
+        protected" answer means none; pass --required-context to state them
+        when the token cannot read protection."""
         p = self._gh("api", f"repos/{self.slug}/branches/main/protection/required_status_checks",
                      "--jq", ".contexts", check=False)
-        return json.loads(p.stdout) if p.returncode == 0 and p.stdout.strip() else []
+        if p.returncode == 0:
+            try:
+                out = json.loads(p.stdout or "null")
+            except ValueError:
+                out = None
+            if isinstance(out, list) and all(isinstance(c, str) for c in out):
+                return out
+            raise Stop(EXIT_REFUSED, f"unreadable required-checks answer {p.stdout.strip()[:120]!r}; "
+                                     "pass --required-context NAME")
+        if "Branch not protected" in p.stderr or "Required status checks not enabled" in p.stderr:
+            return []
+        raise Stop(EXIT_REFUSED, "cannot read main's required checks "
+                                 f"({_printable(p.stderr.strip())[:200]}); refusing to treat that as 'none "
+                                 "required'. Pass --required-context NAME (repeatable) to state them.")
 
     def snapshot(self, sha: str) -> dict:
         runs = self._lines("api", "--paginate", f"repos/{self.slug}/actions/runs?head_sha={sha}&per_page=100",
@@ -703,6 +728,7 @@ class Options:
     max_rebases: int = 3
     generators: tuple[str, ...] = rr.GENERATORS
     allow_stale_tools: bool = False
+    required: tuple[str, ...] | None = None  # None: read branch protection
 
 
 class Merger:
@@ -726,8 +752,17 @@ class Merger:
         except Stop as s:
             self.say(f"STOP ({s.code}): {s}")
             return s.code
+        except Exception as exc:  # anything unexpected stops the run, it never merges
+            self.say(f"STOP ({EXIT_ERROR}): internal error: {type(exc).__name__}: {exc}")
+            return EXIT_ERROR
         finally:
             self._cleanup()
+
+    def _remote_main(self) -> str:
+        out = self.git.out("ls-remote", self.o.remote, "refs/heads/main").split()
+        if not out:
+            raise Stop(EXIT_ERROR, f"{self.o.remote} reports no main branch")
+        return out[0]
 
     def _run(self) -> int:
         o = self.o
@@ -761,8 +796,8 @@ class Merger:
                 raise Stop(EXIT_REFUSED, "a worktree with this branch checked out is not safe to rewrite under:\n  "
                            + "\n  ".join(probs))
             self.say(f"==> {wt} has {branch} checked out: clean, idle and pushed (left untouched)")
-        required = self.gh.required_contexts()
-        self.say(f"==> required contexts: {', '.join(required) or '(none reported)'}")
+        required = list(self.o.required) if self.o.required is not None else self.gh.required_contexts()
+        self.say(f"==> required contexts: {', '.join(required) or '(none: main is not protected)'}")
         current = head
         while True:
             self._wait_for_catalog_bot()
@@ -1080,7 +1115,7 @@ class Merger:
             return "stop", f"real failure caused by this change ({head_line}): the same check passes on the base"
         if not (signature(v.real) <= signature(bv.real)):
             return "stop", f"real failure ({head_line}) that differs from the base's failure"
-        tip = self.git.out("ls-remote", self.o.remote, "refs/heads/main").split()[0]
+        tip = self._remote_main()
         if tip == base:
             return "stop", (f"the base fails the same way ({head_line}) and is main's tip: main is red for "
                             "this check; fix main first")
@@ -1103,7 +1138,7 @@ class Merger:
         validated base with the validated tree. A refused merge goes back to the
         top (re-fetch, re-validate) as "retry"."""
         o = self.o
-        tip = self.git.out("ls-remote", o.remote, "refs/heads/main").split()[0]
+        tip = self._remote_main()
         if tip != base:
             self.say(f"==> main moved to {tip[:12]} just before the merge; validating again")
             return "retry"
@@ -1445,6 +1480,9 @@ def _self_test() -> int:
 
         def merger(work: Path, fake: FakeGitHub, **kw) -> tuple[int, list[str]]:
             logs: list[str] = []
+            # The fixture's stand-in build-catalog.py differs from the real one by
+            # design, so fixture runs allow it; the freshness test passes False.
+            kw.setdefault("allow_stale_tools", True)
             opts = Options(pr=fake.n, poll_s=0, settle_s=0, timeout_s=60, bot_wait_s=0, **kw)
             m = Merger(Git(work, env), fake, opts, out=logs.append, sleep=lambda s: None)
             return m.run(), logs
@@ -1452,7 +1490,8 @@ def _self_test() -> int:
         def approve(work: Path, fake: FakeGitHub, head: str, ev: str = "Looks right.\nVERDICT: APPROVED\n") -> int:
             evp = tmp / f"ev{counter[0]}.txt"
             evp.write_text(ev)
-            return record_approval(Git(work, env), fake, fake.n, "codex", head, evp, out=lambda s: None)
+            return record_approval(Git(work, env), fake, fake.n, "codex", head, evp, out=lambda s: None,
+                                   allow_stale_tools=True)
 
         def origin_rev(origin: Path, ref: str) -> str:
             return sh("git", "--git-dir", str(origin), "rev-parse", ref, cwd=tmp)
@@ -1623,11 +1662,12 @@ def _self_test() -> int:
         rc, logs = merger(work, fake)
         expect(rc == EXIT_APPROVAL and any("not byte-identical" in s for s in logs),
                "a rebase that shifts the change's own hunk changes the fingerprint and loses the approval")
-        ev_bad = record_approval(Git(work, env), fake, 12, "codex", head, None, out=lambda s: None)
+        ev_bad = record_approval(Git(work, env), fake, 12, "codex", head, None, out=lambda s: None,
+                                 allow_stale_tools=True)
         p1 = tmp / "p1.txt"
         p1.write_text("[P1] broken\nVERDICT: APPROVED\n")
         expect(ev_bad == 0 and record_approval(Git(work, env), fake, 12, "codex", head, p1,
-                                               out=lambda s: None) == EXIT_REFUSED,
+                                               out=lambda s: None, allow_stale_tools=True) == EXIT_REFUSED,
                "evidence carrying a [P1] finding is refused as an approval")
 
         # T8b: content a generator does not reproduce keeps its fingerprint.
@@ -1668,6 +1708,61 @@ def _self_test() -> int:
                and fingerprint(g, b0, hs[0]) != fingerprint(g, b0, hs[1]),
                "two contents of ' config.json' get two fingerprints (the leading space is kept)")
 
+        # T8b2: a page nothing regenerates any more is reviewed content.
+        origin, work, _b = world()
+        (work / "docs/skills").mkdir(parents=True, exist_ok=True)
+        (work / "docs/skills/alpha.md").write_text("# alpha page\n")
+        sh("git", "add", "-A", cwd=work)
+        sh("git", "commit", "-q", "-s", "-m", "alpha page", cwd=work)
+        sh("git", "push", "-q", "origin", "main", cwd=work)
+        sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+        reg = json.loads((work / rr.SKILLS_JSON).read_text())
+        reg["skills"]["alpha"]["markdown_only"] = True
+        (work / rr.SKILLS_JSON).write_text(json.dumps(reg, indent=2, ensure_ascii=True) + "\n")
+        sh("git", "commit", "-q", "-s", "-am", "alpha becomes markdown-only", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        fake = FakeGitHub(origin, env, 25, "fix/alpha", "alpha md-only", green)
+        approve(work, fake, sh("git", "rev-parse", "HEAD", cwd=work))
+        (work / "docs/skills/alpha.md").write_text("# alpha page\n\n<script>unreviewed</script>\n")
+        sh("git", "commit", "-q", "-s", "-am", "edit the orphaned page", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        rc, logs = merger(work, fake)
+        expect(rc == EXIT_APPROVAL and any("not byte-identical" in s for s in logs),
+               "editing the page of a connector the change made markdown-only loses the approval")
+
+        # T8b3: a registry-wide field changing on main invalidates approvals.
+        origin, work, branch = world()
+        head = new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 26, branch, "skill: bravo", green)
+        approve(work, fake, head)
+
+        def owner_change(w: Path) -> None:
+            reg = json.loads((w / rr.SKILLS_JSON).read_text())
+            reg["owner"] = "someone-else"
+            (w / rr.SKILLS_JSON).write_text(json.dumps(reg, indent=2, ensure_ascii=True) + "\n")
+        main_commit(work, owner_change, "registry owner changes")
+        rc, logs = merger(work, fake)
+        expect(rc == EXIT_APPROVAL and any("registry-wide top:owner" in s for s in logs),
+               "main changing the registry's owner makes every approval stale")
+
+        # T8b4: required checks must be readable.
+        class _P:
+            def __init__(self, rc: int, out: str = "", err: str = "") -> None:
+                self.returncode, self.stdout, self.stderr = rc, out, err
+        gh_real = GitHub("o/r")
+        verdicts = []
+        for rc_, out_, err_ in ((0, '["security-gate"]', ""), (1, "", "HTTP 404: Branch not protected"),
+                                (1, "", "HTTP 403: API rate limit exceeded for installation"),
+                                (1, "", "HTTP 502: Bad Gateway")):
+            gh_real._gh = lambda *a, check=True, r=(rc_, out_, err_): _P(*r)  # type: ignore[method-assign]
+            try:
+                verdicts.append(gh_real.required_contexts())
+            except Stop as s:
+                verdicts.append(s.code)
+        expect(verdicts == [["security-gate"], [], EXIT_REFUSED, EXIT_REFUSED],
+               f"required checks: read, 'not protected' is none, a 403 or 5xx refuses ({verdicts})")
+
         # T8c: the merge call itself.
         print("the merge call (GitHub cannot pin the base):")
         origin, work, branch = world()
@@ -1697,7 +1792,8 @@ def _self_test() -> int:
         code = ("import sys, time, pathlib; sys.path.insert(0, sys.argv[1]); import repo_lock;"
                 "l = repo_lock.acquire('own-test', root=sys.argv[2]); repo_lock.release(l);"
                 "pathlib.Path(sys.argv[3]).write_text('released');"
-                "[time.sleep(0.05) for _ in range(200) if not pathlib.Path(sys.argv[4]).exists()]")
+                "[time.sleep(0.05) for _ in range(200) if not pathlib.Path(sys.argv[4]).exists()];"
+                "repo_lock.release(l)")  # a second release AFTER the next owner acquired
         a_done, b_has = tmp / "a-released", tmp / "b-acquired"
         a = subprocess.Popen([sys.executable, "-c", code, str(TOOLS_DIR), str(work), str(a_done), str(b_has)], env=env)
         procs.append(a)
@@ -1713,8 +1809,20 @@ def _self_test() -> int:
         procs.append(holder)
         a.wait(timeout=20)
         lockfile = Git(work, env).common_dir() / "msp-skills-locks" / "own-test.lock"
-        held_by_b = lockfile.is_file() and json.loads(lockfile.read_text()).get("pid") == holder.pid
-        expect(held_by_b, "a process that released its lock does not delete the next owner's lock when it exits")
+        held_by_b = lockfile.is_file() and json.loads(lockfile.read_text() or "{}").get("pid") == holder.pid
+        third = subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); import repo_lock\n"
+                                "try:\n    repo_lock.acquire('own-test', root=sys.argv[2]); print('acquired')\n"
+                                "except repo_lock.LockHeld:\n    print('held')", str(TOOLS_DIR), str(work)],
+                               capture_output=True, text=True, env=env).stdout.strip()
+        expect(held_by_b and third == "held",
+               "a process that released its lock cannot disturb the next owner's (a later release or its exit)")
+        os.kill(holder.pid, signal.SIGKILL)
+        holder.wait()
+        again = subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); import repo_lock\n"
+                                "repo_lock.acquire('own-test', root=sys.argv[2]); print('acquired')",
+                                str(TOOLS_DIR), str(work)], capture_output=True, text=True, env=env).stdout.strip()
+        expect(again == "acquired", "a killed holder's lock is free at once (the kernel drops it; no stale reclaim)")
+        holder = subprocess.Popen(["sleep", "0"])
         os.kill(holder.pid, signal.SIGTERM)
         holder.wait()
 
@@ -1722,7 +1830,8 @@ def _self_test() -> int:
         print("process inspection:")
         fakebin = tmp / "fakebin"
         fakebin.mkdir(exist_ok=True)
-        for name, body in (("lsof-fails", "#!/bin/sh\necho 'lsof: permission denied' >&2\nexit 1\n"),
+        for name, body in (("lsof-fails", "#!/bin/sh\nprintf 'p%s\\nctest\\nn/\\n' \"$PPID\"\n"
+                                          "echo 'lsof: permission denied' >&2\nexit 1\n"),
                            ("lsof-empty", "#!/bin/sh\nexit 0\n")):
             d = fakebin / name
             d.mkdir()
@@ -1737,7 +1846,7 @@ def _self_test() -> int:
                 ok = s.code == EXIT_REFUSED
             finally:
                 os.environ["PATH"] = old_path
-            expect(ok, f"an inspector that {'errors' if name == 'lsof-fails' else 'lists nothing, not even itself'} "
+            expect(ok, f"an inspector that {'lists itself but exits 1' if name == 'lsof-fails' else 'lists nothing, not even itself'} "
                        "is refused, not read as 'idle'")
         try:
             processes_in(tmp)
@@ -1752,7 +1861,7 @@ def _self_test() -> int:
         main_commit(work, lambda w: (w / "tools/maintainer/merge_when_green.py").write_text("# a newer copy\n"),
                     "main carries a newer merge_when_green.py")
         fake = FakeGitHub(origin, env, 24, branch, "skill: bravo", green)
-        rc, logs = merger(work, fake, require=(), dry_run=True)
+        rc, logs = merger(work, fake, require=(), dry_run=True, allow_stale_tools=False)
         expect(rc == EXIT_REFUSED and any("differ(s) from origin/main" in s for s in logs),
                "a copy that differs from origin/main's refuses to run")
         rc, logs = merger(work, fake, require=(), dry_run=True, allow_stale_tools=True)
@@ -1908,6 +2017,8 @@ def main(argv: list[str] | None = None) -> int:
         ap.add_argument("--poll-sec", type=float, default=30.0)
         ap.add_argument("--settle-sec", type=float, default=60.0)
         ap.add_argument("--max-rebases", type=int, default=3)
+        ap.add_argument("--required-context", action="append", metavar="NAME",
+                        help="required check name(s); default: read main's branch protection (fails closed)")
         ap.add_argument("--allow-stale-tools", action="store_true",
                         help="run even though this tool's code differs from origin/main's (not recommended)")
     args = ap.parse_args(argv[1:] if sub else argv)
@@ -1928,7 +2039,8 @@ def main(argv: list[str] | None = None) -> int:
     opts = Options(pr=args.pr, dry_run=args.dry_run, remote=args.remote, require=require,
                    expect_workflows=tuple(args.expect_workflow or ("CI", "security-gate")),
                    timeout_s=args.timeout_min * 60, poll_s=args.poll_sec, settle_s=args.settle_sec,
-                   max_rebases=args.max_rebases, allow_stale_tools=args.allow_stale_tools)
+                   max_rebases=args.max_rebases, allow_stale_tools=args.allow_stale_tools,
+                   required=tuple(args.required_context) if args.required_context else None)
     return Merger(git, gh, opts).run()
 
 

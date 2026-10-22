@@ -120,6 +120,7 @@ python3 tools/maintainer/merge_when_green.py status 412      # approvals and whe
 tools/maintainer/cut_tags.sh --dry-run <merged-sha> tags.txt
 tools/maintainer/cut_tags.sh <merged-sha> tags.txt
 tools/maintainer/cut_tags.sh --receipts tags.txt
+tools/maintainer/cut_tags.sh --rerun-failed tags.txt   # recovery: re-run failed runs of still-mutable drafts
 
 # 3. Nothing: the catalog bot stamps cli_hash_at_release after each release seals.
 ```
@@ -190,11 +191,23 @@ number of tags handled equals the number listed (a relative path read nothing on
 printed ALL-PUSHED). Per tag: skip it if it is already on the remote at this SHA, stop if it is
 anywhere else, run `check_release_pipeline.py --tag --sha` from a worktree at `origin/main`
 (the newest probe and burned-versions ledger) and `changelog_section.py --check` from a worktree
-at the SHA, push it alone, and wait for its Release run to register. `--receipts` waits for each
+at the SHA, push it alone, and wait for its Release run to register. Before every push it waits
+until fewer than `CUT_TAGS_MAX_IN_FLIGHT` (default 4) Release runs are in flight across the
+repository: one tag per push is not enough by itself (52 tags pushed one at a time still put 52
+runs in flight together, exhausted the Actions-token API limit, and left 9 partial drafts and 9
+tags without a release), and an unreadable count stops the push. `--receipts` waits for each
 release to be published with its complete asset set (`check_release_assets.py --with-mcpb`, run
 from a worktree at the tag's own commit, whose registry knows the connector), reports a failed
 Release run as a stranded draft at once, and sweeps the repository for drafts: one whose Release
 run is still going is reported as in flight, any other fails the run.
+
+`--rerun-failed` is the recovery for such a wave. For each listed tag whose latest Release run
+failed while its release is still a draft (or was never created), it re-runs the failed jobs
+(`gh run rerun <id> --failed`), `CUT_TAGS_RERUN_BATCH` (default 3) at a time under the same
+in-flight cap, waits for each batch, then prints the receipts. A release already published with
+assets missing is immutable and is reported for a version bump; a tag with no run, or a release
+whose state cannot be read, is reported too. It never deletes a release and never moves or
+re-pushes a tag.
 
 ### `stamp_release.py`
 

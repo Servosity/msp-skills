@@ -19,22 +19,30 @@ BEFORE the worktree exists; this module is a deliberate re-implementation of
 that pattern adapted for run-inside-a-worktree semantics. If the two ever
 converge, this repo-side copy is the canonical one.)
 
-Semantics (mirrors onboard.py's per-slug locks):
-  - atomic create via os.O_CREAT | os.O_EXCL
-  - JSON payload {pid, host, started, argv, ...} so a stuck lock is
-    self-documenting
-  - stale-lock reclaim: if the holder PID is dead on THIS host, the lock is
-    reclaimed; a lock from another host is never auto-reclaimed (a foreign
-    PID is meaningless locally) - the operator removes it manually
-  - released via atexit on normal or exceptional interpreter exit
+Semantics:
+  - an exclusive, non-blocking flock(2) on the lock file, held on an open
+    descriptor for as long as the lock is held. The KERNEL drops it when the
+    holder exits, however it exits (crash, SIGKILL), so there is no stale lock
+    and no reclaim step two contenders could race through (the pid-based
+    reclaim this replaced let two processes both delete-and-recreate a dead
+    holder's file and both believe they held the lock)
+  - JSON payload {pid, host, started, argv, ...} written into the file while
+    held, so a held lock is self-documenting; release empties it and unlocks,
+    and never deletes the file (deleting a lock file another process has
+    already opened is how two holders appear)
+  - released via atexit on normal or exceptional interpreter exit, and by an
+    explicit release() that only ever touches a lock THIS process holds
+  - where fcntl is unavailable (not macOS or Linux) it falls back to the old
+    O_CREAT|O_EXCL file with pid-based stale reclaim, ownership-aware
 
-Pure stdlib. Not safe across NFS (O_EXCL caveats); this repo is a local
-checkout, which is the supported case.
+Pure stdlib. Not for NFS; this repo is a local checkout, which is the supported
+case.
 """
 
 from __future__ import annotations
 
 import atexit
+import errno
 import functools
 import json
 import os
@@ -88,10 +96,17 @@ def _locks_dir(root: Path | None = None) -> Path:
     return d
 
 
+try:
+    import fcntl
+except ImportError:  # not POSIX: fall back to the exclusive-create scheme
+    fcntl = None  # type: ignore[assignment]
+
 # The exit hook registered for each lock this process acquired, so an explicit
 # release() can unregister exactly that one (atexit.unregister(release) would
 # drop every lock's hook at once).
 _EXIT_HOOKS: dict[str, object] = {}
+# The open descriptor carrying each flock this process holds.
+_HELD_FDS: dict[str, int] = {}
 
 
 def _owned_by_me(lock: Path) -> bool:
@@ -109,6 +124,18 @@ def release(lock: Path) -> None:
     hook = _EXIT_HOOKS.pop(str(lock), None)
     if hook is not None:
         atexit.unregister(hook)  # type: ignore[arg-type]
+    fd = _HELD_FDS.pop(str(lock), None)
+    if fd is not None:
+        try:
+            os.ftruncate(fd, 0)
+            fcntl.flock(fd, fcntl.LOCK_UN)  # type: ignore[union-attr]
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
+        return
+    if fcntl is not None:
+        return  # flock mode and we hold nothing under this name: touch nothing
     try:
         if _owned_by_me(lock):
             lock.unlink(missing_ok=True)
@@ -170,6 +197,31 @@ def acquire(name: str = "release", holder_info: dict | None = None,
         "argv": sys.argv[1:],
         **(holder_info or {}),
     }, indent=2) + "\n"
+
+    if fcntl is not None:
+        if str(lock) in _HELD_FDS:
+            raise LockHeld(f"lock '{name}' is already held by this process - lock file: {lock}")
+        fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            os.close(fd)
+            if exc.errno not in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES):
+                raise
+            holder = _holder(lock)
+            raise LockHeld(
+                f"lock '{name}' held by pid {holder.get('pid', '?')} on "
+                f"{holder.get('host', '?')} since {holder.get('started', '?')} "
+                f"(argv: {' '.join(holder.get('argv', [])) or '?'}) - "
+                f"lock file: {lock}"
+            )
+        os.ftruncate(fd, 0)
+        os.write(fd, payload.encode("utf-8"))
+        _HELD_FDS[str(lock)] = fd
+        hook = functools.partial(release, lock)
+        _EXIT_HOOKS[str(lock)] = hook
+        atexit.register(hook)
+        return lock
 
     for _attempt in (1, 2):
         try:
