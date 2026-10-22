@@ -577,11 +577,16 @@ class GitHub:
         base_runs = f"repos/{self.slug}/actions/runs?head_sha={sha}&per_page=100"
         base_checks = f"repos/{self.slug}/commits/{sha}/check-runs?filter=latest&per_page=100"
         base_status = f"repos/{self.slug}/commits/{sha}/status?per_page=100"
-        runs, _, p_runs = self._listing(base_runs, "workflow_runs", "{id, name, event, status, conclusion}", "id")
-        checks, _, p_checks = self._listing(base_checks, "check_runs",
-                                            "{id, name, status, conclusion, app: .app.slug}", "id")
-        statuses, pages, p_status = self._listing(base_status, "statuses", "{context, state}", "context",
-                                                  page_extra=", state: .state")
+        # A failing endpoint (an error, a timeout) never discards what the
+        # others returned: the snapshot is incomplete, and rows already read
+        # stay as evidence (after a merge, a red row read before a later
+        # endpoint timed out must still stop the chain).
+        runs, _, p_runs = self._listing_or_problem(base_runs, "workflow_runs",
+                                                   "{id, name, event, status, conclusion}", "id")
+        checks, _, p_checks = self._listing_or_problem(base_checks, "check_runs",
+                                                       "{id, name, status, conclusion, app: .app.slug}", "id")
+        statuses, pages, p_status = self._listing_or_problem(base_status, "statuses", "{context, state}", "context",
+                                                             page_extra=", state: .state")
         snap: dict = {"runs": runs, "checks": checks, "statuses": statuses}
         for what, problem in (("workflow runs", p_runs), ("check runs", p_checks), ("statuses", p_status)):
             if problem:
@@ -594,6 +599,12 @@ class GitHub:
             snap["incomplete"] = f"combined status state {combined!r}"
         snap["combined_state"] = combined
         return snap
+
+    def _listing_or_problem(self, *a, **kw) -> tuple[list[dict], list[dict], str | None]:
+        try:
+            return self._listing(*a, **kw)
+        except Exception as exc:  # incl. rr.CallTimeout and a failed gh call
+            return [], [], f"lookup failed ({type(exc).__name__}: {str(exc)[:200]})"
 
     def _listing(self, url: str, key: str, fields: str, ident: str,
                  page_extra: str = "") -> tuple[list[dict], list[dict], str | None]:
@@ -1332,8 +1343,11 @@ class Merger:
             raise Stop(EXIT_ERROR, f"the merge did not land (state {pr.get('state')})")
         try:
             return self._prove_merge(pr, sha, base, verdicts, required)
-        except Stop:
-            raise
+        except Stop as stop:
+            if stop.code in (EXIT_RACE, EXIT_RACE_RED):
+                raise
+            raise Stop(EXIT_RACE_RED, f"merged #{o.pr}, but proving the merge failed ({stop}): stop the chain and "
+                                      "check main by hand")
         except Exception as exc:
             raise Stop(EXIT_RACE_RED, f"merged #{o.pr}, but proving the merge did not complete "
                                       f"({type(exc).__name__}: {str(exc)[:300]}): stop the chain and check main by hand")
@@ -1482,8 +1496,8 @@ def verdicts_of(snap: dict) -> list[list[str]]:
     rows = [["check", str(c.get("name")), str(c.get("status")), str(c.get("conclusion"))] for c in snap["checks"]]
     rows += [["run", str(r.get("name")), str(r.get("status")), str(r.get("conclusion"))] for r in snap["runs"]]
     rows += [["status", str(x.get("context")), str(x.get("state")), ""] for x in snap["statuses"]]
-    if snap["statuses"]:  # GitHub's combined state, read alongside, can disagree with the rows
-        rows.append(["combined", str(snap.get("combined_state")), "", ""])
+    if snap.get("combined_state") is not None:  # read alongside the rows, it can disagree with them,
+        rows.append(["combined", str(snap.get("combined_state")), "", ""])  # or be all a partial read has
     return sorted(rows)
 
 
@@ -1650,6 +1664,7 @@ class FakeGitHub:
         # bounded child (killed at its bound), and any other key replaces that
         # field of the snapshot ("runs": [] is GitHub's empty-page flake).
         self.after_merge: list[dict] = []
+        self.break_origin_after_merge = False  # the proof's fetch then fails
         self.remaining_seen: list[float] = []  # what the deadline left, at each snapshot
         self.merge_stalls = False
         self._next = 1000
@@ -1751,6 +1766,8 @@ class FakeGitHub:
                             f"{self.title} (#{n})"], capture_output=True, text=True, env=self.env, check=True)
         self._git("update-ref", "refs/heads/main", p.stdout.strip(), main)
         self.state, self.merged, self.merge_oid = "MERGED", sha, p.stdout.strip()
+        if self.break_origin_after_merge:
+            self.origin.rename(self.origin.with_name(self.origin.name + ".gone"))
         return True, ""
 
 
@@ -2586,6 +2603,52 @@ def _self_test() -> int:
         expect(rc == EXIT_RACE_RED and any("combined failure" in s for s in logs),
                f"a partial read showing a red combined status, then a green read: still exit 8 (rc={rc})")
 
+        # A partial read whose only rows are a red combined status (no
+        # workflow or status rows, the listing incomplete) is still evidence.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 41, branch, "skill: bravo", green)
+        fake.after_merge = [{"runs": [], "statuses": [], "combined_state": "failure",
+                             "incomplete": "statuses: read 0 of 1"}, {}]
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and any("combined failure" in s for s in logs),
+               f"a partial read with no rows but a red combined status, then a green read: exit 8 (rc={rc})")
+        # A red row read before a later endpoint of the same snapshot failed
+        # is kept (the real adapter: runs read, check-runs times out).
+        reads = [0]
+        run_red = {"id": 1, "name": "CI", "event": "pull_request", "status": "completed", "conclusion": "failure"}
+        run_green = {**run_red, "conclusion": "success"}
+        check_ok2 = {"id": 2, "name": "security-gate", "status": "completed", "conclusion": "success",
+                     "app": "github-actions"}
+
+        def flaky_gh(*a: str, check: bool = True) -> _Stub:
+            url = next(x for x in a if x.startswith("repos/"))
+            if "/actions/runs" in url:
+                reads[0] += 1
+                row = run_red if reads[0] == 2 else run_green  # read 1: the gate; read 2: red, then a timeout
+                return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1}, row)))
+            if "/check-runs" in url:
+                if reads[0] == 2:
+                    raise rr.CallTimeout("gh api --paginate did not finish within 1s (killed)")
+                return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1}, check_ok2)))
+            return _Stub(0, json.dumps({"_page": 0, "state": "pending"}))
+        g4 = GitHub("o/r")
+        g4._gh = flaky_gh  # type: ignore[method-assign]
+        m4 = Merger(Git(work, env), g4, Options(pr=1, poll_s=0, expect_workflows=("CI",)), out=lambda s: None,
+                    sleep=lambda s: None)
+        gate_rows = verdicts_of(g4.snapshot("abc"))
+        same, detail = m4._checks_after_merge("abc", ["security-gate"], gate_rows)
+        expect(not same and "now run CI completed failure" in detail,
+               f"a red run read before the check-runs read timed out is kept, though the next read is green ({detail[:90]})")
+        # Once GitHub says MERGED, a proof step that fails (the fetch) is 8, not 1.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 42, branch, "skill: bravo", green)
+        fake.break_origin_after_merge = True
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and any("proving the merge failed" in s for s in logs),
+               f"a proof fetch that fails after the merge: exit 8, not 1 (rc={rc})")
+
         # T8i: no call outlives its bound (gh's HTTP client has no timeout).
         print("bounded calls (a stalled gh or git is killed; fail closed):")
         stub = tmp / "stallbin"
@@ -2601,8 +2664,7 @@ def _self_test() -> int:
         g3.remaining = lambda: 1.0
         t0 = time.monotonic()
         try:
-            g3.snapshot("abc")
-            raised = "nothing"
+            raised = str(g3.snapshot("abc").get("incomplete"))  # each endpoint times out: incomplete, never green
         except rr.CallTimeout as exc:
             raised = str(exc)
         finally:
@@ -2616,8 +2678,10 @@ def _self_test() -> int:
             still = False
         except PermissionError:
             still = True
-        expect("did not finish within 1s" in raised and took < 10 and not still and not donefile.exists(),
-               f"a gh call that stalls is killed at the deadline's remaining 1s and raises ({took:.1f}s, {raised[:60]})")
+        expect("CallTimeout" in raised and "did not finish within 1s" in raised and took < 10 and not still
+               and not donefile.exists(),
+               f"gh calls that stall are each killed at the deadline's remaining 1s, and the snapshot reads as "
+               f"incomplete ({took:.1f}s, {raised[:70]})")
         origin, work, branch = world()
         new_connector_pr(work, extra_commit=False)
         fake = FakeGitHub(origin, env, 38, branch, "skill: bravo", green)
@@ -2637,6 +2701,17 @@ def _self_test() -> int:
         fake = FakeGitHub(origin, env, 40, branch, "skill: bravo", green)
         rc, logs = merger(work, fake, require=())
         waits = [r for r in fake.remaining_seen]
+        # Even repository discovery, before anything else, is bounded.
+        (stub / "git").write_text("#!/bin/sh\nsleep 30 &\nwait $!\n")
+        (stub / "git").chmod(0o755)
+        t0 = time.monotonic()
+        boot = subprocess.run([sys.executable, str(TOOLS_DIR / "merge_when_green.py"), "1", "--dry-run",
+                               "--repo", str(work)], capture_output=True, text=True,
+                              env={**env, "PATH": f"{stub}{os.pathsep}{env.get('PATH', '')}", "MSP_CALL_TIMEOUT_S": "1"})
+        took = time.monotonic() - t0
+        (stub / "git").unlink()
+        expect(boot.returncode != 0 and took < 15 and "CallTimeout" in boot.stderr,
+               f"a git that stalls at repository discovery is killed at the cap ({took:.1f}s, rc={boot.returncode})")
         expect(rc == 0 and len(waits) >= 3 and all(0 < r <= 60 for r in waits),
                f"every checks read (the wait, the final gate, after the merge) is bounded by a remaining "
                f"deadline ({waits[:4]})")
@@ -2796,8 +2871,8 @@ def main(argv: list[str] | None = None) -> int:
         ap.add_argument("--allow-stale-tools", action="store_true",
                         help="run even though this tool's code differs from origin/main's (not recommended)")
     args = ap.parse_args(argv[1:] if sub else argv)
-    repo = Path(subprocess.run(["git", "-C", args.repo, "rev-parse", "--show-toplevel"], capture_output=True,
-                               text=True, check=True).stdout.strip())
+    repo = Path(rr.run_bounded(["git", "-C", args.repo, "rev-parse", "--show-toplevel"], capture_output=True,
+                               text=True, check=True, timeout=60).stdout.strip())
     git = Git(repo)
     try:
         gh = GitHub(args.gh_repo or gh_slug_from_remote(git, args.remote))

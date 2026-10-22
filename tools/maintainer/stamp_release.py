@@ -58,7 +58,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -105,29 +105,32 @@ def tree_hash(repo: Path, rev: str, rel_dir: str) -> str | None:
             return None
     if any(rel == ".gitattributes" or rel.endswith("/.gitattributes") for rel, _ in entries):
         return None
+    ordered = sorted(entries, key=lambda e: e[0])
+    # One bounded batch read (its own process group, killed at the cap,
+    # raising rr.CallTimeout), parsed strictly: a truncated or malformed
+    # answer, or a failed git, raises instead of hashing short bytes.
+    p = rr.run_bounded(["git", "-C", str(repo), "cat-file", "--batch"], capture_output=True,
+                       input=b"".join(sha.encode() + b"\n" for _rel, sha in ordered))
+    if p.returncode != 0:
+        raise StampError(f"git cat-file --batch failed ({p.returncode}): {p.stderr.decode('utf-8', 'replace')[-300:]}")
+    out, pos = p.stdout, 0
     h = hashlib.sha256()
-    proc = subprocess.Popen(["git", "-C", str(repo), "cat-file", "--batch"], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE)
-    # Bounded like every other call: a stalled reader is killed at the cap,
-    # and the short read that follows fails the hash (fail closed).
-    watchdog = threading.Timer(rr.CALL_CAP_S, proc.kill)
-    watchdog.start()
-    try:
-        for rel, sha in sorted(entries, key=lambda e: e[0]):
-            proc.stdin.write(sha.encode() + b"\n")
-            proc.stdin.flush()
-            header = proc.stdout.readline().split()
-            size = int(header[2])
-            data = proc.stdout.read(size)
-            proc.stdout.read(1)
-            h.update(rel.encode("utf-8"))
-            h.update(b"\0")
-            h.update(data)
-            h.update(b"\0")
-    finally:
-        watchdog.cancel()
-        proc.stdin.close()
-        proc.wait()
+    for rel, sha in ordered:
+        nl = out.find(b"\n", pos)
+        header = out[pos:nl].split() if nl >= 0 else []
+        if len(header) != 3 or header[0] != sha.encode() or header[1] != b"blob" or not header[2].isdigit():
+            raise StampError(f"git cat-file --batch answered {out[pos:pos + 80]!r} for {sha}")
+        size = int(header[2])
+        data = out[nl + 1:nl + 1 + size]
+        if len(data) != size or out[nl + 1 + size:nl + 2 + size] != b"\n":
+            raise StampError(f"git cat-file --batch returned {len(data)} of {size} bytes for {sha}")
+        pos = nl + 2 + size
+        h.update(rel.encode("utf-8"))
+        h.update(b"\0")
+        h.update(data)
+        h.update(b"\0")
+    if pos != len(out):
+        raise StampError("git cat-file --batch returned more than was asked for")
     return "sha256:" + h.hexdigest()
 
 
@@ -425,6 +428,42 @@ def _self_test() -> int:
         print("stamping a sealed first release:")
         expect(tree_hash(work, "refs/tags/alpha-v0.1.0", "skills/alpha/cli") == tag_hash,
                "the git-object hash equals cli_hash.py on a checkout (CRLF bytes and an executable included)")
+        # The batch read is bounded and strict: a truncated answer raises,
+        # and a git that stalls after answering is killed at the cap.
+        import shutil as _sh
+        real_git = _sh.which("git") or "git"
+        stubdir = tmp / "gitstub"
+        stubdir.mkdir()
+        (stubdir / "git").write_text(
+            "#!/bin/sh\n"
+            'case " $* " in *" cat-file --batch "*)\n'
+            '  case "$STUB_MODE" in\n'
+            '    truncate) read sha; printf "%s blob 10\\nx" "$sha"; exit 0 ;;\n'
+            f'    stall) "{real_git}" "$@"; sleep 30 & wait $! ; exit 0 ;;\n'
+            "  esac ;;\n"
+            "esac\n"
+            f'exec "{real_git}" "$@"\n')
+        (stubdir / "git").chmod(0o755)
+        old_path, old_cap = os.environ["PATH"], rr.CALL_CAP_S
+        outcomes = {}
+        try:
+            os.environ["PATH"] = f"{stubdir}{os.pathsep}{old_path}"
+            rr.CALL_CAP_S = 1.0
+            for mode in ("truncate", "stall"):
+                os.environ["STUB_MODE"] = mode
+                t0 = time.monotonic()
+                try:
+                    outcomes[mode] = ("hash", tree_hash(work, "refs/tags/alpha-v0.1.0", "skills/alpha/cli"))
+                except (StampError, rr.CallTimeout) as exc:
+                    outcomes[mode] = (type(exc).__name__, round(time.monotonic() - t0, 1))
+        finally:
+            os.environ["PATH"] = old_path
+            os.environ.pop("STUB_MODE", None)
+            rr.CALL_CAP_S = old_cap
+        expect(outcomes.get("truncate", ("?",))[0] == "StampError",
+               f"a truncated batch answer raises, never hashes short bytes ({outcomes.get('truncate')})")
+        expect(outcomes.get("stall", ("?",))[0] == "CallTimeout" and outcomes["stall"][1] < 10,
+               f"a git that stalls after answering is killed at the cap ({outcomes.get('stall')})")
         expect(run(work, released, listing, dry_run=True) == 0 and (work / REGISTRY_REL).read_text() == reg_before,
                "a dry run writes nothing")
         expect(run(work, released, listing, dry_run=False) == 0, "the stamp runs")
