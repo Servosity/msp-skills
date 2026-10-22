@@ -133,11 +133,17 @@ def lines_of(text: str) -> list[str]:
 _JSON_STR = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 
 
+_MD_ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")  # CommonMark: a backslash before ASCII punctuation
+
+
 def visible(rel: str, line: str) -> str:
-    """The text a reader sees: Markdown/HTML entities decoded (`acme&#45;pp-cli`
-    renders as acme-pp-cli). JSON lines are decoded per string token instead
-    (see _scan_text)."""
-    return html.unescape(line) if rel.endswith((".md", ".html")) else line
+    """The text a reader sees: Markdown backslash escapes (`acme\\-pp\\-cli`)
+    and Markdown/HTML entities (`acme&#45;pp-cli`) decoded, both render as
+    acme-pp-cli. JSON lines are decoded per string token instead (see
+    _scan_text)."""
+    if rel.endswith(".md"):
+        line = _MD_ESCAPE.sub(r"\1", line)
+    return html.unescape(line) if rel.endswith((".md", ".html", ".htm")) else line
 
 
 def _json_strings(line: str) -> list[str]:
@@ -183,7 +189,11 @@ def _read(p: Path) -> str | None:
         return None
 
 
-def _files(d: Path, suffix: str, recursive: bool) -> list[Path]:
+# The reference pages a skill links to, in any text format a reader opens.
+REFERENCE_SUFFIXES = (".md", ".html", ".htm", ".txt", ".rst", ".adoc")
+
+
+def _files(d: Path, suffix: str | tuple[str, ...], recursive: bool) -> list[Path]:
     """Files under d ending in suffix. A directory that cannot be listed is
     recorded and fails the run, like an unreadable file: what was not read
     was not checked."""
@@ -376,7 +386,7 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     sd = skill_dir(root, slug, meta)
     names = own_names(root, sd.name, meta) | {slug}
     leaks: list[Leak] = []
-    files = _files(sd, ".md", False) + _files(sd / "references", ".md", True)
+    files = _files(sd, ".md", False) + _files(sd / "references", REFERENCE_SUFFIXES, True)
     files += [sd / f for f in SKILL_FILES]
     files += [root / "docs" / "skills" / f"{slug}.md"]
     for p in files:
@@ -423,8 +433,34 @@ def scan_shared(root: Path, slugs: list[str], skills: dict) -> list[Leak]:
     return leaks
 
 
+def _base_path(root: Path, base: str, rel: str) -> str | None:
+    """rel as the base tree resolves it, every symlink on the way (a linked
+    file, or a linked folder above it) followed inside that tree, the way the
+    scan followed them on disk. None when it leaves the tree or loops."""
+    import posixpath
+    parts, done, hops = rel.split("/"), [], 0
+    while parts:
+        cand = "/".join(done + [parts[0]])
+        p = subprocess.run(["git", "-C", str(root), "ls-tree", "-z", base, "--", cand], capture_output=True)
+        ent = p.stdout.split(b"\0")[0] if p.returncode == 0 else b""
+        if ent.startswith(b"120000 "):
+            hops += 1
+            tgt = subprocess.run(["git", "-C", str(root), "cat-file", "blob", ent.split()[2].decode()],
+                                 capture_output=True).stdout.decode("utf-8", "surrogateescape")
+            new = posixpath.normpath(posixpath.join("/".join(done), tgt))
+            if hops > 40 or tgt.startswith("/") or new == ".." or new.startswith("../"):
+                return None
+            parts, done = new.split("/") + parts[1:], []
+        else:
+            done.append(parts.pop(0))
+    return "/".join(done)
+
+
 def git_show(root: Path, base: str, rel: str) -> str | None:
-    p = subprocess.run(["git", "-C", str(root), "show", f"{base}:{rel}"], capture_output=True)
+    real = _base_path(root, base, rel)
+    if real is None:
+        return None
+    p = subprocess.run(["git", "-C", str(root), "show", f"{base}:{real}"], capture_output=True)
     return p.stdout.decode("utf-8", errors="surrogateescape") if p.returncode == 0 else None
 
 
@@ -703,7 +739,19 @@ def _self_test() -> int:
         os.symlink("../assets/help", root / "skills/acme/references/help")
         os.symlink("..", assets / "loop")  # a cycle must end
         expect(quiet_run(root, ["acme"], None, skills) == 1, "a page under a linked references/ folder is read")
+        git("add", "-A")
+        git("commit", "-q", "-m", "a linked references folder with a leak")
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 0,
+               "--base: an unchanged page under a linked folder is pre-existing (the base tree's link is followed)")
         (root / "skills/acme/references/help").unlink()
+        (assets / "loop").unlink()
+        (assets / "usage.md").unlink()
+        (root / "skills/acme/references/usage.html").write_text("<p>Run acme-pp-cli doctor.</p>\n", encoding="utf-8")
+        (root / "skills/acme/references/esc.md").write_text("Run acme\\-pp\\-cli doctor.\n", encoding="utf-8")
+        found = {lk.rel.rsplit("/", 1)[-1] for lk in scan_slug(root, "acme", skills["acme"])}
+        expect({"usage.html", "esc.md"} <= found, "an HTML reference page and a Markdown-escaped name are read as rendered")
+        (root / "skills/acme/references/usage.html").unlink()
+        (root / "skills/acme/references/esc.md").unlink()
         for sub in ("references", "cli/internal"):
             d = root / "skills/acme" / sub
             d.mkdir(parents=True, exist_ok=True)

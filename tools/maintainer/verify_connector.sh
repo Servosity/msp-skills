@@ -146,13 +146,25 @@ linux_test()        { linux_run "$mod" 'go test -count=1 ./...'; }   # as CI: ne
 linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 
 # ---- CI's windows row: predictors ---------------------------------------
-# Each runs on a copy of the Windows job's sparse checkout, built from the
-# commit under test: in Docker mode inside the same linux/amd64 container (a
-# cross-compile to windows/amd64 with cgo off gives the same result anywhere,
-# and the container holds nothing outside the repository), else on this host.
+# Each runs on the Windows job's own kind of checkout, made by git the way
+# that job makes it: a clone with a cone-mode sparse-checkout of
+# skills/<slug> and tools/maintainer, core.autocrlf off, no global or system
+# git config (so .gitattributes conversions apply), at the FIXED commit under
+# test ($REV, never the current HEAD or files of the shared checkout, which an
+# earlier test could have changed); the tools it runs come from that tree.
+# In Docker mode it runs in the same linux/amd64 container (a cross-compile to
+# windows/amd64 with cgo off gives the same result anywhere, and the container
+# holds nothing outside the repository), else on this host.
 # shellcheck disable=SC2016,SC2089 # run with eval by the bash in the Windows tree
-WIN_PREP='ww="$(python3 "$TOOLS/verify_scope.py" windows-tree --slug "$SLUG" --out "$W")" || exit 2
-if [ "$ww" = off ]; then export GOWORK=off; else export GOWORK="$W/$ww"; fi
+WIN_PREP='export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+git clone -q --shared --no-checkout "$SRC" "$W" && git -C "$W" config core.autocrlf false \
+  && git -C "$W" sparse-checkout set --cone "skills/$SLUG" tools/maintainer \
+  && git -C "$W" checkout -q --detach "$REV" || exit 2
+export GOWORK=off
+for d in "$W/$MOD" "$W/$(dirname "$MOD")" "$W/skills/$SLUG" "$W/skills" "$W"; do
+  [ -f "$d/go.work" ] && { export GOWORK="$d/go.work"; break; }
+done
+TOOLS="$W/tools/maintainer"
 cd "$W/$MOD" || exit 2
 export GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
 # shellcheck disable=SC2016 # $1 and $2 belong to the inner bash
@@ -162,15 +174,17 @@ win_run() { # win_run <shell command>, at the module in the Windows tree ($W is 
       [ -n "${VERIFY_LINUX_SRC:-}" ] || { echo "no repository snapshot for the container (VERIFY_LINUX_SRC)"; return 1; }
       docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
         -e HOME=/tmp -e CI=true -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= \
-        -e GOMODCACHE=/gomod -e GOCACHE=/gocache -e SLUG="$slug" -e MOD="$mod" -e W=/tmp/win -e TOOLS=/src/tools/maintainer \
+        -e GOMODCACHE=/gomod -e GOCACHE=/gocache -e SLUG="$slug" -e MOD="$mod" -e W=/tmp/win -e SRC=/src \
+        -e REV="${VERIFY_SNAPSHOT_SHA:-unset}" \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
         -v "$VERIFY_LINUX_SRC:/src" \
-        "golang:${gover}-bookworm" bash -c 'cd /src && eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
+        "golang:${gover}-bookworm" bash -c 'eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
     *)
       # (native, or no Docker: the host's own disk is visible, documented)
       rm -rf "$win"
-      env GOFLAGS= GOTOOLCHAIN="go$gover+auto" CI=true SLUG="$slug" MOD="$mod" W="$win" TOOLS="$here/tools/maintainer" \
+      env GOFLAGS= GOTOOLCHAIN="go$gover+auto" CI=true SLUG="$slug" MOD="$mod" W="$win" SRC="$here" \
+        REV="${VERIFY_SNAPSHOT_SHA:-unset}" \
         bash -c 'eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
   esac
 }

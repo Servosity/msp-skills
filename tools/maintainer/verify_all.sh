@@ -157,6 +157,9 @@ if [ -z "${VERIFY_ALL_REAL_HEAD:-}" ]; then
   VERIFY_ALL_REAL_HEAD="$real_head" VERIFY_ALL_DIRTY="$dirty" bash "$WORK/tree/tools/maintainer/verify_all.sh" "${inner[@]}"
   exit $?
 fi
+# The commit under test, fixed before any check runs (a test could move HEAD).
+VERIFY_SNAPSHOT_SHA="$(git rev-parse --verify HEAD)" || { echo "verify_all: no HEAD commit" >&2; exit 2; }
+export VERIFY_SNAPSHOT_SHA
 mkdir -p "$WORK/logs" "$WORK/records"
 REC="$WORK/records.tsv"
 : > "$REC"

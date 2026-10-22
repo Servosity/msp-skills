@@ -770,55 +770,6 @@ def ci_gowork(d: str, root: Path = ROOT) -> str:
         cur = cur.parent
 
 
-def windows_tree(slug: str, out: str, root: Path = ROOT) -> str:
-    """CI's Windows job's checkout, built at out: actions/checkout with a
-    cone-mode sparse-checkout of skills/<slug> and tools/maintainer, which also
-    holds the files directly in each cone's ancestors (the root, skills/ and
-    tools/). Written from HEAD's git objects, never from the files on disk
-    (which an earlier check, a test say, could have changed), so it is that
-    job's pristine checkout: a go.work or a replace directive that reaches
-    outside it fails here as it does there. Returns the go.work Go finds for
-    skills/<slug>/cli inside the tree (relative to it), or "off"."""
-    cone = [f"skills/{slug}", "tools/maintainer"]
-    # Cone mode also holds the files directly in every ancestor of a cone.
-    tops = {"/".join(c.split("/")[:n]) for c in cone for n in range(len(c.split("/")))}
-    p = subprocess.run(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=root, capture_output=True)
-    if p.returncode != 0:
-        raise OSError(f"git ls-tree failed: {p.stderr.decode(errors='replace').strip()}")
-    ents = []
-    for ent in p.stdout.split(b"\0"):
-        if ent:
-            meta, path = ent.split(b"\t", 1)
-            mode, typ, oid = meta.decode().split()
-            rel = os.fsdecode(path)
-            in_cone = any(rel.startswith(c + "/") for c in cone) or os.path.dirname(rel) in tops
-            if typ == "blob" and in_cone:  # a gitlink checks out as an empty folder: nothing to write
-                ents.append((mode, oid, rel))
-    cat = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True,
-                         input="".join(o + "\n" for _, o, _ in ents).encode())
-    if cat.returncode != 0:
-        raise OSError(f"git cat-file failed: {cat.stderr.decode(errors='replace').strip()}")
-    dst, buf, pos = Path(out), cat.stdout, 0
-    for mode, _, rel in ents:
-        nl = buf.index(b"\n", pos)
-        size = int(buf[pos:nl].split()[2])
-        data, pos = buf[nl + 1:nl + 1 + size], nl + 1 + size + 1
-        f = dst / rel
-        f.parent.mkdir(parents=True, exist_ok=True)
-        if mode == "120000":
-            os.symlink(os.fsdecode(data), f)
-        else:
-            f.write_bytes(data)
-            if mode == "100755":
-                f.chmod(0o755)
-    cur = dst / "skills" / slug / "cli"
-    while True:
-        if (cur / "go.work").is_file():
-            return (cur / "go.work").relative_to(dst).as_posix()
-        if cur == dst:
-            return "off"
-        cur = cur.parent
-
 
 def _fold(p: str) -> str:
     return unicodedata.normalize("NFD", p).casefold()
@@ -991,9 +942,6 @@ def main(argv: list[str]) -> int:
     gw = sub.add_parser("gowork")
     gw.add_argument("--dir", required=True)
     sub.add_parser("scanner-pins")
-    wt = sub.add_parser("windows-tree")
-    wt.add_argument("--slug", required=True)
-    wt.add_argument("--out", required=True)
     bp = sub.add_parser("baseline")
     bp.add_argument("--scope", required=True)
     bp.add_argument("--head-log", required=True)
@@ -1034,16 +982,6 @@ def main(argv: list[str]) -> int:
             print("security-gate.yml does not declare every scanner pin", file=sys.stderr)
             return 1
         print("\n".join(f"{k}={v}" for k, v in pins.items()))
-        return 0
-    if a.cmd == "windows-tree":
-        if not DIR_RE.match(a.slug):
-            print(f"{a.slug!r} is not a skill slug", file=sys.stderr)
-            return 2
-        try:
-            print(windows_tree(a.slug, a.out))
-        except OSError as e:
-            print(e, file=sys.stderr)
-            return 2
         return 0
     if a.cmd == "path-collisions":
         try:
@@ -1450,26 +1388,6 @@ def _self_test() -> int:
     expect(pins.get("GOSEC_VERSION", "").startswith("v") and len(pins) == len(_PIN_KEYS),
            "security-gate.yml declares every scanner pin")
     expect(scanner_pins('  GOSEC_VERSION: "v2.29.0"\n') == {}, "a missing pin is refused, never defaulted")
-
-    print("CI's sparse Windows checkout:")
-    with tempfile.TemporaryDirectory() as td:
-        repo, out = Path(td) / "repo", Path(td) / "win"
-        for f in ("README.md", "skills/list.md", "skills/x/cli/go.mod", "skills/x/cli/a.go", "skills/y/cli/go.mod",
-                  "tools/maintainer/t.py", "tools/go.mod", "tools/other/o.py", "docs/d.md", "skills/x/cli/ignored.log"):
-            (repo / f).parent.mkdir(parents=True, exist_ok=True)
-            (repo / f).write_text("x\n", encoding="utf-8")
-        (repo / ".gitignore").write_text("*.log\n", encoding="utf-8")
-        subprocess.run(["git", "init", "-q", str(repo)], check=True)
-        gx = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com"]
-        subprocess.run(gx + ["add", "-A"], check=True)
-        subprocess.run(gx + ["commit", "-qm", "x"], check=True)
-        (repo / "skills/x/cli/a.go").unlink()  # changed on disk after the commit: the tree is HEAD's
-        (repo / "skills/x/cli/stray.go").write_text("x\n", encoding="utf-8")
-        work = windows_tree("x", str(out), repo)
-        got = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
-        expect(got == [".gitignore", "README.md", "skills/list.md", "skills/x/cli/a.go", "skills/x/cli/go.mod",
-                       "tools/go.mod", "tools/maintainer/t.py"] and work == "off",
-               "the two cones and the files directly in root, skills/ and tools/; never a sibling, docs/ or an ignored file")
 
     expect(listing_errors({"m/p": pk(Error={"Err": "cannot find package"})}) != [] and
            listing_errors({"m/p": pk(DepsErrors=[{"Err": "missing"}])}) != [] and listing_errors(base_pk) == [],
