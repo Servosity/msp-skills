@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-22
+
+### Security
+- The MCP server no longer passes `cmdb reconcile --file` to the CLI, so an MCP tool call cannot point it at a file on the machine that runs the server. The flag still works on the command line.
+
 ## [0.1.1] - 2026-10-21
 
 ### Security

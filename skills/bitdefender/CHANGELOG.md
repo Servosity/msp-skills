@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-22
+
+### Security
+- The MCP server no longer passes `fleet rmm-gap --devices` or `usage billing --agreements` to the CLI, so an MCP tool call cannot point either command at a file on the machine that runs the server. Both flags still work on the command line.
+
 ## [0.1.1] - 2026-10-21
 
 ### Security
