@@ -98,7 +98,9 @@ jobs:
           sha = p.stdout.strip()
           # -z: raw, unquoted names. Without it git quotes unusual names and a
           # connector whose every changed path is quoted would never be gated.
-          d = subprocess.run(["git", "diff", "-z", "--name-only", f"{sha}...HEAD"],
+          # --no-renames: a rename lists both ends, so moving a file OUT of a
+          # connector still gates that connector.
+          d = subprocess.run(["git", "diff", "-z", "--no-renames", "--name-only", f"{sha}...HEAD"],
                              capture_output=True, check=True)
           changed = [x.decode("utf-8", "surrogateescape") for x in d.stdout.split(b"\0") if x]
           # Gate LOGIC cannot approve itself: the rows run the PR's own copy of the

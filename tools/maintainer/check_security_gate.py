@@ -250,7 +250,9 @@ def load_suppressions(ref: str | None = None) -> set[tuple[str, str]]:
 def changed_files(base: str, slug: str) -> list[Path] | None:
     # -z: raw names. Without it git quotes unusual names ("skills/x/\303\251.py"), the
     # prefix test below misses them, and that file is never scanned in diff mode.
-    git = ["git", "-C", str(REPO), "-c", "core.quotePath=false", "diff", "-z", "--name-only"]
+    # --no-renames: a rename lists both ends, so a file moved out of this connector
+    # still counts as a change to it.
+    git = ["git", "-C", str(REPO), "-c", "core.quotePath=false", "diff", "-z", "--no-renames", "--name-only"]
     code, out, _ = run(git + [f"{base}...HEAD"])
     if code != 0:
         code, out, _ = run(git + [base])
@@ -1630,6 +1632,8 @@ def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
         if re.search(r"\bpython3\b(?!\s+-I\b)", ln) and "python-version" not in ln:
             problems.append(f"security-gate.yml runs Python without -I: {ln.strip()[:80]}")
             break
+    if '"git", "diff", "-z", "--no-renames", "--name-only"' not in gate_yml:
+        problems.append("the scope diff must list both ends of a rename (-z --no-renames)")
     if not re.search(r"python3 -I tools/maintainer/check_security_gate\.py", release_yml):
         problems.append("release.yml runs the gate without python3 -I")
     upload = re.search(r"uses: actions/upload-artifact@\S+\n\s+with:\n\s+name: scanners\n\s+path: ([^\n]+)", gate_yml)
@@ -1672,6 +1676,8 @@ def _self_test_workflows() -> int:
          rel_yml, False),
         ("scanner artifact uploads the restored cache directory", gate_yml.replace(
             "name: scanners\n          path: ${{ runner.temp }}/handoff", "name: scanners\n          path: ${{ runner.temp }}/scanner-cache"),
+         rel_yml, False),
+        ("scope diff follows renames", gate_yml.replace('"-z", "--no-renames", "--name-only"', '"-z", "--name-only"'),
          rel_yml, False),
         ("release runs the gate without -I", gate_yml, rel_yml.replace(
             "python3 -I tools/maintainer/check_security_gate.py", "python3 tools/maintainer/check_security_gate.py"), False),
