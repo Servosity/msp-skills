@@ -51,13 +51,18 @@ check() { # check <name> <command...>
   log="$logs/$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '_').log"
   t0=$(date +%s)
   if "$@" >"$log" 2>&1; then st=pass; else st=fail; fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" connector "$slug" "$st" "$(( $(date +%s) - t0 ))" "$log" >> "$rec"
+  # A result that cannot be recorded ends the worker WITHOUT its completion
+  # record, which the parent treats as a failure.
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" connector "$slug" "$st" "$(( $(date +%s) - t0 ))" "$log" >> "$rec" \
+    || { echo "  cannot record $name for $slug in $rec" >&2; exit 0; }
 }
 
-# The version CI's setup-go installs: the toolchain line, else the go line.
-# Read once, here at the repo root (the checks below run from other folders).
-gover="$(awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$mod/go.mod" 2>/dev/null \
-  || awk '/^go / {print $2; exit}' "$mod/go.mod" 2>/dev/null)"
+# The Go CI's rows install: setup-go reads go.mod's `go` line (a bare 1.26 is
+# its newest patch). The go command then selects as usual, a newer `toolchain`
+# line in go.mod or go.work upgrading it, so every Go command here runs with
+# GOTOOLCHAIN=go<that>+auto: the same selection. Resolved once, at the repo root.
+gover="$(python3 tools/maintainer/verify_scope.py ci-go --gomod "$mod/go.mod" \
+  ${VERIFY_GO_RELEASES:+--releases "$VERIFY_GO_RELEASES"} 2>/dev/null | cut -f1 | sed 's/^go//')"
 
 # CI's runners start from a clean Go environment, and so does this script
 # (verify_all.sh does the same): every GO* and CGO_* variable and the C
@@ -72,7 +77,7 @@ done
 export GOENV=off
 
 goclean() { # goclean VAR=value... command...: the command on CI's toolchain
-  env GOFLAGS= GOTOOLCHAIN="go$gover" CI=true "$@"
+  env GOFLAGS= GOTOOLCHAIN="go$gover+auto" CI=true "$@"
 }
 
 # ---- CI's build row, in Linux ------------------------------------------------
@@ -90,16 +95,16 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
       ( cd "$VERIFY_LINUX_SRC/$cwd" && env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" CI=true \
           ${GOPATH:+GOPATH="$GOPATH"} ${GOMODCACHE:+GOMODCACHE="$GOMODCACHE"} ${GOCACHE:+GOCACHE="$GOCACHE"} \
           ${GOPROXY:+GOPROXY="$GOPROXY"} \
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover" bash -c "$cmd" ) ;;
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover+auto" bash -c "$cmd" ) ;;
     docker)
       [ -n "${VERIFY_LINUX_SRC:-}" ] || {
         echo "no repository snapshot for the Linux container (VERIFY_LINUX_SRC)"; return 1; }
       # The container's environment is only what is listed here. No -w: Docker
       # hands a volume's working directory back to root, and this user then
       # cannot write there.
-      docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
+      docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
         -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 \
-        -e GOTOOLCHAIN=local -e GOENV=off -e GOFLAGS= \
+        -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= \
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
@@ -145,9 +150,12 @@ windows_cgo_context() {
   return 1
 }
 
-if [ ! -f "$mod/go.mod" ]; then
+if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ]; then
+  # No module, or no way to know which Go CI installs for it: nothing below
+  # can speak for CI, so the connector fails here, visibly.
+  if [ ! -f "$mod/go.mod" ]; then echo "$mod/go.mod not found"; else
+    echo "cannot resolve the Go CI installs for $mod/go.mod (setup-go reads its go line; a bare X.Y needs go.dev's release index)"; fi > "$logs/harness.log"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
-  echo "$mod/go.mod not found" > "$logs/harness.log"
   exit 0
 fi
 

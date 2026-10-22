@@ -56,10 +56,6 @@ for v in $(compgen -e); do
   esac
 done
 export GOENV=off
-gomod_go() { # the Go version CI's setup-go installs for a go.mod: its toolchain line, else its go line
-  awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$1" 2>/dev/null \
-    || awk '/^go / {print $2; exit}' "$1" 2>/dev/null
-}
 
 usage() {
   cat <<'USAGE'
@@ -116,6 +112,14 @@ trap cleanup EXIT
 mkdir -p "$WORK/logs" "$WORK/records"
 REC="$WORK/records.tsv"
 : > "$REC"
+NREC=0     # check results written; the verdict fails if the record file holds any other count
+REC_ERR=0  # a check result could not be written; the verdict fails
+# Which Go CI installs is setup-go's reading of a version spec against go.dev's
+# release index (a bare "1.26" is its newest patch). Read once per run; without
+# it, a spec with no patch cannot be resolved and those checks fail closed.
+if python3 tools/maintainer/verify_scope.py go-releases --out "$WORK/go-releases.json" 2>/dev/null; then
+  export VERIFY_GO_RELEASES="$WORK/go-releases.json"
+fi
 T0=$(date +%s)
 STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -165,7 +169,13 @@ DIFF_BASE="${MB:-$base}"
 # ------------------------------------------------------------- helpers ----
 in_scope() { grep -qxF "$1" "$WORK/affected.txt"; }
 logfile() { printf '%s/logs/%s.log' "$WORK" "$(printf '%s__%s' "$1" "${2:-}" | tr -c 'A-Za-z0-9._-' '_')"; }
-record() { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$REC"; }
+record() {
+  if printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$REC"; then NREC=$((NREC + 1)); else REC_ERR=1; fi
+}
+merge_records() { # a worker's record file, appended and counted
+  local n
+  n=$(awk 'END {print NR}' "$1") && cat "$1" >> "$REC" && NREC=$((NREC + n)) || REC_ERR=1
+}
 
 # gate <name> <kind> <slug> <show> <command...>
 #   kind: repo | scoped (blocking), fleet (attributed when the scope is not the
@@ -341,7 +351,13 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
   local head v img="" vol
   head="$(git rev-parse HEAD)"
   overlay_lists
-  if [ "$(uname -s)" = Linux ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
+  # CI's runner is an unprivileged user, and some tests skip as root: a root
+  # caller never runs the Linux checks natively, and containers always run
+  # as an unprivileged user.
+  VERIFY_LINUX_USER="$(id -u):$(id -g)"
+  [ "$(id -u)" = 0 ] && VERIFY_LINUX_USER=1001:1001
+  export VERIFY_LINUX_USER
+  if [ "$(uname -s)" = Linux ] && [ "$(id -u)" != 0 ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
      && [ "$(CGO_ENABLED=1 go env CGO_ENABLED 2>/dev/null)" = 1 ] && command -v gcc >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=native
     VERIFY_LINUX_SRC="$WORK/repo"
@@ -356,7 +372,9 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
   elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=docker
     for v in $(cat "$WORK/connectors.txt" "$WORK/modules.txt" 2>/dev/null | cut -d' ' -f2 | while read -r d; do
-                 gomod_go "skills/$d/cli/go.mod"; done | sort -u); do
+                 python3 tools/maintainer/verify_scope.py ci-go --gomod "skills/$d/cli/go.mod" \
+                   ${VERIFY_GO_RELEASES:+--releases "$VERIFY_GO_RELEASES"} | cut -f1 | sed 's/^go//'; done \
+               | grep -v '^-$' | sort -u); do
       # The same tag can be cached for another platform (an arm64 pull):
       # only an amd64 image is CI's context.
       if [ "$(docker image inspect -f '{{.Architecture}}' "golang:${v}-bookworm" 2>/dev/null)" != amd64 ]; then
@@ -367,7 +385,8 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     done
     for vol in msp-skills-verify-gomod msp-skills-verify-gocache-amd64; do
       docker volume create "$vol" >/dev/null 2>&1
-      [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" chown "$(id -u):$(id -g)" /v >/dev/null 2>&1
+      [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" \
+        sh -c '[ "$(stat -c %u:%g /v)" = "$1" ] || chown -R "$1" /v' sh "$VERIFY_LINUX_USER" >/dev/null 2>&1
     done
     # A private volume for this run, removed when it ends. It is filled from a
     # BARE depth-1 clone (git objects only, so this host's case-insensitive
@@ -377,14 +396,17 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     VERIFY_LINUX_SRC="$VERIFY_LINUX_VOLUME"
     local tarx="" seed="$WORK/seed.git"
     tar --version 2>/dev/null | grep -q bsdtar && tarx="--no-xattrs"
-    in_volume() { docker run --rm -i --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    # (safe.directory: the seed belongs to this host's user, which the
+    # container's user is not when the caller is root)
+    in_volume() { docker run --rm -i --platform linux/amd64 --user "$VERIFY_LINUX_USER" -e HOME=/tmp \
+                    -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
                     -v "$seed:/seed:ro" -v "$VERIFY_LINUX_VOLUME:/src" "$img" "$@"; }   # no -w: it resets /src to root
     if ! { [ -n "$img" ] \
            && git init -q --bare "$seed" \
            && git -C "$seed" fetch -q --depth 1 "file://$(pwd)" "$head" \
            && git -C "$seed" update-ref refs/heads/verify "$head" \
            && docker volume create "$VERIFY_LINUX_VOLUME" >/dev/null \
-           && docker run --rm --platform linux/amd64 -v "$VERIFY_LINUX_VOLUME:/src" "$img" chown "$(id -u):$(id -g)" /src \
+           && docker run --rm --platform linux/amd64 -v "$VERIFY_LINUX_VOLUME:/src" "$img" chown "$VERIFY_LINUX_USER" /src \
            && in_volume sh -c "git init -q /src && git -C /src fetch -q --depth 1 file:///seed refs/heads/verify \
                                && git -C /src checkout -q --detach FETCH_HEAD" \
            && { [ ! -s "$WORK/overlay.lst" ] \
@@ -416,7 +438,7 @@ if [ "$n_conn" -gt 0 ]; then
     r="$WORK/records/$s.tsv"
     if [ ! -s "$r" ] || ! grep -q "^connector complete$(printf '\t')" "$r"; then
       # A worker that never finished: whatever it recorded is not a verdict.
-      [ -s "$r" ] && cat "$r" >> "$REC"
+      [ -s "$r" ] && merge_records "$r"
       printf '  FAIL  %s: the per-connector worker did not finish (no completion record)\n' "$s"
       record "connector harness" connector "$s" fail 0 /dev/null
       continue
@@ -431,7 +453,7 @@ if [ "$n_conn" -gt 0 ]; then
         printf '  FAIL  %s (%s)\n' "$name" "$s"
       fi
     done < "$r"
-    cat "$r" >> "$REC"
+    merge_records "$r"
   done < "$WORK/connectors.txt"
 fi
 if [ "$FULL" = true ]; then
@@ -448,7 +470,7 @@ if [ "$FULL" = true ]; then
     while IFS=' ' read -r s _d; do
       r="$WORK/records/$s.tsv"
       if [ ! -s "$r" ] || ! grep -q "^connector complete$(printf '\t')" "$r"; then
-        [ -s "$r" ] && cat "$r" >> "$REC"
+        [ -s "$r" ] && merge_records "$r"
         printf '  FAIL  %s: the module worker did not finish\n' "$s"
         record "connector harness" connector "$s" fail 0 /dev/null
         continue
@@ -456,7 +478,7 @@ if [ "$FULL" = true ]; then
       while IFS="$(printf '\t')" read -r name _kind _slug st _secs log; do
         if [ "$st" = pass ]; then printf '  PASS  %s (%s)\n' "$name" "$s"; else sed 's/^/    /' "$log" | tail -60; printf '  FAIL  %s (%s)\n' "$name" "$s"; fi
       done < "$r"
-      cat "$r" >> "$REC"
+      merge_records "$r"
     done < "$WORK/modules.txt"
   fi
 fi
@@ -465,14 +487,14 @@ fi
 echo "== Security gate (security-gate.yml flags) =="
 if [ -s "$WORK/security.txt" ]; then
   # CI's toolchain too: setup-go installs the newest patch of the workflow's
-  # go-version spec, while a local `go` follows go.mod's (older) toolchain
-  # line, so a stdlib advisory fixed in the newer patch would block here and
-  # pass in CI. Offline, go.mod's toolchain is used (stricter) and said so.
-  gate_go="$(python3 tools/maintainer/verify_scope.py gate-go 2>/dev/null)"
+  # go-version spec and the go command then selects as usual (a newer
+  # `toolchain` line in a go.mod or go.work upgrades it). GOTOOLCHAIN=<that>+auto
+  # is exactly that selection. Unresolvable (no release index): fail closed.
+  gate_go="$(python3 tools/maintainer/verify_scope.py gate-go ${VERIFY_GO_RELEASES:+--releases "$VERIFY_GO_RELEASES"} 2>/dev/null)"
   if [ -n "$gate_go" ]; then
-    echo "  toolchain: $gate_go (what security-gate.yml's setup-go resolves today), linux/amd64 build context"
+    echo "  toolchain: $gate_go+auto (what security-gate.yml's setup-go installs today, then Go's own selection), linux/amd64"
   else
-    echo "  toolchain: go.mod's (could not reach go.dev to resolve CI's; this is stricter than CI)"
+    gate "security gate toolchain" repo "" 0 sh -c 'echo "could not read go.dev'"'"'s release index, so which Go security-gate.yml scans with is unknown"; exit 1'
   fi
   # CI's gate runs on linux/amd64 with cgo ON. The analyzers load packages
   # for the context they are given: GOOS/GOARCH always, and cgo on only where
@@ -481,8 +503,7 @@ if [ -s "$WORK/security.txt" ]; then
   # turning cgo on changes nothing Go compiles (any file of any kind, in the
   # module or a dependency, either way): the context check fails closed
   # otherwise, for EVERY slug the gate scans. The probe and the scanners run on
-  # the same toolchain: CI's when it resolved, else go.mod's, pinned (a newer
-  # local Go would otherwise be used, with other build tags).
+  # the same toolchain selection as CI's gate.
   if [ "$(uname -s)" = Linux ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] && command -v gcc >/dev/null 2>&1; then
     gate_cgo=1
   else
@@ -498,13 +519,12 @@ if [ -s "$WORK/security.txt" ]; then
   }
   while IFS= read -r s; do
     [ -n "$s" ] || continue
-    s_go="$gate_go"
+    [ -n "$gate_go" ] || continue
     if [ -f "skills/$s/cli/go.mod" ]; then
-      [ -n "$s_go" ] || s_go="go$(gomod_go "skills/$s/cli/go.mod")"
-      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli" "$s_go"
+      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli" "$gate_go+auto"
     fi
     gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= \
-      ${s_go:+GOTOOLCHAIN="$s_go"} python3 tools/maintainer/check_security_gate.py \
+      GOTOOLCHAIN="$gate_go+auto" python3 tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"
 else
@@ -647,8 +667,10 @@ fi
 # --------------------------------------------------------------- verdict ----
 echo ""
 echo "== Verdict =="
+rec_flags=(--expect "$NREC")
+[ "$REC_ERR" -eq 0 ] || rec_flags+=(--record-error)
 python3 tools/maintainer/verify_scope.py verdict --scope "$WORK/scope.json" --records "$REC" \
-  --out "$verdict_path" --seconds "$(( $(date +%s) - T0 ))" --started "$STARTED"
+  --out "$verdict_path" --seconds "$(( $(date +%s) - T0 ))" --started "$STARTED" "${rec_flags[@]}"
 rc=$?
 if [ "$rc" -eq 0 ]; then
   echo "VERIFY_ALL: PASS - every blocking gate is green."

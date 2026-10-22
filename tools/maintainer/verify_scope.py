@@ -545,23 +545,55 @@ def newest_patch(spec: str, releases: list[dict]) -> str | None:
     return "go" + ".".join(str(x) for x in best) if best else None
 
 
-def gate_go() -> str | None:
-    """The toolchain security-gate.yml would run today: setup-go installs the
-    newest patch of its `go-version:` spec, and GOTOOLCHAIN=auto never
-    switches DOWN to go.mod's older toolchain line. Locally `go` would select
-    go.mod's toolchain instead, so a stdlib advisory fixed in a newer patch
-    blocks locally while CI passes. None when the release index is unreachable
-    (the caller then falls back to go.mod's toolchain, the stricter choice)."""
+def go_releases(path: str | None = None) -> list[dict]:
+    """go.dev's release index (what setup-go resolves a version spec against),
+    from a file a previous call saved, else from go.dev. [] when unreachable."""
+    try:
+        if path:
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+        else:
+            import urllib.request
+            with urllib.request.urlopen("https://go.dev/dl/?mode=json&include=all", timeout=20) as resp:
+                data = json.load(resp)
+    except (OSError, ValueError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def setup_go_installs(spec: str, releases: list[dict]) -> str | None:
+    """The Go actions/setup-go@v5 installs for a version spec: an exact X.Y.Z
+    as written, a bare X.Y as its newest stable patch. The go command then
+    selects the toolchain itself (GOTOOLCHAIN=auto: a newer `toolchain` line
+    in go.mod or go.work upgrades it), so callers run go with
+    GOTOOLCHAIN=<this>+auto, which is that same selection."""
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", spec):
+        return "go" + spec
+    if re.fullmatch(r"[0-9]+\.[0-9]+", spec):
+        return newest_patch(spec, releases)
+    return None
+
+
+_GOMOD_GO = re.compile(r"^go ([0-9]+(?:\.[0-9]+)*)", re.M)  # setup-go's own parse of go-version-file
+
+
+def ci_go(gomod: str, releases: list[dict]) -> str | None:
+    """What CI's build and windows rows install for a connector
+    (setup-go `go-version-file: <its go.mod>`, which reads the `go` line only)."""
+    try:
+        m = _GOMOD_GO.search(Path(gomod).read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    return setup_go_installs(m.group(1), releases) if m else None
+
+
+def gate_go(releases: list[dict] | None = None) -> str | None:
+    """What security-gate.yml's setup-go installs (`go-version: "1.26"`): its
+    newest patch. None when the release index is unreachable; the caller then
+    fails closed, since which Go CI scans with is unknown."""
     spec = gate_go_spec()
     if not spec:
         return None
-    import urllib.request
-    try:
-        with urllib.request.urlopen("https://go.dev/dl/?mode=json&include=all", timeout=20) as resp:
-            releases = json.load(resp)
-    except (OSError, ValueError):
-        return None
-    return newest_patch(spec, releases if isinstance(releases, list) else [])
+    return setup_go_installs(spec, go_releases() if releases is None else releases)
 
 
 # --------------------------------------------------------------------------- #
@@ -693,7 +725,17 @@ def main(argv: list[str]) -> int:
     vp.add_argument("--out", required=True)
     vp.add_argument("--seconds", type=float, default=0.0)
     vp.add_argument("--started", default="")
-    sub.add_parser("gate-go")
+    vp.add_argument("--expect", type=int, default=None,
+                    help="how many check results the caller wrote; any other count fails the verdict")
+    vp.add_argument("--record-error", action="store_true",
+                    help="the caller could not write a check result; fails the verdict")
+    gg = sub.add_parser("gate-go")
+    gg.add_argument("--releases")
+    gr = sub.add_parser("go-releases")
+    gr.add_argument("--out", required=True)
+    cg = sub.add_parser("ci-go")
+    cg.add_argument("--gomod", action="append", required=True)
+    cg.add_argument("--releases")
     cp = sub.add_parser("cgo-context")
     cp.add_argument("--dir", required=True)
     sub.add_parser("path-collisions")
@@ -705,8 +747,23 @@ def main(argv: list[str]) -> int:
                     help="compare every line (a per-skill check), not only attributed findings")
     a = ap.parse_args(argv)
     if a.cmd == "gate-go":
-        print(gate_go() or "")
+        print(gate_go(go_releases(a.releases) if a.releases else None) or "")
         return 0
+    if a.cmd == "go-releases":
+        rel = go_releases()
+        if not rel:
+            print("could not read go.dev's release index", file=sys.stderr)
+            return 1
+        Path(a.out).write_text(json.dumps(rel), encoding="utf-8")
+        return 0
+    if a.cmd == "ci-go":
+        rel = go_releases(a.releases)
+        bad = 0
+        for g in a.gomod:
+            v = ci_go(g, rel)
+            bad |= v is None
+            print(f"{v or '-'}\t{g}")
+        return 1 if bad else 0
     if a.cmd == "cgo-context":
         return cgo_context(a.dir)
     if a.cmd == "path-collisions":
@@ -741,7 +798,13 @@ def main(argv: list[str]) -> int:
         text = read_log(a.log)
         print(json.dumps(attribute(text, set(scope["affected"]), known_names()), indent=1))
         return 0
-    v = build_verdict(scope, read_records(Path(a.records)), a.seconds, a.started)
+    records = read_records(Path(a.records))
+    if a.record_error or (a.expect is not None and len(records) != a.expect):
+        # A result that never reached the record file is not a pass.
+        records.append({"name": f"verify harness: {a.expect} check result(s) written, {len(records)} recorded"
+                        + (", and a write failed" if a.record_error else ""),
+                        "kind": "repo", "slug": "", "status": "fail", "seconds": 0.0, "log": "/dev/null"})
+    v = build_verdict(scope, records, a.seconds, a.started)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(v, indent=1) + "\n", encoding="utf-8")
@@ -1037,6 +1100,22 @@ def _self_test() -> int:
     finally:
         release_matrix.change_set, release_matrix.classify_change = real_cs, real_cc
 
+    print("verdict inventory:")
+    with tempfile.TemporaryDirectory() as td:
+        sc, rc_, out = Path(td) / "scope.json", Path(td) / "records.tsv", Path(td) / "v.json"
+        sc.write_text(json.dumps({"affected": [], "full_fleet": False, "head_sha": "h", "dirty": False,
+                                  "base_ref": "b", "base_sha": "b", "merge_base": "m", "mode": "slug", "reason": "",
+                                  "notes": [], "connectors": [], "touched": [], "security_gate_slugs": [],
+                                  "changed_files": 0}), encoding="utf-8")
+        rc_.write_text("a\trepo\t\tpass\t1\t/dev/null\n", encoding="utf-8")
+        args = ["verdict", "--scope", str(sc), "--records", str(rc_), "--out", str(out)]
+        with contextlib.redirect_stdout(io.StringIO()):
+            ok_rc, lost_rc, err_rc = (main(args + ["--expect", "1"]), main(args + ["--expect", "2"]),
+                                      main(args + ["--expect", "1", "--record-error"]))
+        expect(ok_rc == 0, "every written result recorded -> the verdict stands")
+        expect(lost_rc == 1, "a result written but missing from the record file -> FAIL")
+        expect(err_rc == 1, "a result that could not be written -> FAIL")
+
     print("cgo context (build inputs, both directions):")
     def pk(files=None, **kw):
         d = {"ImportPath": "m/p", "GoFiles": files or ["a.go"]}
@@ -1073,6 +1152,14 @@ def _self_test() -> int:
            {"version": "go1.26.11", "stable": False}, {"version": "go1.2.6", "stable": True}]
     expect(newest_patch("1.26", rel) == "go1.26.10", "1.26 -> go1.26.10 (newest stable patch, not an rc)")
     expect(newest_patch("1.25", rel) is None, "a minor with no release -> None (caller falls back)")
+    expect(setup_go_installs("1.26.9", rel) == "go1.26.9", "an exact go line installs exactly that patch")
+    expect(setup_go_installs("1.26", rel) == "go1.26.10", "a bare go line installs its newest patch")
+    expect(setup_go_installs("1.26", []) is None, "a bare go line with no release index is unknown (fail closed)")
+    with tempfile.TemporaryDirectory() as td:
+        gm = Path(td) / "go.mod"
+        gm.write_text("module m\n\ngo 1.26\n\ntoolchain go1.26.9\n", encoding="utf-8")
+        expect(ci_go(str(gm), rel) == "go1.26.10",
+               "setup-go reads the go line, not the toolchain line (1.26 -> go1.26.10 despite toolchain go1.26.9)")
     expect(gate_go_spec() is not None, "security-gate.yml declares a go-version spec")
     rx = gate_logic_re()
     expect(all(rx.match(p) for p in GATE_LOGIC_FALLBACK) and rx.pattern != "^(" + "|".join(
