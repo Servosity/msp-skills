@@ -1,6 +1,6 @@
 {
   "name": "jira-service-management",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
   "author": {
     "name": "Servosity",

@@ -323,6 +323,6 @@ func newNovelFleetTenantsCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Local SQLite store path (default: standard data dir)")
-	cmd.Flags().StringVar(&expectedPath, "expected", "", "Newline-delimited CID list to diff the synced roster against (# comments allowed)")
+	cmd.Flags().StringVar(&expectedPath, "expected", "", "Path to a local file holding a newline-delimited CID list to diff the synced roster against (# comments allowed)")
 	return cmd
 }

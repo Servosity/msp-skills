@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "fortinet-mcp",
   "display_name": "Fortinet",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
   "author": {
     "name": "Servosity Inc."

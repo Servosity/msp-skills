@@ -112,7 +112,7 @@ only rotates a secret is not reported. Needs at least two backups per device
 (run 'fleet backup' on a schedule); with none the result is an empty list and a
 hint on stderr, which does not mean "nothing changed". No API call is made.`, "\n"),
 		Example:     "  fortinet-cli fleet changes --since 7d --agent\n  fortinet-cli fleet changes --device acme-hq --since 30d",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "mcp:write-flags": "dir"}, // --dir is a directory on the MCP host; operators only
 		Args:        rejectExtraArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {

@@ -61,6 +61,7 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.
 var blockedDestinationFlags = map[string]bool{
 	"audit-dir":           true,
 	"db":                  true,
+	"file":                true, // `usage push --file` reads a counts file off this account's disk
 	"from-csv":            true,
 	"home":                true,
 	"input":               true,

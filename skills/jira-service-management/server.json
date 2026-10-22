@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/jira-service-management-mcp",
   "title": "Jira Service Management MCP",
   "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/jira-service-management/jira-service-management-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/jira-service-management-v0.1.1/jira-service-management-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/jira-service-management-v0.1.2/jira-service-management-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

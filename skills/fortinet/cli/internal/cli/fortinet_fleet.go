@@ -66,6 +66,18 @@ type fleetTarget struct {
 }
 
 func addFleetFlags(cmd *cobra.Command, o *fleetOpts) {
+	// An MCP tool call must not choose the devices file: it names each device's
+	// API URL and token_file, so a forwarded --devices could make this CLI read a
+	// token file and send it to a URL of the caller's choosing. Operators keep
+	// --devices and FORTINET_DEVICES; only the MCP surface drops the flag.
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	if w := strings.TrimSpace(cmd.Annotations["mcp:write-flags"]); w != "" {
+		cmd.Annotations["mcp:write-flags"] = w + ",devices"
+	} else {
+		cmd.Annotations["mcp:write-flags"] = "devices"
+	}
 	cmd.Flags().StringVar(&o.devicesPath, "devices", "", "Devices file (default $FORTINET_DEVICES or <config dir>/devices.toml; without one, the configured FORTINET_BASE_URL device is used)")
 	cmd.Flags().StringVar(&o.only, "device", "", "Only these devices (comma-separated names from the devices file)")
 	cmd.Flags().StringVar(&o.vdoms, "vdoms", "", "VDOMs to check on every device (comma-separated; overrides each device's vdoms; default every VDOM the device lists)")
