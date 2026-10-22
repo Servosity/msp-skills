@@ -29,6 +29,11 @@ if [ "${1:-}" = "--self-test" ]; then
   # exit status and the verdict line together.
   em=$(printf '\342\200\224')
   home="/Use""rs/someone"   # built at runtime: guard 3 must not fire on this file
+  # The sample connector selects exactly the floor guard 6 enforces, read from
+  # this script's own GO_FLOOR line, so raising the floor never breaks the
+  # clean case (and the below-floor case stays below it).
+  floor="$(sed -n 's/^GO_FLOOR="\([0-9.]*\)"$/\1/p' "$SELF")"
+  [ -n "$floor" ] || { echo "FAIL: ci_guards self-test cannot read GO_FLOOR from $SELF" >&2; exit 1; }
   bad=0
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/ci_guards.selftest.XXXXXX")" || exit 2
   trap 'rm -rf "$tmp"' EXIT
@@ -39,7 +44,7 @@ if [ "${1:-}" = "--self-test" ]; then
     cp "$SELF" "$d/tools/maintainer/ci_guards.sh"
     printf '# Acme\n\nPlain text.\n' > "$d/skills/acme/README.md"
     printf '# Other\n' > "$d/skills/acme/guide.md"
-    printf 'module acme-pp-cli\n\ngo 1.26.9\n' > "$d/skills/acme/cli/go.mod"
+    printf 'module acme-pp-cli\n\ngo %s\n' "$floor" > "$d/skills/acme/cli/go.mod"
     printf 'package main // %s generated code is exempt\n' "$em" > "$d/skills/acme/cli/main.go"
     ( cd "$d" && git init -q && git add -A \
       && git -c user.name=t -c user.email=t@example.com commit -q -m base ) || return 1
@@ -68,7 +73,9 @@ if [ "${1:-}" = "--self-test" ]; then
     "printf 'see $home/x\n' >> skills/acme/README.md; rm skills/acme/guide.md"
   st_case "an em-dash in generated cli/ Go is exempt" pass ":"
   st_case "a go.mod below the toolchain floor + a missing file" fail \
-    "printf 'module acme-pp-cli\n\ngo 1.26.1\n' > skills/acme/cli/go.mod; rm skills/acme/guide.md"
+    "printf 'module acme-pp-cli\n\ngo 1.1.0\n' > skills/acme/cli/go.mod; rm skills/acme/guide.md"
+  st_case "a go.mod at the floor, selected by a toolchain line" pass \
+    "printf 'module acme-pp-cli\n\ngo 1.1\n\ntoolchain go%s\n' \"\$floor\" > skills/acme/cli/go.mod"
   st_case "an unreadable file fails closed" fail \
     "printf 'x\n' > skills/acme/locked.md; chmod 000 skills/acme/locked.md; [ -r skills/acme/locked.md ] && printf 'a $em b\n' > skills/acme/locked.md"
   if [ "$bad" -eq 0 ]; then echo "PASS: ci_guards self-test - every case discriminates"; exit 0; fi

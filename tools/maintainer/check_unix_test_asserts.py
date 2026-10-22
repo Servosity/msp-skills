@@ -688,15 +688,43 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
             holder = var_holding(_line_text(src, lit_start), lit_start - line_start)
             return bool(holder) and windows_reassigns(gcode, code, holder, line_start - f.start)
 
-        # errno-text: POSIX errno wording inside a comparison.
+        def compared_later(var: str, after: int, need_err: bool) -> int | None:
+            """Offset (relative to the function) of a later comparison that
+            uses `var` and runs on Windows, or None."""
+            v = re.escape(var)
+            for cm in re.finditer(rf"(?<![\w.]){v}\b", code[after:]):
+                pos = after + cm.start()
+                cl = _line_text(code, pos)
+                if not _COMPARE.search(cl) or re.match(rf"\s*{v}\s*:?=", cl.strip() and cl.lstrip()):
+                    continue
+                if need_err and not re.search(r"\berr\w*\b|\.Error\(\)", cl):
+                    continue
+                if runs_on_windows(pos):
+                    return pos
+            return None
+
+        # errno-text: POSIX errno wording inside a comparison, or held in an
+        # expectation variable that a comparison uses later (`want := "...
+        # connection refused"` ... `Contains(err.Error(), want)`). The latter
+        # is excused only when a branch that runs on Windows replaces `want`
+        # (td-synnex #410's fix).
         for lit in flits:
             low = lit.value.lower()
             hit = next((e for e in ERRNO_TEXT if e in low), None)
+            if not hit:
+                continue
             cline = _line_text(masked, lit.start)
-            if (hit and _COMPARE.search(cline) and re.search(r"\berr\w*\b|\.Error\(\)", cline)
+            if (_COMPARE.search(cline) and re.search(r"\berr\w*\b|\.Error\(\)", cline)
                     and runs_on_windows(lit.start - f.start)):
                 add(lit.start, "errno-text", f"compares an error against the POSIX text {hit!r}")
                 break
+            line_start = src.rfind("\n", 0, lit.start) + 1
+            holder = var_holding(_line_text(src, lit.start), lit.start - line_start)
+            if holder and not windows_reassigns(gcode, code, holder, line_start - f.start):
+                if compared_later(holder, lit.end - f.start, need_err=True) is not None:
+                    add(lit.start, "errno-text",
+                        f"compares an error against the POSIX text {hit!r} (through {holder})")
+                    break
 
         # shebang-stub: a helper that writes a #! script for tests to RUN.
         # Only helpers: a Test that writes its own stub as a tripwire (the
@@ -840,6 +868,22 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
                     if any(re.search(sh, line) for sh in shapes[1:]):
                         hit = cm
                         break
+                    # The expectation in a VARIABLE (backup-radar #408's fixed
+                    # shape): `want := "lit"` ... `if got := F(x); got != want`.
+                    mv = (re.search(rf"\b(\w+)\s*:=\s*(?<![\w.]){n}\([^;]*\)\s*;\s*\1\s*[!=]=\s*([A-Za-z_]\w*)\b", line)
+                          or re.search(rf"(?<![\w.]){n}\([^;{{]*\)\s*[!=]=\s*([A-Za-z_]\w*)\b", line))
+                    if mv:
+                        want = mv.group(mv.lastindex)
+                        dm = None
+                        w = re.escape(want)
+                        # A DECLARATION (`want := "lit"` / `var want = "lit"`), never a
+                        # later `want = ...` replacement.
+                        for dm in re.finditer(rf"(?m)^[ \t]*(?:var[ \t]+{w}\b[^=\n]*=|{w}[ \t]*:=)[ \t]*{lit_rx}",
+                                              gcode[:cm.start()]):
+                            pass
+                        if dm and not windows_reassigns(gcode, code, want, dm.start()):
+                            hit = cm
+                            break
                 if hit is not None:
                     add(f.start + hit.start(), "goos-literal",
                         f"compares {name}(), which branches on runtime.GOOS, against one literal")
@@ -1233,6 +1277,25 @@ _ST_CASES = (
      "package cli\nfunc TestRows(t *testing.T) {\n\trun := func(stdin string) string {\n\t\tin, err := os.CreateTemp(t.TempDir(), \"stdin\")\n"
      "\t\tif err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t\tdefer func() { _ = in.Close() }()\n\t\treturn \"\"\n\t}\n\trun(\"\")\n}\n",
      set()),
+    # Codex round 18: the repository's own fixed shapes, expectation in a variable.
+    ("backup-radar's fixed TestShellQuote shape, guard intact", "a_test.go",
+     "package cli\nfunc TestShellQuote(t *testing.T) {\n\twant := `'x'`\n\tif runtime.GOOS == \"windows\" {\n\t\twant = `'y'`\n\t}\n"
+     "\tif got := shellQuote(`x`); got != want {\n\t\tt.Errorf(\"%s\", got)\n\t}\n}\n",
+     set()),
+    ("backup-radar's fixed shape with the guard changed to plan9 -> Windows gets the POSIX want", "a_test.go",
+     "package cli\nfunc TestShellQuote(t *testing.T) {\n\twant := `'x'`\n\tif runtime.GOOS == \"plan9\" {\n\t\twant = `'y'`\n\t}\n"
+     "\tif got := shellQuote(`x`); got != want {\n\t\tt.Errorf(\"%s\", got)\n\t}\n}\n",
+     {"goos-literal"}),
+    ("td-synnex's fixed errno shape, guard intact", "a_test.go",
+     "package cli\nfunc TestRefused(t *testing.T) {\n\twant := \"connection failed: connection refused\"\n"
+     "\tif runtime.GOOS == \"windows\" {\n\t\twant = \"connection failed: No connection could be made\"\n\t}\n"
+     "\tif err == nil || !strings.Contains(err.Error(), want) {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     set()),
+    ("td-synnex's fixed errno shape with the guard changed to plan9", "a_test.go",
+     "package cli\nfunc TestRefused(t *testing.T) {\n\twant := \"connection failed: connection refused\"\n"
+     "\tif runtime.GOOS == \"plan9\" {\n\t\twant = \"connection failed: No connection could be made\"\n\t}\n"
+     "\tif err == nil || !strings.Contains(err.Error(), want) {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     {"errno-text"}),
     ("renamed before closed", "a_test.go",
      "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tos.Rename(f.Name(), dst)\n\tf.Close()\n}\n",
      {"open-file"}),

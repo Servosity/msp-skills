@@ -75,6 +75,23 @@ linux_test_compile() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go test -c -o /dev
 # the compiler).
 linux_vet() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go vet ./... ); }
 
+# CI's Linux rows run with cgo ON (a C compiler is present); a cross-target
+# check from a Mac runs with it OFF, so a cgo-only file (`//go:build cgo`, or
+# `import "C"`) would be built, vetted and scanned by CI and by nothing here.
+# No connector has one today; if one appears, fail closed rather than pass a
+# file this machine never read. A Linux host builds it natively.
+cgo_context() {
+  if [ "$(uname -s)" = Linux ]; then echo "Linux host: native checks build cgo files"; return 0; fi
+  hits="$(grep -rlE '^//go:build .*\bcgo\b|^// \+build .*\bcgo\b|^import "C"' --include='*.go' "$mod" 2>/dev/null)"
+  if [ -n "$hits" ]; then
+    echo "cgo-only Go files that CI's Linux rows build with cgo but this host cannot check:"
+    printf '%s\n' "$hits"
+    echo "run verify_all.sh on Linux, or rely on CI for this connector"
+    return 1
+  fi
+  echo "no cgo-only files: the cross-target checks read everything CI's Linux rows build"
+}
+
 if [ ! -f "$mod/go.mod" ]; then
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
   echo "$mod/go.mod not found" > "$logs/harness.log"
@@ -88,6 +105,7 @@ check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "linux test compile"     linux_test_compile
 check "linux vet"              linux_vet
+check "cgo context"            cgo_context
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
 check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"

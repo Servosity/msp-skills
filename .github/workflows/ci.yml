@@ -276,7 +276,12 @@ jobs:
         # a pass.
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: python3 tools/maintainer/check_registry_state.py ${BASE:+--base "$BASE"}
+        run: |
+          set -euo pipefail
+          # A force-push can name a `before` the checkout never fetched: fetch
+          # it; if it is still unreadable the check fails closed (exit 2).
+          if [ -n "${BASE:-}" ]; then git fetch -q origin "$BASE" 2>/dev/null || true; fi
+          python3 tools/maintainer/check_registry_state.py ${BASE:+--base "$BASE"}
 
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'

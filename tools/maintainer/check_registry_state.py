@@ -100,8 +100,8 @@ def main() -> int:
         help="the revision to compare against (default origin/main). CI passes the PR base, or "
              "on a push to main github.event.before: by then the runner's origin/main already "
              "CONTAINS the push, so comparing against it would compare the push with itself. A "
-             "--base that cannot be read falls back to origin/main, loudly (never weaker than "
-             "before this flag).")
+             "--base that cannot be read is an environment error (exit 2): substituting "
+             "origin/main there would compare a push with itself.")
     args = ap.parse_args()
 
     current = load_current()
@@ -121,12 +121,7 @@ def main() -> int:
     base_label = "origin/main"
     if args.base:
         base, base_err = load_base(f"{args.base}:{REGISTRY_PATH}")
-        if base_err is None:
-            base_label = args.base[:12]
-        else:
-            print(f"check_registry_state: NOTE - --base {args.base!r} unreadable ({base_err}); "
-                  "falling back to origin/main.")
-            base, base_err = load_base()
+        base_label = args.base[:12]
     else:
         base, base_err = load_base()
     if base_err is not None:

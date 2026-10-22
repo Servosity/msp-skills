@@ -248,7 +248,7 @@ gate "release matrix is valid JSON with skills + targets" repo "" 0 matrix_sane
 
 # ------------------------------------------------- fleet-wide (cheap) ----
 echo "== Fleet-wide gates (every skill) =="
-gate "registry state"       fleet "" 0 python3 tools/maintainer/check_registry_state.py
+gate "registry state"       fleet "" 0 python3 tools/maintainer/check_registry_state.py --base "${BASE_SHA:-$base}"
 gate "MCP registry schema"  fleet "" 0 python3 tools/maintainer/check_mcp_registry.py
 gate "skill contract"       fleet "" 0 python3 tools/maintainer/check_skill_contract.py
 gate "markdown links"       fleet "" 0 python3 tools/maintainer/check_md_links.py
