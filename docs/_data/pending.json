@@ -378,9 +378,9 @@
     "released_hash": "sha256:3b6a0ef2cec03ff47ed04760b9005a343e73b59be9dea654c304a37885f30003"
   },
   "pandadoc": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "pandadoc-v0.1.4",
+    "latest_tag": "pandadoc-v0.1.5",
     "current_hash": "sha256:9c62c272b4a30665ad5a28b303f296505016c2fa8c26d6191ec0dd6333403451",
     "released_hash": "sha256:9c62c272b4a30665ad5a28b303f296505016c2fa8c26d6191ec0dd6333403451"
   },
