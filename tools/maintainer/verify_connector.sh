@@ -148,8 +148,10 @@ linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 # ---- CI's windows row: predictors ---------------------------------------
 # Each runs on the Windows job's own kind of checkout, made by git the way
 # that job makes it: a clone with a cone-mode sparse-checkout of
-# skills/<slug> and tools/maintainer, core.autocrlf off, no global or system
-# git config (so .gitattributes conversions apply), at the FIXED commit under
+# skills/<slug> and tools/maintainer, core.autocrlf off and core.eol crlf (a
+# Windows checkout's native line ending for files .gitattributes marks text),
+# no global or system git config (so .gitattributes conversions apply), from
+# a source no Linux test can write (the run's read-only seed), at the FIXED commit under
 # test ($REV, never the current HEAD or files of the shared checkout, which an
 # earlier test could have changed); the tools it runs come from that tree.
 # In Docker mode it runs in the same linux/amd64 container (a cross-compile to
@@ -158,6 +160,7 @@ linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 # shellcheck disable=SC2016,SC2089 # run with eval by the bash in the Windows tree
 WIN_PREP='export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 git clone -q --shared --no-checkout "$SRC" "$W" && git -C "$W" config core.autocrlf false \
+  && git -C "$W" config core.eol crlf \
   && git -C "$W" sparse-checkout set --cone "skills/$SLUG" tools/maintainer \
   && git -C "$W" checkout -q --detach "$REV" || exit 2
 export GOWORK=off
@@ -171,14 +174,15 @@ export GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
 win_run() { # win_run <shell command>, at the module in the Windows tree ($W is its root, $TOOLS the tools)
   case "$linux_mode" in
     docker)
-      [ -n "${VERIFY_LINUX_SRC:-}" ] || { echo "no repository snapshot for the container (VERIFY_LINUX_SRC)"; return 1; }
+      [ -n "${VERIFY_LINUX_SEED:-}" ] || { echo "no read-only seed of the commit for the container (VERIFY_LINUX_SEED)"; return 1; }
       docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
         -e HOME=/tmp -e CI=true -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= \
-        -e GOMODCACHE=/gomod -e GOCACHE=/gocache -e SLUG="$slug" -e MOD="$mod" -e W=/tmp/win -e SRC=/src \
+        -e GOMODCACHE=/gomod -e GOCACHE=/gocache -e SLUG="$slug" -e MOD="$mod" -e W=/tmp/win -e SRC=/seed \
+        -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
         -e REV="${VERIFY_SNAPSHOT_SHA:-unset}" \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
-        -v "$VERIFY_LINUX_SRC:/src" \
+        -v "${VERIFY_LINUX_SEED:-/nonexistent}:/seed:ro" \
         "golang:${gover}-bookworm" bash -c 'eval "$1" && eval "$2"' bash "$WIN_PREP" "$1" ;;
     *)
       # (native, or no Docker: the host's own disk is visible, documented)

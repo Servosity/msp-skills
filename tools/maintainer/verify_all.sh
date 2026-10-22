@@ -478,7 +478,10 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
       echo "  could not snapshot the repository into a Linux volume: the Linux checks will fail"
       VERIFY_LINUX_SRC=""
     fi
-    rm -rf "$seed"
+    # The seed stays: the Windows predictors check out from it, read-only.
+    # Linux tests run against the volume and never see it, so nothing they
+    # do (to files, refs or object bytes) can reach what Windows compiles.
+    [ -n "$VERIFY_LINUX_SRC" ] && export VERIFY_LINUX_SEED="$seed"
   else
     VERIFY_LINUX_MODE=none
     VERIFY_LINUX_SRC=""

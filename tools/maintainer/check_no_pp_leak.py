@@ -141,9 +141,10 @@ def visible(rel: str, line: str) -> str:
     and Markdown/HTML entities (`acme&#45;pp-cli`) decoded, both render as
     acme-pp-cli. JSON lines are decoded per string token instead (see
     _scan_text)."""
-    if rel.endswith(".md"):
+    low = rel.lower()
+    if low.endswith(MARKDOWN_SUFFIXES):
         line = _MD_ESCAPE.sub(r"\1", line)
-    return html.unescape(line) if rel.endswith((".md", ".html", ".htm")) else line
+    return html.unescape(line) if low.endswith(MARKDOWN_SUFFIXES + (".html", ".htm", ".xhtml")) else line
 
 
 def _json_strings(line: str) -> list[str]:
@@ -189,8 +190,11 @@ def _read(p: Path) -> str | None:
         return None
 
 
-# The reference pages a skill links to, in any text format a reader opens.
-REFERENCE_SUFFIXES = (".md", ".html", ".htm", ".txt", ".rst", ".adoc")
+# The pages a skill links to, in every text format GitHub renders or a reader
+# opens (compared case-insensitively: README.MD is a README).
+MARKDOWN_SUFFIXES = (".md", ".markdown", ".mdown", ".mkdn", ".mkd", ".mdwn", ".mdtxt", ".mdtext")
+REFERENCE_SUFFIXES = MARKDOWN_SUFFIXES + (".html", ".htm", ".xhtml", ".txt", ".text", ".rst", ".adoc", ".asciidoc",
+                                          ".asc", ".textile", ".rdoc", ".org", ".creole", ".mediawiki", ".wiki", ".pod")
 
 
 def _files(d: Path, suffix: str | tuple[str, ...], recursive: bool) -> list[Path]:
@@ -210,7 +214,7 @@ def _files(d: Path, suffix: str | tuple[str, ...], recursive: bool) -> list[Path
             dirs.clear()
             continue
         seen.add(real)
-        out += [Path(top) / n for n in names if n.endswith(suffix)]
+        out += [Path(top) / n for n in names if n.lower().endswith(suffix)]
         if not recursive:
             dirs.clear()
     return sorted(out)
@@ -386,7 +390,7 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     sd = skill_dir(root, slug, meta)
     names = own_names(root, sd.name, meta) | {slug}
     leaks: list[Leak] = []
-    files = _files(sd, ".md", False) + _files(sd / "references", REFERENCE_SUFFIXES, True)
+    files = _files(sd, REFERENCE_SUFFIXES, False) + _files(sd / "references", REFERENCE_SUFFIXES, True)
     files += [sd / f for f in SKILL_FILES]
     files += [root / "docs" / "skills" / f"{slug}.md"]
     for p in files:
@@ -748,10 +752,13 @@ def _self_test() -> int:
         (assets / "usage.md").unlink()
         (root / "skills/acme/references/usage.html").write_text("<p>Run acme-pp-cli doctor.</p>\n", encoding="utf-8")
         (root / "skills/acme/references/esc.md").write_text("Run acme\\-pp\\-cli doctor.\n", encoding="utf-8")
+        (root / "skills/acme/references/usage.markdown").write_text("Run acme-pp-cli doctor.\n", encoding="utf-8")
+        (root / "skills/acme/references/LOUD.MD").write_text("Run acme-pp-cli doctor.\n", encoding="utf-8")
         found = {lk.rel.rsplit("/", 1)[-1] for lk in scan_slug(root, "acme", skills["acme"])}
-        expect({"usage.html", "esc.md"} <= found, "an HTML reference page and a Markdown-escaped name are read as rendered")
-        (root / "skills/acme/references/usage.html").unlink()
-        (root / "skills/acme/references/esc.md").unlink()
+        expect({"usage.html", "esc.md", "usage.markdown", "LOUD.MD"} <= found,
+               "HTML, .markdown and upper-case .MD pages, and a Markdown-escaped name, are read as rendered")
+        for f in ("usage.html", "esc.md", "usage.markdown", "LOUD.MD"):
+            (root / "skills/acme/references" / f).unlink()
         for sub in ("references", "cli/internal"):
             d = root / "skills/acme" / sub
             d.mkdir(parents=True, exist_ok=True)
