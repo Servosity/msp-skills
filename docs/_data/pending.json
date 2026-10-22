@@ -273,9 +273,9 @@
     "released_hash": "sha256:87e79183533f3fa28db63e6f21516f116aec88760aa9ddd8de2f283d95bfc59e"
   },
   "immybot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "immybot-v0.1.8",
+    "latest_tag": "immybot-v0.1.9",
     "current_hash": "sha256:37bf5faea2a40405557bae263b59cd792c412cf96b00c29323bcd5144c7634a8",
     "released_hash": "sha256:37bf5faea2a40405557bae263b59cd792c412cf96b00c29323bcd5144c7634a8"
   },
@@ -371,9 +371,9 @@
     "released_hash": "sha256:359e266143a4a0456efcde053648c224bcd12abca78a01d444d67bd24443801e"
   },
   "pagerduty": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "pagerduty-v0.1.4",
+    "latest_tag": "pagerduty-v0.1.5",
     "current_hash": "sha256:3b6a0ef2cec03ff47ed04760b9005a343e73b59be9dea654c304a37885f30003",
     "released_hash": "sha256:3b6a0ef2cec03ff47ed04760b9005a343e73b59be9dea654c304a37885f30003"
   },
