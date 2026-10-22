@@ -1194,7 +1194,8 @@ RETIRE
   expect "one inconsistent listing is read again; consistent, 3 of a cap of 4 lets the tag through" $?
   : >"$tmp/gh-stall"
   t0=$(date +%s)
-  out=$(CUT_TAGS_CALL_TIMEOUT=1 CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  out=$(CUT_TAGS_CALL_TIMEOUT=1 CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=1 \
+    bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
   took=$(($(date +%s) - t0))
   rm -f "$tmp/gh-stall"
   spid=$(cat "$tmp/gh-stall.pid" 2>/dev/null || echo 0)
