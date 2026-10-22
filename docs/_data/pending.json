@@ -161,16 +161,16 @@
     "released_hash": "sha256:d10c02e059f94ad63982f73b105395d4876b96e7fd5b09b4fd47dff8b73a07b0"
   },
   "connectwise-rmm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "connectwise-rmm-v0.1.1",
+    "latest_tag": "connectwise-rmm-v0.1.2",
     "current_hash": "sha256:0c28d614575076a0f32bfad5aeb84671bd437bd520df4daa8dbde4e2d0784faf",
     "released_hash": "sha256:0c28d614575076a0f32bfad5aeb84671bd437bd520df4daa8dbde4e2d0784faf"
   },
   "cork": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "cork-v0.1.5",
+    "latest_tag": "cork-v0.1.6",
     "current_hash": "sha256:1d7c98fef28d581ee801d084b68b9a91b891190f7c061e6b15ed11e6ca8de769",
     "released_hash": "sha256:1d7c98fef28d581ee801d084b68b9a91b891190f7c061e6b15ed11e6ca8de769"
   },
