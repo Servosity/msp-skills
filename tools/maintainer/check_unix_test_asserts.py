@@ -98,7 +98,7 @@ def lex(src: str) -> tuple[list[Lit], list[tuple[int, str]]]:
         if c == "`":
             j = src.find("`", i + 1)
             j = n - 1 if j < 0 else j
-            lits.append(Lit(i, j + 1, src[i + 1:j]))
+            lits.append(Lit(i, j + 1, src[i + 1:j].replace("\r", "")))  # Go drops CR in raw strings
             i = j + 1
             continue
         if c in "\"'":

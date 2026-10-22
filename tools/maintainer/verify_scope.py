@@ -354,7 +354,9 @@ def read_log(path: str | Path) -> str:
     """A check's output exactly as written: no newline translation, so a
     carriage return the check printed survives into the comparison."""
     try:
-        with open(path, encoding="utf-8", errors="replace", newline="") as fh:
+        # surrogateescape: lossless, so two different invalid bytes never
+        # compare equal (errors="replace" mapped both to U+FFFD).
+        with open(path, encoding="utf-8", errors="surrogateescape", newline="") as fh:
             return fh.read()
     except OSError:
         return ""
@@ -390,22 +392,19 @@ def pre_existing(head_text: str, base_text: str, affected: set[str], known: set[
     base? Attribution alone cannot prove a failure is someone else's: deleting
     a connector's social image from docs/assets/, tightening vocab.json or a
     checker, or removing a file another skill links to all make OTHER
-    connectors fail. So an out-of-scope failure is exempt only when the merge
-    base, run with its own scripts, already prints every one of those
-    findings (line numbers ignored). Anything new blocks."""
+    connectors fail. So the exemption needs proof that does not depend on
+    attribution at all: EVERY line the check printed at HEAD (headers,
+    findings, continuations, summaries) must already be in the base's output,
+    byte for byte, counted as a multiset. Anything new, anywhere, blocks."""
     from collections import Counter
 
-    # A multiset, not a set: with line numbers gone, a second occurrence of
-    # the same finding normalises to the same text, and it must still block.
-    base = Counter(_norm(ln) for ln in log_lines(base_text))
+    base = Counter(log_lines(base_text))
     new = []
-    for kind, who, ln in attribute_lines(head_text, known, affected):
-        if kind == "skill" and who not in affected:
-            key = _norm(ln)
-            if base[key] > 0:
-                base[key] -= 1
-            else:
-                new.append(ln)
+    for ln in log_lines(head_text):
+        if base[ln] > 0:
+            base[ln] -= 1
+        elif ln.strip():
+            new.append(ln)
     return {"pre_existing": not new, "new_lines": new[:40]}
 
 
@@ -743,7 +742,16 @@ def _self_test() -> int:
         a = attribute(text, {"acme"}, known)
         expect(a["classification"] == "blocking", f"{name} -> blocking ({why})")
 
-    print("pre_existing (the merge base must already fail the same way):")
+    print("pre_existing (the merge base must already print every line):")
+    linkfail = "Markdown local-link check FAILED:\n  - skills/zeta/README.md: broken local link -> missing.md\n"
+    expect(not pre_existing(linkfail + "See new description\n", linkfail, {"acme"}, known)["pre_existing"],
+           "a changed continuation line (text the base never printed) -> new, even if it reads like a hint")
+    with tempfile.TemporaryDirectory() as tmp3:
+        a_, b_ = Path(tmp3) / "a.log", Path(tmp3) / "b.log"
+        a_.write_bytes(b"skills/zeta/README.md:1:x \xff\n")
+        b_.write_bytes(b"skills/zeta/README.md:1:x \xfe\n")
+        expect(not pre_existing(read_log(a_), read_log(b_), {"acme"}, known)["pre_existing"],
+               "two different invalid bytes stay different (lossless decoding)")
     head = "Skill contract check FAILED:\n  - zeta: missing required file guide.md\n"
     expect(pre_existing(head, head, {"acme"}, known)["pre_existing"],
            "the base prints the same finding -> pre-existing")

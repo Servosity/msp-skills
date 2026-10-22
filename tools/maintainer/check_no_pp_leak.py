@@ -165,7 +165,9 @@ def _scan_text(rel: str, text: str, slug: str, rx: re.Pattern) -> list[Leak]:
 
 def _read(p: Path) -> str | None:
     try:
-        with open(p, encoding="utf-8", errors="replace", newline="") as fh:
+        # surrogateescape: lossless, so the ratchet's exact comparison sees
+        # a changed invalid byte (errors="replace" made them all U+FFFD).
+        with open(p, encoding="utf-8", errors="surrogateescape", newline="") as fh:
             return fh.read()
     except OSError:
         return None
@@ -234,10 +236,13 @@ def scan_go(rel: str, src: str, slug: str, names: set[str]) -> list[Leak]:
         seen_lines: set[int] = set()
         # EVERY match, each on its own source line: a grandfathered leak must
         # not hide a new one later in the same string.
+        raw = src[lit.start] == "`"
+        # Go drops every carriage return from a raw string's value; lex()
+        # does the same, so map each value index back to its source offset.
+        offsets = [lit.start + 1 + k for k, ch in enumerate(src[lit.start + 1:lit.end - 1]) if ch != "\r"] if raw else []
         for m in (rx_import if in_import else rx_other).finditer(lit.value):
-            # A raw `...` string spans lines and maps 1:1 onto the source; an
-            # interpreted "..." string is one line.
-            at = lit.start + 1 + m.start() if src[lit.start] == "`" else lit.start
+            # A raw string spans lines; an interpreted "..." string is one line.
+            at = offsets[m.start()] if raw and m.start() < len(offsets) else lit.start
             ln = src.count("\n", 0, at) + 1
             if ln in seen_lines:
                 continue
@@ -345,7 +350,7 @@ def scan_shared(root: Path, slugs: list[str], skills: dict) -> list[Leak]:
 
 def git_show(root: Path, base: str, rel: str) -> str | None:
     p = subprocess.run(["git", "-C", str(root), "show", f"{base}:{rel}"], capture_output=True)
-    return p.stdout.decode("utf-8", errors="replace") if p.returncode == 0 else None
+    return p.stdout.decode("utf-8", errors="surrogateescape") if p.returncode == 0 else None
 
 
 def mark_pre_existing(root: Path, base: str, leaks: list[Leak]) -> None:
@@ -397,6 +402,10 @@ def run(root: Path, slugs: list[str], base: str | None, skills: dict) -> int:
 
 
 def main(argv: list[str]) -> int:
+    try:  # a finding may carry an undecodable byte (kept losslessly); never crash printing it
+        sys.stdout.reconfigure(errors="backslashreplace")  # type: ignore[attr-defined]
+    except (AttributeError, ValueError):
+        pass
     ap = argparse.ArgumentParser(description="No connector's own -pp- name in user-facing files.")
     ap.add_argument("--slug", action="append", default=[])
     ap.add_argument("--all", action="store_true")
@@ -538,6 +547,10 @@ def _self_test() -> int:
                "an import block faked inside comments grants no exemption")
         real = 'package cli\n\nimport (\n\t// a comment ) with a paren\n\t"acme-pp-cli/internal/store"\n)\n'
         expect(not scan_go("x.go", real, "acme", {"acme"}), "a real import block (with a paren in a comment) is exempt")
+        cr = 'package cli\n\nvar long = `Usage:\n  acme-\rpp-cli doctor\n`\n'
+        got = scan_go("x.go", cr, "acme", {"acme"})
+        expect(len(got) == 1 and got[0].line == 4,
+               "a raw string with a carriage return inside the name (Go drops CR) is a leak, on its own line")
         jesc = '{"name": "acme' + chr(92) + 'u002dpp-mcp"}\n'
         expect(len(scan_doc("skills/acme/manifest.json", jesc, "acme")) == 1,
                "a JSON-escaped leak (\\u002d) in manifest.json is decoded and found")
@@ -565,6 +578,12 @@ def _self_test() -> int:
                "--base: a grandfathered leak line that gained a carriage return -> new")
         write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n"})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 0, "--base: the untouched leak line is still pre-existing")
+        (root / "skills/acme/guide.md").write_bytes(b"Config file: `~/.config/acme-press-pp-cli/config.toml` \xfe\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "an invalid byte on a leak line")
+        (root / "skills/acme/guide.md").write_bytes(b"Config file: `~/.config/acme-press-pp-cli/config.toml` \xff\n")
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: an invalid byte that CHANGED on a leak line -> new (lossless decoding)")
         write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-cli doctor\n`\n"})
         write({"skills/acme/handfixes.json": broken["skills/acme/handfixes.json"][0]})
         git("add", "-A")
