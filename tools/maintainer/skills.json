@@ -41,7 +41,7 @@
       "cli_hash": "sha256:b80620cb328b8862f3ec2132c828c54aa61384e7a39d89b0d38e21c596ae7a52",
       "template_version": 3,
       "version": "0.1.7",
-      "cli_hash_at_release": "sha256:a3f96f4b5c4214a86ab3ce3c235592b6475dfbc76fcd5654e9328f11c1134cf4",
+      "cli_hash_at_release": "sha256:71cecd12a47fabc0788e4b8767df1a4f68177d51d4e6ef6c5f4864ad9b86993c",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -66,7 +66,7 @@
       "cli_hash": "sha256:afad777cf57e19f7676fd8edf31036e051f650a63faa222dc2206fc8868fb40a",
       "template_version": 3,
       "version": "0.1.8",
-      "cli_hash_at_release": "sha256:158847cd30a56418f4bc0bc641256e902d55bb15c07ee6481bba4908bd6413cc",
+      "cli_hash_at_release": "sha256:b55f2d4c83cb06cfc9c6907b65d7f57e9abf4eeabbbf483cf7d5fbfd483b2940",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -116,7 +116,7 @@
       "cli_hash": "sha256:cb47bbdb5bec3281845dfe9fe3ff67a539eddd1911005fe658763fb14049cdf1",
       "template_version": 3,
       "version": "0.1.7",
-      "cli_hash_at_release": "sha256:6e3a660842193f7d90be028ca4587be32d234b77cec54265aaaf1aa26bb0d5f3",
+      "cli_hash_at_release": "sha256:ca1c269802adc1625ca1e30b8fa2154986847d2fef470e6d08943237c142a7bf",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -214,7 +214,7 @@
       "cli_hash": "sha256:d541af75e15f3ddb35b5cd018c67d150bffcf3f08b04dacf2b2f42b0f890855f",
       "template_version": 3,
       "version": "0.1.9",
-      "cli_hash_at_release": "sha256:8e2a236452fb1b585c03137b9186df2e9a0b3c020d0855e7fab2252c77b74619",
+      "cli_hash_at_release": "sha256:ac4db111086e84c771c52ac06d8b7867c4513e4b15a6834ab194fcd4a33bc5c2",
       "has_video": false,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {
@@ -336,7 +336,7 @@
       "cli_hash": "sha256:81e994a8dcd203314278a9b9b77590e5d7b21f5864d377e051ff403034563ed3",
       "template_version": 3,
       "version": "0.1.1",
-      "cli_hash_at_release": "sha256:ac9cbf3b61b01c06b690c079b738faf8c89f16bc49dd5728e8b8e282146a9fa7",
+      "cli_hash_at_release": "sha256:02f4c98d317e4b057a9be50003ace1b8b671da60d2f349b2a616256cd18159e7",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -415,7 +415,7 @@
       "cli_hash": "sha256:c54543ef802ff97706c0681499ec7d45f637433020b811b2f667dcc13f2865aa",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:5e303ed9e44e0c62bf56dcbd07e8db6798d9d79879e0c22c8084fb77c2a7fd2a",
+      "cli_hash_at_release": "sha256:3703267a6e442fb1fd55893c440dc42f1224ba2900fa105787e8dd05a074f7f5",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -438,7 +438,7 @@
       "cli_hash": "sha256:9fd973656301462ffb1de782a2e55e5e639ab19aec6bc0108d757ba08bc2cde4",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:c25a9ac8221dc56207a710c5292609838d3bf69167f72534b94c9dbaae5ff6e9",
+      "cli_hash_at_release": "sha256:bd782d363a305b52ea29391113a602b69f4c724cfe4e50639424f1ef0370d62b",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -483,7 +483,7 @@
       "cli_hash": "sha256:fbc4762b20379538ac19ba8696f86ab0931e9178ecc79040a2c464484ba06c8b",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:a1834d426959eacbea1a85fade2f802443252534e8c0187573f1aa6c0d37dcfd",
+      "cli_hash_at_release": "sha256:5226b20f455f194d401a9da6b4775209e7e5e45a2bbc42f1078f2b9564d2df45",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -581,7 +581,7 @@
       "cli_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:658a25845f2e8929fa5d7c24f587412619fa57d844e457f4f39facbb1787ceb5",
+      "cli_hash_at_release": "sha256:0c28d614575076a0f32bfad5aeb84671bd437bd520df4daa8dbde4e2d0784faf",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -604,7 +604,7 @@
       "cli_hash": "sha256:c88cb15e702a1307a94e78a7982df23e218c981631e6f38d3bcc007cbd8cb91a",
       "template_version": 3,
       "version": "0.1.6",
-      "cli_hash_at_release": "sha256:579547589fc522eb706e1868c5299ae13e77346b0403f866cbe9f5ad4f4654f2",
+      "cli_hash_at_release": "sha256:1d7c98fef28d581ee801d084b68b9a91b891190f7c061e6b15ed11e6ca8de769",
       "has_video": false,
       "install_auth_hint": "Then set your Cork API key: `export CORK_API_KEY=<your key>` (Cork portal > Settings > API Keys), and run `cork-cli doctor` to confirm it works",
       "live_verified": {
@@ -754,7 +754,7 @@
       "cli_hash": "sha256:a317057799d24c4129736b91a5d224971968f4c79e33c4849ed77363bb2a2680",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:d9a1148106864a6184781eab68249db360a64197c275db3a5b66771c79eff2c3",
+      "cli_hash_at_release": "sha256:0d47d877fd67ca2cd26d9bb9545b0b3a35513a45f6d4cd169461d7bfadc3de1a",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -779,7 +779,7 @@
       "cli_hash": "sha256:25498852c84042ac4397c2c9100ec4d8394d1b1bf34939c76de2538bf6493ad6",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:1935c15c835af2b1f11399efbfa039661f9a5f9f67ee8fb772e72239b9e6ee3a",
+      "cli_hash_at_release": "sha256:f32ecf8f1f0c9524fdef654605d6b239004a631463277987075d2b76abd9e744",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -950,7 +950,7 @@
       "cli_hash": "sha256:e5f434ca215acaff946248e7260b6cde481c62f7bf70b1ca06552d371ce1a3f6",
       "template_version": 3,
       "version": "0.1.9",
-      "cli_hash_at_release": "sha256:7ebc77b6e78da249d1237f07daa37bd2717c969a5a709341ba62847afe362348",
+      "cli_hash_at_release": "sha256:7e6a827723e52edeee08a2a75313fd1a5287be7f0de410710c7731a364ebe6b6",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -975,7 +975,7 @@
       "cli_hash": "sha256:f7a3c20983dede2bc9e2ecabf292b8e5205c25509e53cb63f719dfc0b9eca7aa",
       "template_version": 3,
       "version": "0.1.9",
-      "cli_hash_at_release": "sha256:a04663f9116f03eb5601f279e5fe5cb1c30ede619b79693233a7f7bc85908444",
+      "cli_hash_at_release": "sha256:37bf5faea2a40405557bae263b59cd792c412cf96b00c29323bcd5144c7634a8",
       "has_video": false,
       "install_auth_hint": "Then register an app in Microsoft Entra ID, add the Enterprise Application object ID as an admin person in ImmyBot (Show More > People > New > AD External ID), set `IMMYBOT_SUBDOMAIN`, `IMMYBOT_TENANT_ID`, `IMMYBOT_CLIENT_ID` and `IMMYBOT_CLIENT_SECRET`, then run `immybot-cli doctor` to confirm it works",
       "live_verified": {
@@ -1124,7 +1124,7 @@
       "cli_hash": "sha256:6c229108d0ab0b7e605a41495e4c3accb4e3c6fa79931feb4f64f6654d37d161",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:cb0fb8998efa96b08165e5d4365367a43a91104ae11a81be247249d527e62c56",
+      "cli_hash_at_release": "sha256:c359e9cb8c5d474574f53f61e466b278cbfd7784abcfcf02b92d8ea6d9fa9c09",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1148,7 +1148,7 @@
       "cli_hash": "sha256:9dfdf4a73b00bd7517e63a746ccf0076dfde084266243447b6a9f38cbdb7d201",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:6eb53ebf0a4b31a587a8d9f1801ed77872cf2b1a1fd3e363abc718f395af5f72",
+      "cli_hash_at_release": "sha256:420fbdc07aa67958ffee8100302f56873d9fac0b21c131cc9727841ad9f90ca8",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1293,7 +1293,7 @@
       "cli_hash": "sha256:4e25b03a85fc5316977239d7d18fa1d34bdc79c7273897e0038dce3aad1da051",
       "template_version": 3,
       "version": "0.1.18",
-      "cli_hash_at_release": "sha256:77d5545c2c2ac05b595c1c525437662b204fea895c228a08d3e98aa87c2aca0f",
+      "cli_hash_at_release": "sha256:b27b757accace6fc3e47418f273b2c557c28dc914b9b8ad505402883115a3c2d",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1318,7 +1318,7 @@
       "cli_hash": "sha256:155f706f5ec0855e76fbda459b4fb89ea11f1d0f24e5997bf6d33fb57c468b8e",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:dc9b923889e5df3d5413fbe148fe19df1095d0e62276026befa0914a0b1e5bb7",
+      "cli_hash_at_release": "sha256:3b6a0ef2cec03ff47ed04760b9005a343e73b59be9dea654c304a37885f30003",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1343,7 +1343,7 @@
       "cli_hash": "sha256:ec2af776841afff2c7d03eb0ceccfff2b0d7d73f382d045e5ba2660ccf0aebe2",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:15bea4ccd056e01b99f874915bc01bce1a0e4ce51f9c008c8c4243098874e636",
+      "cli_hash_at_release": "sha256:9c62c272b4a30665ad5a28b303f296505016c2fa8c26d6191ec0dd6333403451",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1393,7 +1393,7 @@
       "cli_hash": "sha256:37047bc01bb4d9075d50eb36d06c73ebcab526feb3522a1ee38a1be7d150d388",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:dfe651000c5d13c5aafd0acd74daf53fa16333893911f0b8d72ed868f9076f31",
+      "cli_hash_at_release": "sha256:12057cbfb0d3d36848b2e1641fecaf90c8e60969543051cf671314446f34af9f",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1605,7 +1605,7 @@
       "cli_hash": "sha256:ea10cdb2ab7d1f04345df777c42b291fe0f9bcf1b26022ec8d5d8a6b7b48ba2d",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:da06dd9c4d67d354ce28badd47881f142adda4348e9810b1b6a102dee71240c7",
+      "cli_hash_at_release": "sha256:9e2fc6cd6478b17ca37e5169e89bcabb4c6de918888aa57efabf68bfb48a11c5",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1630,7 +1630,7 @@
       "cli_hash": "sha256:a7ad62afc53e52d3894843ef71d1403ccab66d9351b66484711fc8ad1d16b08e",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:1462a667ed59980194f973dd5a07f17bb4e0937b4c9046c365a6ac39f5bd9bb8",
+      "cli_hash_at_release": "sha256:fca6d784638daa1e5b54a81dce2e8ab7ed0adf9ba9fb900c8593670e0131a54a",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1656,7 +1656,7 @@
       "cli_hash": "sha256:93d0232fb3246527ad4e3ab12649f5702aa259023cf717819d5d51a0c5ad9e66",
       "template_version": 3,
       "version": "0.1.1",
-      "cli_hash_at_release": "sha256:c4b9a3648075eb5c07ffeedce6da643f239e8b986c474a94d156bdc6ea4715e0",
+      "cli_hash_at_release": "sha256:4a42f231e7f65ca0d8a990c9d18c14e5490ea4c3559c34a5049fef2d834af61c",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1703,7 +1703,7 @@
       "cli_hash": "sha256:e091267027efecd0d9afeefff3a166382f222094a425d9fecd2bbf0eef6d610b",
       "template_version": 3,
       "version": "0.2.4",
-      "cli_hash_at_release": "sha256:ca75c64e7104d03a9cdd4e8f61ccafb5be2bc97a684fbde4191cca1858568820",
+      "cli_hash_at_release": "sha256:b9a24f61131dfb85736a7d9ddd281d400fc28223e04c310c7c6ee95da593f82e",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1723,7 +1723,7 @@
       "cli_hash": "sha256:8c13ad1e65a6315f3c244637895c3b244be2364c96cdde3104a6537c9f64cf2a",
       "template_version": 3,
       "version": "0.6.8",
-      "cli_hash_at_release": "sha256:11d06f0269b36849787e337e1003a317f2a4dc02e38df145eadffdde99aab032",
+      "cli_hash_at_release": "sha256:53a9b307c6fac6d3937fa2417432d19b63fea959e44d8955953094423335c910",
       "has_video": true,
       "featured": 1,
       "install_auth_hint": "Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor`",
@@ -1796,7 +1796,7 @@
       "cli_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
       "template_version": 3,
       "version": "0.1.1",
-      "cli_hash_at_release": "sha256:24b9064b049fb130d52c38fbee4016256096171250463d5f1507a1f3ddcfd8c8",
+      "cli_hash_at_release": "sha256:306f004324f8f50a496d1531fffddba390a9d1fed4c756396231449e90411eb9",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1819,7 +1819,7 @@
       "cli_hash": "sha256:a3f408686c6b39b4ab1160bf0912835991552e004882eedd4680ec7fbea1790e",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:1e9800fef608947210f6fac9cb0e9547fa95186dfebccb267dc6077896cc5d1b",
+      "cli_hash_at_release": "sha256:f8da325da10ea9c0022f2ade0a352333d40b0425b7143496c3fb4bd170972043",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1891,7 +1891,7 @@
       "cli_hash": "sha256:a8b7f1459ad945320557294177f55723eb7b2e6fd1dde5721b101abff691c9ea",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:36cf8e7bcc57bd4f85e1e018d5b6370065056eb07af2731f8b5a3abf1a665f44",
+      "cli_hash_at_release": "sha256:9f77b4b8c1b6dd870407955670cf92d54740c7d6d556d3c79d7facaebe81f26f",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1940,7 +1940,7 @@
       "cli_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:6d4c246893485666ddc73fc8b2e607bb6537adc1fb52b6feebe8c9a999086768",
+      "cli_hash_at_release": "sha256:73fac681c661c8f03536962f792b93d39352293c64f15d860c856c74ace3d86f",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1988,7 +1988,7 @@
       "cli_hash": "sha256:b585e205fcd544e88037923e687bfb7cc7287880ba9f2c1c606a14915616549e",
       "template_version": 3,
       "version": "0.1.7",
-      "cli_hash_at_release": "sha256:dbbca43a4656d70df8a702c53e4107abf57bc3af409f50230ae9cc1a019392c1",
+      "cli_hash_at_release": "sha256:6c42ac637d82b08baea30fe6d0403d31bc59a73c2faba4380974c8c54e00e935",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2010,7 +2010,7 @@
       "cli_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
       "template_version": 3,
       "version": "0.1.5",
-      "cli_hash_at_release": "sha256:80c239973abf658d9d966c19d78aed2f9992f5aa7a3243de1b4d00d088d63a94",
+      "cli_hash_at_release": "sha256:6be891780cbc1d1710ebd7e9ca6bcf0d3799f7381df446f4829d8d36af0dd457",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2036,7 +2036,7 @@
       "cli_hash": "sha256:5e1f901289cecc093502b094ae47ab90d08d599da4fef1c72c74b3aa1c220fcf",
       "template_version": 3,
       "version": "0.1.2",
-      "cli_hash_at_release": "sha256:53ac7bf8ea884da6dc61158c520992f1d43155baf68c4aed7598c8d25b4cc6c1",
+      "cli_hash_at_release": "sha256:645cc4f82c27b678eeace93ef3153b624face4b40f75ec7396ee72b585518156",
       "live_verified": {
         "status": "awaiting",
         "date": null,

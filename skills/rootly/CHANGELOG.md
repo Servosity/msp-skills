@@ -13,6 +13,9 @@ All notable changes to this skill are documented here. Format follows
   - `rootly-cli meeting-recordings pause meeting-recording` (POST `/v1/meeting_recordings/{id}/pause`)
   - `rootly-cli meeting-recordings stop meeting-recording` (POST `/v1/meeting_recordings/{id}/stop`)
 
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

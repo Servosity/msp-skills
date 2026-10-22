@@ -12,6 +12,9 @@ All notable changes to this skill are documented here. Format follows
   - `pandadoc-cli documents move-to-folder document` (POST `/documents/{id}/move-to-folder/{folder_id}`)
   - `pandadoc-cli workspaces deactivate workspace` (POST `/workspaces/{workspace_id}/deactivate`)
 
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

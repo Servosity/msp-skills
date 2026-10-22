@@ -10,6 +10,9 @@ All notable changes to this skill are documented here. Format follows
 - **Destructive commands no longer answer to `create`.** The generator had given this command the hidden alias `create`, so typing `create` in its place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `domotz-cli agent network create` ran `domotz-cli agent network add-excluded-device`, POST `/agent/{agent_id}/network/excluded-device/{device_id}`. The alias is removed; the command still runs under its own name. If a script reached it through `create`, call it by the name below:
   - `domotz-cli agent network add-excluded-device` (POST `/agent/{agent_id}/network/excluded-device/{device_id}`; excludes a device from collector monitoring, which stops its monitoring)
 
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

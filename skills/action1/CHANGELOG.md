@@ -12,6 +12,9 @@ All notable changes to this skill are documented here. Format follows
   - `action1-cli enterprise request-closure` (POST `/enterprise/request-closure`)
   - `action1-cli updates approvals updates-org-id` (POST `/updates/{orgId}/approvals`; approves or declines update packages for deployment to endpoints)
 
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.1.7] - 2026-10-15
 
 ### Changed
