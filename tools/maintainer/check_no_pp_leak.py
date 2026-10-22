@@ -50,6 +50,7 @@ Lines are `<path>:<line>: [<slug>] <name> ...`.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import subprocess
@@ -121,19 +122,51 @@ class Leak:
         return f"{self.rel}:{self.line}: [{self.slug}] {self.name} -> {(self.msg or self.text).strip()[:160]}{tag}"
 
 
+def lines_of(text: str) -> list[str]:
+    """Split on \\n only: a carriage return stays part of its line, so the
+    ratchet's exact comparison sees a CRLF change."""
+    lines = text.split("\n")
+    return lines[:-1] if lines and lines[-1] == "" else lines
+
+
+_JSON_STR = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+
+
+def visible(rel: str, line: str) -> str:
+    """The text a reader sees: Markdown/HTML entities decoded (`acme&#45;pp-cli`
+    renders as acme-pp-cli). JSON lines are decoded per string token instead
+    (see _scan_text)."""
+    return html.unescape(line) if rel.endswith((".md", ".html")) else line
+
+
+def _json_strings(line: str) -> list[str]:
+    """Every JSON string token on a line, decoded (`acme\\u002dpp-mcp` ->
+    acme-pp-mcp). A token that does not decode is kept raw."""
+    out = []
+    for m in _JSON_STR.finditer(line):
+        try:
+            out.append(json.loads(m.group(0)))
+        except ValueError:
+            out.append(m.group(0))
+    return out
+
+
 def _scan_text(rel: str, text: str, slug: str, rx: re.Pattern) -> list[Leak]:
     out = []
-    for i, line in enumerate(text.splitlines(), 1):
-        for m in rx.finditer(line):
-            if m.group(0) not in EXTERNAL_PP_TOOLS:
-                out.append(Leak(rel, i, slug, m.group(0), line))
-                break
+    is_json = rel.endswith(".json")
+    for i, line in enumerate(lines_of(text), 1):
+        candidates = [visible(rel, line)] + (_json_strings(line) if is_json else [])
+        hit = next((m.group(0) for c in candidates for m in rx.finditer(c)
+                    if m.group(0) not in EXTERNAL_PP_TOOLS), None)
+        if hit:
+            out.append(Leak(rel, i, slug, hit, line))
     return out
 
 
 def _read(p: Path) -> str | None:
     try:
-        return p.read_text(encoding="utf-8", errors="replace")
+        with open(p, encoding="utf-8", errors="replace", newline="") as fh:
+            return fh.read()
     except OSError:
         return None
 
@@ -223,7 +256,7 @@ def scan_handfixes(rel: str, text: str, slug: str) -> list[Leak]:
     except ValueError:
         return []
     out: list[Leak] = []
-    lines = text.splitlines()
+    lines = lines_of(text)
     for entry in data.get("handfixes", []) if isinstance(data, dict) else []:
         for a in entry.get("asserts", []) if isinstance(entry, dict) else []:
             if not isinstance(a, dict):
@@ -246,10 +279,16 @@ def scan_handfixes(rel: str, text: str, slug: str) -> list[Leak]:
 def scan_shared_text(rel: str, text: str, owner: dict[str, str]) -> list[Leak]:
     rx = leak_re(set(owner), go=False)
     out: list[Leak] = []
-    for i, line in enumerate(text.splitlines(), 1):
-        for m in rx.finditer(line):
-            base = re.sub(r"-pp-(?:cli|mcp)$", "", m.group(0))
-            out.append(Leak(rel, i, owner.get(base, "?"), m.group(0), line))
+    is_json = rel.endswith(".json")
+    for i, line in enumerate(lines_of(text), 1):
+        seen: set[str] = set()
+        for c in [visible(rel, line)] + (_json_strings(line) if is_json else []):
+            for m in rx.finditer(c):
+                if m.group(0) in seen:
+                    continue
+                seen.add(m.group(0))
+                base = re.sub(r"-pp-(?:cli|mcp)$", "", m.group(0))
+                out.append(Leak(rel, i, owner.get(base, "?"), m.group(0), line))
     return out
 
 
@@ -305,9 +344,8 @@ def scan_shared(root: Path, slugs: list[str], skills: dict) -> list[Leak]:
 
 
 def git_show(root: Path, base: str, rel: str) -> str | None:
-    p = subprocess.run(["git", "-C", str(root), "show", f"{base}:{rel}"],
-                       capture_output=True, text=True, errors="replace")
-    return p.stdout if p.returncode == 0 else None
+    p = subprocess.run(["git", "-C", str(root), "show", f"{base}:{rel}"], capture_output=True)
+    return p.stdout.decode("utf-8", errors="replace") if p.returncode == 0 else None
 
 
 def mark_pre_existing(root: Path, base: str, leaks: list[Leak]) -> None:
@@ -322,8 +360,8 @@ def mark_pre_existing(root: Path, base: str, leaks: list[Leak]) -> None:
         if lk.rel not in budget:
             text = git_show(root, base, lk.rel)
             found = lk.rescan(lk.rel, text) if (text is not None and lk.rescan) else []
-            budget[lk.rel] = Counter((f.name, f.text.strip()) for f in found)
-        key = (lk.name, lk.text.strip())
+            budget[lk.rel] = Counter((f.name, f.text) for f in found)
+        key = (lk.name, lk.text)   # the whole line, exactly: whitespace and \\r included
         if budget[lk.rel][key] > 0:
             budget[lk.rel][key] -= 1
             lk.pre_existing = True
@@ -500,6 +538,13 @@ def _self_test() -> int:
                "an import block faked inside comments grants no exemption")
         real = 'package cli\n\nimport (\n\t// a comment ) with a paren\n\t"acme-pp-cli/internal/store"\n)\n'
         expect(not scan_go("x.go", real, "acme", {"acme"}), "a real import block (with a paren in a comment) is exempt")
+        jesc = '{"name": "acme' + chr(92) + 'u002dpp-mcp"}\n'
+        expect(len(scan_doc("skills/acme/manifest.json", jesc, "acme")) == 1,
+               "a JSON-escaped leak (\\u002d) in manifest.json is decoded and found")
+        expect(len(scan_doc("skills/acme/README.md", "Run `acme&#45;pp-cli doctor`\n", "acme")) == 1,
+               "an HTML entity in Markdown (&#45;) is decoded and found")
+        expect(len(scan_shared_text("catalog.json", '{"bin": "acme' + chr(92) + 'u002dpp-cli"}\n', {"acme": "acme"})) == 1,
+               "a JSON-escaped leak in a shared catalog is found and attributed")
         esc = 'package cli\n\nvar Help = "Run acme' + chr(92) + 'x2dpp-cli doctor"\n'
         expect(len(scan_go("x.go", esc, "acme", {"acme"})) == 1, "an escaped leak (\\x2d for '-') is still a leak")
         one = 'package cli\n\nimport x "acme-pp-cli/internal/store"; var Help = "~/.config/acme-pp-cli/config.toml"\n'
@@ -511,6 +556,15 @@ def _self_test() -> int:
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
                "--base: a SECOND copy of a grandfathered leak line is new (counted, not a set)")
         write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n"})
+        write({"skills/acme/cli/internal/cli/long.go": imp})
+        write({"skills/acme/guide.md": "Config file:  `~/.config/acme-press-pp-cli/config.toml`\n"})
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: whitespace changed on a grandfathered leak line -> new (exact line)")
+        (root / "skills/acme/guide.md").write_bytes(b"Config file: `~/.config/acme-press-pp-cli/config.toml`\r\n")
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
+               "--base: a grandfathered leak line that gained a carriage return -> new")
+        write({"skills/acme/guide.md": "Config file: `~/.config/acme-press-pp-cli/config.toml`\n"})
+        expect(quiet_run(root, ["acme"], "HEAD", skills) == 0, "--base: the untouched leak line is still pre-existing")
         write({"skills/acme/cli/internal/cli/long.go": "package cli\n\nvar long = `Usage:\n  acme-cli doctor\n`\n"})
         write({"skills/acme/handfixes.json": broken["skills/acme/handfixes.json"][0]})
         git("add", "-A")

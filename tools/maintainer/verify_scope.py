@@ -313,7 +313,7 @@ def attribute_lines(text: str, known: set[str], affected: set[str]) -> list[tupl
     boilerplate or sits in a remediation trailer."""
     out = []
     trailer = False
-    for line in text.splitlines():
+    for line in log_lines(text):
         kind, who = classify_line(line, known, affected)
         if kind == "blank":
             kind = "info"
@@ -350,6 +350,22 @@ def attribute(text: str, affected: set[str], known: set[str]) -> dict:
             "slugs": sorted({w for w, _ in other}), "lines": [ln for _, ln in other][:40]}
 
 
+def read_log(path: str | Path) -> str:
+    """A check's output exactly as written: no newline translation, so a
+    carriage return the check printed survives into the comparison."""
+    try:
+        with open(path, encoding="utf-8", errors="replace", newline="") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+def log_lines(text: str) -> list[str]:
+    """Split on \\n only (str.splitlines also splits on \\r and friends)."""
+    lines = text.split("\n")
+    return lines[:-1] if lines and lines[-1] == "" else lines
+
+
 def _norm(line: str) -> str:
     """Identity, on purpose. The comparison is EXACT: every normalisation
     tried (line numbers, columns, whitespace) erased finding content in some
@@ -364,8 +380,8 @@ def lines_pre_existing(head_text: str, base_text: str) -> bool:
     (location line numbers ignored). For per-skill checks with no
     attribution of their own."""
     from collections import Counter
-    head = Counter(_norm(ln) for ln in head_text.splitlines() if ln.strip())
-    base = Counter(_norm(ln) for ln in base_text.splitlines())
+    head = Counter(_norm(ln) for ln in log_lines(head_text) if ln.strip())
+    base = Counter(_norm(ln) for ln in log_lines(base_text))
     return all(base[k] >= n for k, n in head.items())
 
 
@@ -381,7 +397,7 @@ def pre_existing(head_text: str, base_text: str, affected: set[str], known: set[
 
     # A multiset, not a set: with line numbers gone, a second occurrence of
     # the same finding normalises to the same text, and it must still block.
-    base = Counter(_norm(ln) for ln in base_text.splitlines())
+    base = Counter(_norm(ln) for ln in log_lines(base_text))
     new = []
     for kind, who, ln in attribute_lines(head_text, known, affected):
         if kind == "skill" and who not in affected:
@@ -575,12 +591,10 @@ def main(argv: list[str]) -> int:
     if a.cmd == "baseline":
         sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
         if a.all_lines:
-            ok = lines_pre_existing(Path(a.head_log).read_text(encoding="utf-8", errors="replace"),
-                                    Path(a.base_log).read_text(encoding="utf-8", errors="replace"))
+            ok = lines_pre_existing(read_log(a.head_log), read_log(a.base_log))
             print(json.dumps({"pre_existing": ok}))
             return 0 if ok else 1
-        r = pre_existing(Path(a.head_log).read_text(encoding="utf-8", errors="replace"),
-                         Path(a.base_log).read_text(encoding="utf-8", errors="replace"),
+        r = pre_existing(read_log(a.head_log), read_log(a.base_log),
                          set(sc["affected"]), known_names())
         print(json.dumps(r, indent=1))
         return 0 if r["pre_existing"] else 1
@@ -589,7 +603,7 @@ def main(argv: list[str]) -> int:
         return 0
     scope = json.loads(Path(a.scope).read_text(encoding="utf-8"))
     if a.cmd == "attribute":
-        text = Path(a.log).read_text(encoding="utf-8", errors="replace")
+        text = read_log(a.log)
         print(json.dumps(attribute(text, set(scope["affected"]), known_names()), indent=1))
         return 0
     v = build_verdict(scope, read_records(Path(a.records)), a.seconds, a.started)
@@ -753,6 +767,12 @@ def _self_test() -> int:
            "digits that only LOOK like a column are content -> new")
     expect(not pre_existing("x\nskills/zeta/README.md:3:a  - b\n", "x\nskills/zeta/README.md:3:a - b\n",
                             {"acme"}, known)["pre_existing"], "a whitespace change inside a finding -> new")
+    expect(not pre_existing("x\nskills/zeta/README.md:3:a - b\r\n", "x\nskills/zeta/README.md:3:a - b\n",
+                            {"acme"}, known)["pre_existing"], "a line that gained a carriage return -> new")
+    with tempfile.TemporaryDirectory() as tmp2:
+        crlf = Path(tmp2) / "crlf.log"
+        crlf.write_bytes(b"skills/zeta/README.md:3:a - b\r\n")
+        expect(read_log(crlf).endswith("\r\n"), "logs are read without newline translation")
     expect(not lines_pre_existing("plugin zeta: bad field x\nplugin zeta: bad field x\n", "plugin zeta: bad field x\n"),
            "per-skill lines are a multiset too")
     one = "check_install_docs FAILED:\n  - R1 skills/zeta/mcp-install.md:10: names `mcp-remote`\n"
