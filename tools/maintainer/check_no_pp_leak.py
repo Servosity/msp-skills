@@ -253,31 +253,62 @@ def scan_go(rel: str, src: str, slug: str, names: set[str]) -> list[Leak]:
     return out
 
 
+_HF_MARKER = re.compile(r'"(contains|regex)"\s*:\s*("(?:[^"\\\n]|\\.)*")')
+_HF_FILE = re.compile(r'"file"\s*:\s*("(?:[^"\\\n]|\\.)*")')
+
+
+def _json_object_span(text: str, pos: int) -> tuple[int, int]:
+    """The innermost JSON object that contains pos (string-aware)."""
+    stack: list[int] = []
+    i, n, start = 0, len(text), 0
+    while i < n:
+        ch = text[i]
+        if ch == '"':
+            i += 1
+            while i < n and text[i] != '"':
+                i += 2 if text[i] == "\\" else 1
+        elif ch == "{":
+            stack.append(i)
+        elif ch == "}":
+            if stack:
+                o = stack.pop()
+                if o <= pos <= i and o >= start:
+                    return o, i
+        if i >= pos and stack:
+            start = stack[-1]
+        i += 1
+    return 0, n
+
+
 def scan_handfixes(rel: str, text: str, slug: str) -> list[Leak]:
     """A `contains` (or `regex`) marker on a non-Go file that requires a leak
-    keeps it alive; a `not_contains` marker is the assertion it is gone."""
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return []
+    keeps it alive; a `not_contains` marker is the assertion it is gone. Each
+    finding sits on the line of ITS OWN marker token, with that exact line,
+    so the ratchet sees a changed marker or target."""
     out: list[Leak] = []
     lines = lines_of(text)
-    for entry in data.get("handfixes", []) if isinstance(data, dict) else []:
-        for a in entry.get("asserts", []) if isinstance(entry, dict) else []:
-            if not isinstance(a, dict):
-                continue
-            target = str(a.get("file", ""))
-            if target.endswith((".go", "go.mod", "go.sum")):
-                continue
-            for key in ("contains", "regex"):
-                v = a.get(key)
-                m = ANY_PP_NAME.search(v) if isinstance(v, str) else None
-                if m and m.group(0) not in EXTERNAL_PP_TOOLS:
-                    needle = json.dumps(v)[1:-1]
-                    ln = next((i for i, ln_ in enumerate(lines, 1) if needle in ln_), 0)
-                    raw = lines[ln - 1] if ln else needle
-                    out.append(Leak(rel, ln, slug, m.group(0), raw,
-                                    f"{key} marker on {target} requires the leak to stay: {v}"))
+    for m in _HF_MARKER.finditer(text):
+        try:
+            v = json.loads(m.group(2))
+        except ValueError:
+            continue
+        if not isinstance(v, str):
+            continue
+        hit = ANY_PP_NAME.search(v)
+        if not hit or hit.group(0) in EXTERNAL_PP_TOOLS:
+            continue
+        o, e = _json_object_span(text, m.start())
+        fm = _HF_FILE.search(text, o, e + 1)
+        try:
+            target = json.loads(fm.group(1)) if fm else ""
+        except ValueError:
+            target = fm.group(1) if fm else ""
+        if not isinstance(target, str) or target.endswith((".go", "go.mod", "go.sum")):
+            continue
+        ln = text.count("\n", 0, m.start()) + 1
+        raw = lines[ln - 1] if ln - 1 < len(lines) else m.group(0)
+        out.append(Leak(rel, ln, slug, hit.group(0), raw,
+                        f"{m.group(1)} marker on {target} requires the leak to stay: {v}"))
     return out
 
 
@@ -534,6 +565,16 @@ def _self_test() -> int:
                "package cli\n\nvar long = `Usage:\n  acme-pp-cli doctor\n  acme-pp-cli sync\n`\n"})
         expect(quiet_run(root, ["acme"], "HEAD", skills) == 1,
                "--base: a NEW leak later in a string that already has a grandfathered one blocks")
+        two = ('{"handfixes": [{"id": "a", "asserts": [\n'
+               '  {"file": "old.md", "contains": "acme-pp-cli"}]},\n'
+               ' {"id": "b", "asserts": [\n'
+               '  {"file": "new.md",\n   "contains": "acme-pp-cli"}]}]}\n')
+        got = scan_handfixes("h.json", two, "acme")
+        expect([g.line for g in got] == [2, 5] and "new.md" in got[1].msg,
+               "two identical markers each sit on their own line, with their own target")
+        uni = '{"handfixes": [{"id": "a", "asserts": [{"file": "a.md", "contains": "acme' + chr(92) + 'u002dpp-cli"}]}]}\n'
+        got = scan_handfixes("h.json", uni, "acme")
+        expect(len(got) == 1 and got[0].line == 1, "an escaped marker is decoded and keeps its real line")
         # An import line copied verbatim into a user-facing string is a NEW leak.
         imp = 'package cli\n\nimport (\n\t"acme-pp-cli/internal/store"\n)\n\nvar _ = store.X\n'
         write({"skills/acme/cli/internal/cli/long.go": imp})

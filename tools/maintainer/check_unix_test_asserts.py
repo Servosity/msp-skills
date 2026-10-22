@@ -183,7 +183,7 @@ class Func:
         self.name, self.start, self.end, self.line = name, start, end, line
 
 
-_FUNC_RE = re.compile(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)", re.M)
+_FUNC_RE = re.compile(r"^[ \t]*func\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)", re.M)
 
 
 def functions(src: str, marks: list[tuple[int, str]]) -> list[Func]:
@@ -193,7 +193,9 @@ def functions(src: str, marks: list[tuple[int, str]]) -> list[Func]:
     out: list[Func] = []
     brace_idx = {off: k for k, (off, ch) in enumerate(marks)}
     offsets = [off for off, _ in marks]
-    for m in _FUNC_RE.finditer(src):
+    # Declarations are found in CODE: `func X(` inside a raw string or a
+    # comment declares nothing.
+    for m in _FUNC_RE.finditer(code_mask(src)):
         open_at, paren, k = -1, 0, bisect.bisect_left(offsets, m.end())
         while k < len(marks):
             off, ch = marks[k]
@@ -383,20 +385,27 @@ def _split_top(expr: str, sep: str) -> list[str]:
 
 
 class IfStmt:
-    __slots__ = ("start", "cond", "open", "end")
+    __slots__ = ("start", "cond", "open", "end", "init")
 
     def __init__(self, start: int, cond: str, open_: int, end: int) -> None:
         self.start, self.cond, self.open, self.end = start, cond, open_, end
 
 
-def if_statements(gcode: str) -> list[IfStmt]:
+def if_statements(gcode: str, code: str | None = None) -> list[IfStmt]:
     """Every `if [init;] cond {` in a function, with its condition (the
-    initializer dropped) and block span."""
+    initializer dropped) and block span. Keywords, parens and braces are
+    found in `code` (string contents masked), so text inside a literal can
+    never open a fake `if` or move a brace; the condition TEXT is read from
+    `gcode`, where "windows" is still visible. An `if` that is the `else
+    if` of a chain is skipped: it does not run whenever its condition holds."""
+    code = gcode if code is None else code
     out = []
-    for m in _IF.finditer(gcode):
+    for m in _IF.finditer(code):
+        if re.search(r"\belse\s*$", code[:m.start()]):
+            continue
         depth, j = 0, m.end()
-        while j < len(gcode):  # the block opens at the first `{` outside parens
-            ch = gcode[j]
+        while j < len(code):  # the block opens at the first `{` outside parens
+            ch = code[j]
             if ch in "([":
                 depth += 1
             elif ch in ")]":
@@ -404,10 +413,12 @@ def if_statements(gcode: str) -> list[IfStmt]:
             elif ch == "{" and depth == 0:
                 break
             j += 1
-        if j >= len(gcode):
+        if j >= len(code):
             continue
-        cond = _split_top(gcode[m.end():j], ";")[-1]
-        out.append(IfStmt(m.start(), cond, j, _block_end(gcode, j)))
+        parts = _split_top(gcode[m.end():j], ";")
+        st = IfStmt(m.start(), parts[-1], j, _block_end(code, j))
+        st.init = parts[0] if len(parts) > 1 else ""  # type: ignore[attr-defined]
+        out.append(st)
     return out
 
 
@@ -449,7 +460,7 @@ def guard_model(gcode: str, code: str) -> tuple[list[tuple[int, int]], list[tupl
     return as a TOP-LEVEL statement of its block, read with strings masked)
     to the end of the block that encloses that `if`."""
     nw, after = [], []
-    for st in if_statements(gcode):
+    for st in if_statements(gcode, code):
         if implies_not_windows(st.cond):
             # && short-circuits left to right: everything after the GOOS
             # conjunct, in the condition and the block, runs off Windows only.
@@ -470,9 +481,11 @@ def windows_reassigns(gcode: str, code: str, var: str, decl: int) -> bool:
     declaration of `var` and after it, assigns `var` with `=` (never a
     shadowing `:=`) as a top-level statement of its block."""
     scope_end = _enclosing_end(code, decl)
-    for st in if_statements(gcode):
+    for st in if_statements(gcode, code):
         if not (decl < st.start < scope_end) or not always_on_windows(st.cond):
             continue
+        if re.search(rf"(?<![\w.]){re.escape(var)}\b[^:=]*:=", st.init or ""):
+            continue  # `if var := ...; ...` declares a NEW var: the block assigns that one
         if _enclosing_end(code, st.start) != scope_end:
             continue
         block = code[st.open + 1:st.end]
@@ -490,7 +503,7 @@ def skips_on_windows(gcode: str, code: str, src_body: str) -> bool:
     probe). td-synnex #410's merged fix skips on `loose && windows` inside a
     t.Run closure, which a flow-insensitive rule cannot tell apart from a
     skip that misses the assertion."""
-    for st in if_statements(gcode):
+    for st in if_statements(gcode, code):
         if re.search(r"\b(?:go)?runtime\.GOOS\s*==\s*\"windows\"", st.cond) and any(
                 _top_level(code, st.open, st.open + 1 + mm.start())
                 for mm in _EXIT_STMT.finditer(code[st.open + 1:st.end])):
@@ -501,17 +514,28 @@ def skips_on_windows(gcode: str, code: str, src_body: str) -> bool:
 _FUNC_LIT = re.compile(r"\bfunc\s*\([^)]*\)\s*(?:\([^)]*\)|[\w.*\[\]]+)?\s*\{")
 
 
-def func_literal_spans(code: str) -> list[tuple[int, int, bool]]:
-    """(body start, body end, runs inline) for each function literal. One
-    invoked on the spot (`func() { ... }()`, not under defer or go) runs
-    inline, deferred calls inside it included; any other runs LATER."""
+def func_literal_spans(code: str) -> list[tuple[int, int, str]]:
+    """(body start, body end, kind) for each function literal. kind is
+    "inline" (invoked on the spot, `func() { ... }()`, deferred calls inside
+    it included), "later" (`defer func(){...}()` or `t.Cleanup(func(){...})`:
+    it does run, after the body), or "unknown" (stored or passed somewhere:
+    it may never run)."""
     out = []
     for m in _FUNC_LIT.finditer(code):
         end = _block_end(code, m.end() - 1)
         before = code[max(0, code.rfind("\n", 0, m.start()) + 1):m.start()]
-        inline = (re.match(r"\s*\(", code[end + 1:end + 3] or "") is not None
-                  and not re.search(r"\b(?:defer|go)\s*$", before))
-        out.append((m.end(), end, inline))
+        invoked = re.match(r"\s*\(", code[end + 1:end + 3] or "") is not None
+        if invoked and re.search(r"\bgo\s*$", before):
+            kind = "unknown"
+        elif invoked and re.search(r"\bdefer\s*$", before):
+            kind = "later"
+        elif invoked:
+            kind = "inline"
+        elif re.search(r"\bt\.Cleanup\(\s*$", before):
+            kind = "later"
+        else:
+            kind = "unknown"
+        out.append((m.end(), end, kind))
     return out
 
 
@@ -690,24 +714,43 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
                 continue
             v = re.escape(var)
             rest = code[om.end():]
-            closes = [om.end() + c.start() for c in re.finditer(rf"\b{v}\.Close\(", rest)]
-            returned = any(var in _top_split(rm.group(1))
-                           for rm in re.finditer(r"\breturn\b([^\n]*)", rest))
-            if not closes and not returned:
-                add(f.start + om.start(), "open-file",
-                    f"{var} is never closed; Windows cannot remove an open file, so TempDir cleanup fails")
-                continue
+
+            def scope_of(pos: int) -> tuple[int, int, str] | None:
+                inner = [c for c in closures if c[0] <= pos < c[1]]
+                return max(inner, key=lambda c: c[0]) if inner else None
 
             def closed_at(pos: int) -> int | None:
-                """When the close at pos takes effect, in source order, or
-                None when it runs after the function body moves on."""
-                lit = next(((a, b, inl) for a, b, inl in closures if a <= pos < b), None)
-                deferred = re.search(r"\bdefer\s+$", code[code.rfind("\n", 0, pos) + 1:pos]) is not None
-                if lit is None:
-                    return None if deferred else pos
-                return lit[1] if lit[2] else None   # inline closure: at its end (defers included)
+                """When the close at pos takes effect, in source order; a
+                large number when it runs only after the body (it still
+                closes before TempDir cleanup); None when it may never run
+                on Windows (a non-Windows branch, a `go` call, a closure that
+                is only stored)."""
+                if not runs_on_windows(pos):
+                    return None
+                line = code[code.rfind("\n", 0, pos) + 1:pos]
+                if re.search(r"\bgo\s+$", line):
+                    return None
+                sc = scope_of(pos)
+                deferred = re.search(r"\bdefer\s+$", line) is not None
+                if sc is None:
+                    return 10**9 if deferred else pos
+                if sc[2] == "inline":
+                    return sc[1]
+                if sc[2] == "later":
+                    return 10**9
+                return None
 
+            closes = [om.end() + c.start() for c in re.finditer(rf"\b{v}\.Close\(", rest)]
             effective = sorted(p for p in (closed_at(c) for c in closes) if p is not None)
+            # Returning the HANDLE (a whole return expression, from this
+            # function's own scope, on a Windows path) hands it to the caller.
+            returned = any(var in _top_split(rm.group(1)) and scope_of(om.end() + rm.start()) is None
+                           and runs_on_windows(om.end() + rm.start())
+                           for rm in re.finditer(r"\breturn\b([^\n]*)", rest))
+            if not effective and not returned:
+                add(f.start + om.start(), "open-file",
+                    f"{var} is never closed on Windows; Windows cannot remove an open file, so TempDir cleanup fails")
+                continue
             ren = re.search(rf"\bos\.Rename\(\s*{v}\.Name\(\)", rest)
             if ren and not any(p < om.end() + ren.start() for p in effective):
                 add(f.start + om.start(), "open-file",
@@ -1039,6 +1082,44 @@ _ST_CASES = (
      set()),
     ("a GOOS-blind comparison in a COMMENT is not code", "a_test.go",
      "package cli\nfunc TestShellQuote(t *testing.T) {\n\t// was: if shellQuote(`x`) != `'x'` {\n\twant := expected()\n\tif got := shellQuote(`x`); got != want {\n\t\tt.Fatal(got)\n\t}\n}\n",
+     set()),
+    # Codex round 16.
+    ("a fake `if` inside a raw string guards nothing", "a_test.go",
+     "package cli\nfunc TestRefused(t *testing.T) {\n\t_ = `if runtime.GOOS != \"windows\" {`\n"
+     "\tif err == nil || !strings.Contains(err.Error(), \"connection refused\") {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     {"errno-text"}),
+    ("an `else if` Windows exit is not unconditional", "a_test.go",
+     "package cli\nfunc TestRefused(t *testing.T) {\n\tif true {\n\t\tt.Log(\"continue\")\n\t} else if runtime.GOOS == \"windows\" {\n\t\treturn\n\t}\n"
+     "\tif err == nil || !strings.Contains(err.Error(), \"connection refused\") {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     {"errno-text"}),
+    ("an initializer that redeclares the var shadows it", "a_test.go",
+     "package mcp\nfunc callStub(t *testing.T) string {\n\tbody := \"#!/bin/sh\\necho\\n\"\n"
+     "\tif body := \"\"; runtime.GOOS == \"windows\" {\n\t\tbody = \"@echo off\"\n\t\t_ = body\n\t}\n\treturn run(body)\n}\n",
+     {"shebang-stub"}),
+    ("a close only on non-Windows leaves the handle open on Windows", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\tif runtime.GOOS != \"windows\" {\n\t\tf.Close()\n\t}\n\treturn f.Name()\n}\n",
+     {"open-file"}),
+    ("a close in a closure that is only stored may never run", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\tg := func() {\n\t\tf.Close()\n\t}\n\t_ = g\n\treturn f.Name()\n}\n",
+     {"open-file"}),
+    ("a `go f.Close()` does not precede the rename", "a_test.go",
+     "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tgo f.Close()\n\tos.Rename(f.Name(), dst)\n}\n",
+     {"open-file"}),
+    ("a `return f` inside a closure does not hand over the outer handle", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\tg := func() *os.File {\n\t\treturn f\n\t}\n\t_ = g\n\treturn f.Name()\n}\n",
+     {"open-file"}),
+    ("an indented func declaration is still read", "a_test.go",
+     "package cli\n func TestRefused(t *testing.T) {\n\tif err == nil || !strings.Contains(err.Error(), \"connection refused\") {\n\t\tt.Fatal(err)\n\t}\n }\n",
+     {"errno-text"}),
+    ("a t.Cleanup close still closes before TempDir cleanup", "a_test.go",
+     "package client\nfunc fixture(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\tt.Cleanup(func() {\n\t\tf.Close()\n\t})\n\treturn f.Name()\n}\n",
+     set()),
+    ("a `func` inside a raw string declares nothing", "a_test.go",
+     "package cli\nvar src = `\n  func TestFake(t *testing.T) {\n\tos.Chmod(dir, 0o770)\n  }\n`\n",
      set()),
     ("renamed before closed", "a_test.go",
      "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tos.Rename(f.Name(), dst)\n\tf.Close()\n}\n",

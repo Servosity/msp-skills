@@ -22,6 +22,8 @@
 #                           binary compiles AND links for Windows [windows]
 #   linux test compile      GOOS=linux go test -c (a Mac never builds
 #                           *_linux_test.go natively)             [build, new]
+#   linux vet               GOOS=linux go vet (a Mac never vets
+#                           *_linux.go natively)                  [build]
 #   unix-only test lint     check_unix_test_asserts.py            [windows, predicted]
 #   cli claims / doctor truth / mcp gate / hand-fix ledger        [build]
 
@@ -68,6 +70,10 @@ windows_test_compile() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go test -c -o 
 # never compiles a *_linux_test.go file, so compile and link the Linux test
 # binaries too (they run in CI; a Mac cannot run them).
 linux_test_compile() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go test -c -o /dev/null ./... ); }
+# CI's build row vets on linux/amd64 too; a Mac's native vet never reads a
+# *_linux.go file (copylocks and friends live in the vet analyzers, not in
+# the compiler).
+linux_vet() { ( cd "$mod" && GOOS=linux GOARCH=amd64 go vet ./... ); }
 
 if [ ! -f "$mod/go.mod" ]; then
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
@@ -81,6 +87,7 @@ check "go test"                in_mod go test -count=1 ./...   # as CI: never a 
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "linux test compile"     linux_test_compile
+check "linux vet"              linux_vet
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
 check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"
