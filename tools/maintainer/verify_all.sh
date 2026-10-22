@@ -15,11 +15,12 @@
 # the change touches, so a change to shared machinery (a workflow, a matrix-row
 # checker, registry.py) checks the WHOLE fleet exactly as CI does, and a
 # derived-file-only change checks no connector. The heavy per-connector checks
-# (verify_connector.sh: CI's Linux build row - build, vet and go test on
-# linux/amd64 with cgo on, natively or in a container, failing closed when
-# neither exists - plus cross-compile, Windows vet and test compile, the
-# Unix-only test lint, CLI claims, doctor, MCP gate, hand-fix ledger) run for
-# the connectors in scope; the cheap fleet-wide checks run for everything. A fleet-wide check that fails ONLY for connectors outside the
+# (verify_connector.sh: CI's whole Linux build row - build, vet, cross-compile,
+# CLI claims, hand-fix ledger, MCP gate, doctor and go test, on linux/amd64
+# with cgo on, natively or in a container, failing closed when neither exists -
+# plus the Windows predictors: vet, test compile, cgo-only files, Unix-only
+# test lint) run for the connectors in scope; the cheap fleet-wide checks run
+# for everything. A fleet-wide check that fails ONLY for connectors outside the
 # scope does not block: it is listed under out_of_scope_failures in the verdict
 # and printed as OUT OF SCOPE (verify_scope.py attribute; a failure it cannot
 # attribute blocks). With no arguments every failure blocks.
@@ -42,6 +43,16 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
+
+# CI's runners start from a clean Go environment, so every check here does
+# too: nothing the go command reads (GOFLAGS=-tags=..., GOAMD64, a go env
+# file, a cross-compile target, cgo flags...) is inherited from the caller.
+for v in GOFLAGS GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64 GOWASM GOEXPERIMENT \
+         GODEBUG GOFIPS140 GOWORK GOTOOLCHAIN GOOS GOARCH CGO_ENABLED CGO_CFLAGS CGO_CPPFLAGS \
+         CGO_CXXFLAGS CGO_FFLAGS CGO_LDFLAGS CC CXX; do
+  unset "$v"
+done
+export GOENV=off
 
 usage() {
   cat <<'USAGE'
@@ -328,14 +339,21 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none; pulls what dock
       docker volume create "$vol" >/dev/null 2>&1
       [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" chown "$(id -u):$(id -g)" /v >/dev/null 2>&1
     done
-    # The repository as it would be committed (tracked plus untracked,
-    # unignored files), once, for every container: repo-level inputs are
-    # there, the worktree is never written to, and Docker never needs to
-    # read a protected macOS folder.
+    # What CI's build job checks out (actions/checkout, depth 1, git metadata
+    # included) for this commit, with the working tree's changes laid on top
+    # (staged, unstaged and untracked files, and deletions): repo-level inputs
+    # and `git show HEAD:...` work as in CI, the worktree is never written to,
+    # and Docker never needs to read a protected macOS folder. Once per run.
     VERIFY_LINUX_SNAPSHOT="$WORK/repo"
-    mkdir -p "$VERIFY_LINUX_SNAPSHOT"
-    git ls-files -co --exclude-standard -z | tar --null -T - -cf - | tar -xf - -C "$VERIFY_LINUX_SNAPSHOT" \
-      || echo "  could not snapshot the repository for the Linux container: the Linux checks will fail"
+    if git init -q "$VERIFY_LINUX_SNAPSHOT" \
+       && git -C "$VERIFY_LINUX_SNAPSHOT" fetch -q --depth 1 "file://$(pwd)" "$(git rev-parse HEAD)" \
+       && git -C "$VERIFY_LINUX_SNAPSHOT" checkout -q --detach FETCH_HEAD; then
+      { git diff -z --name-only --no-renames --diff-filter=d HEAD; git ls-files -z -o --exclude-standard; } \
+        | tar --null -T - -cf - | tar -xf - -C "$VERIFY_LINUX_SNAPSHOT"
+      git diff -z --name-only --no-renames --diff-filter=D HEAD | ( cd "$VERIFY_LINUX_SNAPSHOT" && xargs -0 rm -f )
+    else
+      echo "  could not snapshot the repository for the Linux container: the Linux checks will fail"
+    fi
     export VERIFY_LINUX_SNAPSHOT
   else
     VERIFY_LINUX_MODE=none
@@ -466,7 +484,7 @@ PY
     if [ -f "skills/$s/cli/go.mod" ]; then
       gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli"
     fi
-    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= ${gate_go:+GOTOOLCHAIN="$gate_go"} \
+    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" ${gate_go:+GOTOOLCHAIN="$gate_go"} \
       python3 tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"

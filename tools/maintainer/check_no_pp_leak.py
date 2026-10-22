@@ -183,6 +183,21 @@ def _read(p: Path) -> str | None:
         return None
 
 
+def _files(d: Path, suffix: str, recursive: bool) -> list[Path]:
+    """Files under d ending in suffix. A directory that cannot be listed is
+    recorded and fails the run, like an unreadable file: what was not read
+    was not checked."""
+    out: list[Path] = []
+    def err(e: OSError) -> None:
+        if not isinstance(e, (FileNotFoundError, NotADirectoryError)):
+            READ_ERRORS.append(f"{e.filename}: {e}")
+    for top, dirs, names in os.walk(d, onerror=err):
+        out += [Path(top) / n for n in names if n.endswith(suffix)]
+        if not recursive:
+            dirs.clear()
+    return sorted(out)
+
+
 _IMPORT_KW = re.compile(r"^import\b", re.M)
 
 
@@ -353,7 +368,7 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
     sd = skill_dir(root, slug, meta)
     names = own_names(root, sd.name, meta) | {slug}
     leaks: list[Leak] = []
-    files = sorted(p for p in sd.glob("*.md")) + sorted((sd / "references").rglob("*.md"))
+    files = _files(sd, ".md", False) + _files(sd / "references", ".md", True)
     files += [sd / f for f in SKILL_FILES]
     files += [root / "docs" / "skills" / f"{slug}.md"]
     for p in files:
@@ -362,7 +377,7 @@ def scan_slug(root: Path, slug: str, meta: dict) -> list[Leak]:
             rel = str(p.relative_to(root))
             leaks += _tag(scan_doc(rel, text, slug), lambda r, t, s=slug: scan_doc(r, t, s))
     for sub in ("cli/internal", "cli/cmd"):
-        for p in sorted((sd / sub).rglob("*.go")) if (sd / sub).is_dir() else []:
+        for p in _files(sd / sub, ".go", True):
             src = _read(p)
             if src is not None:
                 rel = str(p.relative_to(root))
@@ -673,6 +688,16 @@ def _self_test() -> int:
         READ_ERRORS.clear()
         locked.chmod(0o644)
         locked.unlink()
+        for sub in ("references", "cli/internal"):
+            d = root / "skills/acme" / sub
+            d.mkdir(parents=True, exist_ok=True)
+            (d / ("x.md" if sub == "references" else "x.go")).write_text("acme-pp-cli\n", encoding="utf-8")
+            d.chmod(0)
+            if not os.access(d, os.R_OK):
+                expect(quiet_run(root, ["acme"], None, skills) == 2,
+                       f"an unlistable {sub}/ directory is an error, never a pass")
+            READ_ERRORS.clear()
+            d.chmod(0o755)
     if failures:
         print(f"\nFAIL: check_no_pp_leak self-test - {len(failures)} case(s)")
         return 1

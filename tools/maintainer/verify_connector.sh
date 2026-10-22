@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The check functions run indirectly (through gate/check), which ShellCheck
-# cannot follow, so its never-invoked notice is off for this file.
+# The check functions run indirectly (through check), which ShellCheck cannot
+# follow, so its never-invoked notice is off for this file.
 # shellcheck disable=SC2329
 # verify_connector.sh - the per-connector half of verify_all.sh. Runs every
 # check CI's build and windows matrix rows block on for ONE connector, plus the
@@ -13,16 +13,26 @@
 # check's output to <workdir>/logs/<slug>/. Always exits 0: the records carry
 # the verdict, and a non-zero exit would make xargs stop the other workers.
 #
-# Checks (CI job that blocks on the same thing, in brackets):
-#   linux build+vet         go build + go vet in CI's Linux context
-#                           (linux/amd64, cgo on: native, or a container)  [build]
-#   linux go test           go test -count=1, same context                 [build, new]
-#   cross-compile           the six released GOOS/GOARCH targets            [build]
-#   windows vet             GOOS=windows go vet (test files too)            [windows]
-#   windows test compile    GOOS=windows go test -c: every test
-#                           binary compiles AND links for Windows           [windows]
-#   unix-only test lint     check_unix_test_asserts.py                      [windows, predicted]
-#   cli claims / doctor truth / mcp gate / hand-fix ledger                  [build]
+# CI's BUILD row is one Linux job (ubuntu, linux/amd64, cgo on, a depth-1
+# checkout): build and vet, cross-compile, CLI claims, hand-fix ledger, MCP
+# gate, doctor and go test all run there. So all of them run HERE in that
+# context too, never approximated from another OS: natively on a linux/amd64
+# host with a C compiler, else in a linux/amd64 container (golang:<the go.mod
+# toolchain setup-go selects>) over a depth-1 clone of this commit with the
+# working tree's changes laid on top, else not at all, and they fail closed.
+# Every command runs with an EXPLICIT environment: nothing Go reads (GOFLAGS,
+# GOAMD64, GOEXPERIMENT, a go env file...) is inherited from the caller.
+#
+# The WINDOWS row runs on a real Windows runner, which no other OS can be. Its
+# predictors run on this host under the same explicit environment: Windows
+# vet, a Windows compile and link of every test, and the Unix-only test lint;
+# a file only a cgo-on Windows build selects (CI's runner has MinGW) fails
+# closed, because a cross-check from here builds with cgo off.
+#
+#   [build]    linux build+vet, linux cross-compile, linux go test, linux cli
+#              claims, linux doctor truth, linux mcp gate, linux hand-fix ledger
+#   [windows]  windows vet, windows test compile, windows cgo context,
+#              unix-only test lint (a predictor; CI's Windows job is the authority)
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
@@ -42,78 +52,112 @@ check() { # check <name> <command...>
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" connector "$slug" "$st" "$(( $(date +%s) - t0 ))" "$log" >> "$rec"
 }
 
-in_mod() { ( cd "$mod" && "$@" ); }
-
-cross_compile() {
-  fail=0
-  for pair in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
-    if ! ( cd "$mod" && GOOS="${pair%/*}" GOARCH="${pair#*/}" go build ./... ); then
-      echo "does not compile for $pair"
-      fail=1
-    fi
-  done
-  return "$fail"
-}
-
-windows_vet() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go vet ./... ); }
-
-# -o /dev/null with several packages: go links every test binary and discards
-# it (a link error is a failure too), so nothing lands in the module.
-windows_test_compile() { ( cd "$mod" && GOOS=windows GOARCH=amd64 go test -c -o /dev/null ./... ); }
-
-# --- CI's Linux build row, run IN Linux. --------------------------------------
-# `Build and vet` and `Test (linux, native)` run on linux/amd64 with cgo on.
-# No check of file names or build tags from another OS can stand in for that
-# (a test that fails only when GOOS is linux, a cgo preamble that #errors on
-# __linux__), so these commands run in that context: natively on a linux/amd64
-# host with cgo, else in a linux/amd64 container (golang:<go.mod toolchain>,
-# the version setup-go's go-version-file selects in CI), else not at all, and
-# the check fails closed. verify_all.sh decides the mode once (VERIFY_LINUX_MODE).
-linux_mode="${VERIFY_LINUX_MODE:-none}"
-
 go_version() { # the version CI's setup-go installs: the toolchain line, else the go line
   awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$mod/go.mod" 2>/dev/null \
     || awk '/^go / {print $2; exit}' "$mod/go.mod"
 }
 
-linux_run() { # linux_run <shell command>: run it in skills/<dir>/cli, in CI's Linux context
-  # The environment is EXPLICIT, never inherited: no GOFLAGS (a -run=^$ would
-  # skip every test), no go env file (GOENV=off), cgo on, CI=true, and the
-  # toolchain CI's setup-go selects from go.mod, pinned with GOTOOLCHAIN even
-  # where a newer local go would otherwise build with itself.
-  local ver
+# Everything the go command reads from the environment that could change
+# which files it builds or how: cleared, then set explicitly per context.
+GO_ENV_UNSET="GOFLAGS GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64 GOWASM
+GOEXPERIMENT GODEBUG GOFIPS140 GOENV GOWORK GOTOOLCHAIN GOOS GOARCH CGO_ENABLED CGO_CFLAGS
+CGO_CPPFLAGS CGO_CXXFLAGS CGO_FFLAGS CGO_LDFLAGS CC CXX"
+
+goclean() { # goclean VAR=value... command...: the command under an explicit Go environment
+  local u=()
+  for v in $GO_ENV_UNSET; do u+=(-u "$v"); done
+  env "${u[@]}" GOENV=off GOFLAGS= GOTOOLCHAIN="go$(go_version)" CI=true "$@"
+}
+
+# ---- CI's build row, in Linux ------------------------------------------------
+linux_mode="${VERIFY_LINUX_MODE:-none}"
+
+linux_run() { # linux_run <dir relative to the repo root> <shell command>
+  local cwd="$1" cmd="$2" ver
   ver="$(go_version)"
   case "$linux_mode" in
     native)
-      ( cd "$mod" && env -i PATH="$PATH" HOME="${HOME:-/tmp}" TMPDIR="${TMPDIR:-/tmp}" \
-          GOPATH="$(go env GOPATH)" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" \
-          GOENV=off GOFLAGS= GOTOOLCHAIN="go$ver" CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CI=true \
-          bash -c "$1" ) ;;
+      ( cd "$cwd" && goclean GOOS=linux GOARCH=amd64 CGO_ENABLED=1 bash -c "$cmd" ) ;;
     docker)
-      # The whole repository as it would be committed (tracked plus untracked,
-      # unignored files), snapshotted once by verify_all.sh: repo-level inputs
-      # (a Go workspace, a fixture a test reads from ../../..) are there as in
-      # CI's checkout, and no test writes into the worktree. Docker could not
-      # read a worktree under a protected macOS folder anyway.
-      [ -n "${VERIFY_LINUX_SNAPSHOT:-}" ] && [ -d "$VERIFY_LINUX_SNAPSHOT/skills/$dir/cli" ] || {
+      [ -n "${VERIFY_LINUX_SNAPSHOT:-}" ] && [ -d "$VERIFY_LINUX_SNAPSHOT/$mod" ] || {
         echo "no repository snapshot for the Linux container (VERIFY_LINUX_SNAPSHOT)"; return 1; }
+      # The container's environment is only what is listed here.
       docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
-        -e HOME=/tmp -e CI=true -e CGO_ENABLED=1 -e GOTOOLCHAIN=local -e GOENV=off -e GOFLAGS= \
+        -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 \
+        -e GOTOOLCHAIN=local -e GOENV=off -e GOFLAGS= \
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
-        -v "$VERIFY_LINUX_SNAPSHOT:/src" -w "/src/skills/$dir/cli" \
-        "golang:${ver}-bookworm" bash -c "$1" ;;
+        -v "$VERIFY_LINUX_SNAPSHOT:/src" -w "/src/$cwd" \
+        "golang:${ver}-bookworm" bash -c "$cmd" ;;
     *)
-      echo "CI's Linux build row (linux/amd64, cgo on) cannot run here: this host is not"
-      echo "linux/amd64 with a C compiler, and no Docker daemon is reachable. Install Docker or"
-      echo "OrbStack, or run on Linux. Not a pass: these results come only from a real Linux run."
+      echo "CI's build row (linux/amd64, cgo on) cannot run here: this host is not linux/amd64"
+      echo "with a C compiler, and no Docker daemon is reachable. Install Docker or OrbStack,"
+      echo "or run on Linux. Not a pass: these results come only from a real Linux run."
       return 1 ;;
   esac
 }
 
-linux_build_vet() { linux_run 'go version && go build ./... && go vet ./...'; }
-linux_test()      { linux_run 'go test -count=1 ./...'; }   # as CI: never a cached result
+# The cross-compile step exactly as ci.yml runs it on the Linux runner: each
+# target's default cgo setting there (on only for linux/amd64, the host).
+# shellcheck disable=SC2016 # expanded by the bash inside the Linux context
+CROSS='fail=0
+for pair in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+  os="${pair%/*}"; arch="${pair#*/}"
+  cg=0; [ "$pair" = linux/amd64 ] && cg=1
+  if ! GOOS="$os" GOARCH="$arch" CGO_ENABLED="$cg" go build ./... 2>build.err; then
+    echo "does not compile for $pair"; sed "s/^/    /" build.err; fail=1
+  fi
+done
+rm -f build.err
+exit "$fail"'
+
+linux_build_vet()   { linux_run "$mod" 'go version && go build ./... && go vet ./...'; }
+linux_cross()       { linux_run "$mod" "$CROSS"; }
+linux_test()        { linux_run "$mod" 'go test -count=1 ./...'; }   # as CI: never a cached result
+linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
+
+# ---- CI's windows row: predictors on this host ------------------------------
+windows_vet()          { ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./... ); }
+# -o /dev/null with several packages: go links every test binary and discards
+# it (a link error is a failure too), so nothing lands in the module.
+windows_test_compile() { ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./... ); }
+
+# A cgo-only Windows file (CI's runner builds with MinGW, cgo on) is in
+# neither prediction above, which build with cgo off: fail closed. File sets
+# come from `go list -json` under the same explicit environment.
+windows_cgo_context() {
+  ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 python3 - <<'PY'
+import json, os, subprocess, sys
+
+def files(cgo):
+    p = subprocess.run(["go", "list", "-e", "-json", "./..."], env=dict(os.environ, CGO_ENABLED=cgo),
+                       capture_output=True, text=True)
+    if p.returncode != 0 and not p.stdout:
+        print(p.stderr)
+        sys.exit(2)
+    out, dec, s, i = set(), json.JSONDecoder(), p.stdout, 0
+    while True:
+        while i < len(s) and s[i].isspace():
+            i += 1
+        if i >= len(s):
+            return out
+        obj, i = dec.raw_decode(s, i)
+        for key in ("GoFiles", "CgoFiles", "TestGoFiles", "XTestGoFiles"):
+            for f in obj.get(key) or []:
+                out.add(os.path.join(obj.get("Dir", ""), f))
+
+missing = sorted(files("1") - files("0"))
+if missing:
+    print("files CI's Windows runner (cgo on, MinGW) builds that this host's Windows checks cannot:")
+    for m in missing:
+        print("  " + m)
+    print("rely on CI's Windows job for this connector, or check it on Windows")
+    sys.exit(1)
+print("no cgo-only Windows files: the Windows predictors read every file CI's runner builds")
+PY
+  )
+}
 
 if [ ! -f "$mod/go.mod" ]; then
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
@@ -129,15 +173,16 @@ if [ "${VERIFY_MODULE_ONLY:-0}" = 1 ]; then
   echo "  done  $slug (module only)"
   exit 0
 fi
+check "linux cross-compile"    linux_cross
+check "linux cli claims"       linux_py check_cli_claims.py
+check "linux hand-fix ledger"  linux_py check_handfixes.py
+check "linux mcp gate"         linux_py check_mcp_gate.py
+check "linux doctor truth"     linux_py check_doctor_truth.py
 check "linux go test"          linux_test
-check "cross-compile"          cross_compile
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
+check "windows cgo context"    windows_cgo_context
 check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
-check "cli claims"             python3 tools/maintainer/check_cli_claims.py --slug "$slug"
-check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"
-check "mcp gate"               python3 tools/maintainer/check_mcp_gate.py --slug "$slug"
-check "hand-fix ledger"        python3 tools/maintainer/check_handfixes.py --slug "$slug"
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
 # The parent accepts this connector's records only when this line exists: a
