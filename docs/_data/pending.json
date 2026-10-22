@@ -189,9 +189,9 @@
     "released_hash": "sha256:38e78dffed76d0ed9cfd0c248dc3e6c90bbc7f0634fac19cd0f0fec287369dc2"
   },
   "datagate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "datagate-v0.1.3",
+    "latest_tag": "datagate-v0.1.4",
     "current_hash": "sha256:7507a6e3026f77ccf70b5ab81bb757778af14379aeb3dd26705557d65c196edf",
     "released_hash": "sha256:7507a6e3026f77ccf70b5ab81bb757778af14379aeb3dd26705557d65c196edf"
   },
