@@ -156,6 +156,23 @@ windows_cgo_context() {
   return 1
 }
 
+# CI's Windows job checks out only skills/<slug> and tools/maintainer (sparse).
+# A go.work can name modules outside that, which this host has and that runner
+# does not, so the Windows predictors do not speak for it: fail closed.
+windows_checkout() {
+  [ "$gowork" = off ] && { echo "no go.work applies: the sparse Windows checkout holds everything Go reads"; return 0; }
+  echo "$gowork applies to this module; CI's Windows job checks out only skills/$slug and tools/maintainer,"
+  echo "so modules it uses elsewhere are missing there. Rely on CI's Windows job for this connector."
+  return 1
+}
+
+# The lint evaluates build tags for the Go CI's Windows job selects (release
+# tags go1.1..go1.N), so it asks Go which one that is.
+unix_lint() {
+  local v
+  v="$(cd "$mod" && goclean GOOS=windows GOARCH=amd64 go env GOVERSION)" || { echo "go env GOVERSION failed: $v"; return 1; }
+  python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug" --go-version "$v"
+}
 if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ] || [ -z "$gowork" ]; then
   # No module, or no way to know which Go CI installs for it: nothing below
   # can speak for CI, so the connector fails here, visibly.
@@ -185,23 +202,6 @@ check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "windows cgo context"    windows_cgo_context
 check "windows sparse checkout" windows_checkout
-# CI's Windows job checks out only skills/<slug> and tools/maintainer (sparse).
-# A go.work can name modules outside that, which this host has and that runner
-# does not, so the Windows predictors do not speak for it: fail closed.
-windows_checkout() {
-  [ "$gowork" = off ] && { echo "no go.work applies: the sparse Windows checkout holds everything Go reads"; return 0; }
-  echo "$gowork applies to this module; CI's Windows job checks out only skills/$slug and tools/maintainer,"
-  echo "so modules it uses elsewhere are missing there. Rely on CI's Windows job for this connector."
-  return 1
-}
-
-# The lint evaluates build tags for the Go CI's Windows job selects (release
-# tags go1.1..go1.N), so it asks Go which one that is.
-unix_lint() {
-  local v
-  v="$(cd "$mod" && goclean GOOS=windows GOARCH=amd64 go env GOVERSION)" || { echo "go env GOVERSION failed: $v"; return 1; }
-  python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug" --go-version "$v"
-}
 check "unix-only test lint"    unix_lint
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
