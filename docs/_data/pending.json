@@ -154,9 +154,9 @@
     "released_hash": "sha256:790837b163f7d9d8daf27c7fc93f7c465d6222383eec787a0b30f3aa7b426fcc"
   },
   "connectwise-manage": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.2",
-    "latest_tag": "connectwise-manage-v0.2.1",
+    "latest_tag": "connectwise-manage-v0.2.2",
     "current_hash": "sha256:810d64d06a0dff43616055917f793e1b843239c7428a8e7479481083b24cb8d9",
     "released_hash": "sha256:810d64d06a0dff43616055917f793e1b843239c7428a8e7479481083b24cb8d9"
   },
@@ -175,9 +175,9 @@
     "released_hash": "sha256:1d7c98fef28d581ee801d084b68b9a91b891190f7c061e6b15ed11e6ca8de769"
   },
   "cove": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "cove-v0.1.9",
+    "latest_tag": "cove-v0.1.10",
     "current_hash": "sha256:566e8b1bed96bf229678d5796b832e783a215e2dc2d9705c359c747c101f447f",
     "released_hash": "sha256:566e8b1bed96bf229678d5796b832e783a215e2dc2d9705c359c747c101f447f"
   },

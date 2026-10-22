@@ -48,7 +48,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `connectwise-manage-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `CONNECTWISE_MANAGE_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download ConnectWise Manage MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/connectwise-manage-v0.2.1/connectwise-manage-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ConnectWise Manage release on the [releases page](https://github.com/servosity/msp-skills/releases?q=connectwise-manage).)
+[**Download ConnectWise Manage MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/connectwise-manage-v0.2.2/connectwise-manage-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ConnectWise Manage release on the [releases page](https://github.com/servosity/msp-skills/releases?q=connectwise-manage).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
