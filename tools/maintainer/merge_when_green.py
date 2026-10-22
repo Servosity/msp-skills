@@ -1255,8 +1255,15 @@ class Merger:
         `merge`. Waits until every run for that commit has completed (and at
         least one CI run exists), within the check timeout."""
         deadline = self.clock() + self.o.timeout_s
+        last_error = ""
         while self.clock() < deadline:
-            runs, complete = self.gh.main_runs(merge)
+            try:
+                runs, complete = self.gh.main_runs(merge)
+            except Exception as exc:  # a lookup failure is "not verified yet", never a different exit
+                last_error = str(exc)[:200]
+                self.say(f"    main's CI on {merge[:12]} could not be read ({last_error}); retrying")
+                self.sleep(self.o.poll_s)
+                continue
             ci = [r for r in runs if r.get("name") == "CI"]
             if complete and ci and all(r.get("status") == "completed" for r in runs):
                 bad = [f"{r.get('name')}={r.get('conclusion')}" for r in runs
@@ -1264,7 +1271,8 @@ class Merger:
                 return ("red", ", ".join(bad)) if bad else ("green", f"{len(runs)} run(s) passed")
             self.say(f"    waiting for main's CI on {merge[:12]} ({len(runs)} run(s) so far)")
             self.sleep(self.o.poll_s)
-        return "unverified", f"no complete CI verdict within {int(self.o.timeout_s)}s"
+        return "unverified", (f"no complete CI verdict within {int(self.o.timeout_s)}s"
+                              + (f"; last lookup error: {last_error}" if last_error else ""))
 
     def _dry_run_report(self, new: str, current: str, base: str, required: list[str], missing: list[str]) -> int:
         if new != current:
@@ -1504,8 +1512,10 @@ class FakeGitHub:
         return False
 
     def main_runs(self, sha: str) -> tuple[list[dict], bool]:
-        """Main's push CI for a merge commit: "success", "failure", or None
-        (never reports)."""
+        """Main's push CI for a merge commit: "success", "failure", None
+        (never reports) or "error" (the lookup itself fails)."""
+        if self.main_ci == "error":
+            raise Stop(EXIT_ERROR, "gh api failed: HTTP 503: Service Unavailable")
         if self.main_ci is None:
             return [], True
         return [{"id": 9, "name": "CI", "status": "completed", "conclusion": self.main_ci}], True
@@ -1846,6 +1856,24 @@ def _self_test() -> int:
                "a generated_at edited after approval never reaches main (catalog.json is restored from the base "
                "before regenerating)")
 
+        # T8b1b: a symlink planted after approval is refused, never written through.
+        origin, work, _b = world()
+        head = fix_pr(work)
+        fake = FakeGitHub(origin, env, 32, "fix/alpha", "fix alpha docs", green)
+        approve(work, fake, head)
+        outside = tmp / "outside-catalog-target.json"
+        outside.write_text("someone's file\n")
+        sh("git", "checkout", "-q", "fix/alpha", cwd=work)
+        (work / "catalog.json").unlink()
+        (work / "catalog.json").symlink_to(outside)
+        sh("git", "add", "-A", cwd=work)
+        sh("git", "commit", "-q", "-s", "-m", "after approval: catalog.json becomes a symlink", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        rc, logs = merger(work, fake)
+        expect(rc == EXIT_CONFLICT and outside.read_text() == "someone's file\n" and fake.merged is None,
+               "a catalog.json turned into a symlink after approval is refused; its target is never written")
+
         # T8b2: a page nothing regenerates any more is reviewed content.
         origin, work, _b = world()
         (work / "docs/skills").mkdir(parents=True, exist_ok=True)
@@ -1946,7 +1974,9 @@ def _self_test() -> int:
         for main_ci, want, label in (("success", EXIT_RACE, "main's CI then passes: exit 7, reported with what "
                                                              "the window touched"),
                                      ("failure", EXIT_RACE_RED, "main's CI then fails: exit 8, the chain stops"),
-                                     (None, EXIT_RACE_RED, "main's CI never reports: exit 8, unverified")):
+                                     (None, EXIT_RACE_RED, "main's CI never reports: exit 8, unverified"),
+                                     ("error", EXIT_RACE_RED, "main's CI cannot be read (HTTP 503): exit 8, "
+                                                              "unverified, not exit 1")):
             origin, work, branch = world()
             new_connector_pr(work, extra_commit=False)
             fake = FakeGitHub(origin, env, 23, branch, "skill: bravo", green)

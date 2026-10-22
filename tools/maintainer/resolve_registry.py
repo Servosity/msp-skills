@@ -724,6 +724,23 @@ def _restore_pin_side_effects(repo: Path, paths: list[str]) -> list[str]:
 TRUSTED_INPUTS = ("catalog.json",)
 
 
+def refuse_symlinks(repo: Path) -> None:
+    """The generators write files by path and would follow a symlink anywhere
+    on that path, out of the worktree. The tree has none today (measured: 0
+    tracked symlinks on main), so any symlink in the index is refused rather
+    than reasoned about."""
+    raw = subprocess.run(["git", "-C", str(repo), "ls-files", "-s", "-z"], capture_output=True)
+    if raw.returncode != 0:
+        raise RuntimeError("cannot list the index to check for symlinks")
+    links = []
+    for rec in raw.stdout.split(b"\0"):
+        if rec.startswith(b"120000 "):
+            links.append(rec.split(b"\t", 1)[1].decode("utf-8", "replace"))
+    if links:
+        raise RuntimeError("the tree contains symlinks, which the generators would write through; refusing: "
+                           + ", ".join(sorted(set(links))[:10]))
+
+
 def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
                          generators: tuple[str, ...] = GENERATORS, trusted_rev: str | None = None) -> list[str]:
     """Run the repo's own generators, stage the tree-derived files they wrote,
@@ -738,11 +755,19 @@ def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
     through regeneration. That input is first replaced with the trusted side's
     copy (main's), so the only `generated_at` that can survive is main's own or
     the generator's fresh date."""
+    refuse_symlinks(repo)
     if trusted_rev is not None:
         for rel in TRUSTED_INPUTS:
             blob = subprocess.run(["git", "-C", str(repo), "show", f"{trusted_rev}:{rel}"], capture_output=True)
             if blob.returncode == 0:
-                (repo / rel).write_bytes(blob.stdout)
+                dest = repo / rel
+                if dest.is_symlink() or (dest.exists() and not dest.is_file()):
+                    raise RuntimeError(f"{rel} is not a regular file; refusing to write through it")
+                tmp = dest.with_name(f".{dest.name}.trusted-tmp")
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+                with os.fdopen(fd, "wb") as fh:
+                    fh.write(blob.stdout)
+                os.replace(tmp, dest)  # replaces the directory entry; never follows a link
     before = {p for xy, p in _porcelain(repo) if xy == "??"}
     for gen in generators:
         if not (repo / gen).is_file():
@@ -781,6 +806,10 @@ def recheck(repo: Path, main_formats: dict[str, object] | None = None,
             generators: tuple[str, ...] = GENERATORS) -> list[str]:
     """Problems with the resolved tree; an empty list means it is sound."""
     problems: list[str] = []
+    try:
+        refuse_symlinks(repo)
+    except RuntimeError as exc:
+        return [str(exc)]
     texts: dict[str, str | None] = {}
     for path in REGISTRY_FILES:
         f = repo / path
@@ -1479,6 +1508,19 @@ def _self_test() -> int:
         expect("catalog.json" in changed and "README.md" in changed,
                "a registry change stages the derived files it changes")
         run("git", "commit", "-q", "-s", "-m", "regen", cwd=w)
+        outside = tmp / "outside-target.txt"
+        outside.write_text("not yours\n")
+        (w / "catalog.json").unlink()
+        (w / "catalog.json").symlink_to(outside)
+        run("git", "add", "-A", cwd=w)
+        try:
+            regenerate_and_stage(w, quiet, trusted_rev="HEAD")
+            ok = False
+        except RuntimeError as exc:
+            ok = "symlink" in str(exc)
+        expect(ok and outside.read_text() == "not yours\n",
+               "a symlink in the tree is refused before any generator or restore writes through it")
+        run("git", "reset", "-q", "--hard", "HEAD", cwd=w)
         (w / "edit-during-generation").write_text("x\n")
         try:
             regenerate_and_stage(w, quiet)
