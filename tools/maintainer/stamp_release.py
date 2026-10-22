@@ -1,0 +1,415 @@
+#!/usr/bin/env python3
+"""Stamp `cli_hash_at_release` for releases that have sealed, from the TAGGED tree.
+
+A new connector merges with `"cli_hash_at_release": null` and version 0.1.0, is
+tagged, and seals. Until something writes the hash of the source that release
+was built from, release_state.py reports it as never-released forever. That used
+to be a separate "stamp" pull request per release batch (#385, #397, #405, #411):
+one more PR, one more CI round, one more merge, for a value that is fully
+determined by facts already on GitHub. This script computes it, and catalog.yml
+runs it inside the post-release bot commit it already makes.
+
+What it writes, and only when every condition holds
+---------------------------------------------------
+For each connector whose NEWEST COMPLETE PUBLISHED release (the admitted list
+catalog.yml builds with check_release_assets.py --admit-published) is
+`<slug>-v<X>`, and whose registry version AND manifest.json version are both X:
+
+  * cli_hash_at_release, when it is null: the hash of skills/<dir>/cli at that
+    tag, computed exactly as cli_hash.py computes it on a checkout (same files,
+    same order, same bytes). The tag hash, not main's: if main changed the CLI
+    after the tag, the connector correctly reads binary-pending.
+  * the CHANGELOG heading `## [X]` when it carries no date (or says
+    "unreleased"): dated with the release's publish date, when --listing gives it.
+
+What it never does
+------------------
+  * overwrite a stamp that is already set. A set stamp that differs from the tag
+    tree is reported as a WARN line (that is the "stamp the version last" defect,
+    and correcting it is a human decision);
+  * stamp from a tag that is not in the admitted list (a stranded draft, a
+    release missing an asset), from a tag it cannot read locally, or where a
+    `.gitattributes` file, a symlink or a submodule could make the checkout bytes
+    differ from the stored ones;
+  * reformat skills.json: it is rewritten only if its bytes round-trip, and the
+    rewrite is asserted to change nothing but the stamped fields.
+
+Usage
+    python3 tools/maintainer/stamp_release.py --released-tags released.txt [--listing releases.ndjson] [--dry-run]
+    python3 tools/maintainer/stamp_release.py --self-test
+
+--listing is the NDJSON catalog.yml fetches (one {tag_name, published_at, assets}
+object per line); only published_at is read from it.
+
+Exit 0 on success (including "nothing to stamp"); 1 when an input cannot be
+read or a write would change more than intended, with nothing written.
+
+Pure stdlib.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cli_hash  # noqa: E402  (local tools/ module: the hash this must reproduce)
+import resolve_registry as rr  # noqa: E402  (local tools/ module: byte-safe JSON format detection)
+
+DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent
+REGISTRY_REL = "tools/maintainer/skills.json"
+
+
+class StampError(Exception):
+    pass
+
+
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True)
+
+
+def tree_hash(repo: Path, rev: str, rel_dir: str) -> str | None:
+    """cli_hash.compute_cli_hash of `rel_dir` as it is at `rev`, from git
+    objects (no checkout). None when the checkout bytes could differ from the
+    stored bytes, or the directory is absent."""
+    ls = _git(repo, "ls-tree", "-r", "-z", "--full-tree", rev, "--", rel_dir + "/")
+    if ls.returncode != 0:
+        return None
+    entries = []
+    for rec in ls.stdout.split(b"\0"):
+        if not rec:
+            continue
+        meta, path = rec.split(b"\t", 1)
+        mode, kind, sha = meta.decode().split()
+        if kind != "blob" or mode not in ("100644", "100755"):
+            return None  # a symlink or submodule: a checkout would not read these bytes
+        rel = path.decode("utf-8")[len(rel_dir) + 1:]
+        entries.append((rel, sha))
+    if not entries:
+        return None
+    # A .gitattributes on the way down could transform bytes at checkout.
+    parts = rel_dir.split("/")
+    for i in range(len(parts) + 1):
+        attr = "/".join(parts[:i] + [".gitattributes"])
+        if _git(repo, "cat-file", "-e", f"{rev}:{attr}").returncode == 0:
+            return None
+    if any(rel == ".gitattributes" or rel.endswith("/.gitattributes") for rel, _ in entries):
+        return None
+    h = hashlib.sha256()
+    proc = subprocess.Popen(["git", "-C", str(repo), "cat-file", "--batch"], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE)
+    try:
+        for rel, sha in sorted(entries, key=lambda e: e[0]):
+            proc.stdin.write(sha.encode() + b"\n")
+            proc.stdin.flush()
+            header = proc.stdout.readline().split()
+            size = int(header[2])
+            data = proc.stdout.read(size)
+            proc.stdout.read(1)
+            h.update(rel.encode("utf-8"))
+            h.update(b"\0")
+            h.update(data)
+            h.update(b"\0")
+    finally:
+        proc.stdin.close()
+        proc.wait()
+    return "sha256:" + h.hexdigest()
+
+
+def _vtuple(v: str) -> tuple[int, ...]:
+    out = []
+    for chunk in v.split("."):
+        m = re.match(r"\d+", chunk)
+        out.append(int(m.group(0)) if m else 0)
+    return tuple(out)
+
+
+def newest_tag(slug: str, released: set[str]) -> tuple[str, str] | None:
+    prefix = f"{slug}-v"
+    tags = [t for t in released if t.startswith(prefix) and re.fullmatch(r"\d+\.\d+\.\d+", t[len(prefix):])]
+    if not tags:
+        return None
+    best = max(tags, key=lambda t: _vtuple(t[len(prefix):]))
+    return best, best[len(prefix):]
+
+
+def load_released(path: Path) -> set[str]:
+    try:
+        tags = {ln.strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()}
+    except OSError as exc:
+        raise StampError(f"cannot read --released-tags {path}: {exc}")
+    if not tags:
+        raise StampError(f"--released-tags {path} is empty; refusing to treat that as 'nothing is released'")
+    return tags
+
+
+def load_dates(path: Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    dates = {}
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError as exc:
+            raise StampError(f"--listing line {n} is not JSON: {exc}")
+        tag, when = rec.get("tag_name"), rec.get("published_at")
+        if isinstance(tag, str) and isinstance(when, str) and re.match(r"\d{4}-\d{2}-\d{2}", when):
+            dates[tag] = when[:10]
+    return dates
+
+
+def _heading_re(version: str) -> re.Pattern:
+    return re.compile(r"^##\s*\[" + re.escape(version) + r"\](?P<tail>[^\n]*)$", re.M)
+
+
+def date_changelog(text: str, version: str, day: str) -> str | None:
+    """The CHANGELOG with `## [version]` dated, or None when there is nothing
+    to do (already dated, absent, ambiguous, or carrying something else)."""
+    hits = list(_heading_re(version).finditer(text))
+    if len(hits) != 1:
+        return None
+    tail = hits[0].group("tail").strip()
+    if tail and not re.fullmatch(r"-?\s*\(?unreleased\)?", tail, re.I):
+        return None
+    m = hits[0]
+    return text[:m.start()] + f"## [{version}] - {day}" + text[m.end():]
+
+
+def plan(repo: Path, released: set[str], dates: dict[str, str]) -> tuple[dict, dict[str, str], list[str]]:
+    """(stamps {slug: hash}, changelog edits {path: new text}, report lines)."""
+    reg_path = repo / REGISTRY_REL
+    reg = json.loads(reg_path.read_text(encoding="utf-8"))
+    skills = reg.get("skills")
+    if not isinstance(skills, dict):
+        raise StampError("skills.json has no skills object")
+    stamps: dict[str, str] = {}
+    edits: dict[str, str] = {}
+    report: list[str] = []
+    for slug in sorted(skills):
+        entry = skills[slug]
+        if not isinstance(entry, dict) or entry.get("markdown_only"):
+            continue
+        hit = newest_tag(slug, released)
+        if hit is None:
+            continue
+        tag, version = hit
+        sdir = entry.get("source_dir", slug)
+        reg_version = entry.get("version")
+        try:
+            mf_version = json.loads((repo / "skills" / sdir / "manifest.json").read_text(encoding="utf-8")).get("version")
+        except (OSError, ValueError):
+            mf_version = None
+        if reg_version != version or mf_version != version:
+            if reg_version and _vtuple(str(reg_version)) < _vtuple(version):
+                report.append(f"WARN {slug}: registry version {reg_version} is behind its newest release {tag}")
+            continue  # a bump is pending release (or the stamps disagree): release.py owns that stamp
+        if _git(repo, "rev-parse", "--verify", "-q", f"refs/tags/{tag}^{{commit}}").returncode != 0:
+            report.append(f"WARN {slug}: tag {tag} is not in this clone (fetch tags); not stamped")
+            continue
+        th = tree_hash(repo, f"refs/tags/{tag}", f"skills/{sdir}/cli")
+        if th is None:
+            report.append(f"WARN {slug}: cannot reproduce the checkout hash of {tag} from git objects; not stamped")
+            continue
+        current = entry.get("cli_hash_at_release")
+        if current is None:
+            stamps[slug] = th
+            report.append(f"STAMPED {slug} {tag} {th}")
+        elif current != th:
+            report.append(f"WARN {slug}: cli_hash_at_release {current[:19]}... differs from the {tag} tree "
+                          f"{th[:19]}...; left as is (fix by hand if the stamp is wrong)")
+        day = dates.get(tag)
+        cl = repo / "skills" / sdir / "CHANGELOG.md"
+        if day and cl.is_file():
+            new = date_changelog(cl.read_text(encoding="utf-8"), version, day)
+            if new is not None:
+                edits[str(cl.relative_to(repo))] = new
+                report.append(f"DATED {slug} [{version}] {day}")
+    return stamps, edits, report
+
+
+def apply(repo: Path, stamps: dict[str, str], edits: dict[str, str]) -> None:
+    reg_path = repo / REGISTRY_REL
+    raw = reg_path.read_text(encoding="utf-8")
+    if stamps:
+        try:
+            fmt = rr.json_format(raw)
+        except rr.UnknownFormat as exc:
+            raise StampError(f"skills.json does not round-trip ({exc}); refusing to rewrite it")
+        obj = json.loads(raw)
+        for slug, h in stamps.items():
+            obj["skills"][slug]["cli_hash_at_release"] = h
+        new = rr.dump_json(obj, fmt)
+        before, after = json.loads(raw), json.loads(new)
+        for slug in stamps:
+            before["skills"][slug]["cli_hash_at_release"] = after["skills"][slug]["cli_hash_at_release"]
+        if before != after:
+            raise StampError("the rewrite would change more than the stamped fields; nothing written")
+        a, b = raw.splitlines(), new.splitlines()
+        touched = sum(x != y for x, y in zip(a, b))
+        if len(a) != len(b) or touched != len(stamps):
+            raise StampError(f"the rewrite would touch {touched} line(s) for {len(stamps)} stamp(s); nothing written")
+        reg_path.write_text(new, encoding="utf-8")
+    for rel, text in edits.items():
+        (repo / rel).write_text(text, encoding="utf-8")
+
+
+def run(repo: Path, released_file: Path, listing: Path | None, dry_run: bool) -> int:
+    try:
+        released = load_released(released_file)
+        dates = load_dates(listing)
+        stamps, edits, report = plan(repo, released, dates)
+        for line in report:
+            print(line)
+        if not stamps and not edits:
+            print("stamp_release: nothing to stamp")
+            return 0
+        if dry_run:
+            print(f"stamp_release: dry run - would stamp {len(stamps)} and date {len(edits)} heading(s)")
+            return 0
+        apply(repo, stamps, edits)
+        print(f"stamp_release: stamped {len(stamps)}, dated {len(edits)} heading(s)")
+        return 0
+    except (StampError, OSError, ValueError, KeyError) as exc:
+        print(f"::error::stamp_release: {exc}", file=sys.stderr)
+        return 1
+
+
+# --------------------------------------------------------------------------- #
+# --self-test
+# --------------------------------------------------------------------------- #
+
+def _self_test() -> int:
+    failures: list[str] = []
+
+    def expect(cond: bool, label: str) -> None:
+        print(("  ok   " if cond else "  FAIL ") + label)
+        if not cond:
+            failures.append(label)
+
+    tmp = Path(tempfile.mkdtemp(prefix="stamp-release-selftest-"))
+    try:
+        env = rr.fixture_env(tmp)
+        import os
+        for k in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM"):
+            os.environ[k] = env[k]
+        work = rr.make_fixture_repo(tmp, env)
+
+        def sh(*a: str) -> str:
+            return subprocess.run(["git", "-C", str(work), *a], capture_output=True, text=True, check=True,
+                                  env=env).stdout.strip()
+
+        for slug in ("alpha", "delta"):
+            (work / f"skills/{slug}/manifest.json").write_text(json.dumps({"version": "0.1.0"}, indent=2) + "\n")
+            (work / f"skills/{slug}/CHANGELOG.md").write_text(
+                f"# Changelog\n\n## [0.1.0]\n\n### Added\n- Initial {slug} release.\n")
+        (work / "skills/alpha/cli/sub").mkdir()
+        (work / "skills/alpha/cli/sub/x.go").write_bytes(b"package sub\r\n// crlf bytes kept\r\n")
+        (work / "skills/alpha/cli/run.sh").write_text("#!/bin/sh\necho hi\n")
+        (work / "skills/alpha/cli/run.sh").chmod(0o755)
+        sh("add", "-A")
+        sh("commit", "-q", "-s", "-m", "manifests")
+        sh("tag", "alpha-v0.1.0")
+        sh("tag", "delta-v0.1.0")
+        tag_hash = cli_hash.compute_cli_hash(work / "skills/alpha/cli")
+        (work / "skills/alpha/cli/main.go").write_text('package main\n\nconst name = "changed after the tag"\n')
+        sh("commit", "-q", "-s", "-am", "main moves after the tag")
+        released = tmp / "released.txt"
+        listing = tmp / "listing.ndjson"
+        released.write_text("alpha-v0.1.0\nother-v1.0.0\n")
+        listing.write_text(json.dumps({"tag_name": "alpha-v0.1.0", "published_at": "2026-10-20T17:33:27Z",
+                                       "assets": []}) + "\n")
+        reg_before = (work / REGISTRY_REL).read_text()
+
+        print("stamping a sealed first release:")
+        expect(tree_hash(work, "refs/tags/alpha-v0.1.0", "skills/alpha/cli") == tag_hash,
+               "the git-object hash equals cli_hash.py on a checkout (CRLF bytes and an executable included)")
+        expect(run(work, released, listing, dry_run=True) == 0 and (work / REGISTRY_REL).read_text() == reg_before,
+               "a dry run writes nothing")
+        expect(run(work, released, listing, dry_run=False) == 0, "the stamp runs")
+        reg = json.loads((work / REGISTRY_REL).read_text())["skills"]
+        expect(reg["alpha"]["cli_hash_at_release"] == tag_hash, "alpha is stamped with the TAG tree's hash")
+        expect(reg["alpha"]["cli_hash_at_release"] != cli_hash.compute_cli_hash(work / "skills/alpha/cli"),
+               "so a CLI change after the tag still reads binary-pending")
+        expect(reg["delta"]["cli_hash_at_release"] is None,
+               "delta, whose tag is not in the admitted list (e.g. a stranded draft), is not stamped")
+        diff = sh("diff", "--numstat", "--", REGISTRY_REL)
+        expect(diff.split()[:2] == ["1", "1"], f"skills.json changes by exactly one line ({diff})")
+        expect("## [0.1.0] - 2026-10-20" in (work / "skills/alpha/CHANGELOG.md").read_text(),
+               "the CHANGELOG heading is dated with the publish date")
+        sh("add", "-A")
+        sh("commit", "-q", "-s", "-m", "stamp")
+        expect(run(work, released, listing, dry_run=False) == 0 and sh("status", "--porcelain") == "",
+               "a second run changes nothing (idempotent, safe to repeat on every bot run)")
+
+        print("refusals:")
+        reg_all = json.loads((work / REGISTRY_REL).read_text())
+        reg_all["skills"]["alpha"]["cli_hash_at_release"] = "sha256:" + "0" * 64
+        reg_all["skills"]["delta"]["version"] = "0.2.0"
+        (work / REGISTRY_REL).write_text(json.dumps(reg_all, indent=2, ensure_ascii=True) + "\n")
+        released.write_text("alpha-v0.1.0\ndelta-v0.1.0\n")
+        before = (work / REGISTRY_REL).read_text()
+        out = subprocess.run([sys.executable, __file__, "--repo", str(work), "--released-tags", str(released)],
+                             capture_output=True, text=True, env=env)
+        expect(out.returncode == 0 and (work / REGISTRY_REL).read_text() == before
+               and "WARN alpha" in out.stdout and "STAMPED" not in out.stdout,
+               "an existing stamp that differs from the tag is reported, never overwritten")
+        expect("STAMPED delta" not in out.stdout
+               and json.loads((work / REGISTRY_REL).read_text())["skills"]["delta"]["cli_hash_at_release"] is None,
+               "a registry version ahead of the newest release is left to release.py")
+        reg_all["skills"]["alpha"]["cli_hash_at_release"] = None
+        bad = json.dumps(reg_all, indent=2, ensure_ascii=True).replace('  "owner"', '   "owner"', 1) + "\n"
+        (work / REGISTRY_REL).write_text(bad)
+        expect(run(work, released, None, dry_run=False) == 1 and (work / REGISTRY_REL).read_text() == bad,
+               "a skills.json whose bytes do not round-trip is refused, not reformatted")
+        empty = tmp / "empty.txt"
+        empty.write_text("")
+        expect(run(work, empty, None, dry_run=False) == 1, "an empty released list is an error, not 'nothing released'")
+        expect(date_changelog("## [0.1.0] - 2026-01-01\n", "0.1.0", "2026-10-20") is None
+               and date_changelog("## [0.1.0] - unreleased\n", "0.1.0", "2026-10-20") == "## [0.1.0] - 2026-10-20\n"
+               and date_changelog("## [0.1.0] (beta)\n", "0.1.0", "2026-10-20") is None,
+               "only an undated or 'unreleased' heading is dated")
+        sh("checkout", "-q", "--", ".")
+        (work / ".gitattributes").write_text("*.go text eol=crlf\n")
+        sh("add", ".gitattributes")
+        sh("commit", "-q", "-s", "-m", "attrs")
+        sh("tag", "-f", "alpha-v0.1.0")
+        expect(tree_hash(work, "refs/tags/alpha-v0.1.0", "skills/alpha/cli") is None,
+               "a .gitattributes that could rewrite checkout bytes makes it decline to stamp")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    if failures:
+        print(f"\nFAIL: stamp_release self-test - {len(failures)} case(s):")
+        for f in failures:
+            print(f"  - {f}")
+        return 1
+    print("\nPASS: stamp_release - every case discriminates")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--released-tags", type=Path, help="admitted complete published tags, one per line")
+    ap.add_argument("--listing", type=Path, help="the release listing NDJSON (for publish dates)")
+    ap.add_argument("--repo", type=Path, default=DEFAULT_ROOT, help="checkout to stamp (default: this one)")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--self-test", action="store_true")
+    args = ap.parse_args(argv)
+    if args.self_test:
+        return _self_test()
+    if not args.released_tags:
+        ap.error("--released-tags is required")
+    return run(args.repo.resolve(), args.released_tags, args.listing, args.dry_run)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
