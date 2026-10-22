@@ -99,11 +99,11 @@ jobs:
                              capture_output=True, check=True)
           changed = [x.decode("utf-8", "surrogateescape") for x in d.stdout.split(b"\0") if x]
           # Gate LOGIC cannot approve itself: the rows run the PR's own copy of the
-          # script, the analyzer it builds and this workflow. DATA files
-          # (dep_allowlist.json, security_suppressions.json, template_approvals.json)
-          # are read from the trusted base with --policy-base, so an in-PR edit cannot
-          # take effect, and CODEOWNERS still gates them.
-          logic = re.compile(r"^(tools/maintainer/check_security_gate\.py|tools/maintainer/declgraph/.*"
+          # script and this workflow. DATA files (dep_allowlist.json,
+          # security_suppressions.json) are read from the trusted base with
+          # --policy-base, so an in-PR edit cannot take effect, and CODEOWNERS still
+          # gates them.
+          logic = re.compile(r"^(tools/maintainer/check_security_gate\.py"
                              r"|\.semgrep\.yml|\.github/workflows/security-gate\.yml"
                              r"|\.github/workflows/release\.yml|\.github/CODEOWNERS)$", re.S)
           gate_logic = any(logic.match(f) for f in changed)
@@ -139,16 +139,12 @@ jobs:
     needs: scope
     if: needs.scope.outputs.gate_logic == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.26"
-          cache: false
-      - name: Gate self-test (template approvals and the summary, both directions)
+      - name: Gate self-test (the summary, workflow pins and diff scope, both directions)
         run: python3 -I tools/maintainer/check_security_gate.py --self-test
 
   scanners:
@@ -298,8 +294,8 @@ jobs:
           verdict=block
           # --require-scanners: a missing/erroring required scanner (gosec/govulncheck/
           # osv-scanner) is a P1, not a silent skip - a broken install cannot disable
-          # the gate. --policy-base: suppressions, the dependency allowlist, template
-          # approvals and the analyzer approvals rely on all come from the base.
+          # the gate. --policy-base: suppressions and the dependency allowlist come
+          # from the base.
           if python3 -I tools/maintainer/check_security_gate.py \
                --slug "$SLUG" --base "$BASE_SHA" --policy-base "$BASE_SHA" --require-scanners; then
             verdict=pass

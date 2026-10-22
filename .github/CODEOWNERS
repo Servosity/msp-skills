@@ -21,8 +21,6 @@
 /tools/maintainer/check_security_gate.py       @Servosity
 /tools/maintainer/dep_allowlist.json           @Servosity
 /tools/maintainer/security_suppressions.json   @Servosity
-/tools/maintainer/template_approvals.json      @Servosity
-/tools/maintainer/declgraph/                   @Servosity
 /.semgrep.yml                                  @Servosity
 /.github/workflows/security-gate.yml           @Servosity
 /.github/workflows/release.yml                 @Servosity
