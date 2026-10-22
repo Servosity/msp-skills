@@ -853,7 +853,9 @@ HOOK
   mkdir -p "$tmp/repo/.github/workflows" "$tmp/repo/tools/maintainer"
   git -C "$real_repo" show HEAD:.github/workflows/release.yml >"$tmp/repo/.github/workflows/release.yml"
   git -C "$real_repo" show HEAD:.github/workflows/windows-smoke.yml >"$tmp/repo/.github/workflows/windows-smoke.yml"
-  for f in changelog_section.py check_release_pipeline.py check_release_assets.py registry.py release_matrix.py; do
+  # release_matrix.py imports windows_known_failures.py (the per-slug ledger delta).
+  for f in changelog_section.py check_release_pipeline.py check_release_assets.py registry.py release_matrix.py \
+           windows_known_failures.py; do
     cp "$TOOLS/$f" "$tmp/repo/tools/maintainer/"
   done
   # The fixture's own burned ledger retires zz-one-v0.1.9; this checkout's does not.

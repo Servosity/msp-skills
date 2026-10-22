@@ -321,11 +321,11 @@ done
 gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
 # security-gate.yml's own self-test step (summary, workflow pins and diff scope).
 gate "self-test check_security_gate.py" repo "" 0 python3 -I tools/maintainer/check_security_gate.py --self-test
-# ci.yml guards: #422's merge and release tools, each once it exists.
+# ci.yml guards: #422's merge and release tools.
 for t in resolve_registry.py merge_when_green.py stamp_release.py; do
-  [ -f "tools/maintainer/$t" ] && gate "self-test $t" repo "" 0 python3 -I "tools/maintainer/$t" --self-test
+  gate "self-test $t" repo "" 0 python3 -I "tools/maintainer/$t" --self-test
 done
-[ -f tools/maintainer/cut_tags.sh ] && gate "self-test cut_tags.sh" repo "" 0 bash tools/maintainer/cut_tags.sh --self-test
+gate "self-test cut_tags.sh" repo "" 0 bash tools/maintainer/cut_tags.sh --self-test
 gate "self-test check_command_tree.py" repo "" 0 python3 tools/maintainer/check_command_tree.py --self-test
 gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
 matrix_sane() {
