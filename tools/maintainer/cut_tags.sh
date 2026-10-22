@@ -70,6 +70,8 @@ PYTHON=${PYTHON:-python3}
 LOG=""
 WT_PARENTS=""
 WT_MAP=""
+NEW_TMP=""
+SELFTEST_TMP=""
 NEW_WT=""
 TAG_LIST=""
 TAG_COUNT=0
@@ -91,26 +93,38 @@ abspath() {
   esac
 }
 
+new_tempdir() { # sets NEW_TMP to a fresh private directory, or dies (never an empty path)
+  NEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary directory"
+  [ -n "$NEW_TMP" ] && [ -d "$NEW_TMP" ] || die "REFUSE mktemp returned no directory"
+}
+
 cleanup() {
+  # One path per line, read whole: a temporary directory under a TMPDIR with
+  # spaces in it must never be split into other paths and deleted.
   local p
-  for p in $WT_PARENTS; do
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
     git -C "$REPO" worktree remove --force "$p/wt" >/dev/null 2>&1 || true
     rm -rf "$p"
-  done
+  done <<<"$WT_PARENTS"
 }
 
 worktree_at() { # <commit>: sets NEW_WT to a private worktree at it (one per commit)
-  local hit parent
-  hit=$(printf '%s\n' "$WT_MAP" | awk -v c="$1" '$1 == c {print $2; exit}')
-  if [ -n "$hit" ]; then
-    NEW_WT=$hit
-    return
-  fi
-  parent=$(mktemp -d)
-  WT_PARENTS="$WT_PARENTS $parent"
+  local line parent
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    if [ "${line%% *}" = "$1" ]; then # "<40-hex commit> <path, which may hold spaces>"
+      NEW_WT=${line#* }
+      return
+    fi
+  done <<<"$WT_MAP"
+  new_tempdir
+  parent=$NEW_TMP
+  WT_PARENTS="$WT_PARENTS$parent
+"
   git -C "$REPO" worktree add -q --detach "$parent/wt" "$1"
-  WT_MAP="$WT_MAP
-$1 $parent/wt"
+  WT_MAP="$WT_MAP$1 $parent/wt
+"
   NEW_WT="$parent/wt"
 }
 
@@ -262,7 +276,8 @@ rerun_failed() {
   local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
   local why
   fetch_and_check_self
-  errf=$(mktemp)
+  errf=$(mktemp "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary file"
+  [ -n "$errf" ] || die "REFUSE mktemp returned no file"
   while IFS= read -r t; do
     [ -n "$t" ] || continue
     handled=$((handled + 1))
@@ -382,7 +397,8 @@ probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on 
   local d rc=0
   git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
-  d=$(mktemp -d)
+  d=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || return 1
+  [ -n "$d" ] && [ -d "$d" ] || return 1
   if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
     ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/burned_versions.json" >"$d/burned_versions.json"; then
     rm -rf "$d"
@@ -400,7 +416,8 @@ probe_rerun_from_main() { # <tag> <commit>: may this cut tag's release run again
   local d rc=0
   git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
-  d=$(mktemp -d)
+  d=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || return 1
+  [ -n "$d" ] && [ -d "$d" ] || return 1
   if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
     ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/burned_versions.json" >"$d/burned_versions.json"; then
     rm -rf "$d"
@@ -439,7 +456,8 @@ cut() {
   full=$(git -C "$REPO" rev-parse --verify -q "${sha}^{commit}") || die "REFUSE $sha is not a commit in $REPO"
   worktree_at "$full"
   shawt=$NEW_WT
-  probe_out=$(mktemp)
+  probe_out=$(mktemp "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary file"
+  [ -n "$probe_out" ] || die "REFUSE mktemp returned no file"
   say "cut_tags: $TAG_COUNT tag(s) at $full$([ "$dry" = 1 ] && echo ' (dry run: nothing is pushed)')"
   while IFS= read -r t; do
     [ -n "$t" ] || continue
@@ -575,9 +593,12 @@ self_test() {
   set +e
   local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before before_wait before_push good bad at v
   real_repo=$(git -C "$TOOLS" rev-parse --show-toplevel)
-  tmp=$(mktemp -d)
-  # shellcheck disable=SC2064  # expand now: tmp is local
-  trap "rm -rf '$tmp'" EXIT
+  # Without set -e, an unchecked failure here would point every fixture write
+  # at the filesystem root: stop instead.
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags_selftest.XXXXXX") || { echo "FAIL: cannot create a temporary directory"; return 1; }
+  [ -n "$tmp" ] && [ -d "$tmp" ] || { echo "FAIL: mktemp returned no directory"; return 1; }
+  SELFTEST_TMP=$tmp
+  trap 'rm -rf "$SELFTEST_TMP"' EXIT
   export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
   printf '[user]\n\tname = Self Test\n\temail = selftest@example.invalid\n[init]\n\tdefaultBranch = main\n' >"$GIT_CONFIG_GLOBAL"
 
@@ -739,6 +760,14 @@ FAKE
   out=$(bash "$SELF" "$sha" "$tmp/dup.txt" 2>&1) && rc=0 || rc=$?
   [ "$rc" -ne 0 ] && has "listed twice"
   expect "a tag listed twice fails before anything is pushed" $?
+
+  echo "temporary paths with spaces:"
+  mkdir -p "$tmp/Release Work" "$tmp/Release"
+  echo "someone's work" >"$tmp/Release/keep.txt"
+  out=$(cd "$tmp/elsewhere" && TMPDIR="$tmp/Release Work" bash "$SELF" --dry-run "$sha" tags-ok.txt 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] && has "DRY-RUN-COMPLETE 1 of 1" && [ -f "$tmp/Release/keep.txt" ] \
+    && [ -z "$(ls -A "$tmp/Release Work")" ] && [ "$(git -C "$tmp/repo" worktree list | grep -c .)" -eq 1 ]
+  expect "under a TMPDIR containing a space it runs, cleans only its own directories, and spares the sibling" $?
 
   echo "push mode:"
   out=$(cd "$tmp/elsewhere" && bash "$SELF" "$sha" tags-ok.txt 2>&1) && rc=0 || rc=$?
