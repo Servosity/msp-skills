@@ -60,8 +60,8 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`CONNECTSECURE_MCP_READ_ONLY` is `1` in every config on this page. Remove this
-line only when you want the agent to make changes.
+`CONNECTSECURE_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove
+this line only when you want the agent to make changes.
 
 Fill the first four values: your pod URL (`https://pod<N>.myconnectsecure.com`), the
 tenant name you type at portal login, and the client ID and secret from **Settings >
@@ -180,7 +180,7 @@ hermes mcp add connectsecure -- connectsecure-mcp
 openclaw mcp set connectsecure '{"command":"connectsecure-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `CONNECTSECURE_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

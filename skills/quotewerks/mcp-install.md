@@ -56,10 +56,10 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`QUOTEWERKS_MCP_READ_ONLY` is `1` in every config on this page. Remove this line
-only when you want the agent to make changes.
+`QUOTEWERKS_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to make changes.
 
-Only `QUOTEWERKS_API_KEY` is required; delete the lines you are not setting. Set
+Only `QUOTEWERKS_API_KEY` is required; delete the lines you are not setting, but keep the read-only line. Set
 `QUOTEWERKS_MCP_READ_ONLY` to exactly `1` to make the server read-only (any other value,
 including `true`, leaves every tool available). The raw `tables insert`, `tables update`
 and `tables delete` commands are CLI-only and never offered as MCP tools.
@@ -156,7 +156,7 @@ hermes mcp add quotewerks -- quotewerks-mcp
 openclaw mcp set quotewerks '{"command":"quotewerks-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `QUOTEWERKS_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

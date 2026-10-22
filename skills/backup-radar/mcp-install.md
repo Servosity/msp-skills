@@ -57,8 +57,8 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`BACKUP_RADAR_MCP_READ_ONLY` is `1` in every config on this page. Remove this
-line only when you want the agent to make changes.
+`BACKUP_RADAR_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove
+this line only when you want the agent to make changes.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -164,7 +164,7 @@ hermes mcp add backup-radar -- backup-radar-mcp
 openclaw mcp set backup-radar '{"command":"backup-radar-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `BACKUP_RADAR_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

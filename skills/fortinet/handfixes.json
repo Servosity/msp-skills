@@ -1208,7 +1208,7 @@
     },
     {
      "file": "manifest.json",
-     "contains": "Preset to 1; clear it only when you want the agent to make changes.",
+     "contains": "Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
      "min_count": 1
     }
    ]

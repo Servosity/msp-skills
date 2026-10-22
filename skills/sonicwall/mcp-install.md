@@ -58,8 +58,8 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`SONICWALL_MCP_READ_ONLY` is `1` in every config on this page. Remove this line
-only when you want the agent to make changes.
+`SONICWALL_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to make changes.
 
 Leave `SONICWALL_NSM_TOKEN` empty: run `sonicwall-cli nsm-login` once (and again whenever NSM tools exit 4; the token lasts 8 hours, 15 minutes idle), which saves the token where the MCP server reads it. A pasted token expires and keeps overriding the saved one. Leave the other empty values empty unless you need them.
 
@@ -159,7 +159,7 @@ hermes mcp add sonicwall -- sonicwall-mcp
 openclaw mcp set sonicwall '{"command":"sonicwall-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `SONICWALL_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

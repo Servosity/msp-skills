@@ -59,10 +59,10 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`TD_SYNNEX_MCP_READ_ONLY` is `1` in every config on this page. Remove this line
-only when you want the agent to make changes.
+`TD_SYNNEX_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to make changes.
 
-Before the first start, mint a token with the CLI (the MCP server cannot do it): `td-synnex-cli auth mint --refresh-token-stdin`, piping in the refresh token from **ION portal > Settings > Users > Edit > OAuth credentials > Request New Credentials**. The server reads the token that command saves. Leave `TD_SYNNEX_ACCESS_TOKEN` and `TD_SYNNEX_REFRESH_TOKEN` empty: a pasted access token expires after 2 hours and keeps overriding the saved one. Keep it fresh with `td-synnex-cli auth mint --if-expiring 15m` from cron or Task Scheduler. Set `TD_SYNNEX_MCP_READ_ONLY` to `1` to remove every tool that can change ION (any value except blank, `0`, `false`, `no` or `off` turns it on); leave the other empty values empty unless you need them.
+Before the first start, mint a token with the CLI (the MCP server cannot do it): `td-synnex-cli auth mint --refresh-token-stdin`, piping in the refresh token from **ION portal > Settings > Users > Edit > OAuth credentials > Request New Credentials**. The server reads the token that command saves. Leave `TD_SYNNEX_ACCESS_TOKEN` and `TD_SYNNEX_REFRESH_TOKEN` empty: a pasted access token expires after 2 hours and keeps overriding the saved one. Keep it fresh with `td-synnex-cli auth mint --if-expiring 15m` from cron or Task Scheduler. `TD_SYNNEX_MCP_READ_ONLY` is preset to `1`, which removes every tool that can change ION (any value except blank, `0`, `false`, `no` or `off` turns it on); leave the other empty values empty unless you need them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -162,7 +162,7 @@ hermes mcp add td-synnex -- td-synnex-mcp
 openclaw mcp set td-synnex '{"command":"td-synnex-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `TD_SYNNEX_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

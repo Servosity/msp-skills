@@ -3,7 +3,7 @@
 > **Security note (until this connector is reprinted).** Do not run HTTP mode
 > (`--transport http`), not even on localhost. This build checks a token, but it
 > predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
+> also read your data with your credentials. Use the default stdio transport. If
 > you set up a tunnel for a remote agent, shut it down. A fix is on the way.
 
 This page wires the Datto BCDR MCP server into any MCP client. If you use Claude

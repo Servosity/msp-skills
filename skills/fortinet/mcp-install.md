@@ -3,7 +3,7 @@
 > **Security note (until this connector is reprinted).** Do not run HTTP mode
 > (`--transport http`), not even on localhost. This build checks a token, but it
 > predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
+> also read your data with your credentials. Use the default stdio transport. If
 > you set up a tunnel for a remote agent, shut it down. A fix is on the way.
 
 This page wires the Fortinet MCP server into any MCP client. If you use Claude
@@ -63,8 +63,8 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`FORTINET_MCP_READ_ONLY` is `1` in every config on this page. Remove this line
-only when you want the agent to make changes.
+`FORTINET_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to run the tools this switch hides.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -172,7 +172,7 @@ hermes mcp add fortinet -- fortinet-mcp
 openclaw mcp set fortinet '{"command":"fortinet-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `FORTINET_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

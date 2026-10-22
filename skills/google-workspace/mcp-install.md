@@ -44,7 +44,7 @@ Every variable in the `env` blocks below is optional and can stay blank, except
 | `GOOGLE_WORKSPACE_TENANT` | More than one tenant is registered. The raw API execute tool and the `sql`, `search`, and `context` tools take no tenant argument and use this one; without it `sql` and `search` refuse to answer. Use a name from `tenants list`. |
 | `GOOGLE_WORKSPACE_MCP_READ_ONLY` | You want a read-only server: exactly `1` hides `offboard`, `sync`, `export`, `tenants test`, `tenants remove`, `workflow archive`, `learnings forget`, and `learnings reject`, and refuses every non-GET API call. (`import` is never exposed over MCP: it reads a local file.) `true` or `yes` are ignored. |
 | `GOOGLE_WORKSPACE_TOKEN` | You manage ONE organization without registering tenants: an OAuth access token with Admin SDK scopes. `ADMIN_ACCESS_TOKEN` is an alternate name for it. Not used once tenants are registered (a call with no tenant selected is refused), so leave it blank then. |
-| `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` | You run the server with `--transport http` (the remote section below). |
+| `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` | You run the server with `--transport http`, which is paused for now (see the remote section below). |
 | `GOOGLE_WORKSPACE_BASE_URL`, `GOOGLE_WORKSPACE_USER_AGENT`, `PRINTING_PRESS_CLIENT_PROFILE` | Testing against a mock server or overriding the User-Agent; `PRINTING_PRESS_CLIENT_PROFILE` has no effect for this connector. Leave blank. |
 
 ---
@@ -80,8 +80,8 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
-`GOOGLE_WORKSPACE_MCP_READ_ONLY` is `1` in every config on this page. Remove
-this line only when you want the agent to make changes.
+`GOOGLE_WORKSPACE_MCP_READ_ONLY` is `1` in every JSON config on this page.
+Remove this line only when you want the agent to make changes.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -179,7 +179,7 @@ hermes mcp add google-workspace -- google-workspace-mcp
 openclaw mcp set google-workspace '{"command":"google-workspace-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `GOOGLE_WORKSPACE_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

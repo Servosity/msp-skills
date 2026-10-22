@@ -175,11 +175,10 @@ values are included in the schema and can be used as search terms.
 
 ## Appendix: CIPP GET endpoints named as actions
 
-Every GET endpoint in this build (39 of them) whose path starts with Exec,
-Remove, Add, Set, Reset, Run, Invoke, Send, Create, Delete, Update or Assign.
-Some only read (for example `ExecAlertsList`); treat all of them as possible
-changes until each one is checked. `endpoint_id` is the value `cipp_execute`
-takes.
+The 39 GET endpoints in this build whose path starts with Exec, Remove, Add,
+Set, Reset, Run, Invoke, Send, Create, Delete, Update or Assign. Some only read
+(for example `ExecAlertsList`); treat all of them as possible changes until each
+one is checked. `endpoint_id` is the value `cipp_execute` takes.
 
 | Method | Path | endpoint_id |
 | --- | --- | --- |

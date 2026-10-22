@@ -3,9 +3,9 @@
 > **Security note (until this connector is reprinted).** Do not run HTTP mode
 > (`--transport http`), not even on localhost. This build has no password,
 > listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
+> so a web page you open can reach it. The MCP tools can also read your data
+> with your credentials. Use the default stdio transport. If you set up a tunnel
+> for a remote agent, shut it down. A fix is on the way.
 
 This page wires the KnowBe4 MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
