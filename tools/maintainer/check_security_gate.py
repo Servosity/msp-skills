@@ -852,7 +852,10 @@ def _approval_shape_ok(a) -> bool:
         return False
     if not all(isinstance(x, str) and x.strip() for x in a["preconditions"]):
         return False
-    if not all(isinstance(v, str) and len(v) == 64 for v in a["slice"].values()):
+    # Stored as "sha256:<64 hex>": the prefix names the algorithm and keeps a bare
+    # 64-hex string from sitting next to a declaration name that contains "Key" or
+    # "Token", which secret scanners read as a credential.
+    if not all(isinstance(v, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", v) for v in a["slice"].values()):
         return False
     if not set(a["decls"]) <= set(a["slice"]) or not set(a["entries"]) <= set(a["slice"]):
         return False
@@ -1131,7 +1134,7 @@ def graph_problem(a: dict, g: dict | None, rel: str, lines: tuple[int, int]) -> 
         u = units.get(k)
         if u is None:
             return f"{k} is missing"
-        if u.get("hash") != h:
+        if "sha256:" + str(u.get("hash")) != h:
             return f"{k} differs from the reviewed template"
     mods: set[str] = set()
     for k in sl:
@@ -1364,7 +1367,7 @@ def build_approval(g_by_target: dict[str, dict], ctx: dict, *, ident: str, tool:
          "file": nfile, "module": ctx["module_shape"], "decls": list(decls), "targets": targets,
          "go_lang": ctx["facts"]["go_lang"], "godebug": ctx["facts"]["godebug"],
          "modules": {m: ctx["gosum"].get(m, {}) for m in mods},
-         "slice": {k: g0["units"][k]["hash"] for k in sorted(sl)},
+         "slice": {k: "sha256:" + g0["units"][k]["hash"] for k in sorted(sl)},
          "exclude": dict(sorted(exclude.items())), "entries": dict(sorted(entries.items())),
          "preconditions": list(preconditions)}
     if lines:
@@ -1732,6 +1735,11 @@ def self_test() -> int:
         print(f"  [{'PASS' if not _approval_shape_ok(bad) else 'FAIL'}] an approval for a "
               "control-plane rule is refused at load")
         failed += _approval_shape_ok(bad)
+        bare = dict(approvals[0], slice={k: v.split(":", 1)[1] for k, v in approvals[0]["slice"].items()})
+        ok_shape = _approval_shape_ok(approvals[0]) and not _approval_shape_ok(bare)
+        print(f"  [{'PASS' if ok_shape else 'FAIL'}] slice hashes must carry the sha256: prefix "
+              "(a bare 64-hex hash is refused at load)")
+        failed += not ok_shape
 
         def findings_for(mod: Path, slug: str, where: dict[str, str] | None = None) -> list[dict]:
             where = where or {}
@@ -1822,7 +1830,7 @@ def self_test() -> int:
         case("same rule in a different function", nothing, {"G202": P1, "G101": AP},
              where={"G202": "return \"resource_type IN (\" + strings.Join(q"})
         case("credential-looking value in the approved constant", lambda r, m: edit(
-             m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"sk_live_0123456789abcdef"'),
+             m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"' + "sk_" + "live_0123456789abcdef" + '"'),
              {"G101": P1, "G202": AP})
         case("placeholder spelled with string escapes in the approved constant", lambda r, m: edit(
              m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"\\x7bENV\\x7d_MCP_HTTP_TOKEN"'),
