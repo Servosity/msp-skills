@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -61,6 +62,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cli_hash  # noqa: E402  (local tools/ module: the hash this must reproduce)
+import repo_lock  # noqa: E402  (local tools/ module: writer coordination with release.py)
 import resolve_registry as rr  # noqa: E402  (local tools/ module: byte-safe JSON format detection)
 
 DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -206,10 +208,19 @@ def _tag_entry(repo: Path, tag: str, slug: str) -> tuple[str, str | None, str | 
     return sdir, entry.get("version"), mf_version
 
 
+class Plan(dict):
+    """The planned changes plus the exact bytes each was computed from, so the
+    write can refuse to overwrite anything that changed in between."""
+
+
 def plan(repo: Path, released: set[str], dates: dict[str, str]) -> tuple[dict, dict[str, str], list[str]]:
-    """(stamps {slug: hash}, changelog edits {path: new text}, report lines)."""
+    """(stamps {slug: hash}, changelog edits {path: (original text, new text)},
+    report lines). The stamps mapping also carries `.raw`, the exact
+    skills.json bytes it was computed from, which apply() compares before
+    writing."""
     reg_path = repo / REGISTRY_REL
-    reg = json.loads(reg_path.read_text(encoding="utf-8"))
+    reg_raw = reg_path.read_text(encoding="utf-8")
+    reg = json.loads(reg_raw)
     skills = reg.get("skills")
     if not isinstance(skills, dict):
         raise StampError("skills.json has no skills object")
@@ -266,16 +277,35 @@ def plan(repo: Path, released: set[str], dates: dict[str, str]) -> tuple[dict, d
         day = dates.get(tag)
         cl = repo / "skills" / sdir / "CHANGELOG.md"
         if day and cl.is_file():
-            new = date_changelog(cl.read_text(encoding="utf-8"), version, day)
+            original = cl.read_text(encoding="utf-8")
+            new = date_changelog(original, version, day)
             if new is not None:
-                edits[str(cl.relative_to(repo))] = new
+                edits[str(cl.relative_to(repo))] = (original, new)  # type: ignore[assignment]
                 report.append(f"DATED {slug} [{version}] {day}")
-    return stamps, edits, report
+    stamps_plan = Plan(stamps)
+    stamps_plan.raw = reg_raw  # type: ignore[attr-defined]
+    return stamps_plan, edits, report
 
 
-def apply(repo: Path, stamps: dict[str, str], edits: dict[str, str]) -> None:
+def _atomic_write(path: Path, text: str) -> None:
+    tmp = path.with_name(path.name + ".stamp-tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def apply(repo: Path, stamps: dict[str, str], edits: dict) -> None:
+    """Write the plan, compare-and-swap: every file must still hold exactly the
+    bytes the plan was computed from, or NOTHING is written (a stamp someone
+    set, or CHANGELOG notes someone added, since planning are never
+    overwritten). Run under repo_lock's "release" lock (see run())."""
     reg_path = repo / REGISTRY_REL
     raw = reg_path.read_text(encoding="utf-8")
+    planned_raw = getattr(stamps, "raw", None)
+    if stamps and planned_raw is not None and raw != planned_raw:
+        raise StampError("skills.json changed after it was read; nothing written (run again)")
+    for rel, (original, _new) in edits.items():
+        if (repo / rel).read_text(encoding="utf-8") != original:
+            raise StampError(f"{rel} changed after it was read; nothing written (run again)")
     if stamps:
         try:
             fmt = rr.json_format(raw)
@@ -294,15 +324,20 @@ def apply(repo: Path, stamps: dict[str, str], edits: dict[str, str]) -> None:
         touched = sum(x != y for x, y in zip(a, b))
         if len(a) != len(b) or touched != len(stamps):
             raise StampError(f"the rewrite would touch {touched} line(s) for {len(stamps)} stamp(s); nothing written")
-        reg_path.write_text(new, encoding="utf-8")
-    for rel, text in edits.items():
-        (repo / rel).write_text(text, encoding="utf-8")
+        _atomic_write(reg_path, new)
+    for rel, (_original, text) in edits.items():
+        _atomic_write(repo / rel, text)
 
 
 def run(repo: Path, released_file: Path, listing: Path | None, dry_run: bool) -> int:
+    lock = None
     try:
         released = load_released(released_file)
         dates = load_dates(listing)
+        if not dry_run:
+            # The same lock release.py holds while it writes skills.json, so a
+            # stamp is never planned against bytes another writer is changing.
+            lock = repo_lock.acquire("release", {"tool": "stamp_release"}, root=repo)
         stamps, edits, report = plan(repo, released, dates)
         for line in report:
             print(line)
@@ -315,9 +350,12 @@ def run(repo: Path, released_file: Path, listing: Path | None, dry_run: bool) ->
         apply(repo, stamps, edits)
         print(f"stamp_release: stamped {len(stamps)}, dated {len(edits)} heading(s)")
         return 0
-    except (StampError, OSError, ValueError, KeyError) as exc:
+    except (StampError, OSError, ValueError, KeyError, repo_lock.LockHeld) as exc:
         print(f"::error::stamp_release: {exc}", file=sys.stderr)
         return 1
+    finally:
+        if lock is not None:
+            repo_lock.release(lock)
 
 
 # --------------------------------------------------------------------------- #
@@ -429,6 +467,46 @@ def _self_test() -> int:
         out = subprocess.run([sys.executable, __file__, "--repo", str(work), "--released-tags", str(released),
                               "--dry-run"], capture_output=True, text=True, env=env)
         expect("STAMPED alpha" in out.stdout, "... and with the directory unchanged it is stamped")
+        sh("checkout", "-q", "--", ".")
+        print("writes are compare-and-swap, under release.py's lock:")
+        reg_all = json.loads((work / REGISTRY_REL).read_text())
+        reg_all["skills"]["alpha"]["cli_hash_at_release"] = None
+        (work / REGISTRY_REL).write_text(json.dumps(reg_all, indent=2, ensure_ascii=True) + "\n")
+        cl = work / "skills/alpha/CHANGELOG.md"
+        cl.write_text(cl.read_text().replace("## [0.1.0] - 2026-10-20", "## [0.1.0]"))
+        dates = load_dates(listing)
+        p_stamps, p_edits, _r = plan(work, {"alpha-v0.1.0"}, dates)
+        hand = json.loads((work / REGISTRY_REL).read_text())
+        hand["skills"]["alpha"]["cli_hash_at_release"] = "sha256:" + "1" * 64  # someone fixes it by hand meanwhile
+        hand_text = json.dumps(hand, indent=2, ensure_ascii=True) + "\n"
+        (work / REGISTRY_REL).write_text(hand_text)
+        try:
+            apply(work, p_stamps, p_edits)
+            ok = False
+        except StampError:
+            ok = True
+        expect(ok and (work / REGISTRY_REL).read_text() == hand_text,
+               "a stamp set by hand after planning is never overwritten")
+        (work / REGISTRY_REL).write_text(json.dumps(reg_all, indent=2, ensure_ascii=True) + "\n")
+        p_stamps, p_edits, _r = plan(work, {"alpha-v0.1.0"}, dates)
+        notes = cl.read_text() + "\n### Fixed\n- Added while the stamp was planned.\n"
+        cl.write_text(notes)
+        try:
+            apply(work, p_stamps, p_edits)
+            ok = False
+        except StampError:
+            ok = True
+        expect(ok and cl.read_text() == notes and "null" in (work / REGISTRY_REL).read_text(),
+               "CHANGELOG notes added after planning are kept, and nothing at all is written")
+        holder = subprocess.Popen([sys.executable, "-c", "import sys, time; sys.path.insert(0, sys.argv[1]); import repo_lock;"
+                                   "repo_lock.acquire('release', root=sys.argv[2]); print('x', flush=True); time.sleep(60)",
+                                   str(Path(__file__).resolve().parent), str(work)], stdout=subprocess.PIPE, text=True, env=env)
+        holder.stdout.readline()
+        rc_locked = run(work, released, listing, dry_run=False)
+        holder.kill()
+        holder.wait()
+        expect(rc_locked == 1 and "null" in (work / REGISTRY_REL).read_text(),
+               "while release.py holds its lock, the stamp writes nothing")
         sh("checkout", "-q", "--", ".")
         (work / ".gitattributes").write_text("*.go text eol=crlf\n")
         sh("add", ".gitattributes")

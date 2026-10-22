@@ -653,6 +653,29 @@ def unstaged_outside(repo: Path, allowed: set[str]) -> list[str]:
     return bad
 
 
+def _restore_pin_side_effects(repo: Path, paths: list[str]) -> list[str]:
+    """Put back the ONE side effect the generators are known to have outside
+    the derived set: a skill README whose only difference from the index is the
+    `.mcpb` pin re-minted from local git tags. Returns the paths that are NOT
+    provably that (someone's edit, or anything else) - those are left exactly
+    as they are, never checked out."""
+    unexpected = []
+    pins = []
+    for path in paths:
+        idx = subprocess.run(["git", "-C", str(repo), "show", f":{path}"], capture_output=True)
+        f = repo / path
+        cur = f.read_bytes() if f.is_file() else None
+        if (_SKILL_README_RE.match(path) and idx.returncode == 0 and cur is not None
+                and release_matrix.readme_pin_only(idx.stdout.decode("utf-8", "replace"),
+                                                   cur.decode("utf-8", "replace"))):
+            pins.append(path)
+        else:
+            unexpected.append(path)
+    if pins:
+        git(repo, "checkout", "--", *pins)
+    return unexpected
+
+
 def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
                          generators: tuple[str, ...] = GENERATORS) -> list[str]:
     """Run the repo's own generators, stage the tree-derived files they wrote,
@@ -682,8 +705,13 @@ def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
     if stray:
         raise RuntimeError("generators created untracked non-derived files: " + ", ".join(stray))
     if foreign:
-        out("  restoring generator side effects outside the derived set: " + ", ".join(foreign))
-        git(repo, "checkout", "--", *foreign)
+        unexpected = _restore_pin_side_effects(repo, foreign)
+        restored = [p for p in foreign if p not in unexpected]
+        if restored:
+            out("  put back the generator's skill-README pin re-mints: " + ", ".join(restored))
+        if unexpected:
+            raise RuntimeError("files outside the generated set changed while the generators ran, and not as a "
+                               "generator would change them; left exactly as they are: " + ", ".join(unexpected))
     if derived:
         git(repo, "add", "-A", "--", *derived)
     return derived
@@ -745,7 +773,10 @@ def recheck(repo: Path, main_formats: dict[str, object] | None = None,
     foreign = [p for xy, p in _porcelain(repo)
                if not is_tree_derived(p) and xy != "??" and xy[1] != " "]
     if foreign:
-        git(repo, "checkout", "--", *foreign)  # the generators' pin side effects again
+        unexpected = _restore_pin_side_effects(repo, foreign)  # the generators' pin re-mints again
+        if unexpected:
+            problems.append("files outside the generated set changed during the re-check run, left as they are: "
+                            + ", ".join(unexpected))
     return problems
 
 
@@ -919,6 +950,8 @@ readme = root / "README.md"
 block = "".join(f"- {s}\\n" for s in slugs)
 readme.write_text(re.sub(r"(<!-- catalog:start -->)(.*?)(<!-- catalog:end -->)",
                          lambda m: m.group(1) + "\\n" + block + m.group(3), readme.read_text(), flags=re.S))
+if (root / "edit-during-generation").exists():  # a person editing a file while this runs
+    (root / "docs/guide.md").write_text("edited while the generator ran\\n")
 tags = subprocess.run(["git", "-C", str(root), "tag", "--list", "zz-*"], capture_output=True, text=True).stdout.split()
 r = root / "skills/alpha/README.md"
 if tags and r.is_file():
@@ -1332,6 +1365,15 @@ def _self_test() -> int:
         changed = regenerate_and_stage(w, quiet)
         expect("catalog.json" in changed and "README.md" in changed,
                "a registry change stages the derived files it changes")
+        run("git", "commit", "-q", "-s", "-m", "regen", cwd=w)
+        (w / "edit-during-generation").write_text("x\n")
+        try:
+            regenerate_and_stage(w, quiet)
+            ok = False
+        except RuntimeError as exc:
+            ok = "docs/guide.md" in str(exc)
+        expect(ok and (w / "docs/guide.md").read_text() == "edited while the generator ran\n",
+               "an edit made to another file while the generators run stops the run and is kept, never checked out")
 
         # 9. Partly generated files: hand-written prose is never discarded.
         print("partly generated files (README prose, issue forms):")

@@ -785,12 +785,7 @@ class Merger:
         remote_head = self.git.out("rev-parse", f"refs/remotes/{o.remote}/{branch}")
         if remote_head != head:
             raise Stop(EXIT_REFUSED, f"the PR head moved while starting ({head[:12]} -> {remote_head[:12]}); re-run")
-        for wt in branch_worktrees(self.git, branch):
-            probs = worktree_problems(self.git, wt, branch, head)
-            if probs:
-                raise Stop(EXIT_REFUSED, "a worktree with this branch checked out is not safe to rewrite under:\n  "
-                           + "\n  ".join(probs))
-            self.say(f"==> {wt} has {branch} checked out: clean, idle and pushed (left untouched)")
+        self._check_branch_worktrees(branch, head, announce=True)
         required = list(self.o.required) if self.o.required is not None else self.gh.required_contexts()
         self.say(f"==> required contexts: {', '.join(required) or '(none: main is not protected)'}")
         current = head
@@ -806,6 +801,11 @@ class Merger:
                 if o.dry_run:
                     self.say(f"==> [dry run] would push {new[:12]} to {branch} with --force-with-lease={current[:12]}")
                 else:
+                    # Everything that made the rewrite safe, checked again right
+                    # before it: the PR (still open, into main, same head) and every
+                    # worktree with the branch checked out (still clean, idle, pushed).
+                    self._checked_pr(current, branch)
+                    self._check_branch_worktrees(branch, current)
                     self.git.run("push", f"--force-with-lease=refs/heads/{branch}:{current}", o.remote,
                                  f"{new}:refs/heads/{branch}", cwd=self.wt)
                     self.say(f"==> pushed {new[:12]} (lease {current[:12]})")
@@ -855,6 +855,15 @@ class Merger:
         if head is not None and pr.get("headRefOid") != head:
             raise Stop(EXIT_REFUSED, f"the PR head moved to {str(pr.get('headRefOid'))[:12]}; not merging")
         return pr
+
+    def _check_branch_worktrees(self, branch: str, head: str, announce: bool = False) -> None:
+        for wt in branch_worktrees(self.git, branch):
+            probs = worktree_problems(self.git, wt, branch, head)
+            if probs:
+                raise Stop(EXIT_REFUSED, "a worktree with this branch checked out is not safe to rewrite under:\n  "
+                           + "\n  ".join(probs))
+            if announce:
+                self.say(f"==> {wt} has {branch} checked out: clean, idle and pushed (left untouched)")
 
     def _count_rebase(self) -> None:
         self.rebases += 1
@@ -1830,6 +1839,31 @@ def _self_test() -> int:
             Merger._approvals = orig_approvals  # type: ignore[method-assign]
         expect(rc == EXIT_REFUSED and fake.merged is None and fake.merge_calls == 0,
                "a PR retargeted after the final checks is caught by the look immediately before the merge call")
+
+        # T8c3: the PR is retargeted, or its worktree dirtied, before the push.
+        for label, act in (("the PR retargeted", "retarget"), ("the branch's worktree dirtied", "dirty")):
+            origin, work, branch = world()
+            new_connector_pr(work)  # two commits: a squash and a push are needed
+            side = tmp / f"side-{act}-{counter[0]}"
+            sh("git", "worktree", "add", "-q", str(side), "skill/bravo", cwd=work)
+            head_before = origin_rev(origin, "refs/heads/skill/bravo")
+            fake = FakeGitHub(origin, env, 29, branch, "skill: bravo", green)
+            orig_prepare = Merger._prepare
+
+            def prepare_then_act(self, head, base, title, fk=fake, a=act, s=side, orig=orig_prepare):
+                out = orig(self, head, base, title)
+                if a == "retarget":
+                    fk.base_ref = "release"
+                else:
+                    (s / "unsaved.txt").write_text("work in progress\n")
+                return out
+            Merger._prepare = prepare_then_act  # type: ignore[method-assign]
+            try:
+                rc, logs = merger(work, fake, require=())
+            finally:
+                Merger._prepare = orig_prepare  # type: ignore[method-assign]
+            expect(rc == EXIT_REFUSED and origin_rev(origin, "refs/heads/skill/bravo") == head_before,
+                   f"{label} after preparing and before the push: the branch is not rewritten")
 
         # T8d: ownership-aware lock release.
         print("lock ownership:")

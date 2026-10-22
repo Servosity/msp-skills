@@ -209,6 +209,49 @@ run_done() { # <run id>: wait until a run completes; prints its conclusion
   done
 }
 
+still_rerunnable() { # <tag> <run id> <commit> <errfile>: re-read; print why not, or nothing
+  local info st concl hsha rel
+  info=$(gh run view "$2" -R "$GH_REPO" --json status,conclusion,headSha \
+    -q '"\(.status) \(.conclusion) \(.headSha)"' </dev/null 2>/dev/null) || {
+    echo "the run could not be read again"
+    return 1
+  }
+  st=$(printf '%s' "$info" | awk '{print $1}')
+  concl=$(printf '%s' "$info" | awk '{print $2}')
+  hsha=$(printf '%s' "$info" | awk '{print $3}')
+  [ "$st" = completed ] || {
+    echo "it is running again ($st)"
+    return 1
+  }
+  [ "$concl" != success ] || {
+    echo "it already succeeded"
+    return 1
+  }
+  [ "$hsha" = "$3" ] || {
+    echo "the run is now for $hsha, not $3"
+    return 1
+  }
+  if ! rel=$(gh release view "$1" -R "$GH_REPO" --json isDraft -q .isDraft </dev/null 2>"$4"); then
+    if grep -q "release not found" "$4"; then rel=missing; else rel=unreadable; fi
+  fi
+  case "$rel" in
+    true | missing) ;;
+    false)
+      echo "the release has been published since; immutable, not re-running"
+      return 1
+      ;;
+    *)
+      echo "the release state is now $rel; not re-running"
+      return 1
+      ;;
+  esac
+  probe_from_main --sha "$3" >"$4" 2>&1 || {
+    echo "origin/main's probe now refuses $3"
+    return 1
+  }
+  return 0
+}
+
 rerun_failed() {
   # Recovery after a wave whose runs failed (e.g. the Actions-token API limit:
   # "HTTP 403: API rate limit exceeded for installation" at create-release).
@@ -217,10 +260,8 @@ rerun_failed() {
   # executes release.yml AS IT IS AT THE TAGGED COMMIT, so every candidate must
   # pass main's pipeline probe on that commit first, and the run must be for it.
   local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
-  local trustwt
+  local why
   fetch_and_check_self
-  worktree_at "$MAIN_SHA"
-  trustwt=$NEW_WT
   errf=$(mktemp)
   while IFS= read -r t; do
     [ -n "$t" ] || continue
@@ -274,14 +315,13 @@ rerun_failed() {
       fail=1
       continue
     fi
-    if ! (cd "$trustwt" && "$PYTHON" tools/maintainer/check_release_pipeline.py --repo "$REPO" --sha "$commit") \
-      </dev/null >"$errf" 2>&1; then
+    if ! probe_from_main --sha "$commit" >"$errf" 2>&1; then
       sed 's/^/    /' "$errf"
       say "PROBE-REFUSED $t: release.yml at $commit must not be re-run (it could seal an incomplete immutable release)"
       fail=1
       continue
     fi
-    queue="$queue$t $id
+    queue="$queue$t $id $commit
 "
     n_q=$((n_q + 1))
   done <<<"$TAG_LIST"
@@ -289,7 +329,7 @@ rerun_failed() {
   say "rerun-failed: $n_q failed run(s) to re-run, ${CUT_TAGS_RERUN_BATCH:-3} at a time$([ "$dry" = 1 ] && echo ' (dry run: nothing is re-run)')"
   if [ "$dry" = 1 ]; then
     while IFS= read -r entry; do
-      [ -n "$entry" ] && say "WOULD-RERUN ${entry%% *} ${entry##* }"
+      [ -n "$entry" ] && say "WOULD-RERUN $(printf '%s' "$entry" | awk '{print $1, $2}')"
     done <<<"$queue"
     rm -f "$errf"
     return "$fail"
@@ -297,8 +337,16 @@ rerun_failed() {
   while IFS= read -r entry; do
     [ -n "$entry" ] || continue
     wait_for_capacity
-    bt=${entry%% *}
-    bid=${entry##* }
+    bt=$(printf '%s' "$entry" | awk '{print $1}')
+    bid=$(printf '%s' "$entry" | awk '{print $2}')
+    commit=$(printf '%s' "$entry" | awk '{print $3}')
+    # Everything that justified this re-run is read again now: another operator
+    # may have finished it, sealed the release, or main may have changed.
+    if ! why=$(still_rerunnable "$bt" "$bid" "$commit" "$errf"); then
+      say "SKIP $bt: $why"
+      case "$why" in "it already succeeded"* | "it is running"*) ;; *) fail=1 ;; esac
+      continue
+    fi
     if gh run rerun "$bid" -R "$GH_REPO" --failed </dev/null >/dev/null 2>&1; then
       say "RERUN $bt $bid"
     else
@@ -327,6 +375,24 @@ rerun_failed() {
   return "$fail"
 }
 
+probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on this clone
+  # The probe imports nothing local and reads burned_versions.json beside
+  # itself, so the two files from main's tip ARE main's probe; extracting them
+  # per check is cheap, so the probe is never older than the moment it runs.
+  local d rc=0
+  git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
+  MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
+  d=$(mktemp -d)
+  if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
+    ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/burned_versions.json" >"$d/burned_versions.json"; then
+    rm -rf "$d"
+    return 1
+  fi
+  "$PYTHON" "$d/check_release_pipeline.py" --repo "$REPO" "$@" </dev/null || rc=$?
+  rm -rf "$d"
+  return "$rc"
+}
+
 remote_tag_commit() { # the commit a remote tag points at (peeled), or nothing
   local out
   out=$(git -C "$REPO" ls-remote "$REMOTE" "refs/tags/$1" "refs/tags/$1^{}") || return 1
@@ -334,19 +400,21 @@ remote_tag_commit() { # the commit a remote tag points at (peeled), or nothing
 }
 
 cut() {
-  local sha=$1 dry=$2 full t slug ver remote_at run i probe_out shawt trustwt handled=0
+  local sha=$1 dry=$2 full t slug ver remote_at run i probe_out shawt handled=0
   fetch_and_check_self
   full=$(git -C "$REPO" rev-parse --verify -q "${sha}^{commit}") || die "REFUSE $sha is not a commit in $REPO"
   worktree_at "$full"
   shawt=$NEW_WT
-  worktree_at "$MAIN_SHA"
-  trustwt=$NEW_WT
   probe_out=$(mktemp)
   say "cut_tags: $TAG_COUNT tag(s) at $full$([ "$dry" = 1 ] && echo ' (dry run: nothing is pushed)')"
   while IFS= read -r t; do
     [ -n "$t" ] || continue
     slug=${t%-v*}
     ver=${t##*-v}
+    # Capacity first: the checks below must be the last thing before the push,
+    # not something done before an hour-long wait (main can retire a version
+    # or someone can cut the tag meanwhile).
+    [ "$dry" = 1 ] || wait_for_capacity
     remote_at=$(remote_tag_commit "$t") || die "REFUSE $t: cannot ask $REMOTE whether it exists"
     if [ -n "$remote_at" ]; then
       if [ "$remote_at" = "$full" ]; then
@@ -356,9 +424,9 @@ cut() {
       fi
       die "EXISTS-ELSEWHERE $t points at $remote_at, not $full (stopping; never move a release tag)"
     fi
-    if ! (cd "$trustwt" && "$PYTHON" tools/maintainer/check_release_pipeline.py --repo "$REPO" --tag "$t" --sha "$full") >"$probe_out" 2>&1; then
+    if ! probe_from_main --tag "$t" --sha "$full" >"$probe_out" 2>&1; then
       sed 's/^/    /' "$probe_out"
-      die "PROBE-REFUSED $t"
+      die "PROBE-REFUSED $t (origin/main ${MAIN_SHA:0:12}'s probe)"
     fi
     if ! (cd "$shawt" && "$PYTHON" tools/maintainer/changelog_section.py --slug "$slug" --version "$ver" --check) >"$probe_out" 2>&1; then
       sed 's/^/    /' "$probe_out"
@@ -369,7 +437,6 @@ cut() {
       handled=$((handled + 1))
       continue
     fi
-    wait_for_capacity
     git -C "$REPO" push -q "$REMOTE" "${full}:refs/tags/${t}" </dev/null
     say "PUSHED $t"
     run=""
@@ -584,9 +651,17 @@ case "\$1 \$2" in
   "run rerun")
     echo "rerun \$3" >>"\$state/calls.txt"; echo 0 >"\$state/rerun/\$3" ;;
   "run view")
-    v=\$(cat "\$state/rerun/\$3" 2>/dev/null || echo 9)
+    if [ ! -f "\$state/rerun/\$3" ]; then  # not re-run by us: its recorded state
+      line=\$(grep -h "^\$3 " "\$state"/releases/*.runinfo 2>/dev/null | head -1)
+      [ -n "\$line" ] || exit 1
+      echo "\${line#* }"; exit 0
+    fi
+    v=\$(cat "\$state/rerun/\$3")
     if [ "\$v" -lt 1 ]; then echo 1 >"\$state/rerun/\$3"; echo "in_progress null"
-    else echo "done \$3" >>"\$state/calls.txt"; echo "completed success"; fi ;;
+    else
+      echo "done \$3" >>"\$state/calls.txt"; echo "completed success"
+      [ -f "\$state/on-done-\$3.sh" ] && sh "\$state/on-done-\$3.sh"
+    fi ;;
   "release view")
     if [ -f "\$state/releases/\$3.error" ]; then cat "\$state/releases/\$3.error" >&2; exit 1; fi
     [ -f "\$state/releases/\$3.json" ] || { echo "release not found" >&2; exit 1; }
@@ -596,6 +671,7 @@ case "\$1 \$2" in
     esac ;;
   "api repos/fake/repo/releases") cat "\$state/drafts.txt" 2>/dev/null || true ;;
   "api repos/fake/repo/actions/workflows/release.yml/runs?status=in_progress&per_page=1")
+    if [ -f "\$state/on-count.sh" ]; then mv "\$state/on-count.sh" "\$state/on-count.ran"; sh "\$state/on-count.ran" >/dev/null 2>&1; fi
     n=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
     echo x >>"\$state/counts.txt"
     if [ \$((\$(wc -l <"\$state/counts.txt") % 3)) -eq 0 ]; then
@@ -677,10 +753,10 @@ FAKE
   expect "a pushed tag whose Release run never registers stops the run" $?
 
   echo "releases in flight are capped (the 52-run API-limit wave):"
-  for s in zz-c1 zz-c2 zz-c3 zz-c4 zz-c5; do
+  for s in zz-c1 zz-c2 zz-c3 zz-c4 zz-c5 zz-c6; do
     connector "$s" 0.1.0
     printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
-    echo "$s-v0.1.0"
+    [ "$s" = zz-c6 ] || echo "$s-v0.1.0"
   done >"$tmp/tags-wave.txt"
   git -C "$tmp/repo" add -A
   git -C "$tmp/repo" commit -q -m "five connectors" -s
@@ -693,6 +769,19 @@ FAKE
     && before_wait=${out%%WAIT *} && before_push=${out%%PUSHED *} && [ "${#before_wait}" -lt "${#before_push}" ] \
     && [ "$(sort -n "$tmp/flight.txt" | tail -1)" -le 1 ] && [ "$(grep -c . "$tmp/flight.txt")" -eq 5 ]
   expect "with a cap of 2 and 2 older runs still going, it waits first, then never pushes past 1 other in flight" $?
+  # While the run waits for capacity, main retires zz-c6-v0.1.0: the push must
+  # be refused by the probe run AFTER the wait, against main as it is then.
+  echo in_progress >"$tmp/runs/aa-older-wave-3"
+  cat >"$tmp/on-count.sh" <<RETIRE
+cd "$tmp/repo" || exit 1
+printf '{\n  "burned": [\n    {"tag": "zz-c6-v0.1.0", "date": "2026-10-22", "why": "fixture: retired mid-wait"}\n  ]\n}\n' >tools/maintainer/burned_versions.json
+git commit -q -am "retire zz-c6-v0.1.0" -s && git push -q origin main
+RETIRE
+  printf 'zz-c6-v0.1.0\n' >"$tmp/tags-c6.txt"
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=1 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-c6.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && [ -f "$tmp/on-count.ran" ] && has "WAIT" && has "PROBE-REFUSED zz-c6-v0.1.0" && has "TAG-BURNED" \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-c6-v0.1.0 >/dev/null
+  expect "a version main retires while the push waits for capacity is refused (checks run after the wait)" $?
   printf 'zz-one-v0.1.7\n' >"$tmp/tags-unknown.txt"
   connector zz-one 0.1.7
   printf '# Changelog\n\n## [0.1.7] - 2026-10-22\n\n### Fixed\n- A fix.\n' >"$tmp/repo/skills/zz-one/CHANGELOG.md"
@@ -771,7 +860,7 @@ PY
   git -C "$tmp/repo" commit -q -am "publish-first pipeline" -s
   bad=$(git -C "$tmp/repo" rev-parse HEAD)
   git -C "$tmp/repo" checkout -q main
-  for v in 1 2 3 4 5 6 7 8 9 10; do
+  for v in 1 2 3 4 5 6 7 8 9 10 11; do
     at=$good
     [ "$v" = 9 ] && at=$bad
     git -C "$tmp/repo" push -q origin "$at:refs/tags/zz-new-v1.0.$v"
@@ -779,31 +868,36 @@ PY
   rm -f "$tmp"/runs/*
   printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.1.json"
   printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.3.json"
+  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.11.json"
   printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.4.json"
   printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.5.json"
   printf '{"assets": []}' >"$tmp/releases/zz-new-v1.0.7.json"  # draft state unreadable
   echo "HTTP 403: API rate limit exceeded for installation" >"$tmp/releases/zz-new-v1.0.8.error"
-  for v in 1 2 3 4 5 7 8 9 10; do
+  for v in 1 2 3 4 5 7 8 9 10 11; do
     at=$good
     [ "$v" = 9 ] && at=$bad
     [ "$v" = 10 ] && at=$bad
     case $v in 4) echo "70$v completed success $at" ;; *) echo "70$v completed failure $at" ;; esac \
       >"$tmp/releases/zz-new-v1.0.$v.runinfo"
   done
-  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 8 9 10 >"$tmp/tags-recover.txt"
+  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 8 9 10 11 >"$tmp/tags-recover.txt"
   : >"$tmp/calls.txt"
   : >"$tmp/drafts.txt"
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --dry-run --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
   ! grep -q "^rerun" "$tmp/calls.txt" && has "WOULD-RERUN zz-new-v1.0.1 701" && has "WOULD-RERUN zz-new-v1.0.3 703"
   expect "--dry-run --rerun-failed lists what it would re-run and re-runs nothing" $?
   pushes_before=$(grep -c . "$tmp/origin.git/pushes.txt")
+  # While the first batch runs, another operator seals zz-new-v1.0.3.
+  printf 'printf %s >"%s"\n' "'{\"isDraft\": false, \"assets\": []}'" "$tmp/releases/zz-new-v1.0.3.json" >"$tmp/on-done-702.sh"
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
   rc=1
-  if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort | tr '\n' ' ')" = "701 702 703 " ]; then rc=0; fi
+  if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort -n | tr '\n' ' ')" = "701 702 7011 " ]; then rc=0; fi
   expect "exactly the failed runs whose release is not published, on a safe pipeline, are re-run" "$rc"
   rc=1
-  if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 703 done 703 " ]; then rc=0; fi
+  if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 7011 done 7011 " ]; then rc=0; fi
   expect "re-runs go out in batches of 2, each batch finished before the next starts" "$rc"
+  has "SKIP zz-new-v1.0.3: the release has been published since"
+  expect "a release sealed by someone else between batches is re-checked and not re-run" $?
   has "SEALED-PARTIAL zz-new-v1.0.5" && has "NO-RUN zz-new-v1.0.6" \
     && has "OK zz-new-v1.0.4" && has "UNKNOWN-STATE zz-new-v1.0.7" && has "UNKNOWN-STATE zz-new-v1.0.8" \
     && [ "$rrc" -ne 0 ]
