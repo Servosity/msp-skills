@@ -864,7 +864,7 @@ class Merger:
             if verdicts is None:  # something changed since the green verdict: validate again
                 self._count_rebase()
                 continue
-            outcome = self._merge(current, base, verdicts)  # the very next call: nothing in between
+            outcome = self._merge(current, base, verdicts, required)  # the very next call: nothing in between
             if outcome == "retry":
                 self._count_rebase()
                 continue
@@ -1249,7 +1249,7 @@ class Merger:
             return None
         return now
 
-    def _merge(self, sha: str, base: str, verdicts: list[list[str]]) -> int | str:
+    def _merge(self, sha: str, base: str, verdicts: list[list[str]], required: list[str]) -> int | str:
         """One merge attempt, never a blind retry, straight after _final_gate.
         GitHub's merge call can pin the head (--match-head-commit) but not the
         base, and this repository's protection is not strict, so PROVE
@@ -1274,7 +1274,7 @@ class Merger:
         if not merge or self.git.run("cat-file", "-e", f"{merge}^{{commit}}", check=False).returncode != 0:
             raise Stop(EXIT_ERROR, f"merged, but the merge commit {merge[:12] or '(none reported)'} cannot be read "
                                    "to prove it sits on the validated base; check main by hand")
-        after = self._verdicts_after_merge(sha)
+        after = self._verdicts_after_merge(sha, required)
         if after != verdicts:
             raise Stop(EXIT_RACE_RED, f"merged #{o.pr} as {merge[:12]}, but the checks on {sha[:12]} changed between "
                                       f"the final gate and the merge ({'; '.join(_changed(verdicts, after)[:5])}): "
@@ -1302,9 +1302,12 @@ class Merger:
         raise Stop(EXIT_RACE_RED, race + f" Main's CI on {merge[:12]} is {verdict.upper()} ({detail}): stop the "
                                          "chain; nothing may be tagged or released from main until it is green.")
 
-    def _verdicts_after_merge(self, sha: str) -> list[list[str]] | None:
+    def _verdicts_after_merge(self, sha: str, required: list[str]) -> list[list[str]] | None:
         """The head's check verdicts read again after the merge, or None when
-        no complete listing can be read (which never matches: unverified)."""
+        no complete listing can be read (which never matches: unverified).
+        The snapshot must also pass the gate's own _evaluate(), so nothing the
+        gate judged (the combined status, a missing required context) can
+        read green afterwards by being left out of the comparison."""
         for _ in range(3):
             try:
                 snap = self.gh.snapshot(sha)
@@ -1312,7 +1315,9 @@ class Merger:
                 self.say(f"    the checks on {sha[:12]} could not be read after the merge ({str(exc)[:200]})")
                 snap = {"incomplete": "lookup failed"}
             if not snap.get("incomplete"):
-                return verdicts_of(snap)
+                pending, failed = self._evaluate(snap, required)
+                bad = pending + [f"{f.get('name')} {f.get('conclusion')}" for f in failed]
+                return verdicts_of(snap) + ([["not-green", "; ".join(bad)[:300], "", ""]] if bad else [])
             self.sleep(self.o.poll_s)
         return None
 
@@ -1371,12 +1376,14 @@ class Merger:
 
 
 def verdicts_of(snap: dict) -> list[list[str]]:
-    """Every check run, workflow run and status on a commit as comparable
-    (kind, name, status, conclusion) rows: a same-SHA re-run that is pending,
-    or ends differently, changes them."""
+    """Every check run, workflow run and status on a commit, and the combined
+    status state, as comparable (kind, name, status, conclusion) rows: a
+    same-SHA re-run that is pending, or ends differently, changes them."""
     rows = [["check", str(c.get("name")), str(c.get("status")), str(c.get("conclusion"))] for c in snap["checks"]]
     rows += [["run", str(r.get("name")), str(r.get("status")), str(r.get("conclusion"))] for r in snap["runs"]]
     rows += [["status", str(x.get("context")), str(x.get("state")), ""] for x in snap["statuses"]]
+    if snap["statuses"]:  # GitHub's combined state, read alongside, can disagree with the rows
+        rows.append(["combined", str(snap.get("combined_state")), "", ""])
     return sorted(rows)
 
 
@@ -1539,6 +1546,7 @@ class FakeGitHub:
         self.merge_calls = 0
         self.snapshots = 0
         self.snapshot_error_after_merge = False
+        self.combined_after_merge: str | None = None
         self._next = 1000
 
     def _git(self, *a: str) -> str:
@@ -1582,7 +1590,11 @@ class FakeGitHub:
         runs = [{"name": run, "status": by[check]["status"], "event": "pull_request",
                  "conclusion": by[check]["conclusion"]} for run, check in (("CI", "guards"),
                                                                           ("security-gate", "security-gate"))]
-        return {"runs": runs, "checks": checks, "statuses": [{"context": "CodeRabbit", "state": "success"}]}
+        snap = {"runs": runs, "checks": checks, "statuses": [{"context": "CodeRabbit", "state": "success"}],
+                "combined_state": "success"}
+        if self.combined_after_merge and self.state == "MERGED":
+            snap["combined_state"] = self.combined_after_merge  # the rows still read success
+        return snap
 
     def job_log(self, job_id: int) -> str:
         return self.logs.get(job_id, "")
@@ -2338,6 +2350,16 @@ def _self_test() -> int:
         expect(rc == EXIT_RACE_RED and fake.merged is not None
                and any("no complete check listing" in s for s in logs),
                f"checks that cannot be read after the merge: exit 8, unverified, not exit 0 or 1 (rc={rc})")
+        for combined in ("failure", "pending"):
+            origin, work, branch = world()
+            new_connector_pr(work, extra_commit=False)
+            fake = FakeGitHub(origin, env, 35, branch, "skill: bravo", green)
+            fake.combined_after_merge = combined
+            rc, logs = merger(work, fake, require=())
+            expect(rc == EXIT_RACE_RED and fake.merged is not None
+                   and any("changed between the final gate and the merge" in s and f"combined {combined}" in s
+                           for s in logs),
+                   f"a combined status of {combined} after the merge, its rows still success: exit 8 (rc={rc})")
 
         # T9: failing checks.
         print("failing checks (flake, real, unknown, stale base):")
