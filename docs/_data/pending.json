@@ -182,9 +182,9 @@
     "released_hash": "sha256:566e8b1bed96bf229678d5796b832e783a215e2dc2d9705c359c747c101f447f"
   },
   "crowdstrike": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "crowdstrike-v0.1.6",
+    "latest_tag": "crowdstrike-v0.1.7",
     "current_hash": "sha256:38e78dffed76d0ed9cfd0c248dc3e6c90bbc7f0634fac19cd0f0fec287369dc2",
     "released_hash": "sha256:38e78dffed76d0ed9cfd0c248dc3e6c90bbc7f0634fac19cd0f0fec287369dc2"
   },
@@ -196,9 +196,9 @@
     "released_hash": "sha256:7507a6e3026f77ccf70b5ab81bb757778af14379aeb3dd26705557d65c196edf"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "datto-bcdr-v0.1.8",
+    "latest_tag": "datto-bcdr-v0.1.9",
     "current_hash": "sha256:b13249d8b56f935e86ff86829b16edceff80aa9effcbcf1f7f4f8e2daf06b96f",
     "released_hash": "sha256:b13249d8b56f935e86ff86829b16edceff80aa9effcbcf1f7f4f8e2daf06b96f"
   },
