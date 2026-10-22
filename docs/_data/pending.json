@@ -91,9 +91,9 @@
     "released_hash": "sha256:fa36931d7cbbfa6026054e360b0f622adf3088e16dc9f5b70269da1b0a37ebc0"
   },
   "bitdefender": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "bitdefender-v0.1.1",
+    "latest_tag": "bitdefender-v0.1.2",
     "current_hash": "sha256:c3daf6f3046ea98d654f5d98e69597d339e9a313b354cc7834c9c71bfc35e713",
     "released_hash": "sha256:c3daf6f3046ea98d654f5d98e69597d339e9a313b354cc7834c9c71bfc35e713"
   },
@@ -182,9 +182,9 @@
     "released_hash": "sha256:566e8b1bed96bf229678d5796b832e783a215e2dc2d9705c359c747c101f447f"
   },
   "crowdstrike": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "crowdstrike-v0.1.7",
+    "latest_tag": "crowdstrike-v0.1.8",
     "current_hash": "sha256:6a1a82661e3344c1317311a936f00fd2468d3db1307d153dcdcc0d2a8549908b",
     "released_hash": "sha256:6a1a82661e3344c1317311a936f00fd2468d3db1307d153dcdcc0d2a8549908b"
   },
