@@ -1,8 +1,8 @@
 {
   "abnormal": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "abnormal-v0.1.4",
+    "latest_tag": "abnormal-v0.1.5",
     "current_hash": "sha256:a1c863510ee4f21ef7fc0953bf2b19864bb68fb2991fb3218e7c45e0516a809e",
     "released_hash": "sha256:a1c863510ee4f21ef7fc0953bf2b19864bb68fb2991fb3218e7c45e0516a809e"
   },
@@ -35,9 +35,9 @@
     "released_hash": "sha256:3f018c15d5ee91c3261bf666a2c5927744c0e9fe36edfcb1a48d2bb2fd262907"
   },
   "atera": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "atera-v0.1.5",
+    "latest_tag": "atera-v0.1.6",
     "current_hash": "sha256:ca812033d6a5512b9db3f31c245c1a182213884d293b1848899a1e20d9ae0da0",
     "released_hash": "sha256:ca812033d6a5512b9db3f31c245c1a182213884d293b1848899a1e20d9ae0da0"
   },
