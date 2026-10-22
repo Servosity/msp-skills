@@ -26,6 +26,7 @@
 #                           *_linux.go natively)                  [build]
 #   unix-only test lint     check_unix_test_asserts.py            [windows, predicted]
 #   cli claims / doctor truth / mcp gate / hand-fix ledger        [build]
+#   no destructive create alias   check_command_tree.py (#416)    [verify_all]
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
@@ -111,6 +112,7 @@ check "cli claims"             python3 tools/maintainer/check_cli_claims.py --sl
 check "doctor truth"           python3 tools/maintainer/check_doctor_truth.py --slug "$slug"
 check "mcp gate"               python3 tools/maintainer/check_mcp_gate.py --slug "$slug"
 check "hand-fix ledger"        python3 tools/maintainer/check_handfixes.py --slug "$slug"
+check "no destructive create alias" python3 tools/maintainer/check_command_tree.py --slug "$slug" --jobs 1
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
 # The parent accepts this connector's records only when this line exists: a

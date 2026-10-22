@@ -239,6 +239,7 @@ for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py c
   gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
 done
 gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
+gate "self-test check_command_tree.py" repo "" 0 python3 tools/maintainer/check_command_tree.py --self-test
 gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
 matrix_sane() {
   python3 tools/maintainer/release_matrix.py \
