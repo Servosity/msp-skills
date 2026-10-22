@@ -119,6 +119,7 @@ import resolve_registry as rr  # noqa: E402  (local tools/ module)
 
 EXIT_OK, EXIT_ERROR, EXIT_REFUSED, EXIT_CONFLICT = 0, 1, 2, 3
 EXIT_APPROVAL, EXIT_CHECKS, EXIT_TIMEOUT, EXIT_RACE, EXIT_RACE_RED = 4, 5, 6, 7, 8
+EXIT_INTERRUPTED = 130  # SIGINT, SIGTERM or SIGHUP before the merge call (children killed, cleanup done)
 
 # This tool's own code. It must be origin/main's (a stale shared checkout once
 # carried an older registry and gave wrong verdicts): --allow-stale-tools only.
@@ -170,14 +171,21 @@ class Git:
         self.repo = Path(repo)
         self.env = env
         self.remaining: Callable[[], float] | None = None  # set by Merger while a deadline runs
+        self.timeouts = 0  # calls killed at their bound (after a merge call, any one is exit 8)
+
+    def _bounded(self, argv: list[str], **kw) -> subprocess.CompletedProcess:
+        try:
+            return rr.run_bounded(argv, timeout=_bound(self.remaining), **kw)
+        except rr.CallTimeout:
+            self.timeouts += 1
+            raise
 
     def run(self, *args: str, cwd: Path | None = None, check: bool = True,
             env_extra: dict | None = None) -> subprocess.CompletedProcess:
         env = dict(self.env or os.environ)
         if env_extra:
             env.update(env_extra)
-        p = rr.run_bounded(["git", *args], cwd=str(cwd or self.repo), capture_output=True,
-                           text=True, env=env, timeout=_bound(self.remaining))
+        p = self._bounded(["git", *args], cwd=str(cwd or self.repo), capture_output=True, text=True, env=env)
         if check and p.returncode != 0:
             raise Stop(EXIT_ERROR, f"git {' '.join(args)} failed: {p.stderr.strip()[-1500:]}")
         return p
@@ -186,15 +194,14 @@ class Git:
         return self.run(*args, cwd=cwd).stdout.strip()
 
     def raw(self, *args: str) -> bytes:
-        p = rr.run_bounded(["git", *args], cwd=str(self.repo), capture_output=True,
-                           env=self.env or os.environ, timeout=_bound(self.remaining))
+        p = self._bounded(["git", *args], cwd=str(self.repo), capture_output=True, env=self.env or os.environ)
         if p.returncode != 0:
             raise Stop(EXIT_ERROR, f"git {' '.join(args)} failed: {p.stderr.decode('utf-8', 'replace')[-800:]}")
         return p.stdout
 
     def show(self, rev: str, path: str) -> str | None:
-        p = rr.run_bounded(["git", "show", f"{rev}:{path}"], cwd=str(self.repo),
-                           capture_output=True, env=self.env or os.environ, timeout=_bound(self.remaining))
+        p = self._bounded(["git", "show", f"{rev}:{path}"], cwd=str(self.repo), capture_output=True,
+                          env=self.env or os.environ)
         return p.stdout.decode("utf-8", "surrogateescape") if p.returncode == 0 else None
 
     def is_ancestor(self, a: str, b: str) -> bool:
@@ -527,12 +534,17 @@ class GitHub:
     def __init__(self, slug: str) -> None:
         self.slug = slug
         self.remaining: Callable[[], float] | None = None  # set by Merger while a deadline runs
+        self.timeouts = 0  # calls killed at their bound (after a merge call, any one is exit 8)
 
     def _gh(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
         # Bounded: gh's HTTP client has no timeout, and a stalled call would
         # otherwise hold the branch lock past every deadline. A timeout raises
         # rr.CallTimeout (fail closed; after a merge, exit 8).
-        p = rr.run_bounded(["gh", *args], capture_output=True, text=True, timeout=_bound(self.remaining))
+        try:
+            p = rr.run_bounded(["gh", *args], capture_output=True, text=True, timeout=_bound(self.remaining))
+        except rr.CallTimeout:
+            self.timeouts += 1
+            raise
         if check and p.returncode != 0:
             raise Stop(EXIT_ERROR, f"gh {' '.join(args[:3])} failed: {p.stderr.strip()[-800:]}")
         return p
@@ -855,6 +867,7 @@ class Merger:
         self.tools = LOADED_TOOLS  # the rules this run validates with
         self.green: list[list[str]] | None = None  # the check verdicts of the last green wait
         self.merge_called = False  # from the merge call on, an unproven outcome is exit 8
+        self.timeouts_at_merge = 0  # calls timed out before the merge call
 
     def say(self, msg: str) -> None:
         self.out(_printable(msg))
@@ -868,6 +881,8 @@ class Merger:
             code = self._run()
         except Stop as s:
             code, why = s.code, str(s)
+        except KeyboardInterrupt as exc:  # SIGINT, or SIGTERM/SIGHUP via rr.install_interrupt_handlers
+            code, why = EXIT_INTERRUPTED, f"interrupted ({exc or 'SIGINT'}); the blocked call's children were killed"
         except Exception as exc:  # anything unexpected stops the run, it never merges
             code, why = EXIT_ERROR, f"internal error: {type(exc).__name__}: {exc}"
         else:
@@ -876,14 +891,23 @@ class Merger:
             why = (f"after the merge call, {why or f'exit {code}'}: the PR may be merged and nothing proved it; "
                    "stop the chain and check main by hand")
             code = EXIT_RACE_RED
+        if self.merge_called and code in (EXIT_OK, EXIT_RACE) and self._timeouts() > self.timeouts_at_merge:
+            # Any call killed at its bound after the merge call is fatal, even
+            # if a later read came back complete: what it would have said is unknown.
+            why = (f"a call timed out after the merge call (exit {code} otherwise): the merge is unverified; "
+                   "stop the chain and check main by hand")
+            code = EXIT_RACE_RED
         if why:
             self.say(f"STOP ({code}): {why}")
         try:
             self._cleanup()
-        except Exception as exc:  # a cleanup failure (a timeout) is reported, never the exit
+        except BaseException as exc:  # a cleanup failure (a timeout, a second interrupt) never changes the exit
             self.say(f"WARN cleanup did not complete ({type(exc).__name__}: {str(exc)[:200]}); remove "
                      f"{self.tmp or 'the private worktree'} by hand")
         return code
+
+    def _timeouts(self) -> int:
+        return self.git.timeouts + getattr(self.gh, "timeouts", 0)
 
     def _remote_main(self) -> str:
         out = self.git.out("ls-remote", self.o.remote, "refs/heads/main").split()
@@ -1360,6 +1384,7 @@ class Merger:
         (a timeout, an unreadable answer) is exit 8: the PR may be merged, and
         the chain must stop until main is checked."""
         o = self.o
+        self.timeouts_at_merge = self._timeouts()
         self.merge_called = True
         try:
             ok, text = self.gh.merge(o.pr, sha)
@@ -1726,6 +1751,7 @@ class FakeGitHub:
         self.pr_lag_after_merge = 0  # PR reads after a successful merge that still say OPEN
         self.close_on_refuse = False  # a refused merge call leaves the PR CLOSED (unknown what landed)
         self.remaining_seen: list[float] = []  # what the deadline left, at each snapshot
+        self.timeouts = 0
         self.merge_stalls = False
         self._next = 1000
 
@@ -1764,8 +1790,14 @@ class FakeGitHub:
         script = self.after_merge.pop(0) if self.state == "MERGED" and self.after_merge else {}
         if script.get("error"):
             raise Stop(EXIT_ERROR, "gh api failed: HTTP 502: Bad Gateway")
-        if script.get("sleep"):
-            rr.run_bounded(["sleep", "30"], timeout=1)  # a stalled gh: killed after 1s, raises CallTimeout
+        if script.get("sleep") or script.get("stall"):
+            # A stalled gh: killed after 1s (sleep), or left to stall for an
+            # interrupt to cut short (stall); counted like the real adapter.
+            try:
+                rr.run_bounded(["sleep", "30"], timeout=1 if script.get("sleep") else 60)
+            except rr.CallTimeout:
+                self.timeouts += 1
+                raise
         if self.on_snapshot:
             self.on_snapshot(self, sha, self.snapshots)
         cache = getattr(self, "cache", {})
@@ -2809,6 +2841,88 @@ def _self_test() -> int:
         expect(rc == EXIT_RACE_RED and any("proving the merge failed" in s for s in logs),
                f"a proof fetch that fails after the merge: exit 8, not 1 (rc={rc})")
 
+        # Any call timed out after the merge call is fatal, even when a later
+        # read is complete and matches (what the timed-out read said is unknown).
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 46, branch, "skill: bravo", green)
+        fake.after_merge = [{"sleep": True}, {}]
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and any("a call timed out after the merge call" in s for s in logs),
+               f"a post-merge read that times out, then a complete green read: still exit 8 (rc={rc})")
+
+        # Cancellation. SIGTERM (raised like Ctrl-C by the handlers main()
+        # installs) while the push is blocked: the push's children are killed,
+        # cleanup runs, the lock is freed, nothing is pushed; exit 130. After
+        # the merge call, the same interrupt is exit 8.
+        print("cancellation (SIGTERM while a call is blocked):")
+        import threading
+        prev_handlers = rr.install_interrupt_handlers()
+        try:
+            origin, work, branch = world()
+            new_connector_pr(work)  # two commits: a squash and a push are needed
+            before_push = origin_rev(origin, "refs/heads/skill/bravo")
+            gstub = tmp / "pushstall"
+            gstub.mkdir()
+            push_pid = tmp / "push.pid"
+            real_git = shutil.which("git", path=env.get("PATH")) or "git"
+            (gstub / "git").write_text("#!/bin/sh\n"
+                                       f'case " $* " in *" push "*) sleep 30 & echo $! >\'{push_pid}\'; wait $! ;; esac\n'
+                                       f'exec \'{real_git}\' "$@"\n')
+            (gstub / "git").chmod(0o755)
+
+            def term_when(cond: Callable[[], bool]) -> threading.Thread:
+                def go() -> None:
+                    for _ in range(600):
+                        if cond():
+                            time.sleep(0.3)
+                            os.kill(os.getpid(), signal.SIGTERM)
+                            return
+                        time.sleep(0.05)
+                th = threading.Thread(target=go, daemon=True)
+                th.start()
+                return th
+            old_env_path = env["PATH"]
+            env["PATH"] = f"{gstub}{os.pathsep}{old_env_path}"
+            fake = FakeGitHub(origin, env, 47, branch, "skill: bravo", green)
+            th = term_when(push_pid.exists)
+            t0 = time.monotonic()
+            try:
+                rc, logs = merger(work, fake, require=())
+            finally:
+                env["PATH"] = old_env_path
+            th.join(timeout=5)
+            took = time.monotonic() - t0
+            try:
+                os.kill(int(push_pid.read_text()), 0)
+                push_alive = True
+            except (ProcessLookupError, ValueError, FileNotFoundError):
+                push_alive = False
+            try:
+                relock = repo_lock.acquire(branch_lock_name(branch), root=work)
+                repo_lock.release(relock)
+                lock_free = True
+            except repo_lock.LockHeld:
+                lock_free = False
+            worktrees = sh("git", "worktree", "list", "--porcelain", cwd=work).count("worktree ")
+            expect(rc == EXIT_INTERRUPTED and took < 30 and not push_alive and lock_free and worktrees == 1
+                   and origin_rev(origin, "refs/heads/skill/bravo") == before_push and fake.merge_calls == 0,
+                   f"SIGTERM while the push is blocked: its children killed, cleanup done, lock freed, nothing "
+                   f"pushed, exit 130 (rc={rc}, {took:.1f}s, push alive={push_alive}, worktrees={worktrees})")
+
+            origin, work, branch = world()
+            new_connector_pr(work, extra_commit=False)
+            fake = FakeGitHub(origin, env, 48, branch, "skill: bravo", green)
+            fake.after_merge = [{"stall": True}]
+            th = term_when(lambda: fake.state == "MERGED")
+            rc, logs = merger(work, fake, require=())
+            th.join(timeout=5)
+            expect(rc == EXIT_RACE_RED and fake.merged is not None and any("after the merge call" in s for s in logs),
+                   f"SIGTERM after the merge call (a post-merge read blocked): exit 8, not 130 (rc={rc})")
+        finally:
+            for sig_, h in prev_handlers.items():
+                signal.signal(sig_, h)
+
         # T8i: no call outlives its bound (gh's HTTP client has no timeout).
         print("bounded calls (a stalled gh or git is killed; fail closed):")
         stub = tmp / "stallbin"
@@ -3048,6 +3162,15 @@ def main(argv: list[str] | None = None) -> int:
         ap.add_argument("--allow-stale-tools", action="store_true",
                         help="run even though this tool's code differs from origin/main's (not recommended)")
     args = ap.parse_args(argv[1:] if sub else argv)
+    rr.install_interrupt_handlers()  # SIGTERM/SIGHUP raise like Ctrl-C: children killed, cleanup runs
+    try:
+        return _main(args, sub)
+    except KeyboardInterrupt as exc:  # outside Merger.run (approve, status, start-up)
+        print(f"STOP ({EXIT_INTERRUPTED}): interrupted ({exc or 'SIGINT'}); nothing was merged")
+        return EXIT_INTERRUPTED
+
+
+def _main(args: argparse.Namespace, sub: str | None) -> int:
     repo = Path(rr.run_bounded(["git", "-C", args.repo, "rev-parse", "--show-toplevel"], capture_output=True,
                                text=True, check=True, timeout=60).stdout.strip())
     git = Git(repo)

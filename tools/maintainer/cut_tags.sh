@@ -77,24 +77,82 @@ PYTHON=${PYTHON:-python3}
 # so one stalled response would otherwise hold the release-tag lock forever.
 # The child runs in its own process group; past CUT_TAGS_CALL_TIMEOUT the whole
 # group is killed and the call fails with 124, which every caller treats as a
-# failure (fail closed).
-BOUNDED_PY='import os, signal, subprocess, sys
+# failure (fail closed). Cancellation: on SIGINT, SIGTERM or SIGHUP, or when
+# the shell that started it dies, the wrapper kills and reaps the child's group
+# first and then dies by that signal (so bash sees it and stops too). Each
+# wrapper registers its pid in CUT_TAGS_CALLS, so cleanup can stop and wait for
+# any call still running BEFORE it releases the release-tag lock.
+if ! CALL_TIMEOUT=$(awk -v t="${CUT_TAGS_CALL_TIMEOUT:-300}" \
+  'BEGIN { if (t !~ /^[0-9]+([.][0-9]+)?$/ || t + 0 <= 0) exit 1; print (t + 0 > 300 ? 300 : t) }'); then
+  echo "REFUSE CUT_TAGS_CALL_TIMEOUT must be a positive, finite number of seconds (got '${CUT_TAGS_CALL_TIMEOUT}')" >&2
+  exit 2
+fi
+if [ "$CALL_TIMEOUT" != "${CUT_TAGS_CALL_TIMEOUT:-300}" ]; then
+  echo "NOTE CUT_TAGS_CALL_TIMEOUT=${CUT_TAGS_CALL_TIMEOUT} is above 300; using 300" >&2
+fi
+CUT_TAGS_CALLS="" # set by tmp_root; never inherited from a parent run
+export CUT_TAGS_CALLS
+BOUNDED_PY='import os, signal, subprocess, sys, time
 t = float(sys.argv[1])
-p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+ppid = os.getppid()
+reg = os.environ.get("CUT_TAGS_CALLS") or ""
+mark = os.path.join(reg, str(os.getpid())) if reg else ""
+caught = []
+
+
+def on_signal(signum, _frame):
+    caught.append(signum)
+    raise KeyboardInterrupt
+
+
+for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(s, on_signal)
+p = None
+rc = 0
 try:
-    rc = p.wait(timeout=t)
+    if mark:
+        try:
+            open(mark, "w").close()
+        except OSError:
+            mark = ""
+    p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+    end = time.monotonic() + t
+    while True:
+        try:
+            rc = p.wait(timeout=0.2)
+            break
+        except subprocess.TimeoutExpired:
+            if os.getppid() != ppid:  # the shell that started us is gone
+                caught.append(signal.SIGHUP)
+                raise KeyboardInterrupt
+            if time.monotonic() >= end:
+                raise
 except BaseException as exc:
-    try:
-        os.killpg(p.pid, signal.SIGKILL)
-    except OSError:
-        pass
-    p.wait()
+    if p is not None:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        p.wait()
+    if mark:
+        try:
+            os.unlink(mark)
+        except OSError:
+            pass
     if isinstance(exc, subprocess.TimeoutExpired):
         sys.stderr.write("TIMEOUT %s did not finish within %ss (killed)\n" % (" ".join(sys.argv[2:5]), sys.argv[1]))
         sys.exit(124)
+    if caught:
+        signal.signal(caught[0], signal.SIG_DFL)
+        os.kill(os.getpid(), caught[0])
     raise
+if mark:
+    try:
+        os.unlink(mark)
+    except OSError:
+        pass
 sys.exit(rc if rc >= 0 else 128 - rc)'
-bounded() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" "$@"; }
+bounded() { "$PYTHON" -I -c "$BOUNDED_PY" "$CALL_TIMEOUT" "$@"; }
 gh() { bounded gh "$@"; }
 git() { bounded git "$@"; }
 # The python checkers call git themselves (the probe reads release.yml at the
@@ -136,6 +194,25 @@ tmp_root() { # sets ROOT_TMP: this run's ONE private directory (made once)
   case "${TMPDIR:-/tmp}" in *"$NL"*) die "REFUSE TMPDIR contains a newline; set it to a plain directory" ;; esac
   ROOT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary directory"
   [ -n "$ROOT_TMP" ] && [ -d "$ROOT_TMP" ] || die "REFUSE mktemp returned no directory"
+  mkdir "$ROOT_TMP/calls" || die "REFUSE cannot create the call registry"
+  CUT_TAGS_CALLS="$ROOT_TMP/calls"
+}
+
+stop_calls() { # stop every bounded call still running, and wait for each (it kills its own group first)
+  local f pid i=0
+  [ -n "$CUT_TAGS_CALLS" ] && [ -d "$CUT_TAGS_CALLS" ] || return 0
+  for f in "$CUT_TAGS_CALLS"/*; do
+    [ -f "$f" ] || continue
+    pid=${f##*/}
+    kill -TERM "$pid" 2>/dev/null || rm -f "$f"
+  done
+  while [ -n "$(ls -A "$CUT_TAGS_CALLS" 2>/dev/null)" ] && [ "$i" -lt 100 ]; do
+    for f in "$CUT_TAGS_CALLS"/*; do
+      [ -f "$f" ] && ! kill -0 "${f##*/}" 2>/dev/null && rm -f "$f"
+    done
+    sleep 0.1
+    i=$((i + 1))
+  done
 }
 
 new_tempdir() { # sets NEW_TMP to a fresh directory under ROOT_TMP
@@ -152,6 +229,7 @@ new_tempfile() { # sets NEW_TMP to a fresh file under ROOT_TMP
 
 cleanup() {
   local n=0
+  stop_calls # a call still running (an interrupted push) goes first, then the lock
   tag_unlock
   while [ "$n" -lt "$WT_COUNT" ]; do
     n=$((n + 1))
@@ -189,6 +267,7 @@ setup_repo() {
     [ -n "$GH_REPO" ] || die "cannot read owner/repo from $REMOTE ($url); set CUT_TAGS_GH_REPO"
   fi
   trap cleanup EXIT
+  tmp_root # the call registry exists before the first call that cleanup may have to stop
 }
 
 load_tags() { # <abs path>: sets TAG_LIST and TAG_COUNT, or dies
@@ -1487,6 +1566,108 @@ STALL
     && ! kill -0 "$gpid" 2>/dev/null \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-k1-v0.1.0 >/dev/null; then rc2=0; fi
   expect "a probe whose own git call stalls is killed at CUT_TAGS_CALL_TIMEOUT (${took}s): refused, nothing pushed" "$rc2"
+
+  echo "CUT_TAGS_CALL_TIMEOUT is validated and clamped:"
+  rc2=0
+  for v in inf -1 0 abc 1e3 nan; do
+    out=$(CUT_TAGS_CALL_TIMEOUT=$v bash "$SELF" --help 2>&1) && rc=0 || rc=$?
+    { [ "$rc" -eq 2 ] && has "positive, finite"; } || rc2=1
+  done
+  out=$(CUT_TAGS_CALL_TIMEOUT=900 bash "$SELF" --help 2>&1) && rc=0 || rc=$?
+  { [ "$rc" -eq 0 ] && has "is above 300; using 300"; } || rc2=1
+  expect "inf, -1, 0, abc, 1e3 and nan refuse to run (exit 2); 900 is clamped to 300 and says so" "$rc2"
+
+  echo "cancellation while the tag push is blocked:"
+  for s in zz-n1 zz-n2; do
+    connector "$s" 0.1.0
+    printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
+  done
+  cp "$SELF" "$tmp/repo/tools/maintainer/cut_tags.sh"
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "zz-n1 zz-n2" -s
+  git -C "$tmp/repo" push -q origin main
+  sha6=$(git -C "$tmp/repo" rev-parse HEAD)
+  mkdir -p "$tmp/pushstall" "$tmp/runtmp"
+  # A real git, except that a push stalls in a child while push-stall exists.
+  cat >"$tmp/pushstall/git" <<'STALL'
+#!/bin/sh
+case " $* " in
+  *" push "*)
+    if [ -f "$CT_STATE/push-stall" ]; then
+      sleep 30 &
+      echo "$!" >"$CT_STATE/push-stall.pid"
+      wait "$!"
+    fi ;;
+esac
+exec "$REAL_GIT" "$@"
+STALL
+  chmod +x "$tmp/pushstall/git"
+  real_git=$(type -P git)
+  lock_free() {
+    "$PYTHON" -c 'import fcntl, os, sys
+fd = os.open(sys.argv[1], os.O_RDWR | os.O_CREAT)
+try:
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    sys.exit(1)' "$tmp/repo/.git/msp-skills-locks/release-tags.lock"
+  }
+  for c in "TERM-to-the-shell zz-n1" "INT-to-the-group zz-n2"; do
+    how=${c%% *}
+    tag="${c#* }-v0.1.0"
+    printf '%s\n' "$tag" >"$tmp/tags-n.txt"
+    rm -f "$tmp"/runs/* "$tmp/push-stall.pid"
+    : >"$tmp/push-stall"
+    REAL_GIT=$real_git PATH="$tmp/pushstall:$PATH" TMPDIR="$tmp/runtmp" CUT_TAGS_FLIGHT_SLEEP=0 \
+      "$PYTHON" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
+      bash "$SELF" "$sha6" "$tmp/tags-n.txt" >"$tmp/cancel.out" 2>&1 &
+    cpid=$!
+    i=0
+    while [ ! -s "$tmp/push-stall.pid" ] && [ "$i" -lt 300 ]; do sleep 0.1; i=$((i + 1)); done
+    sleep 0.3
+    # Order matters: the lock may be free only once the push is dead (else
+    # another cutter could push while this one's push is still going).
+    rm -f "$tmp/order.txt"
+    "$PYTHON" -c 'import fcntl, os, subprocess, sys, time
+lock, pid, out = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+end = time.time() + 20
+while time.time() < end:
+    fd = os.open(lock, os.O_RDWR | os.O_CREAT)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        time.sleep(0.005)
+        continue
+    os.close(fd)
+    st = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    open(out, "w").write("push-alive-at-unlock" if st and not st.startswith("Z") else "ordered")
+    sys.exit(0)
+open(out, "w").write("lock-never-freed")' "$tmp/repo/.git/msp-skills-locks/release-tags.lock" \
+      "$(cat "$tmp/push-stall.pid")" "$tmp/order.txt" &
+    opid=$!
+    case "$how" in
+      TERM*) kill -TERM "$cpid" 2>/dev/null ;;
+      INT*) kill -INT -- "-$cpid" 2>/dev/null ;;
+    esac
+    i=0
+    while kill -0 "$cpid" 2>/dev/null && [ "$i" -lt 200 ]; do sleep 0.1; i=$((i + 1)); done
+    alive=0
+    if kill -0 "$cpid" 2>/dev/null; then alive=1; kill -KILL -- "-$cpid" 2>/dev/null; fi
+    wait "$cpid" 2>/dev/null
+    crc=$?
+    wait "$opid" 2>/dev/null
+    order=$(cat "$tmp/order.txt" 2>/dev/null || echo none)
+    rm -f "$tmp/push-stall"
+    spid=$(cat "$tmp/push-stall.pid" 2>/dev/null || echo 0)
+    sleep 0.5
+    rc2=1
+    if [ "$alive" -eq 0 ] && [ "$crc" -ne 0 ] && [ "$spid" -gt 0 ] && ! kill -0 "$spid" 2>/dev/null \
+      && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+      && lock_free && [ "$(git -C "$tmp/repo" worktree list | grep -c .)" -eq 1 ] \
+      && [ -z "$(ls -A "$tmp/runtmp")" ] && [ "$order" = ordered ]; then rc2=0; fi
+    expect "$how while the push is blocked: the push killed BEFORE the lock is freed ($order), nothing pushed, worktrees and temp removed (exit $crc)" "$rc2"
+  done
+  rm -f "$tmp"/runs/*
 
   echo "--help:"
   out=$(bash "$SELF" --help 2>&1) && rc=0 || rc=$?

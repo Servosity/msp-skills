@@ -187,14 +187,28 @@ cap is 4).
 
 **Bounded calls.** Every git, `gh` and generator call in these tools runs in its own process
 group, bounded by what is left of the current wait's deadline and at most `MSP_CALL_TIMEOUT_S`
-seconds (300; `CUT_TAGS_CALL_TIMEOUT` for `cut_tags.sh`). `gh`'s HTTP client has no timeout of its
+seconds (300; `CUT_TAGS_CALL_TIMEOUT` for `cut_tags.sh`). Both must be a positive, finite number
+of seconds: anything else (`inf`, `nan`, 0, a negative number, text) refuses to run, and a value
+above 300 is clamped to 300. `gh`'s HTTP client has no timeout of its
 own, so without this one stalled response would hold the branch lock forever. A call past its
 bound is killed with its children and fails closed; `cut_tags.sh` runs its python checkers (whose
 own git calls read the tagged commit) the same way. A call that fails part-way keeps every
 complete row it returned, so after a merge a red row read before the failure stays evidence.
 Once the merge call has been made, every outcome other than 0 (proven), 7 or 8 is **8**, because
-the PR may be merged and nothing proved it, and a cleanup failure (a timeout removing the private
-worktree) is a warning that never changes the exit; the branch lock is released regardless.
+the PR may be merged and nothing proved it, and so is a 0 or 7 if any call timed out after the
+merge call, even when a later read came back complete. A cleanup failure (a timeout removing the
+private worktree) is a warning that never changes the exit; the branch lock is released regardless.
+
+**Cancellation.** SIGINT (Ctrl-C), SIGTERM and SIGHUP stop a run cleanly. In the Python tools the
+signal is raised like Ctrl-C, so a blocked call's whole process group is killed and reaped, then
+cleanup runs (private worktree removed, locks released). `merge_when_green.py` exits **130**
+before the merge call and **8** after it. `cut_tags.sh` stops every bounded call still running,
+waiting until its children are dead, before it releases the release-tag lock. That holds when the
+signal reaches only the shell's pid, when it reaches the whole group, and when the shell dies
+outright, which each call notices for itself. So an interrupted tag push never leaves a push
+running after the lock is free. `resolve_registry.py` reports a resolution that is written and
+staged but unverified, and says to abort the rebase or merge, when its re-check times out or is
+interrupted.
 
 **Accepted, detected risk: main moving inside the merge call.** GitHub's merge call pins the
 head (`--match-head-commit`, the validated SHA) but cannot pin the base, and this repository's
@@ -239,8 +253,9 @@ prints it in the README footer.
 Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved, stale copy of the tool); 3 a
 conflict it will not resolve; 4 an approval is not current; 5 a check failed; 6 timed out; 7
 merged in a race, main's CI then green; 8 merged (or possibly merged), but main's CI is red or
-unverified after a race, the head's checks changed between the final gate and the merge, or the
-merge call or its proof did not complete (stop the chain and check main by hand).
+unverified after a race, the head's checks changed between the final gate and the merge, a call
+timed out after the merge call, or the merge call or its proof did not complete or was interrupted
+(stop the chain and check main by hand); 130 interrupted before the merge call (nothing merged).
 
 **`repo_lock.py`: one protocol with older copies.** `release.py` and `release_batch.sh` on older
 worktrees hold the same `msp-skills-locks/<name>.lock` with the original O_EXCL-and-pid copy, so
