@@ -455,16 +455,16 @@
     "released_hash": "sha256:5e524cd1092052240e3c2a919b4729ad6ac19786c737c604ef6f0a4340e6ad49"
   },
   "rootly": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "rootly-v0.1.4",
+    "latest_tag": "rootly-v0.1.5",
     "current_hash": "sha256:050faf3500d8f1c743797f27511177bc1b0ad4c1fa2c01ad070090da53a8b10f",
     "released_hash": "sha256:050faf3500d8f1c743797f27511177bc1b0ad4c1fa2c01ad070090da53a8b10f"
   },
   "runzero": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "runzero-v0.1.4",
+    "latest_tag": "runzero-v0.1.5",
     "current_hash": "sha256:fca6d784638daa1e5b54a81dce2e8ab7ed0adf9ba9fb900c8593670e0131a54a",
     "released_hash": "sha256:fca6d784638daa1e5b54a81dce2e8ab7ed0adf9ba9fb900c8593670e0131a54a"
   },
