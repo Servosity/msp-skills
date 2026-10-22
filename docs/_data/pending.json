@@ -315,16 +315,16 @@
     "released_hash": "sha256:89da97ed2582b299219138a00638d5cf55bbbbd547f047507d58d93f824c2920"
   },
   "liongard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "liongard-v0.1.4",
+    "latest_tag": "liongard-v0.1.5",
     "current_hash": "sha256:c359e9cb8c5d474574f53f61e466b278cbfd7784abcfcf02b92d8ea6d9fa9c09",
     "released_hash": "sha256:c359e9cb8c5d474574f53f61e466b278cbfd7784abcfcf02b92d8ea6d9fa9c09"
   },
   "maxio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "maxio-v0.1.4",
+    "latest_tag": "maxio-v0.1.5",
     "current_hash": "sha256:420fbdc07aa67958ffee8100302f56873d9fac0b21c131cc9727841ad9f90ca8",
     "released_hash": "sha256:420fbdc07aa67958ffee8100302f56873d9fac0b21c131cc9727841ad9f90ca8"
   },
@@ -364,9 +364,9 @@
     "released_hash": "sha256:0ff0fb95147e791cf39f919d4073e1770c0ca2fbeb465bc2ce2e79217d47d0dd"
   },
   "ninjaone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.18",
-    "latest_tag": "ninjaone-v0.1.17",
+    "latest_tag": "ninjaone-v0.1.18",
     "current_hash": "sha256:359e266143a4a0456efcde053648c224bcd12abca78a01d444d67bd24443801e",
     "released_hash": "sha256:359e266143a4a0456efcde053648c224bcd12abca78a01d444d67bd24443801e"
   },
