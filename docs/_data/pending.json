@@ -266,9 +266,9 @@
     "released_hash": "sha256:673cfdd0ca72787ea1a57f67222d0923da905d4a22feb0acdf9da75e0154b0ae"
   },
   "huntress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "huntress-v0.1.8",
+    "latest_tag": "huntress-v0.1.9",
     "current_hash": "sha256:87e79183533f3fa28db63e6f21516f116aec88760aa9ddd8de2f283d95bfc59e",
     "released_hash": "sha256:87e79183533f3fa28db63e6f21516f116aec88760aa9ddd8de2f283d95bfc59e"
   },
