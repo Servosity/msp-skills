@@ -348,13 +348,8 @@ echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
 # CI's Linux build row (build, vet, go test on linux/amd64 with cgo on) runs in
 # that context: natively on such a host, else in a linux/amd64 container,
 # else every connector's Linux checks fail closed. Decided once, here.
-overlay_lists() { # the working tree's changes against HEAD: $WORK/overlay.lst (NUL list) and $WORK/deleted.lst
-  { git diff -z --name-only --no-renames --diff-filter=d HEAD; git ls-files -z -o --exclude-standard; } > "$WORK/overlay.lst"
-  # Deleted means gone from the working tree: a path only removed from the
-  # index (git rm --cached) but still on disk is in the overlay, not here.
-  git diff -z --name-only --no-renames --diff-filter=D HEAD | python3 -c 'import os, sys
-sys.stdout.buffer.write(b"".join(p + b"\0" for p in sys.stdin.buffer.read().split(b"\0") if p and not os.path.lexists(p)))' \
-    > "$WORK/deleted.lst"
+overlay_lists() { # $WORK/overlay.lst and $WORK/deleted.lst (NUL lists): the commit `git add -A` would make, against HEAD
+  python3 tools/maintainer/verify_scope.py overlay --overlay "$WORK/overlay.lst" --deleted "$WORK/deleted.lst"
 }
 linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SRC (the snapshot)
   # The snapshot is what CI's build job checks out (actions/checkout: depth 1,
@@ -363,7 +358,9 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
   # (case-sensitive, Linux permissions and locking), never written back.
   local head v img="" vol
   head="$(git rev-parse HEAD)"
-  overlay_lists
+  local ovok=1
+  overlay_lists || { echo "  could not list the working tree's changes: the Linux checks will fail"; ovok=0
+                     : > "$WORK/overlay.lst"; : > "$WORK/deleted.lst"; }
   # The snapshot's checkout is git's own, untouched by this host's git config
   # (a global core.autocrlf or attributes file would rewrite committed bytes);
   # the repository's .gitattributes still apply, as in CI.
@@ -444,6 +441,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     VERIFY_LINUX_MODE=none
     VERIFY_LINUX_SRC=""
   fi
+  [ "$ovok" = 1 ] || VERIFY_LINUX_SRC=""  # a snapshot without the changes is not this tree
   export VERIFY_LINUX_MODE VERIFY_LINUX_SRC
   echo "  linux build row: $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] && echo ' (linux/amd64 container on a Linux volume, golang:<go.mod toolchain>, cgo on)')"
 }

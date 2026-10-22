@@ -795,6 +795,24 @@ def windows_tree(slug: str, out: str, root: Path = ROOT) -> str:
         cur = cur.parent
 
 
+def snapshot_delta(root: Path = ROOT) -> tuple[list[bytes], list[bytes]]:
+    """How the working tree differs from HEAD, as the commit `git add -A`
+    would make it: the files that commit holds are every path on disk that is
+    in the index or untracked and not ignored. Returns (overlay, deleted):
+    those files that are new or changed against HEAD, and HEAD's paths that
+    commit would not hold (deleted from disk, or removed from the index and
+    then ignored). Paths are raw bytes, as git prints them with -z."""
+    def ls(*args: str) -> set[bytes]:
+        p = subprocess.run(["git", *args], cwd=root, capture_output=True)
+        if p.returncode != 0:
+            raise OSError(f"git {' '.join(args)} failed: {p.stderr.decode(errors='replace').strip()}")
+        return {x for x in p.stdout.split(b"\0") if x}
+    head = ls("ls-tree", "-r", "-z", "--name-only", "HEAD")
+    final = {x for x in ls("ls-files", "-z", "-c", "-o", "--exclude-standard") if os.path.lexists(root / os.fsdecode(x))}
+    changed = ls("diff", "-z", "--name-only", "--no-renames", "HEAD") | (final - head)
+    return sorted(final & changed), sorted(head - final)
+
+
 def _fold(p: str) -> str:
     return unicodedata.normalize("NFD", p).casefold()
 
@@ -883,6 +901,9 @@ def main(argv: list[str]) -> int:
     sub.add_parser("path-collisions")
     gw = sub.add_parser("gowork")
     gw.add_argument("--dir", required=True)
+    od = sub.add_parser("overlay")
+    od.add_argument("--overlay", required=True)
+    od.add_argument("--deleted", required=True)
     sub.add_parser("scanner-pins")
     wt = sub.add_parser("windows-tree")
     wt.add_argument("--slug", required=True)
@@ -920,6 +941,15 @@ def main(argv: list[str]) -> int:
         except OSError as e:
             print(e, file=sys.stderr)
             return 2
+        return 0
+    if a.cmd == "overlay":
+        try:
+            ov, de = snapshot_delta()
+        except OSError as e:
+            print(e, file=sys.stderr)
+            return 2
+        Path(a.overlay).write_bytes(b"".join(x + b"\0" for x in ov))
+        Path(a.deleted).write_bytes(b"".join(x + b"\0" for x in de))
         return 0
     if a.cmd == "scanner-pins":
         pins = scanner_pins()
@@ -1333,6 +1363,29 @@ def _self_test() -> int:
     expect(pins.get("GOSEC_VERSION", "").startswith("v") and len(pins) == len(_PIN_KEYS),
            "security-gate.yml declares every scanner pin")
     expect(scanner_pins('  GOSEC_VERSION: "v2.29.0"\n') == {}, "a missing pin is refused, never defaulted")
+
+    print("snapshot delta (what `git add -A` would commit):")
+    with tempfile.TemporaryDirectory() as td:
+        r = Path(td)
+        g = lambda *a: subprocess.run(["git", "-C", str(r), "-c", "user.name=t", "-c", "user.email=t@example.com", *a],
+                                      check=True, capture_output=True)
+        g("init", "-q")
+        for f in ("same", "mod", "gone", "cached", "cached_ignored", "staged_gone"):
+            (r / f).write_text("1\n", encoding="utf-8")
+        g("add", "-A")
+        g("commit", "-qm", "base")
+        (r / "mod").write_text("2\n", encoding="utf-8")
+        (r / "gone").unlink()
+        g("rm", "-q", "--cached", "cached", "cached_ignored")
+        g("rm", "-q", "staged_gone")
+        (r / "new").write_text("n\n", encoding="utf-8")
+        (r / "junk.log").write_text("j\n", encoding="utf-8")
+        (r / ".gitignore").write_text("*.log\ncached_ignored\n", encoding="utf-8")
+        ov, de = snapshot_delta(r)
+        expect([x.decode() for x in ov] == [".gitignore", "cached", "mod", "new"],
+               "overlay: changed, new, and index-only removals still on disk and not ignored")
+        expect([x.decode() for x in de] == ["cached_ignored", "gone", "staged_gone"],
+               "deleted: gone from disk, staged deletions, and index-only removals that are now ignored")
 
     print("CI's sparse Windows checkout:")
     with tempfile.TemporaryDirectory() as td:
