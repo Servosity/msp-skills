@@ -115,10 +115,11 @@ def lex(src: str) -> tuple[list[Lit], list[tuple[int, str]]]:
     return lits, marks
 
 
-def code_mask(src: str) -> str:
-    """src with every comment and every string/rune literal BODY replaced by
-    spaces (newlines and the quote characters kept), so offsets still line up
-    and a keyword search sees only real code."""
+def code_mask(src: str, blank_strings: bool = True) -> str:
+    """src with every comment, and (unless blank_strings is False) every
+    string/rune literal BODY, replaced by spaces (newlines and the quote
+    characters kept), so offsets still line up and a keyword search sees
+    only real code."""
     out = list(src)
     i, n = 0, len(src)
 
@@ -144,14 +145,16 @@ def code_mask(src: str) -> str:
         if c == "`":
             j = src.find("`", i + 1)
             j = n - 1 if j < 0 else j
-            blank(i + 1, j)
+            if blank_strings:
+                blank(i + 1, j)
             i = j + 1
             continue
         if c in "\"'":
             j = i + 1
             while j < n and src[j] != c and src[j] != "\n":
                 j += 2 if src[j] == "\\" else 1
-            blank(i + 1, min(j, n))
+            if blank_strings:
+                blank(i + 1, min(j, n))
             i = j + 1
             continue
         i += 1
@@ -303,19 +306,59 @@ _OCTAL = re.compile(r"(?<![\w.])0[oO]?([0-7]{3,4})\b")
 _CREATE_CALL = re.compile(r"\b(?:WriteFile|MkdirAll|Mkdir|OpenFile|MkdirTemp)\(")
 _CHMOD = re.compile(r"\b(?:os\.Chmod|os\.Lchmod|\.Chmod)\(")
 _PERM_ASSERT = re.compile(r"\.(?:Perm\(\)|Mode\(\))\s*(?:&\s*0[oO]?[0-7]+\s*)?(?:!=|==)\s*0[oO]?[0-7]{3,4}\b"
+                          r"|\.(?:Perm\(\)|Mode\(\))\s*&\s*0[oO]?[0-7]+\s*(?:!=|==)\s*0\b"   # Perm()&0o077 != 0
                           r"|(?:!=|==)\s*\w*\.?(?:Perm\(\)|Mode\(\)\.Perm\(\))")
 _OPEN = re.compile(r"\b([A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*:?=\s*os\.(?:Create|CreateTemp|OpenFile)\(")
 _GOOS = re.compile(r"\bruntime\.GOOS\b|\bgoruntime\.GOOS\b")
 _SKIP = re.compile(r"\bt\.Skipf?\(")
 
 
-def platform_guarded(body: str) -> bool:
-    """The author already handled the platform: the function branches on
-    runtime.GOOS, or it skips itself and says why in terms of Windows (the
-    press's own read-only-directory probe does exactly that)."""
-    if _GOOS.search(body):
-        return True
-    return bool(_SKIP.search(body)) and "windows" in body.lower()
+_WIN_EXIT = re.compile(r"\bif\b[^{\n]*\b(?:go)?runtime\.GOOS\s*==\s*\"windows\"[^{\n]*\{")
+
+
+def branches_on_goos(code: str) -> bool:
+    """The function's CODE (comments and strings masked) branches on GOOS:
+    the fix for an OS-specific expected value, errno text or stub script."""
+    return bool(_GOOS.search(code))
+
+
+def _block_end(text: str, open_brace: int) -> int:
+    depth, j = 0, open_brace
+    while j < len(text):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return j
+        j += 1
+    return len(text)
+
+
+_NOT_WIN_IF = re.compile(r"\bif\b([^{\n]*\b(?:go)?runtime\.GOOS\s*!=\s*\"windows\"[^{\n]*)\{")
+
+
+def not_windows_spans(code: str) -> list[tuple[int, int]]:
+    """Ranges that only run off Windows: the condition after
+    `runtime.GOOS != "windows" &&` and the body of such an `if`."""
+    spans = []
+    for m in _NOT_WIN_IF.finditer(code):
+        spans.append((m.start(1), _block_end(code, m.end() - 1)))
+    return spans
+
+
+def skips_on_windows(code: str, src_body: str) -> bool:
+    """The function leaves early on Windows: an `if ... runtime.GOOS ==
+    "windows" ... {` block that calls t.Skip or returns, anywhere in it (a
+    closure's own guard included); or it skips itself and says why in terms
+    of Windows (the press's read-only-directory probe). For a mode-bit
+    assertion only this makes it portable: a GOOS branch that merely picks a
+    file name does not."""
+    for m in _WIN_EXIT.finditer(code):
+        block = code[m.end():_block_end(code, m.end() - 1)]
+        if _SKIP.search(block) or re.search(r"\breturn\b", block):
+            return True
+    return bool(_SKIP.search(code)) and "windows" in src_body.lower()
 
 
 def loose_mode(digits: str) -> bool:
@@ -364,17 +407,28 @@ def goos_branching_funcs(non_test_srcs: list[str]) -> set[str]:
 def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[Finding]:
     out: list[Finding] = []
     lits, marks = lex(src)
+    masked = code_mask(src)                      # comments AND string bodies blanked
+    guards = code_mask(src, blank_strings=False)  # comments blanked, "windows" kept
     for f in functions(src, marks):
         body = src[f.start:f.end]
-        if platform_guarded(body):
-            continue
+        # Rule regexes run on the CODE: a commented-out Close() or chmod
+        # neither counts nor fires. Literals are read from the source.
+        code = masked[f.start:f.end]
+        gcode = guards[f.start:f.end]
+        goos = branches_on_goos(gcode)
+        win_exit = skips_on_windows(gcode, body)
+        off_windows = not_windows_spans(gcode)
+
+        def unguarded(off: int) -> bool:
+            return not any(a <= off < b for a, b in off_windows)
         flits = [lit for lit in lits if f.start <= lit.start < f.end]
 
         def add(off: int, rule: str, why: str) -> None:
             out.append(Finding(slug, rel, _line_of(src, off), rule, f.name, why))
 
-        # errno-text: POSIX errno wording inside a comparison.
-        for lit in flits:
+        # errno-text: POSIX errno wording inside a comparison. Fixed by
+        # branching the expected text on GOOS, or by skipping on Windows.
+        for lit in flits if not (goos or win_exit) else []:
             low = lit.value.lower()
             hit = next((e for e in ERRNO_TEXT if e in low), None)
             line = _line_text(src, lit.start)
@@ -386,15 +440,17 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
         # Only helpers: a Test that writes its own stub as a tripwire (the
         # press's teach-playbook test, which expects a refusal before any
         # exec) still detects its regression on Windows, by another route.
-        if not f.name.startswith("Test"):
+        if not f.name.startswith("Test") and not (goos or win_exit):
             for lit in flits:
                 if lit.value.startswith("#!/"):
                     add(lit.start, "shebang-stub", "writes a #! script for tests to run; Windows cannot execute it")
                     break
 
         # mode-bits: chmod to a mode Windows cannot honor, or a Perm() assert.
-        chmods = list(_CHMOD.finditer(body))
-        flagged = False
+        # Only a Windows skip/return makes it portable (Windows has no bits).
+        chmods = [] if win_exit else list(_CHMOD.finditer(code))
+        flagged = win_exit
+        chmods = [cm for cm in chmods if unguarded(cm.start())]
         for cm in chmods:
             line = _line_text(src, f.start + cm.start())
             mm = _OCTAL.search(line[line.find(cm.group(0)):])
@@ -404,7 +460,7 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
                 flagged = True
                 break
         if not flagged and chmods:
-            for om in _OCTAL.finditer(body):
+            for om in _OCTAL.finditer(code):
                 line = _line_text(src, f.start + om.start())
                 if _CREATE_CALL.search(line) or _CHMOD.search(line):
                     continue
@@ -415,29 +471,36 @@ def lint_test_file(slug: str, rel: str, src: str, goos_funcs: set[str]) -> list[
                     flagged = True
                     break
         if not flagged:
-            pm = _PERM_ASSERT.search(body)
+            pm = next((m for m in _PERM_ASSERT.finditer(code) if unguarded(m.start())), None)
             if pm:
                 add(f.start + pm.start(), "mode-bits", "asserts Unix permission bits; Windows reports 0666")
 
-        # open-file: created file never closed, or renamed before close.
-        for om in _OPEN.finditer(body):
+        # open-file: created file never closed, or renamed before an
+        # IMMEDIATE close. Never excused by a GOOS branch: this is the Windows
+        # behavior. A deferred or t.Cleanup close runs after a rename in the
+        # same function, so it does not precede one.
+        for om in _OPEN.finditer(code):
             var = om.group(1)
             if var == "_":
                 continue
-            rest = body[om.end():]
-            close = re.search(rf"\b{re.escape(var)}\.Close\(", rest)
-            returned = re.search(rf"\breturn\b[^\n]*\b{re.escape(var)}\b", rest)
+            rest = code[om.end():]
+            v = re.escape(var)
+            close = re.search(rf"\b{v}\.Close\(", rest)
+            returned = re.search(rf"\breturn\b[^\n]*\b{v}\b", rest)
             if close is None and returned is None:
                 add(f.start + om.start(), "open-file",
                     f"{var} is never closed; Windows cannot remove an open file, so TempDir cleanup fails")
                 continue
-            ren = re.search(rf"\bos\.Rename\(\s*{re.escape(var)}\.Name\(\)", rest)
-            if ren and close is not None and ren.start() < close.start():
+            immediate = next((c for c in re.finditer(rf"\b{v}\.Close\(", rest)
+                              if not re.search(r"\bdefer\s+$|Cleanup\(\s*func\s*\(\s*\)\s*\{\s*$",
+                                               rest[max(0, rest.rfind("\n", 0, c.start()) + 1):c.start()])), None)
+            ren = re.search(rf"\bos\.Rename\(\s*{v}\.Name\(\)", rest)
+            if ren and (immediate is None or ren.start() < immediate.start()):
                 add(f.start + om.start(), "open-file",
                     f"{var} is renamed before it is closed; Windows refuses to rename an open file")
 
         # goos-literal: a GOOS-branching function's result compared to one literal.
-        if goos_funcs:
+        if goos_funcs and not (goos or win_exit):
             for name in goos_funcs:
                 n = re.escape(name)
                 lit = r"(?:`[^`]*`|\"(?:[^\"\\]|\\.)*\")"
@@ -624,6 +687,9 @@ _ST_CASES = (
     ("a private 0600 chmod is portable", "a_test.go",
      "package cli\nfunc TestPrivate(t *testing.T) {\n\tos.WriteFile(p, b, 0o644)\n\tif err := os.Chmod(p, 0o600); err != nil {\n\t\tt.Fatal(err)\n\t}\n}\n",
      set()),
+    ("a masked Perm() assertion (`Perm()&0o077 != 0`)", "a_test.go",
+     "package cli\nfunc TestPerm(t *testing.T) {\n\tif info.Mode().Perm()&0o077 != 0 {\n\t\tt.Fatal(info)\n\t}\n}\n",
+     {"mode-bits"}),
     ("a Perm() assertion", "a_test.go",
      "package cli\nfunc TestPerm(t *testing.T) {\n\tif fi.Mode().Perm() != 0o600 {\n\t\tt.Fatal(fi)\n\t}\n}\n",
      {"mode-bits"}),
@@ -642,6 +708,37 @@ _ST_CASES = (
     ("td-synnex #410 fixed (defer Close)", "a_test.go",
      "package client\nfunc captureStderr(t *testing.T) string {\n\tf, err := os.CreateTemp(t.TempDir(), \"stderr\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tdefer f.Close()\n\tb, _ := os.ReadFile(f.Name())\n\treturn string(b)\n}\n",
      set()),
+    ("a GOOS branch that only picks a file name does not excuse a mode-bit assert (Codex r13)", "a_test.go",
+     "package cli\nfunc TestPriv(t *testing.T) {\n\tname := \"x\"\n\tif runtime.GOOS == \"windows\" {\n\t\tname = \"x.exe\"\n\t}\n"
+     "\tif fi.Mode().Perm() != 0o600 {\n\t\tt.Fatal(name)\n\t}\n}\n",
+     {"mode-bits"}),
+    ("`if runtime.GOOS != \"windows\" && <perm assert>` is guarded (the press's own shape)", "a_test.go",
+     "package cli\nfunc TestPriv(t *testing.T) {\n\tif runtime.GOOS != \"windows\" && fi.Mode().Perm() != 0o600 {\n\t\tt.Fatal(1)\n\t}\n}\n",
+     set()),
+    ("a perm assert inside an `if runtime.GOOS != \"windows\" {` block is guarded", "a_test.go",
+     "package cli\nfunc TestPriv(t *testing.T) {\n\tif runtime.GOOS != \"windows\" {\n\t\tif fi.Mode().Perm() != 0o600 {\n\t\t\tt.Fatal(1)\n\t\t}\n\t}\n}\n",
+     set()),
+    ("...but one AFTER that block is not", "a_test.go",
+     "package cli\nfunc TestPriv(t *testing.T) {\n\tif runtime.GOOS != \"windows\" {\n\t\tt.Log(1)\n\t}\n\tif fi.Mode().Perm() != 0o600 {\n\t\tt.Fatal(1)\n\t}\n}\n",
+     {"mode-bits"}),
+    ("a guard inside a comment guards nothing", "a_test.go",
+     "package cli\nfunc TestPriv(t *testing.T) {\n\t// if runtime.GOOS == \"windows\" { t.Skip() }\n\tif fi.Mode().Perm() != 0o600 {\n\t\tt.Fatal(1)\n\t}\n}\n",
+     {"mode-bits"}),
+    ("a Windows return guard excuses a mode-bit assert", "a_test.go",
+     "package cli\nfunc TestPriv(t *testing.T) {\n\tif runtime.GOOS == \"windows\" {\n\t\treturn\n\t}\n"
+     "\tif fi.Mode().Perm() != 0o600 {\n\t\tt.Fatal(1)\n\t}\n}\n",
+     set()),
+    ("a deferred close does not precede a rename (Codex r13)", "a_test.go",
+     "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tdefer f.Close()\n"
+     "\tif err := os.Rename(f.Name(), f.Name()+\".after\"); err != nil {\n\t\tt.Fatal(err)\n\t}\n}\n",
+     {"open-file"}),
+    ("a commented-out close is no close", "a_test.go",
+     "package client\nfunc helper(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n\t// f.Close()\n\treturn \"\"\n}\n",
+     {"open-file"}),
+    ("an open-file finding is not excused by a GOOS branch", "a_test.go",
+     "package client\nfunc helper(t *testing.T) string {\n\tf, _ := os.CreateTemp(t.TempDir(), \"x\")\n"
+     "\tif runtime.GOOS == \"windows\" {\n\t\tt.Log(\"x\")\n\t}\n\treturn \"\"\n}\n",
+     {"open-file"}),
     ("renamed before closed", "a_test.go",
      "package client\nfunc TestSwap(t *testing.T) {\n\tf, _ := os.CreateTemp(dir, \"x\")\n\tos.Rename(f.Name(), dst)\n\tf.Close()\n}\n",
      {"open-file"}),

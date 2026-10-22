@@ -382,7 +382,7 @@ def lines_pre_existing(head_text: str, base_text: str) -> bool:
     (location line numbers ignored). For per-skill checks with no
     attribution of their own."""
     from collections import Counter
-    head = Counter(_norm(ln) for ln in log_lines(head_text) if ln.strip())
+    head = Counter(_norm(ln) for ln in log_lines(head_text))
     base = Counter(_norm(ln) for ln in log_lines(base_text))
     return all(base[k] >= n for k, n in head.items())
 
@@ -403,8 +403,8 @@ def pre_existing(head_text: str, base_text: str, affected: set[str], known: set[
     for ln in log_lines(head_text):
         if base[ln] > 0:
             base[ln] -= 1
-        elif ln.strip():
-            new.append(ln)
+        else:
+            new.append(ln)   # blank and whitespace-only lines are lines too
     return {"pre_existing": not new, "new_lines": new[:40]}
 
 
@@ -744,6 +744,8 @@ def _self_test() -> int:
 
     print("pre_existing (the merge base must already print every line):")
     linkfail = "Markdown local-link check FAILED:\n  - skills/zeta/README.md: broken local link -> missing.md\n"
+    expect(not pre_existing(linkfail + " \nSee new description\n", linkfail + "See new description\n",
+                            {"acme"}, known)["pre_existing"], "an extra whitespace-only line -> new")
     expect(not pre_existing(linkfail + "See new description\n", linkfail, {"acme"}, known)["pre_existing"],
            "a changed continuation line (text the base never printed) -> new, even if it reads like a hint")
     with tempfile.TemporaryDirectory() as tmp3:
