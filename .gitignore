@@ -191,3 +191,6 @@ assets/social/*
 # assets/social/ (AI backgrounds, _variants showcases, ab-log) stays ignored.
 !assets/social/cards.yaml
 .gstack/
+
+# Codex review verdicts (worker convention)
+.review/

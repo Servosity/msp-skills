@@ -140,9 +140,13 @@ jobs:
 
           # The set of files this job owns. One list, used by the sync check,
           # the add, and the retry loop, so the three can never disagree.
+          # skills.json and the CHANGELOGs are here only for the release stamp
+          # (stamp_release.py below): it fills a null cli_hash_at_release and
+          # dates an undated heading, and touches nothing else in them.
           derived=(catalog.json README.md docs/_data/catalog.json docs/skills/
                    ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt
                    docs/_data/pending.json
+                   tools/maintainer/skills.json ':(glob)skills/*/CHANGELOG.md'
                    .github/ISSUE_TEMPLATE/it-works.yml .github/ISSUE_TEMPLATE/bug-report.yml)
           listing="$RUNNER_TEMP/releases.ndjson"
           released="$RUNNER_TEMP/released-tags.txt"
@@ -161,7 +165,7 @@ jobs:
           # regenerates from scratch).
           fetch_released() {
             if ! gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate \
-                 -q '.[] | select(.draft|not) | {tag_name, assets: [.assets[] | {name, size, state}]}' > "$listing"; then
+                 -q '.[] | select(.draft|not) | {tag_name, published_at, assets: [.assets[] | {name, size, state}]}' > "$listing"; then
               echo "::error::could not list published releases; not regenerating release-derived files"
               exit 1
             fi
@@ -176,6 +180,16 @@ jobs:
             echo "complete published releases admitted: $(wc -l < "$released")"
           }
           regenerate() {
+            # Stamp cli_hash_at_release for each connector whose newest COMPLETE
+            # published release matches its registry version and still carries a
+            # null stamp, from the TAGGED tree, and date its CHANGELOG heading
+            # with the publish date. This used to be a separate stamp PR after
+            # every release batch. It never overwrites a set stamp (a mismatch is
+            # printed as a WARN for a human), it is idempotent (so the
+            # one-pending-run replacement in this concurrency group loses
+            # nothing), and any error fails this step before anything commits.
+            # It runs first so pending.json below already sees the stamp.
+            python3 tools/maintainer/stamp_release.py --released-tags "$released" --listing "$listing"
             python3 tools/maintainer/build-catalog.py --released-tags "$released"
             python3 tools/maintainer/build-llms.py
             mkdir -p docs/_data
