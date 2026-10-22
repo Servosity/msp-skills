@@ -38,6 +38,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 REGISTRY = REPO / "tools" / "maintainer" / "skills.json"
 REGISTRY_REF = "origin/main:tools/maintainer/skills.json"
+REGISTRY_PATH = "tools/maintainer/skills.json"
 
 
 def load_current() -> dict:
@@ -55,29 +56,29 @@ def load_current() -> dict:
         sys.exit(2)
 
 
-def load_base() -> tuple[dict | None, str | None]:
+def load_base(ref: str = REGISTRY_REF) -> tuple[dict | None, str | None]:
     """Return (baseline, error). A non-None error means the trusted baseline is
     UNAVAILABLE and the downgrade comparison cannot be made. Callers must not
     treat that as "no downgrades found"."""
     try:
         p = subprocess.run(
-            ["git", "-C", str(REPO), "show", REGISTRY_REF],
+            ["git", "-C", str(REPO), "show", ref],
             capture_output=True, text=True,
         )
     except (OSError, FileNotFoundError) as e:
-        return None, f"could not run git to read {REGISTRY_REF}: {e}"
+        return None, f"could not run git to read {ref}: {e}"
     if p.returncode != 0:
         detail = (p.stderr or "").strip().splitlines()
         why = detail[0] if detail else "git show returned non-zero"
-        return None, f"{REGISTRY_REF} is unreadable ({why})"
+        return None, f"{ref} is unreadable ({why})"
     try:
         skills = json.loads(p.stdout)["skills"]
     except json.JSONDecodeError as e:
-        return None, f"{REGISTRY_REF} is not valid JSON ({e})"
+        return None, f"{ref} is not valid JSON ({e})"
     except KeyError:
-        return None, f"{REGISTRY_REF} has no top-level 'skills' object"
+        return None, f"{ref} has no top-level 'skills' object"
     if not isinstance(skills, dict):
-        return None, f"{REGISTRY_REF}: 'skills' is {type(skills).__name__}, expected an object"
+        return None, f"{ref}: 'skills' is {type(skills).__name__}, expected an object"
     return skills, None
 
 
@@ -94,6 +95,13 @@ def main() -> int:
         help="if origin/main's skills.json cannot be read or parsed, print SKIP and run the "
              "SHAPE check only instead of exiting 2. The DOWNGRADE check is NOT performed. "
              "For genuinely offline checkouts; CI must never pass this.")
+    ap.add_argument(
+        "--base",
+        help="the revision to compare against (default origin/main). CI passes the PR base, or "
+             "on a push to main github.event.before: by then the runner's origin/main already "
+             "CONTAINS the push, so comparing against it would compare the push with itself. A "
+             "--base that cannot be read is an environment error (exit 2): substituting "
+             "origin/main there would compare a push with itself.")
     args = ap.parse_args()
 
     current = load_current()
@@ -110,7 +118,12 @@ def main() -> int:
                 "(absence = awaiting)"
             )
 
-    base, base_err = load_base()
+    base_label = "origin/main"
+    if args.base:
+        base, base_err = load_base(f"{args.base}:{REGISTRY_PATH}")
+        base_label = args.base[:12]
+    else:
+        base, base_err = load_base()
     if base_err is not None:
         if not args.allow_missing_baseline:
             print("check_registry_state: ENVIRONMENT ERROR - the trusted baseline could not "
@@ -137,7 +150,7 @@ def main() -> int:
             if lv_status(cur_entry) != "live-verified":
                 violations.append(
                     f"{slug}: live_verified DOWNGRADED from 'live-verified' "
-                    f"(origin/main) to {lv_status(cur_entry)!r} - a stale-snapshot "
+                    f"({base_label}) to {lv_status(cur_entry)!r} - a stale-snapshot "
                     "merge is destroying a verification receipt. Restore the "
                     "origin/main value; only verify_live.py revoke may clear it."
                 )
@@ -148,7 +161,7 @@ def main() -> int:
             print(f"  - {v}")
         return 1
     scope = ("shape only; downgrade check SKIPPED" if base is None
-             else "shape + downgrade vs origin/main")
+             else f"shape + downgrade vs {base_label}")
     print(f"check_registry_state: OK ({len(current)} entries; {scope})")
     return 0
 

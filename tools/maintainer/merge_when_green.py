@@ -2831,13 +2831,30 @@ def _self_test() -> int:
             os.environ["PATH"] = old_path
         took = time.monotonic() - t0
         stalled_pid = int(pidfile.read_text()) if pidfile.exists() else -1
-        try:
-            os.kill(stalled_pid, 0)
-            still = True
-        except (ProcessLookupError, OverflowError, ValueError):
-            still = False
-        except PermissionError:
-            still = True
+
+        def running(pid: int) -> bool:
+            try:
+                os.kill(pid, 0)
+            except (ProcessLookupError, OverflowError, ValueError):
+                return False
+            except PermissionError:
+                return True
+            # A killed orphan is reparented to whichever process reaps it, and
+            # until then it is a zombie that kill(0) still finds. A zombie has
+            # stopped running (CI's Linux runner, a container whose PID 1 does
+            # not reap).
+            try:
+                with open(f"/proc/{pid}/stat", encoding="ascii", errors="replace") as fh:
+                    return fh.read().rsplit(")", 1)[1].split()[0] != "Z"
+            except (OSError, IndexError):
+                return True
+
+        # The kill is delivered asynchronously: give the signal a moment to land.
+        settle = time.monotonic() + 2
+        still = running(stalled_pid)
+        while still and time.monotonic() < settle:
+            time.sleep(0.05)
+            still = running(stalled_pid)
         expect("lookup failed" in raised and "did not finish within 1s" in raised and took < 10 and not still
                and not donefile.exists(),
                f"gh calls that stall are each killed at the deadline's remaining 1s, and the snapshot reads as "
