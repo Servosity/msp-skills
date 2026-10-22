@@ -378,7 +378,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     local tarx="" seed="$WORK/seed.git"
     tar --version 2>/dev/null | grep -q bsdtar && tarx="--no-xattrs"
     in_volume() { docker run --rm -i --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp \
-                    -v "$seed:/seed:ro" -v "$VERIFY_LINUX_VOLUME:/src" -w /src "$img" "$@"; }
+                    -v "$seed:/seed:ro" -v "$VERIFY_LINUX_VOLUME:/src" "$img" "$@"; }   # no -w: it resets /src to root
     if ! { [ -n "$img" ] \
            && git init -q --bare "$seed" \
            && git -C "$seed" fetch -q --depth 1 "file://$(pwd)" "$head" \
@@ -389,7 +389,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
                                && git -C /src checkout -q --detach FETCH_HEAD" \
            && { [ ! -s "$WORK/overlay.lst" ] \
                 || COPYFILE_DISABLE=1 tar $tarx --null -T "$WORK/overlay.lst" -cf - | in_volume tar -xf - -C /src; } \
-           && in_volume sh -c 'xargs -0 rm -f' < "$WORK/deleted.lst"; }; then
+           && in_volume sh -c 'cd /src && xargs -0 rm -f' < "$WORK/deleted.lst"; }; then
       echo "  could not snapshot the repository into a Linux volume: the Linux checks will fail"
       VERIFY_LINUX_SRC=""
     fi

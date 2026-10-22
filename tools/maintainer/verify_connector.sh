@@ -94,15 +94,17 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
     docker)
       [ -n "${VERIFY_LINUX_SRC:-}" ] || {
         echo "no repository snapshot for the Linux container (VERIFY_LINUX_SRC)"; return 1; }
-      # The container's environment is only what is listed here.
+      # The container's environment is only what is listed here. No -w: Docker
+      # hands a volume's working directory back to root, and this user then
+      # cannot write there.
       docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
         -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 \
         -e GOTOOLCHAIN=local -e GOENV=off -e GOFLAGS= \
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
-        -v "$VERIFY_LINUX_SRC:/src" -w "/src/$cwd" \
-        "golang:${gover}-bookworm" bash -c "$cmd" ;;
+        -v "$VERIFY_LINUX_SRC:/src" \
+        "golang:${gover}-bookworm" bash -c 'cd "/src/$1" && eval "$2"' bash "$cwd" "$cmd" ;;
     *)
       echo "CI's build row (linux/amd64, cgo on) cannot run here: this host is not linux/amd64"
       echo "with a C compiler, and no Docker daemon is reachable. Install Docker or OrbStack,"
