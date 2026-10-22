@@ -1438,7 +1438,10 @@ var resourceCols = map[string][]string{RESOURCE_COLS}
 // names the module path, which normalization must handle.
 type batchLimit int
 
-const batchSize batchLimit = 64
+// The approved constant's initializer references another declaration.
+const baseLimit = 64
+
+const batchSize batchLimit = baseLimit
 
 type queryParts struct {
 	q    string
@@ -1630,6 +1633,16 @@ def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
     if re.search(r"actions/cache\b", code_text) or "cache-hit" in code_text:
         problems.append("the PR gate must not restore any cache: a PR can write its own cache "
                         "scope, and extraction can write outside the cache path")
+    # setup-go caches modules and builds by default, and setup-python can cache pip:
+    # both restore PR-writable state, so every setup step must keep caching off.
+    steps = re.split(r"(?m)^\s*- (?=name:|uses:)", code_text)
+    for st in steps:
+        if re.search(r"uses:\s*actions/setup-go@", st) and not re.search(r"(?m)^\s*cache:\s*false\s*$", st):
+            problems.append("a setup-go step does not set cache: false")
+            break
+        if re.search(r"uses:\s*actions/setup-python@", st) and re.search(r"(?m)^\s*cache(-dependency-path)?:", st):
+            problems.append("a setup-python step enables a cache")
+            break
     if not re.search(r'not the reviewed \$5 \(fail-closed\)"\n\s*return 1\b', gate_yml):
         problems.append("a scanner whose digest does not match its pin must fail the job")
     # -I: a PR can add tools/maintainer/json.py (or ./re.py, ./pip/) and Python would
@@ -1676,6 +1689,10 @@ def _self_test_workflows() -> int:
             "      - name: Build each pinned scanner cold",
             "      - uses: actions/cache/restore@v4\n        with:\n          path: x\n          key: y\n"
             "      - name: Build each pinned scanner cold"), rel_yml, False),
+        ("setup-go caching left on", gate_yml.replace("go-version: ${{ env.SCANNER_GO }}\n          cache: false",
+                                                      "go-version: ${{ env.SCANNER_GO }}"), rel_yml, False),
+        ("setup-python caches pip", gate_yml.replace('python-version: "3.12"', 'python-version: "3.12"\n          cache: pip', 1),
+         rel_yml, False),
         ("a digest mismatch is tolerated", re.sub(r'(not the reviewed \$5 \(fail-closed\)"\n\s*)return 1',
                                                  r"\1return 0", gate_yml), rel_yml, False),
         ("scanner hash pin removed", re.sub(r'(?m)^\s*GOSEC_SHA256:.*\n', "", gate_yml), rel_yml, False),
@@ -1845,6 +1862,9 @@ def self_test() -> int:
         case("approved constant respelled as a raw string (same value)", lambda r, m: edit(
              m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', "`BETA_MCP_HTTP_TOKEN`"),
              {"G101": P1, "G202": AP})
+        case("a constant the approved initializer references changed (same value)", lambda r, m: edit(
+             m, "internal/store/store.go", "const baseLimit = 64", "const baseLimit = 60 + 4"),
+             {"G202": P1, "G101": AP})
         case("a neighbour in the approved constant's group changed", lambda r, m: edit(
              m, "cmd/beta-mcp/main.go", '"127.0.0.1:7777"', '"0.0.0.0:7777"'),
              {"G101": P1, "G202": AP})
