@@ -2241,6 +2241,30 @@ def _self_test() -> int:
         rc, logs = merger(work, fake, require=(), dry_run=True, allow_stale_tools=True)
         expect(rc == 0 and any("--allow-stale-tools" in s for s in logs), "... unless --allow-stale-tools, which says so")
 
+        # T8f2: freshness compares the code LOADED at start, not the disk now:
+        # a shared checkout pulled mid-run matches main on disk while this
+        # process still runs the old rules.
+        pulled = tmp / "pulled"
+        pulled.mkdir()
+        sh("git", "init", "-q", cwd=pulled)
+        (pulled / "tools/maintainer").mkdir(parents=True)
+        for f in TOOL_FILES:
+            if _read_tool(f) is not None:
+                (pulled / "tools/maintainer" / f).write_text(_read_tool(f) or "", encoding="utf-8",
+                                                             errors="surrogateescape")
+        sh("git", "add", "-A", cwd=pulled)
+        sh("git", "commit", "-q", "-m", "main = this checkout's disk", cwd=pulled)
+        sh("git", "update-ref", "refs/remotes/origin/main", "HEAD", cwd=pulled)
+        verdict = []
+        for loaded in (LOADED_TOOLS, {**LOADED_TOOLS, "resolve_registry.py": "# the rules loaded before the pull\n"}):
+            try:
+                check_tool_freshness(Git(pulled, env), "origin", False, lambda s: None, loaded)
+                verdict.append("fresh")
+            except Stop:
+                verdict.append("stale")
+        expect(verdict == ["fresh", "stale"],
+               f"main equal to the disk is fresh for the code loaded from it, stale for older loaded code ({verdict})")
+
         # T8g: main changes the rules mid-run. The run starts fresh (its loaded
         # rules are the fixture main's own copies); main then moves during the
         # wait, and the next fetch of main checks freshness again.
