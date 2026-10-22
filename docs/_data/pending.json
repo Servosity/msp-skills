@@ -574,16 +574,16 @@
     "released_hash": "sha256:6c42ac637d82b08baea30fe6d0403d31bc59a73c2faba4380974c8c54e00e935"
   },
   "veeam": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "veeam-v0.1.4",
+    "latest_tag": "veeam-v0.1.5",
     "current_hash": "sha256:6be891780cbc1d1710ebd7e9ca6bcf0d3799f7381df446f4829d8d36af0dd457",
     "released_hash": "sha256:6be891780cbc1d1710ebd7e9ca6bcf0d3799f7381df446f4829d8d36af0dd457"
   },
   "watchguard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "watchguard-v0.1.1",
+    "latest_tag": "watchguard-v0.1.2",
     "current_hash": "sha256:645cc4f82c27b678eeace93ef3153b624face4b40f75ec7396ee72b585518156",
     "released_hash": "sha256:645cc4f82c27b678eeace93ef3153b624face4b40f75ec7396ee72b585518156"
   },
