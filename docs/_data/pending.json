@@ -413,16 +413,16 @@
     "released_hash": "sha256:b2955c1ea1c2893bd160d66ce0058b97e31fa9fb50e4f4eb5bdcdf0de50fa880"
   },
   "quickbooks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "quickbooks-v0.1.11",
+    "latest_tag": "quickbooks-v0.1.12",
     "current_hash": "sha256:e704b3f78a4ef4309ae5ccb6ba74e2fbf329a033163e590f96505f11344412e6",
     "released_hash": "sha256:e704b3f78a4ef4309ae5ccb6ba74e2fbf329a033163e590f96505f11344412e6"
   },
   "quotewerks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "quotewerks-v0.1.1",
+    "latest_tag": "quotewerks-v0.1.2",
     "current_hash": "sha256:975c47ce5e5def028d3d38b01031613c79420c8e4c72128d60adc297b96ea837",
     "released_hash": "sha256:975c47ce5e5def028d3d38b01031613c79420c8e4c72128d60adc297b96ea837"
   },
