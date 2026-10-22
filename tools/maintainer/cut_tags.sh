@@ -4,6 +4,7 @@
 #
 #   tools/maintainer/cut_tags.sh [--dry-run] [--log FILE] <SHA> <tags-file>
 #   tools/maintainer/cut_tags.sh --receipts [--log FILE] <tags-file>
+#   tools/maintainer/cut_tags.sh --rerun-failed [--log FILE] <tags-file>
 #   tools/maintainer/cut_tags.sh --self-test
 #
 # <tags-file> holds one tag per line (<slug>-v<x.y.z>); blank lines and lines
@@ -30,7 +31,19 @@
 #      --tags, never more than one tag per push: GitHub fires no workflow at
 #      all for a push of more than three tags);
 #   5. it waits until a Release run for that tag at that SHA has registered.
-# --dry-run runs every check and pushes nothing.
+# Before every push it waits until fewer than CUT_TAGS_MAX_IN_FLIGHT (default 4)
+# Release runs are in flight, repo-wide: one tag per push is not enough on its
+# own (52 tags pushed one at a time still put 52 runs in flight together,
+# exhausted the Actions-token API limit, and left 9 partial drafts and 9 tags
+# with no release). --dry-run runs every check and pushes nothing.
+#
+# Recovery (--rerun-failed): for each listed tag whose latest Release run
+# FAILED while its release is still a draft (or was never created), it re-runs
+# the failed jobs (`gh run rerun <id> --failed`), CUT_TAGS_RERUN_BATCH (3) at a
+# time under the same in-flight cap, waiting for each batch to finish, then
+# prints the receipts. A release already published with assets missing is
+# immutable and is reported, not touched. It never deletes a release and never
+# moves or re-pushes a tag.
 #
 # Receipts mode: a pushed tag only STARTS a release. For each tag it waits for
 # the release to be published and runs check_release_assets.py --with-mcpb on
@@ -43,7 +56,9 @@
 # Environment (for tests and unusual setups): CUT_TAGS_REPO (default: this
 # checkout's clone), CUT_TAGS_REMOTE (origin), CUT_TAGS_GH_REPO (owner/repo;
 # default: read from the remote URL), CUT_TAGS_RUN_TRIES/_RUN_SLEEP (30 x 5s),
-# CUT_TAGS_SPACING (15s between tags), CUT_TAGS_SEAL_TRIES/_SEAL_SLEEP (90 x 20s).
+# CUT_TAGS_SPACING (15s between tags), CUT_TAGS_SEAL_TRIES/_SEAL_SLEEP (90 x 20s),
+# CUT_TAGS_MAX_IN_FLIGHT (4), CUT_TAGS_FLIGHT_TRIES/_FLIGHT_SLEEP (120 x 30s),
+# CUT_TAGS_RERUN_BATCH (3).
 set -euo pipefail
 
 TOOLS=$(cd "$(dirname "$0")" && pwd)
@@ -148,6 +163,125 @@ fetch_and_check_self() { # fetch tags + main, refuse a stale copy of this script
   fi
 }
 
+in_flight() { # Release runs not yet completed, repo-wide (every wave counts)
+  local n
+  n=$(gh run list -R "$GH_REPO" --workflow release.yml --limit 100 --json status \
+    -q '[.[] | select(.status != "completed")] | length' </dev/null 2>/dev/null) || return 1
+  case "$n" in "" | *[!0-9]*) return 1 ;; esac
+  printf '%s\n' "$n"
+}
+
+wait_for_capacity() { # block until fewer than the cap of Release runs are in flight
+  local i=0 n cap=${CUT_TAGS_MAX_IN_FLIGHT:-4}
+  while :; do
+    n=$(in_flight) || die "FLIGHT-UNKNOWN cannot count Release runs in flight (gh failed); stopping rather than over-committing"
+    [ "$n" -lt "$cap" ] && return 0
+    [ "$i" -eq 0 ] && say "WAIT $n Release run(s) in flight (cap $cap); waiting for one to finish"
+    i=$((i + 1))
+    [ "$i" -lt "${CUT_TAGS_FLIGHT_TRIES:-120}" ] || die "FLIGHT-TIMEOUT still $n Release run(s) in flight; stopping"
+    sleep "${CUT_TAGS_FLIGHT_SLEEP:-30}"
+  done
+}
+
+run_done() { # <run id>: wait until a run completes; prints its conclusion
+  local i=0 st
+  while :; do
+    st=$(gh run view "$1" -R "$GH_REPO" --json status,conclusion -q '"\(.status) \(.conclusion)"' </dev/null 2>/dev/null || true)
+    case "$st" in completed*)
+      printf '%s\n' "${st#completed }"
+      return 0
+      ;;
+    esac
+    i=$((i + 1))
+    [ "$i" -lt "${CUT_TAGS_SEAL_TRIES:-90}" ] || {
+      printf 'timeout\n'
+      return 0
+    }
+    sleep "${CUT_TAGS_SEAL_SLEEP:-20}"
+  done
+}
+
+rerun_failed() {
+  # Recovery after a wave whose runs failed (e.g. the Actions-token API limit:
+  # "HTTP 403: API rate limit exceeded for installation" at create-release).
+  # A draft is still mutable, so re-running the FAILED jobs of its run finishes
+  # it. Never deletes a release, never moves or re-pushes a tag.
+  local fail=0 t info id st concl rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid
+  fetch_and_check_self
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    handled=$((handled + 1))
+    info=$(gh run list -R "$GH_REPO" --workflow release.yml --branch "$t" --limit 1 \
+      --json databaseId,status,conclusion -q '.[0] | "\(.databaseId) \(.status) \(.conclusion)"' </dev/null 2>/dev/null || true)
+    id=${info%% *}
+    st=$(printf '%s' "$info" | awk '{print $2}')
+    concl=$(printf '%s' "$info" | awk '{print $3}')
+    rel=$(gh release view "$t" -R "$GH_REPO" --json isDraft -q .isDraft </dev/null 2>/dev/null || echo missing)
+    case "$id" in "" | null)
+      say "NO-RUN $t: no Release run exists for this tag, so there is nothing to re-run (needs a human)"
+      fail=1
+      continue
+      ;;
+    esac
+    if [ "$st" != "completed" ]; then
+      say "IN-FLIGHT $t run $id ($st)"
+      continue
+    fi
+    if [ "$concl" = "success" ]; then
+      say "OK $t run $id succeeded (release isDraft=$rel)"
+      continue
+    fi
+    case "$rel" in
+      true | missing) ;; # still a mutable draft, or never created: a re-run can finish it
+      false)
+        say "SEALED-PARTIAL $t: published despite run $id ($concl); immutable, a re-run cannot add assets - bump the version"
+        fail=1
+        continue
+        ;;
+      *)
+        say "UNKNOWN-STATE $t: release state '$rel' unreadable; not re-running run $id"
+        fail=1
+        continue
+        ;;
+    esac
+    queue="$queue$t $id
+"
+    n_q=$((n_q + 1))
+  done <<<"$TAG_LIST"
+  [ "$handled" -eq "$TAG_COUNT" ] || die "INCOMPLETE checked $handled of $TAG_COUNT listed tags"
+  say "rerun-failed: $n_q failed run(s) to re-run, ${CUT_TAGS_RERUN_BATCH:-3} at a time"
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    wait_for_capacity
+    bt=${entry%% *}
+    bid=${entry##* }
+    if gh run rerun "$bid" -R "$GH_REPO" --failed </dev/null >/dev/null 2>&1; then
+      say "RERUN $bt $bid"
+    else
+      say "RERUN-REFUSED $bt $bid"
+      fail=1
+    fi
+    batch="$batch$bt $bid
+"
+    n_b=$((n_b + 1))
+    if [ "$n_b" -ge "${CUT_TAGS_RERUN_BATCH:-3}" ]; then
+      while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        say "DONE ${entry%% *} ${entry##* } $(run_done "${entry##* }")"
+      done <<<"$batch"
+      batch=""
+      n_b=0
+    fi
+  done <<<"$queue"
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    say "DONE ${entry%% *} ${entry##* } $(run_done "${entry##* }")"
+  done <<<"$batch"
+  say "rerun-failed: re-runs finished; receipts follow"
+  receipts || fail=1
+  return "$fail"
+}
+
 remote_tag_commit() { # the commit a remote tag points at (peeled), or nothing
   local out
   out=$(git -C "$REPO" ls-remote "$REMOTE" "refs/tags/$1" "refs/tags/$1^{}") || return 1
@@ -186,17 +320,18 @@ cut() {
       die "NOTES-REFUSED $t (write the CHANGELOG section at that commit first)"
     fi
     if [ "$dry" = 1 ]; then
-      say "WOULD-PUSH $t at $full (probe and notes OK)"
+      say "WOULD-PUSH $t at $full (probe and notes OK; Release runs in flight now: $(in_flight || echo unknown), cap ${CUT_TAGS_MAX_IN_FLIGHT:-4})"
       handled=$((handled + 1))
       continue
     fi
-    git -C "$REPO" push -q "$REMOTE" "${full}:refs/tags/${t}"
+    wait_for_capacity
+    git -C "$REPO" push -q "$REMOTE" "${full}:refs/tags/${t}" </dev/null
     say "PUSHED $t"
     run=""
     i=0
     while [ "$i" -lt "${CUT_TAGS_RUN_TRIES:-30}" ]; do
       run=$(gh run list -R "$GH_REPO" --workflow release.yml --branch "$t" --json databaseId,headSha \
-        -q ".[] | select(.headSha == \"$full\") | .databaseId" 2>/dev/null | head -1 || true)
+        -q ".[] | select(.headSha == \"$full\") | .databaseId" </dev/null 2>/dev/null | head -1 || true)
       [ -n "$run" ] && break
       i=$((i + 1))
       sleep "${CUT_TAGS_RUN_SLEEP:-5}"
@@ -221,13 +356,13 @@ receipts() {
     json=""
     i=0
     while [ "$i" -lt "${CUT_TAGS_SEAL_TRIES:-90}" ]; do
-      json=$(gh release view "$t" -R "$GH_REPO" --json isDraft,assets 2>/dev/null || true)
+      json=$(gh release view "$t" -R "$GH_REPO" --json isDraft,assets </dev/null 2>/dev/null || true)
       if [ -n "$json" ]; then
         draft=$(printf '%s' "$json" | "$PYTHON" -c 'import json,sys; print(str(json.load(sys.stdin).get("isDraft")).lower())' 2>/dev/null || echo unreadable)
         [ "$draft" = "false" ] && break
       fi
       st=$(gh run list -R "$GH_REPO" --workflow release.yml --branch "$t" --json status,conclusion \
-        -q '.[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)
+        -q '.[0] | "\(.status) \(.conclusion)"' </dev/null 2>/dev/null || true)
       case "$st" in
         "completed success" | "" | "null null") ;;
         completed*)
@@ -261,12 +396,12 @@ receipts() {
     fi
   done <<<"$TAG_LIST"
   [ "$checked" -eq "$TAG_COUNT" ] || die "INCOMPLETE checked $checked of $TAG_COUNT listed tags"
-  drafts=$(gh api "repos/$GH_REPO/releases" --paginate -q '.[] | select(.draft) | .tag_name' 2>/dev/null) \
+  drafts=$(gh api "repos/$GH_REPO/releases" --paginate -q '.[] | select(.draft) | .tag_name' </dev/null 2>/dev/null) \
     || { say "DRAFT-SWEEP-FAILED (could not list releases)"; return 1; }
   # A draft whose Release run is still going is a release in flight (another
   # wave, or this one's slowest target), not one that never finished.
   for d in $drafts; do
-    st=$(gh run list -R "$GH_REPO" --workflow release.yml --branch "$d" --json status -q '.[0].status' 2>/dev/null || true)
+    st=$(gh run list -R "$GH_REPO" --workflow release.yml --branch "$d" --json status -q '.[0].status' </dev/null 2>/dev/null || true)
     case "$st" in
       queued | in_progress | waiting | pending | requested) inflight="$inflight $d" ;;
       *) stranded="$stranded $d" ;;
@@ -287,7 +422,12 @@ receipts() {
 # --self-test: a throwaway origin, a fake `gh`, every path both directions
 # --------------------------------------------------------------------------- #
 self_test() {
-  local tmp failures=0 out rc real_repo sha sha2 rs
+  # Each case is `<condition list>; expect "label" $?`. Under set -e a list
+  # whose LAST clause fails would end the whole self-test silently instead of
+  # reporting that case, so the harness runs without it (the tool runs it calls
+  # are separate processes with their own set -e).
+  set +e
+  local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before
   real_repo=$(git -C "$TOOLS" rev-parse --show-toplevel)
   tmp=$(mktemp -d)
   # shellcheck disable=SC2064  # expand now: tmp is local
@@ -295,6 +435,11 @@ self_test() {
   export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
   printf '[user]\n\tname = Self Test\n\temail = selftest@example.invalid\n[init]\n\tdefaultBranch = main\n' >"$GIT_CONFIG_GLOBAL"
 
+  has() { # <text>: is it in $out? (no pipe: `printf | grep -q` under pipefail
+    # fails when grep exits early and printf takes SIGPIPE)
+    case "$out" in *"$1"*) return 0 ;; esac
+    return 1
+  }
   expect() { # <label> <exit code of the condition>
     if [ "$2" -eq 0 ]; then echo "  ok   $1"; else
       echo "  FAIL $1"
@@ -318,12 +463,22 @@ open(path, "w").write(json.dumps(reg, indent=2) + "\n")
 PY
   }
 
-  # origin: a bare repo whose pre-receive hook records how many refs each push carried
+  # origin: a bare repo whose pre-receive hook records how many refs each push
+  # carried and, for a tag, how many Release runs were in flight when it was
+  # pushed; it then starts that tag's (fake) Release run.
   git init -q --bare "$tmp/origin.git"
+  mkdir -p "$tmp/runs"
   cat >"$tmp/origin.git/hooks/pre-receive" <<'HOOK'
 #!/bin/sh
+state=$(cd "$(dirname "$0")/../.." && pwd)
 n=0
-while read -r _old _new _ref; do n=$((n + 1)); done
+while read -r _old _new ref; do
+  n=$((n + 1))
+  case "$ref" in refs/tags/*)
+    grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ' >>"$state/flight.txt"
+    echo in_progress >"$state/runs/${ref#refs/tags/}" ;;
+  esac
+done
 echo "$n" >>"$(dirname "$0")/../pushes.txt"
 HOOK
   chmod +x "$tmp/origin.git/hooks/pre-receive"
@@ -349,25 +504,50 @@ HOOK
   sha=$(git -C "$tmp/repo" rev-parse HEAD)
 
   # fake gh: a Release run "registers" once its tag is on origin at that SHA
-  # (unless the tag is listed in no-run.txt); releases and runs come from files.
-  mkdir -p "$tmp/bin" "$tmp/releases" "$tmp/elsewhere"
+  # (unless the tag is listed in no-run.txt); the in-flight count is the runs
+  # the hook started, one of which finishes on every third count (time
+  # passing); releases, run states and re-runs come from files, and any delete
+  # is recorded as FORBIDDEN.
+  mkdir -p "$tmp/bin" "$tmp/releases" "$tmp/elsewhere" "$tmp/rerun"
   cat >"$tmp/bin/gh" <<FAKE
 #!/usr/bin/env bash
 set -u
 state="$tmp"
+case "\$*" in *delete*|*DELETE*) echo "FORBIDDEN \$*" >>"\$state/calls.txt"; exit 3 ;; esac
 case "\$1 \$2" in
   "run list")
     tag=""; prev=""; want=""
     for a in "\$@"; do [ "\$prev" = "--branch" ] && tag=\$a; [ "\$prev" = "-q" ] && want=\$a; prev=\$a; done
+    if [ -z "\$tag" ]; then
+      n=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
+      echo x >>"\$state/counts.txt"
+      if [ \$((\$(wc -l <"\$state/counts.txt") % 3)) -eq 0 ]; then
+        oldest=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | head -1)
+        [ -n "\$oldest" ] && echo completed >"\$oldest"
+      fi
+      echo "\$n"; exit 0
+    fi
     if grep -qx "\$tag" "\$state/no-run.txt" 2>/dev/null; then exit 0; fi
     case "\$*" in
-      *databaseId*)
+      *databaseId,headSha*)
         c=\$(git --git-dir "\$state/origin.git" rev-parse -q --verify "refs/tags/\$tag^{commit}" 2>/dev/null) || exit 0
         case "\$want" in *"\$c"*) echo 4242 ;; esac ;;
+      *databaseId,status,conclusion*) cat "\$state/releases/\$tag.runinfo" 2>/dev/null || echo "null null null" ;;
       *conclusion*) cat "\$state/releases/\$tag.run" 2>/dev/null || true ;;
       *status*) cat "\$state/releases/\$tag.status" 2>/dev/null || true ;;
     esac ;;
-  "release view") cat "\$state/releases/\$3.json" 2>/dev/null || exit 1 ;;
+  "run rerun")
+    echo "rerun \$3" >>"\$state/calls.txt"; echo 0 >"\$state/rerun/\$3" ;;
+  "run view")
+    v=\$(cat "\$state/rerun/\$3" 2>/dev/null || echo 9)
+    if [ "\$v" -lt 1 ]; then echo 1 >"\$state/rerun/\$3"; echo "in_progress null"
+    else echo "done \$3" >>"\$state/calls.txt"; echo "completed success"; fi ;;
+  "release view")
+    [ -f "\$state/releases/\$3.json" ] || exit 1
+    case "\$*" in
+      *"-q .isDraft"*) sed -nE 's/.*"isDraft": *(true|false).*/\1/p' "\$state/releases/\$3.json" ;;
+      *) cat "\$state/releases/\$3.json" ;;
+    esac ;;
   "api repos/fake/repo/releases") cat "\$state/drafts.txt" 2>/dev/null || true ;;
   *) echo "fake gh: unhandled \$*" >&2; exit 2 ;;
 esac
@@ -379,39 +559,39 @@ FAKE
   echo "tag list handling (the false ALL-PUSHED):"
   printf 'zz-one-v0.1.0\n' >"$tmp/elsewhere/tags-ok.txt"
   out=$(cd "$tmp/elsewhere" && bash "$SELF" --dry-run "$sha" tags-ok.txt 2>&1) && rc=0 || rc=$?
-  [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "WOULD-PUSH zz-one-v0.1.0" \
-    && printf '%s' "$out" | grep -q "DRY-RUN-COMPLETE 1 of 1" \
+  [ "$rc" -eq 0 ] && has "WOULD-PUSH zz-one-v0.1.0" \
+    && has "DRY-RUN-COMPLETE 1 of 1" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-one-v0.1.0 >/dev/null
   expect "a dry run with a RELATIVE tags path checks the tag, counts 1 of 1, and pushes nothing" $?
   out=$(cd "$tmp/elsewhere" && bash "$SELF" "$sha" missing.txt 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && ! printf '%s' "$out" | grep -q "ALL-PUSHED"
+  [ "$rc" -ne 0 ] && ! has "ALL-PUSHED"
   expect "a missing tags file fails, and never prints ALL-PUSHED" $?
   printf '# nothing here\n\n' >"$tmp/empty.txt"
   out=$(bash "$SELF" "$sha" "$tmp/empty.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "lists no tags"
+  [ "$rc" -ne 0 ] && has "lists no tags"
   expect "a tags file with no tags fails" $?
   printf 'zz-one-v0.1.0\nzz-one-v0.1.0\n' >"$tmp/dup.txt"
   out=$(bash "$SELF" "$sha" "$tmp/dup.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "listed twice"
+  [ "$rc" -ne 0 ] && has "listed twice"
   expect "a tag listed twice fails before anything is pushed" $?
 
   echo "push mode:"
   out=$(cd "$tmp/elsewhere" && bash "$SELF" "$sha" tags-ok.txt 2>&1) && rc=0 || rc=$?
-  [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "RUN zz-one-v0.1.0 4242" \
-    && printf '%s' "$out" | grep -q "ALL-PUSHED 1 of 1" \
+  [ "$rc" -eq 0 ] && has "RUN zz-one-v0.1.0 4242" \
+    && has "ALL-PUSHED 1 of 1" \
     && [ "$(git --git-dir "$tmp/origin.git" rev-parse refs/tags/zz-one-v0.1.0)" = "$sha" ]
   expect "an endorsed tag is pushed at the SHA, its Release run is seen, 1 of 1" $?
   out=$(bash "$SELF" "$sha" "$tmp/elsewhere/tags-ok.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "SKIP zz-one-v0.1.0" && printf '%s' "$out" | grep -q "ALL-PUSHED 1 of 1"
+  [ "$rc" -eq 0 ] && has "SKIP zz-one-v0.1.0" && has "ALL-PUSHED 1 of 1"
   expect "re-running skips a tag already cut at this SHA and still counts it" $?
   printf 'zz-one-v0.2.0\n' >"$tmp/tags-badver.txt"
   out=$(bash "$SELF" "$sha" "$tmp/tags-badver.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "PROBE-REFUSED zz-one-v0.2.0" \
+  [ "$rc" -ne 0 ] && has "PROBE-REFUSED zz-one-v0.2.0" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-one-v0.2.0 >/dev/null
   expect "a tag the probe refuses (manifest says 0.1.0) is not pushed" $?
   printf 'zz-two-v0.1.0\n' >"$tmp/tags-notes.txt"
   out=$(bash "$SELF" "$sha" "$tmp/tags-notes.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "NOTES-REFUSED zz-two-v0.1.0"
+  [ "$rc" -ne 0 ] && has "NOTES-REFUSED zz-two-v0.1.0"
   expect "a placeholder CHANGELOG section stops the tag before it is pushed" $?
 
   echo "checkers run from a fresh tree, not this checkout (the wrong-tree bug):"
@@ -425,11 +605,11 @@ FAKE
   expect "(this checkout's probe, whose ledger lacks the burn, WOULD endorse zz-one-v0.1.9)" "$rc"
   printf 'zz-one-v0.1.9\n' >"$tmp/tags-burned.txt"
   out=$(bash "$SELF" "$sha2" "$tmp/tags-burned.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "PROBE-REFUSED zz-one-v0.1.9" && printf '%s' "$out" | grep -q "TAG-BURNED"
+  [ "$rc" -ne 0 ] && has "PROBE-REFUSED zz-one-v0.1.9" && has "TAG-BURNED"
   expect "cut_tags runs origin/main's probe, so the version main retired is refused" $?
   out=$(bash "$SELF" "$sha2" "$tmp/elsewhere/tags-ok.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "EXISTS-ELSEWHERE zz-one-v0.1.0" \
-    && ! printf '%s' "$out" | grep -q "PROBE-REFUSED"
+  [ "$rc" -ne 0 ] && has "EXISTS-ELSEWHERE zz-one-v0.1.0" \
+    && ! has "PROBE-REFUSED"
   expect "a tag already on origin at another commit stops the run before anything else" $?
   printf '# wave\n\nzz-one-v0.1.8\n' >"$tmp/tags-norun.txt"
   connector zz-one 0.1.8
@@ -438,11 +618,35 @@ FAKE
   git -C "$tmp/repo" push -q origin main
   echo "zz-one-v0.1.8" >"$tmp/no-run.txt"
   out=$(bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-norun.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "NO-RUN zz-one-v0.1.8" && ! printf '%s' "$out" | grep -q "ALL-PUSHED"
+  [ "$rc" -ne 0 ] && has "NO-RUN zz-one-v0.1.8" && ! has "ALL-PUSHED"
   expect "a pushed tag whose Release run never registers stops the run" $?
+
+  echo "releases in flight are capped (the 52-run API-limit wave):"
+  for s in zz-c1 zz-c2 zz-c3 zz-c4 zz-c5; do
+    connector "$s" 0.1.0
+    printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
+    echo "$s-v0.1.0"
+  done >"$tmp/tags-wave.txt"
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "five connectors" -s
+  git -C "$tmp/repo" push -q origin main
+  rm -f "$tmp"/runs/* "$tmp/flight.txt"
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-wave.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] && has "ALL-PUSHED 5 of 5" && has "WAIT 2 Release run(s) in flight (cap 2)" \
+    && [ "$(sort -n "$tmp/flight.txt" | tail -1)" -le 1 ] && [ "$(grep -c . "$tmp/flight.txt")" -eq 5 ]
+  expect "with a cap of 2, every tag is pushed while at most 1 other run is in flight, waiting when needed" $?
+  printf 'zz-one-v0.1.7\n' >"$tmp/tags-unknown.txt"
+  connector zz-one 0.1.7
+  printf '# Changelog\n\n## [0.1.7] - 2026-10-22\n\n### Fixed\n- A fix.\n' >"$tmp/repo/skills/zz-one/CHANGELOG.md"
+  git -C "$tmp/repo" commit -q -am "zz-one 0.1.7" -s
+  git -C "$tmp/repo" push -q origin main
+  out=$(PATH="$tmp/nogh:$PATH" bash -c 'mkdir -p "$1"; printf "#!/bin/sh\nexit 1\n" >"$1/gh"; chmod +x "$1/gh"; shift; bash "$@"' _ "$tmp/nogh" "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-unknown.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-one-v0.1.7 >/dev/null
+  expect "when the in-flight count cannot be read, nothing is pushed" $?
   rc=1
   if [ "$(grep -vcx 1 "$tmp/origin.git/pushes.txt")" -eq 0 ] \
-    && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -ge 3 ]; then rc=0; fi
+    && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -ge 8 ]; then rc=0; fi
   expect "every push carried exactly one ref (one tag per push)" "$rc"
 
   echo "receipts mode:"
@@ -473,40 +677,69 @@ PY
   expect "(this checkout's asset checker does NOT know zz-new, so it would report NOT-COMPLETE)" "$rc"
   printf 'zz-new-v0.1.0\n' >"$tmp/r-ok.txt"
   out=$(bash "$SELF" --receipts "$tmp/r-ok.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "SEALED zz-new-v0.1.0 assets=$rs" \
-    && printf '%s' "$out" | grep -q "drafts sweep: none" && printf '%s' "$out" | grep -q "checked 1 of 1"
+  [ "$rc" -eq 0 ] && has "SEALED zz-new-v0.1.0 assets=$rs" \
+    && has "drafts sweep: none" && has "checked 1 of 1"
   expect "receipts check against the tagged tree: a complete release of a new connector is SEALED" $?
   printf 'zz-new-v9.9.8\n' >"$tmp/r-missing.txt"
   out=$(bash "$SELF" --receipts "$tmp/r-missing.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "NOT-COMPLETE zz-new-v9.9.8"
+  [ "$rc" -ne 0 ] && has "NOT-COMPLETE zz-new-v9.9.8"
   expect "a published release missing one asset is not" $?
   printf 'zz-new-v9.9.7\n' >"$tmp/r-draft.txt"
   out=$(bash "$SELF" --receipts "$tmp/r-draft.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "RUN-FAILED zz-new-v9.9.7"
+  [ "$rc" -ne 0 ] && has "RUN-FAILED zz-new-v9.9.7"
   expect "a draft whose Release run failed is reported as stranded" $?
   echo "zz-new-v9.9.6" >"$tmp/drafts.txt"
   out=$(bash "$SELF" --receipts "$tmp/r-ok.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "IN-FLIGHT drafts (their Release run is still running): zz-new-v9.9.6"
+  [ "$rc" -eq 0 ] && has "IN-FLIGHT drafts (their Release run is still running): zz-new-v9.9.6"
   expect "a draft whose Release run is still running is reported, not failed" $?
   printf 'zz-new-v9.9.7\nzz-new-v9.9.6\n' >"$tmp/drafts.txt"
   out=$(bash "$SELF" --receipts "$tmp/r-ok.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "DRAFTS (releases that never finished): zz-new-v9.9.7"
+  [ "$rc" -ne 0 ] && has "DRAFTS (releases that never finished): zz-new-v9.9.7"
   expect "a draft whose Release run ended fails the sweep" $?
   out=$(bash "$SELF" --receipts "$tmp/nope.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && ! printf '%s' "$out" | grep -q "drafts sweep"
+  [ "$rc" -ne 0 ] && ! has "drafts sweep"
   expect "receipts for a missing tags file fail instead of reporting an empty success" $?
 
+  echo "recovery (--rerun-failed):"
+  # a, b, c failed with their release still a draft or never created; d sealed
+  # fine; e published with assets missing (immutable); f has no run at all.
+  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.1.json"
+  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/zz-new-v1.0.3.json"
+  printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.4.json"
+  printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.5.json"
+  printf '{"assets": []}' >"$tmp/releases/zz-new-v1.0.7.json"  # draft state unreadable
+  for v in 1 2 3 4 5 7; do
+    case $v in 4) echo "70$v completed success" ;; *) echo "70$v completed failure" ;; esac >"$tmp/releases/zz-new-v1.0.$v.runinfo"
+  done
+  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 >"$tmp/tags-recover.txt"
+  : >"$tmp/calls.txt"
+  : >"$tmp/drafts.txt"
+  pushes_before=$(grep -c . "$tmp/origin.git/pushes.txt")
+  out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
+  rc=1
+  if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort | tr '\n' ' ')" = "701 702 703 " ]; then rc=0; fi
+  expect "exactly the failed runs whose release is not published are re-run" "$rc"
+  rc=1
+  if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 703 done 703 " ]; then rc=0; fi
+  expect "re-runs go out in batches of 2, each batch finished before the next starts" "$rc"
+  has "SEALED-PARTIAL zz-new-v1.0.5" && has "NO-RUN zz-new-v1.0.6" \
+    && has "OK zz-new-v1.0.4" && has "UNKNOWN-STATE zz-new-v1.0.7" && [ "$rrc" -ne 0 ]
+  expect "a sealed-but-partial release, a tag with no run and an unreadable state are reported, not touched" $?
+  ! grep -q FORBIDDEN "$tmp/calls.txt" && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -eq "$pushes_before" ]
+  expect "recovery never deletes a release and never pushes a tag" $?
+
   echo "stale copies of this script:"
+  : >"$tmp/drafts.txt"
   mkdir -p "$tmp/repo/tools/maintainer"
   printf '#!/usr/bin/env bash\necho a newer cut_tags\n' >"$tmp/repo/tools/maintainer/cut_tags.sh"
   git -C "$tmp/repo" add -A
   git -C "$tmp/repo" commit -q -m "main carries a newer cut_tags.sh" -s
   git -C "$tmp/repo" push -q origin main
   out=$(bash "$SELF" --receipts "$tmp/r-ok.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "differs from origin/main"
+  [ "$rc" -ne 0 ] && has "differs from origin/main"
   expect "a copy that differs from origin/main's refuses to run" $?
   out=$(CUT_TAGS_ALLOW_STALE=1 bash "$SELF" --receipts "$tmp/r-ok.txt" 2>&1) && rc=0 || rc=$?
-  printf '%s' "$out" | grep -q "WARN this cut_tags.sh differs"
+  has "WARN this cut_tags.sh differs"
   expect "... unless CUT_TAGS_ALLOW_STALE=1, which says so" $?
 
   if [ "$failures" -ne 0 ]; then
@@ -527,6 +760,7 @@ main() {
         return
         ;;
       --receipts) mode=receipts ;;
+      --rerun-failed) mode=rerun ;;
       --dry-run) dry=1 ;;
       --log)
         LOG=$(abspath "$2")
@@ -541,8 +775,8 @@ main() {
     esac
     shift
   done
-  if [ "$mode" = receipts ]; then
-    [ $# -eq 1 ] || die "usage: cut_tags.sh --receipts [--log FILE] <tags-file>"
+  if [ "$mode" = receipts ] || [ "$mode" = rerun ]; then
+    [ $# -eq 1 ] || die "usage: cut_tags.sh --receipts|--rerun-failed [--log FILE] <tags-file>"
     tags_file=$(abspath "$1")
   else
     [ $# -eq 2 ] || die "usage: cut_tags.sh [--dry-run] [--log FILE] <SHA> <tags-file>"
@@ -552,6 +786,8 @@ main() {
   setup_repo
   if [ "$mode" = receipts ]; then
     receipts
+  elif [ "$mode" = rerun ]; then
+    rerun_failed
   else
     cut "$1" "$dry"
   fi
