@@ -119,9 +119,9 @@
     "released_hash": "sha256:3703267a6e442fb1fd55893c440dc42f1224ba2900fa105787e8dd05a074f7f5"
   },
   "cisco-meraki": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "cisco-meraki-v0.1.1",
+    "latest_tag": "cisco-meraki-v0.1.2",
     "current_hash": "sha256:bd782d363a305b52ea29391113a602b69f4c724cfe4e50639424f1ef0370d62b",
     "released_hash": "sha256:bd782d363a305b52ea29391113a602b69f4c724cfe4e50639424f1ef0370d62b"
   },
@@ -210,9 +210,9 @@
     "released_hash": "sha256:34bffb33a027822047cbd420438304a107d846a796ed373c8a49b2c99d424d5d"
   },
   "domotz": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "domotz-v0.1.4",
+    "latest_tag": "domotz-v0.1.5",
     "current_hash": "sha256:0d47d877fd67ca2cd26d9bb9545b0b3a35513a45f6d4cd169461d7bfadc3de1a",
     "released_hash": "sha256:0d47d877fd67ca2cd26d9bb9545b0b3a35513a45f6d4cd169461d7bfadc3de1a"
   },
