@@ -105,8 +105,31 @@ except ImportError:  # not POSIX: fall back to the exclusive-create scheme
 # release() can unregister exactly that one (atexit.unregister(release) would
 # drop every lock's hook at once).
 _EXIT_HOOKS: dict[str, object] = {}
-# The open descriptor carrying each flock this process holds.
-_HELD_FDS: dict[str, int] = {}
+# Each flock this process holds: (descriptor, pid that acquired it, the exact
+# handle object acquire() returned). release() acts only for that handle in
+# that process, so an old handle cannot unlock a later acquisition and a forked
+# child cannot unlock its parent's lock (flock is shared by the open file
+# description a fork duplicates).
+_HELD_FDS: dict[str, tuple[int, int, Path]] = {}
+
+
+def _forget_inherited() -> None:
+    """In a forked child: drop the parent's locks from our bookkeeping and
+    close the inherited descriptors WITHOUT unlocking (closing a duplicate
+    does not release the parent's flock; LOCK_UN would)."""
+    for key, (fd, _pid, _handle) in list(_HELD_FDS.items()):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        hook = _EXIT_HOOKS.pop(key, None)
+        if hook is not None:
+            atexit.unregister(hook)  # type: ignore[arg-type]
+    _HELD_FDS.clear()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_forget_inherited)
 
 
 def _owned_by_me(lock: Path) -> bool:
@@ -115,27 +138,34 @@ def _owned_by_me(lock: Path) -> bool:
 
 
 def release(lock: Path) -> None:
-    """Release a lock THIS process holds, and drop its exit hook.
+    """Release a lock THIS process holds, and drop its exit hook. Pass the
+    handle acquire() returned: under flock, a different Path object naming the
+    same file (an old handle from an earlier acquisition) releases nothing.
 
     Ownership-aware: once this process has released a lock, another process
     may acquire the same name, and a later release (an exit hook, or a second
     call) must not delete THEIR lock file. So the file is removed only while it
     still names this process."""
-    hook = _EXIT_HOOKS.pop(str(lock), None)
-    if hook is not None:
-        atexit.unregister(hook)  # type: ignore[arg-type]
-    fd = _HELD_FDS.pop(str(lock), None)
-    if fd is not None:
+    held = _HELD_FDS.get(str(lock))
+    if fcntl is not None:
+        if held is None or held[2] is not lock or held[1] != os.getpid():
+            return  # not THIS acquisition in THIS process: touch nothing
+        _HELD_FDS.pop(str(lock))
+        hook = _EXIT_HOOKS.pop(str(lock), None)
+        if hook is not None:
+            atexit.unregister(hook)  # type: ignore[arg-type]
+        fd = held[0]
         try:
             os.ftruncate(fd, 0)
-            fcntl.flock(fd, fcntl.LOCK_UN)  # type: ignore[union-attr]
+            fcntl.flock(fd, fcntl.LOCK_UN)
         except OSError:
             pass
         finally:
             os.close(fd)
         return
-    if fcntl is not None:
-        return  # flock mode and we hold nothing under this name: touch nothing
+    hook = _EXIT_HOOKS.pop(str(lock), None)
+    if hook is not None:
+        atexit.unregister(hook)  # type: ignore[arg-type]
     try:
         if _owned_by_me(lock):
             lock.unlink(missing_ok=True)
@@ -217,7 +247,8 @@ def acquire(name: str = "release", holder_info: dict | None = None,
             )
         os.ftruncate(fd, 0)
         os.write(fd, payload.encode("utf-8"))
-        _HELD_FDS[str(lock)] = fd
+        lock = Path(lock)  # a fresh object: THIS acquisition's handle
+        _HELD_FDS[str(lock)] = (fd, os.getpid(), lock)
         hook = functools.partial(release, lock)
         _EXIT_HOOKS[str(lock)] = hook
         atexit.register(hook)

@@ -1822,6 +1822,27 @@ def _self_test() -> int:
                                 "repo_lock.acquire('own-test', root=sys.argv[2]); print('acquired')",
                                 str(TOOLS_DIR), str(work)], capture_output=True, text=True, env=env).stdout.strip()
         expect(again == "acquired", "a killed holder's lock is free at once (the kernel drops it; no stale reclaim)")
+
+        def probe_lock(name: str) -> str:
+            return subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); import repo_lock\n"
+                                   "try:\n    repo_lock.acquire(sys.argv[3], root=sys.argv[2]); print('acquired')\n"
+                                   "except repo_lock.LockHeld:\n    print('held')", str(TOOLS_DIR), str(work), name],
+                                  capture_output=True, text=True, env=env).stdout.strip()
+        a1 = repo_lock.acquire("handle-test", root=work)
+        repo_lock.release(a1)
+        b1 = repo_lock.acquire("handle-test", root=work)
+        repo_lock.release(a1)  # an old handle from the earlier acquisition
+        expect(probe_lock("handle-test") == "held", "an old handle cannot release a later acquisition")
+        if hasattr(os, "fork"):
+            sys.stdout.flush()
+            child = os.fork()
+            if child == 0:
+                repo_lock.release(b1)  # a forked child tries to release its parent's lock
+                os._exit(0)
+            os.waitpid(child, 0)
+            expect(probe_lock("handle-test") == "held", "a forked child cannot release its parent's lock")
+        repo_lock.release(b1)
+        expect(probe_lock("handle-test") == "acquired", "... and the real owner's release frees it")
         holder = subprocess.Popen(["sleep", "0"])
         os.kill(holder.pid, signal.SIGTERM)
         holder.wait()

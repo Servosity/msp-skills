@@ -184,6 +184,28 @@ def date_changelog(text: str, version: str, day: str) -> str | None:
     return text[:m.start()] + f"## [{version}] - {day}" + text[m.end():]
 
 
+def _tag_entry(repo: Path, tag: str, slug: str) -> tuple[str, str | None, str | None] | None:
+    """(source_dir, registry version, manifest version) as the TAGGED commit
+    records them, or None if that commit does not register the slug as a
+    releasable connector."""
+    p = _git(repo, "show", f"refs/tags/{tag}:{REGISTRY_REL}")
+    if p.returncode != 0:
+        return None
+    try:
+        entry = json.loads(p.stdout.decode("utf-8")).get("skills", {}).get(slug)
+    except ValueError:
+        return None
+    if not isinstance(entry, dict) or entry.get("markdown_only"):
+        return None
+    sdir = entry.get("source_dir", slug)
+    m = _git(repo, "show", f"refs/tags/{tag}:skills/{sdir}/manifest.json")
+    try:
+        mf_version = json.loads(m.stdout.decode("utf-8")).get("version") if m.returncode == 0 else None
+    except ValueError:
+        mf_version = None
+    return sdir, entry.get("version"), mf_version
+
+
 def plan(repo: Path, released: set[str], dates: dict[str, str]) -> tuple[dict, dict[str, str], list[str]]:
     """(stamps {slug: hash}, changelog edits {path: new text}, report lines)."""
     reg_path = repo / REGISTRY_REL
@@ -214,6 +236,21 @@ def plan(repo: Path, released: set[str], dates: dict[str, str]) -> tuple[dict, d
             continue  # a bump is pending release (or the stamps disagree): release.py owns that stamp
         if _git(repo, "rev-parse", "--verify", "-q", f"refs/tags/{tag}^{{commit}}").returncode != 0:
             report.append(f"WARN {slug}: tag {tag} is not in this clone (fetch tags); not stamped")
+            continue
+        # The release was built from the TAGGED tree, so where its source lives,
+        # and what version it is, are read from that tree; if main has since
+        # moved the connector's directory, the stamp's identity is ambiguous.
+        tagged = _tag_entry(repo, tag, slug)
+        if tagged is None:
+            report.append(f"WARN {slug}: {tag}'s own registry has no releasable entry for {slug}; not stamped")
+            continue
+        tag_sdir, tag_version, tag_mf_version = tagged
+        if tag_sdir != sdir:
+            report.append(f"WARN {slug}: source_dir is {sdir!r} on main but {tag_sdir!r} at {tag}; not stamped")
+            continue
+        if tag_version != version or tag_mf_version != version:
+            report.append(f"WARN {slug}: {tag} itself records version {tag_version}/{tag_mf_version}, not "
+                          f"{version}; not stamped")
             continue
         th = tree_hash(repo, f"refs/tags/{tag}", f"skills/{sdir}/cli")
         if th is None:
@@ -377,6 +414,21 @@ def _self_test() -> int:
                and date_changelog("## [0.1.0] - unreleased\n", "0.1.0", "2026-10-20") == "## [0.1.0] - 2026-10-20\n"
                and date_changelog("## [0.1.0] (beta)\n", "0.1.0", "2026-10-20") is None,
                "only an undated or 'unreleased' heading is dated")
+        sh("checkout", "-q", "--", ".")
+        reg_all = json.loads((work / REGISTRY_REL).read_text())
+        reg_all["skills"]["alpha"]["cli_hash_at_release"] = None
+        reg_all["skills"]["alpha"]["source_dir"] = "delta"  # main repoints alpha after the tag
+        (work / REGISTRY_REL).write_text(json.dumps(reg_all, indent=2, ensure_ascii=True) + "\n")
+        released.write_text("alpha-v0.1.0\n")
+        out = subprocess.run([sys.executable, __file__, "--repo", str(work), "--released-tags", str(released)],
+                             capture_output=True, text=True, env=env)
+        expect("STAMPED" not in out.stdout and "source_dir is 'delta' on main but 'alpha'" in out.stdout,
+               "a connector whose source_dir changed after its tag is not stamped from another directory")
+        reg_all["skills"]["alpha"].pop("source_dir")
+        (work / REGISTRY_REL).write_text(json.dumps(reg_all, indent=2, ensure_ascii=True) + "\n")
+        out = subprocess.run([sys.executable, __file__, "--repo", str(work), "--released-tags", str(released),
+                              "--dry-run"], capture_output=True, text=True, env=env)
+        expect("STAMPED alpha" in out.stdout, "... and with the directory unchanged it is stamped")
         sh("checkout", "-q", "--", ".")
         (work / ".gitattributes").write_text("*.go text eol=crlf\n")
         sh("add", ".gitattributes")

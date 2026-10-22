@@ -164,11 +164,16 @@ fetch_and_check_self() { # fetch tags + main, refuse a stale copy of this script
 }
 
 in_flight() { # Release runs not yet completed, repo-wide (every wave counts)
-  local n
-  n=$(gh run list -R "$GH_REPO" --workflow release.yml --limit 100 --json status \
-    -q '[.[] | select(.status != "completed")] | length' </dev/null 2>/dev/null) || return 1
-  case "$n" in "" | *[!0-9]*) return 1 ;; esac
-  printf '%s\n' "$n"
+  # GitHub's own total_count per active status: a listing of the newest N runs
+  # would miss a long-running release older than N completed ones.
+  local total=0 s n
+  for s in queued in_progress waiting pending requested; do
+    n=$(gh api "repos/$GH_REPO/actions/workflows/release.yml/runs?status=$s&per_page=1" \
+      --jq .total_count </dev/null 2>/dev/null) || return 1
+    case "$n" in "" | *[!0-9]*) return 1 ;; esac
+    total=$((total + n))
+  done
+  printf '%s\n' "$total"
 }
 
 wait_for_capacity() { # block until fewer than the cap of Release runs are in flight
@@ -206,8 +211,9 @@ rerun_failed() {
   # "HTTP 403: API rate limit exceeded for installation" at create-release).
   # A draft is still mutable, so re-running the FAILED jobs of its run finishes
   # it. Never deletes a release, never moves or re-pushes a tag.
-  local fail=0 t info id st concl rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid
+  local fail=0 t info id st concl rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
   fetch_and_check_self
+  errf=$(mktemp)
   while IFS= read -r t; do
     [ -n "$t" ] || continue
     handled=$((handled + 1))
@@ -216,7 +222,11 @@ rerun_failed() {
     id=${info%% *}
     st=$(printf '%s' "$info" | awk '{print $2}')
     concl=$(printf '%s' "$info" | awk '{print $3}')
-    rel=$(gh release view "$t" -R "$GH_REPO" --json isDraft -q .isDraft </dev/null 2>/dev/null || echo missing)
+    # Only GitHub's explicit "release not found" means missing; any other
+    # failure (a 403, a rate limit, the network) is an unknown state.
+    if ! rel=$(gh release view "$t" -R "$GH_REPO" --json isDraft -q .isDraft </dev/null 2>"$errf"); then
+      if grep -q "release not found" "$errf"; then rel=missing; else rel="lookup failed: $(head -c 120 "$errf" | tr '\n' ' ')"; fi
+    fi
     case "$id" in "" | null)
       say "NO-RUN $t: no Release run exists for this tag, so there is nothing to re-run (needs a human)"
       fail=1
@@ -277,6 +287,7 @@ rerun_failed() {
     [ -n "$entry" ] || continue
     say "DONE ${entry%% *} ${entry##* } $(run_done "${entry##* }")"
   done <<<"$batch"
+  rm -f "$errf"
   say "rerun-failed: re-runs finished; receipts follow"
   receipts || fail=1
   return "$fail"
@@ -427,7 +438,7 @@ self_test() {
   # reporting that case, so the harness runs without it (the tool runs it calls
   # are separate processes with their own set -e).
   set +e
-  local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before
+  local tmp failures=0 out rc rrc real_repo sha sha2 rs pushes_before before_wait before_push
   real_repo=$(git -C "$TOOLS" rev-parse --show-toplevel)
   tmp=$(mktemp -d)
   # shellcheck disable=SC2064  # expand now: tmp is local
@@ -543,12 +554,22 @@ case "\$1 \$2" in
     if [ "\$v" -lt 1 ]; then echo 1 >"\$state/rerun/\$3"; echo "in_progress null"
     else echo "done \$3" >>"\$state/calls.txt"; echo "completed success"; fi ;;
   "release view")
-    [ -f "\$state/releases/\$3.json" ] || exit 1
+    if [ -f "\$state/releases/\$3.error" ]; then cat "\$state/releases/\$3.error" >&2; exit 1; fi
+    [ -f "\$state/releases/\$3.json" ] || { echo "release not found" >&2; exit 1; }
     case "\$*" in
       *"-q .isDraft"*) sed -nE 's/.*"isDraft": *(true|false).*/\1/p' "\$state/releases/\$3.json" ;;
       *) cat "\$state/releases/\$3.json" ;;
     esac ;;
   "api repos/fake/repo/releases") cat "\$state/drafts.txt" 2>/dev/null || true ;;
+  "api repos/fake/repo/actions/workflows/release.yml/runs?status=in_progress&per_page=1")
+    n=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
+    echo x >>"\$state/counts.txt"
+    if [ \$((\$(wc -l <"\$state/counts.txt") % 3)) -eq 0 ]; then
+      oldest=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | head -1)
+      [ -n "\$oldest" ] && echo completed >"\$oldest"
+    fi
+    echo "\$n" ;;
+  "api repos/fake/repo/actions/workflows/release.yml/runs?status="*) echo 0 ;;
   *) echo "fake gh: unhandled \$*" >&2; exit 2 ;;
 esac
 FAKE
@@ -631,10 +652,13 @@ FAKE
   git -C "$tmp/repo" commit -q -m "five connectors" -s
   git -C "$tmp/repo" push -q origin main
   rm -f "$tmp"/runs/* "$tmp/flight.txt"
+  echo in_progress >"$tmp/runs/aa-older-wave-1"  # long-running releases from an earlier wave
+  echo in_progress >"$tmp/runs/aa-older-wave-2"
   out=$(CUT_TAGS_MAX_IN_FLIGHT=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-wave.txt" 2>&1) && rc=0 || rc=$?
   [ "$rc" -eq 0 ] && has "ALL-PUSHED 5 of 5" && has "WAIT 2 Release run(s) in flight (cap 2)" \
+    && before_wait=${out%%WAIT *} && before_push=${out%%PUSHED *} && [ "${#before_wait}" -lt "${#before_push}" ] \
     && [ "$(sort -n "$tmp/flight.txt" | tail -1)" -le 1 ] && [ "$(grep -c . "$tmp/flight.txt")" -eq 5 ]
-  expect "with a cap of 2, every tag is pushed while at most 1 other run is in flight, waiting when needed" $?
+  expect "with a cap of 2 and 2 older runs still going, it waits first, then never pushes past 1 other in flight" $?
   printf 'zz-one-v0.1.7\n' >"$tmp/tags-unknown.txt"
   connector zz-one 0.1.7
   printf '# Changelog\n\n## [0.1.7] - 2026-10-22\n\n### Fixed\n- A fix.\n' >"$tmp/repo/skills/zz-one/CHANGELOG.md"
@@ -708,10 +732,11 @@ PY
   printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.4.json"
   printf '{"isDraft": false, "assets": []}' >"$tmp/releases/zz-new-v1.0.5.json"
   printf '{"assets": []}' >"$tmp/releases/zz-new-v1.0.7.json"  # draft state unreadable
-  for v in 1 2 3 4 5 7; do
+  echo "HTTP 403: API rate limit exceeded for installation" >"$tmp/releases/zz-new-v1.0.8.error"
+  for v in 1 2 3 4 5 7 8; do
     case $v in 4) echo "70$v completed success" ;; *) echo "70$v completed failure" ;; esac >"$tmp/releases/zz-new-v1.0.$v.runinfo"
   done
-  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 >"$tmp/tags-recover.txt"
+  printf 'zz-new-v1.0.%s\n' 1 2 3 4 5 6 7 8 >"$tmp/tags-recover.txt"
   : >"$tmp/calls.txt"
   : >"$tmp/drafts.txt"
   pushes_before=$(grep -c . "$tmp/origin.git/pushes.txt")
@@ -723,8 +748,9 @@ PY
   if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 703 done 703 " ]; then rc=0; fi
   expect "re-runs go out in batches of 2, each batch finished before the next starts" "$rc"
   has "SEALED-PARTIAL zz-new-v1.0.5" && has "NO-RUN zz-new-v1.0.6" \
-    && has "OK zz-new-v1.0.4" && has "UNKNOWN-STATE zz-new-v1.0.7" && [ "$rrc" -ne 0 ]
-  expect "a sealed-but-partial release, a tag with no run and an unreadable state are reported, not touched" $?
+    && has "OK zz-new-v1.0.4" && has "UNKNOWN-STATE zz-new-v1.0.7" && has "UNKNOWN-STATE zz-new-v1.0.8" \
+    && [ "$rrc" -ne 0 ]
+  expect "sealed-but-partial, no run, unreadable state and a 403 on the lookup are all reported, never re-run" $?
   ! grep -q FORBIDDEN "$tmp/calls.txt" && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -eq "$pushes_before" ]
   expect "recovery never deletes a release and never pushes a tag" $?
 
