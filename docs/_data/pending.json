@@ -21,9 +21,9 @@
     "released_hash": "sha256:b55f2d4c83cb06cfc9c6907b65d7f57e9abf4eeabbbf483cf7d5fbfd483b2940"
   },
   "afi": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "afi-v0.1.5",
+    "latest_tag": "afi-v0.1.6",
     "current_hash": "sha256:711abc463982e9fb2602f8886f4c31e79f67d98c7810e8f90edba584a0fb035c",
     "released_hash": "sha256:711abc463982e9fb2602f8886f4c31e79f67d98c7810e8f90edba584a0fb035c"
   },
