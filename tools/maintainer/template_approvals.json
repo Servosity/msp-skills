@@ -23,7 +23,7 @@
    "godebug": [],
    "modules": {},
    "slice": {
-    "const {MOD}/internal/store.parentKeyLegacyBatchSize": "sha256:bbd340b45bb5884521792312cc968d9074131b15dfb0203ec4f67e16a4b80e98",
+    "const {MOD}/internal/store.parentKeyLegacyBatchSize": "sha256:2c710946f4d487045e091c833c9c7421a4ade397d4c52b50c40bae56b3835128",
     "func {MOD}/internal/store.loadParentKeyLegacyBatch": "sha256:234641450599b79318c56551b3b2a864427d9759348610fbce793a94e7e634ed",
     "func {MOD}/internal/store.parentKeyLegacyBareWhere": "sha256:fb1310a3fe3dd4cf8a9951f8189959816c3af0fbf31493d2a824d54ba3862dfa",
     "method {MOD}/internal/store.Store.migrateParentKeyStorageIDs": "sha256:1da3e9aea00863d32c4a797111dd5cafd58c1cccd325f45adde15b0937875232",
@@ -50,9 +50,9 @@
     "Checked by script: those three functions, the row type and the batch-size constant are byte-identical to the template with identical resolved references on every release target; nothing outside them calls loadParentKeyLegacyBatch; no replace, go.work or vendor; same go language version, godebug settings and press version."
    ],
    "reviewed": {
-    "template_from": "skills/bitdefender, Go 1.26.10 tree (branch fix/live-safety-2026-10 at e263393f2), press 4.33.5",
+    "template_from": "skills/bitdefender on origin/main a1b9c09bf (press 4.33.5, Go 1.26.10)",
     "human_review": "the same code was reviewed per connector in PRs #366 (fortinet), #382 (sonicwall), #386 (watchguard) and #401 (bitdefender)",
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
    }
   },
   {
@@ -77,7 +77,7 @@
    "godebug": [],
    "modules": {},
    "slice": {
-    "const {MOD}/cmd/{SLUG}-mcp.httpTokenEnvVar": "sha256:3fbd4c395d77bc830d0e15852f4cedea3b3353720d0ed15e715c4c98ec62721e"
+    "const {MOD}/cmd/{SLUG}-mcp.httpTokenEnvVar": "sha256:f7a320a47a4c106ea3a98ceea2939737325b5c17bb8fa96db20306026de1bd0d"
    },
    "exclude": {},
    "entries": {},
@@ -86,9 +86,9 @@
     "Checked by script: the constant's type and exact value equal the template's after the connector-name substitution, so the value is exactly the connector's own <ENV PREFIX>_MCP_HTTP_TOKEN and nothing else. A constant has no inputs, so no other code can feed it."
    ],
    "reviewed": {
-    "template_from": "skills/bitdefender, Go 1.26.10 tree (branch fix/live-safety-2026-10 at e263393f2), press 4.33.5",
+    "template_from": "skills/bitdefender on origin/main a1b9c09bf (press 4.33.5, Go 1.26.10)",
     "human_review": "the same code was reviewed per connector in PRs #366 (fortinet), #382 (sonicwall), #386 (watchguard) and #401 (bitdefender)",
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
    }
   },
   {
@@ -114,14 +114,14 @@
     }
    },
    "slice": {
-    "const {MOD}/internal/cli.darwinMaxPathLen": "sha256:df51a9d6e966b044596487f2f87ef4b8aae6c32e7d0ae7086434dd48abd420e0",
-    "const {MOD}/internal/cli.darwinProcAllPIDs": "sha256:aa657d3bd5dd436c645de25acd678bfea5d8b3ff327e12205356d38260bb8e6d",
-    "const {MOD}/internal/cli.darwinProcInfoListPIDs": "sha256:2d69ddbbc1f7c6ffb2ca1cb2260b3821a76af660569862e78ffde36d61965934",
-    "const {MOD}/internal/cli.darwinProcInfoPIDFDInfo": "sha256:6fa56dd169b065851a75d8c348b2de7343cf3725e241c4ed5f4521b63202aa4e",
-    "const {MOD}/internal/cli.darwinProcInfoPIDInfo": "sha256:97d5af27e50d7de2f9107fd15ed73a1122e320b8169bb6ee0c26e2831c7aafb8",
-    "const {MOD}/internal/cli.darwinProcPIDFDVnodePath": "sha256:ac97a079fe53afa1f19f090f31e4b817017bdb5a457b472919c9dc3d394c3875",
-    "const {MOD}/internal/cli.darwinProcPIDListFDs": "sha256:2d2ca4ebc57940511d193afd34eabd5a3431d8dc2c0749f79caec9207aa3c607",
-    "const {MOD}/internal/cli.darwinProxFDTypeVnode": "sha256:b500d3cb194840c57c9c5c1b51770ab605b7fde8a6c39c3ec806543d5f599bf8",
+    "const {MOD}/internal/cli.darwinMaxPathLen": "sha256:4bc8b6f38720ef6119404014f99ff4b08c9782ca09f3af5042254e10b8ad7b90",
+    "const {MOD}/internal/cli.darwinProcAllPIDs": "sha256:c50bcc192f39ac4b959170eda83650f5da2a4c613b90f200ab1fd28d34926523",
+    "const {MOD}/internal/cli.darwinProcInfoListPIDs": "sha256:ab65c611a3c8f3bb72f579c334e6d2fe5e41186f0707ee605048d167a94332e3",
+    "const {MOD}/internal/cli.darwinProcInfoPIDFDInfo": "sha256:6d9e1464f7fbb99dfbf74be7873e2e74124569404a8cb68d82dad2a6783b0675",
+    "const {MOD}/internal/cli.darwinProcInfoPIDInfo": "sha256:699c04a38c8ac3f701f9a211c9672a23d74ad9a55e42f7c7075baf14b11936b7",
+    "const {MOD}/internal/cli.darwinProcPIDFDVnodePath": "sha256:67638d516fd73798d125ac1c63de6d950f95eaa2c9487bfa3bccf2afc6c791ea",
+    "const {MOD}/internal/cli.darwinProcPIDListFDs": "sha256:d91f2ac53084016236eb1fea99a624edef6548bb4f388f6523b3023b3c07385a",
+    "const {MOD}/internal/cli.darwinProxFDTypeVnode": "sha256:8ab53f306987fdc8c28ffd20a10a223d76ae3e0c2ed6389324be91bd6b468616",
     "file internal/cli/store_adopt_darwin.go": "sha256:daeb913f1d05a725ffa25da9d2a9e197d8bba48384cce8982fd28160b43d39aa",
     "func {MOD}/internal/cli.claimClosedStore": "sha256:0b35c6c99780d9f8052c4c507fd24a1833872ceccabe523c4c70631918b2fec0",
     "func {MOD}/internal/cli.darwinFDs": "sha256:810d790c0ea87967044093ddf19e64fd966f9353306a93c181b1d4fe51e64d4d",
@@ -152,9 +152,9 @@
     "Checked by script: the whole file, each declaration in it and its imports are byte-identical with identical resolved references on both darwin targets."
    ],
    "reviewed": {
-    "template_from": "skills/bitdefender, Go 1.26.10 tree (branch fix/live-safety-2026-10 at e263393f2), press 4.33.5",
+    "template_from": "skills/bitdefender on origin/main a1b9c09bf (press 4.33.5, Go 1.26.10)",
     "human_review": "the same code was reviewed per connector in PRs #366 (fortinet), #382 (sonicwall), #386 (watchguard) and #401 (bitdefender)",
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
    }
   },
   {
@@ -180,14 +180,14 @@
     }
    },
    "slice": {
-    "const {MOD}/internal/cli.darwinMaxPathLen": "sha256:df51a9d6e966b044596487f2f87ef4b8aae6c32e7d0ae7086434dd48abd420e0",
-    "const {MOD}/internal/cli.darwinProcAllPIDs": "sha256:aa657d3bd5dd436c645de25acd678bfea5d8b3ff327e12205356d38260bb8e6d",
-    "const {MOD}/internal/cli.darwinProcInfoListPIDs": "sha256:2d69ddbbc1f7c6ffb2ca1cb2260b3821a76af660569862e78ffde36d61965934",
-    "const {MOD}/internal/cli.darwinProcInfoPIDFDInfo": "sha256:6fa56dd169b065851a75d8c348b2de7343cf3725e241c4ed5f4521b63202aa4e",
-    "const {MOD}/internal/cli.darwinProcInfoPIDInfo": "sha256:97d5af27e50d7de2f9107fd15ed73a1122e320b8169bb6ee0c26e2831c7aafb8",
-    "const {MOD}/internal/cli.darwinProcPIDFDVnodePath": "sha256:ac97a079fe53afa1f19f090f31e4b817017bdb5a457b472919c9dc3d394c3875",
-    "const {MOD}/internal/cli.darwinProcPIDListFDs": "sha256:2d2ca4ebc57940511d193afd34eabd5a3431d8dc2c0749f79caec9207aa3c607",
-    "const {MOD}/internal/cli.darwinProxFDTypeVnode": "sha256:b500d3cb194840c57c9c5c1b51770ab605b7fde8a6c39c3ec806543d5f599bf8",
+    "const {MOD}/internal/cli.darwinMaxPathLen": "sha256:4bc8b6f38720ef6119404014f99ff4b08c9782ca09f3af5042254e10b8ad7b90",
+    "const {MOD}/internal/cli.darwinProcAllPIDs": "sha256:c50bcc192f39ac4b959170eda83650f5da2a4c613b90f200ab1fd28d34926523",
+    "const {MOD}/internal/cli.darwinProcInfoListPIDs": "sha256:ab65c611a3c8f3bb72f579c334e6d2fe5e41186f0707ee605048d167a94332e3",
+    "const {MOD}/internal/cli.darwinProcInfoPIDFDInfo": "sha256:6d9e1464f7fbb99dfbf74be7873e2e74124569404a8cb68d82dad2a6783b0675",
+    "const {MOD}/internal/cli.darwinProcInfoPIDInfo": "sha256:699c04a38c8ac3f701f9a211c9672a23d74ad9a55e42f7c7075baf14b11936b7",
+    "const {MOD}/internal/cli.darwinProcPIDFDVnodePath": "sha256:67638d516fd73798d125ac1c63de6d950f95eaa2c9487bfa3bccf2afc6c791ea",
+    "const {MOD}/internal/cli.darwinProcPIDListFDs": "sha256:d91f2ac53084016236eb1fea99a624edef6548bb4f388f6523b3023b3c07385a",
+    "const {MOD}/internal/cli.darwinProxFDTypeVnode": "sha256:8ab53f306987fdc8c28ffd20a10a223d76ae3e0c2ed6389324be91bd6b468616",
     "file internal/cli/store_adopt_darwin.go": "sha256:daeb913f1d05a725ffa25da9d2a9e197d8bba48384cce8982fd28160b43d39aa",
     "func {MOD}/internal/cli.claimClosedStore": "sha256:0b35c6c99780d9f8052c4c507fd24a1833872ceccabe523c4c70631918b2fec0",
     "func {MOD}/internal/cli.darwinFDs": "sha256:810d790c0ea87967044093ddf19e64fd966f9353306a93c181b1d4fe51e64d4d",
@@ -218,9 +218,9 @@
     "Checked by script: the whole file, each declaration in it and its imports are byte-identical with identical resolved references on both darwin targets."
    ],
    "reviewed": {
-    "template_from": "skills/bitdefender, Go 1.26.10 tree (branch fix/live-safety-2026-10 at e263393f2), press 4.33.5",
+    "template_from": "skills/bitdefender on origin/main a1b9c09bf (press 4.33.5, Go 1.26.10)",
     "human_review": "the same code was reviewed per connector in PRs #366 (fortinet), #382 (sonicwall), #386 (watchguard) and #401 (bitdefender)",
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
    }
   },
   {
@@ -247,14 +247,14 @@
     }
    },
    "slice": {
-    "const {MOD}/internal/cli.darwinMaxPathLen": "sha256:df51a9d6e966b044596487f2f87ef4b8aae6c32e7d0ae7086434dd48abd420e0",
-    "const {MOD}/internal/cli.darwinProcAllPIDs": "sha256:aa657d3bd5dd436c645de25acd678bfea5d8b3ff327e12205356d38260bb8e6d",
-    "const {MOD}/internal/cli.darwinProcInfoListPIDs": "sha256:2d69ddbbc1f7c6ffb2ca1cb2260b3821a76af660569862e78ffde36d61965934",
-    "const {MOD}/internal/cli.darwinProcInfoPIDFDInfo": "sha256:6fa56dd169b065851a75d8c348b2de7343cf3725e241c4ed5f4521b63202aa4e",
-    "const {MOD}/internal/cli.darwinProcInfoPIDInfo": "sha256:97d5af27e50d7de2f9107fd15ed73a1122e320b8169bb6ee0c26e2831c7aafb8",
-    "const {MOD}/internal/cli.darwinProcPIDFDVnodePath": "sha256:ac97a079fe53afa1f19f090f31e4b817017bdb5a457b472919c9dc3d394c3875",
-    "const {MOD}/internal/cli.darwinProcPIDListFDs": "sha256:2d2ca4ebc57940511d193afd34eabd5a3431d8dc2c0749f79caec9207aa3c607",
-    "const {MOD}/internal/cli.darwinProxFDTypeVnode": "sha256:b500d3cb194840c57c9c5c1b51770ab605b7fde8a6c39c3ec806543d5f599bf8",
+    "const {MOD}/internal/cli.darwinMaxPathLen": "sha256:4bc8b6f38720ef6119404014f99ff4b08c9782ca09f3af5042254e10b8ad7b90",
+    "const {MOD}/internal/cli.darwinProcAllPIDs": "sha256:c50bcc192f39ac4b959170eda83650f5da2a4c613b90f200ab1fd28d34926523",
+    "const {MOD}/internal/cli.darwinProcInfoListPIDs": "sha256:ab65c611a3c8f3bb72f579c334e6d2fe5e41186f0707ee605048d167a94332e3",
+    "const {MOD}/internal/cli.darwinProcInfoPIDFDInfo": "sha256:6d9e1464f7fbb99dfbf74be7873e2e74124569404a8cb68d82dad2a6783b0675",
+    "const {MOD}/internal/cli.darwinProcInfoPIDInfo": "sha256:699c04a38c8ac3f701f9a211c9672a23d74ad9a55e42f7c7075baf14b11936b7",
+    "const {MOD}/internal/cli.darwinProcPIDFDVnodePath": "sha256:67638d516fd73798d125ac1c63de6d950f95eaa2c9487bfa3bccf2afc6c791ea",
+    "const {MOD}/internal/cli.darwinProcPIDListFDs": "sha256:d91f2ac53084016236eb1fea99a624edef6548bb4f388f6523b3023b3c07385a",
+    "const {MOD}/internal/cli.darwinProxFDTypeVnode": "sha256:8ab53f306987fdc8c28ffd20a10a223d76ae3e0c2ed6389324be91bd6b468616",
     "func {MOD}/internal/cli.darwinFDs": "sha256:810d790c0ea87967044093ddf19e64fd966f9353306a93c181b1d4fe51e64d4d",
     "func {MOD}/internal/cli.darwinPIDs": "sha256:3529e1174f466cf206d3d66773f601d4fdfd4aa5787532eb1464234fd331cab0",
     "func {MOD}/internal/cli.darwinProcInfo": "sha256:8bd1bf7b56bc58191d98d180367f34c1ce463e3b0b3fd6451ff6389eb5c99c89",
@@ -278,9 +278,9 @@
     "Checked by script: both functions and everything they call (darwinPIDs, darwinFDs, darwinProcInfo and the proc_info struct types) are byte-identical with identical resolved references on both darwin targets, with the reviewed golang.org/x/sys."
    ],
    "reviewed": {
-    "template_from": "skills/bitdefender, Go 1.26.10 tree (branch fix/live-safety-2026-10 at e263393f2), press 4.33.5",
+    "template_from": "skills/bitdefender on origin/main a1b9c09bf (press 4.33.5, Go 1.26.10)",
     "human_review": "the same code was reviewed per connector in PRs #366 (fortinet), #382 (sonicwall), #386 (watchguard) and #401 (bitdefender)",
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
    }
   }
  ]

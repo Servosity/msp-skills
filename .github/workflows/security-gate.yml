@@ -12,7 +12,7 @@ name: security-gate
 #   scope      what changed: the connector slugs, and whether gate logic changed.
 #   guard      fails by design when this PR edits gate logic (it cannot approve itself).
 #   selftest   on gate-logic PRs only: the gate's own both-directions proof.
-#   scanners   builds the PINNED scanners once (cached), hands them to every row.
+#   scanners   builds the PINNED scanners once per run, cold, digest-checked.
 #   gate       one row per touched connector, at most 16 at a time.
 #   security-gate  the summary. It always runs and fails unless every expected
 #              connector row ran and passed; a skipped, cancelled, timed-out, failed
@@ -26,10 +26,6 @@ on:
       base:
         description: "Commit or ref to diff against; the run gates base...HEAD"
         required: true
-  schedule:
-    # Keeps the default-branch scanner cache warm; every PR can restore it. Only the
-    # scanners job runs on this event.
-    - cron: "17 6 * * *"
 
 permissions:
   contents: read
@@ -51,12 +47,12 @@ env:
   GOVULNCHECK_VERSION: "v1.9.0"
   OSV_SCANNER_VERSION: "v1.9.2"
   SEMGREP_VERSION: "1.180.0"
-  # The scanners are built with exactly this Go, -trimpath and CGO_ENABLED=0, which
-  # makes the binaries bit-for-bit reproducible, so their linux/amd64 sha256 can be
-  # pinned. A cached binary is used ONLY if it matches: a PR run can write its own
-  # cache scope, so an unverified cache would let an earlier commit of a PR plant
-  # fake scanners for a later one (build info inside a binary can be forged; a
-  # hash cannot). A fresh build comes from the checksum-verified module proxy.
+  # The scanners are built COLD on every run, with exactly this Go, -trimpath and
+  # CGO_ENABLED=0, which makes the binaries bit-for-bit reproducible, so their
+  # linux/amd64 sha256 is pinned and any mismatch is FATAL. There is deliberately no
+  # cache: a PR can write its own cache scope from an earlier commit, and restoring
+  # an archive can write files outside the cache path (actions/cache extracts with
+  # tar -P), for example a Go env file that redirects GOPROXY, before any check runs.
   SCANNER_GO: "1.26.10"
   GOSEC_SHA256: "b2fbd6a9c31afa2e3545a5e3dfc7012f121a4503082ddc740707081f72205ea4"
   GOVULNCHECK_SHA256: "bd71082bf920ffa395370acd0a57f2216f70b271dbfb17bca433b984f37c07ba"
@@ -64,7 +60,6 @@ env:
 
 jobs:
   scope:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -158,7 +153,7 @@ jobs:
 
   scanners:
     needs: scope
-    if: ${{ !cancelled() && (github.event_name == 'schedule' || needs.scope.outputs.relevant == 'true') }}
+    if: needs.scope.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -173,47 +168,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Restore pinned scanner binaries (verified by sha256 below, never trusted as-is)
-        id: restore
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/scanner-cache
-          key: scanners-v2-${{ runner.os }}-${{ runner.arch }}-go${{ env.SCANNER_GO }}-gosec-${{ env.GOSEC_VERSION }}-govulncheck-${{ env.GOVULNCHECK_VERSION }}-osv-${{ env.OSV_SCANNER_VERSION }}
-      - name: Verify or build each pinned scanner (bounded retries, fail-closed)
-        id: verify
-        env:
-          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+      - name: Build each pinned scanner cold (bounded retries; any digest mismatch is fatal)
         run: |
           set -euo pipefail
-          # Restored files are untrusted: only the three named binaries are ever
-          # read from here, and only after their sha256 checks out. What the rows
-          # receive is a fresh handoff directory holding exactly those three.
-          bin="$RUNNER_TEMP/scanner-cache"
+          bin="$RUNNER_TEMP/scanner-build"
           out="$RUNNER_TEMP/handoff/bin"
           mkdir -p "$bin" "$out"
           [ "$(go env GOVERSION)" = "go$SCANNER_GO" ] || { echo "::error::scanner toolchain is $(go env GOVERSION), want go$SCANNER_GO"; exit 1; }
-          clean=true
           sha() { sha256sum "$1" | cut -d' ' -f1; }
           modver() { go version -m "$1" | awk '$1 == "mod" { print $2, $3 }'; }
           get() {  # name package module version pinned-sha256
-            if [ -f "$bin/$1" ] && [ "$(sha "$bin/$1")" = "$5" ]; then
-              echo "$1 $4: cached binary matches the reviewed sha256"; return 0
-            fi
-            rm -f "$bin/$1"
             for attempt in 1 2 3; do
+              rm -f "$bin/$1"
               if GOBIN="$bin" go install "$2@$4" && [ "$(modver "$bin/$1")" = "$3 $4" ]; then
                 if [ "$(sha "$bin/$1")" = "$5" ]; then
-                  echo "$1 $4: built; matches the reviewed sha256"
-                else
-                  # Still trustworthy (checksum-verified source), but not cacheable:
-                  # only hash-matching binaries are ever restored.
-                  echo "::warning::$1 $4 built from the module proxy does not match the pinned sha256 (reproducibility drift); using it, not caching it"
-                  clean=false
+                  echo "$1 $4: built cold; matches the reviewed sha256"
+                  return 0
                 fi
-                return 0
+                # Not a flake to retry around: the source is pinned and checksum-
+                # verified and the build is reproducible, so a different digest
+                # means a different scanner. Never hand it to the rows.
+                echo "::error::$1 $4 built to sha256 $(sha "$bin/$1"), not the reviewed $5 (fail-closed)"
+                return 1
               fi
               echo "::warning::$1 $4 install attempt $attempt failed"
-              rm -f "$bin/$1"
               sleep $((attempt * 15))
             done
             echo "::error::could not install $1 $4 after 3 attempts; the gate cannot run (fail-closed)"
@@ -224,15 +202,6 @@ jobs:
           get osv-scanner github.com/google/osv-scanner/cmd/osv-scanner github.com/google/osv-scanner "$OSV_SCANNER_VERSION" "$OSV_SCANNER_SHA256"
           for t in gosec govulncheck osv-scanner; do install -m 0755 "$bin/$t" "$out/$t"; done
           sha256sum "$out"/*
-          save=false
-          if [ "$clean" = true ] && [ "$CACHE_HIT" != true ]; then save=true; fi
-          echo "save=$save" >> "$GITHUB_OUTPUT"
-      - name: Save the verified scanner binaries
-        if: steps.verify.outputs.save == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/scanner-cache
-          key: scanners-v2-${{ runner.os }}-${{ runner.arch }}-go${{ env.SCANNER_GO }}-gosec-${{ env.GOSEC_VERSION }}-govulncheck-${{ env.GOVULNCHECK_VERSION }}-osv-${{ env.OSV_SCANNER_VERSION }}
       - name: Download the pinned semgrep wheels once (bounded retries)
         run: |
           set -uo pipefail
@@ -248,7 +217,6 @@ jobs:
           echo "::warning::semgrep $SEMGREP_VERSION wheels unavailable; rows will run without semgrep"
           rm -rf "$wheels"
       - name: Hand the scanners to the connector rows
-        if: github.event_name != 'schedule'
         uses: actions/upload-artifact@v4
         with:
           name: scanners
@@ -295,10 +263,10 @@ jobs:
           [ "$(find "$bin" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')" = "gosec govulncheck osv-scanner " ] \
             || { echo "::error::unexpected files in the scanner handoff (fail-closed)"; exit 1; }
           chmod +x "$bin"/gosec "$bin"/govulncheck "$bin"/osv-scanner
-          check() { go version -m "$bin/$1" | awk '$1 == "mod" { print $2, $3 }' | grep -qxF "$2 $3" || { echo "::error::$1 is not $3 (fail-closed)"; exit 1; }; }
-          check gosec github.com/securego/gosec/v2 "$GOSEC_VERSION"
-          check govulncheck golang.org/x/vuln "$GOVULNCHECK_VERSION"
-          check osv-scanner github.com/google/osv-scanner "$OSV_SCANNER_VERSION"
+          check() { [ "$(sha256sum "$bin/$1" | cut -d' ' -f1)" = "$2" ] || { echo "::error::$1 does not match its reviewed sha256 (fail-closed)"; exit 1; }; }
+          check gosec "$GOSEC_SHA256"
+          check govulncheck "$GOVULNCHECK_SHA256"
+          check osv-scanner "$OSV_SCANNER_SHA256"
           echo "$bin" >> "$GITHUB_PATH"
           if [ -d "$RUNNER_TEMP/scanners/wheels" ]; then
             python3 -I -m pip install --quiet --no-index --find-links "$RUNNER_TEMP/scanners/wheels" "semgrep==$SEMGREP_VERSION" \
@@ -360,7 +328,7 @@ jobs:
     # never satisfy branch protection.
     name: ${{ github.event_name == 'pull_request' && 'security-gate' || 'security-gate-manual' }}
     needs: [scope, guard, selftest, scanners, gate]
-    if: always() && github.event_name != 'schedule'
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

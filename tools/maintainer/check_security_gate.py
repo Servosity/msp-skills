@@ -1619,18 +1619,21 @@ def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
             problems.append(f"{k} differs between the gates: {by}")
     if gate_yml.count(SUMMARY_NAME) != 1:
         problems.append("the summary job no longer names itself security-gate only for pull_request runs")
+    gate_code = [ln for ln in gate_yml.splitlines() if not ln.lstrip().startswith("#")]
     summary = gate_yml.split(SUMMARY_NAME, 1)[-1]
     guard_at = summary.find('if [ "$GUARD" != "success" ]')
     base_at = summary.find("ref: ${{ needs.scope.outputs.base }}")
     script_at = summary.find("check_security_gate.py --summarize")
     if not (0 <= guard_at < base_at < script_at):
         problems.append("the summary must check the guard, then run the BASE copy of --summarize")
-    if re.search(r"uses:\s*actions/cache@", gate_yml) or "actions/cache/restore@" not in gate_yml:
-        problems.append("scanner binaries must be restored with actions/cache/restore and verified, "
-                        "never with the auto-saving actions/cache")
+    code_text = "\n".join(gate_code)
+    if re.search(r"actions/cache\b", code_text) or "cache-hit" in code_text:
+        problems.append("the PR gate must not restore any cache: a PR can write its own cache "
+                        "scope, and extraction can write outside the cache path")
+    if not re.search(r'not the reviewed \$5 \(fail-closed\)"\n\s*return 1\b', gate_yml):
+        problems.append("a scanner whose digest does not match its pin must fail the job")
     # -I: a PR can add tools/maintainer/json.py (or ./re.py, ./pip/) and Python would
     # import it ahead of the standard library from the script's or current directory.
-    gate_code = [ln for ln in gate_yml.splitlines() if not ln.lstrip().startswith("#")]
     for ln in gate_code:
         if re.search(r"\bpython3\b(?!\s+-I\b)", ln) and "python-version" not in ln:
             problems.append(f"security-gate.yml runs Python without -I: {ln.strip()[:80]}")
@@ -1669,8 +1672,12 @@ def _self_test_workflows() -> int:
             "ref: ${{ needs.scope.outputs.base }}", "ref: ${{ github.sha }}"), rel_yml, False),
         ("summary no longer checks the guard first", gate_yml.replace(
             'if [ "$GUARD" != "success" ]', 'if [ "$GUARD" = "never" ]'), rel_yml, False),
-        ("scanner cache restored without verification", gate_yml.replace(
-            "actions/cache/restore@v4", "actions/cache@v4"), rel_yml, False),
+        ("a scanner cache is restored", gate_yml.replace(
+            "      - name: Build each pinned scanner cold",
+            "      - uses: actions/cache/restore@v4\n        with:\n          path: x\n          key: y\n"
+            "      - name: Build each pinned scanner cold"), rel_yml, False),
+        ("a digest mismatch is tolerated", re.sub(r'(not the reviewed \$5 \(fail-closed\)"\n\s*)return 1',
+                                                 r"\1return 0", gate_yml), rel_yml, False),
         ("scanner hash pin removed", re.sub(r'(?m)^\s*GOSEC_SHA256:.*\n', "", gate_yml), rel_yml, False),
         ("a row runs the gate without -I", gate_yml.replace(
             "python3 -I tools/maintainer/check_security_gate.py \\", "python3 tools/maintainer/check_security_gate.py \\"),
@@ -1831,6 +1838,15 @@ def self_test() -> int:
              where={"G202": "return \"resource_type IN (\" + strings.Join(q"})
         case("credential-looking value in the approved constant", lambda r, m: edit(
              m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"' + "sk_" + "live_0123456789abcdef" + '"'),
+             {"G101": P1, "G202": AP})
+        case("approved constant respelled with an escape (same value)", lambda r, m: edit(
+             m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"\\x42ETA_MCP_HTTP_TOKEN"'),
+             {"G101": P1, "G202": AP})
+        case("approved constant respelled as a raw string (same value)", lambda r, m: edit(
+             m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', "`BETA_MCP_HTTP_TOKEN`"),
+             {"G101": P1, "G202": AP})
+        case("a neighbour in the approved constant's group changed", lambda r, m: edit(
+             m, "cmd/beta-mcp/main.go", '"127.0.0.1:7777"', '"0.0.0.0:7777"'),
              {"G101": P1, "G202": AP})
         case("placeholder spelled with string escapes in the approved constant", lambda r, m: edit(
              m, "cmd/beta-mcp/main.go", '"BETA_MCP_HTTP_TOKEN"', '"\\x7bENV\\x7d_MCP_HTTP_TOKEN"'),

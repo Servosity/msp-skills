@@ -666,26 +666,45 @@ func main() {
 							work = append(work, pending{u, sp, c.info})
 						case *ast.ValueSpec:
 							if d.Tok == token.CONST {
-								// One unit per constant, hashed by its type and exact
-								// value: that is all a constant is, and it makes
-								// iota and implicit repetition in a group exact.
-								for _, nm := range sp.Names {
+								// One unit per constant. Its hash covers the exact source
+								// bytes of the WHOLE const group (a spec without a value
+								// repeats the previous expression, and iota counts specs,
+								// so a constant's meaning depends on its neighbours), its
+								// position in the group, its evaluated type and value, and
+								// (collected in pass 2) every reference made anywhere in
+								// the group's types and initializers. A respelled literal
+								// (an escape, a raw string) therefore changes the hash even
+								// when the value is equal.
+								gst, gen := s.fset.Position(d.Pos()).Offset, s.fset.Position(d.End()).Offset
+								if d.Doc != nil {
+									gst = s.fset.Position(d.Doc.Pos()).Offset
+								}
+								group := string(src[gst:gen])
+								for ni, nm := range sp.Names {
 									obj, _ := c.info.Defs[nm].(*types.Const)
 									key := "const " + pp + "." + nm.Name
 									if nm.Name == "_" {
 										key = fmt.Sprintf("const %s._@%s:%d", pp, rel, s.fset.Position(nm.Pos()).Line)
 									}
 									u := s.newUnit(key, "const", rel, s.fset, sp.Pos(), sp.End(), src)
+									value := "?"
 									if obj != nil {
 										s.objUnit[obj] = key
 										// Raw package paths here: finish() checks this text for
 										// placeholders and only then normalizes it for the hash.
-										u.text = nm.Name + " " + types.TypeString(obj.Type(), (*types.Package).Path) + " = " + obj.Val().ExactString()
+										value = types.TypeString(obj.Type(), (*types.Package).Path) + " = " + obj.Val().ExactString()
 										if tn := recvBase(obj.Type()); tn != nil && s.isModulePkg(tn.Pkg()) {
 											u.refs[s.objKey(tn)] = true
 										}
 									}
-									s.finish(u)
+									specIdx := 0
+									for i, other := range d.Specs {
+										if other == sp {
+											specIdx = i
+										}
+									}
+									u.text = fmt.Sprintf("%s\nspec %d name %d %s\nvalue %s", group, specIdx, ni, nm.Name, value)
+									work = append(work, pending{u, d, c.info})
 								}
 								continue
 							}
