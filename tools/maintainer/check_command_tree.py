@@ -269,6 +269,20 @@ REVIEWED_HAZARDS = {
         "adds a support-supplied software package to the tenant; Sophos calls it one-way",
     ("domotz", "/agent/{agent_id}/network/excluded-device/{device_id}"):
         "excludes a device from collector monitoring, which stops its monitoring",
+    # Bulk endpoints whose body or path selects a resolve, snooze, reject or
+    # delete (owner's Codex review of #416, and the re-scan of the work list).
+    ("tactical-rmm", "/alerts/bulk/"):
+        "bulk_action resolve or snooze on a list of alerts (Tactical RMM alerts/views.py BulkAlerts)",
+    ("rootly", "/v1/alerts/{id}/resolve"):
+        "resolves the alert and, with resolve_related_incidents, every incident attached to it",
+    ("sophos-central", "/account-health-check/v1/snooze"):
+        "snoozes account health-check findings for the policies and exclusions in the body",
+    ("huntress", "/v1/incident_reports/{incident_report_id}/remediations/bulk_rejection"):
+        "rejects every pending remediation on the incident report, so none is carried out",
+    ("ninjaone", "/v2/devices/approval/{mode}"):
+        "approves or, with mode REJECT, rejects the listed devices waiting for approval",
+    ("appdirect", "/appwise/v2/data"):
+        "publishes content events; action_delete or a ResourceDeleted event removes the resource from Search",
     ("huntress", "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval"):
         "approves every pending remediation, which Huntress then carries out on the hosts",
     ("ninjaone", "/v2/device/{id}/script/run"):
@@ -608,24 +622,62 @@ def module_path(cli_dir: Path) -> str:
     raise ValueError(f"no module line in {cli_dir / 'go.mod'}")
 
 
+def load_registry_connectors() -> dict[str, str]:
+    """{slug: directory under skills/} for every registered skill that is not
+    markdown-only, i.e. every skill the registry says ships a CLI."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import registry  # noqa: E402  (local tools/ module)
+
+    return {
+        slug: registry.source_dir(slug)
+        for slug in registry.skills()
+        if not registry.is_markdown_only(slug)
+    }
+
+
+def enumerate_connectors(skills_dir: Path, registered: dict[str, str]) -> tuple[list[str], list[dict]]:
+    """Every connector this check must read, and the ones it cannot.
+
+    The expected set is the union of the registry's CLI-shipping skills and
+    every skills/<dir>/cli/go.mod on disk, so neither a registered connector
+    that lost its module nor an unregistered module can drop out silently.
+    A connector is NOT filtered by whether its root.go looks right: a missing
+    entry point is an error here, and a malformed one fails to compile in
+    dump_tree, which is also an error. Returns (directories, errors)."""
+    on_disk = {p.parent.parent.name for p in skills_dir.glob("*/cli/go.mod")}
+    expected = sorted(on_disk | set(registered.values()))
+    found, errors = [], []
+    for d in expected:
+        cli_dir = skills_dir / d / "cli"
+        if not (cli_dir / "go.mod").is_file():
+            errors.append({"slug": d, "error": "registered as a connector but skills/%s/cli/go.mod "
+                                                "is missing" % d})
+        elif not (cli_dir / "internal" / "cli" / "root.go").is_file():
+            errors.append({"slug": d, "error": "no internal/cli/root.go, so the command tree has no "
+                                                "entry point to read"})
+        else:
+            found.append(d)
+    return found, errors
+
+
 def connector_slugs() -> list[str]:
-    """Every skill whose vendored CLI exposes cli.RootCmd()."""
-    out = []
-    for d in sorted(SKILLS.iterdir()):
-        root_go = d / "cli" / "internal" / "cli" / "root.go"
-        if root_go.is_file() and "func RootCmd() *cobra.Command" in root_go.read_text(
-            encoding="utf-8", errors="replace"
-        ):
-            out.append(d.name)
-    return out
+    """Connectors with a readable entry point (errors are reported by main)."""
+    return enumerate_connectors(SKILLS, load_registry_connectors())[0]
 
 
-def dump_tree(slug: str, timeout: int, fixture_go: str | None = None) -> tuple[list[dict] | None, str]:
+def dump_tree(slug: str, timeout: int, fixture_go: str | None = None,
+              replace_files: dict[str, str] | None = None,
+              skills_dir: Path | None = None) -> tuple[list[dict] | None, str]:
     """Compile and run the walker against skills/<slug>/cli. (nodes, error).
 
     With `fixture_go`, the walker reads that fixture's RootCmd() instead (the
-    self-test), still compiled inside the connector's module for its cobra."""
-    cli_dir = SKILLS / slug / "cli"
+    self-test), still compiled inside the connector's module for its cobra.
+    `replace_files` ({path under cli/: content}) overlays connector files, so
+    the self-test can hand the walker a malformed root.go without touching
+    the tree."""
+    cli_dir = (skills_dir or SKILLS) / slug / "cli"
+    if not (cli_dir / "internal" / "cli" / "root.go").is_file() and fixture_go is None:
+        return None, "no internal/cli/root.go, so the command tree has no entry point to read"
     try:
         module = module_path(cli_dir)
     except (OSError, ValueError) as exc:
@@ -641,6 +693,10 @@ def dump_tree(slug: str, timeout: int, fixture_go: str | None = None) -> tuple[l
             fx.write_text(fixture_go, encoding="utf-8")
             replace[str((cli_dir / FIXTURE_PKG / "fixture.go").resolve())] = str(fx)
             import_path = module + "/" + FIXTURE_PKG
+        for i, (rel, content) in enumerate(sorted((replace_files or {}).items())):
+            alt = tmp / f"replace-{i}.go"
+            alt.write_text(content, encoding="utf-8")
+            replace[str((cli_dir / rel).resolve())] = str(alt)
         src.write_text(DUMP_GO.replace("__IMPORT__", import_path), encoding="utf-8")
         overlay = tmp / "overlay.json"
         overlay.write_text(json.dumps({"Replace": replace}), encoding="utf-8")
@@ -672,6 +728,52 @@ def dump_tree(slug: str, timeout: int, fixture_go: str | None = None) -> tuple[l
         return None, f"timed out after {timeout}s"
     except json.JSONDecodeError as exc:
         return None, f"tree walker printed invalid JSON: {exc}"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def enumeration_self_test(bad: list[str]) -> str:
+    """End to end: copy the smallest real connector three times into a fixture
+    skills/ tree (one intact, one with no root.go, one whose root.go no longer
+    defines RootCmd), register a fourth with no directory, and run the real
+    check over it. Only the intact copy may pass."""
+    found = connector_slugs()
+    if not found:
+        return "enumeration skipped (no connector to copy)"
+    donor = min(found, key=lambda d: sum(1 for _ in (SKILLS / d / "cli").rglob("*")))
+    tmp = Path(tempfile.mkdtemp(prefix="cmdtree-enum-"))
+    try:
+        skills = tmp / "skills"
+        for name in ("good", "noroot", "badroot"):
+            shutil.copytree(SKILLS / donor / "cli", skills / name / "cli")
+        (skills / "noroot" / "cli" / "internal" / "cli" / "root.go").unlink()
+        root = skills / "badroot" / "cli" / "internal" / "cli" / "root.go"
+        text = root.read_text(encoding="utf-8")
+        if "func RootCmd() *cobra.Command" not in text:
+            bad.append(f"enumeration fixture: {donor}'s root.go has no RootCmd to break")
+            return "enumeration fixture broken"
+        root.write_text(text.replace("func RootCmd() *cobra.Command", "func RootCmdGone() *cobra.Command"),
+                        encoding="utf-8")
+        reg = tmp / "registry.json"
+        reg.write_text(json.dumps({"good": "good", "ghost": "ghost"}), encoding="utf-8")
+        run = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "--skills-dir", str(skills),
+             "--registry-json", str(reg), "--jobs", "2"],
+            capture_output=True, text=True, timeout=1800,
+        )
+        out = run.stdout + run.stderr
+        if run.returncode != 1:
+            bad.append(f"enumeration fixture: check exited {run.returncode}, want 1:\n{out[-800:]}")
+        for name, needle in (("noroot", "no internal/cli/root.go"),
+                             ("badroot", "could not compile the tree walker"),
+                             ("ghost", "cli/go.mod is missing")):
+            if not any(f"[{name}]" in line and needle in line for line in out.splitlines()):
+                bad.append(f"enumeration fixture: no FAIL line for {name} ({needle})")
+        if any("[good]" in line and "FAIL" in line for line in out.splitlines()):
+            bad.append("enumeration fixture: the intact copy failed, so the proof is not about the root")
+        if "unreadable" not in out:
+            bad.append("enumeration fixture: no unreadable connector reported")
+        return f"enumeration fixture ok via {donor}"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -764,6 +866,25 @@ def self_test() -> int:
         bad.append("a reviewed hazard must override the named-create exemption")
     if not findings_for("tactical-rmm", [svc])[0] or findings_for("other", [svc])[0]:
         bad.append("REVIEWED_HAZARDS must apply to its own slug only")
+    # Bulk resolve/snooze/reject/delete endpoints. Named here, not read from
+    # REVIEWED_HAZARDS, so deleting an entry fails the self-test.
+    for slug, path, api in [
+        ("tactical-rmm", ["alerts", "alerts-bulk"], "/alerts/bulk/"),
+        ("rootly", ["alerts", "resolve", "alert"], "/v1/alerts/{id}/resolve"),
+        ("sophos-central", ["health-check", "post-snooze"], "/account-health-check/v1/snooze"),
+        ("huntress", ["incident-reports", "remediations", "bulk-rejection-parameters"],
+         "/v1/incident_reports/{incident_report_id}/remediations/bulk_rejection"),
+        ("ninjaone", ["devices", "node-approval-operation"], "/v2/devices/approval/{mode}"),
+        ("appdirect", ["appwise", "events"], "/appwise/v2/data"),
+    ]:
+        if not findings_for(slug, [node(path, api=api)])[0]:
+            bad.append(f"expected FAIL for {slug} POST {api} (bulk resolve/snooze/reject/delete)")
+
+    # Connector enumeration: a missing or malformed entry point must FAIL the
+    # check, never drop the connector from the run (owner's review of #416).
+    enum = "enumeration skipped (no go on PATH)"
+    if shutil.which("go"):
+        enum = enumeration_self_test(bad)
 
     # The Go walker itself, on a fixture tree, when Go and a connector exist.
     walker = "skipped (no go on PATH or no connector to borrow a module from)"
@@ -788,7 +909,7 @@ def self_test() -> int:
             print("  - " + b)
         return 1
     print(f"PASS: check_command_tree self-test ({len(must_fail)} must-fail, "
-          f"{len(must_pass)} must-pass, 1 shadow, 1 duplicate; {walker})")
+          f"{len(must_pass)} must-pass, 6 bulk, 1 shadow, 1 duplicate; {walker}; {enum})")
     return 0
 
 
@@ -801,6 +922,8 @@ def main() -> int:
     ap.add_argument("--self-test", action="store_true", help="prove the classifier both directions")
     ap.add_argument("--list-shadows", action="store_true",
                     help="print every flag shadow instead of a per-flag summary")
+    ap.add_argument("--skills-dir", help=argparse.SUPPRESS)
+    ap.add_argument("--registry-json", help=argparse.SUPPRESS)
     ap.add_argument("--list-unjudged", action="store_true",
                     help="print every `create` alias the gate does not judge (report only)")
     args = ap.parse_args()
@@ -811,20 +934,30 @@ def main() -> int:
         print("FAIL: go is not on PATH; the command tree cannot be read.")
         return 1
 
-    known = connector_slugs()
-    slugs = args.slug or known
-    unknown = [s for s in slugs if s not in known]
-    if unknown:
-        print("FAIL: not a connector with cli.RootCmd(): " + ", ".join(unknown))
-        return 1
+    skills_dir = Path(args.skills_dir) if args.skills_dir else SKILLS
+    registered = (json.loads(Path(args.registry_json).read_text(encoding="utf-8"))
+                  if args.registry_json else load_registry_connectors())
+    known, enum_errors = enumerate_connectors(skills_dir, registered)
+    if args.slug:
+        expected = set(known) | {e["slug"] for e in enum_errors}
+        unknown = [s for s in args.slug if s not in expected]
+        if unknown:
+            print("FAIL: not a connector (no registry entry with a CLI and no skills/<dir>/cli/go.mod): "
+                  + ", ".join(unknown))
+            return 1
+        enum_errors = [e for e in enum_errors if e["slug"] in args.slug]
+        slugs = [s for s in args.slug if s in known]
+    else:
+        slugs = known
 
     results: dict[str, tuple[list[dict] | None, str]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futs = {pool.submit(dump_tree, s, args.timeout): s for s in slugs}
+        futs = {pool.submit(dump_tree, s, args.timeout, None, None, skills_dir): s for s in slugs}
         for fut in concurrent.futures.as_completed(futs):
             results[futs[fut]] = fut.result()
 
-    fails, shadows, errors, unjudged = [], [], [], []
+    fails, shadows, unjudged = [], [], []
+    errors = list(enum_errors)
     commands = named = 0
     for slug in sorted(results):
         nodes, err = results[slug]
@@ -878,7 +1011,8 @@ def main() -> int:
         Path(args.json).write_text(
             json.dumps({"create_alias_on_destructive": fails, "flag_shadows": shadows,
                         "create_alias_unjudged": unjudged, "named_creates_trusted": named,
-                        "errors": errors, "connectors": len(slugs), "commands": commands},
+                        "errors": errors, "connectors": len(slugs) + len(enum_errors),
+                        "commands": commands},
                        indent=1) + "\n",
             encoding="utf-8",
         )

@@ -11,6 +11,7 @@ All notable changes to this skill are documented here. Format follows
   - `sophos-central-cli alerts act-on` (POST `/common/v1/alerts/{alertId}/actions`)
   - `sophos-central-cli blocked-addresses delete-blocked-address-sets` (POST `/endpoint/v1/settings/blocked-addresses/bulk/delete`)
   - `sophos-central-cli endpoints bulk-delete` (POST `/endpoint/v1/endpoints/delete`)
+  - `sophos-central-cli health-check post-snooze` (POST `/account-health-check/v1/snooze`; snoozes account health-check findings for the policies and exclusions in the body)
   - `sophos-central-cli migrations create-receiving-job` (POST `/endpoint/v1/migrations`; starts a job that migrates endpoints from another tenant)
   - `sophos-central-cli software add-special-static-package` (POST `/endpoint/v1/software/packages/static/{staticPackageId}/add`; adds a support-supplied software package to the tenant; Sophos calls it one-way)
   - `sophos-central-cli xdr cancel-query-run` (POST `/xdr-query/v1/queries/runs/{runId}/cancel`)

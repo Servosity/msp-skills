@@ -22,6 +22,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"agents", "meshcentral", "agents-agents"},
 		{"agents", "reboot", "agents-agents"},
 		{"agents", "shutdown", "agents"},
+		{"alerts", "alerts-bulk"},
 		{"autotasks", "run", "autotasks"},
 		{"checks", "reset", "checks"},
 		{"checks", "resetall", "checks"},

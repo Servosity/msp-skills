@@ -20,7 +20,6 @@ func newAlertsResolveAlertCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "alert <id>",
-		Aliases:     []string{"create"},
 		Short:       "Resolves a specific alert by id",
 		Example:     "  rootly-cli alerts resolve alert 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "resolve.alert", "pp:method": "POST", "pp:path": "/v1/alerts/{id}/resolve"},

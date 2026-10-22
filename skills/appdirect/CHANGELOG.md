@@ -8,6 +8,7 @@ All notable changes to this skill are documented here. Format follows
 
 ### Fixed
 - **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `appdirect-cli products create` ran `appdirect-cli products delete-image`, POST `/products/v1/resources/image/delete`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `appdirect-cli appwise events` (POST `/appwise/v2/data`; publishes content events; action_delete or a ResourceDeleted event removes the resource from Search)
   - `appdirect-cli products delete-image` (POST `/products/v1/resources/image/delete`)
   - `appdirect-cli shopping-carts items delete-shopping-cart` (POST `/shoppingCarts/{shoppingCartId}/items/delete`)
 

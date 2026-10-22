@@ -14,6 +14,7 @@ All notable changes to this skill are documented here. Format follows
   - `ninjaone-cli device reboot devices` (POST `/v2/device/{id}/reboot/{mode}`)
   - `ninjaone-cli device script run-on-device` (POST `/v2/device/{id}/script/run`; runs a script or built-in action on a device)
   - `ninjaone-cli device windows-service control` (POST `/v2/device/{id}/windows-service/{serviceId}/control`)
+  - `ninjaone-cli devices node-approval-operation` (POST `/v2/devices/approval/{mode}`; approves or, with mode REJECT, rejects the listed devices waiting for approval)
   - `ninjaone-cli document-templates archive document-template` (POST `/v2/document-templates/{documentTemplateId}/archive`)
   - `ninjaone-cli knowledgebase archive-knowledge-base-articles` (POST `/v2/knowledgebase/articles/archive`)
   - `ninjaone-cli organization archive-checklists` (POST `/v2/organization/archive`)

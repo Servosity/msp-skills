@@ -11,6 +11,7 @@ All notable changes to this skill are documented here. Format follows
   - `tactical-rmm-cli agents meshcentral agents-agents` (POST `/agents/{agent_id}/meshcentral/`; recovers (reinstalls) the MeshCentral agent on the endpoint)
   - `tactical-rmm-cli agents reboot agents-agents` (POST `/agents/{agent_id}/reboot/`)
   - `tactical-rmm-cli agents shutdown agents` (POST `/agents/{agent_id}/shutdown/`)
+  - `tactical-rmm-cli alerts alerts-bulk` (POST `/alerts/bulk/`; bulk_action resolve or snooze on a list of alerts (Tactical RMM alerts/views.py BulkAlerts))
   - `tactical-rmm-cli autotasks run autotasks` (POST `/autotasks/{pk}/run/`; runs an automated task on its agents now)
   - `tactical-rmm-cli checks reset checks` (POST `/checks/{pk}/reset/`)
   - `tactical-rmm-cli checks resetall checks` (POST `/checks/{agent_id}/resetall/`)

@@ -19,6 +19,7 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
+		{"alerts", "resolve", "alert"},
 		{"api-keys", "rotate", "api-key"},
 		{"meeting-recordings", "leave", "meeting-recording"},
 		{"meeting-recordings", "pause", "meeting-recording"},

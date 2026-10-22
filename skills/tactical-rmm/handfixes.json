@@ -178,8 +178,8 @@
   {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
-   "summary": "The generator's hidden Cobra alias `create` is removed from the 11 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
-   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (130 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: agents meshcentral agents-agents (POST /agents/{agent_id}/meshcentral/); agents reboot agents-agents (POST /agents/{agent_id}/reboot/); agents shutdown agents (POST /agents/{agent_id}/shutdown/); autotasks run autotasks (POST /autotasks/{pk}/run/); checks reset checks (POST /checks/{pk}/reset/); checks resetall checks (POST /checks/{agent_id}/resetall/); scripts test scripts (POST /scripts/{agent_id}/test/); services services-agentid-2 (POST /services/{agent_id}/{svcname}/); software software-agentid-2 (POST /software/{agent_id}/); software uninstall software (POST /software/{agent_id}/uninstall/); winupdate install winupdate (POST /winupdate/{agent_id}/install/).",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 12 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (136 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: agents meshcentral agents-agents (POST /agents/{agent_id}/meshcentral/); agents reboot agents-agents (POST /agents/{agent_id}/reboot/); agents shutdown agents (POST /agents/{agent_id}/shutdown/); alerts alerts-bulk (POST /alerts/bulk/); autotasks run autotasks (POST /autotasks/{pk}/run/); checks reset checks (POST /checks/{pk}/reset/); checks resetall checks (POST /checks/{agent_id}/resetall/); scripts test scripts (POST /scripts/{agent_id}/test/); services services-agentid-2 (POST /services/{agent_id}/{svcname}/); software software-agentid-2 (POST /software/{agent_id}/); software uninstall software (POST /software/{agent_id}/uninstall/); winupdate install winupdate (POST /winupdate/{agent_id}/install/).",
    "status": "active",
    "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
    "asserts": [
@@ -193,6 +193,10 @@
     },
     {
      "file": "cli/internal/cli/agents_shutdown_agents.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/alerts_alerts-bulk.go",
      "not_contains": "[]string{\"create\"}"
     },
     {

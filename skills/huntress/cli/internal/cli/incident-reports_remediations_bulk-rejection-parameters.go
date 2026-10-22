@@ -23,7 +23,6 @@ func newIncidentReportsRemediationsBulkRejectionParametersCmd(flags *rootFlags) 
 
 	cmd := &cobra.Command{
 		Use:         "bulk-rejection-parameters <incident_report_id>",
-		Aliases:     []string{"create"},
 		Short:       "Reject all unapproved remediations for an Incident Report.",
 		Annotations: map[string]string{"pp:endpoint": "remediations.bulk-rejection-parameters", "pp:method": "POST", "pp:path": "/v1/incident_reports/{incident_report_id}/remediations/bulk_rejection", "pp:requires-input": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

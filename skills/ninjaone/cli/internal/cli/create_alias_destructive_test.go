@@ -25,6 +25,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"device", "reboot", "devices"},
 		{"device", "script", "run-on-device"},
 		{"device", "windows-service", "control"},
+		{"devices", "node-approval-operation"},
 		{"document-templates", "archive", "document-template"},
 		{"knowledgebase", "archive-knowledge-base-articles"},
 		{"organization", "archive-checklists"},
