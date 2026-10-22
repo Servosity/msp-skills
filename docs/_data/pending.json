@@ -91,9 +91,9 @@
     "released_hash": "sha256:8637b1f27f4b7a475a4fcf750e1950c131c701f675a2f5b86ed99d9eb79043a9"
   },
   "bitdefender": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "bitdefender-v0.1.0",
+    "latest_tag": "bitdefender-v0.1.1",
     "current_hash": "sha256:02f4c98d317e4b057a9be50003ace1b8b671da60d2f349b2a616256cd18159e7",
     "released_hash": "sha256:02f4c98d317e4b057a9be50003ace1b8b671da60d2f349b2a616256cd18159e7"
   },
@@ -112,9 +112,9 @@
     "released_hash": "sha256:be44268bbff67863ebf94025c5c98b8ab178913084a061027bde615f2b17fddd"
   },
   "cisco-duo": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "cisco-duo-v0.1.1",
+    "latest_tag": "cisco-duo-v0.1.2",
     "current_hash": "sha256:3703267a6e442fb1fd55893c440dc42f1224ba2900fa105787e8dd05a074f7f5",
     "released_hash": "sha256:3703267a6e442fb1fd55893c440dc42f1224ba2900fa105787e8dd05a074f7f5"
   },
