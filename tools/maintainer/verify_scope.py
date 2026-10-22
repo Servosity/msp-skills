@@ -879,36 +879,35 @@ def _outside(root: Path, base_dir: str, target: str) -> bool:
     return real != real_root and not real.startswith(real_root + os.sep)
 
 
-def _unquote(t: str) -> str:
-    t = t.strip()
-    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"`":
-        if t[0] == '"':
-            try:
-                return json.loads(t)
-            except ValueError:
-                return t[1:-1]
-        return t[1:-1]
-    return t
+_ASM_INCLUDE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.M)
 
 
-_C_SOURCE = (".s", ".S", ".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".m", ".f", ".F", ".for", ".f90", ".syso")
-_INCLUDE = re.compile(r'^\s*(?://\s*)?#\s*(?:include|import|include_next)\s*[<"]([^>"]+)[>"]', re.M)
-_GO_TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|`[^`]*`|\S+')
-_CGO_DIR = re.compile(r"^\s*(?://)?\s*#cgo\b[^:]*:(.*)$", re.M)
+def _go_edit_json(path: Path) -> dict | None:
+    """go.mod or go.work as Go itself parses it (`go mod|work edit -json`)."""
+    sub = "work" if path.name == "go.work" else "mod"
+    p = subprocess.run(["go", sub, "edit", "-json", str(path)], capture_output=True, text=True,
+                       env=dict(os.environ, GOTOOLCHAIN="local", GOFLAGS=""))
+    try:
+        return json.loads(p.stdout) if p.returncode == 0 else None
+    except ValueError:
+        return None
 
 
 def external_refs(root: Path = ROOT) -> list[str]:
     """Committed content that reaches outside the repository, which a host
-    has and CI's fresh checkout does not, so a check here could pass on it: a
-    symlink that resolves outside (every link on the way followed); a go.work
-    `use` or a go.mod/go.work `replace` naming a folder outside; a C, header or
-    assembly #include, or a #cgo flag, naming an absolute path or one outside.
+    has and CI's fresh checkout does not, so a check here could pass on it.
+    Decided on real paths, every symlink followed: a symlink that resolves
+    outside; a go.work `use` or a go.mod/go.work directory `replace`, read with
+    Go's own parser; an assembly `#include` (the Go assembler reads those
+    even with cgo off, so the host-side Windows checks would). C sources and
+    #cgo flags are compiled only in the Linux checks, which run in a
+    container in Docker mode and see nothing outside the repository there.
     It reads the checkout of the commit under test."""
     p = subprocess.run(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=root, capture_output=True)
     if p.returncode != 0:
         raise OSError(f"git ls-tree failed: {p.stderr.decode(errors='replace').strip()}")
     out = []
-    todo: list[tuple[str, str]] = []  # (path, blob) of files whose text is read
+    asm: list[tuple[str, str]] = []
     for ent in p.stdout.split(b"\0"):
         if not ent:
             continue
@@ -920,57 +919,29 @@ def external_refs(root: Path = ROOT) -> list[str]:
         if mode == "120000":
             if _outside(root, here, name):
                 out.append(f"{rel}: a symlink that resolves outside the repository ({os.path.realpath(root / rel)})")
-        elif name in ("go.work", "go.mod") or name.endswith(_C_SOURCE) or name.endswith(".go"):
-            todo.append((rel, oid))
-    # One git process for every blob, not one per file.
+        elif name in ("go.mod", "go.work"):
+            j = _go_edit_json(root / rel)
+            if j is None:
+                out.append(f"{rel}: Go cannot parse it, so what it points at is unknown")
+                continue
+            targets = [u.get("DiskPath", "") for u in j.get("Use") or []]
+            targets += [r["New"]["Path"] for r in j.get("Replace") or [] if not r.get("New", {}).get("Version")]
+            out += [f"{rel}: names {t!r}, outside the repository" for t in targets if _outside(root, here, t)]
+        elif name.endswith((".s", ".S")):
+            asm.append((rel, oid))
     cat = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True,
-                         input="".join(o + "\n" for _, o in todo).encode())
+                         input="".join(o + "\n" for _, o in asm).encode())
     if cat.returncode != 0:
         raise OSError(f"git cat-file failed: {cat.stderr.decode(errors='replace').strip()}")
-    buf, pos, texts = cat.stdout, 0, []
-    for _ in todo:
+    buf, pos = cat.stdout, 0
+    for rel, _ in asm:
         nl = buf.index(b"\n", pos)
         size = int(buf[pos:nl].split()[2])
-        texts.append(buf[nl + 1:nl + 1 + size].decode("utf-8", "replace"))
+        text = buf[nl + 1:nl + 1 + size].decode("utf-8", "replace")
         pos = nl + 1 + size + 1
-    for (rel, _), text in zip(todo, texts):
-        name = rel.rsplit("/", 1)[-1]
-        here = os.path.dirname(rel)
-        is_go_file = name.endswith(".go")
-        if name in ("go.work", "go.mod"):
-            in_use = False
-            for line in text.splitlines():
-                line = line.split("//", 1)[0].strip()
-                targets = []
-                if in_use:
-                    if line == ")":
-                        in_use = False
-                    elif line:
-                        targets.append(_unquote(line))
-                elif name == "go.work" and line.startswith("use"):
-                    rest = line[3:].strip()
-                    if rest == "(":
-                        in_use = True
-                    elif rest:
-                        targets.append(_unquote(rest))
-                if "=>" in line:
-                    tok = _GO_TOKEN.match(line.split("=>", 1)[1].strip())
-                    rhs = _unquote(tok.group(0)) if tok else ""
-                    if rhs.startswith((".", "/", "\\")) or re.match(r"[A-Za-z]:", rhs):
-                        targets.append(rhs)
-                out += [f"{rel}: {line!r} names {t!r}, outside the repository" for t in targets if _outside(root, here, t)]
-            continue
-        if is_go_file and 'import "C"' not in text and "#cgo" not in text:
-            continue
-        for m in _INCLUDE.finditer(text):
-            inc = m.group(1)
-            if (inc.startswith(("/", "\\")) or re.match(r"[A-Za-z]:", inc) or inc.startswith("..")) and _outside(root, here, inc):
+        for inc in _ASM_INCLUDE.findall(text):
+            if _outside(root, os.path.dirname(rel), inc):
                 out.append(f"{rel}: #include {inc!r} is outside the repository")
-        for m in _CGO_DIR.finditer(text):
-            for flag in m.group(1).split():
-                val = re.sub(r"^-(?:I|L|isystem|iquote|include|F)", "", flag)
-                if val != flag and val and _outside(root, here, val.replace("${SRCDIR}", ".")):
-                    out.append(f"{rel}: #cgo {flag!r} is outside the repository")
     return out
 
 
@@ -1517,7 +1488,7 @@ def _self_test() -> int:
         os.symlink("../../../../outside.go", r / "s/c/internal/up.go")
         os.symlink("../c/go.mod", r / "s/c/internal/inside.go")
         (r / "s/c/go.mod").write_text("module m\n\nreplace a/b => ../../../x\nreplace c/d => ./local\n", encoding="utf-8")
-        (r / "s/c/go.work").write_text('go 1.26\n\nreplace github.com/spf13/pflag => "/tmp/pflag"\n', encoding="utf-8")
+        (r / "s/c/go.work").write_text('go 1.26\n\nreplace github.com/spf13/pflag => "/tmp//pflag" // c\n', encoding="utf-8")
         (r / "go.work").write_text("go 1.26\n\nuse (\n\t./s/c\n\t/tmp/helper\n)\n", encoding="utf-8")
         # a chain: every hop looks internal, the whole resolves to /tmp
         deep = r / "s/c" / "/".join(["d"] * 20)
@@ -1525,16 +1496,15 @@ def _self_test() -> int:
         os.symlink(os.path.relpath(r, deep), deep / "root")
         os.symlink("/".join(["d"] * 20) + "/root/" + "../" * 20 + "tmp/probe.txt", r / "s/c/chain.go")
         (r / "s/c/probe_linux_amd64.s").write_text('#include "/tmp/probe.h"\n#include "textflag.h"\n', encoding="utf-8")
-        (r / "s/c/cg.go").write_text('package c\n\n// #cgo CFLAGS: -I/opt/x -I${SRCDIR}/inc\n// #include "../../../x.h"\nimport "C"\n',
-                                     encoding="utf-8")
+        (r / "s/c/up_windows_amd64.s").write_text('#include "./' + "../" * 20 + 'tmp/probe.h"\n', encoding="utf-8")
         g("add", "-A")
         g("commit", "-qm", "x")
         found = "\n".join(external_refs(r))
-        expect(all(x in found for x in ("abs.go", "up.go", "'../../../x'", "'/tmp/helper'", "'/tmp/pflag'", "chain.go",
-                                        "'/tmp/probe.h'", "'-I/opt/x'", "'../../../x.h'")) and
-               not any(x in found for x in ("inside.go", "./local", "./s/c'", "textflag.h", "SRCDIR")),
-               "symlinks (chains too), go.work use and quoted replace, #include and #cgo flags that leave the "
-               "repository are refused; ones inside it are not")
+        expect(all(x in found for x in ("abs.go", "up.go", "'../../../x'", "'/tmp/helper'", "'/tmp//pflag'", "chain.go",
+                                        "'/tmp/probe.h'", "up_windows_amd64.s")) and
+               not any(x in found for x in ("inside.go", "./local", "./s/c'", "textflag.h")),
+               "symlinks (chains too), go.work use and replace (read by Go's own parser) and assembly #include that "
+               "leave the repository are refused; ones inside it are not")
 
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],

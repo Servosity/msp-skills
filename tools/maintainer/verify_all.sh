@@ -120,7 +120,10 @@ if [ -z "${VERIFY_ALL_REAL_HEAD:-}" ]; then
   real_head="$(git rev-parse --verify HEAD)" || { echo "verify_all: no HEAD commit" >&2; exit 2; }
   base_sha="$(git rev-parse --verify --quiet "$base^{commit}")" || base_sha="$base"
   snap="$real_head"; dirty=0
-  if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+  # A failed status is not a clean tree.
+  st="$(git status --porcelain --untracked-files=all)" \
+    || { echo "VERIFY_ALL: FAIL - git status failed, so what is under test is unknown." >&2; exit 2; }
+  if [ -n "$st" ]; then
     dirty=1
     idx="$WORK/index"
     if ! { { cp "$(git rev-parse --git-path index)" "$idx" 2>/dev/null || GIT_INDEX_FILE="$idx" git read-tree HEAD; } \
