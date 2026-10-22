@@ -2,7 +2,7 @@
 
 **Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.**
 
-Liongard's API answers one environment at a time and only through the web UI or per-instance REST calls. This CLI syncs every environment, system, launchpoint, inspector, agent, detection, metric, and timeline entry into a local SQLite store, then runs cross-estate joins the live API never returns: drift since a window, stale launchpoints, offline agents, monitoring-coverage gaps, and metric pivots. Agent-native throughout  -  --json, --select, --csv, and typed exit codes.
+Liongard's portal shows one environment at a time. The v1 API does list detections and timeline entries across every environment, but it is a live API, not an offline copy of the whole estate you can diff for drift across environments, stale launchpoints, or per-system history. This CLI syncs every environment, system, launchpoint, inspector, agent, detection, metric, and timeline entry into a local SQLite store, then runs cross-estate joins the live API never returns: drift since a window, stale launchpoints, offline agents, monitoring-coverage gaps, and metric pivots. Agent-native throughout  -  --json, --select, --csv, and typed exit codes.
 
 ## Install
 
@@ -126,7 +126,7 @@ These capabilities aren't available in any other tool for this API.
 ### Whole-estate visibility
 - **`drift`**  -  Every change detected across all your client environments within a time window, joined to the owning environment and system.
 
-  _Reach for this when an agent needs the whole-estate 'what changed overnight' answer instead of paging the per-environment detections endpoint._
+  _Reach for this when an agent needs the whole-estate 'what changed overnight' answer instead of paging the live detections endpoint._
 
   ```bash
   liongard-cli drift --since 24h --agent

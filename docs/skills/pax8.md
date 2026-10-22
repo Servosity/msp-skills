@@ -22,7 +22,7 @@ faqs:
   - q: "Do I need to be a Pax8 partner, and what credentials does it use?"
     a: "Yes - it talks to the Pax8 Partner API with your own partner credentials. Create an OAuth2 Client ID and Client Secret in the Pax8 portal under Integrations, then set PAX8_CLIENT_ID and PAX8_CLIENT_SECRET. The CLI exchanges them for a bearer token at Pax8's token endpoint and caches it. PAX8_AUDIENCE (default api://p8p.client) and PAX8_OAUTH_SCOPE are optional overrides. The credential's own permissions are the real boundary - scope it to what you want the AI to reach."
   - q: "Will this hit my Pax8 API rate limits?"
-    a: "After the first sync, the analytics commands (reconcile, mrr, overage, spend, since, company show, search) run against your local SQLite mirror with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint."
+    a: "After the first sync, the analytics commands (reconcile, mrr, overage, spend, since, company show, search) run against your local SQLite mirror with zero API calls. Live calls respect a --rate-limit throttle. No Pax8 list endpoint has a changed-since filter, so each sync re-reads your companies and subscriptions (and the other resources it mirrors). The since command then reports stored subscription history plus current subscriptions created or updated within the window you choose."
   - q: "Does this replace the Pax8 portal?"
     a: "No. Provisioning, ordering, and support workflows stay in the portal. This skill answers the cross-entity billing and revenue questions the portal cannot compose in one place, from your terminal or agent."
 howto:
@@ -168,7 +168,7 @@ Yes - it talks to the Pax8 Partner API with your own partner credentials. Create
 
 ### Will this hit my Pax8 API rate limits?
 
-After the first sync, the analytics commands (reconcile, mrr, overage, spend, since, company show, search) run against your local SQLite mirror with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+After the first sync, the analytics commands (reconcile, mrr, overage, spend, since, company show, search) run against your local SQLite mirror with zero API calls. Live calls respect a --rate-limit throttle. No Pax8 list endpoint has a changed-since filter, so each sync re-reads your companies and subscriptions (and the other resources it mirrors). The since command then reports stored subscription history plus current subscriptions created or updated within the window you choose.
 
 ### Does this replace the Pax8 portal?
 
