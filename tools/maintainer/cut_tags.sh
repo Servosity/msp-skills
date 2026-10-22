@@ -120,6 +120,7 @@ new_tempfile() { # sets NEW_TMP to a fresh file under ROOT_TMP
 
 cleanup() {
   local n=0
+  tag_unlock
   while [ "$n" -lt "$WT_COUNT" ]; do
     n=$((n + 1))
     git -C "$REPO" worktree remove --force "$ROOT_TMP/wt$n" >/dev/null 2>&1 || true
@@ -193,41 +194,74 @@ fetch_retry() { # <fetch args...>: a fetch, retried (another cutter may hold the
 # The release-tag lock: one cutter (or re-runner) at a time between "is there
 # capacity?" and "its Release run is registered", so two runs can never both
 # see room under the cap and both push. A flock(2) on a file in the clone's
-# shared git dir (the same primitive and place as repo_lock.py): the kernel
-# drops it if this script dies. It is taken by a short python child on fd 9,
-# which this shell keeps open, so the lock lives exactly as long as we want.
-# It covers every worktree of one clone; separate clones do not share it.
+# shared git dir (the same primitive and place as repo_lock.py), owned by a
+# small python HOLDER process: its descriptor is close-on-exec and it starts
+# nothing, so no git hook or other child of this script can inherit the lock
+# and keep it alive. It releases when told to, and on its own the moment this
+# script's pid is gone (even after SIGKILL). It covers every worktree of one
+# clone; separate clones do not share it.
 # --------------------------------------------------------------------------- #
-LOCK_OPEN=0
+LOCK_PATH=""
+LOCK_HOLDER=""
 
 tag_lock() {
-  if [ "$LOCK_OPEN" = 0 ]; then
-    local common
+  local common
+  if [ -z "$LOCK_PATH" ]; then
     common=$(git -C "$REPO" rev-parse --git-common-dir) || die "REFUSE cannot find the clone's git dir"
     case "$common" in /*) ;; *) common="$REPO/$common" ;; esac
     mkdir -p "$common/msp-skills-locks" || die "REFUSE cannot create the lock directory"
-    exec 9>>"$common/msp-skills-locks/release-tags.lock" || die "REFUSE cannot open the release-tag lock"
-    LOCK_OPEN=1
+    LOCK_PATH="$common/msp-skills-locks/release-tags.lock"
   fi
-  "$PYTHON" - <<'PY' || die "LOCK-TIMEOUT another cut_tags run held the release-tag lock too long; stopping"
+  tmp_root
+  rm -f "$ROOT_TMP/lock.ready" "$ROOT_TMP/lock.release"
+  "$PYTHON" - "$LOCK_PATH" "$$" "$ROOT_TMP/lock.ready" "$ROOT_TMP/lock.release" "${CUT_TAGS_LOCK_WAIT:-7200}" <<'PY' &
 import fcntl, json, os, socket, sys, time
-deadline = time.time() + float(os.environ.get("CUT_TAGS_LOCK_WAIT", "7200"))
+path, parent, ready, release, wait = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], float(sys.argv[5])
+
+
+def parent_alive() -> bool:
+    try:
+        os.kill(parent, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o644)
+deadline = time.time() + wait
 while True:
     try:
-        fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         break
     except OSError:
-        if time.time() > deadline:
+        if time.time() > deadline or not parent_alive():
             sys.exit(1)
         time.sleep(0.2)
-os.ftruncate(9, 0)
-os.write(9, (json.dumps({"pid": os.getppid(), "host": socket.gethostname(), "tool": "cut_tags"}) + "\n").encode())
+os.ftruncate(fd, 0)
+os.write(fd, (json.dumps({"pid": parent, "host": socket.gethostname(), "tool": "cut_tags"}) + "\n").encode())
+open(ready, "w").close()
+while not os.path.exists(release) and parent_alive():
+    time.sleep(0.1)
+os.ftruncate(fd, 0)
+fcntl.flock(fd, fcntl.LOCK_UN)
 PY
+  LOCK_HOLDER=$!
+  while [ ! -f "$ROOT_TMP/lock.ready" ]; do
+    if ! kill -0 "$LOCK_HOLDER" 2>/dev/null; then
+      LOCK_HOLDER=""
+      die "LOCK-TIMEOUT another cut_tags run held the release-tag lock too long; stopping"
+    fi
+    sleep 0.1
+  done
 }
 
 tag_unlock() {
-  [ "$LOCK_OPEN" = 1 ] || return 0
-  "$PYTHON" -c 'import fcntl, os; os.ftruncate(9, 0); fcntl.flock(9, fcntl.LOCK_UN)' || true
+  [ -n "$LOCK_HOLDER" ] || return 0
+  : >"$ROOT_TMP/lock.release"
+  wait "$LOCK_HOLDER" 2>/dev/null || true
+  LOCK_HOLDER=""
 }
 
 fetch_and_check_self() { # fetch tags + main, refuse a stale copy of this script
@@ -290,6 +324,10 @@ run_done() { # <run id>: wait until a run completes; prints its conclusion
   done
 }
 
+run_attempt() { # <run id>: its current attempt number, or nothing
+  gh run view "$1" -R "$GH_REPO" --json attempt -q .attempt </dev/null 2>/dev/null || true
+}
+
 still_rerunnable() { # <tag> <run id> <commit> <errfile>: re-read; print why not, or nothing
   local info st concl hsha rel
   info=$(gh run view "$2" -R "$GH_REPO" --json status,conclusion,headSha \
@@ -341,7 +379,7 @@ rerun_failed() {
   # executes release.yml AS IT IS AT THE TAGGED COMMIT, so every candidate must
   # pass main's pipeline probe on that commit first, and the run must be for it.
   local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
-  local why
+  local why attempt now i
   fetch_and_check_self
   new_tempfile
   errf=$NEW_TMP
@@ -431,8 +469,28 @@ rerun_failed() {
       case "$why" in "it already succeeded"* | "it is running"*) ;; *) fail=1 ;; esac
       continue
     fi
+    attempt=$(run_attempt "$bid")
+    case "$attempt" in "" | *[!0-9]*)
+      tag_unlock
+      say "SKIP $bt: run $bid's attempt number could not be read; not re-running"
+      fail=1
+      continue
+      ;;
+    esac
     if gh run rerun "$bid" -R "$GH_REPO" --failed </dev/null >/dev/null 2>&1; then
-      say "RERUN $bt $bid"
+      # Hold the lock until the new attempt is visibly registered: until then
+      # the next capacity check could still see room it does not have.
+      i=0
+      now=$attempt
+      while [ "$i" -lt "${CUT_TAGS_RUN_TRIES:-30}" ]; do
+        now=$(run_attempt "$bid")
+        case "$now" in "" | *[!0-9]*) ;; *) [ "$now" -gt "$attempt" ] && break ;; esac
+        i=$((i + 1))
+        sleep "${CUT_TAGS_RUN_SLEEP:-5}"
+      done
+      case "$now" in "" | *[!0-9]*) now=$attempt ;; esac
+      [ "$now" -gt "$attempt" ] || die "RERUN-NOT-SEEN $bt $bid: re-run requested but no new attempt registered; stopping"
+      say "RERUN $bt $bid (attempt $now)"
     else
       say "RERUN-REFUSED $bt $bid"
       fail=1
@@ -670,6 +728,7 @@ self_test() {
   # are separate processes with their own set -e).
   set +e
   local tmp failures=0 out rc rrc real_repo sha sha2 sha3 rs pushes_before before_wait before_push good bad at v pa pb ra rb
+  local hook_child rc_free
   real_repo=$(git -C "$TOOLS" rev-parse --show-toplevel)
   # Without set -e, an unchecked failure here would point every fixture write
   # at the filesystem root: stop instead.
@@ -790,6 +849,19 @@ case "$1 $2" in
   "run rerun")
     echo "rerun $3" >>"$state/calls.txt"; echo 0 >"$state/rerun/$3" ;;
   "run view")
+    case "$*" in *"--json attempt"*)
+      # A re-run's new attempt registers only on the second look (Actions
+      # lags); with never-register it never does.
+      if [ ! -f "$state/rerun/$3" ]; then echo 1; exit 0; fi
+      r=$(cat "$state/reg-$3" 2>/dev/null || echo 0)
+      r=$((r + 1)); echo "$r" >"$state/reg-$3"
+      if [ -f "$state/never-register" ] || [ "$r" -lt 2 ]; then echo 1; exit 0; fi
+      if [ ! -f "$state/runs/rr-$3" ]; then
+        echo in_progress >"$state/runs/rr-$3"
+        echo "registered $3" >>"$state/calls.txt"
+      fi
+      echo 2; exit 0 ;;
+    esac
     if [ ! -f "$state/rerun/$3" ]; then  # not re-run by us: its recorded state
       line=$(grep -h "^$3 " "$state"/releases/*.runinfo 2>/dev/null | head -1)
       [ -n "$line" ] || exit 1
@@ -799,6 +871,7 @@ case "$1 $2" in
     if [ "$v" -lt 1 ]; then echo 1 >"$state/rerun/$3"; echo "in_progress null"
     else
       echo "done $3" >>"$state/calls.txt"; echo "completed success"
+      [ -f "$state/runs/rr-$3" ] && echo completed >"$state/runs/rr-$3"
       [ -f "$state/on-done-$3.sh" ] && sh "$state/on-done-$3.sh"
     fi ;;
   "release view")
@@ -1098,8 +1171,8 @@ SEAL
   if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort -n | tr '\n' ' ')" = "701 702 7011 " ]; then rc=0; fi
   expect "exactly the failed runs whose release is not published, on a safe pipeline and live version, are re-run" "$rc"
   rc=1
-  if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 rerun 702 done 701 done 702 rerun 7011 done 7011 " ]; then rc=0; fi
-  expect "re-runs go out in batches of 2, each batch finished before the next starts" "$rc"
+  if [ "$(tr '\n' ' ' <"$tmp/calls.txt")" = "rerun 701 registered 701 rerun 702 registered 702 done 701 done 702 rerun 7011 registered 7011 done 7011 " ]; then rc=0; fi
+  expect "re-runs go out in batches of 2, each registered before the next, each batch finished first" "$rc"
   has "SKIP r3-v0.1.0: the release has been published since"
   expect "a release sealed by someone else between batches is re-checked and not re-run" $?
   has "SEALED-PARTIAL r5-v0.1.0" && has "NO-RUN r6-v0.1.0" \
@@ -1114,6 +1187,54 @@ SEAL
   expect "a version main has retired is never re-released through recovery" $?
   ! grep -q FORBIDDEN "$tmp/calls.txt" && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -eq "$pushes_before" ]
   expect "recovery never deletes a release and never pushes a tag" $?
+
+  echo "the release-tag lock never outlives its holder:"
+  lock_free() { # can a newcomer take the release-tag lock right now?
+    "$PYTHON" - "$tmp/repo/.git/msp-skills-locks/release-tags.lock" <<'PY'
+import fcntl, os, sys
+fd = os.open(sys.argv[1], os.O_RDWR | os.O_CREAT)
+try:
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    sys.exit(1)
+PY
+  }
+  connector r15 0.1.0
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "r15" -s
+  git -C "$tmp/repo" push -q origin main
+  git -C "$tmp/repo" push -q origin "HEAD:refs/tags/r15-v0.1.0"
+  printf '{"isDraft": true, "assets": []}' >"$tmp/releases/r15-v0.1.0.json"
+  echo "7015 completed failure $(git -C "$tmp/repo" rev-parse HEAD)" >"$tmp/releases/r15-v0.1.0.runinfo"
+  printf 'r15-v0.1.0\n' >"$tmp/tags-r15.txt"
+  : >"$tmp/never-register"
+  out=$(CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-r15.txt" 2>&1) && rc=0 || rc=$?
+  rm -f "$tmp/never-register"
+  [ "$rc" -ne 0 ] && has "RERUN-NOT-SEEN r15-v0.1.0 7015" && lock_free
+  expect "a re-run whose new attempt never registers stops the run, and the lock is free afterwards" $?
+  # A failing pre-push hook that leaves a child running (holding whatever
+  # descriptors it inherited): the lock must still be free once cut_tags exits.
+  connector zz-f1 0.1.0
+  printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/zz-f1/CHANGELOG.md"
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "zz-f1" -s
+  git -C "$tmp/repo" push -q origin main
+  cat >"$tmp/repo/.git/hooks/pre-push" <<'HOOK'
+#!/bin/sh
+sleep 30 </dev/null >/dev/null 2>&1 &
+echo $! >"${CT_STATE:?}/hook-child.pid"
+exit 1
+HOOK
+  chmod +x "$tmp/repo/.git/hooks/pre-push"
+  rm -f "$tmp"/runs/*
+  printf 'zz-f1-v0.1.0\n' >"$tmp/tags-f1.txt"
+  out=$(CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-f1.txt" 2>&1) && rc=0 || rc=$?
+  hook_child=$(cat "$tmp/hook-child.pid" 2>/dev/null)
+  rc_free=1
+  if [ "$rc" -ne 0 ] && [ -n "$hook_child" ] && kill -0 "$hook_child" 2>/dev/null && lock_free; then rc_free=0; fi
+  [ -n "$hook_child" ] && kill "$hook_child" 2>/dev/null
+  rm -f "$tmp/repo/.git/hooks/pre-push"
+  expect "a hook's leftover child does not keep the lock after cut_tags exits (it is held by a separate holder)" "$rc_free"
 
   echo "stale copies of this script:"
   : >"$tmp/drafts.txt"

@@ -215,8 +215,10 @@ runs in flight together, exhausted the Actions-token API limit, and left 9 parti
 tags without a release), and an unreadable count stops the push. A release-tag lock (a `flock`
 in the clone's shared git dir) is held from the capacity check through the push and the run's
 registration, for cutting and for `--rerun-failed`, so two runs in one clone cannot both see room
-under the cap; separate clones do not share it. Each push carries exactly one ref
-(`--no-follow-tags`). `--receipts` waits for each
+under the cap; separate clones do not share it. A small holder process owns the lock (no git
+hook or other child of the script can inherit it), releases it the moment the script exits for
+any reason, and a re-run keeps it until its new attempt is visibly registered. Each push
+carries exactly one ref (`--no-follow-tags`). `--receipts` waits for each
 release to be published with its complete asset set (`check_release_assets.py --with-mcpb`, run
 from a worktree at the tag's own commit, whose registry knows the connector), reports a failed
 Release run as a stranded draft at once, and sweeps the repository for drafts: one whose Release
