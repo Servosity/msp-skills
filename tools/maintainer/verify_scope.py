@@ -774,30 +774,43 @@ def windows_tree(slug: str, out: str, root: Path = ROOT) -> str:
     """CI's Windows job's checkout, built at out: actions/checkout with a
     cone-mode sparse-checkout of skills/<slug> and tools/maintainer, which also
     holds the files directly in each cone's ancestors (the root, skills/ and
-    tools/). Copied from this
-    checkout (committed, staged, unstaged and new unignored files; nothing
-    ignored), so a go.work, or a replace directive, that reaches outside that
-    tree fails here as it does there. Returns the go.work Go finds for
+    tools/). Written from HEAD's git objects, never from the files on disk
+    (which an earlier check, a test say, could have changed), so it is that
+    job's pristine checkout: a go.work or a replace directive that reaches
+    outside it fails here as it does there. Returns the go.work Go finds for
     skills/<slug>/cli inside the tree (relative to it), or "off"."""
     cone = [f"skills/{slug}", "tools/maintainer"]
     # Cone mode also holds the files directly in every ancestor of a cone.
     tops = {"/".join(c.split("/")[:n]) for c in cone for n in range(len(c.split("/")))}
-    spec = cone + [":(glob)" + (f"{t}/*" if t else "*") for t in sorted(tops)]
-    p = subprocess.run(["git", "ls-files", "-z", "-c", "-o", "--exclude-standard", "--", *spec],
-                       cwd=root, capture_output=True)
+    p = subprocess.run(["git", "ls-tree", "-r", "-z", "HEAD"], cwd=root, capture_output=True)
     if p.returncode != 0:
-        raise OSError(f"git ls-files failed: {p.stderr.decode(errors='replace').strip()}")
-    import shutil
-    dst = Path(out)
-    for raw in sorted(set(p.stdout.split(b"\0"))):
-        if not raw:
-            continue
-        rel = os.fsdecode(raw)
-        src = root / rel
-        if not (src.is_file() or src.is_symlink()):
-            continue  # deleted in the working tree
-        (dst / rel).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst / rel, follow_symlinks=False)
+        raise OSError(f"git ls-tree failed: {p.stderr.decode(errors='replace').strip()}")
+    ents = []
+    for ent in p.stdout.split(b"\0"):
+        if ent:
+            meta, path = ent.split(b"\t", 1)
+            mode, typ, oid = meta.decode().split()
+            rel = os.fsdecode(path)
+            in_cone = any(rel.startswith(c + "/") for c in cone) or os.path.dirname(rel) in tops
+            if typ == "blob" and in_cone:  # a gitlink checks out as an empty folder: nothing to write
+                ents.append((mode, oid, rel))
+    cat = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True,
+                         input="".join(o + "\n" for _, o, _ in ents).encode())
+    if cat.returncode != 0:
+        raise OSError(f"git cat-file failed: {cat.stderr.decode(errors='replace').strip()}")
+    dst, buf, pos = Path(out), cat.stdout, 0
+    for mode, _, rel in ents:
+        nl = buf.index(b"\n", pos)
+        size = int(buf[pos:nl].split()[2])
+        data, pos = buf[nl + 1:nl + 1 + size], nl + 1 + size + 1
+        f = dst / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        if mode == "120000":
+            os.symlink(os.fsdecode(data), f)
+        else:
+            f.write_bytes(data)
+            if mode == "100755":
+                f.chmod(0o755)
     cur = dst / "skills" / slug / "cli"
     while True:
         if (cur / "go.work").is_file():
@@ -1447,6 +1460,11 @@ def _self_test() -> int:
             (repo / f).write_text("x\n", encoding="utf-8")
         (repo / ".gitignore").write_text("*.log\n", encoding="utf-8")
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        gx = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+        subprocess.run(gx + ["add", "-A"], check=True)
+        subprocess.run(gx + ["commit", "-qm", "x"], check=True)
+        (repo / "skills/x/cli/a.go").unlink()  # changed on disk after the commit: the tree is HEAD's
+        (repo / "skills/x/cli/stray.go").write_text("x\n", encoding="utf-8")
         work = windows_tree("x", str(out), repo)
         got = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
         expect(got == [".gitignore", "README.md", "skills/list.md", "skills/x/cli/a.go", "skills/x/cli/go.mod",

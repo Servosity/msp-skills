@@ -486,7 +486,10 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
 if [ "$n_conn" -gt 0 ]; then
   linux_prepare
   # Each worker writes only its own records and logs, so parallel runs never
-  # share a file. xargs keeps the pool full; a worker always exits 0.
+  # share a file. xargs keeps the pool full; a worker always exits 0. The
+  # connectors' Linux checks share one checkout of the commit (CI gives each
+  # row its own); the Windows trees are written from git objects, so nothing
+  # a Linux test does to the files can reach them.
   xargs -P "$jobs" -n 2 bash tools/maintainer/verify_connector.sh "$WORK" < "$WORK/connectors.txt"
   xrc=$?
   if [ "$xrc" -ne 0 ]; then

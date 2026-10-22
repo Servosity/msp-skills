@@ -191,7 +191,15 @@ def _files(d: Path, suffix: str, recursive: bool) -> list[Path]:
     def err(e: OSError) -> None:
         if not isinstance(e, (FileNotFoundError, NotADirectoryError)):
             READ_ERRORS.append(f"{e.filename}: {e}")
-    for top, dirs, names in os.walk(d, onerror=err):
+    seen: set[str] = set()
+    # A linked folder is read too (references/help -> ../assets/help is still
+    # a page users open); each real folder once, so a link cycle ends.
+    for top, dirs, names in os.walk(d, onerror=err, followlinks=True):
+        real = os.path.realpath(top)
+        if real in seen:
+            dirs.clear()
+            continue
+        seen.add(real)
         out += [Path(top) / n for n in names if n.endswith(suffix)]
         if not recursive:
             dirs.clear()
@@ -688,6 +696,14 @@ def _self_test() -> int:
         READ_ERRORS.clear()
         locked.chmod(0o644)
         locked.unlink()
+        assets = root / "skills/acme/assets/help"
+        assets.mkdir(parents=True, exist_ok=True)
+        (assets / "usage.md").write_text("Run acme-pp-cli doctor\n", encoding="utf-8")
+        (root / "skills/acme/references").mkdir(parents=True, exist_ok=True)
+        os.symlink("../assets/help", root / "skills/acme/references/help")
+        os.symlink("..", assets / "loop")  # a cycle must end
+        expect(quiet_run(root, ["acme"], None, skills) == 1, "a page under a linked references/ folder is read")
+        (root / "skills/acme/references/help").unlink()
         for sub in ("references", "cli/internal"):
             d = root / "skills/acme" / sub
             d.mkdir(parents=True, exist_ok=True)
