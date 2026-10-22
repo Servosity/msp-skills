@@ -721,13 +721,28 @@ def _restore_pin_side_effects(repo: Path, paths: list[str]) -> list[str]:
     return unexpected
 
 
+TRUSTED_INPUTS = ("catalog.json",)
+
+
 def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
-                         generators: tuple[str, ...] = GENERATORS) -> list[str]:
+                         generators: tuple[str, ...] = GENERATORS, trusted_rev: str | None = None) -> list[str]:
     """Run the repo's own generators, stage the tree-derived files they wrote,
     and put back any other file they touched (the skill-README `.mcpb` pins,
     which follow local git tags and belong to the catalog bot on main). Returns
     the derived paths that changed. Refuses if a generator leaves an untracked
-    file that is not derived (nothing is deleted)."""
+    file that is not derived (nothing is deleted).
+
+    `trusted_rev`: a generator also READS one of its own outputs - build-catalog
+    keeps catalog.json's `generated_at` whenever the skill list is unchanged,
+    and prints it in the README footer - so a branch could carry any text there
+    through regeneration. That input is first replaced with the trusted side's
+    copy (main's), so the only `generated_at` that can survive is main's own or
+    the generator's fresh date."""
+    if trusted_rev is not None:
+        for rel in TRUSTED_INPUTS:
+            blob = subprocess.run(["git", "-C", str(repo), "show", f"{trusted_rev}:{rel}"], capture_output=True)
+            if blob.returncode == 0:
+                (repo / rel).write_bytes(blob.stdout)
     before = {p for xy, p in _porcelain(repo) if xy == "??"}
     for gen in generators:
         if not (repo / gen).is_file():
@@ -966,7 +981,8 @@ def resolve(repo: Path, main_side: str | None = None, regen: bool = True,
 
     if regen:
         try:
-            changed = regenerate_and_stage(repo, out, generators)
+            trusted = "MERGE_HEAD" if (op == "merge" and main_side == "theirs") else "HEAD"
+            changed = regenerate_and_stage(repo, out, generators, trusted_rev=trusted)
         except RuntimeError as exc:
             out(f"RE-CHECK FAILED: {exc}")
             return 3
@@ -1003,11 +1019,18 @@ import json, pathlib, re, subprocess
 root = pathlib.Path(__file__).resolve().parents[2]
 reg = json.loads((root / "tools/maintainer/skills.json").read_text())
 slugs = sorted(reg["skills"])
-(root / "catalog.json").write_text(json.dumps({"skills": slugs}, indent=2) + "\\n")
+cat = root / "catalog.json"
+prev = json.loads(cat.read_text()) if cat.is_file() else {}
+# Like build-catalog.py: keep the previous generated_at while the skills match.
+gen = prev["generated_at"] if prev.get("skills") == slugs and prev.get("generated_at") else "TODAY"
+cat.write_text(json.dumps({"generated_at": gen, "skills": slugs}, indent=2) + "\\n")
 readme = root / "README.md"
 block = "".join(f"- {s}\\n" for s in slugs)
-readme.write_text(re.sub(r"(<!-- catalog:start -->)(.*?)(<!-- catalog:end -->)",
-                         lambda m: m.group(1) + "\\n" + block + m.group(3), readme.read_text(), flags=re.S))
+text = re.sub(r"(<!-- catalog:start -->)(.*?)(<!-- catalog:end -->)",
+              lambda m: m.group(1) + "\\n" + block + m.group(3), readme.read_text(), flags=re.S)
+text = re.sub(r"(<!-- footer-releases:start -->)(.*?)(<!-- footer-releases:end -->)",
+              lambda m: m.group(1) + "\\n_Last updated: " + gen + "._\\n" + m.group(3), text, flags=re.S)
+readme.write_text(text)
 if (root / "edit-during-generation").exists():  # a person editing a file while this runs
     (root / "docs/guide.md").write_text("edited while the generator ran\\n")
 tags = subprocess.run(["git", "-C", str(root), "tag", "--list", "zz-*"], capture_output=True, text=True).stdout.split()
@@ -1032,7 +1055,8 @@ sys.exit(0 if a == b else 1)
 '''
 CARDS_HEADER = "# Per-vendor social-card content (fixture).\n# ASCII hyphens only.\n\n"
 FIXTURE_README = ("# fixture\n\nIntro prose.\n\n<!-- catalog:start -->\n<!-- catalog:end -->\n"
-                  "Prose right under the catalog.\n\nOutro prose.\n")
+                  "Prose right under the catalog.\n\nOutro prose.\n\n<!-- footer-releases:start -->\n"
+                  "<!-- footer-releases:end -->\n")
 
 
 def fixture_env(home: Path) -> dict:

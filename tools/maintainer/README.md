@@ -139,12 +139,19 @@ present and SUCCESS; and merges with `--match-head-commit` only when all of it i
 main has not moved since the rebase, and the required approvals are current. A refused merge
 is re-validated from the top, never retried blindly.
 
-GitHub's merge call pins the head but cannot pin the base, and this repository's branch
-protection is not strict, so a commit can land on `main` inside the seconds between the last
-check and the merge. The tool checks `main` once more immediately before the call, then
-proves the merge commit's parent is the validated base and its tree is the green tree; if not,
-it exits 7 naming what the intervening commits touched. That is detection, not prevention:
-only strict protection or a merge queue would prevent it.
+**Accepted, detected risk: main moving inside the merge call.** GitHub's merge call pins the
+head (`--match-head-commit`, the validated SHA) but cannot pin the base, and this repository's
+branch protection is not strict (by decision: no strict mode or merge queue for now). So a
+commit can still land on `main` in the second between the tool's last look at `main` and the
+merge. The tool narrows that window (it re-reads the PR and `main` immediately before the call
+and goes round again if either moved) and never misses it: afterwards it proves the merge
+commit's parent is the validated base and its tree is the green tree. If not, it names what the
+intervening commits touched, waits for `main`'s own push CI on the merge commit, and exits **7**
+when that CI is green or **8** when it is red or never reports. A release chain must stop on 8,
+and should read the intervening commits before going on after 7. Upgrade path if 7 or 8 ever
+fires in practice: turn on a merge queue (or strict "require branches to be up to date"), and
+have this tool hand the validated head to the queue (`gh pr merge --auto`) instead of merging
+itself; the queue then re-runs the checks on the exact base it merges onto.
 
 A failing check is classified from its log. A **real** failure (a finding, a test or compile
 failure, an error annotation) is compared with the same check on the same base commit with
@@ -167,9 +174,14 @@ generator writes whole from sources (`catalog.json`, `docs/_data/catalog.json`,
 and re-checks those on the commit it merges. Any other file under `docs/skills/` is an ordinary
 file.
 
+Every push it makes carries exactly one ref (`--no-follow-tags`, so a `push.followTags=true` in
+someone's config cannot publish annotated tags with it), and `catalog.json` is restored from the
+validated base before regenerating, because build-catalog.py keeps its `generated_at` and
+prints it in the README footer.
+
 Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved, stale copy of the tool); 3 a
 conflict it will not resolve; 4 an approval is not current; 5 a check failed; 6 timed out; 7
-merged, but main moved inside the merge call.
+merged in a race, main's CI then green; 8 merged in a race, main's CI red or unverified (stop).
 
 ### `resolve_registry.py`
 
@@ -200,7 +212,11 @@ Before every push it waits
 until fewer than `CUT_TAGS_MAX_IN_FLIGHT` (default 4) Release runs are in flight across the
 repository: one tag per push is not enough by itself (52 tags pushed one at a time still put 52
 runs in flight together, exhausted the Actions-token API limit, and left 9 partial drafts and 9
-tags without a release), and an unreadable count stops the push. `--receipts` waits for each
+tags without a release), and an unreadable count stops the push. A release-tag lock (a `flock`
+in the clone's shared git dir) is held from the capacity check through the push and the run's
+registration, for cutting and for `--rerun-failed`, so two runs in one clone cannot both see room
+under the cap; separate clones do not share it. Each push carries exactly one ref
+(`--no-follow-tags`). `--receipts` waits for each
 release to be published with its complete asset set (`check_release_assets.py --with-mcpb`, run
 from a worktree at the tag's own commit, whose registry knows the connector), reports a failed
 Release run as a stranded draft at once, and sweeps the repository for drafts: one whose Release

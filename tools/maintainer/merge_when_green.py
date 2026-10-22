@@ -953,7 +953,10 @@ class Merger:
         else:
             self.say(f"==> already based on origin/main {base[:12]}")
         try:
-            changed = rr.regenerate_and_stage(wt, self.say, self.o.generators)
+            # catalog.json comes from the validated base first: the generator
+            # keeps its generated_at, which reaches the README footer, and the
+            # fingerprint leaves catalog.json out.
+            changed = rr.regenerate_and_stage(wt, self.say, self.o.generators, trusted_rev=base)
         except RuntimeError as exc:
             raise Stop(EXIT_CONFLICT, f"regenerating derived files failed: {exc}")
         if changed:
@@ -1823,6 +1826,25 @@ def _self_test() -> int:
         expect(changed_paths(g, b0, hs[0]) == [" config.json"]
                and fingerprint(g, b0, hs[0]) != fingerprint(g, b0, hs[1]),
                "two contents of ' config.json' get two fingerprints (the leading space is kept)")
+
+        # T8b1: a value a generator preserves from its own output.
+        origin, work, _b = world()
+        head = fix_pr(work)
+        fake = FakeGitHub(origin, env, 31, "fix/alpha", "fix alpha docs", green)
+        approve(work, fake, head)
+        sh("git", "checkout", "-q", "fix/alpha", cwd=work)
+        cat = json.loads((work / "catalog.json").read_text())
+        cat["generated_at"] = "[click here](https://evil.example/x)"
+        (work / "catalog.json").write_text(json.dumps(cat, indent=2) + "\n")
+        sh("git", "commit", "-q", "-s", "-am", "after approval: catalog generated_at", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        rc, logs = merger(work, fake)
+        merged_readme = sh("git", "--git-dir", str(origin), "show", "main:README.md", cwd=tmp)
+        merged_cat = sh("git", "--git-dir", str(origin), "show", "main:catalog.json", cwd=tmp)
+        expect(rc == 0 and "evil.example" not in merged_readme and "evil.example" not in merged_cat,
+               "a generated_at edited after approval never reaches main (catalog.json is restored from the base "
+               "before regenerating)")
 
         # T8b2: a page nothing regenerates any more is reviewed content.
         origin, work, _b = world()
