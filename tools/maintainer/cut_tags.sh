@@ -941,9 +941,10 @@ case "$1 $2" in
     # reports one more than the last, whose total the rows match, so only the
     # page-agreement check catches it); flip: a run in "requested" moves to
     # "queued" after every read.
-    if [ -f "$state/gh-stall" ]; then  # a stalled API response
-      echo "$$" >"$state/gh-stall.pid"
-      sleep 30
+    if [ -f "$state/gh-stall" ]; then  # a stalled API response, in a child (as gh's would be)
+      sleep 30 &
+      echo "$!" >"$state/gh-stall.pid"
+      wait "$!"
       echo late >"$state/gh-stall.late"
     fi
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi

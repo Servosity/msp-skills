@@ -2591,7 +2591,9 @@ def _self_test() -> int:
         stub = tmp / "stallbin"
         stub.mkdir()
         pidfile, donefile = tmp / "stall.pid", tmp / "stall.done"
-        (stub / "gh").write_text(f"#!/bin/sh\necho $$ >'{pidfile}'\nsleep 30\ntouch '{donefile}'\n")
+        # The stalled work is a CHILD of the stub (as gh's would be): killing
+        # only the direct child would leave it running.
+        (stub / "gh").write_text(f"#!/bin/sh\nsleep 30 &\necho $! >'{pidfile}'\nwait $!\ntouch '{donefile}'\n")
         (stub / "gh").chmod(0o755)
         old_path = os.environ["PATH"]
         os.environ["PATH"] = f"{stub}{os.pathsep}{old_path}"
