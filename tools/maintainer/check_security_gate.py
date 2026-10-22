@@ -240,18 +240,26 @@ def load_suppressions(ref: str | None = None) -> set[tuple[str, str]]:
 
 
 def changed_files(base: str, slug: str) -> list[Path] | None:
-    # -z: raw names. Without it git quotes unusual names ("skills/x/\303\251.py"), the
-    # prefix test below misses them, and that file is never scanned in diff mode.
-    # --no-renames: a rename lists both ends, so a file moved out of this connector
-    # still counts as a change to it.
+    # -z and bytes: raw names, split only on NUL. Without -z git quotes unusual names
+    # ("skills/x/\303\251.py"), and decoding as text would turn a carriage return
+    # inside a name into a newline; either way that file is never scanned in diff
+    # mode. --no-renames: a rename lists both ends, so a file moved out of this
+    # connector still counts as a change to it.
     git = ["git", "-C", str(REPO), "-c", "core.quotePath=false", "diff", "-z", "--no-renames", "--name-only"]
-    code, out, _ = run(git + [f"{base}...HEAD"])
-    if code != 0:
-        code, out, _ = run(git + [base])
-        if code != 0:
+    out = None
+    for rng in (f"{base}...HEAD", base):
+        try:
+            p = subprocess.run(git + [rng], capture_output=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired):
             return None
+        if p.returncode == 0:
+            out = p.stdout
+            break
+    if out is None:
+        return None
     prefix = f"skills/{slug}/"
-    return [REPO / f for f in out.split("\0") if f and f.startswith(prefix)]
+    names = [os.fsdecode(x) for x in out.split(b"\0") if x]
+    return [REPO / f for f in names if f.startswith(prefix)]
 
 
 def scan_go_patterns(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
@@ -902,7 +910,8 @@ def _self_test_summary() -> int:
     return failed
 
 
-SCANNER_PINS = ("GOSEC_VERSION", "GOVULNCHECK_VERSION", "OSV_SCANNER_VERSION", "SEMGREP_VERSION")
+SCANNER_PINS = ("GOSEC_VERSION", "GOVULNCHECK_VERSION", "OSV_SCANNER_VERSION", "SEMGREP_VERSION",
+                "SCANNER_GO", "GOSEC_SHA256", "GOVULNCHECK_SHA256", "OSV_SCANNER_SHA256")
 SUMMARY_NAME = ("name: ${{ github.event_name == 'pull_request' && 'security-gate' "
                 "|| 'security-gate-manual' }}")
 
@@ -950,8 +959,18 @@ def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
         if re.search(r"uses:\s*actions/setup-python@", st) and re.search(r"(?m)^\s*cache(-dependency-path)?:", st):
             problems.append("a setup-python step enables a cache")
             break
-    if not re.search(r'not the reviewed \$5 \(fail-closed\)"\n\s*return 1\b', gate_yml):
-        problems.append("a scanner whose digest does not match its pin must fail the job")
+    for label, text in (("security-gate.yml", gate_yml), ("release.yml", release_yml)):
+        if not re.search(r'not the reviewed \$5 \(fail-closed\)"\n\s*return 1\b', text):
+            problems.append(f"{label}: a scanner whose digest does not match its pin must fail the job")
+    rel_gate = release_yml.split("\n  security_gate:\n", 1)[-1]
+    rel_gate = re.split(r"\n  [A-Za-z0-9_-]+:\n", rel_gate, maxsplit=1)[0]
+    rel_steps = rel_gate.split("\n      - ")
+    setup = [st for st in rel_steps if "uses: actions/setup-go@" in st]
+    if "actions/cache" in rel_gate or not setup or not all(
+            re.search(r"(?m)^\s*cache:\s*false\s*$", st) for st in setup):
+        problems.append("release.yml's security_gate job must keep setup-go caching off and restore no cache")
+    if 'export GOTOOLCHAIN="go$SCANNER_GO" CGO_ENABLED=0 GOFLAGS=-trimpath' not in rel_gate:
+        problems.append("release.yml must build the scanners with the reproducible contract")
     # -I: a PR can add tools/maintainer/json.py (or ./re.py, ./pip/) and Python would
     # import it ahead of the standard library from the script's or current directory.
     for ln in gate_code:
@@ -1013,6 +1032,16 @@ def _self_test_workflows() -> int:
          rel_yml, False),
         ("scope diff follows renames", gate_yml.replace('"-z", "--no-renames", "--name-only"', '"-z", "--name-only"'),
          rel_yml, False),
+        ("release pins a different scanner digest", gate_yml, re.sub(
+            r'GOSEC_SHA256: "[0-9a-f]+"', 'GOSEC_SHA256: "' + "0" * 64 + '"', rel_yml), False),
+        ("release tolerates a digest mismatch", gate_yml, re.sub(
+            r'(not the reviewed \$5 \(fail-closed\)"\n\s*)return 1', r"\1return 0", rel_yml), False),
+        ("release gate setup-go caching left on", gate_yml, rel_yml.replace(
+            'go-version: "1.26"\n          # Cold on purpose', 'go-version: "1.26"\n          # Was cold on purpose').replace(
+            "          cache: false\n      - name: Install pinned scanners", "      - name: Install pinned scanners"),
+         False),
+        ("release builds scanners without the reproducible contract", gate_yml, rel_yml.replace(
+            'export GOTOOLCHAIN="go$SCANNER_GO" CGO_ENABLED=0 GOFLAGS=-trimpath', "true"), False),
         ("release runs the gate without -I", gate_yml, rel_yml.replace(
             "python3 -I tools/maintainer/check_security_gate.py", "python3 tools/maintainer/check_security_gate.py"), False),
     ]
@@ -1044,6 +1073,7 @@ def _self_test_changed_files() -> int:
         git("commit", "-q", "-m", "base")
         git("mv", "skills/a/guard.py", "skills/b/guard.py")
         (tmp / "skills/b/\u00e9vil.py").write_text("import os\nos.system('id')\n", encoding="utf-8")
+        (tmp / "skills/b/cr\rname.py").write_text("import os\nos.system('id')\n", encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "change")
         REPO = tmp
@@ -1053,7 +1083,9 @@ def _self_test_changed_files() -> int:
         for name, ok in (("a file moved out of a connector still counts as a change to it",
                           a == ["skills/a/guard.py"]),
                          ("a name git would quote is still listed and scanned",
-                          "skills/b/\u00e9vil.py" in b and "skills/b/\u00e9vil.py" in flagged)):
+                          "skills/b/\u00e9vil.py" in b and "skills/b/\u00e9vil.py" in flagged),
+                         ("a carriage return inside a name survives intact and is scanned",
+                          "skills/b/cr\rname.py" in b and "skills/b/cr\rname.py" in flagged)):
             print(f"  [{'PASS' if ok else 'FAIL'}] diff scope: {name}")
             failed += not ok
     finally:
