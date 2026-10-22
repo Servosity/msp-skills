@@ -86,7 +86,7 @@ Use this command for billable usage counters per company for a month, own share 
 child rollup, and month-over-month seat changes. Do NOT use this command for endpoint
 protection status; use 'fleet health' instead.`,
 		Example:     "  bitdefender-cli usage billing --month 09/2026 --agent\n  bitdefender-cli usage billing --month 09/2026 --agreements psa-agreements.csv --csv",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live", "mcp:write-flags": "agreements"}, // --agreements is a path on the MCP host; operators only
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "usage billing")

@@ -366,6 +366,26 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-local-read-flag-expected",
+   "class": "mcp-local-path-flag",
+   "summary": "The MCP shell-out layer refuses `fleet tenants --expected`, which names a file on the machine that runs the MCP server, by listing it in blockedDestinationFlags",
+   "why": "`fleet tenants --expected` names a newline-delimited CID list the CLI reads off the local disk. The MCP server runs this CLI as the account that hosts it and forwarded the flag, so one tool call could point the read at any file that account can reach and get the parsed rows back. Reproduced on origin/main d3cbf7129 (connector tree unchanged at 518e1edff) with the real MCP binary and a recording stand-in for the companion CLI: tools/call with the flag set reached the CLI argv. The flag's usage text did not say it took a path, so isFilesystemPathFlag missed it and TestNoShellOutToolCanDirectAFilesystemPath stayed green; the usage text now says 'Path to', which makes that test fail until the floor names the flag, so a reprint that drops this entry fails the build. The operator still passes the flag on the command line. Found while vetting the gosec G304 finding its `#nosec G304` annotation hid from the security gate.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: classify a novel command's local-input flags as filesystem flags from the flag's type or a declared annotation, not only from phrases in its usage text.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"expected\":",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_tenants.go",
+     "contains": "\"Path to a local file holding a newline-delimited CID list",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

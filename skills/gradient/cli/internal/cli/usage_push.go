@@ -226,7 +226,7 @@ each row in the local push ledger that powers 'usage drift'.
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&flagFile, "file", "", "Counts file: CSV with header accountId,serviceId,unitCount, or a JSON array of {accountId,serviceId,unitCount}")
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to the local counts file: CSV with header accountId,serviceId,unitCount, or a JSON array of {accountId,serviceId,unitCount}")
 	cmd.Flags().BoolVar(&flagNoBuild, "no-build", false, "Set no_build on EVERY call (defer the billing rebuild entirely; default rebuilds once after the last row)")
 	return cmd
 }

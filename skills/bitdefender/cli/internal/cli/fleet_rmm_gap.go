@@ -76,7 +76,7 @@ Use this command to compare an RMM or PSA device list against GravityZone invent
 use this command for GravityZone-only protection status without an external device list; use
 'fleet health' instead.`,
 		Example:     "  bitdefender-cli fleet rmm-gap --devices ninja-devices.csv --agent\n  bitdefender-cli fleet rmm-gap --devices datto-devices.json --data-source live --json",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:happy-args": "--devices=example-value"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:happy-args": "--devices=example-value", "mcp:write-flags": "devices"}, // --devices is a path on the MCP host; operators only
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()

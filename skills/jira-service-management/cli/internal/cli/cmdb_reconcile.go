@@ -84,7 +84,7 @@ Do NOT use this command to find tickets connected to an object; use 'cmdb ticket
   jira-service-management-cli cmdb reconcile --type Server --file psa.csv --key Hostname --assets-key Name`, "\n"),
 		// Not mcp:read-only: it reads a local file the caller names, so MCP
 		// hosts should ask before an agent runs it.
-		Annotations: map[string]string{"pp:data-source": "live"},
+		Annotations: map[string]string{"pp:data-source": "live", "mcp:write-flags": "file"}, // --file is a path on the MCP host; operators only
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
