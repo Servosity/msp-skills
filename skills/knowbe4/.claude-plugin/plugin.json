@@ -1,6 +1,6 @@
 {
   "name": "knowbe4",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
   "author": {
     "name": "Servosity",

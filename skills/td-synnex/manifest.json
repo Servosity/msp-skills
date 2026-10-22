@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "td-synnex-mcp",
   "display_name": "TD SYNNEX StreamOne ION",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up.",
   "author": {
     "name": "Servosity Inc."

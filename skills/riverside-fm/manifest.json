@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "riverside-fm-pp-mcp",
   "display_name": "Riverside",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Riverside API surface as MCP tools.",
   "author": {
     "name": "Servosity Inc."

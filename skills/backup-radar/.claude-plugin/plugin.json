@@ -1,6 +1,6 @@
 {
   "name": "backup-radar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
   "author": {
     "name": "Servosity",

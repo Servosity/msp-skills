@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "proxmox-mcp",
   "display_name": "Proxmox VE + Backup Server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only Proxmox VE and Backup Server CLI that tells you, across every client cluster, which guests have a good, verified, recent restore point and which do not.",
   "author": {
     "name": "Servosity Inc."

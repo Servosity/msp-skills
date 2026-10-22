@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "quotewerks-mcp",
   "display_name": "QuoteWerks Web",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
   "author": {
     "name": "Servosity Inc."
