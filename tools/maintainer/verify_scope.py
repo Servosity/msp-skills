@@ -71,7 +71,11 @@ GATE_LOGIC_FALLBACK = (
 def gate_logic_re() -> re.Pattern:
     try:
         text = (ROOT / ".github/workflows/security-gate.yml").read_text(encoding="utf-8")
-        m = re.search(r"grep -qE '(\^\(tools/maintainer/check_security_gate[^']*\)\$)'", text)
+        # The scope step's Python: logic = re.compile(r"..." r"...", re.S)
+        m = re.search(r'logic = re\.compile\(((?:\s*r"[^"\n]*")+)', text)
+        if m:
+            return re.compile("".join(re.findall(r'r"([^"\n]*)"', m.group(1))), re.S)
+        m = re.search(r"grep -qE '(\^\(tools/maintainer/check_security_gate[^']*\)\$)'", text)  # before #421
         if m:
             return re.compile(m.group(1))
     except (OSError, re.error):
@@ -545,6 +549,30 @@ _SETUP_GO_MANIFEST = "https://raw.githubusercontent.com/actions/go-versions/main
 _GO_DEV_INDEX = "https://go.dev/dl/?mode=json&include=all"
 
 
+_PIN_KEYS = ("SCANNER_GO", "GOSEC_VERSION", "GOVULNCHECK_VERSION", "OSV_SCANNER_VERSION", "SEMGREP_VERSION",
+             "GOSEC_SHA256", "GOVULNCHECK_SHA256", "OSV_SCANNER_SHA256")
+
+
+def scanner_pins(text: str | None = None) -> dict[str, str]:
+    """security-gate.yml's scanner pins (its top-level env block), the single
+    source both CI and verify_all.sh build the scanners from. Every key must be
+    present with a well-formed value, else {} (the caller fails closed)."""
+    if text is None:
+        try:
+            text = (ROOT / ".github/workflows/security-gate.yml").read_text(encoding="utf-8")
+        except OSError:
+            return {}
+    out = {}
+    for k in _PIN_KEYS:
+        m = re.search(rf'^  {k}:\s*"([^"\n]+)"\s*$', text, re.M)
+        ok = m and (re.fullmatch(r"[0-9a-f]{64}", m.group(1)) if k.endswith("SHA256")
+                    else re.fullmatch(r"v?[0-9]+(?:\.[0-9]+)*", m.group(1)))
+        if not ok:
+            return {}
+        out[k] = m.group(1)
+    return out
+
+
 def go_releases(path: str | None = None) -> list[dict]:
     """The release index setup-go resolves a version spec against: its own
     manifest (actions/go-versions), else go.dev's, as [{"version": "goX.Y.Z",
@@ -832,6 +860,7 @@ def main(argv: list[str]) -> int:
     sub.add_parser("path-collisions")
     gw = sub.add_parser("gowork")
     gw.add_argument("--dir", required=True)
+    sub.add_parser("scanner-pins")
     wt = sub.add_parser("windows-tree")
     wt.add_argument("--slug", required=True)
     wt.add_argument("--out", required=True)
@@ -868,6 +897,13 @@ def main(argv: list[str]) -> int:
         except OSError as e:
             print(e, file=sys.stderr)
             return 2
+        return 0
+    if a.cmd == "scanner-pins":
+        pins = scanner_pins()
+        if not pins:
+            print("security-gate.yml does not declare every scanner pin", file=sys.stderr)
+            return 1
+        print("\n".join(f"{k}={v}" for k, v in pins.items()))
         return 0
     if a.cmd == "windows-tree":
         if not DIR_RE.match(a.slug):
@@ -1265,6 +1301,11 @@ def _self_test() -> int:
         subprocess.run(["git", "-C", str(repo), "add", "-f", "skills/go.work"], check=True)
         expect(ci_gowork("skills/x/cli", repo) == "skills/go.work",
                "a committed go.work above the module is CI's")
+
+    pins = scanner_pins()
+    expect(pins.get("GOSEC_VERSION", "").startswith("v") and len(pins) == len(_PIN_KEYS),
+           "security-gate.yml declares every scanner pin")
+    expect(scanner_pins('  GOSEC_VERSION: "v2.29.0"\n') == {}, "a missing pin is refused, never defaulted")
 
     print("CI's sparse Windows checkout:")
     with tempfile.TemporaryDirectory() as td:

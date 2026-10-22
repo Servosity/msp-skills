@@ -269,6 +269,13 @@ for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py c
   gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
 done
 gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
+# security-gate.yml's own self-test step (summary, workflow pins and diff scope).
+gate "self-test check_security_gate.py" repo "" 0 python3 -I tools/maintainer/check_security_gate.py --self-test
+# ci.yml guards: #422's merge and release tools, each once it exists.
+for t in resolve_registry.py merge_when_green.py stamp_release.py; do
+  [ -f "tools/maintainer/$t" ] && gate "self-test $t" repo "" 0 python3 -I "tools/maintainer/$t" --self-test
+done
+[ -f tools/maintainer/cut_tags.sh ] && gate "self-test cut_tags.sh" repo "" 0 bash tools/maintainer/cut_tags.sh --self-test
 gate "self-test check_command_tree.py" repo "" 0 python3 tools/maintainer/check_command_tree.py --self-test
 gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
 matrix_sane() {
@@ -495,6 +502,57 @@ if [ "$FULL" = true ]; then
 fi
 
 # -------------------------------------------------------- security gate ----
+# CI's scanners are security-gate.yml's pins (its env block), built cold with
+# its SCANNER_GO, -trimpath and cgo off; on linux/amd64 those builds are
+# reproducible and must match the reviewed sha256. The same pins are built
+# here once per version set (kept under ~/.cache) and put first on PATH for
+# the gate; semgrep (not a required scanner) runs as the pinned release
+# through uv. A pin that cannot be read or built fails closed.
+prepare_scanners() { # -> SCANNER_DIR
+  local sd pins k v sgo="" gs_v="" gs_h="" gv_v="" gv_h="" os_v="" os_h="" sm_v="" plat
+  pins="$(python3 tools/maintainer/verify_scope.py scanner-pins)" || { echo "cannot read security-gate.yml's scanner pins"; return 1; }
+  while IFS='=' read -r k v; do
+    case "$k" in
+      SCANNER_GO) sgo="$v" ;; SEMGREP_VERSION) sm_v="$v" ;;
+      GOSEC_VERSION) gs_v="$v" ;; GOSEC_SHA256) gs_h="$v" ;;
+      GOVULNCHECK_VERSION) gv_v="$v" ;; GOVULNCHECK_SHA256) gv_h="$v" ;;
+      OSV_SCANNER_VERSION) os_v="$v" ;; OSV_SCANNER_SHA256) os_h="$v" ;;
+    esac
+  done <<EOF
+$pins
+EOF
+  plat="$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
+  sd="${XDG_CACHE_HOME:-$HOME/.cache}/msp-skills-verify/scanners/$plat-go$sgo-gosec$gs_v-govulncheck$gv_v-osv$os_v"
+  mkdir -p "$sd" || return 1
+  one() { # name package module version sha256
+    local b="$sd/$1" got
+    got="$(go version -m "$b" 2>/dev/null | awk '$1 == "mod" {print $2, $3}')"
+    if [ "$got" != "$3 $4" ]; then
+      echo "building $1 $4 (security-gate.yml's pin) with go$sgo, -trimpath, cgo off"
+      env GOBIN="$sd" GOTOOLCHAIN="go$sgo" CGO_ENABLED=0 GOFLAGS=-trimpath go install "$2@$4" || return 1
+      got="$(go version -m "$b" 2>/dev/null | awk '$1 == "mod" {print $2, $3}')"
+      [ "$got" = "$3 $4" ] || { echo "$1 built as '$got', not $3 $4"; return 1; }
+    fi
+    if [ "$plat" = linux-amd64 ] && [ "$(sha256sum "$b" | cut -d' ' -f1)" != "$5" ]; then
+      echo "$1 $4 does not match the reviewed sha256 $5"; return 1
+    fi
+    echo "$1 $4: security-gate.yml's pin"
+  }
+  one gosec github.com/securego/gosec/v2/cmd/gosec github.com/securego/gosec/v2 "$gs_v" "$gs_h" || return 1
+  one govulncheck golang.org/x/vuln/cmd/govulncheck golang.org/x/vuln "$gv_v" "$gv_h" || return 1
+  one osv-scanner github.com/google/osv-scanner/cmd/osv-scanner github.com/google/osv-scanner "$os_v" "$os_h" || return 1
+  if command -v uvx >/dev/null 2>&1; then
+    printf '#!/bin/sh\nexec uvx --quiet --from "semgrep==%s" semgrep "$@"\n' "$sm_v" > "$sd/semgrep.$$" \
+      && chmod +x "$sd/semgrep.$$" && mv -f "$sd/semgrep.$$" "$sd/semgrep"
+    v="$("$sd/semgrep" --version 2>/dev/null | tail -1)"
+    [ "$v" = "$sm_v" ] || { echo "semgrep $sm_v (through uvx) did not start: got '$v'"; return 1; }
+    echo "semgrep $sm_v: security-gate.yml's pin, through uvx"
+  else
+    rm -f "$sd/semgrep"
+    echo "  hint: uv is not installed, so semgrep $sm_v is not pinned here: install uv (semgrep is not a required scanner)"
+  fi
+  SCANNER_DIR="$sd"  # only once every required pin is in place
+}
 echo "== Security gate (security-gate.yml flags) =="
 if [ -s "$WORK/security.txt" ]; then
   # CI's toolchain too: setup-go installs the newest patch of the workflow's
@@ -531,9 +589,11 @@ if [ -s "$WORK/security.txt" ]; then
     echo "speak for CI here: run verify_all.sh on a linux/amd64 host with a C compiler, or rely on CI."
     return 1
   }
+  SCANNER_DIR=""
+  gate "security gate scanners (security-gate.yml pins)" repo "" 1 prepare_scanners
   while IFS= read -r s; do
     [ -n "$s" ] || continue
-    [ -n "$gate_go" ] || continue
+    [ -n "$gate_go" ] && [ -n "$SCANNER_DIR" ] || continue
     s_work=off
     if [ -f "skills/$s/cli/go.mod" ]; then
       # The go.work CI's checkout has for this module, or off (never one above
@@ -542,8 +602,9 @@ if [ -s "$WORK/security.txt" ]; then
       [ -z "$s_work" ] || [ "$s_work" = off ] || s_work="$(pwd)/$s_work"
       gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli" "$gate_go+auto" "${s_work:-unresolved}"
     fi
-    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= GOWORK="${s_work:-unresolved}" \
-      GOTOOLCHAIN="$gate_go+auto" python3 tools/maintainer/check_security_gate.py \
+    # security-gate.yml's row, exactly: python3 -I and these four flags.
+    gate "security gate" scoped "$s" 0 env PATH="$SCANNER_DIR:$PATH" GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" \
+      GOFLAGS= GOWORK="${s_work:-unresolved}" GOTOOLCHAIN="$gate_go+auto" python3 -I tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"
 else
@@ -551,7 +612,9 @@ else
 fi
 if [ "$FULL" = true ]; then
   # Today's full audit of every skill, kept alongside the CI-parity runs.
-  gate "security gate full audit (--all)" fleet "" 0 python3 tools/maintainer/check_security_gate.py --all
+  [ -n "${SCANNER_DIR:-}" ] || gate "security gate scanners (security-gate.yml pins)" repo "" 1 prepare_scanners
+  gate "security gate full audit (--all)" fleet "" 0 env ${SCANNER_DIR:+PATH="$SCANNER_DIR:$PATH"} \
+    python3 -I tools/maintainer/check_security_gate.py --all
 fi
 
 echo "== No destructive create alias (check_command_tree.py) =="

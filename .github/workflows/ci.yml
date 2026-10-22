@@ -177,6 +177,18 @@ jobs:
           python3 tools/maintainer/check_no_pp_leak.py --self-test
           python3 tools/maintainer/check_unix_test_asserts.py --self-test
 
+      - name: Merge and release tool self-tests (#422)
+        # Each runs only once its file is on main, so this PR does not depend on
+        # the order #422 merges in. Every file that exists must pass.
+        run: |
+          set -euo pipefail
+          for t in resolve_registry.py merge_when_green.py stamp_release.py; do
+            if [ -f "tools/maintainer/$t" ]; then python3 -I "tools/maintainer/$t" --self-test
+            else echo "tools/maintainer/$t not on this branch yet (#422): skipped"; fi
+          done
+          if [ -f tools/maintainer/cut_tags.sh ]; then bash tools/maintainer/cut_tags.sh --self-test
+          else echo "tools/maintainer/cut_tags.sh not on this branch yet (#422): skipped"; fi
+
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
 
