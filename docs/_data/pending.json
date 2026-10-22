@@ -7,16 +7,16 @@
     "released_hash": "sha256:8ff6f7d3f4782405a0b15e2bf851fb367b743f06819e8c897d7973bb40b212aa"
   },
   "acronis": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "acronis-v0.1.6",
+    "latest_tag": "acronis-v0.1.7",
     "current_hash": "sha256:71cecd12a47fabc0788e4b8767df1a4f68177d51d4e6ef6c5f4864ad9b86993c",
     "released_hash": "sha256:71cecd12a47fabc0788e4b8767df1a4f68177d51d4e6ef6c5f4864ad9b86993c"
   },
   "action1": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "action1-v0.1.7",
+    "latest_tag": "action1-v0.1.8",
     "current_hash": "sha256:b55f2d4c83cb06cfc9c6907b65d7f57e9abf4eeabbbf483cf7d5fbfd483b2940",
     "released_hash": "sha256:b55f2d4c83cb06cfc9c6907b65d7f57e9abf4eeabbbf483cf7d5fbfd483b2940"
   },
