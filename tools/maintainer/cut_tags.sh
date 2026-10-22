@@ -68,10 +68,13 @@ TOOLS=$(cd "$(dirname "$0")" && pwd)
 SELF="$TOOLS/$(basename "$0")"
 PYTHON=${PYTHON:-python3}
 LOG=""
-WT_PARENTS=""
 WT_MAP=""
+WT_COUNT=0
+ROOT_TMP=""
 NEW_TMP=""
 SELFTEST_TMP=""
+NL='
+'
 NEW_WT=""
 TAG_LIST=""
 TAG_COUNT=0
@@ -93,39 +96,52 @@ abspath() {
   esac
 }
 
-new_tempdir() { # sets NEW_TMP to a fresh private directory, or dies (never an empty path)
-  NEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary directory"
+tmp_root() { # sets ROOT_TMP: this run's ONE private directory (made once)
+  # Everything temporary lives under it and cleanup removes exactly it, so no
+  # parsing of a path list can ever reach another directory. A TMPDIR holding
+  # a newline is refused before anything is created.
+  [ -z "$ROOT_TMP" ] || return 0
+  case "${TMPDIR:-/tmp}" in *"$NL"*) die "REFUSE TMPDIR contains a newline; set it to a plain directory" ;; esac
+  ROOT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary directory"
+  [ -n "$ROOT_TMP" ] && [ -d "$ROOT_TMP" ] || die "REFUSE mktemp returned no directory"
+}
+
+new_tempdir() { # sets NEW_TMP to a fresh directory under ROOT_TMP
+  tmp_root
+  NEW_TMP=$(mktemp -d "$ROOT_TMP/d.XXXXXX") || die "REFUSE cannot create a temporary directory"
   [ -n "$NEW_TMP" ] && [ -d "$NEW_TMP" ] || die "REFUSE mktemp returned no directory"
 }
 
+new_tempfile() { # sets NEW_TMP to a fresh file under ROOT_TMP
+  tmp_root
+  NEW_TMP=$(mktemp "$ROOT_TMP/f.XXXXXX") || die "REFUSE cannot create a temporary file"
+  [ -n "$NEW_TMP" ] && [ -f "$NEW_TMP" ] || die "REFUSE mktemp returned no file"
+}
+
 cleanup() {
-  # One path per line, read whole: a temporary directory under a TMPDIR with
-  # spaces in it must never be split into other paths and deleted.
-  local p
-  while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    git -C "$REPO" worktree remove --force "$p/wt" >/dev/null 2>&1 || true
-    rm -rf "$p"
-  done <<<"$WT_PARENTS"
+  local n=0
+  while [ "$n" -lt "$WT_COUNT" ]; do
+    n=$((n + 1))
+    git -C "$REPO" worktree remove --force "$ROOT_TMP/wt$n" >/dev/null 2>&1 || true
+  done
+  if [ -n "$ROOT_TMP" ]; then rm -rf "$ROOT_TMP"; fi
 }
 
 worktree_at() { # <commit>: sets NEW_WT to a private worktree at it (one per commit)
-  local line parent
+  local line
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    if [ "${line%% *}" = "$1" ]; then # "<40-hex commit> <path, which may hold spaces>"
-      NEW_WT=${line#* }
+    if [ "${line%% *}" = "$1" ]; then # "<40-hex commit> <worktree number>"
+      NEW_WT="$ROOT_TMP/wt${line#* }"
       return
     fi
   done <<<"$WT_MAP"
-  new_tempdir
-  parent=$NEW_TMP
-  WT_PARENTS="$WT_PARENTS$parent
+  tmp_root
+  WT_COUNT=$((WT_COUNT + 1))
+  git -C "$REPO" worktree add -q --detach "$ROOT_TMP/wt$WT_COUNT" "$1"
+  WT_MAP="$WT_MAP$1 $WT_COUNT
 "
-  git -C "$REPO" worktree add -q --detach "$parent/wt" "$1"
-  WT_MAP="$WT_MAP$1 $parent/wt
-"
-  NEW_WT="$parent/wt"
+  NEW_WT="$ROOT_TMP/wt$WT_COUNT"
 }
 
 setup_repo() {
@@ -276,8 +292,8 @@ rerun_failed() {
   local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
   local why
   fetch_and_check_self
-  errf=$(mktemp "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary file"
-  [ -n "$errf" ] || die "REFUSE mktemp returned no file"
+  new_tempfile
+  errf=$NEW_TMP
   while IFS= read -r t; do
     [ -n "$t" ] || continue
     handled=$((handled + 1))
@@ -397,8 +413,8 @@ probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on 
   local d rc=0
   git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
-  d=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || return 1
-  [ -n "$d" ] && [ -d "$d" ] || return 1
+  new_tempdir
+  d=$NEW_TMP
   if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
     ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/burned_versions.json" >"$d/burned_versions.json"; then
     rm -rf "$d"
@@ -416,8 +432,8 @@ probe_rerun_from_main() { # <tag> <commit>: may this cut tag's release run again
   local d rc=0
   git -C "$REPO" fetch -q "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" </dev/null || return 1
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
-  d=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || return 1
-  [ -n "$d" ] && [ -d "$d" ] || return 1
+  new_tempdir
+  d=$NEW_TMP
   if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
     ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/burned_versions.json" >"$d/burned_versions.json"; then
     rm -rf "$d"
@@ -456,8 +472,8 @@ cut() {
   full=$(git -C "$REPO" rev-parse --verify -q "${sha}^{commit}") || die "REFUSE $sha is not a commit in $REPO"
   worktree_at "$full"
   shawt=$NEW_WT
-  probe_out=$(mktemp "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary file"
-  [ -n "$probe_out" ] || die "REFUSE mktemp returned no file"
+  new_tempfile
+  probe_out=$NEW_TMP
   say "cut_tags: $TAG_COUNT tag(s) at $full$([ "$dry" = 1 ] && echo ' (dry run: nothing is pushed)')"
   while IFS= read -r t; do
     [ -n "$t" ] || continue
@@ -599,6 +615,7 @@ self_test() {
   [ -n "$tmp" ] && [ -d "$tmp" ] || { echo "FAIL: mktemp returned no directory"; return 1; }
   SELFTEST_TMP=$tmp
   trap 'rm -rf "$SELFTEST_TMP"' EXIT
+  export CT_STATE="$tmp"  # read by the generated fixture scripts at run time
   export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
   printf '[user]\n\tname = Self Test\n\temail = selftest@example.invalid\n[init]\n\tdefaultBranch = main\n' >"$GIT_CONFIG_GLOBAL"
 
@@ -676,66 +693,69 @@ HOOK
   # passing); releases, run states and re-runs come from files, and any delete
   # is recorded as FORBIDDEN.
   mkdir -p "$tmp/bin" "$tmp/releases" "$tmp/elsewhere" "$tmp/rerun"
-  cat >"$tmp/bin/gh" <<FAKE
+  # Quoted heredoc: the fixture's own directory is read from CT_STATE when the
+  # fake runs, never pasted into its source (a path with "$" or a backtick
+  # would otherwise become code).
+  cat >"$tmp/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
 set -u
-state="$tmp"
-case "\$*" in *delete*|*DELETE*) echo "FORBIDDEN \$*" >>"\$state/calls.txt"; exit 3 ;; esac
-case "\$1 \$2" in
+state=${CT_STATE:?}
+case "$*" in *delete*|*DELETE*) echo "FORBIDDEN $*" >>"$state/calls.txt"; exit 3 ;; esac
+case "$1 $2" in
   "run list")
     tag=""; prev=""; want=""
-    for a in "\$@"; do [ "\$prev" = "--branch" ] && tag=\$a; [ "\$prev" = "-q" ] && want=\$a; prev=\$a; done
-    if [ -z "\$tag" ]; then
-      n=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
-      echo x >>"\$state/counts.txt"
-      if [ \$((\$(wc -l <"\$state/counts.txt") % 3)) -eq 0 ]; then
-        oldest=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | head -1)
-        [ -n "\$oldest" ] && echo completed >"\$oldest"
+    for a in "$@"; do [ "$prev" = "--branch" ] && tag=$a; [ "$prev" = "-q" ] && want=$a; prev=$a; done
+    if [ -z "$tag" ]; then
+      n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
+      echo x >>"$state/counts.txt"
+      if [ $(($(wc -l <"$state/counts.txt") % 3)) -eq 0 ]; then
+        oldest=$(grep -l in_progress "$state"/runs/* 2>/dev/null | head -1)
+        [ -n "$oldest" ] && echo completed >"$oldest"
       fi
-      echo "\$n"; exit 0
+      echo "$n"; exit 0
     fi
-    if grep -qx "\$tag" "\$state/no-run.txt" 2>/dev/null; then exit 0; fi
-    case "\$*" in
+    if grep -qx "$tag" "$state/no-run.txt" 2>/dev/null; then exit 0; fi
+    case "$*" in
       *databaseId,headSha*)
-        c=\$(git --git-dir "\$state/origin.git" rev-parse -q --verify "refs/tags/\$tag^{commit}" 2>/dev/null) || exit 0
-        case "\$want" in *"\$c"*) echo 4242 ;; esac ;;
-      *databaseId,status,conclusion*) cat "\$state/releases/\$tag.runinfo" 2>/dev/null || echo "null null null" ;;
-      *conclusion*) cat "\$state/releases/\$tag.run" 2>/dev/null || true ;;
-      *status*) cat "\$state/releases/\$tag.status" 2>/dev/null || true ;;
+        c=$(git --git-dir "$state/origin.git" rev-parse -q --verify "refs/tags/$tag^{commit}" 2>/dev/null) || exit 0
+        case "$want" in *"$c"*) echo 4242 ;; esac ;;
+      *databaseId,status,conclusion*) cat "$state/releases/$tag.runinfo" 2>/dev/null || echo "null null null" ;;
+      *conclusion*) cat "$state/releases/$tag.run" 2>/dev/null || true ;;
+      *status*) cat "$state/releases/$tag.status" 2>/dev/null || true ;;
     esac ;;
   "run rerun")
-    echo "rerun \$3" >>"\$state/calls.txt"; echo 0 >"\$state/rerun/\$3" ;;
+    echo "rerun $3" >>"$state/calls.txt"; echo 0 >"$state/rerun/$3" ;;
   "run view")
-    if [ ! -f "\$state/rerun/\$3" ]; then  # not re-run by us: its recorded state
-      line=\$(grep -h "^\$3 " "\$state"/releases/*.runinfo 2>/dev/null | head -1)
-      [ -n "\$line" ] || exit 1
-      echo "\${line#* }"; exit 0
+    if [ ! -f "$state/rerun/$3" ]; then  # not re-run by us: its recorded state
+      line=$(grep -h "^$3 " "$state"/releases/*.runinfo 2>/dev/null | head -1)
+      [ -n "$line" ] || exit 1
+      echo "${line#* }"; exit 0
     fi
-    v=\$(cat "\$state/rerun/\$3")
-    if [ "\$v" -lt 1 ]; then echo 1 >"\$state/rerun/\$3"; echo "in_progress null"
+    v=$(cat "$state/rerun/$3")
+    if [ "$v" -lt 1 ]; then echo 1 >"$state/rerun/$3"; echo "in_progress null"
     else
-      echo "done \$3" >>"\$state/calls.txt"; echo "completed success"
-      [ -f "\$state/on-done-\$3.sh" ] && sh "\$state/on-done-\$3.sh"
+      echo "done $3" >>"$state/calls.txt"; echo "completed success"
+      [ -f "$state/on-done-$3.sh" ] && sh "$state/on-done-$3.sh"
     fi ;;
   "release view")
-    if [ -f "\$state/releases/\$3.error" ]; then cat "\$state/releases/\$3.error" >&2; exit 1; fi
-    [ -f "\$state/releases/\$3.json" ] || { echo "release not found" >&2; exit 1; }
-    case "\$*" in
-      *"-q .isDraft"*) sed -nE 's/.*"isDraft": *(true|false).*/\1/p' "\$state/releases/\$3.json" ;;
-      *) cat "\$state/releases/\$3.json" ;;
+    if [ -f "$state/releases/$3.error" ]; then cat "$state/releases/$3.error" >&2; exit 1; fi
+    [ -f "$state/releases/$3.json" ] || { echo "release not found" >&2; exit 1; }
+    case "$*" in
+      *"-q .isDraft"*) sed -nE 's/.*"isDraft": *(true|false).*/\1/p' "$state/releases/$3.json" ;;
+      *) cat "$state/releases/$3.json" ;;
     esac ;;
-  "api repos/fake/repo/releases") cat "\$state/drafts.txt" 2>/dev/null || true ;;
+  "api repos/fake/repo/releases") cat "$state/drafts.txt" 2>/dev/null || true ;;
   "api repos/fake/repo/actions/workflows/release.yml/runs?status=in_progress&per_page=1")
-    if [ -f "\$state/on-count.sh" ]; then mv "\$state/on-count.sh" "\$state/on-count.ran"; sh "\$state/on-count.ran" >/dev/null 2>&1; fi
-    n=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
-    echo x >>"\$state/counts.txt"
-    if [ \$((\$(wc -l <"\$state/counts.txt") % 3)) -eq 0 ]; then
-      oldest=\$(grep -l in_progress "\$state"/runs/* 2>/dev/null | head -1)
-      [ -n "\$oldest" ] && echo completed >"\$oldest"
+    if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
+    n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
+    echo x >>"$state/counts.txt"
+    if [ $(($(wc -l <"$state/counts.txt") % 3)) -eq 0 ]; then
+      oldest=$(grep -l in_progress "$state"/runs/* 2>/dev/null | head -1)
+      [ -n "$oldest" ] && echo completed >"$oldest"
     fi
-    echo "\$n" ;;
+    echo "$n" ;;
   "api repos/fake/repo/actions/workflows/release.yml/runs?status="*) echo 0 ;;
-  *) echo "fake gh: unhandled \$*" >&2; exit 2 ;;
+  *) echo "fake gh: unhandled $*" >&2; exit 2 ;;
 esac
 FAKE
   chmod +x "$tmp/bin/gh"
@@ -768,6 +788,9 @@ FAKE
   [ "$rc" -eq 0 ] && has "DRY-RUN-COMPLETE 1 of 1" && [ -f "$tmp/Release/keep.txt" ] \
     && [ -z "$(ls -A "$tmp/Release Work")" ] && [ "$(git -C "$tmp/repo" worktree list | grep -c .)" -eq 1 ]
   expect "under a TMPDIR containing a space it runs, cleans only its own directories, and spares the sibling" $?
+  out=$(cd "$tmp/elsewhere" && TMPDIR="$tmp/Release${NL}Work" bash "$SELF" --dry-run "$sha" tags-ok.txt 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "TMPDIR contains a newline" && [ -f "$tmp/Release/keep.txt" ]
+  expect "a TMPDIR containing a newline is refused before anything is created; the sibling survives" $?
 
   echo "push mode:"
   out=$(cd "$tmp/elsewhere" && bash "$SELF" "$sha" tags-ok.txt 2>&1) && rc=0 || rc=$?
@@ -835,8 +858,8 @@ FAKE
   # While the run waits for capacity, main retires zz-c6-v0.1.0: the push must
   # be refused by the probe run AFTER the wait, against main as it is then.
   echo in_progress >"$tmp/runs/aa-older-wave-3"
-  cat >"$tmp/on-count.sh" <<RETIRE
-cd "$tmp/repo" || exit 1
+  cat >"$tmp/on-count.sh" <<'RETIRE'
+cd "${CT_STATE:?}/repo" || exit 1
 printf '{\n  "burned": [\n    {"tag": "zz-c6-v0.1.0", "date": "2026-10-22", "why": "fixture: retired mid-wait"}\n  ]\n}\n' >tools/maintainer/burned_versions.json
 git commit -q -am "retire zz-c6-v0.1.0" -s && git push -q origin main
 RETIRE
@@ -957,7 +980,9 @@ PY
   expect "--dry-run --rerun-failed lists what it would re-run and re-runs nothing" $?
   pushes_before=$(grep -c . "$tmp/origin.git/pushes.txt")
   # While the first batch runs, another operator seals r3.
-  printf 'printf %s >"%s"\n' "'{\"isDraft\": false, \"assets\": []}'" "$tmp/releases/r3-v0.1.0.json" >"$tmp/on-done-702.sh"
+  cat >"$tmp/on-done-702.sh" <<'SEAL'
+printf '{"isDraft": false, "assets": []}' >"${CT_STATE:?}/releases/r3-v0.1.0.json"
+SEAL
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
   rc=1
   if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort -n | tr '\n' ' ')" = "701 702 7011 " ]; then rc=0; fi
