@@ -51,29 +51,35 @@ class LockHeld(RuntimeError):
     """Another process holds the lock. Message names the holder."""
 
 
-def _locks_dir() -> Path:
+def _locks_dir(root: Path | None = None) -> Path:
     """Locks directory shared by every worktree of this repo.
 
     `git rev-parse --git-common-dir` returns the shared .git directory even
     when run inside a linked worktree. Fall back to the working-tree
     .locks/ dir (onboard.py's location) only if git itself is unavailable -
     degraded, but better than no lock at all.
+
+    `root` names the repository whose common dir anchors the lock; it defaults
+    to the checkout this module lives in. merge_when_green.py passes the
+    repository it is operating on, so its per-branch locks (and its self-test's
+    throwaway repositories) are serialized against the right clone.
     """
+    root = Path(root) if root is not None else registry.ROOT
     try:
         p = subprocess.run(
-            ["git", "-C", str(registry.ROOT), "rev-parse", "--git-common-dir"],
+            ["git", "-C", str(root), "rev-parse", "--git-common-dir"],
             capture_output=True, text=True, timeout=10,
         )
         if p.returncode == 0 and p.stdout.strip():
             common = Path(p.stdout.strip())
             if not common.is_absolute():
-                common = (registry.ROOT / common).resolve()
+                common = (root / common).resolve()
             d = common / "msp-skills-locks"
             d.mkdir(parents=True, exist_ok=True)
             return d
     except (OSError, subprocess.SubprocessError):
         pass
-    d = registry.ROOT / "tools" / "maintainer" / ".locks"
+    d = root / "tools" / "maintainer" / ".locks"
     d.mkdir(parents=True, exist_ok=True)
     gi = d / ".gitignore"
     if not gi.exists():
@@ -118,13 +124,15 @@ def _holder_alive(holder: dict) -> bool:
         return True
 
 
-def acquire(name: str = "release", holder_info: dict | None = None) -> Path:
+def acquire(name: str = "release", holder_info: dict | None = None,
+            root: Path | None = None) -> Path:
     """Acquire the named repo lock or raise LockHeld.
 
     Registers an atexit hook that releases the lock when this process exits,
-    so the caller has nothing to clean up on the happy path.
+    so the caller has nothing to clean up on the happy path. `root` selects the
+    repository whose common dir holds the lock (default: this checkout).
     """
-    lock = _locks_dir() / f"{name}.lock"
+    lock = _locks_dir(root) / f"{name}.lock"
     payload = json.dumps({
         "pid": os.getpid(),
         "host": socket.gethostname(),
