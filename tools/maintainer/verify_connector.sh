@@ -38,6 +38,7 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
+root="$(pwd)"
 
 work="$1"; slug="$2"; dir="$3"
 mod="skills/$dir/cli"
@@ -63,6 +64,10 @@ check() { # check <name> <command...>
 # GOTOOLCHAIN=go<that>+auto: the same selection. Resolved once, at the repo root.
 gover="$(python3 tools/maintainer/verify_scope.py ci-go --gomod "$mod/go.mod" \
   ${VERIFY_GO_RELEASES:+--releases "$VERIFY_GO_RELEASES"} 2>/dev/null | cut -f1 | sed 's/^go//')"
+# The go.work CI's checkout hands Go for this module (repo-relative), or off:
+# never one above the repository or an ignored one, which CI does not have.
+gowork="$(python3 tools/maintainer/verify_scope.py gowork --dir "$mod" 2>/dev/null)"
+work_at() { [ "$gowork" = off ] && echo off || echo "$1/$gowork"; }  # work_at <repo root as seen there>
 
 # CI's runners start from a clean Go environment, and so does this script
 # (verify_all.sh does the same): every GO* and CGO_* variable and the C
@@ -74,10 +79,10 @@ for v in $(compgen -e); do
     GO*|CGO_*|CC|CXX|AR|PKG_CONFIG|GCCGO) unset "$v" ;;
   esac
 done
-export GOENV=off
+export GOENV=off GOWORK=off
 
-goclean() { # goclean VAR=value... command...: the command on CI's toolchain
-  env GOFLAGS= GOTOOLCHAIN="go$gover+auto" CI=true "$@"
+goclean() { # goclean VAR=value... command...: the command on CI's toolchain and workspace
+  env GOFLAGS= GOWORK="$(work_at "$root")" GOTOOLCHAIN="go$gover+auto" CI=true "$@"
 }
 
 # ---- CI's build row, in Linux ------------------------------------------------
@@ -95,7 +100,8 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
       ( cd "$VERIFY_LINUX_SRC/$cwd" && env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" CI=true \
           ${GOPATH:+GOPATH="$GOPATH"} ${GOMODCACHE:+GOMODCACHE="$GOMODCACHE"} ${GOCACHE:+GOCACHE="$GOCACHE"} \
           ${GOPROXY:+GOPROXY="$GOPROXY"} \
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover+auto" bash -c "$cmd" ) ;;
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOWORK="$(work_at "$VERIFY_LINUX_SRC")" \
+          GOTOOLCHAIN="go$gover+auto" bash -c "$cmd" ) ;;
     docker)
       [ -n "${VERIFY_LINUX_SRC:-}" ] || {
         echo "no repository snapshot for the Linux container (VERIFY_LINUX_SRC)"; return 1; }
@@ -104,7 +110,7 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
       # cannot write there.
       docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
         -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 \
-        -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= \
+        -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= -e GOWORK="$(work_at /src)" \
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
@@ -150,11 +156,13 @@ windows_cgo_context() {
   return 1
 }
 
-if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ]; then
+if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ] || [ -z "$gowork" ]; then
   # No module, or no way to know which Go CI installs for it: nothing below
   # can speak for CI, so the connector fails here, visibly.
-  if [ ! -f "$mod/go.mod" ]; then echo "$mod/go.mod not found"; else
-    echo "cannot resolve the Go CI installs for $mod/go.mod (setup-go reads its go line; a bare X.Y needs go.dev's release index)"; fi > "$logs/harness.log"
+  if [ ! -f "$mod/go.mod" ]; then echo "$mod/go.mod not found"
+  elif [ -z "$gowork" ]; then echo "cannot tell which go.work CI's checkout uses for $mod"
+  else echo "cannot resolve the Go CI installs for $mod/go.mod (setup-go reads its go line; a bare X.Y needs go.dev's release index)"
+  fi > "$logs/harness.log"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
   exit 0
 fi
@@ -176,7 +184,14 @@ check "linux go test"          linux_test
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "windows cgo context"    windows_cgo_context
-check "unix-only test lint"    python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug"
+# The lint evaluates build tags for the Go CI's Windows job selects (release
+# tags go1.1..go1.N), so it asks Go which one that is.
+unix_lint() {
+  local v
+  v="$(cd "$mod" && goclean GOOS=windows GOARCH=amd64 go env GOVERSION)" || { echo "go env GOVERSION failed: $v"; return 1; }
+  python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug" --go-version "$v"
+}
+check "unix-only test lint"    unix_lint
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')
 # The parent accepts this connector's records only when this line exists: a

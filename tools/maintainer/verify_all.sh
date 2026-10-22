@@ -55,7 +55,7 @@ for v in $(compgen -e); do
     GO*|CGO_*|CC|CXX|AR|PKG_CONFIG|GCCGO) unset "$v" ;;
   esac
 done
-export GOENV=off
+export GOENV=off GOWORK=off  # a CI-parity check sets the go.work CI's checkout has, per module
 
 usage() {
   cat <<'USAGE'
@@ -509,9 +509,9 @@ if [ -s "$WORK/security.txt" ]; then
   else
     gate_cgo=0
   fi
-  security_context() { # <module dir> <toolchain>
+  security_context() { # <module dir> <toolchain> <GOWORK>
     [ "$gate_cgo" = 1 ] && { echo "linux/amd64 with cgo: the gate reads what CI's gate reads"; return 0; }
-    env GOOS=linux GOARCH=amd64 GOFLAGS= GOTOOLCHAIN="$2" python3 tools/maintainer/verify_scope.py cgo-context --dir "$1" \
+    env GOOS=linux GOARCH=amd64 GOFLAGS= GOTOOLCHAIN="$2" GOWORK="$3" python3 tools/maintainer/verify_scope.py cgo-context --dir "$1" \
       && return 0
     echo "CI's security gate scans with cgo on and this host's gate with cgo off, so it does not"
     echo "speak for CI here: run verify_all.sh on a linux/amd64 host with a C compiler, or rely on CI."
@@ -520,10 +520,15 @@ if [ -s "$WORK/security.txt" ]; then
   while IFS= read -r s; do
     [ -n "$s" ] || continue
     [ -n "$gate_go" ] || continue
+    s_work=off
     if [ -f "skills/$s/cli/go.mod" ]; then
-      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli" "$gate_go+auto"
+      # The go.work CI's checkout has for this module, or off (never one above
+      # the repository or an ignored one).
+      s_work="$(python3 tools/maintainer/verify_scope.py gowork --dir "skills/$s/cli")" || s_work=""
+      [ -z "$s_work" ] || [ "$s_work" = off ] || s_work="$(pwd)/$s_work"
+      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli" "$gate_go+auto" "${s_work:-unresolved}"
     fi
-    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= \
+    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= GOWORK="${s_work:-unresolved}" \
       GOTOOLCHAIN="$gate_go+auto" python3 tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"

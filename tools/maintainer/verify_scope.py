@@ -676,6 +676,31 @@ def cgo_context(d: str) -> int:
     return 0
 
 
+def ci_gowork(d: str, root: Path = ROOT) -> str:
+    """The workspace file Go would use for module folder d in CI's checkout:
+    the nearest go.work at or above d inside the repository that is in that
+    checkout (committed, or new and not ignored; .gitignore lists go.work), as
+    a path relative to the repository root, else "off". A go.work above the repository, or an
+    ignored one, is never in CI's checkout, so GOWORK must not discover it."""
+    root = root.resolve()
+    cur = (root / d).resolve()
+    if cur != root and root not in cur.parents:
+        return "off"
+    while True:
+        cand = cur / "go.work"
+        if cand.is_file():
+            rel = cand.relative_to(root).as_posix()
+            p = subprocess.run(["git", "ls-files", "-c", "-o", "--exclude-standard", "--", rel],
+                               cwd=root, capture_output=True, text=True)
+            if p.returncode != 0:
+                raise OSError(f"git ls-files failed: {p.stderr.strip()}")
+            if p.stdout.strip():
+                return rel
+        if cur == root:
+            return "off"
+        cur = cur.parent
+
+
 def _fold(p: str) -> str:
     return unicodedata.normalize("NFD", p).casefold()
 
@@ -739,6 +764,8 @@ def main(argv: list[str]) -> int:
     cp = sub.add_parser("cgo-context")
     cp.add_argument("--dir", required=True)
     sub.add_parser("path-collisions")
+    gw = sub.add_parser("gowork")
+    gw.add_argument("--dir", required=True)
     bp = sub.add_parser("baseline")
     bp.add_argument("--scope", required=True)
     bp.add_argument("--head-log", required=True)
@@ -766,6 +793,13 @@ def main(argv: list[str]) -> int:
         return 1 if bad else 0
     if a.cmd == "cgo-context":
         return cgo_context(a.dir)
+    if a.cmd == "gowork":
+        try:
+            print(ci_gowork(a.dir))
+        except OSError as e:
+            print(e, file=sys.stderr)
+            return 2
+        return 0
     if a.cmd == "path-collisions":
         try:
             groups = path_collisions(repo_paths())
@@ -1137,6 +1171,22 @@ def _self_test() -> int:
     expect(context_diff(same, build_inputs({**base_pk, "fmt": {"ImportPath": "fmt", "Standard": True,
                                                                 "GoFiles": ["x.go", "cgo.go"]}})) == [],
            "the standard library is left out (same release, same API either way)")
+    print("CI's workspace file:")
+    with tempfile.TemporaryDirectory() as td:
+        outer = Path(td) / "outer"
+        repo = outer / "repo"
+        (repo / "skills/x/cli").mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        (repo / ".gitignore").write_text("go.work\n", encoding="utf-8")
+        (outer / "go.work").write_text("go 1.26\n", encoding="utf-8")
+        expect(ci_gowork("skills/x/cli", repo) == "off", "a go.work ABOVE the repository is not CI's -> off")
+        (repo / "go.work").write_text("go 1.26\n", encoding="utf-8")
+        expect(ci_gowork("skills/x/cli", repo) == "off", "an IGNORED go.work in the repository is not CI's -> off")
+        (repo / "skills/go.work").write_text("go 1.26\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(repo), "add", "-f", "skills/go.work"], check=True)
+        expect(ci_gowork("skills/x/cli", repo) == "skills/go.work",
+               "a committed go.work above the module is CI's")
+
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],
            "two files that differ only by case collide")

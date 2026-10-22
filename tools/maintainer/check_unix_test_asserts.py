@@ -253,8 +253,8 @@ def _eval_constraint(expr: str) -> bool:
 
     def tag(t: str) -> bool:
         # What `GOOS=windows GOARCH=amd64 go test` with the gc toolchain at
-        # go1.26 satisfies: the OS and arch, gc, GOAMD64's default v1, and
-        # every release tag up to go1.26. unix, cgo and custom tags are unset.
+        # go1.<GO_MINOR> satisfies: the OS and arch, gc, GOAMD64's default v1,
+        # and every release tag up to it. unix, cgo and custom tags are unset.
         if t in ("windows", "amd64", "gc", "amd64.v1"):
             return True
         m = re.fullmatch(r"go1\.(\d+)", t)
@@ -298,7 +298,10 @@ def _eval_constraint(expr: str) -> bool:
         return True  # unparseable: assume it builds, so the lint still looks
 
 
-GO_MINOR = 26  # the fleet's toolchain minor; release tags go1.1..go1.26 are set
+# The toolchain minor CI's Windows job builds with: release tags go1.1..go1.N
+# are set. --go-version passes the one Go actually selects (verify_connector.sh
+# asks `go env GOVERSION` under CI's selection); 26 is the fleet's today.
+GO_MINOR = 26
 
 
 def builds_on_windows(path: Path, src: str) -> bool:
@@ -1003,10 +1006,17 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--no-ledger", action="store_true",
                     help="do not excuse ledgered known Windows failures (proof runs)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--go-version", help="the Go CI's Windows job selects, e.g. go1.27.3 (sets the release tags)")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args(argv)
     if a.self_test:
         return _self_test()
+    if a.go_version:
+        m = re.match(r"go1\.(\d+)(?:\D|$)", a.go_version)
+        if not m:
+            ap.error(f"--go-version {a.go_version!r} is not a go1.N version")
+        global GO_MINOR
+        GO_MINOR = int(m.group(1))
     root = Path(a.root).resolve()
     if a.all:
         slugs = all_connector_slugs(root)
@@ -1366,6 +1376,14 @@ def _self_test() -> int:
         mark_known(found2, [{"id": "X", "kind": "unix-only-test", "why": "w", "fix": "f",
                              "failures": {"other": ["TestWritableDir"]}}])
         expect(not any(f.known for f in found2), "another connector's ledger entry does not excuse it")
+    global GO_MINOR
+    saved = GO_MINOR
+    try:
+        GO_MINOR = 27  # what --go-version go1.27.3 sets
+        expect(_eval_constraint("windows && go1.27") and not _eval_constraint("!go1.27"),
+               "--go-version go1.27.x: a go1.27-tagged test is built, a !go1.27 one is not")
+    finally:
+        GO_MINOR = saved
     if failures:
         print(f"\nFAIL: check_unix_test_asserts self-test - {len(failures)} case(s)")
         return 1
