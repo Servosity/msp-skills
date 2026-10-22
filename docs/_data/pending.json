@@ -427,16 +427,16 @@
     "released_hash": "sha256:975c47ce5e5def028d3d38b01031613c79420c8e4c72128d60adc297b96ea837"
   },
   "resourceguru": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "resourceguru-v0.1.4",
+    "latest_tag": "resourceguru-v0.1.5",
     "current_hash": "sha256:3032f33764ee4ad4674d156e08f0e082a5f817dfe25e2b2a7f843bda1fcc58d4",
     "released_hash": "sha256:3032f33764ee4ad4674d156e08f0e082a5f817dfe25e2b2a7f843bda1fcc58d4"
   },
   "rewst": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "rewst-v0.1.4",
+    "latest_tag": "rewst-v0.1.5",
     "current_hash": "sha256:141f74714270dfea2f645ffd671c379cb8c18b3cd148d89c618e595b310f7725",
     "released_hash": "sha256:141f74714270dfea2f645ffd671c379cb8c18b3cd148d89c618e595b310f7725"
   },
