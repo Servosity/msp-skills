@@ -311,6 +311,8 @@ def builds_on_windows(path: Path, src: str) -> bool:
     parts = stem.split("_")
     if len(parts) >= 2:
         last, prev = parts[-1], parts[-2]
+        if last in GOARCH and last != "amd64":
+            return False  # CI's Windows job is windows/amd64: *_arm64.go and *_windows_arm64.go are not built
         if last in GOARCH and prev in GOOS:
             if prev != "windows":
                 return False
@@ -1376,6 +1378,10 @@ def _self_test() -> int:
         mark_known(found2, [{"id": "X", "kind": "unix-only-test", "why": "w", "fix": "f",
                              "failures": {"other": ["TestWritableDir"]}}])
         expect(not any(f.known for f in found2), "another connector's ledger entry does not excuse it")
+    expect(not builds_on_windows(Path("perms_windows_arm64_test.go"), "package x\n")
+           and not builds_on_windows(Path("x_arm64_test.go"), "package x\n")
+           and builds_on_windows(Path("x_windows_amd64_test.go"), "package x\n"),
+           "an arm64-only file is not in CI's windows/amd64 build; a windows_amd64 one is")
     global GO_MINOR
     saved = GO_MINOR
     try:

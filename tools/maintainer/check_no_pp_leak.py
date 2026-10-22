@@ -94,7 +94,8 @@ def own_names(root: Path, slug: str, meta: dict) -> set[str]:
     for key, suffix in (("cli_binary", "-cli"), ("mcp_binary", "-mcp")):
         v = meta.get(key)
         if isinstance(v, str) and v.endswith(suffix):
-            names.add(v[: -len(suffix)])
+            # A name registered with the press suffix still names the connector.
+            names.add(re.sub(r"-pp$", "", v[: -len(suffix)]))
     return {n for n in names if n}
 
 
@@ -769,6 +770,8 @@ def _self_test() -> int:
         gm.parent.mkdir(parents=True, exist_ok=True)
         gm.write_text("module github.com/example/x360recover-pp-cli\n\ngo 1.26\n", encoding="utf-8")
         expect("x360recover" in own_names(root, "acme", {}), "a qualified module path names its last element")
+        expect("x360recover" in own_names(root, "acme", {"cli_binary": "x360recover-pp-cli"}),
+               "a binary registered with the press suffix still names the connector")
         if old_mod is None:
             gm.unlink()
         else:
