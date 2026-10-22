@@ -1,0 +1,5 @@
+# Probe only (do not merge): does a path filter keep excluded files out of the
+# 100-file review limit?
+reviews:
+  path_filters:
+    - "!probe-coderabbit/**"
