@@ -17,7 +17,6 @@ func newFirewallControlItemMoveRulesByCategoryCmd(flags *rootFlags) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:         "by-category <firewall_rule_category>",
-		Aliases:     []string{"create"},
 		Short:       "Remove Firewall Rules, defined with the ID of the rules (run 'firewall-control')",
 		Annotations: map[string]string{"pp:endpoint": "move-rules.by-category", "pp:method": "POST", "pp:path": "/firewall-control/{firewall_rule_category}/move-rules"},
 		RunE: func(cmd *cobra.Command, args []string) error {

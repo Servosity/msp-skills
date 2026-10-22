@@ -17,7 +17,6 @@ func newDvCancelRunningQueryCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "cancel-running-query",
-		Aliases:     []string{"create"},
 		Short:       "Stop a Deep Visibility Query by queryId. The body is {'queryID':'string_ID'}. Get the ID of the query from 'init-query'.",
 		Example:     "  sentinelone-cli dv cancel-running-query",
 		Annotations: map[string]string{"pp:endpoint": "dv.cancel-running-query", "pp:method": "POST", "pp:path": "/dv/cancel-query"},

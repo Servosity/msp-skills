@@ -17,7 +17,6 @@ func newAccountsExpireNowExpireAnAccountCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "expire-an-account <account_id>",
-		Aliases:     []string{"create"},
 		Short:       "Expire an Account immediately. The user must have Global access or Account acces with permissions for the Account.",
 		Annotations: map[string]string{"pp:endpoint": "expire-now.expire-an-account", "pp:method": "POST", "pp:path": "/accounts/{account_id}/expire-now"},
 		RunE: func(cmd *cobra.Command, args []string) error {

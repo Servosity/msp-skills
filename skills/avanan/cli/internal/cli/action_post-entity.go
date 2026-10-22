@@ -29,9 +29,8 @@ func newActionPostEntityCmd(flags *rootFlags) *cobra.Command {
 	var flagWaitInterval time.Duration
 
 	cmd := &cobra.Command{
-		Use:     "post-entity",
-		Aliases: []string{"create"},
-		Short:   "Post Entity Action.",
+		Use:   "post-entity",
+		Short: "Post Entity Action.",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  avanan-cli action post-entity --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "action.post-entity", "pp:method": "POST", "pp:path": "/v1.0/action/entity"},

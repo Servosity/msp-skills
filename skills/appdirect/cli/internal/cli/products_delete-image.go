@@ -21,7 +21,6 @@ func newProductsDeleteImageCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "delete-image",
-		Aliases:     []string{"create"},
 		Short:       "Deletes a specific image resource from a product.",
 		Example:     "  appdirect-cli products delete-image --locale en_US",
 		Annotations: map[string]string{"pp:endpoint": "products.delete-image", "pp:method": "POST", "pp:path": "/products/v1/resources/image/delete"},

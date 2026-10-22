@@ -19,7 +19,6 @@ func newOrgBulkRemoveCustomIntegrationCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "bulk-remove-custom-integration <custom_integration_id>",
-		Aliases:     []string{"create"},
 		Short:       "Remove custom integration from a list of assets",
 		Example:     "  runzero-cli org bulk-remove-custom-integration 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "org.bulk-remove-custom-integration", "pp:method": "POST", "pp:path": "/org/custom-integrations/{custom_integration_id}/bulk/remove"},

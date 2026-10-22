@@ -18,7 +18,6 @@ func newOrganizationsSpacesRemoveOrganizationIntegrationCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:     "remove-organization-integration <organizationId>",
-		Aliases: []string{"create"},
 		Short:   "Remove the Spaces integration from Meraki",
 		Example: "  cisco-meraki-cli organizations spaces remove-organization-integration 549236",
 		Args: func(cmd *cobra.Command, args []string) error {

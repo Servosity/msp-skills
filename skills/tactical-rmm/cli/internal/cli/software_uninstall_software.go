@@ -17,7 +17,6 @@ func newSoftwareUninstallSoftwareCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "software <agent_id>",
-		Aliases:     []string{"create"},
 		Short:       "POST /software/{agent_id}/uninstall/",
 		Example:     "  tactical-rmm-cli software uninstall software 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "uninstall.software", "pp:method": "POST", "pp:path": "/software/{agent_id}/uninstall/"},

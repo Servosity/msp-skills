@@ -17,7 +17,6 @@ func newAgentsRebootAgentsAgentsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "agents-agents <agent_id>",
-		Aliases:     []string{"create"},
 		Short:       "POST /agents/{agent_id}/reboot/",
 		Example:     "  tactical-rmm-cli agents reboot agents-agents 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "reboot.agents-agents", "pp:method": "POST", "pp:path": "/agents/{agent_id}/reboot/"},

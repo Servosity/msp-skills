@@ -17,7 +17,6 @@ func newAutotasksRunAutotasksCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "autotasks <pk>",
-		Aliases:     []string{"create"},
 		Short:       "POST /autotasks/{pk}/run/",
 		Example:     "  tactical-rmm-cli autotasks run autotasks 42",
 		Annotations: map[string]string{"pp:endpoint": "run.autotasks", "pp:method": "POST", "pp:path": "/autotasks/{pk}/run/"},

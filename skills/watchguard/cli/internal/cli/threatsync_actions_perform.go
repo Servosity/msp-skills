@@ -21,7 +21,6 @@ func newThreatsyncActionsPerformCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "perform",
-		Aliases:     []string{"create"},
 		Short:       "Performs a specified action.",
 		Example:     "  watchguard-cli threatsync-actions perform --command blockAddress --parameters '{\"address\":\"3.3.3.3\"}'",
 		Args:        cobra.NoArgs,

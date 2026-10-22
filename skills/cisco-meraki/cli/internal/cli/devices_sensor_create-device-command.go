@@ -19,7 +19,6 @@ func newDevicesSensorCreateDeviceCommandCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create-device-command <serial>",
-		Aliases: []string{"create"},
 		Short:   "Sends a command to a sensor",
 		Example: "  cisco-meraki-cli devices sensor create-device-command Q2QN-9J8L-SLPD --operation cycleDownstreamPower",
 		Args: func(cmd *cobra.Command, args []string) error {

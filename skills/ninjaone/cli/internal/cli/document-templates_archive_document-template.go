@@ -17,7 +17,6 @@ func newDocumentTemplatesArchiveDocumentTemplateCmd(flags *rootFlags) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:         "document-template <documentTemplateId>",
-		Aliases:     []string{"create"},
 		Short:       "Archives a document template by id",
 		Example:     "  ninjaone-cli document-templates archive document-template 42",
 		Annotations: map[string]string{"pp:endpoint": "archive.document-template", "pp:method": "POST", "pp:path": "/v2/document-templates/{documentTemplateId}/archive"},

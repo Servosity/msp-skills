@@ -22,7 +22,6 @@ func newAgentsResetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "reset",
-		Aliases:     []string{"create"},
 		Short:       "Migrate Agents",
 		Example:     "  connectsecure-cli agents reset",
 		Args:        cobra.NoArgs,

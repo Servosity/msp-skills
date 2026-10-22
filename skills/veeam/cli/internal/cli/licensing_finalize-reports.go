@@ -17,7 +17,6 @@ func newLicensingFinalizeReportsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "finalize-reports",
-		Aliases:     []string{"create"},
 		Short:       "Finalize the Veeam license usage reports.",
 		Example:     "  veeam-cli licensing finalize-reports",
 		Annotations: map[string]string{"pp:endpoint": "licensing.finalize-reports", "pp:method": "POST", "pp:path": "/licensing/reports/finalization"},

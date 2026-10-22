@@ -20,9 +20,8 @@ func newOrganizationsLicensingMoveOrganizationCotermLicensesCmd(flags *rootFlags
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "move-organization-coterm-licenses <organizationId>",
-		Aliases: []string{"create"},
-		Short:   "Moves a license to a different organization (coterm only)",
+		Use:   "move-organization-coterm-licenses <organizationId>",
+		Short: "Moves a license to a different organization (coterm only)",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -17,7 +17,6 @@ func newWorkspacesDeactivateWorkspaceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "workspace <workspace_id>",
-		Aliases:     []string{"create"},
 		Short:       "Deactivate the workspace, remove all the members from it and make it unavailable.",
 		Example:     "  pandadoc-cli workspaces deactivate workspace BhVzRcxH9Z2LgfPPGXFUBa",
 		Annotations: map[string]string{"pp:endpoint": "deactivate.workspace", "pp:method": "POST", "pp:path": "/workspaces/{workspace_id}/deactivate"},

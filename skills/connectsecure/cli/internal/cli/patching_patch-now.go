@@ -19,7 +19,6 @@ func newPatchingPatchNowCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "patch-now",
-		Aliases:     []string{"create"},
 		Short:       "Trigger application/OS patch (now or scheduled)",
 		Example:     "  connectsecure-cli patching patch-now --body-json '{\"assets\":[1],\"companies\":[1],\"date\":{\"days\":24,\"months\":10,\"years\":2025},\"from_versions\":{\"1\":\"2025.7.0\"},\"included_application\":[\"Bitwarden\"],\"patch_type\":\"app\",\"patch_when\":\"later\",\"time\":{\"hours\":19,\"minutes\":0},\"type\":\"application\"}'",
 		Args:        cobra.NoArgs,

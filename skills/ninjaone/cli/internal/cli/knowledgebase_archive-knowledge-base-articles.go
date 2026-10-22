@@ -18,7 +18,6 @@ func newKnowledgebaseArchiveKnowledgeBaseArticlesCmd(flags *rootFlags) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:         "archive-knowledge-base-articles",
-		Aliases:     []string{"create"},
 		Short:       "Archive knowledge base articles",
 		Example:     "  ninjaone-cli knowledgebase archive-knowledge-base-articles",
 		Annotations: map[string]string{"pp:endpoint": "knowledgebase.archive-knowledge-base-articles", "pp:method": "POST", "pp:path": "/v2/knowledgebase/articles/archive"},

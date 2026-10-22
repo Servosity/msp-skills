@@ -18,7 +18,6 @@ func newDevicesRebootDeviceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "device <serial>",
-		Aliases: []string{"create"},
 		Short:   "Reboot a device. This endpoint has a sustained rate limit of one request every 60 seconds.",
 		Example: "  cisco-meraki-cli devices reboot device Q2QN-9J8L-SLPD",
 		Args: func(cmd *cobra.Command, args []string) error {

@@ -19,7 +19,6 @@ func newNetworksUnbindNetworkCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "network <networkId>",
-		Aliases: []string{"create"},
 		Short:   "Unbind a network from a template.",
 		Example: "  cisco-meraki-cli networks unbind network L_646829496481105433",
 		Args: func(cmd *cobra.Command, args []string) error {

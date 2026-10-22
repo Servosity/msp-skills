@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.18] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `ninjaone-cli alert reset create` ran `ninjaone-cli alert reset alert-set-activity-data`, POST `/v2/alert/{uid}/reset`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `ninjaone-cli alert reset alert-set-activity-data` (POST `/v2/alert/{uid}/reset`)
+  - `ninjaone-cli checklist archive-template` (POST `/v2/checklist/archive`)
+  - `ninjaone-cli device patch submit-ospatch-apply` (POST `/v2/device/{id}/patch/os/apply`)
+  - `ninjaone-cli device reboot devices` (POST `/v2/device/{id}/reboot/{mode}`)
+  - `ninjaone-cli device script run-on-device` (POST `/v2/device/{id}/script/run`; runs a script or built-in action on a device)
+  - `ninjaone-cli device windows-service control` (POST `/v2/device/{id}/windows-service/{serviceId}/control`)
+  - `ninjaone-cli devices node-approval-operation` (POST `/v2/devices/approval/{mode}`; approves or, with mode REJECT, rejects the listed devices waiting for approval)
+  - `ninjaone-cli document-templates archive document-template` (POST `/v2/document-templates/{documentTemplateId}/archive`)
+  - `ninjaone-cli knowledgebase archive-knowledge-base-articles` (POST `/v2/knowledgebase/articles/archive`)
+  - `ninjaone-cli organization archive-checklists` (POST `/v2/organization/archive`)
+
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.1.17] - 2026-10-13
 
 ### Changed

@@ -19,7 +19,6 @@ func newSubscriptionsServiceCreditDeductionsJsonDeductServiceCreditCmd(flags *ro
 
 	cmd := &cobra.Command{
 		Use:         "deduct-service-credit <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Deducts a service credit from the subscription in the specified amount.",
 		Example:     "  maxio-cli subscriptions service-credit-deductions-json deduct-service-credit 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "service-credit-deductions-json.deduct-service-credit", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/service_credit_deductions.json"},

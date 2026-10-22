@@ -17,7 +17,6 @@ func newRemoteScriptsRunCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "run",
-		Aliases:     []string{"create"},
 		Short:       "Run remote script",
 		Example:     "  sentinelone-cli remote-scripts run",
 		Annotations: map[string]string{"pp:endpoint": "remote-scripts.run", "pp:method": "POST", "pp:path": "/remote-scripts/execute"},

@@ -17,7 +17,6 @@ func newDocumentsDraftDocumentRevertToCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "document-revert-to <id>",
-		Aliases:     []string{"create"},
 		Short:       "Revert your document back to draft to continue editing it.",
 		Example:     "  pandadoc-cli documents draft document-revert-to iGsFiaV2hEEvQdhr2WAkMk",
 		Annotations: map[string]string{"pp:endpoint": "draft.document-revert-to", "pp:method": "POST", "pp:path": "/documents/{id}/draft"},

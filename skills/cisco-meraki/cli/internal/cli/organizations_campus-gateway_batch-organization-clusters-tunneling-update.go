@@ -18,9 +18,8 @@ func newOrganizationsCampusGatewayBatchOrganizationClustersTunnelingUpdateCmd(fl
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "batch-organization-clusters-tunneling-update <organizationId>",
-		Aliases: []string{"create"},
-		Short:   "Update MCG cluster-network tunnel settings for multiple networks",
+		Use:   "batch-organization-clusters-tunneling-update <organizationId>",
+		Short: "Update MCG cluster-network tunnel settings for multiple networks",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

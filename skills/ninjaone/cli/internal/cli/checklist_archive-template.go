@@ -18,7 +18,6 @@ func newChecklistArchiveTemplateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "archive-template",
-		Aliases:     []string{"create"},
 		Short:       "Archive a checklist template by id",
 		Example:     "  ninjaone-cli checklist archive-template",
 		Annotations: map[string]string{"pp:endpoint": "checklist.archive-template", "pp:method": "POST", "pp:path": "/v2/checklist/archive"},

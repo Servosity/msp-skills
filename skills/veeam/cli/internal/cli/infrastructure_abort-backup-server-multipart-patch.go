@@ -18,7 +18,6 @@ func newInfrastructureAbortBackupServerMultipartPatchCmd(flags *rootFlags) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "abort-backup-server-multipart-patch <backupServerUid>",
-		Aliases:     []string{"create"},
 		Short:       "Aborts an upload of a patch to Veeam Backup & Replication server with the specified UID.",
 		Example:     "  veeam-cli infrastructure abort-backup-server-multipart-patch 550e8400-e29b-41d4-a716-446655440000 --upload-uid 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "infrastructure.abort-backup-server-multipart-patch", "pp:method": "POST", "pp:path": "/infrastructure/backupServers/{backupServerUid}/patch/upload/multipart/abort"},

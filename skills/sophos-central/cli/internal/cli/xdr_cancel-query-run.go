@@ -18,7 +18,6 @@ func newXdrCancelQueryRunCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "cancel-query-run <runId>",
-		Aliases: []string{"create"},
 		Short:   "Cancel a query run by ID.",
 		Example: "  sophos-central-cli xdr cancel-query-run 648edffc-5c72-49b0-afca-65b659d1eba9",
 		Args: func(cmd *cobra.Command, args []string) error {

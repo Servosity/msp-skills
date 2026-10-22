@@ -33,7 +33,6 @@ func newAppwiseEventsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "events",
-		Aliases:     []string{"create"},
 		Short:       "Publishes content events that contain new or changed data in referenced resources.",
 		Example:     "  appdirect-cli appwise events",
 		Annotations: map[string]string{"pp:endpoint": "appwise.events", "pp:method": "POST", "pp:path": "/appwise/v2/data"},

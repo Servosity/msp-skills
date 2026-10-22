@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.8] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `servosity-cli contracts finalize create` ran `servosity-cli contracts finalize contracts`, POST `/contracts/{identifier}/finalize/`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `servosity-cli companies agents companies-update-latest` (POST `/companies/{id}/agents/update-latest/`; upgrades every backup agent in the company to the latest build)
+  - `servosity-cli contracts finalize contracts` (POST `/contracts/{identifier}/finalize/`)
+  - `servosity-cli resellers agents resellers-update-latest` (POST `/resellers/{id}/agents/update-latest/`; upgrades every backup agent under the reseller to the latest build)
+  - `servosity-cli restic-backups agent-service-stop restic-backups` (POST `/restic-backups/{id}/agent-service-stop/`)
+  - `servosity-cli restic-backups agent-service-stop-error restic-backups` (POST `/restic-backups/{id}/agent-service-stop-error/`)
+  - `servosity-cli restic-backups restic-interrupt restic-backups` (POST `/restic-backups/{id}/restic-interrupt/`)
+  - `servosity-cli restic-backups restic-migrate restic-backups` (POST `/restic-backups/{id}/restic-migrate/`)
+  - `servosity-cli restic-backups restic-prune restic-backups` (POST `/restic-backups/{id}/restic-prune/`)
+  - `servosity-cli restic-backups restic-repair-index restic-backups` (POST `/restic-backups/{id}/restic-repair-index/`)
+  - `servosity-cli restic-backups restic-repair-snapshots restic-backups` (POST `/restic-backups/{id}/restic-repair-snapshots/`)
+  - `servosity-cli restic-backups start-restore restic-backups` (POST `/restic-backups/{id}/start-restore/`)
+
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.6.7] - 2026-10-15
 
 ### Fixed

@@ -17,7 +17,6 @@ func newSubscriptionsPricePointsBulkResetSubscriptionComponentsCmd(flags *rootFl
 
 	cmd := &cobra.Command{
 		Use:         "bulk-reset-subscription-components <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Resets all of a subscription's components to use the current default.",
 		Example:     "  maxio-cli subscriptions price-points bulk-reset-subscription-components 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "price-points.bulk-reset-subscription-components", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/price_points/reset.json"},

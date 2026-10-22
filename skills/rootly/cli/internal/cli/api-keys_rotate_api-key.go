@@ -20,7 +20,6 @@ func newApiKeysRotateApiKeyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "api-key <id>",
-		Aliases:     []string{"create"},
 		Short:       "Rotate an API key's token.",
 		Example:     "  rootly-cli api-keys rotate api-key 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "rotate.api-key", "pp:method": "POST", "pp:path": "/v1/api_keys/{id}/rotate"},

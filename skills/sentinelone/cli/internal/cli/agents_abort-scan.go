@@ -17,7 +17,6 @@ func newAgentsAbortScanCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "abort-scan",
-		Aliases:     []string{"create"},
 		Short:       "Immediately stop a Full Disk Scan on all Agents that match the filter.",
 		Example:     "  sentinelone-cli agents abort-scan",
 		Annotations: map[string]string{"pp:endpoint": "agents.abort-scan", "pp:method": "POST", "pp:path": "/agents/actions/abort-scan"},

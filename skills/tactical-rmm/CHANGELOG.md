@@ -4,6 +4,26 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - 2026-10-21
+
+### Fixed
+- **Destructive commands no longer answer to `create`.** The generator had given these commands the hidden alias `create`, so typing `create` in their place ran a destructive or disruptive request (a delete, cancel, refund, stop, reboot, install or script run, for example) instead of creating anything. For example `tactical-rmm-cli agents reboot create` ran `tactical-rmm-cli agents reboot agents-agents`, POST `/agents/{agent_id}/reboot/`. The alias is removed; each command still runs under its own name. If a script reached one of these through `create`, call it by the name below:
+  - `tactical-rmm-cli agents meshcentral agents-agents` (POST `/agents/{agent_id}/meshcentral/`; recovers (reinstalls) the MeshCentral agent on the endpoint)
+  - `tactical-rmm-cli agents reboot agents-agents` (POST `/agents/{agent_id}/reboot/`)
+  - `tactical-rmm-cli agents shutdown agents` (POST `/agents/{agent_id}/shutdown/`)
+  - `tactical-rmm-cli alerts alerts-bulk` (POST `/alerts/bulk/`; bulk_action resolve or snooze on a list of alerts (Tactical RMM alerts/views.py BulkAlerts))
+  - `tactical-rmm-cli autotasks run autotasks` (POST `/autotasks/{pk}/run/`; runs an automated task on its agents now)
+  - `tactical-rmm-cli checks reset checks` (POST `/checks/{pk}/reset/`)
+  - `tactical-rmm-cli checks resetall checks` (POST `/checks/{agent_id}/resetall/`)
+  - `tactical-rmm-cli scripts test scripts` (POST `/scripts/{agent_id}/test/`; runs a script on an agent)
+  - `tactical-rmm-cli services services-agentid-2` (POST `/services/{agent_id}/{svcname}/`; starts, stops or restarts a Windows service on an agent)
+  - `tactical-rmm-cli software software-agentid-2` (POST `/software/{agent_id}/`; installs software on an agent)
+  - `tactical-rmm-cli software uninstall software` (POST `/software/{agent_id}/uninstall/`)
+  - `tactical-rmm-cli winupdate install winupdate` (POST `/winupdate/{agent_id}/install/`)
+
+### Security
+- **Rebuilt with Go 1.26.10 (was 1.26.9).** Go 1.26.10 fixes GO-2026-6809 in `crypto/x509` (it distrusts compromised intermediate certificates), which the security gate reports for every connector still built on Go 1.26.9. No other dependency moved.
+
 ## [0.1.4] - 2026-10-15
 
 ### Changed

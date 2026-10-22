@@ -16,9 +16,8 @@ func newPluginsCreateApiV1ByProviderLinkIdByCatchAllCmd(flags *rootFlags) *cobra
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "create-api-v1-by-provider-link-id-by-catch-all <providerLinkId> <catchAll>",
-		Aliases: []string{"create"},
-		Short:   "Create api v1 by provider link id by catch all",
+		Use:   "create-api-v1-by-provider-link-id-by-catch-all <providerLinkId> <catchAll>",
+		Short: "Create api v1 by provider link id by catch all",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  immybot-cli plugins create-api-v1-by-provider-link-id-by-catch-all https://example.com/resource example-value",
 		Annotations: map[string]string{"pp:endpoint": "plugins.create-api-v1-by-provider-link-id-by-catch-all", "pp:method": "POST", "pp:path": "/plugins/api/v1/{providerLinkId}/{catchAll}"},

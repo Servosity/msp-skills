@@ -18,7 +18,6 @@ func newProformaInvoicesVoidJsonVoidProformaInvoiceCmd(flags *rootFlags) *cobra.
 
 	cmd := &cobra.Command{
 		Use:         "void-proforma-invoice <proforma_invoice_uid>",
-		Aliases:     []string{"create"},
 		Short:       "This endpoint will void a proforma invoice that has the status 'draft'.",
 		Example:     "  maxio-cli proforma-invoices void-json void-proforma-invoice 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "void-json.void-proforma-invoice", "pp:method": "POST", "pp:path": "/proforma_invoices/{proforma_invoice_uid}/void.json"},

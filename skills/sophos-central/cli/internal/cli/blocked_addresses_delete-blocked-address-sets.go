@@ -20,7 +20,6 @@ func newBlockedAddressesDeleteBlockedAddressSetsCmd(flags *rootFlags) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:         "delete-blocked-address-sets",
-		Aliases:     []string{"create"},
 		Short:       "Remove multiple IP addresses or IP address ranges from being blocked.",
 		Example:     "  sophos-central-cli blocked-addresses delete-blocked-address-sets --ids '[\"787f819b-6107-43f6-a027-2ec782121251\"]'",
 		Args:        cobra.NoArgs,

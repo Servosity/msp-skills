@@ -22,7 +22,6 @@ func newSubscriptionsDelayedCancelJsonInitiateDelayedCancellationCmd(flags *root
 
 	cmd := &cobra.Command{
 		Use:         "initiate-delayed-cancellation <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Cancels a subscription at the end of the current billing period based on the subscription's current product.",
 		Example:     "  maxio-cli subscriptions delayed-cancel-json initiate-delayed-cancellation 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "delayed-cancel-json.initiate-delayed-cancellation", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/delayed_cancel.json"},

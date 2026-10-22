@@ -17,7 +17,6 @@ func newAccountsIncidentReportsPostV1AccountsAccountIdIdRemediationsBulkApproval
 
 	cmd := &cobra.Command{
 		Use:         "post-v1-accounts-account-id-id-remediations-bulk-approval <account_id> <incident_report_id>",
-		Aliases:     []string{"create"},
 		Short:       "Approve all unapproved remediations for an Incident Report.",
 		Annotations: map[string]string{"pp:endpoint": "incident-reports.post-v1-accounts-account-id-id-remediations-bulk-approval", "pp:method": "POST", "pp:path": "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -17,7 +17,6 @@ func newMaintenanceSessionsActionsCreateByIdRerunCmd(flags *rootFlags) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:         "create-by-id-rerun <sessionId> <actionId>",
-		Aliases:     []string{"create"},
 		Short:       "Create by id rerun",
 		Example:     "  immybot-cli maintenance-sessions actions create-by-id-rerun 42 42",
 		Annotations: map[string]string{"pp:endpoint": "actions.create-by-id-rerun", "pp:method": "POST", "pp:path": "/api/v1/maintenance-sessions/{sessionId}/actions/{actionId}/rerun"},

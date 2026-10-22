@@ -18,7 +18,6 @@ func newInvoicesIssueJsonIssueInvoiceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "issue-invoice <uid>",
-		Aliases:     []string{"create"},
 		Short:       "This endpoint allows you to issue an invoice that is in 'pending' or 'draft' status.",
 		Example:     "  maxio-cli invoices issue-json issue-invoice 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "issue-json.issue-invoice", "pp:method": "POST", "pp:path": "/invoices/{uid}/issue.json"},

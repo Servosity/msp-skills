@@ -17,6 +17,7 @@ the statusline, you do not need anything in this folder - see the root
 | `check_md_links.py` | Verifies relative Markdown links resolve. |
 | `check_dco.sh` | Verifies every commit carries a DCO `Signed-off-by` line. |
 | `check_mcp_gate.py` | Boots a skill's MCP server over stdio and asserts the tenant gate does not default-deny. Probes the read-only tools the gate wraps in-process; skips Cobra mirrors (the child CLI gates those) and destructive tools. Needs no credentials. |
+| `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also reports, without failing, command-local flags that shadow a global flag such as `--agent`. `--self-test` proves the classifier both ways. |
 | `ci_guards.sh` | Repo hygiene: no em-dashes, no personal paths, no obvious secrets. |
 | `gen_governance.py` | Drafts a skill's `governance.md` from its CLI surface. |
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |

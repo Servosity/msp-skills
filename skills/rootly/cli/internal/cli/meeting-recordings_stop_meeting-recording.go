@@ -17,7 +17,6 @@ func newMeetingRecordingsStopMeetingRecordingCmd(flags *rootFlags) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:         "meeting-recording <id>",
-		Aliases:     []string{"create"},
 		Short:       "Stop an active or paused recording.",
 		Example:     "  rootly-cli meeting-recordings stop meeting-recording 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "stop.meeting-recording", "pp:method": "POST", "pp:path": "/v1/meeting_recordings/{id}/stop"},

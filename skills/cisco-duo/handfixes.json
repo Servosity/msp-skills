@@ -1395,6 +1395,64 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "no-create-alias-on-destructive-commands",
+   "class": "create-alias-on-destructive",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 2 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (137 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: identity-verification cancel (POST /admin/v2/identity_verification/{user_id}/cancel); registered-devices block-device (POST /admin/v1/registered_devices/blocked/{compkey}).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/identity_verification_cancel.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/registered_devices_block-device.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/create_alias_destructive_test.go",
+     "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-teach-local-file-flags-blocked",
+   "class": "mcp-local-file-flags",
+   "summary": "teach --playbook-file / --playbook-notes-file and teach-playbook --playbook-file / --notes-file are listed in blockedDestinationFlags, so MCP tool schemas omit them and calls naming them are refused; the CLI keeps them",
+   "why": "Over MCP each of these flags reads any file the server account can reach: teach and teach-playbook copy the file into the local learn store, and playbook_list and recall hand it back, in read-only mode too because teach is a local-write tool. Reproduced on origin/main 6416a241b by driving the real MCP server over stdio with no credentials and a throwaway HOME: tools/call teach_playbook with notes-file pointing at a sentinel file outside HOME recorded it, and playbook_list returned the sentinel text; the other three tool/flag pairs leaked the same way. After the fix tools/list omits all four and each call answers 'unknown MCP parameter' without spawning the CLI. The same probe found 25 of the 30 connectors that ship teach already blocking these flags (by name, by mcp:write-flags or by the usage-text rule); this connector was one of the 5 that did not. Fleet precedent: google-workspace mcp-blocks-local-file-reads. CLI twin checked: teach-playbook --notes-file still reads the file for a local CLI user, which is intended. TestTeachFileFlagsNotSettableOverMCP fails 12 ways on the pre-fix shellout.go and passes after.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): include the teach family's local-file read flags in the generated blockedDestinationFlags floor.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-notes-file\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/teach_file_flags_test.go",
+     "contains": "func TestTeachFileFlagsNotSettableOverMCP(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

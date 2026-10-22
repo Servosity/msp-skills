@@ -17,9 +17,8 @@ func newInvoicesRefundsJsonRefundInvoiceCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "refund-invoice <uid>",
-		Aliases: []string{"create"},
-		Short:   "Refund an invoice, segment, or consolidated invoice.",
+		Use:   "refund-invoice <uid>",
+		Short: "Refund an invoice, segment, or consolidated invoice.",
 		// TODO: replace placeholder example values before relying on this for live dogfood.
 		Example:     "  maxio-cli invoices refunds-json refund-invoice 550e8400-e29b-41d4-a716-446655440000 --refund example-value",
 		Annotations: map[string]string{"pp:endpoint": "refunds-json.refund-invoice", "pp:method": "POST", "pp:path": "/invoices/{uid}/refunds.json"},

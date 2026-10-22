@@ -17,7 +17,6 @@ func newSubscriptionGroupsDelayedCancelJsonInitiateDelayedCancellationForGroupCm
 
 	cmd := &cobra.Command{
 		Use:         "initiate-delayed-cancellation-for-group <uid>",
-		Aliases:     []string{"create"},
 		Short:       "Schedules all subscriptions within the specified group to be canceled at the end of their billing period.",
 		Example:     "  maxio-cli subscription-groups delayed-cancel-json initiate-delayed-cancellation-for-group 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "delayed-cancel-json.initiate-delayed-cancellation-for-group", "pp:method": "POST", "pp:path": "/subscription_groups/{uid}/delayed_cancel.json"},

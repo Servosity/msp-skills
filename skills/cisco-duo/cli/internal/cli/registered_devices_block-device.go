@@ -18,7 +18,6 @@ func newRegisteredDevicesBlockDeviceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "block-device <compkey>",
-		Aliases: []string{"create"},
 		Short:   "Block a registered device.",
 		Example: "  cisco-duo-cli registered-devices block-device CMA1BD4TB2MNO3JZ1ZS9",
 		Args: func(cmd *cobra.Command, args []string) error {

@@ -281,6 +281,26 @@
      "not_contains": "this usually means auth is missing or invalid"
     }
    ]
+  },
+  {
+   "id": "no-create-alias-on-destructive-commands",
+   "class": "create-alias-on-destructive",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 1 command listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs it",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (137 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: agent-manager force-agent-update (POST /api/agent_manager/v2/agents/update:force).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/agent-manager_force-agent-update.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/create_alias_destructive_test.go",
+     "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

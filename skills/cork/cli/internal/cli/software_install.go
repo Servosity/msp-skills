@@ -24,7 +24,6 @@ func newSoftwareInstallCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "install",
-		Aliases:     []string{"create"},
 		Short:       "Install a software package on a single mapped device via the device's RMM integration.",
 		Example:     "  cork-cli software install --interpreter-key PS",
 		Annotations: map[string]string{"pp:endpoint": "software.install", "pp:method": "POST", "pp:path": "/software/installer/install"},

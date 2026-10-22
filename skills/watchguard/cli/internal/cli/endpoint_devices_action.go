@@ -22,7 +22,6 @@ func newEndpointDevicesActionCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "action",
-		Aliases:     []string{"create"},
 		Short:       "Initiates an action on the specified devices. For example, send an action to reboot a device.",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "endpoint_devices.action", "pp:method": "POST", "pp:path": "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/action", "pp:requires-input": "true"},

@@ -20,7 +20,6 @@ func newFireboxExceptionsDisableGlobalCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "disable-global",
-		Aliases:     []string{"create"},
 		Short:       "Disables the ability to manage and deploy global exceptions with the Firebox Management API for the specified device(s).",
 		Example:     "  watchguard-cli firebox-exceptions disable-global --devices '[12345,12346,12347,\"FBCL-12345\"]'",
 		Args:        cobra.NoArgs,

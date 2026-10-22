@@ -17,7 +17,6 @@ func newBillingCreateCancelSubscriptionCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create-cancel-subscription",
-		Aliases:     []string{"create"},
 		Short:       "Create cancel subscription",
 		Example:     "  immybot-cli billing create-cancel-subscription",
 		Annotations: map[string]string{"pp:endpoint": "billing.create-cancel-subscription", "pp:method": "POST", "pp:path": "/api/v1/billing/cancel-subscription"},

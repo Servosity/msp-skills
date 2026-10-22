@@ -18,9 +18,8 @@ func newIdentityVerificationCancelCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "cancel <user_id>",
-		Aliases: []string{"create"},
-		Short:   "Cancel an identity verification.",
+		Use:   "cancel <user_id>",
+		Short: "Cancel an identity verification.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

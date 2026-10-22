@@ -17,7 +17,6 @@ func newMeetingRecordingsLeaveMeetingRecordingCmd(flags *rootFlags) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:         "meeting-recording <id>",
-		Aliases:     []string{"create"},
 		Short:       "Remove the recording bot from the meeting entirely. Unlike stop, this immediately disconnects the bot.",
 		Example:     "  rootly-cli meeting-recordings leave meeting-recording 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "leave.meeting-recording", "pp:method": "POST", "pp:path": "/v1/meeting_recordings/{id}/leave"},

@@ -17,7 +17,6 @@ func newSingularityMarketplaceEnableOrDisableApplicationCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "enable-or-disable-application <mode>",
-		Aliases:     []string{"create"},
 		Short:       "Use this command to enable or disable application integrations that match the filter.",
 		Annotations: map[string]string{"pp:endpoint": "singularity-marketplace.enable-or-disable-application", "pp:method": "POST", "pp:path": "/singularity-marketplace/applications/{mode}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

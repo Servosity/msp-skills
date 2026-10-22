@@ -19,7 +19,6 @@ func newDevicesNodeApprovalOperationCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "node-approval-operation",
-		Aliases:     []string{"create"},
 		Short:       "Approve or reject devices that are waiting for approval",
 		Example:     "  ninjaone-cli devices node-approval-operation --mode APPROVE",
 		Annotations: map[string]string{"pp:endpoint": "devices.node-approval-operation", "pp:method": "POST", "pp:path": "/v2/devices/approval/{mode}"},

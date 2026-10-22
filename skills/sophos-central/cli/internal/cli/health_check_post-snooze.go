@@ -28,7 +28,6 @@ func newHealthCheckPostSnoozeCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "post-snooze",
-		Aliases:     []string{"create"},
 		Short:       "Snooze reminders for account health issues for a customer.",
 		Example:     "  sophos-central-cli health-check post-snooze",
 		Args:        cobra.NoArgs,

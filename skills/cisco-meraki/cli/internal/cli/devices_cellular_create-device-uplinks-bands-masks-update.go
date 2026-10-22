@@ -21,9 +21,8 @@ func newDevicesCellularCreateDeviceUplinksBandsMasksUpdateCmd(flags *rootFlags) 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "create-device-uplinks-bands-masks-update <serial>",
-		Aliases: []string{"create"},
-		Short:   "Update the cellular band masks for a device",
+		Use:   "create-device-uplinks-bands-masks-update <serial>",
+		Short: "Update the cellular band masks for a device",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

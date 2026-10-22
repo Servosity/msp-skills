@@ -17,7 +17,6 @@ func newAlertsAlertsBulkCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "alerts-bulk",
-		Aliases:     []string{"create"},
 		Short:       "POST /alerts/bulk/",
 		Example:     "  tactical-rmm-cli alerts alerts-bulk",
 		Annotations: map[string]string{"pp:endpoint": "alerts.alerts-bulk", "pp:method": "POST", "pp:path": "/alerts/bulk/"},

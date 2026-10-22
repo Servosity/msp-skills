@@ -17,7 +17,6 @@ func newSystemCreateDisableImmySupportAccessCmd(flags *rootFlags) *cobra.Command
 
 	cmd := &cobra.Command{
 		Use:         "create-disable-immy-support-access",
-		Aliases:     []string{"create"},
 		Short:       "Create disable immy support access",
 		Example:     "  immybot-cli system create-disable-immy-support-access",
 		Annotations: map[string]string{"pp:endpoint": "system.create-disable-immy-support-access", "pp:method": "POST", "pp:path": "/api/v1/system/disable-immy-support-access"},

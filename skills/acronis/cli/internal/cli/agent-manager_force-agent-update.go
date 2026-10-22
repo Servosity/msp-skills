@@ -24,7 +24,6 @@ func newAgentManagerForceAgentUpdateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "force-agent-update",
-		Aliases:     []string{"create"},
 		Short:       "Launch a forced agent update bypassing maintenance windows for specified agents.",
 		Example:     "  acronis-cli agent-manager force-agent-update",
 		Annotations: map[string]string{"pp:endpoint": "agent-manager.force-agent-update", "pp:method": "POST", "pp:path": "/api/agent_manager/v2/agents/update:force"},

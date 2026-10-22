@@ -21,7 +21,6 @@ func newMigrationsCreateReceivingJobCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create-receiving-job",
-		Aliases:     []string{"create"},
 		Short:       "Start a migration job in the receiving tenant.",
 		Example:     "  sophos-central-cli migrations create-receiving-job --endpoints '[\"cb5bb918-8aee-4cad-b21b-875d1f6938b2\",\"30fd930b-5325-46b7-842b-3c6e93c99947\",\"70941003-9859-40d9-88ae-de3fcd1f527e\",\"91c52a76-78bf-4bed-9446-b9e91f814940\",\"1fc3237d-823c-451a-8726-f83ec9e1fe13\"]' --from-tenant 48bebbb0-f7b6-49c5-aec0-315858f73457",
 		Args:        cobra.NoArgs,

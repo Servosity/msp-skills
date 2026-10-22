@@ -19,7 +19,6 @@ func newSubscriptionsPurgeJsonPurgeSubscriptionCmd(flags *rootFlags) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:         "purge-subscription <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Purges an individual subscription for sites in test mode. Provide the subscription ID in the url.",
 		Example:     "  maxio-cli subscriptions purge-json purge-subscription 550e8400-e29b-41d4-a716-446655440000 --ack 42",
 		Annotations: map[string]string{"pp:endpoint": "purge-json.purge-subscription", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/purge.json"},

@@ -26,7 +26,6 @@ func newSubscriptionsMigrationsJsonMigrateSubscriptionProductCmd(flags *rootFlag
 
 	cmd := &cobra.Command{
 		Use:         "migrate-subscription-product <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Migrates a subscription to a different product.",
 		Example:     "  maxio-cli subscriptions migrations-json migrate-subscription-product 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "migrations-json.migrate-subscription-product", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/migrations.json"},

@@ -18,7 +18,6 @@ func newSubscriptionGroupsCancelJsonCancelSubscriptionsInGroupCmd(flags *rootFla
 
 	cmd := &cobra.Command{
 		Use:         "cancel-subscriptions-in-group <uid>",
-		Aliases:     []string{"create"},
 		Short:       "Cancels all subscriptions within the specified group immediately.",
 		Example:     "  maxio-cli subscription-groups cancel-json cancel-subscriptions-in-group 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "cancel-json.cancel-subscriptions-in-group", "pp:method": "POST", "pp:path": "/subscription_groups/{uid}/cancel.json"},

@@ -17,7 +17,6 @@ func newChecksResetChecksCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "checks <pk>",
-		Aliases:     []string{"create"},
 		Short:       "POST /checks/{pk}/reset/",
 		Example:     "  tactical-rmm-cli checks reset checks 42",
 		Annotations: map[string]string{"pp:endpoint": "reset.checks", "pp:method": "POST", "pp:path": "/checks/{pk}/reset/"},

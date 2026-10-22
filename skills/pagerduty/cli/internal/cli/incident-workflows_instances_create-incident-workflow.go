@@ -20,7 +20,6 @@ func newIncidentWorkflowsInstancesCreateIncidentWorkflowCmd(flags *rootFlags) *c
 
 	cmd := &cobra.Command{
 		Use:         "create-incident-workflow <id>",
-		Aliases:     []string{"create"},
 		Short:       "Start an Instance of an Incident Workflow. Sometimes referred to as 'triggering a workflow on an incident.",
 		Example:     "  pagerduty-cli incident-workflows instances create-incident-workflow 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "instances.create-incident-workflow", "pp:method": "POST", "pp:path": "/incident_workflows/{id}/instances"},

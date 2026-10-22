@@ -17,7 +17,6 @@ func newSubscriptionsCancelDunningJsonCancelDunningCmd(flags *rootFlags) *cobra.
 
 	cmd := &cobra.Command{
 		Use:         "cancel-dunning <subscription_id>",
-		Aliases:     []string{"create"},
 		Short:       "Cancels the active dunning process for a subscription and sets it to active.",
 		Example:     "  maxio-cli subscriptions cancel-dunning-json cancel-dunning 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "cancel-dunning-json.cancel-dunning", "pp:method": "POST", "pp:path": "/subscriptions/{subscription_id}/cancel_dunning.json"},

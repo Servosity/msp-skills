@@ -18,7 +18,6 @@ func newSoftwareAddSpecialStaticPackageCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "add-special-static-package <staticPackageId>",
-		Aliases: []string{"create"},
 		Short:   "Add a special package by token, supplied by Sophos support. This is a one-way operation.",
 		Example: "  sophos-central-cli software add-special-static-package 3cbd3cba-a02d-4a58-a4a2-3667021e554c",
 		Args: func(cmd *cobra.Command, args []string) error {

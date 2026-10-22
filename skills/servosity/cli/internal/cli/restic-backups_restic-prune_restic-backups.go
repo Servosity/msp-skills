@@ -17,7 +17,6 @@ func newResticBackupsResticPruneResticBackupsCmd(flags *rootFlags) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:         "restic-backups <id>",
-		Aliases:     []string{"create"},
 		Short:       "Restic backups",
 		Example:     "  servosity-cli restic-backups restic-prune restic-backups 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "restic-prune.restic-backups", "pp:method": "POST", "pp:path": "/restic-backups/{id}/restic-prune/"},

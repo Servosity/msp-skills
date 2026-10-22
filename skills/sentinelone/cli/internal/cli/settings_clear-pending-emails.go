@@ -17,7 +17,6 @@ func newSettingsClearPendingEmailsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "clear-pending-emails",
-		Aliases:     []string{"create"},
 		Short:       "Clear (discard without sending) pending email notifications for the given Sites (to get the IDs, run 'sites')",
 		Example:     "  sentinelone-cli settings clear-pending-emails",
 		Annotations: map[string]string{"pp:endpoint": "settings.clear-pending-emails", "pp:method": "POST", "pp:path": "/settings/notifications/cancel-pending-emails"},

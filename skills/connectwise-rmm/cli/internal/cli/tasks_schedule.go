@@ -46,7 +46,6 @@ func newTasksScheduleCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "schedule",
-		Aliases:     []string{"create"},
 		Short:       "Schedule a script or template to run on target endpoints. Scope: platform.automation.create.",
 		Example:     "  connectwise-rmm-cli tasks schedule",
 		Args:        cobra.NoArgs,

@@ -20,7 +20,6 @@ func newEventOrchestrationsIntegrationsMigrateOrchestrationCmd(flags *rootFlags)
 
 	cmd := &cobra.Command{
 		Use:         "migrate-orchestration <id>",
-		Aliases:     []string{"create"},
 		Short:       "Move an Integration and its Routing Key from the Event Orchestration specified in the request payload",
 		Example:     "  pagerduty-cli event-orchestrations integrations migrate-orchestration 550e8400-e29b-41d4-a716-446655440000 --integration-id 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "integrations.migrate-orchestration", "pp:method": "POST", "pp:path": "/event_orchestrations/{id}/integrations/migration"},
