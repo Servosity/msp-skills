@@ -4,118 +4,358 @@ name: security-gate
 # connector diff may carry a poisoned fix that would ship to downstream MSPs. This gate
 # runs deterministic supply-chain + dangerous-pattern checks and FAILS the PR on any P1.
 #
-# Runs on EVERY PR (no paths filter) so it always reports a conclusion and is safe to
-# make a REQUIRED status check in branch protection on `main`. On PRs that touch no
-# connector/installer files it short-circuits to success without the scanner install.
+# Runs on EVERY PR (no paths filter) so it always reports a conclusion, and the one
+# REQUIRED status check on `main` is the `security-gate` summary job at the bottom.
 # Pair it with a `*-v*` tag-protection rule so a release tag cannot bypass it.
+#
+# Shape (2026-10-21):
+#   scope      what changed: the connector slugs, and whether gate logic changed.
+#   guard      fails by design when this PR edits gate logic (it cannot approve itself).
+#   selftest   on gate-logic PRs only: the gate's own both-directions proof.
+#   scanners   builds the PINNED scanners once per run, cold, digest-checked.
+#   gate       one row per touched connector, at most 16 at a time.
+#   security-gate  the summary. It always runs and fails unless every expected
+#              connector row ran and passed; a skipped, cancelled, timed-out, failed
+#              or missing row fails it. Its logic is check_security_gate.py
+#              --summarize, proved by that script's --self-test.
 
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      base:
+        description: "Commit or ref to diff against; the run gates base...HEAD"
+        required: true
 
 permissions:
   contents: read
 
+env:
+  # PINNED, not @latest, and the SAME pins as release.yml (the self-test fails if the
+  # two drift). Reviewed 2026-10-21 by running both the previous PR-gate versions
+  # (@latest) and the release pins over all 84 connectors: identical findings.
+  #   gosec v2.29.0       was already both @latest and the release pin.
+  #   govulncheck v1.9.0  v1.7.0..v1.9.0 is four dependency-refresh commits; both exit
+  #                       0 on all 84 Go 1.26.10 connectors and both exit 3 with
+  #                       GO-2026-6809 on un-bumped trees under go1.26.9.
+  #   osv-scanner v1.9.2  newest on the v1 module path the gate parses (v2 is a
+  #                       different module with a different CLI); unchanged.
+  #   semgrep 1.180.0     1.174.0, 1.179.0, 1.180.0 and 1.182.0 report the same 107
+  #                       findings; 1.180.0 is the newest at least 14 days old.
+  # To bump: change BOTH workflows, re-run the fleet comparison, land as a reviewed PR.
+  GOSEC_VERSION: "v2.29.0"
+  GOVULNCHECK_VERSION: "v1.9.0"
+  OSV_SCANNER_VERSION: "v1.9.2"
+  SEMGREP_VERSION: "1.180.0"
+  # The scanners are built COLD on every run, with exactly this Go, -trimpath and
+  # CGO_ENABLED=0, which makes the binaries bit-for-bit reproducible, so their
+  # linux/amd64 sha256 is pinned and any mismatch is FATAL. There is deliberately no
+  # cache: a PR can write its own cache scope from an earlier commit, and restoring
+  # an archive can write files outside the cache path (actions/cache extracts with
+  # tar -P), for example a Go env file that redirects GOPROXY, before any check runs.
+  SCANNER_GO: "1.26.10"
+  GOSEC_SHA256: "b2fbd6a9c31afa2e3545a5e3dfc7012f121a4503082ddc740707081f72205ea4"
+  GOVULNCHECK_SHA256: "bd71082bf920ffa395370acd0a57f2216f70b271dbfb17bca433b984f37c07ba"
+  OSV_SCANNER_SHA256: "3a3488b3f6b615eda9497c074676f54a95a52a74ce3f38d595def87cbbfef160"
+
 jobs:
-  security-gate:
+  scope:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      base: ${{ steps.scope.outputs.base }}
+      relevant: ${{ steps.scope.outputs.relevant }}
+      slugs_json: ${{ steps.scope.outputs.slugs_json }}
+      gate_logic: ${{ steps.scope.outputs.gate_logic }}
     steps:
       - name: Checkout (full history for diff)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Scope - what did this PR change?
+      - name: Scope - what did this change touch?
         id: scope
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          INPUT_BASE: ${{ inputs.base }}
         run: |
-          set -uo pipefail
-          changed="$(git diff --name-only "${BASE_SHA}...HEAD")"
-          # Gate-LOGIC changes cannot be self-approved (the workflow runs the PR's own
-          # copy of the script). Hard-fail so a security maintainer (CODEOWNERS) reviews
-          # them. DATA files (dep_allowlist.json, security_suppressions.json) are NOT
-          # hard-failed: the gate reads them from the trusted base (--policy-base), so an
-          # in-PR edit cannot take effect, and CODEOWNERS still gates them.
-          if printf '%s\n' "$changed" | grep -qE '^(tools/maintainer/check_security_gate\.py|\.semgrep\.yml|\.github/workflows/security-gate\.yml|\.github/workflows/release\.yml|\.github/CODEOWNERS)$'; then
+          set -euo pipefail
+          python3 -I - <<'PY'
+          import json, os, re, subprocess, sys
+          base = os.environ["PR_BASE"] if os.environ["EVENT"] == "pull_request" else os.environ["INPUT_BASE"]
+          p = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"],
+                             capture_output=True, text=True)
+          if not base or p.returncode != 0:
+              print(f"::error::cannot resolve the base {base!r}")
+              sys.exit(1)
+          sha = p.stdout.strip()
+          # -z: raw, unquoted names. Without it git quotes unusual names and a
+          # connector whose every changed path is quoted would never be gated.
+          # --no-renames: a rename lists both ends, so moving a file OUT of a
+          # connector still gates that connector.
+          d = subprocess.run(["git", "diff", "-z", "--no-renames", "--name-only", f"{sha}...HEAD"],
+                             capture_output=True, check=True)
+          changed = [x.decode("utf-8", "surrogateescape") for x in d.stdout.split(b"\0") if x]
+          # Gate LOGIC cannot approve itself: the rows run the PR's own copy of the
+          # script and this workflow. DATA files (dep_allowlist.json,
+          # security_suppressions.json) are read from the trusted base with
+          # --policy-base, so an in-PR edit cannot take effect, and CODEOWNERS still
+          # gates them.
+          logic = re.compile(r"^(tools/maintainer/check_security_gate\.py"
+                             r"|\.semgrep\.yml|\.github/workflows/security-gate\.yml"
+                             r"|\.github/workflows/release\.yml|\.github/CODEOWNERS)$", re.S)
+          gate_logic = any(logic.match(f) for f in changed)
+          # Valid slug charset only, so a hostile path cannot smuggle anything downstream.
+          slugs = sorted({m.group(1) for f in changed
+                          for m in [re.match(r"^skills/([a-z0-9][a-z0-9-]*)/", f)] if m})
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"base={sha}\n")
+              out.write(f"gate_logic={'true' if gate_logic else 'false'}\n")
+              out.write(f"relevant={'true' if slugs else 'false'}\n")
+              out.write(f"slugs_json={json.dumps(slugs)}\n")
+          print(f"base {sha}; gate logic changed: {gate_logic}; connectors: {len(slugs)}")
+          PY
+
+  guard:
+    needs: scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Gate-logic changes cannot approve themselves
+        env:
+          GATE_LOGIC: ${{ needs.scope.outputs.gate_logic }}
+        run: |
+          if [ "$GATE_LOGIC" != "false" ]; then
             echo "::error::This PR modifies the security-gate LOGIC. That cannot be self-"
             echo "::error::approved - a security maintainer (CODEOWNERS) must review it;"
             echo "::error::the gate fails by design until then. Split unrelated changes out."
             exit 1
           fi
-          # Connectors / installers touched? Restrict to the valid slug charset so a
-          # hostile path cannot smuggle anything downstream.
-          slugs="$(printf '%s\n' "$changed" | sed -nE 's#^skills/([a-z0-9][a-z0-9-]*)/.*#\1#p' | sort -u)"
-          if [ -n "$slugs" ]; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-            { echo "slugs<<SLUGS_EOF"; printf '%s\n' "$slugs"; echo "SLUGS_EOF"; } >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
-            echo "No connector/installer changes - security gate trivially passes."
-          fi
+          echo "No gate-logic change."
 
-      - name: Setup Go
-        if: steps.scope.outputs.relevant == 'true'
-        uses: actions/setup-go@v5
+  selftest:
+    needs: scope
+    if: needs.scope.outputs.gate_logic == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Gate self-test (the summary, workflow pins and diff scope, both directions)
+        run: python3 -I tools/maintainer/check_security_gate.py --self-test
+
+  scanners:
+    needs: scope
+    if: needs.scope.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "0"
+      GOFLAGS: -trimpath
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.SCANNER_GO }}
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build each pinned scanner cold (bounded retries; any digest mismatch is fatal)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/scanner-build"
+          out="$RUNNER_TEMP/handoff/bin"
+          mkdir -p "$bin" "$out"
+          [ "$(go env GOVERSION)" = "go$SCANNER_GO" ] || { echo "::error::scanner toolchain is $(go env GOVERSION), want go$SCANNER_GO"; exit 1; }
+          sha() { sha256sum "$1" | cut -d' ' -f1; }
+          modver() { go version -m "$1" | awk '$1 == "mod" { print $2, $3 }'; }
+          get() {  # name package module version pinned-sha256
+            for attempt in 1 2 3; do
+              rm -f "$bin/$1"
+              if GOBIN="$bin" go install "$2@$4" && [ "$(modver "$bin/$1")" = "$3 $4" ]; then
+                if [ "$(sha "$bin/$1")" = "$5" ]; then
+                  echo "$1 $4: built cold; matches the reviewed sha256"
+                  return 0
+                fi
+                # Not a flake to retry around: the source is pinned and checksum-
+                # verified and the build is reproducible, so a different digest
+                # means a different scanner. Never hand it to the rows.
+                echo "::error::$1 $4 built to sha256 $(sha "$bin/$1"), not the reviewed $5 (fail-closed)"
+                return 1
+              fi
+              echo "::warning::$1 $4 install attempt $attempt failed"
+              sleep $((attempt * 15))
+            done
+            echo "::error::could not install $1 $4 after 3 attempts; the gate cannot run (fail-closed)"
+            return 1
+          }
+          get gosec github.com/securego/gosec/v2/cmd/gosec github.com/securego/gosec/v2 "$GOSEC_VERSION" "$GOSEC_SHA256"
+          get govulncheck golang.org/x/vuln/cmd/govulncheck golang.org/x/vuln "$GOVULNCHECK_VERSION" "$GOVULNCHECK_SHA256"
+          get osv-scanner github.com/google/osv-scanner/cmd/osv-scanner github.com/google/osv-scanner "$OSV_SCANNER_VERSION" "$OSV_SCANNER_SHA256"
+          for t in gosec govulncheck osv-scanner; do install -m 0755 "$bin/$t" "$out/$t"; done
+          sha256sum "$out"/*
+      - name: Download the pinned semgrep wheels once (bounded retries)
+        run: |
+          set -uo pipefail
+          # semgrep is deliberately not a REQUIRED scanner (its rules mirror the
+          # always-on builtin patterns; see REQUIRED_SCANNERS in check_security_gate.py),
+          # so a failure here warns and the rows run without it, as before.
+          wheels="$RUNNER_TEMP/handoff/wheels"
+          for attempt in 1 2 3; do
+            if python3 -I -m pip download --quiet --only-binary=:all: --dest "$wheels" "semgrep==$SEMGREP_VERSION"; then exit 0; fi
+            echo "::warning::semgrep wheel download attempt $attempt failed"
+            sleep $((attempt * 15))
+          done
+          echo "::warning::semgrep $SEMGREP_VERSION wheels unavailable; rows will run without semgrep"
+          rm -rf "$wheels"
+      - name: Hand the scanners to the connector rows
+        uses: actions/upload-artifact@v4
+        with:
+          name: scanners
+          path: ${{ runner.temp }}/handoff
+          retention-days: 1
+          if-no-files-found: error
+
+  gate:
+    name: gate (${{ matrix.slug }})
+    needs: [scope, scanners]
+    if: needs.scope.outputs.relevant == 'true' && needs.scanners.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # A cap, so a fleet-wide PR does not take the org's whole runner pool from the
+      # release and CI builds.
+      max-parallel: 16
+      matrix:
+        slug: ${{ fromJSON(needs.scope.outputs.slugs_json) }}
+    steps:
+      - name: Checkout (full history for diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-
-      - name: Install scanners (gosec, govulncheck, osv-scanner, semgrep)
-        if: steps.scope.outputs.relevant == 'true'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch the pinned scanners
+        uses: actions/download-artifact@v4
+        with:
+          name: scanners
+          path: ${{ runner.temp }}/scanners
+      - name: Put the pinned scanners on PATH (verified)
         run: |
-          set -uo pipefail
-          go install github.com/securego/gosec/v2/cmd/gosec@latest || echo "gosec install failed (non-fatal)"
-          go install golang.org/x/vuln/cmd/govulncheck@latest || echo "govulncheck install failed (non-fatal)"
-          go install github.com/google/osv-scanner/cmd/osv-scanner@latest || echo "osv-scanner install failed (non-fatal)"
-          python3 -m pip install --quiet semgrep || echo "semgrep install failed (non-fatal)"
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-      - name: Pre-warm scanner caches for changed connectors
-        if: steps.scope.outputs.relevant == 'true'
-        env:
-          SLUGS: ${{ steps.scope.outputs.slugs }}
-        run: |
-          set -uo pipefail
-          # gosec + govulncheck load each connector through golang.org/x/tools/go/packages.
-          # On a cold runner the FIRST (heaviest) connector's load - download + typecheck of
-          # a large dependency tree (e.g. axcient: surf + quic-go + utls + modernc/sqlite ->
-          # modernc/libc) - can exceed a scanner's timeout and fail-close as scanner-error
-          # (exit 124), which is NOT a real finding. `go vet ./...` drives the SAME
-          # go/packages loader, so it warms the module + export-data caches the scanners
-          # reuse. (A plain `go build` warms only the compile cache, not the go/packages
-          # export data - which is the actual cold cost, why an earlier build-based pre-warm
-          # did not help.) vet runs no connector code, so it cannot weaken the gate.
-          for s in $SLUGS; do
-            if [ -f "skills/$s/cli/go.mod" ]; then
-              echo "::group::pre-warm $s"
-              (cd "skills/$s/cli" && go vet ./...) >/dev/null 2>&1 || echo "pre-warm vet for $s reported issues (non-fatal)"
-              echo "::endgroup::"
-            fi
-          done
-
-      - name: Run the deterministic security gate (diff-scoped, base-trusted policy)
-        if: steps.scope.outputs.relevant == 'true'
-        env:
-          # Pass slugs via env (NOT ${{ }} inlined into the script) so a hostile dir
-          # name can never be interpreted as a command. check_security_gate also
-          # re-validates each slug.
-          SLUGS: ${{ steps.scope.outputs.slugs }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -uo pipefail
-          rc=0
-          for s in $SLUGS; do
-            echo "::group::security-gate $s"
-            # --require-scanners: a missing/erroring required scanner (gosec/govulncheck/
-            # osv-scanner) is a P1, not a silent skip - a broken install cannot disable
-            # the gate. govulncheck (reachability) + osv (presence, demoted) honor it.
-            python3 tools/maintainer/check_security_gate.py \
-              --slug "$s" --base "$BASE_SHA" --policy-base "$BASE_SHA" --require-scanners || rc=1
-            echo "::endgroup::"
-          done
-          if [ "$rc" -ne 0 ]; then
-            echo "::error::security-gate found P1 finding(s) - see logs. A poisoned/insecure"
-            echo "::error::change must not merge. Fix the finding, or add a vetted entry to"
-            echo "::error::tools/maintainer/security_suppressions.json in a separate, reviewed PR."
+          set -euo pipefail
+          bin="$RUNNER_TEMP/scanners/bin"
+          # Exactly the three scanners, nothing else, ever goes on PATH.
+          [ "$(find "$bin" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')" = "gosec govulncheck osv-scanner " ] \
+            || { echo "::error::unexpected files in the scanner handoff (fail-closed)"; exit 1; }
+          chmod +x "$bin"/gosec "$bin"/govulncheck "$bin"/osv-scanner
+          check() { [ "$(sha256sum "$bin/$1" | cut -d' ' -f1)" = "$2" ] || { echo "::error::$1 does not match its reviewed sha256 (fail-closed)"; exit 1; }; }
+          check gosec "$GOSEC_SHA256"
+          check govulncheck "$GOVULNCHECK_SHA256"
+          check osv-scanner "$OSV_SCANNER_SHA256"
+          echo "$bin" >> "$GITHUB_PATH"
+          if [ -d "$RUNNER_TEMP/scanners/wheels" ]; then
+            python3 -I -m pip install --quiet --no-index --find-links "$RUNNER_TEMP/scanners/wheels" "semgrep==$SEMGREP_VERSION" \
+              || echo "::warning::semgrep install failed (semgrep is not a required scanner)"
           fi
-          exit "$rc"
+      - name: Pre-warm scanner caches for this connector
+        env:
+          SLUG: ${{ matrix.slug }}
+        run: |
+          set -uo pipefail
+          # gosec + govulncheck load the connector through golang.org/x/tools/go/packages.
+          # On a cold runner the load of a large dependency tree (e.g. axcient: surf +
+          # quic-go + utls + modernc/sqlite -> modernc/libc) can exceed a scanner's
+          # timeout and fail-close as scanner-error (exit 124), which is NOT a real
+          # finding. `go vet ./...` drives the SAME go/packages loader, so it warms the
+          # module + export-data caches the scanners reuse. vet runs no connector code,
+          # so it cannot weaken the gate.
+          if [ -f "skills/$SLUG/cli/go.mod" ]; then
+            (cd "skills/$SLUG/cli" && go vet ./...) >/dev/null 2>&1 || echo "pre-warm vet for $SLUG reported issues (non-fatal)"
+          fi
+      - name: Run the deterministic security gate (diff-scoped, base-trusted policy)
+        env:
+          # Passed via env (NOT ${{ }} inlined into the script) so a hostile dir name
+          # can never be interpreted as a command.
+          SLUG: ${{ matrix.slug }}
+          BASE_SHA: ${{ needs.scope.outputs.base }}
+        run: |
+          set -uo pipefail
+          verdict=block
+          # --require-scanners: a missing/erroring required scanner (gosec/govulncheck/
+          # osv-scanner) is a P1, not a silent skip - a broken install cannot disable
+          # the gate. --policy-base: suppressions and the dependency allowlist come
+          # from the base.
+          if python3 -I tools/maintainer/check_security_gate.py \
+               --slug "$SLUG" --base "$BASE_SHA" --policy-base "$BASE_SHA" --require-scanners; then
+            verdict=pass
+          else
+            echo "::error::security-gate found P1 finding(s) in $SLUG - see the log above. A"
+            echo "::error::poisoned/insecure change must not merge. Fix the finding, or add a vetted"
+            echo "::error::entry to tools/maintainer/security_suppressions.json in a separate, reviewed PR."
+          fi
+          mkdir -p "$RUNNER_TEMP/verdict"
+          VERDICT="$verdict" python3 -I -c 'import json, os; print(json.dumps({"slug": os.environ["SLUG"], "verdict": os.environ["VERDICT"], "sha": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"]}))' \
+            > "$RUNNER_TEMP/verdict/verdict-$SLUG.json"
+          [ "$verdict" = pass ]
+      - name: Report this connector's verdict to the summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verdict-${{ matrix.slug }}
+          path: ${{ runner.temp }}/verdict
+          retention-days: 1
+          if-no-files-found: ignore
+          overwrite: true
+
+  summary:
+    # The REQUIRED check. Only a pull_request run may report it under that name, so a
+    # manually dispatched run (which a write collaborator can point at any base) can
+    # never satisfy branch protection.
+    name: ${{ github.event_name == 'pull_request' && 'security-gate' || 'security-gate-manual' }}
+    needs: [scope, guard, selftest, scanners, gate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: The guard must have passed (checked before any repository code runs)
+        env:
+          GUARD: ${{ needs.guard.result }}
+          BASE: ${{ needs.scope.outputs.base }}
+        run: |
+          # The summary is the required check, so it must not trust the PR: a PR
+          # that edits check_security_gate.py fails the guard, and that failure is
+          # decided here, by the workflow, before any repository script runs.
+          if [ "$GUARD" != "success" ] || ! printf '%s' "$BASE" | grep -qxE '[0-9a-f]{40}'; then
+            echo "::error::gate-logic guard did not pass ($GUARD) or the base is unknown; failing closed"
+            exit 1
+          fi
+      - name: Checkout the BASE copy of the summary logic (never the PR's)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.scope.outputs.base }}
+          persist-credentials: false
+          sparse-checkout: tools/maintainer
+      - name: Collect the connector verdicts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: verdict-*
+          path: ${{ runner.temp }}/verdicts
+          merge-multiple: true
+      - name: Fail closed unless every expected connector row ran and passed
+        env:
+          GATE_NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I tools/maintainer/check_security_gate.py --summarize \
+            --verdicts "$RUNNER_TEMP/verdicts" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"

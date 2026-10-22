@@ -34,8 +34,11 @@ does not exist, unfixable by any contributor - while the Python that actually sh
 completely unread. That was false-RED and false-GREEN in the same verdict.
 
 Suppressions are BASE-OWNED, not self-grantable: a finding is suppressed only if its
-(file, rule) is listed in tools/maintainer/security_suppressions.json. Inline `// #nosec`
-is NOT honored (an attacker could add it in their own diff).
+(file, rule) is listed in tools/maintainer/security_suppressions.json. The builtin rules
+ignore inline `// #nosec`. KNOWN GAP: gosec itself still honors inline `#nosec` and
+`//gosec:disable` (it runs without -nosec), so a finding annotated that way never
+reaches this gate. The fleet carries about 1,200 such annotations, so closing it needs
+a vetted suppression wave and is tracked as its own change.
 
 Folded in when installed (CI installs them): gosec, govulncheck, osv-scanner, semgrep.
   * govulncheck = the REACHABILITY gate. Run in DEFAULT text/symbol mode: exit 3 = a
@@ -54,6 +57,8 @@ Usage:
     check_security_gate.py --all                                 # audit every connector
     check_security_gate.py --rebuild-allowlist                   # seed dep_allowlist.json
     check_security_gate.py --slug ninjaone --json
+    check_security_gate.py --self-test                           # summary + workflows, both ways
+    check_security_gate.py --summarize --verdicts DIR --sha S --run-id N  # workflow summary job
 
 Exit code: 0 = pass (no P1), 1 = block (>=1 P1), 2 = usage error.
 """
@@ -64,8 +69,10 @@ import ast
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -233,13 +240,26 @@ def load_suppressions(ref: str | None = None) -> set[tuple[str, str]]:
 
 
 def changed_files(base: str, slug: str) -> list[Path] | None:
-    code, out, _ = run(["git", "-C", str(REPO), "diff", "--name-only", f"{base}...HEAD"])
-    if code != 0:
-        code, out, _ = run(["git", "-C", str(REPO), "diff", "--name-only", base])
-        if code != 0:
+    # -z and bytes: raw names, split only on NUL. Without -z git quotes unusual names
+    # ("skills/x/\303\251.py"), and decoding as text would turn a carriage return
+    # inside a name into a newline; either way that file is never scanned in diff
+    # mode. --no-renames: a rename lists both ends, so a file moved out of this
+    # connector still counts as a change to it.
+    git = ["git", "-C", str(REPO), "-c", "core.quotePath=false", "diff", "-z", "--no-renames", "--name-only"]
+    out = None
+    for rng in (f"{base}...HEAD", base):
+        try:
+            p = subprocess.run(git + [rng], capture_output=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired):
             return None
+        if p.returncode == 0:
+            out = p.stdout
+            break
+    if out is None:
+        return None
     prefix = f"skills/{slug}/"
-    return [REPO / f for f in out.splitlines() if f.startswith(prefix)]
+    names = [os.fsdecode(x) for x in out.split(b"\0") if x]
+    return [REPO / f for f in names if f.startswith(prefix)]
 
 
 def scan_go_patterns(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
@@ -743,6 +763,347 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
     return findings
 
 
+# --- the security-gate workflow's summary job, and the gate's self-test ------------
+
+def summarize_gate(needs: dict, verdict_dir: Path, sha: str, run_id: str) -> list[str]:
+    """The fail-closed verdict of the security-gate workflow's summary job.
+
+    `needs` is the workflow's toJSON(needs). Returns the list of problems; the
+    summary passes only when it is empty. A connector row that was skipped,
+    cancelled, timed out, failed, or never reported counts as a failure."""
+    problems: list[str] = []
+
+    def result(job: str) -> str:
+        j = needs.get(job) if isinstance(needs, dict) else None
+        return j.get("result", "missing") if isinstance(j, dict) else "missing"
+
+    scope = needs.get("scope") if isinstance(needs, dict) else None
+    outputs = scope.get("outputs", {}) if isinstance(scope, dict) else {}
+    if result("scope") != "success":
+        return [f"scope job did not succeed ({result('scope')})"]
+    if result("guard") != "success":
+        problems.append(f"gate-logic guard did not pass ({result('guard')})")
+    gate_logic = outputs.get("gate_logic") == "true"
+    st = result("selftest")
+    if gate_logic and st != "success":
+        problems.append(f"gate self-test did not pass ({st}) on a PR that changes gate logic")
+    if not gate_logic and st not in ("success", "skipped"):
+        problems.append(f"gate self-test ended {st}")
+    relevant = outputs.get("relevant")
+    try:
+        expected = json.loads(outputs.get("slugs_json") or "[]")
+    except json.JSONDecodeError:
+        return problems + ["scope slugs_json is not JSON"]
+    if not isinstance(expected, list) or not all(
+            isinstance(s, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]*", s) for s in expected) \
+            or len(set(expected)) != len(expected):
+        return problems + ["scope slugs_json is not a list of distinct valid slugs"]
+    seen: dict[str, dict] = {}
+    if verdict_dir.is_dir():
+        for p in sorted(verdict_dir.rglob("verdict-*.json")):
+            try:
+                v = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                problems.append(f"unreadable verdict file {p.name}")
+                continue
+            s = v.get("slug") if isinstance(v, dict) else None
+            if not isinstance(s, str) or p.name != f"verdict-{s}.json" or s in seen:
+                problems.append(f"malformed or duplicate verdict file {p.name}")
+                continue
+            seen[s] = v
+    if relevant == "true":
+        if not expected:
+            problems.append("scope reported connector changes but no slugs")
+        if result("scanners") != "success":
+            problems.append(f"scanner install job did not succeed ({result('scanners')})")
+        if result("gate") != "success":
+            problems.append(f"connector gate rows did not all succeed ({result('gate')})")
+        for s in expected:
+            v = seen.get(s)
+            if v is None:
+                problems.append(f"{s}: no verdict (row skipped, cancelled, timed out or never ran)")
+            elif v.get("verdict") != "pass":
+                problems.append(f"{s}: verdict {v.get('verdict')!r}")
+            elif v.get("sha") != sha or str(v.get("run_id")) != str(run_id):
+                problems.append(f"{s}: verdict is for another commit or run")
+        for s in sorted(set(seen) - set(expected)):
+            problems.append(f"{s}: verdict for a connector this change does not touch")
+    elif relevant == "false":
+        if expected:
+            problems.append("scope reported no connector changes but listed slugs")
+        if seen:
+            problems.append("verdicts present although no connector changed")
+        if result("gate") not in ("skipped",):
+            problems.append(f"connector rows ran although none were expected ({result('gate')})")
+    else:
+        problems.append(f"scope did not report whether connectors changed ({relevant!r})")
+    return problems
+
+
+# --- self-test ---------------------------------------------------------------------
+
+def _self_test_summary() -> int:
+    failed = 0
+    tmp = Path(tempfile.mkdtemp(prefix="gate-summary-"))
+    try:
+        sha, run_id = "abc123", "42"
+
+        def needs(**over):
+            base = {"scope": {"result": "success", "outputs": {
+                        "relevant": "true", "gate_logic": "false",
+                        "slugs_json": json.dumps(["alpha", "beta"])}},
+                    "guard": {"result": "success"}, "selftest": {"result": "skipped"},
+                    "scanners": {"result": "success"}, "gate": {"result": "success"}}
+            for k, v in over.items():
+                if k == "outputs":
+                    base["scope"]["outputs"].update(v)
+                else:
+                    base[k] = v
+            return base
+
+        def verdicts(name, rows):
+            d = tmp / name
+            d.mkdir()
+            for s, v in rows.items():
+                (d / f"verdict-{s}.json").write_text(json.dumps(v), encoding="utf-8")
+            return d
+
+        ok = {"verdict": "pass", "sha": sha, "run_id": run_id}
+        both = {"alpha": {"slug": "alpha", **ok}, "beta": {"slug": "beta", **ok}}
+        cases = [
+            ("every row ran and passed", needs(), both, True),
+            ("a row never reported (skipped/cancelled/timed out)", needs(),
+             {"alpha": both["alpha"]}, False),
+            ("a row reported block", needs(),
+             {**both, "beta": {"slug": "beta", **ok, "verdict": "block"}}, False),
+            ("matrix result failure (a row timed out)", needs(gate={"result": "failure"}), both, False),
+            ("matrix result cancelled", needs(gate={"result": "cancelled"}), both, False),
+            ("matrix result skipped", needs(gate={"result": "skipped"}), {}, False),
+            ("matrix missing from needs", {k: v for k, v in needs().items() if k != "gate"}, both, False),
+            ("scanner install failed", needs(scanners={"result": "failure"}), both, False),
+            ("scope failed", needs(scope={"result": "failure", "outputs": {}}), {}, False),
+            ("gate-logic guard failed", needs(guard={"result": "failure"}), both, False),
+            ("verdict from another run", needs(),
+             {**both, "beta": {"slug": "beta", **ok, "run_id": "41"}}, False),
+            ("verdict for an unexpected connector", needs(),
+             {**both, "gamma": {"slug": "gamma", **ok}}, False),
+            ("gate logic changed and self-test skipped", needs(outputs={"gate_logic": "true"}), both, False),
+            ("gate logic changed and self-test passed",
+             needs(outputs={"gate_logic": "true"}, selftest={"result": "success"}), both, True),
+            ("no connector changed", needs(outputs={"relevant": "false", "slugs_json": "[]"},
+                                           scanners={"result": "skipped"}, gate={"result": "skipped"}),
+             {}, True),
+            ("no connector changed but rows ran", needs(outputs={"relevant": "false", "slugs_json": "[]"},
+                                                        gate={"result": "success"}), {}, False),
+            ("relevant flag missing", needs(outputs={"relevant": ""}), both, False),
+            ("connectors changed but slug list empty", needs(outputs={"slugs_json": "[]"}), {}, False),
+            ("hostile slug list", needs(outputs={"slugs_json": json.dumps(["a;rm -rf /"])}), {}, False),
+        ]
+        for i, (name, n, rows, want) in enumerate(cases):
+            probs = summarize_gate(n, verdicts(f"c{i}", rows), sha, run_id)
+            got = not probs
+            print(f"  [{'PASS' if got == want else 'FAIL'}] summary: {name} -> "
+                  f"{'pass' if got else 'fail: ' + probs[0]}")
+            failed += got != want
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return failed
+
+
+SCANNER_PINS = ("GOSEC_VERSION", "GOVULNCHECK_VERSION", "OSV_SCANNER_VERSION", "SEMGREP_VERSION",
+                "SCANNER_GO", "GOSEC_SHA256", "GOVULNCHECK_SHA256", "OSV_SCANNER_SHA256")
+SUMMARY_NAME = ("name: ${{ github.event_name == 'pull_request' && 'security-gate' "
+                "|| 'security-gate-manual' }}")
+
+
+def workflow_problems(gate_yml: str, release_yml: str) -> list[str]:
+    """The PR gate and the release gate must scan with the same pinned versions
+    (a divergence lets a PR pass on rules the release would fail, or the reverse),
+    neither may install @latest, and only the PR summary job may report the
+    required `security-gate` check."""
+    problems = []
+    pins = {}
+    for label, text in (("security-gate.yml", gate_yml), ("release.yml", release_yml)):
+        code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+        if "@latest" in code:
+            problems.append(f"{label} installs a scanner @latest")
+        for k in SCANNER_PINS:
+            vals = re.findall(rf'(?m)^\s*{k}:\s*"([^"]+)"\s*$', text)
+            if len(vals) != 1:
+                problems.append(f"{label} pins {k} {len(vals)} times (want exactly 1)")
+            else:
+                pins.setdefault(k, {})[label] = vals[0]
+    for k, by in pins.items():
+        if len(set(by.values())) > 1:
+            problems.append(f"{k} differs between the gates: {by}")
+    if gate_yml.count(SUMMARY_NAME) != 1:
+        problems.append("the summary job no longer names itself security-gate only for pull_request runs")
+    gate_code = [ln for ln in gate_yml.splitlines() if not ln.lstrip().startswith("#")]
+    summary = gate_yml.split(SUMMARY_NAME, 1)[-1]
+    guard_at = summary.find('if [ "$GUARD" != "success" ]')
+    base_at = summary.find("ref: ${{ needs.scope.outputs.base }}")
+    script_at = summary.find("check_security_gate.py --summarize")
+    if not (0 <= guard_at < base_at < script_at):
+        problems.append("the summary must check the guard, then run the BASE copy of --summarize")
+    code_text = "\n".join(gate_code)
+    if re.search(r"actions/cache\b", code_text) or "cache-hit" in code_text:
+        problems.append("the PR gate must not restore any cache: a PR can write its own cache "
+                        "scope, and extraction can write outside the cache path")
+    # setup-go caches modules and builds by default, and setup-python can cache pip:
+    # both restore PR-writable state, so every setup step must keep caching off.
+    steps = re.split(r"(?m)^\s*- (?=name:|uses:)", code_text)
+    for st in steps:
+        if re.search(r"uses:\s*actions/setup-go@", st) and not re.search(r"(?m)^\s*cache:\s*false\s*$", st):
+            problems.append("a setup-go step does not set cache: false")
+            break
+        if re.search(r"uses:\s*actions/setup-python@", st) and re.search(r"(?m)^\s*cache(-dependency-path)?:", st):
+            problems.append("a setup-python step enables a cache")
+            break
+    for label, text in (("security-gate.yml", gate_yml), ("release.yml", release_yml)):
+        if not re.search(r'not the reviewed \$5 \(fail-closed\)"\n\s*return 1\b', text):
+            problems.append(f"{label}: a scanner whose digest does not match its pin must fail the job")
+    rel_gate = release_yml.split("\n  security_gate:\n", 1)[-1]
+    rel_gate = re.split(r"\n  [A-Za-z0-9_-]+:\n", rel_gate, maxsplit=1)[0]
+    rel_steps = rel_gate.split("\n      - ")
+    setup = [st for st in rel_steps if "uses: actions/setup-go@" in st]
+    if "actions/cache" in rel_gate or not setup or not all(
+            re.search(r"(?m)^\s*cache:\s*false\s*$", st) for st in setup):
+        problems.append("release.yml's security_gate job must keep setup-go caching off and restore no cache")
+    if 'export GOTOOLCHAIN="go$SCANNER_GO" CGO_ENABLED=0 GOFLAGS=-trimpath' not in rel_gate:
+        problems.append("release.yml must build the scanners with the reproducible contract")
+    # -I: a PR can add tools/maintainer/json.py (or ./re.py, ./pip/) and Python would
+    # import it ahead of the standard library from the script's or current directory.
+    for ln in gate_code:
+        if re.search(r"\bpython3\b(?!\s+-I\b)", ln) and "python-version" not in ln:
+            problems.append(f"security-gate.yml runs Python without -I: {ln.strip()[:80]}")
+            break
+    if '"git", "diff", "-z", "--no-renames", "--name-only"' not in gate_yml:
+        problems.append("the scope diff must list both ends of a rename (-z --no-renames)")
+    if not re.search(r"python3 -I tools/maintainer/check_security_gate\.py", release_yml):
+        problems.append("release.yml runs the gate without python3 -I")
+    upload = re.search(r"uses: actions/upload-artifact@\S+\n\s+with:\n\s+name: scanners\n\s+path: ([^\n]+)", gate_yml)
+    if not upload or upload.group(1).strip() != "${{ runner.temp }}/handoff":
+        problems.append("the scanner artifact must be built from a fresh handoff directory of verified "
+                        "binaries only, never the restored cache directory")
+    for k in ("GOSEC_SHA256", "GOVULNCHECK_SHA256", "OSV_SCANNER_SHA256"):
+        if not re.search(rf'(?m)^\s*{k}:\s*"[0-9a-f]{{64}}"\s*$', gate_yml):
+            problems.append(f"security-gate.yml does not pin {k}")
+    if re.search(r"(?m)^\s+name:\s*['\"]?security-gate['\"]?\s*$", gate_yml):
+        problems.append("a job other than the summary is named security-gate")
+    return problems
+
+
+def _self_test_workflows() -> int:
+    failed = 0
+    gate_yml = (REPO / ".github/workflows/security-gate.yml").read_text(encoding="utf-8")
+    rel_yml = (REPO / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    cases = [
+        ("this repo's two workflows", gate_yml, rel_yml, True),
+        ("release pins an older govulncheck", gate_yml,
+         re.sub(r'GOVULNCHECK_VERSION: "[^"]+"', 'GOVULNCHECK_VERSION: "v1.7.0"', rel_yml), False),
+        ("PR gate installs @latest", gate_yml.replace('"$2@$4"', '"$2@latest"'), rel_yml, False),
+        ("a pin is missing", re.sub(r'(?m)^\s*SEMGREP_VERSION:.*\n', "", gate_yml), rel_yml, False),
+        ("a row job takes the required name", gate_yml.replace("name: gate (${{ matrix.slug }})",
+                                                               "name: security-gate"), rel_yml, False),
+        ("summary reports the required name on any event", gate_yml.replace(
+            SUMMARY_NAME, "name: security-gate"), rel_yml, False),
+        ("summary runs the PR's copy of its logic", gate_yml.replace(
+            "ref: ${{ needs.scope.outputs.base }}", "ref: ${{ github.sha }}"), rel_yml, False),
+        ("summary no longer checks the guard first", gate_yml.replace(
+            'if [ "$GUARD" != "success" ]', 'if [ "$GUARD" = "never" ]'), rel_yml, False),
+        ("a scanner cache is restored", gate_yml.replace(
+            "      - name: Build each pinned scanner cold",
+            "      - uses: actions/cache/restore@v4\n        with:\n          path: x\n          key: y\n"
+            "      - name: Build each pinned scanner cold"), rel_yml, False),
+        ("setup-go caching left on", gate_yml.replace("go-version: ${{ env.SCANNER_GO }}\n          cache: false",
+                                                      "go-version: ${{ env.SCANNER_GO }}"), rel_yml, False),
+        ("setup-python caches pip", gate_yml.replace('python-version: "3.12"', 'python-version: "3.12"\n          cache: pip', 1),
+         rel_yml, False),
+        ("a digest mismatch is tolerated", re.sub(r'(not the reviewed \$5 \(fail-closed\)"\n\s*)return 1',
+                                                 r"\1return 0", gate_yml), rel_yml, False),
+        ("scanner hash pin removed", re.sub(r'(?m)^\s*GOSEC_SHA256:.*\n', "", gate_yml), rel_yml, False),
+        ("a row runs the gate without -I", gate_yml.replace(
+            "python3 -I tools/maintainer/check_security_gate.py \\", "python3 tools/maintainer/check_security_gate.py \\"),
+         rel_yml, False),
+        ("scope runs inline Python without -I", gate_yml.replace("python3 -I - <<'PY'", "python3 - <<'PY'"),
+         rel_yml, False),
+        ("scanner artifact uploads the restored cache directory", gate_yml.replace(
+            "name: scanners\n          path: ${{ runner.temp }}/handoff", "name: scanners\n          path: ${{ runner.temp }}/scanner-cache"),
+         rel_yml, False),
+        ("scope diff follows renames", gate_yml.replace('"-z", "--no-renames", "--name-only"', '"-z", "--name-only"'),
+         rel_yml, False),
+        ("release pins a different scanner digest", gate_yml, re.sub(
+            r'GOSEC_SHA256: "[0-9a-f]+"', 'GOSEC_SHA256: "' + "0" * 64 + '"', rel_yml), False),
+        ("release tolerates a digest mismatch", gate_yml, re.sub(
+            r'(not the reviewed \$5 \(fail-closed\)"\n\s*)return 1', r"\1return 0", rel_yml), False),
+        ("release gate setup-go caching left on", gate_yml, rel_yml.replace(
+            'go-version: "1.26"\n          # Cold on purpose', 'go-version: "1.26"\n          # Was cold on purpose').replace(
+            "          cache: false\n      - name: Install pinned scanners", "      - name: Install pinned scanners"),
+         False),
+        ("release builds scanners without the reproducible contract", gate_yml, rel_yml.replace(
+            'export GOTOOLCHAIN="go$SCANNER_GO" CGO_ENABLED=0 GOFLAGS=-trimpath', "true"), False),
+        ("release runs the gate without -I", gate_yml, rel_yml.replace(
+            "python3 -I tools/maintainer/check_security_gate.py", "python3 tools/maintainer/check_security_gate.py"), False),
+    ]
+    for name, g, r, want in cases:
+        probs = workflow_problems(g, r)
+        got = not probs
+        print(f"  [{'PASS' if got == want else 'FAIL'}] workflows: {name} -> "
+              f"{'pass' if got else 'fail: ' + probs[0]}")
+        failed += got != want
+    return failed
+
+
+def _self_test_changed_files() -> int:
+    """changed_files() must see a name git would quote, and both ends of a rename."""
+    global REPO
+    failed = 0
+    tmp = Path(tempfile.mkdtemp(prefix="gate-diff-"))
+    saved = REPO
+    try:
+        def git(*a: str) -> None:
+            subprocess.run(["git", "-C", str(tmp), "-c", "user.email=t@example.com", "-c", "user.name=t",
+                            *a], check=True, capture_output=True)
+        git("init", "-q")
+        (tmp / "skills/a").mkdir(parents=True)
+        (tmp / "skills/b").mkdir(parents=True)
+        (tmp / "skills/a/guard.py").write_text("\n".join(str(i) for i in range(50)), encoding="utf-8")
+        (tmp / "skills/b/README.md").write_text("b\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        git("mv", "skills/a/guard.py", "skills/b/guard.py")
+        (tmp / "skills/b/\u00e9vil.py").write_text("import os\nos.system('id')\n", encoding="utf-8")
+        (tmp / "skills/b/cr\rname.py").write_text("import os\nos.system('id')\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "change")
+        REPO = tmp
+        a = [str(f.relative_to(tmp)) for f in (changed_files("HEAD~1", "a") or [])]
+        b = [str(f.relative_to(tmp)) for f in (changed_files("HEAD~1", "b") or [])]
+        flagged = [f["file"] for f in scan_python([tmp / p for p in b], set())]
+        for name, ok in (("a file moved out of a connector still counts as a change to it",
+                          a == ["skills/a/guard.py"]),
+                         ("a name git would quote is still listed and scanned",
+                          "skills/b/\u00e9vil.py" in b and "skills/b/\u00e9vil.py" in flagged),
+                         ("a carriage return inside a name survives intact and is scanned",
+                          "skills/b/cr\rname.py" in b and "skills/b/cr\rname.py" in flagged)):
+            print(f"  [{'PASS' if ok else 'FAIL'}] diff scope: {name}")
+            failed += not ok
+    finally:
+        REPO = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    return failed
+
+
+def self_test() -> int:
+    failed = _self_test_summary() + _self_test_workflows() + _self_test_changed_files()
+    if failed:
+        print(f"\nSELF-TEST FAIL: {failed} case(s) behaved wrong.")
+        return 1
+    print("\nSELF-TEST PASS: the summary fails on every missing or non-passing row, both gates pin "
+          "the same scanners with no cache, and the diff scope sees quoted names and renames.")
+    return 0
+
+
 def go_files(slug: str, only: list[Path] | None) -> list[Path]:
     if only is not None:
         return only
@@ -801,10 +1162,31 @@ def main() -> int:
                          "is missing or errors. Set this in CI/release so a broken scanner install "
                          "cannot silently disable the gate. Omit for local dev (graceful skip).")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--self-test", action="store_true",
+                    help="prove the workflow summary, the workflow pins and the diff scope both directions")
+    ap.add_argument("--summarize", action="store_true",
+                    help="security-gate summary job: read toJSON(needs) from $GATE_NEEDS and the "
+                         "connector verdict files from --verdicts; fail unless every expected row passed")
+    ap.add_argument("--verdicts", help="directory of verdict-<slug>.json files (--summarize)")
+    ap.add_argument("--sha", help="commit the verdicts must be for (--summarize)")
+    ap.add_argument("--run-id", help="workflow run the verdicts must be from (--summarize)")
     args = ap.parse_args()
 
     if args.rebuild_allowlist:
         return rebuild_allowlist()
+    if args.self_test:
+        return self_test()
+    if args.summarize:
+        try:
+            needs = json.loads(os.environ.get("GATE_NEEDS") or "{}")
+        except json.JSONDecodeError:
+            needs = {}
+        problems = summarize_gate(needs, Path(args.verdicts or "."), args.sha or "", args.run_id or "")
+        for pr in problems:
+            print(f"::error::{pr}")
+        print("security-gate: every expected connector row ran and passed." if not problems
+              else f"security-gate: {len(problems)} problem(s); failing closed.")
+        return 1 if problems else 0
 
     allow = load_allowlist(args.policy_base)
     suppress = load_suppressions(args.policy_base)
