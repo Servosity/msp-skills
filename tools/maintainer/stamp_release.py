@@ -454,7 +454,7 @@ def _self_test() -> int:
                 t0 = time.monotonic()
                 try:
                     outcomes[mode] = ("hash", tree_hash(work, "refs/tags/alpha-v0.1.0", "skills/alpha/cli"))
-                except (StampError, rr.CallTimeout) as exc:
+                except Exception as exc:  # any other exception is a wrong outcome, named, not a crash
                     outcomes[mode] = (type(exc).__name__, round(time.monotonic() - t0, 1))
         finally:
             os.environ["PATH"] = old_path
