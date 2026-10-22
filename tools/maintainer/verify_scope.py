@@ -811,6 +811,29 @@ def path_collisions(paths: list[str]) -> list[list[str]]:
     return sorted(sorted(g) for g in groups.values() if len(g) > 1)
 
 
+_WIN_RESERVED = ({"AUX", "CON", "CONIN$", "CONOUT$", "NUL", "PRN"}
+                 | {f"{d}{n}" for d in ("COM", "LPT") for n in list("123456789") + ["\u00b9", "\u00b2", "\u00b3"]})
+
+
+def windows_invalid(paths: list[str]) -> list[str]:
+    """Paths Git for Windows refuses to check out (its is_valid_win32_path):
+    a reserved device name in any component, with or without an extension
+    (aux.go, CON, com1.txt), a component ending in a space or a dot, or one of
+    < > : " | ? * \\ or a control character. CI's Windows job could not
+    materialize them, so no copy of its checkout here can either."""
+    bad = []
+    for p in paths:
+        for c in p.split("/"):
+            if c in (".", ".."):
+                continue
+            stem = c.split(".", 1)[0].rstrip(" ")
+            if (stem.upper() in _WIN_RESERVED or c.endswith((" ", "."))
+                    or any(ch in '<>:"|?*\\' or ord(ch) < 32 for ch in c)):
+                bad.append(p)
+                break
+    return bad
+
+
 def repo_paths() -> list[str]:
     out: set[str] = set()
     for args in (["ls-tree", "-r", "-z", "--name-only", "HEAD"], ["ls-files", "-z", "-c", "-o", "--exclude-standard"]):
@@ -917,17 +940,21 @@ def main(argv: list[str]) -> int:
         return 0
     if a.cmd == "path-collisions":
         try:
-            groups = path_collisions(repo_paths())
+            paths = repo_paths()
         except OSError as e:
             print(e)
             return 2
+        groups, bad = path_collisions(paths), windows_invalid(paths)
         for g in groups:
             print("  one file on a case-insensitive disk (macOS, Windows): " + "  ".join(g))
-        if groups:
-            print("rename so these differ by more than case or Unicode normalization: a macOS or")
-            print("Windows checkout keeps only one of each, so no check run here sees the other")
+        for b in bad:
+            print(f"  {b}: Windows cannot check this path out (a reserved device name, a trailing space or dot,"
+                  " or a character Windows forbids)")
+        if groups or bad:
+            print("rename these: a macOS or Windows checkout cannot hold them as committed, so no check run")
+            print("here (and not CI's Windows job) sees what Linux sees")
             return 1
-        print("no two paths fold together on a case-insensitive disk")
+        print("every path checks out as committed on Linux, macOS and Windows")
         return 0
     if a.cmd == "baseline":
         sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
@@ -1334,6 +1361,11 @@ def _self_test() -> int:
     expect(path_collisions(["caf\u00e9.md", "cafe\u0301.md"]) == [["cafe\u0301.md", "caf\u00e9.md"]],
            "NFC and NFD spellings of one name collide")
     expect(path_collisions(["a/x.go", "a/y.go", "b/x.go"]) == [], "distinct paths do not")
+    expect(windows_invalid(["cli/internal/cli/aux.go", "x/CON", "y/com1.txt", "z/nul .md", "a/b./c", "q/a:b",
+                            "t/x "]) == ["cli/internal/cli/aux.go", "x/CON", "y/com1.txt", "z/nul .md", "a/b./c",
+                                         "q/a:b", "t/x "], "every Windows-reserved shape is refused")
+    expect(windows_invalid(["auxiliary.go", "console/x.go", "com10.go", "./a/../b.go", "nulls.md"]) == [],
+           "names that only start like a device name are fine")
 
     print("newest_patch (setup-go's reading of a bare minor):")
     rel = [{"version": "go1.27.3", "stable": True}, {"version": "go1.26.10", "stable": True},

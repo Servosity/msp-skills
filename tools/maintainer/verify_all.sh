@@ -304,8 +304,10 @@ gate "install docs"         fleet "" 0 python3 tools/maintainer/check_install_do
 gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
 # Not in CI: two paths that differ only by case (or Unicode normalization) are
 # one file on a macOS or Windows disk, so the checks that read this checkout
-# would see one of them while CI's Linux checkout holds both.
-gate "paths distinct on case-insensitive disks" repo "" 0 python3 tools/maintainer/verify_scope.py path-collisions
+# would see one of them while CI's Linux checkout holds both; and a path
+# Windows cannot check out (aux.go, a trailing dot) fails CI's Windows job
+# before any Windows check here could speak for it.
+gate "paths every OS can check out" repo "" 0 python3 tools/maintainer/verify_scope.py path-collisions
 # ci.yml guards: every connector, rules read from the base (findings carry [slug]).
 gate "manifest env schema" fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "${BASE_SHA:-$base}"
 if [ "$FULL" = true ]; then
@@ -348,7 +350,11 @@ echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
 # else every connector's Linux checks fail closed. Decided once, here.
 overlay_lists() { # the working tree's changes against HEAD: $WORK/overlay.lst (NUL list) and $WORK/deleted.lst
   { git diff -z --name-only --no-renames --diff-filter=d HEAD; git ls-files -z -o --exclude-standard; } > "$WORK/overlay.lst"
-  git diff -z --name-only --no-renames --diff-filter=D HEAD > "$WORK/deleted.lst"
+  # Deleted means gone from the working tree: a path only removed from the
+  # index (git rm --cached) but still on disk is in the overlay, not here.
+  git diff -z --name-only --no-renames --diff-filter=D HEAD | python3 -c 'import os, sys
+sys.stdout.buffer.write(b"".join(p + b"\0" for p in sys.stdin.buffer.read().split(b"\0") if p and not os.path.lexists(p)))' \
+    > "$WORK/deleted.lst"
 }
 linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SRC (the snapshot)
   # The snapshot is what CI's build job checks out (actions/checkout: depth 1,
