@@ -368,7 +368,12 @@ def run(repo: Path, released_file: Path, listing: Path | None, dry_run: bool) ->
         if dry_run:
             print(f"stamp_release: dry run - would stamp {len(stamps)} and date {len(edits)} heading(s)")
             return 0
-        apply(repo, stamps, edits)
+        try:
+            apply(repo, stamps, edits)
+        except KeyboardInterrupt:
+            print("::error::stamp_release: interrupted while writing: some files may already be updated; "
+                  "check `git status` and restore them before running again", file=sys.stderr)
+            raise
         print(f"stamp_release: stamped {len(stamps)}, dated {len(edits)} heading(s)")
         return 0
     except (StampError, OSError, ValueError, KeyError, repo_lock.LockHeld, rr.CallTimeout) as exc:
@@ -647,8 +652,8 @@ def main(argv: list[str] | None = None) -> int:
     rr.install_interrupt_handlers()  # SIGTERM/SIGHUP raise like Ctrl-C: the blocked git is killed, the lock freed
     try:
         return run(args.repo.resolve(), args.released_tags, args.listing, args.dry_run)
-    except KeyboardInterrupt as exc:
-        print(f"::error::stamp_release: interrupted ({exc or 'SIGINT'}); nothing was written", file=sys.stderr)
+    except KeyboardInterrupt as exc:  # before any write, unless run() already said otherwise above
+        print(f"::error::stamp_release: interrupted ({exc or 'SIGINT'})", file=sys.stderr)
         return 130
 
 

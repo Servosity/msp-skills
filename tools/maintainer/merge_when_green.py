@@ -901,7 +901,13 @@ class Merger:
             self.say(f"STOP ({code}): {why}")
         try:
             self._cleanup()
-        except BaseException as exc:  # a cleanup failure (a timeout, a second interrupt) never changes the exit
+        except KeyboardInterrupt as exc:  # interrupted during cleanup: the rest of cleanup has still run
+            new = EXIT_RACE_RED if self.merge_called else EXIT_INTERRUPTED
+            self.say(f"STOP ({new}): interrupted during cleanup ({exc or 'SIGINT'}) after exit {code}"
+                     + ("; the merge is not confirmed: stop the chain and check main by hand" if self.merge_called
+                        else ""))
+            code = new
+        except Exception as exc:  # a cleanup failure (a timeout) never changes the exit
             self.say(f"WARN cleanup did not complete ({type(exc).__name__}: {str(exc)[:200]}); remove "
                      f"{self.tmp or 'the private worktree'} by hand")
         return code
@@ -1546,24 +1552,36 @@ class Merger:
         return EXIT_OK
 
     def _cleanup(self) -> None:
-        """Each step runs even if an earlier one fails (a timeout), and the
-        branch lock is always released last."""
-        problems = []
+        """Every step runs even if an earlier one fails or is interrupted (a
+        timeout, a SIGTERM), and the branch lock is always released last. An
+        interrupt is re-raised after all of it, so the caller can map it."""
+        problems: list[str] = []
+        interrupt: BaseException | None = None
+        steps: list[tuple[str, Callable[[], object]]] = []
+        if self.wt is not None:
+            wt = self.wt
+            # Only our own worktree: never `worktree prune`, which would also
+            # drop other sessions' metadata for worktrees briefly missing.
+            steps += [("git rebase --abort", lambda: self.git.run("rebase", "--abort", cwd=wt, check=False)),
+                      ("git worktree remove", lambda: self.git.run("worktree", "remove", "--force", str(wt),
+                                                                    check=False))]
+        if self.tmp is not None:
+            tmp = self.tmp
+            steps.append(("remove the private directory", lambda: shutil.rmtree(tmp, ignore_errors=True)))
         try:
-            if self.wt is not None:
-                for args in (("rebase", "--abort"), ("worktree", "remove", "--force", str(self.wt))):
-                    # Only our own worktree: never `worktree prune`, which would also
-                    # drop other sessions' metadata for worktrees briefly missing.
-                    try:
-                        self.git.run(*args, cwd=self.wt if args[0] == "rebase" else None, check=False)
-                    except Exception as exc:
-                        problems.append(f"git {args[0]}: {type(exc).__name__}: {str(exc)[:120]}")
-            if self.tmp is not None:
-                shutil.rmtree(self.tmp, ignore_errors=True)
+            for name, step in steps:
+                try:
+                    step()
+                except KeyboardInterrupt as exc:
+                    interrupt = interrupt or exc
+                except Exception as exc:
+                    problems.append(f"{name}: {type(exc).__name__}: {str(exc)[:120]}")
         finally:
             if self.lock is not None:
                 repo_lock.release(self.lock)
                 self.lock = None
+        if interrupt is not None:
+            raise interrupt
         if problems:
             raise RuntimeError("; ".join(problems))
 
@@ -2805,6 +2823,28 @@ def _self_test() -> int:
         rc, logs = merger(work, fake, require=())
         expect(rc == EXIT_RACE_RED and any("after the merge call" in s for s in logs),
                f"after a merge call, a stop that would be exit 1 (the PR CLOSED after a refusal) is 8 (rc={rc})")
+        # An interrupt during cleanup after a proven merge (exit 0 so far): the
+        # remaining cleanup still runs, and the exit is 8, not 0.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 49, branch, "skill: bravo", green)
+        real_run2 = Git.run
+
+        def abort_interrupted(self, *args, fk=fake, **kw):
+            if args[:2] == ("rebase", "--abort") and fk.state == "MERGED":
+                raise rr.Interrupted(signal.SIGTERM)
+            return real_run2(self, *args, **kw)
+        Git.run = abort_interrupted  # type: ignore[method-assign]
+        try:
+            rc, logs = merger(work, fake, require=())
+        except BaseException as exc:
+            rc, logs = f"raised {type(exc).__name__}", []
+        finally:
+            Git.run = real_run2  # type: ignore[method-assign]
+        worktrees = sh("git", "worktree", "list", "--porcelain", cwd=work).count("worktree ")
+        expect(rc == EXIT_RACE_RED and worktrees == 1 and fake.merged is not None,
+               f"an interrupt during cleanup after a proven merge: the rest of cleanup runs and the exit is 8 "
+               f"(rc={rc}, worktrees={worktrees})")
         # Cleanup that fails (a timeout) after exit 8 keeps 8 and still frees the lock.
         origin, work, branch = world()
         new_connector_pr(work, extra_commit=False)

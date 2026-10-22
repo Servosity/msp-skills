@@ -540,9 +540,11 @@ def _raise_interrupted(signum: int, _frame) -> None:
 
 
 def install_interrupt_handlers() -> dict:
-    """Make SIGTERM and SIGHUP raise Interrupted (SIGINT already raises
-    KeyboardInterrupt). Returns the previous handlers, for a test to restore."""
-    prev = {}
+    """Make SIGTERM and SIGHUP raise Interrupted, and SIGINT raise
+    KeyboardInterrupt even when the launcher left it ignored (a background job
+    of a non-interactive shell inherits SIG_IGN). Returns the previous
+    handlers, for a test to restore."""
+    prev = {signal.SIGINT: signal.signal(signal.SIGINT, signal.default_int_handler)}
     for sig in (signal.SIGTERM, signal.SIGHUP):
         prev[sig] = signal.signal(sig, _raise_interrupted)
     return prev
@@ -1410,7 +1412,11 @@ def _self_test() -> int:
                f"a tool started with MSP_CALL_TIMEOUT_S=inf refuses to run (rc={bad_env.returncode})")
         import threading
         import time
+        original_int = signal.signal(signal.SIGINT, signal.SIG_IGN)  # ignored, as a background launcher can leave it
         prev = install_interrupt_handlers()
+        prev[signal.SIGINT] = original_int
+        expect(signal.getsignal(signal.SIGINT) is signal.default_int_handler,
+               "an inherited ignored SIGINT is made to raise again (Ctrl-C still cancels)")
         gpid = tmp / "blocked.pid"
         timer = threading.Timer(1.0, os.kill, (os.getpid(), signal.SIGTERM))
         t0 = time.monotonic()

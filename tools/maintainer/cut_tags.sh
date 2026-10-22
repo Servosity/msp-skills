@@ -327,8 +327,15 @@ tag_lock() {
   tmp_root
   rm -f "$ROOT_TMP/lock.ready" "$ROOT_TMP/lock.release"
   "$PYTHON" - "$LOCK_PATH" "$$" "$ROOT_TMP/lock.ready" "$ROOT_TMP/lock.release" "${CUT_TAGS_LOCK_WAIT:-7200}" <<'PY' &
-import fcntl, json, os, socket, sys, time
+import fcntl, json, os, signal, socket, sys, time
 path, parent, ready, release, wait = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], float(sys.argv[5])
+# The lock is released only after every running call has stopped: told to by
+# cleanup (which stops the calls first), or, if the shell died outright, once
+# no registered call is still alive. A signal to the whole group must not free
+# it early, so INT, TERM and HUP are ignored here.
+for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(s, signal.SIG_IGN)
+calls = os.environ.get("CUT_TAGS_CALLS") or ""
 
 
 def parent_alive() -> bool:
@@ -356,6 +363,21 @@ os.write(fd, (json.dumps({"pid": parent, "host": socket.gethostname(), "tool": "
 open(ready, "w").close()
 while not os.path.exists(release) and parent_alive():
     time.sleep(0.1)
+if not os.path.exists(release) and calls:  # the shell died: wait for its calls to stop (they notice too)
+    end = time.time() + 30
+    while time.time() < end:
+        live = []
+        for name in (os.listdir(calls) if os.path.isdir(calls) else []):
+            try:
+                os.kill(int(name), 0)
+                live.append(name)
+            except (ProcessLookupError, ValueError):
+                pass
+            except PermissionError:
+                live.append(name)
+        if not live:
+            break
+        time.sleep(0.1)
 os.ftruncate(fd, 0)
 fcntl.flock(fd, fcntl.LOCK_UN)
 PY
@@ -1578,13 +1600,13 @@ STALL
   expect "inf, -1, 0, abc, 1e3 and nan refuse to run (exit 2); 900 is clamped to 300 and says so" "$rc2"
 
   echo "cancellation while the tag push is blocked:"
-  for s in zz-n1 zz-n2; do
+  for s in zz-n1 zz-n2 zz-n3; do
     connector "$s" 0.1.0
     printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
   done
   cp "$SELF" "$tmp/repo/tools/maintainer/cut_tags.sh"
   git -C "$tmp/repo" add -A
-  git -C "$tmp/repo" commit -q -m "zz-n1 zz-n2" -s
+  git -C "$tmp/repo" commit -q -m "zz-n1 zz-n2 zz-n3" -s
   git -C "$tmp/repo" push -q origin main
   sha6=$(git -C "$tmp/repo" rev-parse HEAD)
   mkdir -p "$tmp/pushstall" "$tmp/runtmp"
@@ -1611,7 +1633,7 @@ try:
 except OSError:
     sys.exit(1)' "$tmp/repo/.git/msp-skills-locks/release-tags.lock"
   }
-  for c in "TERM-to-the-shell zz-n1" "INT-to-the-group zz-n2"; do
+  for c in "TERM-to-the-shell zz-n1" "INT-to-the-group zz-n2" "TERM-to-the-group-slow-call zz-n3"; do
     how=${c%% *}
     tag="${c#* }-v0.1.0"
     printf '%s\n' "$tag" >"$tmp/tags-n.txt"
@@ -1646,6 +1668,15 @@ open(out, "w").write("lock-never-freed")' "$tmp/repo/.git/msp-skills-locks/relea
       "$(cat "$tmp/push-stall.pid")" "$tmp/order.txt" &
     opid=$!
     case "$how" in
+      TERM-to-the-group*)
+        # The call is slow to react (stopped for a moment): everything else in
+        # the group, the lock holder included, gets TERM first.
+        wpid=""
+        for f in "$tmp"/runtmp/cut_tags.*/calls/*; do [ -f "$f" ] && wpid=${f##*/}; done
+        [ -n "$wpid" ] && kill -STOP "$wpid" 2>/dev/null
+        kill -TERM -- "-$cpid" 2>/dev/null
+        sleep 1
+        [ -n "$wpid" ] && kill -CONT "$wpid" 2>/dev/null ;;
       TERM*) kill -TERM "$cpid" 2>/dev/null ;;
       INT*) kill -INT -- "-$cpid" 2>/dev/null ;;
     esac
