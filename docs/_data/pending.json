@@ -483,16 +483,16 @@
     "released_hash": "sha256:12a16b02708fd0241ea603050d7b3405bc9ef6073131b5da7799f173acfabb4d"
   },
   "sentinelone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.4",
-    "latest_tag": "sentinelone-v0.2.3",
+    "latest_tag": "sentinelone-v0.2.4",
     "current_hash": "sha256:b9a24f61131dfb85736a7d9ddd281d400fc28223e04c310c7c6ee95da593f82e",
     "released_hash": "sha256:b9a24f61131dfb85736a7d9ddd281d400fc28223e04c310c7c6ee95da593f82e"
   },
   "servosity": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.6.8",
-    "latest_tag": "servosity-v0.6.7",
+    "latest_tag": "servosity-v0.6.8",
     "current_hash": "sha256:53a9b307c6fac6d3937fa2417432d19b63fea959e44d8955953094423335c910",
     "released_hash": "sha256:53a9b307c6fac6d3937fa2417432d19b63fea959e44d8955953094423335c910"
   },
