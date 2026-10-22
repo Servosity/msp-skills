@@ -101,7 +101,11 @@ keep your own hooks there, copy the file in instead.)
 ## Merging, tagging and stamping
 
 The release chain is four tools. Run each from an up-to-date checkout of `main`, never from
-the branch being merged: they execute their own code. Every one has `--self-test`, which
+the branch being merged or a stale shared checkout: `merge_when_green.py` and `cut_tags.sh`
+refuse to run when their own code differs from `origin/main`'s, and every checker they call
+(the release probe with its burned-versions ledger, the asset contract) runs from a worktree at
+`origin/main` or at the tagged commit, never from the checkout they happen to live in. Every
+one has `--self-test`, which
 builds throwaway git repositories (and, for the merge and tag tools, a scripted fake GitHub)
 and proves each refusal and each pass both ways.
 
@@ -131,7 +135,15 @@ conflicts to `resolve_registry.py` and stopping on anything else; regenerates th
 pushes with `--force-with-lease` pinned to the head it started from; waits for every workflow
 run, check run and commit status on that exact commit, with the branch-protection contexts
 present and SUCCESS; and merges with `--match-head-commit` only when all of it is green,
-main has not moved since the rebase, and the required approvals are current.
+main has not moved since the rebase, and the required approvals are current. A refused merge
+is re-validated from the top, never retried blindly.
+
+GitHub's merge call pins the head but cannot pin the base, and this repository's branch
+protection is not strict, so a commit can land on `main` inside the seconds between the last
+check and the merge. The tool checks `main` once more immediately before the call, then
+proves the merge commit's parent is the validated base and its tree is the green tree; if not,
+it exits 7 naming what the intervening commits touched. That is detection, not prevention:
+only strict protection or a merge queue would prevent it.
 
 A failing check is classified from its log. A **real** failure (a finding, a test or compile
 failure, an error annotation) is compared with the same check on the same base commit with
@@ -144,13 +156,19 @@ An approval records the head SHA, the base SHA and a byte-exact fingerprint of t
 pinned `git diff --binary`, not `git patch-id`, which ignores whitespace even inside string
 literals). It stays current across a rebase only when the fingerprint is unchanged and main's
 new commits touch nothing under the connector's directory, nothing in `release_matrix.py`'s
-`MACHINERY` list, no directory the change's other files live in, and no registry entry of a
-slug it touches. The three registries are fingerprinted entry by entry and the regenerated
-derived files are left out (this tool regenerates and re-checks them on the commit it merges),
-so another connector merging first does not cost a re-review.
+`MACHINERY` list, no directory the change's other files live in, no hand-written part of a
+README or issue form the change also edits, and no registry entry of a slug it touches. So
+that another connector merging first does not cost a re-review, the three registries are
+fingerprinted entry by entry, README.md and the issue forms by their hand-written parts only
+(the generator-owned regions masked with the generator's own patterns), and only the files a
+generator writes whole from sources (`catalog.json`, `docs/_data/catalog.json`,
+`docs/llms*.txt`, each connector's `docs/skills/<slug>.md`) are left out; the tool regenerates
+and re-checks those on the commit it merges. Any other file under `docs/skills/` is an ordinary
+file.
 
-Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved); 3 a conflict it will not
-resolve; 4 an approval is not current; 5 a check failed; 6 timed out.
+Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved, stale copy of the tool); 3 a
+conflict it will not resolve; 4 an approval is not current; 5 a check failed; 6 timed out; 7
+merged, but main moved inside the merge call.
 
 ### `resolve_registry.py`
 
@@ -159,16 +177,24 @@ main into a branch, where it detects main as the merged-in side). It writes each
 the format main's copy uses (detected by round-tripping its bytes) and places new entries by
 the file's convention: sorted in `skills.json`, appended in `marketplace.json`, sorted in
 `cards.yaml`. Registries git merged cleanly are verified per entry too, because a textual merge
-can produce valid JSON that names one slug twice. Exit 2 means nothing was changed.
+can produce valid JSON that names one slug twice. A fully generated file takes main's copy; a
+partly generated one (README.md, the issue forms) takes one side's copy only when the other side
+changed nothing outside the generator's regions, so hand-written prose is never discarded. Exit
+2 means nothing was changed.
 
 ### `cut_tags.sh`
 
-Generalises the release-wave script. Per tag: skip it if it is already on the remote at this
-SHA, stop if it is anywhere else, run `check_release_pipeline.py --tag --sha` from this
-checkout and `changelog_section.py --check` from the tagged tree, push it alone, and wait for
-its Release run to register. `--receipts` waits for each release to be published with its
-complete asset set (`check_release_assets.py --with-mcpb`), reports a failed Release run as a
-stranded draft at once, and fails if any draft release exists anywhere in the repository.
+Generalises the release-wave script. The tags file is resolved to an absolute path before
+anything else, a missing, empty or duplicated list is refused, and a run succeeds only when the
+number of tags handled equals the number listed (a relative path read nothing once and still
+printed ALL-PUSHED). Per tag: skip it if it is already on the remote at this SHA, stop if it is
+anywhere else, run `check_release_pipeline.py --tag --sha` from a worktree at `origin/main`
+(the newest probe and burned-versions ledger) and `changelog_section.py --check` from a worktree
+at the SHA, push it alone, and wait for its Release run to register. `--receipts` waits for each
+release to be published with its complete asset set (`check_release_assets.py --with-mcpb`, run
+from a worktree at the tag's own commit, whose registry knows the connector), reports a failed
+Release run as a stranded draft at once, and sweeps the repository for drafts: one whose Release
+run is still going is reported as in flight, any other fails the run.
 
 ### `stamp_release.py`
 

@@ -35,6 +35,7 @@ checkout, which is the supported case.
 from __future__ import annotations
 
 import atexit
+import functools
 import json
 import os
 import socket
@@ -87,7 +88,36 @@ def _locks_dir(root: Path | None = None) -> Path:
     return d
 
 
+# The exit hook registered for each lock this process acquired, so an explicit
+# release() can unregister exactly that one (atexit.unregister(release) would
+# drop every lock's hook at once).
+_EXIT_HOOKS: dict[str, object] = {}
+
+
+def _owned_by_me(lock: Path) -> bool:
+    holder = _holder(lock)
+    return holder.get("pid") == os.getpid() and holder.get("host") == socket.gethostname()
+
+
 def release(lock: Path) -> None:
+    """Release a lock THIS process holds, and drop its exit hook.
+
+    Ownership-aware: once this process has released a lock, another process
+    may acquire the same name, and a later release (an exit hook, or a second
+    call) must not delete THEIR lock file. So the file is removed only while it
+    still names this process."""
+    hook = _EXIT_HOOKS.pop(str(lock), None)
+    if hook is not None:
+        atexit.unregister(hook)  # type: ignore[arg-type]
+    try:
+        if _owned_by_me(lock):
+            lock.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _remove_stale(lock: Path) -> None:
+    """Remove a lock whose holder is dead (reclaim)."""
     try:
         lock.unlink(missing_ok=True)
     except OSError:
@@ -146,7 +176,9 @@ def acquire(name: str = "release", holder_info: dict | None = None,
             fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(payload)
-            atexit.register(release, lock)
+            hook = functools.partial(release, lock)
+            _EXIT_HOOKS[str(lock)] = hook
+            atexit.register(hook)
             return lock
         except FileExistsError:
             holder = _holder(lock)
@@ -158,5 +190,5 @@ def acquire(name: str = "release", holder_info: dict | None = None,
                     f"lock file: {lock}"
                 )
             # Holder is dead on this host: reclaim and retry once.
-            release(lock)
+            _remove_stale(lock)
     raise LockHeld(f"could not acquire lock '{name}' at {lock}")
