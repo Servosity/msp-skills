@@ -24,8 +24,11 @@
 # (GOFLAGS, GOAMD64, GO111MODULE, a go env file...) is inherited from the caller.
 #
 # The WINDOWS row runs on a real Windows runner, which no other OS can be. Its
-# predictors run on this host under the same explicit environment: Windows
-# vet, a Windows compile and link of every test, and the Unix-only test lint.
+# predictors run on this host under the same explicit environment, on a copy
+# of that job's SPARSE checkout (skills/<slug>, tools/maintainer and the files
+# directly in the root and skills/), so a go.work or a replace directive that
+# reaches outside it fails here as it does there: Windows vet, a Windows
+# compile and link of every test, and the Unix-only test lint.
 # They build with cgo off and CI's runner builds with cgo on (it has MinGW), so
 # they speak for it only when turning cgo on changes nothing Go compiles (any
 # file of any kind, in the module or a dependency, either way); otherwise
@@ -38,7 +41,6 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
-root="$(pwd)"
 
 work="$1"; slug="$2"; dir="$3"
 mod="skills/$dir/cli"
@@ -81,8 +83,14 @@ for v in $(compgen -e); do
 done
 export GOENV=off GOWORK=off
 
-goclean() { # goclean VAR=value... command...: the command on CI's toolchain and workspace
-  env GOFLAGS= GOWORK="$(work_at "$root")" GOTOOLCHAIN="go$gover+auto" CI=true "$@"
+# CI's Windows checkout, and the go.work Go finds inside it (or off).
+win="$work/win/$slug"
+winwork=off
+[ "${VERIFY_MODULE_ONLY:-0}" = 1 ] \
+  || winwork="$(python3 tools/maintainer/verify_scope.py windows-tree --slug "$slug" --out "$win" 2>/dev/null)"
+wingo() { # wingo VAR=value... command...: on the Windows job's toolchain and workspace
+  env GOFLAGS= GOWORK="$([ "$winwork" = off ] && echo off || echo "$win/$winwork")" \
+    GOTOOLCHAIN="go$gover+auto" CI=true "$@"
 }
 
 # ---- CI's build row, in Linux ------------------------------------------------
@@ -144,25 +152,15 @@ linux_test()        { linux_run "$mod" 'go test -count=1 ./...'; }   # as CI: ne
 linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 
 # ---- CI's windows row: predictors on this host ------------------------------
-windows_vet()          { ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./... ); }
+windows_vet()          { ( cd "$win/$mod" && wingo GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./... ); }
 # -o /dev/null with several packages: go links every test binary and discards
 # it (a link error is a failure too), so nothing lands in the module.
-windows_test_compile() { ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./... ); }
+windows_test_compile() { ( cd "$win/$mod" && wingo GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./... ); }
 
 windows_cgo_context() {
-  goclean GOOS=windows GOARCH=amd64 python3 tools/maintainer/verify_scope.py cgo-context --dir "$mod" && return 0
+  wingo GOOS=windows GOARCH=amd64 python3 tools/maintainer/verify_scope.py cgo-context --dir "$win/$mod" && return 0
   echo "CI's Windows runner builds with cgo on (it has MinGW) and the Windows checks here build"
   echo "with cgo off, so they do not speak for it. Rely on CI's Windows job for this connector."
-  return 1
-}
-
-# CI's Windows job checks out only skills/<slug> and tools/maintainer (sparse).
-# A go.work can name modules outside that, which this host has and that runner
-# does not, so the Windows predictors do not speak for it: fail closed.
-windows_checkout() {
-  [ "$gowork" = off ] && { echo "no go.work applies: the sparse Windows checkout holds everything Go reads"; return 0; }
-  echo "$gowork applies to this module; CI's Windows job checks out only skills/$slug and tools/maintainer,"
-  echo "so modules it uses elsewhere are missing there. Rely on CI's Windows job for this connector."
   return 1
 }
 
@@ -170,14 +168,15 @@ windows_checkout() {
 # tags go1.1..go1.N), so it asks Go which one that is.
 unix_lint() {
   local v
-  v="$(cd "$mod" && goclean GOOS=windows GOARCH=amd64 go env GOVERSION)" || { echo "go env GOVERSION failed: $v"; return 1; }
-  python3 tools/maintainer/check_unix_test_asserts.py --slug "$slug" --go-version "$v"
+  v="$(cd "$win/$mod" && wingo GOOS=windows GOARCH=amd64 go env GOVERSION)" || { echo "go env GOVERSION failed: $v"; return 1; }
+  python3 tools/maintainer/check_unix_test_asserts.py --root "$win" --slug "$slug" --go-version "$v"
 }
-if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ] || [ -z "$gowork" ]; then
+if [ ! -f "$mod/go.mod" ] || [ -z "$gover" ] || [ "$gover" = - ] || [ -z "$gowork" ] || [ -z "$winwork" ]; then
   # No module, or no way to know which Go CI installs for it: nothing below
   # can speak for CI, so the connector fails here, visibly.
   if [ ! -f "$mod/go.mod" ]; then echo "$mod/go.mod not found"
   elif [ -z "$gowork" ]; then echo "cannot tell which go.work CI's checkout uses for $mod"
+  elif [ -z "$winwork" ]; then echo "cannot build a copy of CI's sparse Windows checkout for $slug"
   else echo "cannot resolve the Go CI installs for $mod/go.mod (setup-go reads its go line; a bare X.Y needs go.dev's release index)"
   fi > "$logs/harness.log"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "connector harness" connector "$slug" fail 0 "$logs/harness.log" >> "$rec"
@@ -201,7 +200,6 @@ check "linux go test"          linux_test
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "windows cgo context"    windows_cgo_context
-check "windows sparse checkout" windows_checkout
 check "unix-only test lint"    unix_lint
 
 failed=$(awk -F'\t' '$4 == "fail"' "$rec" | wc -l | tr -d ' ')

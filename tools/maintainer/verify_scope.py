@@ -94,15 +94,11 @@ def skill_dirs() -> list[str]:
 
 
 def connectors() -> dict[str, str]:
-    """registry slug -> skills/<dir> for every connector (a Go CLI to build)."""
-    out = {}
-    for slug in registry.skills():
-        if registry.is_markdown_only(slug):
-            continue
-        d = registry.source_dir(slug)
-        if (ROOT / "skills" / d / "cli" / "go.mod").is_file():
-            out[slug] = d
-    return out
+    """CI's build matrix, read from the function ci.yml's prepare job uses
+    (release_matrix.skill_entries): slug -> the folder under skills/ its row
+    builds. Never filtered by what is on disk: a row whose module is missing
+    fails in CI, and fails here."""
+    return {e["name"]: e["dir"].split("/")[1] for e in release_matrix.skill_entries(with_assets=False)}
 
 
 def _aliases(names: set[str]) -> set[str]:
@@ -719,6 +715,39 @@ def ci_gowork(d: str, root: Path = ROOT) -> str:
         cur = cur.parent
 
 
+def windows_tree(slug: str, out: str, root: Path = ROOT) -> str:
+    """CI's Windows job's checkout, built at out: actions/checkout with a
+    cone-mode sparse-checkout of skills/<slug> and tools/maintainer, which also
+    holds the files directly in the root and in skills/. Copied from this
+    checkout (committed, staged, unstaged and new unignored files; nothing
+    ignored), so a go.work, or a replace directive, that reaches outside that
+    tree fails here as it does there. Returns the go.work Go finds for
+    skills/<slug>/cli inside the tree (relative to it), or "off"."""
+    p = subprocess.run(["git", "ls-files", "-z", "-c", "-o", "--exclude-standard", "--",
+                        f"skills/{slug}", "tools/maintainer", ":(glob)*", ":(glob)skills/*"],
+                       cwd=root, capture_output=True)
+    if p.returncode != 0:
+        raise OSError(f"git ls-files failed: {p.stderr.decode(errors='replace').strip()}")
+    import shutil
+    dst = Path(out)
+    for raw in sorted(set(p.stdout.split(b"\0"))):
+        if not raw:
+            continue
+        rel = os.fsdecode(raw)
+        src = root / rel
+        if not (src.is_file() or src.is_symlink()):
+            continue  # deleted in the working tree
+        (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst / rel, follow_symlinks=False)
+    cur = dst / "skills" / slug / "cli"
+    while True:
+        if (cur / "go.work").is_file():
+            return (cur / "go.work").relative_to(dst).as_posix()
+        if cur == dst:
+            return "off"
+        cur = cur.parent
+
+
 def _fold(p: str) -> str:
     return unicodedata.normalize("NFD", p).casefold()
 
@@ -784,6 +813,9 @@ def main(argv: list[str]) -> int:
     sub.add_parser("path-collisions")
     gw = sub.add_parser("gowork")
     gw.add_argument("--dir", required=True)
+    wt = sub.add_parser("windows-tree")
+    wt.add_argument("--slug", required=True)
+    wt.add_argument("--out", required=True)
     bp = sub.add_parser("baseline")
     bp.add_argument("--scope", required=True)
     bp.add_argument("--head-log", required=True)
@@ -814,6 +846,16 @@ def main(argv: list[str]) -> int:
     if a.cmd == "gowork":
         try:
             print(ci_gowork(a.dir))
+        except OSError as e:
+            print(e, file=sys.stderr)
+            return 2
+        return 0
+    if a.cmd == "windows-tree":
+        if not DIR_RE.match(a.slug):
+            print(f"{a.slug!r} is not a skill slug", file=sys.stderr)
+            return 2
+        try:
+            print(windows_tree(a.slug, a.out))
         except OSError as e:
             print(e, file=sys.stderr)
             return 2
@@ -1204,6 +1246,21 @@ def _self_test() -> int:
         subprocess.run(["git", "-C", str(repo), "add", "-f", "skills/go.work"], check=True)
         expect(ci_gowork("skills/x/cli", repo) == "skills/go.work",
                "a committed go.work above the module is CI's")
+
+    print("CI's sparse Windows checkout:")
+    with tempfile.TemporaryDirectory() as td:
+        repo, out = Path(td) / "repo", Path(td) / "win"
+        for f in ("README.md", "skills/list.md", "skills/x/cli/go.mod", "skills/x/cli/a.go", "skills/y/cli/go.mod",
+                  "tools/maintainer/t.py", "docs/d.md", "skills/x/cli/ignored.log"):
+            (repo / f).parent.mkdir(parents=True, exist_ok=True)
+            (repo / f).write_text("x\n", encoding="utf-8")
+        (repo / ".gitignore").write_text("*.log\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        work = windows_tree("x", str(out), repo)
+        got = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+        expect(got == [".gitignore", "README.md", "skills/list.md", "skills/x/cli/a.go", "skills/x/cli/go.mod",
+                       "tools/maintainer/t.py"] and work == "off",
+               "skills/<slug>, tools/maintainer and the root and skills/ files; never a sibling, docs/ or an ignored file")
 
     print("path collisions:")
     expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],
