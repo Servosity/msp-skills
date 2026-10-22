@@ -592,6 +592,9 @@ class GitHub:
             if problem:
                 snap["incomplete"] = f"{what}: {problem}"
         states = {pg.get("state") for pg in pages}
+        # Every combined state any page reported (pages that disagree are
+        # incomplete, but each state seen is still evidence after a merge).
+        snap["combined_states"] = sorted(str(st) for st in states if st is not None)
         combined = next(iter(states)) if len(states) == 1 else None
         if len(states) > 1:
             snap["incomplete"] = f"the combined status changed between pages ({sorted(map(str, states))})"
@@ -614,9 +617,29 @@ class GitHub:
         identities equal it: a bare row count passes when one item is added and
         another removed between pages (a repeated success, a new failure unread)."""
         rows, pages = [], []
-        for d in self._lines("api", "--paginate", url, "--jq",
-                             f'{{"_page": .total_count{page_extra}}}, (.{key}[] | {fields})'):
+        failed = None
+        try:
+            p = self._gh("api", "--paginate", url, "--jq",
+                         f'{{"_page": .total_count{page_extra}}}, (.{key}[] | {fields})', check=False)
+            out = p.stdout
+            if p.returncode != 0:
+                failed = f"gh exited {p.returncode}: {p.stderr.strip()[-200:]}"
+        except rr.CallTimeout as exc:
+            out, failed = exc.stdout, str(exc)
+        # Every complete row is kept even when the call failed part-way (page
+        # one listed a red check, page two timed out): after a merge, rows
+        # already read are evidence. A line cut short by the failure is not.
+        for ln in out.splitlines():
+            if not ln.strip():
+                continue
+            try:
+                d = json.loads(ln)
+            except ValueError:
+                failed = failed or "unparsable output"
+                continue
             (pages if "_page" in d else rows).append(d)
+        if failed:
+            return rows, pages, f"lookup failed ({failed})"
         totals = {pg.get("_page") for pg in pages}
         ids = [r.get(ident) for r in rows]
         total = next(iter(totals)) if len(totals) == 1 else None
@@ -831,22 +854,36 @@ class Merger:
         self.lock: Path | None = None
         self.tools = LOADED_TOOLS  # the rules this run validates with
         self.green: list[list[str]] | None = None  # the check verdicts of the last green wait
+        self.merge_called = False  # from the merge call on, an unproven outcome is exit 8
 
     def say(self, msg: str) -> None:
         self.out(_printable(msg))
 
     # -- top level -------------------------------------------------------- #
     def run(self) -> int:
+        """One rule decides the exit once the merge call has been made: the
+        PR may be merged, so every outcome other than 0 (proven), 7 or 8 is 8
+        (stop the chain, check main by hand). Cleanup never changes it."""
         try:
-            return self._run()
+            code = self._run()
         except Stop as s:
-            self.say(f"STOP ({s.code}): {s}")
-            return s.code
+            code, why = s.code, str(s)
         except Exception as exc:  # anything unexpected stops the run, it never merges
-            self.say(f"STOP ({EXIT_ERROR}): internal error: {type(exc).__name__}: {exc}")
-            return EXIT_ERROR
-        finally:
+            code, why = EXIT_ERROR, f"internal error: {type(exc).__name__}: {exc}"
+        else:
+            why = ""
+        if self.merge_called and code not in (EXIT_OK, EXIT_RACE, EXIT_RACE_RED):
+            why = (f"after the merge call, {why or f'exit {code}'}: the PR may be merged and nothing proved it; "
+                   "stop the chain and check main by hand")
+            code = EXIT_RACE_RED
+        if why:
+            self.say(f"STOP ({code}): {why}")
+        try:
             self._cleanup()
+        except Exception as exc:  # a cleanup failure (a timeout) is reported, never the exit
+            self.say(f"WARN cleanup did not complete ({type(exc).__name__}: {str(exc)[:200]}); remove "
+                     f"{self.tmp or 'the private worktree'} by hand")
+        return code
 
     def _remote_main(self) -> str:
         out = self.git.out("ls-remote", self.o.remote, "refs/heads/main").split()
@@ -1323,9 +1360,15 @@ class Merger:
         (a timeout, an unreadable answer) is exit 8: the PR may be merged, and
         the chain must stop until main is checked."""
         o = self.o
+        self.merge_called = True
         try:
             ok, text = self.gh.merge(o.pr, sha)
             pr = self.gh.pr(o.pr)
+            for _ in range(2):  # GitHub's PR read can lag a merge that succeeded
+                if not ok or pr.get("state") == "MERGED":
+                    break
+                self.sleep(self.o.poll_s)
+                pr = self.gh.pr(o.pr)
         except Exception as exc:
             raise Stop(EXIT_RACE_RED, f"the merge call for #{o.pr} did not complete ({str(exc)[:300]}); it may "
                                       "have merged: stop the chain and check main by hand")
@@ -1340,7 +1383,8 @@ class Merger:
                 raise Stop(EXIT_REFUSED, f"the PR head moved to {str(pr.get('headRefOid'))[:12]}; not merging")
             return "retry"
         if pr.get("state") != "MERGED":
-            raise Stop(EXIT_ERROR, f"the merge did not land (state {pr.get('state')})")
+            raise Stop(EXIT_RACE_RED, f"the merge call succeeded but the PR still reads {pr.get('state')}: "
+                                      "unverified; stop the chain and check main by hand")
         try:
             return self._prove_merge(pr, sha, base, verdicts, required)
         except Stop as stop:
@@ -1477,16 +1521,26 @@ class Merger:
         return EXIT_OK
 
     def _cleanup(self) -> None:
-        if self.wt is not None:
-            self.git.run("rebase", "--abort", cwd=self.wt, check=False)
-            # Only our own worktree: never `worktree prune`, which would also drop
-            # other sessions' metadata for worktrees that are briefly missing.
-            self.git.run("worktree", "remove", "--force", str(self.wt), check=False)
-        if self.tmp is not None:
-            shutil.rmtree(self.tmp, ignore_errors=True)
-        if self.lock is not None:
-            repo_lock.release(self.lock)
-            self.lock = None
+        """Each step runs even if an earlier one fails (a timeout), and the
+        branch lock is always released last."""
+        problems = []
+        try:
+            if self.wt is not None:
+                for args in (("rebase", "--abort"), ("worktree", "remove", "--force", str(self.wt))):
+                    # Only our own worktree: never `worktree prune`, which would also
+                    # drop other sessions' metadata for worktrees briefly missing.
+                    try:
+                        self.git.run(*args, cwd=self.wt if args[0] == "rebase" else None, check=False)
+                    except Exception as exc:
+                        problems.append(f"git {args[0]}: {type(exc).__name__}: {str(exc)[:120]}")
+            if self.tmp is not None:
+                shutil.rmtree(self.tmp, ignore_errors=True)
+        finally:
+            if self.lock is not None:
+                repo_lock.release(self.lock)
+                self.lock = None
+        if problems:
+            raise RuntimeError("; ".join(problems))
 
 
 def verdicts_of(snap: dict) -> list[list[str]]:
@@ -1496,8 +1550,12 @@ def verdicts_of(snap: dict) -> list[list[str]]:
     rows = [["check", str(c.get("name")), str(c.get("status")), str(c.get("conclusion"))] for c in snap["checks"]]
     rows += [["run", str(r.get("name")), str(r.get("status")), str(r.get("conclusion"))] for r in snap["runs"]]
     rows += [["status", str(x.get("context")), str(x.get("state")), ""] for x in snap["statuses"]]
-    if snap.get("combined_state") is not None:  # read alongside the rows, it can disagree with them,
-        rows.append(["combined", str(snap.get("combined_state")), "", ""])  # or be all a partial read has
+    # The combined state, read alongside the rows, can disagree with them, or
+    # be all a partial read has; every state any page reported is a row.
+    states = snap.get("combined_states")
+    if states is None:
+        states = [] if snap.get("combined_state") is None else [str(snap["combined_state"])]
+    rows += [["combined", st, "", ""] for st in states]
     return sorted(rows)
 
 
@@ -1665,6 +1723,8 @@ class FakeGitHub:
         # field of the snapshot ("runs": [] is GitHub's empty-page flake).
         self.after_merge: list[dict] = []
         self.break_origin_after_merge = False  # the proof's fetch then fails
+        self.pr_lag_after_merge = 0  # PR reads after a successful merge that still say OPEN
+        self.close_on_refuse = False  # a refused merge call leaves the PR CLOSED (unknown what landed)
         self.remaining_seen: list[float] = []  # what the deadline left, at each snapshot
         self.merge_stalls = False
         self._next = 1000
@@ -1675,7 +1735,11 @@ class FakeGitHub:
 
     def pr(self, n: int) -> dict:
         head = self._git("rev-parse", f"refs/heads/{self.branch}") if self.state == "OPEN" else self.merged
-        return {"number": n, "state": self.state, "isDraft": False, "headRefName": self.branch, "headRefOid": head,
+        state = self.state
+        if state == "MERGED" and self.pr_lag_after_merge > 0:
+            self.pr_lag_after_merge -= 1
+            state = "OPEN"
+        return {"number": n, "state": state, "isDraft": False, "headRefName": self.branch, "headRefOid": head,
                 "baseRefName": self.base_ref, "isCrossRepository": False, "mergeable": "MERGEABLE", "title": self.title,
                 "mergeCommit": {"oid": self.merge_oid} if self.merge_oid else None}
 
@@ -1755,6 +1819,8 @@ class FakeGitHub:
             rr.run_bounded(["sleep", "30"], timeout=1)  # the merge call hangs: killed at its bound
         if self.refuse_merges > 0:
             self.refuse_merges -= 1
+            if self.close_on_refuse:
+                self.state = "CLOSED"
             return False, "Base branch was modified. Review and try the merge again."
         if self.before_merge:
             self.before_merge(self)  # e.g. a commit lands on main inside the call
@@ -2640,6 +2706,100 @@ def _self_test() -> int:
         same, detail = m4._checks_after_merge("abc", ["security-gate"], gate_rows)
         expect(not same and "now run CI completed failure" in detail,
                f"a red run read before the check-runs read timed out is kept, though the next read is green ({detail[:90]})")
+        # The same through the real adapter when the failing call is one
+        # endpoint's own pagination: page one listed a red check, then the
+        # call failed (an error exit, or a timeout with partial output).
+        for how in ("an error exit", "a timeout"):
+            reads = [0]
+            check_red = {**check_ok2, "conclusion": "failure"}
+            page1 = "\n".join(json.dumps(r) for r in ({"_page": 2}, check_red))
+
+            def paged_gh(*a: str, check: bool = True, h=how) -> _Stub:
+                url = next(x for x in a if x.startswith("repos/"))
+                if "/actions/runs" in url:
+                    reads[0] += 1
+                    return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1}, run_green)))
+                if "/check-runs" in url:
+                    if reads[0] == 2:
+                        if h == "a timeout":
+                            raise rr.CallTimeout("gh api --paginate did not finish within 1s (killed)", stdout=page1)
+                        return _Stub(1, page1)
+                    return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1}, check_ok2)))
+                return _Stub(0, json.dumps({"_page": 0, "state": "pending"}))
+            g5 = GitHub("o/r")
+            g5._gh = paged_gh  # type: ignore[method-assign]
+            m5 = Merger(Git(work, env), g5, Options(pr=1, poll_s=0, expect_workflows=("CI",)), out=lambda s: None,
+                        sleep=lambda s: None)
+            same, detail = m5._checks_after_merge("abc", ["security-gate"], verdicts_of(g5.snapshot("abc")))
+            expect(not same and "now check security-gate completed failure" in detail,
+                   f"a red check on page one is kept when page two fails by {how} ({detail[:80]})")
+        # Status pages that disagree (failure, then success): each state is a row.
+        reads = [0]
+
+        def split_status_gh(*a: str, check: bool = True) -> _Stub:
+            url = next(x for x in a if x.startswith("repos/"))
+            if "/actions/runs" in url:
+                reads[0] += 1
+                return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1}, run_green)))
+            if "/check-runs" in url:
+                return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1}, check_ok2)))
+            ctx = {"context": "ctx", "state": "success"}
+            if reads[0] == 2:
+                return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1, "state": "failure"}, ctx,
+                                                                     {"_page": 1, "state": "success"})))
+            return _Stub(0, "\n".join(json.dumps(r) for r in ({"_page": 1, "state": "success"}, ctx)))
+        g6 = GitHub("o/r")
+        g6._gh = split_status_gh  # type: ignore[method-assign]
+        m6 = Merger(Git(work, env), g6, Options(pr=1, poll_s=0, expect_workflows=("CI",)), out=lambda s: None,
+                    sleep=lambda s: None)
+        same, detail = m6._checks_after_merge("abc", ["security-gate"], verdicts_of(g6.snapshot("abc")))
+        expect(not same and "now combined failure" in detail,
+               f"status pages reporting failure then success keep the failure as evidence ({detail[:80]})")
+        # A successful merge call whose PR read still says OPEN.
+        for lag, want, label in ((1, 0, "lags one read: read again, proven, exit 0"),
+                                 (9, EXIT_RACE_RED, "keeps saying OPEN: exit 8, not 1")):
+            origin, work, branch = world()
+            new_connector_pr(work, extra_commit=False)
+            fake = FakeGitHub(origin, env, 43, branch, "skill: bravo", green)
+            fake.pr_lag_after_merge = lag
+            rc, logs = merger(work, fake, require=())
+            expect(rc == want, f"a merge call that succeeded but whose PR read {label} (rc={rc})")
+        # The rule itself: after the merge call, any other stop is 8 (here a
+        # refused call that leaves the PR CLOSED, which is otherwise exit 1).
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 45, branch, "skill: bravo", green)
+        fake.refuse_merges, fake.close_on_refuse = 1, True
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and any("after the merge call" in s for s in logs),
+               f"after a merge call, a stop that would be exit 1 (the PR CLOSED after a refusal) is 8 (rc={rc})")
+        # Cleanup that fails (a timeout) after exit 8 keeps 8 and still frees the lock.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 44, branch, "skill: bravo", green)
+        fake.after_merge = [{"combined_state": "failure"}]
+        real_run = Git.run
+
+        def remove_times_out(self, *args, **kw):
+            if args[:2] == ("worktree", "remove"):
+                raise rr.CallTimeout("git worktree remove did not finish within 1s (killed)")
+            return real_run(self, *args, **kw)
+        Git.run = remove_times_out  # type: ignore[method-assign]
+        try:
+            rc, logs = merger(work, fake, require=())
+        except Exception as exc:  # a cleanup failure escaping the run is the defect: name it
+            rc, logs = f"raised {type(exc).__name__}", []
+        finally:
+            Git.run = real_run  # type: ignore[method-assign]
+        try:
+            relock = repo_lock.acquire(branch_lock_name(branch), root=work)
+            repo_lock.release(relock)
+            lock_free = True
+        except repo_lock.LockHeld:
+            lock_free = False
+        expect(rc == EXIT_RACE_RED and lock_free and any("WARN cleanup did not complete" in s for s in logs),
+               f"a cleanup that times out after exit 8 keeps 8, warns, and frees the branch lock (rc={rc})")
+
         # Once GitHub says MERGED, a proof step that fails (the fetch) is 8, not 1.
         origin, work, branch = world()
         new_connector_pr(work, extra_commit=False)
@@ -2678,7 +2838,7 @@ def _self_test() -> int:
             still = False
         except PermissionError:
             still = True
-        expect("CallTimeout" in raised and "did not finish within 1s" in raised and took < 10 and not still
+        expect("lookup failed" in raised and "did not finish within 1s" in raised and took < 10 and not still
                and not donefile.exists(),
                f"gh calls that stall are each killed at the deadline's remaining 1s, and the snapshot reads as "
                f"incomplete ({took:.1f}s, {raised[:70]})")

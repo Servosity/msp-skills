@@ -184,8 +184,12 @@ cap is 4).
 group, bounded by what is left of the current wait's deadline and at most `MSP_CALL_TIMEOUT_S`
 seconds (300; `CUT_TAGS_CALL_TIMEOUT` for `cut_tags.sh`). `gh`'s HTTP client has no timeout of its
 own, so without this one stalled response would hold the branch lock forever. A call past its
-bound is killed with its children and fails closed; once the merge call has been made, a timeout
-(or anything else that stops the proof of the merge) exits **8**, because the PR may be merged.
+bound is killed with its children and fails closed; `cut_tags.sh` runs its python checkers (whose
+own git calls read the tagged commit) the same way. A call that fails part-way keeps every
+complete row it returned, so after a merge a red row read before the failure stays evidence.
+Once the merge call has been made, every outcome other than 0 (proven), 7 or 8 is **8**, because
+the PR may be merged and nothing proved it, and a cleanup failure (a timeout removing the private
+worktree) is a warning that never changes the exit; the branch lock is released regardless.
 
 **Accepted, detected risk: main moving inside the merge call.** GitHub's merge call pins the
 head (`--match-head-commit`, the validated SHA) but cannot pin the base, and this repository's
@@ -242,6 +246,10 @@ file: a held `flock` means a live holder; otherwise the old pid rule decides, an
 file is unlinked only while holding its `flock` and only if the path still names that inode. The
 self-test runs main's original copy against this one in both directions (each refuses while the
 other holds, acquires after the other releases, and reclaims after the other is killed).
+Residual: the old copy reclaims a dead holder's file without an `flock` or an inode check, so an
+old and a new copy reclaiming the same dead holder's file at the same moment can both end up
+holding. It is the race two old copies already have with each other; it needs a dead holder and
+two contenders inside the same few milliseconds, and it goes away once no old copy runs.
 
 
 ### `resolve_registry.py`

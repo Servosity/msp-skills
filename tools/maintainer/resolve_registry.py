@@ -508,7 +508,13 @@ CALL_CAP_S = float(os.environ.get("MSP_CALL_TIMEOUT_S", "300"))
 
 
 class CallTimeout(RuntimeError):
-    """A bounded call ran past its bound and was killed (fail closed)."""
+    """A bounded call ran past its bound and was killed (fail closed).
+    `stdout` holds what the child wrote before it was killed: a caller that
+    must keep contrary evidence (rows already listed) can still read it."""
+
+    def __init__(self, message: str, stdout: str = "") -> None:
+        super().__init__(message)
+        self.stdout = stdout
 
 
 def run_bounded(argv: list[str], *, timeout: float | None = None, input=None, capture_output: bool = False,
@@ -534,8 +540,10 @@ def run_bounded(argv: list[str], *, timeout: float | None = None, input=None, ca
             if f is not None:
                 f.close()
         if isinstance(exc, subprocess.TimeoutExpired):
+            partial = exc.stdout or b""
+            text = partial.decode("utf-8", "replace") if isinstance(partial, bytes) else partial
             raise CallTimeout(f"{' '.join(str(a) for a in argv[:3])} did not finish within {t:.0f}s "
-                              "(killed)") from None
+                              "(killed)", stdout=text) from None
         raise
     if check and p.returncode != 0:
         raise subprocess.CalledProcessError(p.returncode, argv, out, err)

@@ -94,8 +94,11 @@ except BaseException as exc:
         sys.exit(124)
     raise
 sys.exit(rc if rc >= 0 else 128 - rc)'
-gh() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" gh "$@"; }
-git() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" git "$@"; }
+bounded() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" "$@"; }
+gh() { bounded gh "$@"; }
+git() { bounded git "$@"; }
+# The python checkers call git themselves (the probe reads release.yml at the
+# commit), so each runs bounded as a whole: its process group goes with it.
 LOG=""
 WT_MAP=""
 WT_COUNT=0
@@ -589,7 +592,7 @@ probe_from_main() { # <probe args...>: the probe of the main fetch_main just fet
     rm -rf "$d"
     return 1
   fi
-  "$PYTHON" "$d/check_release_pipeline.py" --repo "$REPO" "$@" </dev/null || rc=$?
+  bounded "$PYTHON" "$d/check_release_pipeline.py" --repo "$REPO" "$@" </dev/null || rc=$?
   rm -rf "$d"
   return "$rc"
 }
@@ -607,7 +610,7 @@ probe_rerun_from_main() { # <tag> <commit>: may this cut tag's release run again
     rm -rf "$d"
     return 1
   fi
-  "$PYTHON" - "$d" "$REPO" "$1" "$2" <<'PY' || rc=$?
+  bounded "$PYTHON" - "$d" "$REPO" "$1" "$2" <<'PY' || rc=$?
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
@@ -670,7 +673,7 @@ cut() {
       sed 's/^/    /' "$probe_out"
       die "PROBE-REFUSED $t (origin/main ${MAIN_SHA:0:12}'s probe)"
     fi
-    if ! (cd "$shawt" && "$PYTHON" tools/maintainer/changelog_section.py --slug "$slug" --version "$ver" --check) >"$probe_out" 2>&1; then
+    if ! (cd "$shawt" && bounded "$PYTHON" tools/maintainer/changelog_section.py --slug "$slug" --version "$ver" --check) >"$probe_out" 2>&1; then
       sed 's/^/    /' "$probe_out"
       die "NOTES-REFUSED $t (write the CHANGELOG section at that commit first)"
     fi
@@ -745,7 +748,7 @@ receipts() {
     worktree_at "$commit"
     wt=$NEW_WT
     n=$(printf '%s' "$json" | "$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin).get("assets") or []))')
-    if printf '%s' "$json" | (cd "$wt" && "$PYTHON" tools/maintainer/check_release_assets.py --tag "$t" --with-mcpb) >/dev/null 2>&1; then
+    if printf '%s' "$json" | (cd "$wt" && bounded "$PYTHON" tools/maintainer/check_release_assets.py --tag "$t" --with-mcpb) >/dev/null 2>&1; then
       say "SEALED $t assets=$n"
     else
       say "NOT-COMPLETE $t assets=$n (published with assets missing; see check_release_assets.py)"
@@ -1443,6 +1446,45 @@ MOVE
     rm -f "$tmp/on-count.ran"
   done
   rm -f "$tmp"/runs/*
+
+  echo "the python checkers are bounded too (the probe's own git call):"
+  connector zz-k1 0.1.0
+  printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/zz-k1/CHANGELOG.md"
+  cp "$SELF" "$tmp/repo/tools/maintainer/cut_tags.sh"  # main carries the running copy again
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "zz-k1" -s
+  git -C "$tmp/repo" push -q origin main
+  printf 'zz-k1-v0.1.0\n' >"$tmp/tags-k1.txt"
+  mkdir -p "$tmp/gitstall"
+  # A real git everywhere, except that reading release.yml (what the probe
+  # does, from python) stalls in a child while git-stall exists.
+  cat >"$tmp/gitstall/git" <<'STALL'
+#!/bin/sh
+case "$*" in
+  *".github/workflows/release.yml"*)
+    if [ -f "$CT_STATE/git-stall" ]; then
+      sleep 30 &
+      echo "$!" >"$CT_STATE/git-stall.pid"
+      wait "$!"
+    fi ;;
+esac
+exec "$REAL_GIT" "$@"
+STALL
+  chmod +x "$tmp/gitstall/git"
+  : >"$tmp/git-stall"
+  rm -f "$tmp"/runs/*
+  t0=$(date +%s)
+  out=$(REAL_GIT=$(type -P git) PATH="$tmp/gitstall:$PATH" CUT_TAGS_CALL_TIMEOUT=2 CUT_TAGS_FLIGHT_SLEEP=0 \
+    bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-k1.txt" 2>&1) && rc=0 || rc=$?
+  took=$(($(date +%s) - t0))
+  rm -f "$tmp/git-stall"
+  gpid=$(cat "$tmp/git-stall.pid" 2>/dev/null || echo 0)
+  sleep 1
+  rc2=1
+  if [ "$rc" -ne 0 ] && has "PROBE-REFUSED zz-k1-v0.1.0" && [ "$took" -lt 25 ] && [ "$gpid" -gt 0 ] \
+    && ! kill -0 "$gpid" 2>/dev/null \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-k1-v0.1.0 >/dev/null; then rc2=0; fi
+  expect "a probe whose own git call stalls is killed at CUT_TAGS_CALL_TIMEOUT (${took}s): refused, nothing pushed" "$rc2"
 
   echo "--help:"
   out=$(bash "$SELF" --help 2>&1) && rc=0 || rc=$?
