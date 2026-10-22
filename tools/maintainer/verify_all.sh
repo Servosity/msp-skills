@@ -45,14 +45,21 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
 # CI's runners start from a clean Go environment, so every check here does
-# too: nothing the go command reads (GOFLAGS=-tags=..., GOAMD64, a go env
-# file, a cross-compile target, cgo flags...) is inherited from the caller.
-for v in GOFLAGS GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64 GOWASM GOEXPERIMENT \
-         GODEBUG GOFIPS140 GOWORK GOTOOLCHAIN GOOS GOARCH CGO_ENABLED CGO_CFLAGS CGO_CPPFLAGS \
-         CGO_CXXFLAGS CGO_FFLAGS CGO_LDFLAGS CC CXX; do
-  unset "$v"
+# too: every GO* and CGO_* variable (GOFLAGS=-tags=..., GOAMD64, GO111MODULE,
+# GOROOT, a cross-compile target...), the C toolchain and the go env file go
+# away, except those that only say where modules, caches and downloads live,
+# which never change what is built.
+for v in $(compgen -e); do
+  case "$v" in
+    GOPATH|GOMODCACHE|GOCACHE|GOTMPDIR|GOBIN|GOPROXY|GONOPROXY|GOPRIVATE|GONOSUMDB|GOSUMDB|GOINSECURE|GOAUTH|GOVCS|GOTELEMETRY*|GOOGLE_*) ;;
+    GO*|CGO_*|CC|CXX|AR|PKG_CONFIG|GCCGO) unset "$v" ;;
+  esac
 done
 export GOENV=off
+gomod_go() { # the Go version CI's setup-go installs for a go.mod: its toolchain line, else its go line
+  awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$1" 2>/dev/null \
+    || awk '/^go / {print $2; exit}' "$1" 2>/dev/null
+}
 
 usage() {
   cat <<'USAGE'
@@ -102,6 +109,7 @@ export GITHUB_TOKEN
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/verify_all.XXXXXX")" || { echo "verify_all: mktemp failed" >&2; exit 2; }
 cleanup() {
+  [ -n "${VERIFY_LINUX_VOLUME:-}" ] && docker volume rm -f "$VERIFY_LINUX_VOLUME" >/dev/null 2>&1
   if [ "$keep" -eq 1 ]; then echo "logs kept in $WORK"; else rm -rf "$WORK"; fi
 }
 trap cleanup EXIT
@@ -277,6 +285,10 @@ gate "hand-fix ledgers"     fleet "" 0 python3 tools/maintainer/check_handfixes.
 gate "copyright uniform"    fleet "" 0 python3 tools/maintainer/check_copyright.py
 gate "install docs"         fleet "" 0 python3 tools/maintainer/check_install_docs.py
 gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
+# Not in CI: two paths that differ only by case (or Unicode normalization) are
+# one file on a macOS or Windows disk, so the checks that read this checkout
+# would see one of them while CI's Linux checkout holds both.
+gate "paths distinct on case-insensitive disks" repo "" 0 python3 tools/maintainer/verify_scope.py path-collisions
 # ci.yml guards: every connector, rules read from the base (findings carry [slug]).
 gate "manifest env schema" fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "${BASE_SHA:-$base}"
 if [ "$FULL" = true ]; then
@@ -317,16 +329,34 @@ echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
 # CI's Linux build row (build, vet, go test on linux/amd64 with cgo on) runs in
 # that context: natively on such a host, else in a linux/amd64 container,
 # else every connector's Linux checks fail closed. Decided once, here.
-linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none; pulls what docker needs
+overlay_lists() { # the working tree's changes against HEAD: $WORK/overlay.lst (NUL list) and $WORK/deleted.lst
+  { git diff -z --name-only --no-renames --diff-filter=d HEAD; git ls-files -z -o --exclude-standard; } > "$WORK/overlay.lst"
+  git diff -z --name-only --no-renames --diff-filter=D HEAD > "$WORK/deleted.lst"
+}
+linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SRC (the snapshot)
+  # The snapshot is what CI's build job checks out (actions/checkout: depth 1,
+  # git metadata included) for this commit, with the working tree's staged,
+  # unstaged and untracked changes and deletions laid on top, on a LINUX disk
+  # (case-sensitive, Linux permissions and locking), never written back.
+  local head v img="" vol
+  head="$(git rev-parse HEAD)"
+  overlay_lists
   if [ "$(uname -s)" = Linux ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
      && [ "$(CGO_ENABLED=1 go env CGO_ENABLED 2>/dev/null)" = 1 ] && command -v gcc >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=native
+    VERIFY_LINUX_SRC="$WORK/repo"
+    if ! { git init -q "$VERIFY_LINUX_SRC" \
+           && git -C "$VERIFY_LINUX_SRC" fetch -q --depth 1 "file://$(pwd)" "$head" \
+           && git -C "$VERIFY_LINUX_SRC" checkout -q --detach FETCH_HEAD \
+           && { [ ! -s "$WORK/overlay.lst" ] || tar --null -T "$WORK/overlay.lst" -cf - | tar -xf - -C "$VERIFY_LINUX_SRC"; } \
+           && ( cd "$VERIFY_LINUX_SRC" && xargs -0 rm -f < "$WORK/deleted.lst" ); }; then
+      echo "  could not snapshot the repository for the Linux checks: they will fail"
+      VERIFY_LINUX_SRC=""
+    fi
   elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=docker
-    local v img="" vol
     for v in $(cat "$WORK/connectors.txt" "$WORK/modules.txt" 2>/dev/null | cut -d' ' -f2 | while read -r d; do
-                 awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "skills/$d/cli/go.mod" \
-                   || awk '/^go / {print $2; exit}' "skills/$d/cli/go.mod"; done | sort -u); do
+                 gomod_go "skills/$d/cli/go.mod"; done | sort -u); do
       # The same tag can be cached for another platform (an arm64 pull):
       # only an amd64 image is CI's context.
       if [ "$(docker image inspect -f '{{.Architecture}}' "golang:${v}-bookworm" 2>/dev/null)" != amd64 ]; then
@@ -339,27 +369,37 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none; pulls what dock
       docker volume create "$vol" >/dev/null 2>&1
       [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" chown "$(id -u):$(id -g)" /v >/dev/null 2>&1
     done
-    # What CI's build job checks out (actions/checkout, depth 1, git metadata
-    # included) for this commit, with the working tree's changes laid on top
-    # (staged, unstaged and untracked files, and deletions): repo-level inputs
-    # and `git show HEAD:...` work as in CI, the worktree is never written to,
-    # and Docker never needs to read a protected macOS folder. Once per run.
-    VERIFY_LINUX_SNAPSHOT="$WORK/repo"
-    if git init -q "$VERIFY_LINUX_SNAPSHOT" \
-       && git -C "$VERIFY_LINUX_SNAPSHOT" fetch -q --depth 1 "file://$(pwd)" "$(git rev-parse HEAD)" \
-       && git -C "$VERIFY_LINUX_SNAPSHOT" checkout -q --detach FETCH_HEAD; then
-      { git diff -z --name-only --no-renames --diff-filter=d HEAD; git ls-files -z -o --exclude-standard; } \
-        | tar --null -T - -cf - | tar -xf - -C "$VERIFY_LINUX_SNAPSHOT"
-      git diff -z --name-only --no-renames --diff-filter=D HEAD | ( cd "$VERIFY_LINUX_SNAPSHOT" && xargs -0 rm -f )
-    else
-      echo "  could not snapshot the repository for the Linux container: the Linux checks will fail"
+    # A private volume for this run, removed when it ends. It is filled from a
+    # BARE depth-1 clone (git objects only, so this host's case-insensitive
+    # disk never holds the checkout) and the overlay, streamed in without
+    # macOS metadata.
+    VERIFY_LINUX_VOLUME="msp-skills-verify-src-$(basename "$WORK" | tr -c 'A-Za-z0-9' '-')$$"
+    VERIFY_LINUX_SRC="$VERIFY_LINUX_VOLUME"
+    local tarx="" seed="$WORK/seed.git"
+    tar --version 2>/dev/null | grep -q bsdtar && tarx="--no-xattrs"
+    in_volume() { docker run --rm -i --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp \
+                    -v "$seed:/seed:ro" -v "$VERIFY_LINUX_VOLUME:/src" -w /src "$img" "$@"; }
+    if ! { [ -n "$img" ] \
+           && git init -q --bare "$seed" \
+           && git -C "$seed" fetch -q --depth 1 "file://$(pwd)" "$head" \
+           && git -C "$seed" update-ref refs/heads/verify "$head" \
+           && docker volume create "$VERIFY_LINUX_VOLUME" >/dev/null \
+           && docker run --rm --platform linux/amd64 -v "$VERIFY_LINUX_VOLUME:/src" "$img" chown "$(id -u):$(id -g)" /src \
+           && in_volume sh -c "git init -q /src && git -C /src fetch -q --depth 1 file:///seed refs/heads/verify \
+                               && git -C /src checkout -q --detach FETCH_HEAD" \
+           && { [ ! -s "$WORK/overlay.lst" ] \
+                || COPYFILE_DISABLE=1 tar $tarx --null -T "$WORK/overlay.lst" -cf - | in_volume tar -xf - -C /src; } \
+           && in_volume sh -c 'xargs -0 rm -f' < "$WORK/deleted.lst"; }; then
+      echo "  could not snapshot the repository into a Linux volume: the Linux checks will fail"
+      VERIFY_LINUX_SRC=""
     fi
-    export VERIFY_LINUX_SNAPSHOT
+    rm -rf "$seed"
   else
     VERIFY_LINUX_MODE=none
+    VERIFY_LINUX_SRC=""
   fi
-  export VERIFY_LINUX_MODE
-  echo "  linux build row: $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] && echo ' (linux/amd64 container, golang:<go.mod toolchain>, cgo on)')"
+  export VERIFY_LINUX_MODE VERIFY_LINUX_SRC
+  echo "  linux build row: $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] && echo ' (linux/amd64 container on a Linux volume, golang:<go.mod toolchain>, cgo on)')"
 }
 if [ "$n_conn" -gt 0 ]; then
   linux_prepare
@@ -437,55 +477,34 @@ if [ -s "$WORK/security.txt" ]; then
   # CI's gate runs on linux/amd64 with cgo ON. The analyzers load packages
   # for the context they are given: GOOS/GOARCH always, and cgo on only where
   # this host can build cgo for linux/amd64 (a native linux/amd64 host with a
-  # C compiler). Elsewhere cgo is off, so a cgo-only file would never be
-  # scanned: the context check below fails closed on one, for EVERY slug the
-  # gate scans (not just the build scope). Read from `go list -json`, names whole.
+  # C compiler). Elsewhere cgo is off, and that speaks for CI's gate only when
+  # turning cgo on changes nothing Go compiles (any file of any kind, in the
+  # module or a dependency, either way): the context check fails closed
+  # otherwise, for EVERY slug the gate scans. The probe and the scanners run on
+  # the same toolchain: CI's when it resolved, else go.mod's, pinned (a newer
+  # local Go would otherwise be used, with other build tags).
   if [ "$(uname -s)" = Linux ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] && command -v gcc >/dev/null 2>&1; then
     gate_cgo=1
   else
     gate_cgo=0
   fi
-  security_context() { # <module dir>
+  security_context() { # <module dir> <toolchain>
     [ "$gate_cgo" = 1 ] && { echo "linux/amd64 with cgo: the gate reads what CI's gate reads"; return 0; }
-    ( cd "$1" && python3 - <<'PY'
-import json, os, subprocess, sys
-
-def files(env):
-    p = subprocess.run(["go", "list", "-e", "-json", "./..."], env=dict(os.environ, **env),
-                       capture_output=True, text=True)
-    if p.returncode != 0 and not p.stdout:
-        print(p.stderr)
-        sys.exit(2)
-    out, dec, s, i = set(), json.JSONDecoder(), p.stdout, 0
-    while True:
-        while i < len(s) and s[i].isspace():
-            i += 1
-        if i >= len(s):
-            return out
-        obj, i = dec.raw_decode(s, i)
-        for key in ("GoFiles", "CgoFiles", "TestGoFiles", "XTestGoFiles"):
-            for f in obj.get(key) or []:
-                out.add(os.path.join(obj.get("Dir", ""), f))
-
-ctx = {"GOOS": "linux", "GOARCH": "amd64", "GOFLAGS": "", "GOENV": "off"}
-missing = sorted(files(dict(ctx, CGO_ENABLED="1")) - files(dict(ctx, CGO_ENABLED="0")))
-if missing:
-    print("files CI's security gate (linux/amd64, cgo on) scans that this host's gate (cgo off) cannot:")
-    for m in missing:
-        print("  " + m)
-    print("run verify_all.sh on a linux/amd64 host with a C compiler, or rely on CI for this skill")
-    sys.exit(1)
-print("no cgo-only files: this host's gate reads every file CI's gate reads")
-PY
-    )
+    env GOOS=linux GOARCH=amd64 GOFLAGS= GOTOOLCHAIN="$2" python3 tools/maintainer/verify_scope.py cgo-context --dir "$1" \
+      && return 0
+    echo "CI's security gate scans with cgo on and this host's gate with cgo off, so it does not"
+    echo "speak for CI here: run verify_all.sh on a linux/amd64 host with a C compiler, or rely on CI."
+    return 1
   }
   while IFS= read -r s; do
     [ -n "$s" ] || continue
+    s_go="$gate_go"
     if [ -f "skills/$s/cli/go.mod" ]; then
-      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli"
+      [ -n "$s_go" ] || s_go="go$(gomod_go "skills/$s/cli/go.mod")"
+      gate "security gate context" scoped "$s" 0 security_context "skills/$s/cli" "$s_go"
     fi
-    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" ${gate_go:+GOTOOLCHAIN="$gate_go"} \
-      python3 tools/maintainer/check_security_gate.py \
+    gate "security gate" scoped "$s" 0 env GOOS=linux GOARCH=amd64 CGO_ENABLED="$gate_cgo" GOFLAGS= \
+      ${s_go:+GOTOOLCHAIN="$s_go"} python3 tools/maintainer/check_security_gate.py \
       --slug "$s" --base "${BASE_SHA:-$base}" --policy-base "${BASE_SHA:-$base}" --require-scanners
   done < "$WORK/security.txt"
 else

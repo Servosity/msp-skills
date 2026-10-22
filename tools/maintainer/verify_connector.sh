@@ -18,16 +18,18 @@
 # gate, doctor and go test all run there. So all of them run HERE in that
 # context too, never approximated from another OS: natively on a linux/amd64
 # host with a C compiler, else in a linux/amd64 container (golang:<the go.mod
-# toolchain setup-go selects>) over a depth-1 clone of this commit with the
-# working tree's changes laid on top, else not at all, and they fail closed.
-# Every command runs with an EXPLICIT environment: nothing Go reads (GOFLAGS,
-# GOAMD64, GOEXPERIMENT, a go env file...) is inherited from the caller.
+# toolchain setup-go selects>) on a Linux disk holding a depth-1 clone of this
+# commit with the working tree's changes laid on top, else not at all, and they
+# fail closed. Every command runs with an EXPLICIT environment: nothing Go reads
+# (GOFLAGS, GOAMD64, GO111MODULE, a go env file...) is inherited from the caller.
 #
 # The WINDOWS row runs on a real Windows runner, which no other OS can be. Its
 # predictors run on this host under the same explicit environment: Windows
-# vet, a Windows compile and link of every test, and the Unix-only test lint;
-# a file only a cgo-on Windows build selects (CI's runner has MinGW) fails
-# closed, because a cross-check from here builds with cgo off.
+# vet, a Windows compile and link of every test, and the Unix-only test lint.
+# They build with cgo off and CI's runner builds with cgo on (it has MinGW), so
+# they speak for it only when turning cgo on changes nothing Go compiles (any
+# file of any kind, in the module or a dependency, either way); otherwise
+# "windows cgo context" fails closed.
 #
 #   [build]    linux build+vet, linux cross-compile, linux go test, linux cli
 #              claims, linux doctor truth, linux mcp gate, linux hand-fix ledger
@@ -57,16 +59,20 @@ check() { # check <name> <command...>
 gover="$(awk '/^toolchain go/ {print substr($2,3); f=1; exit} END {if (!f) exit 1}' "$mod/go.mod" 2>/dev/null \
   || awk '/^go / {print $2; exit}' "$mod/go.mod" 2>/dev/null)"
 
-# Everything the go command reads from the environment that could change
-# which files it builds or how: cleared, then set explicitly per context.
-GO_ENV_UNSET="GOFLAGS GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64 GOWASM
-GOEXPERIMENT GODEBUG GOFIPS140 GOENV GOWORK GOTOOLCHAIN GOOS GOARCH CGO_ENABLED CGO_CFLAGS
-CGO_CPPFLAGS CGO_CXXFLAGS CGO_FFLAGS CGO_LDFLAGS CC CXX"
+# CI's runners start from a clean Go environment, and so does this script
+# (verify_all.sh does the same): every GO* and CGO_* variable and the C
+# toolchain go away, except those that only say where modules, caches and
+# downloads live, which never change what is built.
+for v in $(compgen -e); do
+  case "$v" in
+    GOPATH|GOMODCACHE|GOCACHE|GOTMPDIR|GOBIN|GOPROXY|GONOPROXY|GOPRIVATE|GONOSUMDB|GOSUMDB|GOINSECURE|GOAUTH|GOVCS|GOTELEMETRY*|GOOGLE_*) ;;
+    GO*|CGO_*|CC|CXX|AR|PKG_CONFIG|GCCGO) unset "$v" ;;
+  esac
+done
+export GOENV=off
 
-goclean() { # goclean VAR=value... command...: the command under an explicit Go environment
-  local u=()
-  for v in $GO_ENV_UNSET; do u+=(-u "$v"); done
-  env "${u[@]}" GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover" CI=true "$@"
+goclean() { # goclean VAR=value... command...: the command on CI's toolchain
+  env GOFLAGS= GOTOOLCHAIN="go$gover" CI=true "$@"
 }
 
 # ---- CI's build row, in Linux ------------------------------------------------
@@ -79,13 +85,15 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
       # Like the container: only what is listed here (no TZ, LANG or test
       # settings from the caller), plus the PATH that finds go and gcc and
       # where modules and the build cache live (which never change a result).
-      ( cd "$cwd" && env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" CI=true \
+      [ -n "${VERIFY_LINUX_SRC:-}" ] && [ -d "$VERIFY_LINUX_SRC/$mod" ] || {
+        echo "no repository snapshot for the Linux checks (VERIFY_LINUX_SRC)"; return 1; }
+      ( cd "$VERIFY_LINUX_SRC/$cwd" && env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" CI=true \
           ${GOPATH:+GOPATH="$GOPATH"} ${GOMODCACHE:+GOMODCACHE="$GOMODCACHE"} ${GOCACHE:+GOCACHE="$GOCACHE"} \
           ${GOPROXY:+GOPROXY="$GOPROXY"} \
           GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOTOOLCHAIN="go$gover" bash -c "$cmd" ) ;;
     docker)
-      [ -n "${VERIFY_LINUX_SNAPSHOT:-}" ] && [ -d "$VERIFY_LINUX_SNAPSHOT/$mod" ] || {
-        echo "no repository snapshot for the Linux container (VERIFY_LINUX_SNAPSHOT)"; return 1; }
+      [ -n "${VERIFY_LINUX_SRC:-}" ] || {
+        echo "no repository snapshot for the Linux container (VERIFY_LINUX_SRC)"; return 1; }
       # The container's environment is only what is listed here.
       docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
         -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 \
@@ -93,7 +101,7 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
         -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
-        -v "$VERIFY_LINUX_SNAPSHOT:/src" -w "/src/$cwd" \
+        -v "$VERIFY_LINUX_SRC:/src" -w "/src/$cwd" \
         "golang:${gover}-bookworm" bash -c "$cmd" ;;
     *)
       echo "CI's build row (linux/amd64, cgo on) cannot run here: this host is not linux/amd64"
@@ -128,40 +136,11 @@ windows_vet()          { ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 CGO_EN
 # it (a link error is a failure too), so nothing lands in the module.
 windows_test_compile() { ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./... ); }
 
-# A cgo-only Windows file (CI's runner builds with MinGW, cgo on) is in
-# neither prediction above, which build with cgo off: fail closed. File sets
-# come from `go list -json` under the same explicit environment.
 windows_cgo_context() {
-  ( cd "$mod" && goclean GOOS=windows GOARCH=amd64 python3 - <<'PY'
-import json, os, subprocess, sys
-
-def files(cgo):
-    p = subprocess.run(["go", "list", "-e", "-json", "./..."], env=dict(os.environ, CGO_ENABLED=cgo),
-                       capture_output=True, text=True)
-    if p.returncode != 0 and not p.stdout:
-        print(p.stderr)
-        sys.exit(2)
-    out, dec, s, i = set(), json.JSONDecoder(), p.stdout, 0
-    while True:
-        while i < len(s) and s[i].isspace():
-            i += 1
-        if i >= len(s):
-            return out
-        obj, i = dec.raw_decode(s, i)
-        for key in ("GoFiles", "CgoFiles", "TestGoFiles", "XTestGoFiles"):
-            for f in obj.get(key) or []:
-                out.add(os.path.join(obj.get("Dir", ""), f))
-
-missing = sorted(files("1") - files("0"))
-if missing:
-    print("files CI's Windows runner (cgo on, MinGW) builds that this host's Windows checks cannot:")
-    for m in missing:
-        print("  " + m)
-    print("rely on CI's Windows job for this connector, or check it on Windows")
-    sys.exit(1)
-print("no cgo-only Windows files: the Windows predictors read every file CI's runner builds")
-PY
-  )
+  goclean GOOS=windows GOARCH=amd64 python3 tools/maintainer/verify_scope.py cgo-context --dir "$mod" && return 0
+  echo "CI's Windows runner builds with cgo on (it has MinGW) and the Windows checks here build"
+  echo "with cgo off, so they do not speak for it. Rely on CI's Windows job for this connector."
+  return 1
 }
 
 if [ ! -f "$mod/go.mod" ]; then

@@ -23,10 +23,19 @@ helper does the three parts that need more than shell:
              cannot be attributed and blocks (fail closed).
   verdict    The machine-readable result: checks, verdict, seconds, head and
              base SHAs, scope, out_of_scope_failures.
+  cgo-context  Whether turning cgo on changes what Go compiles for the target
+             in GOOS/GOARCH: every file list `go list -deps -test` reports, for
+             the module's packages and every non-standard dependency. A check
+             that ran with cgo off speaks for a cgo-on CI job only when nothing
+             differs.
+  path-collisions  Committed or working-tree paths that a case-insensitive or
+             normalization-insensitive disk (macOS, Windows) folds into one.
 
     python3 tools/maintainer/verify_scope.py scope [--slug S]... [--changed] [--base REF]
     python3 tools/maintainer/verify_scope.py attribute --scope FILE --log FILE
     python3 tools/maintainer/verify_scope.py verdict --scope FILE --records FILE --out FILE
+    python3 tools/maintainer/verify_scope.py cgo-context --dir skills/<dir>/cli
+    python3 tools/maintainer/verify_scope.py path-collisions
     python3 tools/maintainer/verify_scope.py --self-test
 """
 
@@ -35,9 +44,11 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -554,6 +565,112 @@ def gate_go() -> str | None:
 
 
 # --------------------------------------------------------------------------- #
+# Build contexts and disks
+# --------------------------------------------------------------------------- #
+
+
+def go_list(d: str, cgo: str) -> tuple[dict[str, dict], str]:
+    """`go list -e -json -deps -test ./...` in d with CGO_ENABLED=cgo (the rest
+    of the environment, GOOS/GOARCH and the toolchain, is the caller's). Every
+    package by import path, or an error when go listed nothing."""
+    p = subprocess.run(["go", "list", "-e", "-json", "-deps", "-test", "./..."], cwd=d,
+                       env=dict(os.environ, CGO_ENABLED=cgo), capture_output=True, text=True)
+    pkgs: dict[str, dict] = {}
+    dec, s, i = json.JSONDecoder(), p.stdout, 0
+    try:
+        while True:
+            while i < len(s) and s[i].isspace():
+                i += 1
+            if i >= len(s):
+                break
+            obj, i = dec.raw_decode(s, i)
+            pkgs[obj.get("ImportPath", "")] = obj
+    except ValueError:
+        return {}, "go list printed unparseable output"
+    if not pkgs:
+        return {}, (p.stderr.strip() or f"go list exited {p.returncode} and listed no package")
+    return pkgs, ""
+
+
+def build_inputs(pkgs: dict[str, dict]) -> dict[str, dict]:
+    """What the compiler is handed per package: every file list go reports
+    (each key ending in "Files": Go, cgo, assembly, C, syso, embed, test and
+    ignored files, including kinds added later) and any load error. The
+    standard library is left out: the same Go release builds it either way and
+    its API does not change with cgo."""
+    out: dict[str, dict] = {}
+    for path, p in pkgs.items():
+        if p.get("Standard"):
+            continue
+        rec = {k: sorted(v) for k, v in p.items() if k.endswith("Files") and isinstance(v, list)}
+        rec["Error"] = json.dumps([p.get("Error"), p.get("DepsErrors")], sort_keys=True)
+        out[path] = rec
+    return out
+
+
+def context_diff(off: dict[str, dict], on: dict[str, dict]) -> list[str]:
+    """Every difference between the two contexts' build inputs, both ways."""
+    lines: list[str] = []
+    for path in sorted(set(off) | set(on)):
+        if path not in on or path not in off:
+            lines.append(f"  {path}: built only with cgo {'off' if path not in on else 'on'}")
+            continue
+        a, b = off[path], on[path]
+        for k in sorted(set(a) | set(b)):
+            if a.get(k) == b.get(k):
+                continue
+            if k == "Error":
+                lines.append(f"  {path}: loads differently with cgo on and off")
+                continue
+            for f in sorted(set(b.get(k) or []) - set(a.get(k) or [])):
+                lines.append(f"  {path}: {k} {f} only with cgo on")
+            for f in sorted(set(a.get(k) or []) - set(b.get(k) or [])):
+                lines.append(f"  {path}: {k} {f} only with cgo off")
+    return lines
+
+
+def cgo_context(d: str) -> int:
+    off, err_off = go_list(d, "0")
+    on, err_on = go_list(d, "1")
+    if err_off or err_on:
+        print(err_off or err_on)
+        return 2
+    diff = context_diff(build_inputs(off), build_inputs(on))
+    if diff:
+        print("turning cgo on changes what Go compiles here:")
+        print("\n".join(diff))
+        return 1
+    print(f"cgo on and cgo off compile the same files ({len(build_inputs(on))} packages)")
+    return 0
+
+
+def _fold(p: str) -> str:
+    return unicodedata.normalize("NFD", p).casefold()
+
+
+def path_collisions(paths: list[str]) -> list[list[str]]:
+    """Groups of distinct paths (or parent folders) that one folded name
+    covers on a case- or normalization-insensitive disk."""
+    groups: dict[str, set[str]] = {}
+    for p in paths:
+        parts = p.split("/")
+        for n in range(1, len(parts) + 1):
+            pre = "/".join(parts[:n])
+            groups.setdefault(_fold(pre), set()).add(pre)
+    return sorted(sorted(g) for g in groups.values() if len(g) > 1)
+
+
+def repo_paths() -> list[str]:
+    out: set[str] = set()
+    for args in (["ls-tree", "-r", "-z", "--name-only", "HEAD"], ["ls-files", "-z", "-c", "-o", "--exclude-standard"]):
+        p = subprocess.run(["git", *args], cwd=ROOT, capture_output=True)
+        if p.returncode != 0:
+            raise OSError(f"git {' '.join(args)} failed: {p.stderr.decode(errors='replace').strip()}")
+        out |= {x.decode("utf-8", "surrogateescape") for x in p.stdout.split(b"\0") if x}
+    return sorted(out)
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -577,6 +694,9 @@ def main(argv: list[str]) -> int:
     vp.add_argument("--seconds", type=float, default=0.0)
     vp.add_argument("--started", default="")
     sub.add_parser("gate-go")
+    cp = sub.add_parser("cgo-context")
+    cp.add_argument("--dir", required=True)
+    sub.add_parser("path-collisions")
     bp = sub.add_parser("baseline")
     bp.add_argument("--scope", required=True)
     bp.add_argument("--head-log", required=True)
@@ -586,6 +706,22 @@ def main(argv: list[str]) -> int:
     a = ap.parse_args(argv)
     if a.cmd == "gate-go":
         print(gate_go() or "")
+        return 0
+    if a.cmd == "cgo-context":
+        return cgo_context(a.dir)
+    if a.cmd == "path-collisions":
+        try:
+            groups = path_collisions(repo_paths())
+        except OSError as e:
+            print(e)
+            return 2
+        for g in groups:
+            print("  one file on a case-insensitive disk (macOS, Windows): " + "  ".join(g))
+        if groups:
+            print("rename so these differ by more than case or Unicode normalization: a macOS or")
+            print("Windows checkout keeps only one of each, so no check run here sees the other")
+            return 1
+        print("no two paths fold together on a case-insensitive disk")
         return 0
     if a.cmd == "baseline":
         sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
@@ -900,6 +1036,36 @@ def _self_test() -> int:
                 expect(True, "an unknown --slug is refused")
     finally:
         release_matrix.change_set, release_matrix.classify_change = real_cs, real_cc
+
+    print("cgo context (build inputs, both directions):")
+    def pk(files=None, **kw):
+        d = {"ImportPath": "m/p", "GoFiles": files or ["a.go"]}
+        d.update(kw)
+        return d
+    base_pk = {"m/p": pk(), "fmt": {"ImportPath": "fmt", "Standard": True, "GoFiles": ["x.go"]}}
+    same = build_inputs(base_pk)
+    expect(context_diff(same, build_inputs(base_pk)) == [], "identical inputs -> no difference")
+    expect(context_diff(same, build_inputs({"m/p": pk(["a.go", "c_windows.go"])})) ==
+           ["  m/p: GoFiles c_windows.go only with cgo on"], "a file only cgo-on compiles is found")
+    expect(context_diff(build_inputs({"m/p": pk(["a.go", "stub.go"])}), same) ==
+           ["  m/p: GoFiles stub.go only with cgo off"], "a file only cgo-OFF compiles is found too")
+    expect(any("SFiles" in x for x in context_diff(same, build_inputs({"m/p": pk(SFiles=["x_amd64.s"])}))),
+           "assembly (and any other *Files list) is compared")
+    expect(context_diff(same, build_inputs({**base_pk, "dep/q": {"ImportPath": "dep/q", "GoFiles": ["q.go"]}})) ==
+           ["  dep/q: built only with cgo on"], "a dependency package only one context builds is found")
+    expect(context_diff(same, build_inputs({"m/p": pk(Error={"Err": "boom"})})) ==
+           ["  m/p: loads differently with cgo on and off"], "a load error in one context is a difference")
+    expect(context_diff(same, build_inputs({**base_pk, "fmt": {"ImportPath": "fmt", "Standard": True,
+                                                                "GoFiles": ["x.go", "cgo.go"]}})) == [],
+           "the standard library is left out (same release, same API either way)")
+    print("path collisions:")
+    expect(path_collisions(["a/Case_linux.go", "a/case_linux.go"]) == [["a/Case_linux.go", "a/case_linux.go"]],
+           "two files that differ only by case collide")
+    expect(path_collisions(["internal/Foo/a.go", "internal/foo/b.go"]) == [["internal/Foo", "internal/foo"]],
+           "two folders that differ only by case collide (one package on macOS, two on Linux)")
+    expect(path_collisions(["caf\u00e9.md", "cafe\u0301.md"]) == [["cafe\u0301.md", "caf\u00e9.md"]],
+           "NFC and NFD spellings of one name collide")
+    expect(path_collisions(["a/x.go", "a/y.go", "b/x.go"]) == [], "distinct paths do not")
 
     print("newest_patch (setup-go's reading of a bare minor):")
     rel = [{"version": "go1.27.3", "stable": True}, {"version": "go1.26.10", "stable": True},
