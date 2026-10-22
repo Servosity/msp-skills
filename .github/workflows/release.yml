@@ -95,32 +95,56 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      - name: Install scanners (best-effort install; the gate fails CLOSED if a required one is missing)
+      - name: Install pinned scanners (bounded retries; fail-closed for the required ones)
         env:
           # PINNED, not @latest. These four tools are fetched and then EXECUTED
           # inside a job that carries contents:write, so a compromised (or merely
           # re-cut) upstream release would run with this repository's release
           # credential. @latest also makes the gate's verdict non-reproducible:
           # the same tag re-run a week later scans with different rules.
-          # Each pin below is the version @latest resolved to on 2026-08-26, so
-          # this change pins current behavior rather than altering it.
-          # To bump: change the version here, re-run the gate, land as a reviewed PR.
+          # The SAME pins as security-gate.yml (its self-test fails if the two
+          # drift), reviewed 2026-10-21 by running the previous release pins and
+          # the PR gate's @latest versions over all 84 connectors: identical
+          # findings (see security-gate.yml for the per-tool notes). Built cold on
+          # purpose: this job holds the release credential, so it never restores a
+          # cached binary.
+          # To bump: change BOTH workflows, re-run the fleet comparison, land as a
+          # reviewed PR.
           GOSEC_VERSION: "v2.29.0"
-          GOVULNCHECK_VERSION: "v1.7.0"
+          GOVULNCHECK_VERSION: "v1.9.0"
           # osv-scanner v2 lives at a different module path
           # (github.com/google/osv-scanner/v2); v1.9.2 is the newest on this v1
-          # path and is what @latest resolved to here.
+          # path, the one the gate's JSON parsing is written for.
           OSV_SCANNER_VERSION: "v1.9.2"
-          SEMGREP_VERSION: "1.174.0"
+          SEMGREP_VERSION: "1.180.0"
         run: |
           set -uo pipefail
-          go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}" || true
-          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" || true
+          # Three attempts each with backoff: a proxy.golang.org stream error is the
+          # one install flake seen in 30 days. A required scanner that still will not
+          # install fails this step; the gate would fail CLOSED on it anyway, but this
+          # says why in the step that broke.
+          retry() {
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              echo "::warning::attempt $attempt failed: $*"
+              sleep $((attempt * 15))
+            done
+            return 1
+          }
+          rc=0
+          retry go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}" || rc=1
+          retry go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" || rc=1
           # osv-scanner is a REQUIRED scanner for the gate; it was previously absent at
           # release time, so the release never ran osv at all. Install it for parity.
-          go install "github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}" || true
-          python3 -m pip install --quiet "semgrep==${SEMGREP_VERSION}" || true
+          retry go install "github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}" || rc=1
+          # semgrep is not a required scanner (its rules mirror the builtin patterns).
+          retry python3 -m pip install --quiet "semgrep==${SEMGREP_VERSION}" \
+            || echo "::warning::semgrep ${SEMGREP_VERSION} did not install (not a required scanner)"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::a required scanner did not install after 3 attempts (fail-closed)"
+          fi
+          exit "$rc"
       - name: Pre-warm scanner caches for the tagged connector
         env:
           TAG: ${{ github.ref_name }}
