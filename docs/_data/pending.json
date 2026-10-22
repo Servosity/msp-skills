@@ -77,16 +77,16 @@
     "released_hash": "sha256:586d04ce6e4b495cb735af4870da2bfce5f6666ad8bf67d613769e1f15b0fa4e"
   },
   "backup-radar": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "backup-radar-v0.1.0",
+    "latest_tag": "backup-radar-v0.1.1",
     "current_hash": "sha256:66a43b75d579b2c6cf8220ec5cd13d67af5a6b5ac31182da7d84068400aa5ccb",
     "released_hash": "sha256:66a43b75d579b2c6cf8220ec5cd13d67af5a6b5ac31182da7d84068400aa5ccb"
   },
   "betterstack": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "betterstack-v0.1.4",
+    "latest_tag": "betterstack-v0.1.5",
     "current_hash": "sha256:fa36931d7cbbfa6026054e360b0f622adf3088e16dc9f5b70269da1b0a37ebc0",
     "released_hash": "sha256:fa36931d7cbbfa6026054e360b0f622adf3088e16dc9f5b70269da1b0a37ebc0"
   },
@@ -98,9 +98,9 @@
     "released_hash": "sha256:02f4c98d317e4b057a9be50003ace1b8b671da60d2f349b2a616256cd18159e7"
   },
   "blumira": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "blumira-v0.1.4",
+    "latest_tag": "blumira-v0.1.5",
     "current_hash": "sha256:97549d8594ddceac14fdb44fa6421e8cd37fb692748ae3f054c629f64cbd6823",
     "released_hash": "sha256:97549d8594ddceac14fdb44fa6421e8cd37fb692748ae3f054c629f64cbd6823"
   },
