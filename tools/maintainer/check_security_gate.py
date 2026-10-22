@@ -1429,7 +1429,11 @@ import (
 // Spec-derived: differs per connector, and is reached only through bareWhere.
 var resourceCols = map[string][]string{RESOURCE_COLS}
 
-const batchSize = 64
+// A typed constant of a module type, as generated code has: its hashed text
+// names the module path, which normalization must handle.
+type batchLimit int
+
+const batchSize batchLimit = 64
 
 type queryParts struct {
 	q    string

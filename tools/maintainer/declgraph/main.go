@@ -678,7 +678,9 @@ func main() {
 									u := s.newUnit(key, "const", rel, s.fset, sp.Pos(), sp.End(), src)
 									if obj != nil {
 										s.objUnit[obj] = key
-										u.text = nm.Name + " " + types.TypeString(obj.Type(), s.qual) + " = " + obj.Val().ExactString()
+										// Raw package paths here: finish() checks this text for
+										// placeholders and only then normalizes it for the hash.
+										u.text = nm.Name + " " + types.TypeString(obj.Type(), (*types.Package).Path) + " = " + obj.Val().ExactString()
 										if tn := recvBase(obj.Type()); tn != nil && s.isModulePkg(tn.Pkg()) {
 											u.refs[s.objKey(tn)] = true
 										}
