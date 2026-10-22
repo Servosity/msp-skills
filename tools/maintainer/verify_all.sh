@@ -351,13 +351,24 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
   local head v img="" vol
   head="$(git rev-parse HEAD)"
   overlay_lists
+  # The snapshot's checkout is git's own, untouched by this host's git config
+  # (a global core.autocrlf or attributes file would rewrite committed bytes);
+  # the repository's .gitattributes still apply, as in CI.
+  local GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+  export GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM
   # CI's runner is an unprivileged user, and some tests skip as root: a root
   # caller never runs the Linux checks natively, and containers always run
   # as an unprivileged user.
   VERIFY_LINUX_USER="$(id -u):$(id -g)"
   [ "$(id -u)" = 0 ] && VERIFY_LINUX_USER=1001:1001
   export VERIFY_LINUX_USER
-  if [ "$(uname -s)" = Linux ] && [ "$(id -u)" != 0 ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
+  # Native also needs a disk with CI's semantics under $WORK: case-sensitive
+  # and normalization-sensitive (TMPDIR can point at any mount).
+  local fs_ok=0
+  if mkdir "$WORK/fsprobe" && touch "$WORK/fsprobe/a" "$WORK/fsprobe/$(printf 'e\314\201')" \
+     && [ ! -e "$WORK/fsprobe/A" ] && [ ! -e "$WORK/fsprobe/$(printf '\303\251')" ]; then fs_ok=1; fi
+  rm -rf "$WORK/fsprobe"
+  if [ "$(uname -s)" = Linux ] && [ "$(id -u)" != 0 ] && [ "$fs_ok" = 1 ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
      && [ "$(CGO_ENABLED=1 go env CGO_ENABLED 2>/dev/null)" = 1 ] && command -v gcc >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=native
     VERIFY_LINUX_SRC="$WORK/repo"
@@ -490,6 +501,9 @@ if [ -s "$WORK/security.txt" ]; then
   # go-version spec and the go command then selects as usual (a newer
   # `toolchain` line in a go.mod or go.work upgrades it). GOTOOLCHAIN=<that>+auto
   # is exactly that selection. Unresolvable (no release index): fail closed.
+  # (security-gate.yml sets no check-latest, so a runner image that caches an
+  # older patch of the spec is used as is; every connector's own go/toolchain
+  # line then still lifts it to at least that line.)
   gate_go="$(python3 tools/maintainer/verify_scope.py gate-go ${VERIFY_GO_RELEASES:+--releases "$VERIFY_GO_RELEASES"} 2>/dev/null)"
   if [ -n "$gate_go" ]; then
     echo "  toolchain: $gate_go+auto (what security-gate.yml's setup-go installs today, then Go's own selection), linux/amd64"

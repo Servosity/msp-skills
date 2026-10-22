@@ -76,10 +76,18 @@ if [ "${1:-}" = "--self-test" ]; then
     "printf 'module acme-pp-cli\n\ngo 1.1.0\n' > skills/acme/cli/go.mod; rm skills/acme/guide.md"
   st_case "a go.mod at the floor, selected by a toolchain line" pass \
     "printf 'module acme-pp-cli\n\ngo 1.1\n\ntoolchain go%s\n' \"\$floor\" > skills/acme/cli/go.mod"
-  st_case "a tracked file in an unreadable directory fails closed" fail \
-    "mkdir -p docs/locked; printf 'a $em b\n' > docs/locked/README.md; git add docs/locked/README.md; git -c user.name=t -c user.email=t@example.com commit -qm l; chmod 000 docs/locked; [ -r docs/locked ] && rm -rf docs/locked"
-  st_case "an unreadable file fails closed" fail \
-    "printf 'x\n' > skills/acme/locked.md; chmod 000 skills/acme/locked.md; [ -r skills/acme/locked.md ] && printf 'a $em b\n' > skills/acme/locked.md"
+  # Root (or a disk without permissions) reads a chmod 000 path anyway, so
+  # these two cases cannot be set up there: skipped, and said so.
+  probe="$(mktemp "${TMPDIR:-/tmp}/ci_guards_probe.XXXXXX")"; chmod 000 "$probe"
+  if [ -r "$probe" ]; then
+    echo "  skip  the unreadable-path cases (this user reads a chmod 000 file: root, or no permissions here)"
+  else
+    st_case "a tracked file in an unreadable directory fails closed" fail \
+      "mkdir -p docs/locked; printf 'a $em b\n' > docs/locked/README.md; git add docs/locked/README.md; git -c user.name=t -c user.email=t@example.com commit -qm l; chmod 000 docs/locked"
+    st_case "an unreadable file fails closed" fail \
+      "printf 'x\n' > skills/acme/locked.md; chmod 000 skills/acme/locked.md"
+  fi
+  chmod 600 "$probe"; rm -f "$probe"
   if [ "$bad" -eq 0 ]; then echo "PASS: ci_guards self-test - every case discriminates"; exit 0; fi
   echo "FAIL: ci_guards self-test" >&2
   exit 1

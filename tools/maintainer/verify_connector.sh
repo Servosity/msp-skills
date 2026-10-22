@@ -184,6 +184,17 @@ check "linux go test"          linux_test
 check "windows vet"            windows_vet
 check "windows test compile"   windows_test_compile
 check "windows cgo context"    windows_cgo_context
+check "windows sparse checkout" windows_checkout
+# CI's Windows job checks out only skills/<slug> and tools/maintainer (sparse).
+# A go.work can name modules outside that, which this host has and that runner
+# does not, so the Windows predictors do not speak for it: fail closed.
+windows_checkout() {
+  [ "$gowork" = off ] && { echo "no go.work applies: the sparse Windows checkout holds everything Go reads"; return 0; }
+  echo "$gowork applies to this module; CI's Windows job checks out only skills/$slug and tools/maintainer,"
+  echo "so modules it uses elsewhere are missing there. Rely on CI's Windows job for this connector."
+  return 1
+}
+
 # The lint evaluates build tags for the Go CI's Windows job selects (release
 # tags go1.1..go1.N), so it asks Go which one that is.
 unix_lint() {

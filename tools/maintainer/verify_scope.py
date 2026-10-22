@@ -545,19 +545,37 @@ def newest_patch(spec: str, releases: list[dict]) -> str | None:
     return "go" + ".".join(str(x) for x in best) if best else None
 
 
+_SETUP_GO_MANIFEST = "https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json"
+_GO_DEV_INDEX = "https://go.dev/dl/?mode=json&include=all"
+
+
 def go_releases(path: str | None = None) -> list[dict]:
-    """go.dev's release index (what setup-go resolves a version spec against),
-    from a file a previous call saved, else from go.dev. [] when unreachable."""
-    try:
-        if path:
-            data = json.loads(Path(path).read_text(encoding="utf-8"))
-        else:
-            import urllib.request
-            with urllib.request.urlopen("https://go.dev/dl/?mode=json&include=all", timeout=20) as resp:
-                data = json.load(resp)
-    except (OSError, ValueError):
-        return []
-    return data if isinstance(data, list) else []
+    """The release index setup-go resolves a version spec against: its own
+    manifest (actions/go-versions), else go.dev's, as [{"version": "goX.Y.Z",
+    "stable": bool}]; from a file a previous call saved, or fetched. [] when
+    neither is reachable."""
+    def norm(data: object) -> list[dict]:
+        out = []
+        for r in data if isinstance(data, list) else []:
+            v = r.get("version", "") if isinstance(r, dict) else ""
+            if isinstance(v, str) and v:
+                out.append({"version": v if v.startswith("go") else "go" + v, "stable": bool(r.get("stable"))})
+        return out
+    if path:
+        try:
+            return norm(json.loads(Path(path).read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            return []
+    import urllib.request
+    for url in (_SETUP_GO_MANIFEST, _GO_DEV_INDEX):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as resp:
+                rel = norm(json.load(resp))
+        except (OSError, ValueError):
+            continue
+        if rel:
+            return rel
+    return []
 
 
 def setup_go_installs(spec: str, releases: list[dict]) -> str | None:
@@ -779,7 +797,7 @@ def main(argv: list[str]) -> int:
     if a.cmd == "go-releases":
         rel = go_releases()
         if not rel:
-            print("could not read go.dev's release index", file=sys.stderr)
+            print("could not read setup-go's release manifest or go.dev's index", file=sys.stderr)
             return 1
         Path(a.out).write_text(json.dumps(rel), encoding="utf-8")
         return 0

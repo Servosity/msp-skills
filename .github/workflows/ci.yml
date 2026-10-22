@@ -458,6 +458,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: ${{ matrix.skill.dir }}/go.mod
+          # The newest patch of the go line, every run, never whichever patch
+          # the runner image happens to cache: the same Go verify_all.sh
+          # predicts with (it resolves the spec against this same manifest).
+          check-latest: true
           # Module + build cache for these VERIFICATION rows only. Without a
           # dependency path setup-go logged "Dependencies file is not found"
           # and every row ran cold. One key over every connector's go.sum: a
@@ -634,6 +638,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: ${{ matrix.skill.dir }}/go.mod
+          check-latest: true  # as in the build job: never the runner image's cached patch
           cache-dependency-path: ${{ matrix.skill.dir }}/go.sum
 
       - name: Vet (windows/amd64, native)
