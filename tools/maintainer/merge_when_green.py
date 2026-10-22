@@ -2079,8 +2079,9 @@ def _self_test() -> int:
             ("a run added and another removed between pages (a repeated success, the new failure unread: 2 rows "
              "of total 2) is not green", {"runs": [(2, {}, [run_ok]), (2, {}, [run_ok])],
                                           "statuses": [(30, {"state": "success"}, ok_statuses)]}, "pending"),
-            ("pages disagreeing on total_count are not green",
-             {"runs": [(2, {}, [run_ok]), (3, {}, [run_bad])],
+            ("pages disagreeing on total_count are not green (a run deleted between pages: the first page "
+             "says 3, the last says 2, and 2 distinct rows match the last)",
+             {"runs": [(3, {}, [run_ok]), (2, {}, [run_bad])],
               "statuses": [(30, {"state": "success"}, ok_statuses)]}, "pending"),
             ("the combined state changing between status pages is not green",
              {"statuses": [(30, {"state": "success"}, ok_statuses[:15]),
