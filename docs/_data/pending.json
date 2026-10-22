@@ -287,9 +287,9 @@
     "released_hash": "sha256:aef2e031d6c6a4722185a94fe8dc9d5a8ab57d369b5a21baac8b70cf3cda3d98"
   },
   "jira-service-management": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "jira-service-management-v0.1.1",
+    "latest_tag": "jira-service-management-v0.1.2",
     "current_hash": "sha256:790b97aa027334b2a9c2551839a3afab10e8f1f92a647d4d58c983939ed4a5fb",
     "released_hash": "sha256:790b97aa027334b2a9c2551839a3afab10e8f1f92a647d4d58c983939ed4a5fb"
   },

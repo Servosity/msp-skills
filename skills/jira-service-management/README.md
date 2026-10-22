@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Jira Service Management MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/jira-service-management-v0.1.1/jira-service-management-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Jira Service Management release on the [releases page](https://github.com/servosity/msp-skills/releases?q=jira-service-management).)
+[**Download Jira Service Management MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/jira-service-management-v0.1.2/jira-service-management-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Jira Service Management release on the [releases page](https://github.com/servosity/msp-skills/releases?q=jira-service-management).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
