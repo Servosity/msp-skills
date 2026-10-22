@@ -72,6 +72,7 @@ Pure stdlib.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -642,6 +643,50 @@ def _porcelain(repo: Path) -> list[tuple[str, str]]:
     return out
 
 
+_MARK_RE = re.compile(rb"^(<<<<<<<|\|\|\|\|\|\|\||>>>>>>>) ?(.*)$", re.M)
+
+
+def untouched_conflict(repo: Path, path: str, stages: dict[int, str]) -> bool:
+    """True when the working file is exactly what git wrote for this conflict,
+    so replacing it loses nothing a person typed. A modify/delete conflict must
+    hold the surviving side; a content conflict must equal `git merge-file`'s
+    output for the same stages and the file's own marker labels."""
+    f = repo / path
+    cur = f.read_bytes() if f.is_file() else None
+    blobs = {n: _stage_bytes(repo, stages, n) for n in (1, 2, 3)}
+    if blobs[2] is None or blobs[3] is None:
+        return cur == (blobs[3] if blobs[2] is None else blobs[2])
+    if cur is None:
+        return False
+    labels: dict[bytes, bytes] = {}
+    for m in _MARK_RE.finditer(cur):
+        labels.setdefault(m.group(1), m.group(2))
+    if b"<<<<<<<" not in labels or b">>>>>>>" not in labels:
+        return False  # no conflict markers left: resolved (or edited) by hand
+    with tempfile.TemporaryDirectory() as d:
+        paths = []
+        for n, name in ((2, "ours"), (1, "base"), (3, "theirs")):
+            pth = Path(d) / name
+            pth.write_bytes(blobs[n] or b"")
+            paths.append(str(pth))
+        cmd = ["git", "merge-file", "-p", "-L", labels[b"<<<<<<<"].decode("utf-8", "surrogateescape"),
+               "-L", labels.get(b"|||||||", b"base").decode("utf-8", "surrogateescape"),
+               "-L", labels[b">>>>>>>"].decode("utf-8", "surrogateescape")]
+        if b"|||||||" in labels:
+            cmd.append("--diff3")
+        p = subprocess.run(cmd + paths, capture_output=True)
+    return p.returncode >= 0 and p.stdout == cur
+
+
+def _input_snapshot(repo: Path, conflicts: dict[str, dict[int, str]]) -> dict[str, tuple]:
+    out = {}
+    for path, stages in conflicts.items():
+        f = repo / path
+        digest = hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None
+        out[path] = (tuple(sorted(stages.items())), digest)
+    return out
+
+
 def unstaged_outside(repo: Path, allowed: set[str]) -> list[str]:
     """Paths with unstaged or untracked changes other than `allowed`."""
     bad = []
@@ -807,6 +852,10 @@ def resolve(repo: Path, main_side: str | None = None, regen: bool = True,
             return 2
     main_stage, branch_stage = (2, 3) if main_side == "ours" else (3, 2)
     conflicts = unmerged(repo)
+    # What the plan is computed from: each conflicted file's working bytes and
+    # its index stages. If either changes before the write (a person editing
+    # the conflicted file, another resolver run), nothing is written.
+    inputs = _input_snapshot(repo, conflicts)
     dirty = unstaged_outside(repo, set(conflicts))
     if dirty:
         out("REFUSE: the worktree has changes outside the conflicted files "
@@ -834,6 +883,10 @@ def resolve(repo: Path, main_side: str | None = None, regen: bool = True,
     for path in sorted(conflicts):
         st = conflicts[path]
         try:
+            if not untouched_conflict(repo, path, st):
+                unknown.append(f"{path} (edited by hand since git wrote the conflict; finish it by hand, or "
+                               f"restore git's version with `git checkout -m -- {path}` and run this again)")
+                continue
             if path in REGISTRY_FILES:
                 base, main, branch = (_stage_text(repo, st, 1), _stage_text(repo, st, main_stage),
                                       _stage_text(repo, st, branch_stage))
@@ -895,6 +948,11 @@ def resolve(repo: Path, main_side: str | None = None, regen: bool = True,
         out("dry run: nothing written")
         return 0
 
+    now = unmerged(repo)
+    if now != conflicts or _input_snapshot(repo, now) != inputs or unstaged_outside(repo, set(now)):
+        out("REFUSE: the conflicted files or the index changed while the resolution was being planned; "
+            "nothing was written. Run it again.")
+        return 2
     for path, (_kind, text) in plan.items():
         f = repo / path
         if text is None:
@@ -1334,6 +1392,37 @@ def _self_test() -> int:
                "a hand-formatted registry only one side changed is compared byte for byte, not refused")
         expect(verify_registries(w, main_sha, hand, main_sha, main_sha) != [],
                "... and a result that is neither side is still caught")
+
+        # 6c. Someone edits a conflicted file while the plan is computed.
+        print("inputs that change during planning:")
+        w = scenario("concurrent")
+        run("git", "checkout", "-q", "-b", "skill/bravo", cwd=w)
+        add_connector(w, env, "bravo")
+        run("git", "checkout", "-q", "main", cwd=w)
+        add_connector(w, env, "charlie")
+        run("git", "checkout", "-q", "skill/bravo", cwd=w)
+        run("git", "rebase", "main", cwd=w, check=False)
+        real_merge = merge_registry_text
+        note = "# A note a person typed into the conflicted file meanwhile.\n"
+
+        def merge_while_someone_edits(path, base, main, branch, _w=w):
+            if path == CARDS_YAML:
+                f = _w / CARDS_YAML
+                f.write_text(note + f.read_text())
+            return real_merge(path, base, main, branch)
+        globals()["merge_registry_text"] = merge_while_someone_edits
+        try:
+            rc = resolve(w, out=quiet, regen=False)
+        finally:
+            globals()["merge_registry_text"] = real_merge
+        expect(rc == 2 and (w / CARDS_YAML).read_text().startswith(note) and CARDS_YAML in unmerged(w),
+               "an edit made to a conflicted file during planning stops the resolver and is kept")
+        expect(resolve(w, out=quiet, regen=False) == 2,
+               "... and the file, now holding the note inside conflict markers, is not resolved blindly next time")
+        run("git", "checkout", "-m", "--", CARDS_YAML, cwd=w)
+        expect(resolve(w, out=quiet, regen=False) == 0,
+               "after `git checkout -m` restores git's own conflict, it resolves (the documented remedy works)")
+        run("git", "rebase", "--abort", cwd=w, check=False)
 
         # 7. A worktree with unrelated unstaged edits is refused.
         print("preconditions:")

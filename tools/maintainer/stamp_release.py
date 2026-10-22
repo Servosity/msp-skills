@@ -288,9 +288,21 @@ def plan(repo: Path, released: set[str], dates: dict[str, str]) -> tuple[dict, d
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    tmp = path.with_name(path.name + ".stamp-tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
+    """Write via a NEW, uniquely named temp file beside `path` (O_EXCL, so it
+    can never be an existing file or a symlink someone left there), then
+    rename it over `path`, keeping the file's mode."""
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".stamp-tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        os.chmod(tmp, path.stat().st_mode & 0o7777)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def apply(repo: Path, stamps: dict[str, str], edits: dict) -> None:
@@ -507,6 +519,21 @@ def _self_test() -> int:
         holder.wait()
         expect(rc_locked == 1 and "null" in (work / REGISTRY_REL).read_text(),
                "while release.py holds its lock, the stamp writes nothing")
+        bystander = work / "tools/maintainer/skills.json.stamp-tmp"
+        bystander.write_text("someone's scratch file\n")
+        target = tmp / "precious.txt"
+        target.write_text("precious\n")
+        link = work / "skills/alpha/CHANGELOG.md.stamp-tmp"
+        link.symlink_to(target)
+        before_mode = (work / REGISTRY_REL).stat().st_mode
+        rc_ok = run(work, released, listing, dry_run=False)
+        expect(rc_ok == 0 and bystander.read_text() == "someone's scratch file\n"
+               and target.read_text() == "precious\n" and (work / REGISTRY_REL).stat().st_mode == before_mode
+               and not list(work.glob("**/.*.stamp-tmp")),
+               "the atomic write never touches an existing '.stamp-tmp' path or a symlink's target, keeps the "
+               "mode, and leaves no temp file")
+        bystander.unlink()
+        link.unlink()
         sh("checkout", "-q", "--", ".")
         (work / ".gitattributes").write_text("*.go text eol=crlf\n")
         sh("add", ".gitattributes")

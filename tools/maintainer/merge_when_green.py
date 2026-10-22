@@ -543,14 +543,34 @@ class GitHub:
                                  "required'. Pass --required-context NAME (repeatable) to state them.")
 
     def snapshot(self, sha: str) -> dict:
-        runs = self._lines("api", "--paginate", f"repos/{self.slug}/actions/runs?head_sha={sha}&per_page=100",
+        """Every workflow run, check run and commit status on `sha`: every page
+        of each listing, verified against GitHub's own total_count (and, for
+        statuses, the combined state), because a listing cut short at a page
+        boundary can hide a failure. An incomplete listing is reported as
+        `incomplete`, which _evaluate() treats as pending, never as green."""
+        base_runs = f"repos/{self.slug}/actions/runs?head_sha={sha}&per_page=100"
+        base_checks = f"repos/{self.slug}/commits/{sha}/check-runs?filter=latest&per_page=100"
+        base_status = f"repos/{self.slug}/commits/{sha}/status?per_page=100"
+        runs = self._lines("api", "--paginate", base_runs,
                            "--jq", ".workflow_runs[] | {id, name, event, status, conclusion}")
-        checks = self._lines("api", "--paginate",
-                             f"repos/{self.slug}/commits/{sha}/check-runs?per_page=100&filter=latest",
+        checks = self._lines("api", "--paginate", base_checks,
                              "--jq", ".check_runs[] | {id, name, status, conclusion, app: .app.slug}")
-        statuses = json.loads(self._gh("api", f"repos/{self.slug}/commits/{sha}/status",
-                                       "--jq", "[.statuses[] | {context, state}]").stdout or "[]")
-        return {"runs": runs, "checks": checks, "statuses": statuses}
+        statuses = self._lines("api", "--paginate", base_status, "--jq", ".statuses[] | {context, state}")
+        totals = {
+            "workflow runs": (len(runs), self._lines("api", base_runs, "--jq", "{n: .total_count}")),
+            "check runs": (len(checks), self._lines("api", base_checks, "--jq", "{n: .total_count}")),
+            "statuses": (len(statuses), self._lines("api", base_status, "--jq", "{n: .total_count, state}")),
+        }
+        snap: dict = {"runs": runs, "checks": checks, "statuses": statuses}
+        for what, (have, rows) in totals.items():
+            want = rows[0].get("n") if rows else None
+            if not isinstance(want, int) or want != have:
+                snap["incomplete"] = f"{what}: read {have} of {want}"
+        combined = (totals["statuses"][1] or [{}])[0].get("state")
+        if statuses and combined not in ("success", "pending", "failure", "error"):
+            snap["incomplete"] = f"combined status state {combined!r}"
+        snap["combined_state"] = combined
+        return snap
 
     def job_log(self, job_id: int) -> str:
         p = self._gh("api", "--allow-escape-sequences", f"repos/{self.slug}/actions/jobs/{job_id}/logs",
@@ -1021,6 +1041,12 @@ class Merger:
     # -- checks ------------------------------------------------------------- #
     def _evaluate(self, snap: dict, required: list[str]) -> tuple[list[str], list[dict]]:
         pending, failed = [], []
+        if snap.get("incomplete"):
+            pending.append(f"the check listing is incomplete ({snap['incomplete']}); reading again")
+        if snap.get("combined_state") in ("failure", "error") and all(
+                s.get("state") == "success" for s in snap["statuses"]):
+            failed.append({"kind": "status", "name": "(combined commit status)",
+                           "conclusion": snap["combined_state"]})
         names = {r.get("name") for r in snap["runs"]}
         for w in self.o.expect_workflows:
             if w not in names:
@@ -1771,6 +1797,37 @@ def _self_test() -> int:
         rc, logs = merger(work, fake)
         expect(rc == EXIT_APPROVAL and any("registry-wide top:owner" in s for s in logs),
                "main changing the registry's owner makes every approval stale")
+
+        # T8b5: a listing cut short at a page boundary is never green.
+        class _Stub:
+            def __init__(self, rc: int, out: str) -> None:
+                self.returncode, self.stdout, self.stderr = rc, out, ""
+
+        def stub_for(statuses: list[dict], total: int, combined: str):
+            def _gh(*a: str, check: bool = True) -> _Stub:
+                url = next(x for x in a if x.startswith("repos/"))
+                paged = "--paginate" in a
+                if "/actions/runs" in url:
+                    return _Stub(0, '{"id":1,"name":"CI","event":"pull_request","status":"completed","conclusion":"success"}'
+                                 if paged else '{"n":1}')
+                if "/check-runs" in url:
+                    return _Stub(0, '{"id":2,"name":"security-gate","status":"completed","conclusion":"success",'
+                                    '"app":"github-actions"}' if paged else '{"n":1}')
+                return _Stub(0, "\n".join(json.dumps(s) for s in statuses) if paged
+                             else json.dumps({"n": total, "state": combined}))
+            return _gh
+        ok_statuses = [{"context": f"ctx{i}", "state": "success"} for i in range(30)]
+        verdicts = []
+        for statuses, total, combined in ((ok_statuses, 30, "success"), (ok_statuses, 31, "failure"),
+                                          (ok_statuses, 30, "failure")):
+            g2 = GitHub("o/r")
+            g2._gh = stub_for(statuses, total, combined)  # type: ignore[method-assign]
+            m2 = Merger(Git(work, env), g2, Options(pr=1, expect_workflows=("CI",)), out=lambda s: None)
+            pending, failed = m2._evaluate(g2.snapshot("abc"), ["security-gate"])
+            verdicts.append(("green" if not pending and not failed else "pending" if pending else "failed"))
+        expect(verdicts == ["green", "pending", "failed"],
+               f"30 of 30 statuses is green; 30 of 31 (a failure on page two) is not; a failing combined state "
+               f"fails ({verdicts})")
 
         # T8b4: required checks must be readable.
         class _P:
