@@ -58,6 +58,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -74,7 +75,7 @@ class StampError(Exception):
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True)
+    return rr.run_bounded(["git", "-C", str(repo), *args], capture_output=True)
 
 
 def tree_hash(repo: Path, rev: str, rel_dir: str) -> str | None:
@@ -107,6 +108,10 @@ def tree_hash(repo: Path, rev: str, rel_dir: str) -> str | None:
     h = hashlib.sha256()
     proc = subprocess.Popen(["git", "-C", str(repo), "cat-file", "--batch"], stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE)
+    # Bounded like every other call: a stalled reader is killed at the cap,
+    # and the short read that follows fails the hash (fail closed).
+    watchdog = threading.Timer(rr.CALL_CAP_S, proc.kill)
+    watchdog.start()
     try:
         for rel, sha in sorted(entries, key=lambda e: e[0]):
             proc.stdin.write(sha.encode() + b"\n")
@@ -120,6 +125,7 @@ def tree_hash(repo: Path, rev: str, rel_dir: str) -> str | None:
             h.update(data)
             h.update(b"\0")
     finally:
+        watchdog.cancel()
         proc.stdin.close()
         proc.wait()
     return "sha256:" + h.hexdigest()

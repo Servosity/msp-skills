@@ -77,6 +77,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -497,12 +498,57 @@ def resolve_skill_readme(base: str | None, main: str | None, branch: str | None)
 
 
 # --------------------------------------------------------------------------- #
+# Bounded subprocesses
+# --------------------------------------------------------------------------- #
+
+# The most any one git, gh or generator call may take. gh's HTTP client has no
+# timeout of its own, so without a bound one stalled response holds a branch
+# lock (and every wait's deadline) forever.
+CALL_CAP_S = float(os.environ.get("MSP_CALL_TIMEOUT_S", "300"))
+
+
+class CallTimeout(RuntimeError):
+    """A bounded call ran past its bound and was killed (fail closed)."""
+
+
+def run_bounded(argv: list[str], *, timeout: float | None = None, input=None, capture_output: bool = False,
+                check: bool = False, **kw) -> subprocess.CompletedProcess:
+    """subprocess.run with a hard bound. The child runs in its own process
+    group; once `timeout` (at most CALL_CAP_S, at least 1s) passes, or the
+    caller is interrupted, the whole group is killed and CallTimeout (or the
+    interruption) raised. stdin is /dev/null unless `input` is given."""
+    t = CALL_CAP_S if timeout is None else max(1.0, min(float(timeout), CALL_CAP_S))
+    if capture_output:
+        kw["stdout"] = kw["stderr"] = subprocess.PIPE
+    kw.setdefault("stdin", subprocess.PIPE if input is not None else subprocess.DEVNULL)
+    p = subprocess.Popen(argv, start_new_session=True, **kw)
+    try:
+        out, err = p.communicate(input, timeout=t)
+    except BaseException as exc:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        p.wait()
+        for f in (p.stdin, p.stdout, p.stderr):
+            if f is not None:
+                f.close()
+        if isinstance(exc, subprocess.TimeoutExpired):
+            raise CallTimeout(f"{' '.join(str(a) for a in argv[:3])} did not finish within {t:.0f}s "
+                              "(killed)") from None
+        raise
+    if check and p.returncode != 0:
+        raise subprocess.CalledProcessError(p.returncode, argv, out, err)
+    return subprocess.CompletedProcess(argv, p.returncode, out, err)
+
+
+# --------------------------------------------------------------------------- #
 # Git plumbing
 # --------------------------------------------------------------------------- #
 
 def git(repo: Path, *args: str, check: bool = True, input_bytes: bytes | None = None,
         text: bool = True) -> subprocess.CompletedProcess:
-    p = subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
+    p = run_bounded(["git", "-C", str(repo), *args], capture_output=True,
                        input=input_bytes if not text else None, text=text)
     if check and p.returncode != 0:
         err = p.stderr if text else p.stderr.decode("utf-8", "replace")
@@ -516,7 +562,7 @@ def git_dir(repo: Path) -> Path:
 
 
 def show_blob(repo: Path, rev_path: str) -> str | None:
-    p = subprocess.run(["git", "-C", str(repo), "show", rev_path], capture_output=True)
+    p = run_bounded(["git", "-C", str(repo), "show", rev_path], capture_output=True)
     if p.returncode != 0:
         return None
     return p.stdout.decode("utf-8")
@@ -549,7 +595,7 @@ def _stage_bytes(repo: Path, stages: dict[int, str], n: int) -> bytes | None:
     sha = stages.get(n)
     if sha is None:
         return None
-    p = subprocess.run(["git", "-C", str(repo), "cat-file", "blob", sha], capture_output=True)
+    p = run_bounded(["git", "-C", str(repo), "cat-file", "blob", sha], capture_output=True)
     if p.returncode != 0:
         raise RuntimeError(f"cannot read blob {sha}")
     return p.stdout
@@ -674,8 +720,14 @@ def untouched_conflict(repo: Path, path: str, stages: dict[int, str]) -> bool:
                "-L", labels[b">>>>>>>"].decode("utf-8", "surrogateescape")]
         if b"|||||||" in labels:
             cmd.append("--diff3")
-        p = subprocess.run(cmd + paths, capture_output=True)
-    return p.returncode >= 0 and p.stdout == cur
+        # merge-ort (rebase, merge) writes conflicts with the histogram diff;
+        # merge-file learned --diff-algorithm in git 2.44, so an older git
+        # rejects the option and the default reproduction is tried after it.
+        for algo in (["--diff-algorithm=histogram"], []):
+            p = run_bounded(cmd + algo + paths, capture_output=True)
+            if p.returncode >= 0 and p.stdout == cur:
+                return True
+    return False
 
 
 def _input_snapshot(repo: Path, conflicts: dict[str, dict[int, str]]) -> dict[str, tuple]:
@@ -707,7 +759,7 @@ def _restore_pin_side_effects(repo: Path, paths: list[str]) -> list[str]:
     unexpected = []
     pins = []
     for path in paths:
-        idx = subprocess.run(["git", "-C", str(repo), "show", f":{path}"], capture_output=True)
+        idx = run_bounded(["git", "-C", str(repo), "show", f":{path}"], capture_output=True)
         f = repo / path
         cur = f.read_bytes() if f.is_file() else None
         if (_SKILL_README_RE.match(path) and idx.returncode == 0 and cur is not None
@@ -729,7 +781,7 @@ def refuse_symlinks(repo: Path) -> None:
     on that path, out of the worktree. The tree has none today (measured: 0
     tracked symlinks on main), so any symlink in the index is refused rather
     than reasoned about."""
-    raw = subprocess.run(["git", "-C", str(repo), "ls-files", "-s", "-z"], capture_output=True)
+    raw = run_bounded(["git", "-C", str(repo), "ls-files", "-s", "-z"], capture_output=True)
     if raw.returncode != 0:
         raise RuntimeError("cannot list the index to check for symlinks")
     links = []
@@ -758,7 +810,7 @@ def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
     refuse_symlinks(repo)
     if trusted_rev is not None:
         for rel in TRUSTED_INPUTS:
-            blob = subprocess.run(["git", "-C", str(repo), "show", f"{trusted_rev}:{rel}"], capture_output=True)
+            blob = run_bounded(["git", "-C", str(repo), "show", f"{trusted_rev}:{rel}"], capture_output=True)
             if blob.returncode == 0:
                 dest = repo / rel
                 if dest.is_symlink() or (dest.exists() and not dest.is_file()):
@@ -772,7 +824,7 @@ def regenerate_and_stage(repo: Path, out: Callable[[str], None] = print,
     for gen in generators:
         if not (repo / gen).is_file():
             continue
-        p = subprocess.run([sys.executable, gen], cwd=str(repo), capture_output=True, text=True)
+        p = run_bounded([sys.executable, gen], cwd=str(repo), capture_output=True, text=True)
         if p.returncode != 0:
             raise RuntimeError(f"{gen} failed: {(p.stdout + p.stderr).strip()[-2000:]}")
     derived, foreign, stray = [], [], []
@@ -841,7 +893,7 @@ def recheck(repo: Path, main_formats: dict[str, object] | None = None,
     except (UnknownFormat, KeyError, TypeError) as exc:
         problems.append(f"registry invariant could not be read: {exc}")
     if (repo / SYNC_CHECK).is_file():
-        p = subprocess.run([sys.executable, SYNC_CHECK], cwd=str(repo), capture_output=True, text=True)
+        p = run_bounded([sys.executable, SYNC_CHECK], cwd=str(repo), capture_output=True, text=True)
         if p.returncode != 0:
             problems.append(f"{SYNC_CHECK} failed: {(p.stdout + p.stderr).strip()[-1500:]}")
     for path in (p for _xy, p in _porcelain(repo)):
@@ -853,7 +905,7 @@ def recheck(repo: Path, main_formats: dict[str, object] | None = None,
     for gen in generators:
         if not (repo / gen).is_file():
             continue
-        p = subprocess.run([sys.executable, gen], cwd=str(repo), capture_output=True, text=True)
+        p = run_bounded([sys.executable, gen], cwd=str(repo), capture_output=True, text=True)
         if p.returncode != 0:
             problems.append(f"{gen} failed on re-run: {(p.stdout + p.stderr).strip()[-800:]}")
     drift = [p for xy, p in _porcelain(repo) if is_tree_derived(p) and (xy == "??" or xy[1] != " ")]
@@ -1241,6 +1293,44 @@ def _self_test() -> int:
             return make_fixture_repo(d, env)
 
         quiet: Callable[[str], None] = lambda s: None  # noqa: E731
+
+        # 0. A conflict exactly as `git rebase` (merge-ort, histogram diff)
+        # wrote it is recognised as untouched; these lines are ones where the
+        # default diff would place the markers differently.
+        print("untouched-conflict reproduction (merge-ort's histogram diff):")
+        w = tmp / "histogram"
+        w.mkdir()
+        run("git", "init", "-q", "-b", "main", cwd=w)
+        base_l = ["x", "a", "c", "", "{", "c", "c", "x"]
+        main_l = ["b", "x", "a", "c", "", "{", "x", "c", "x", "x"]
+        branch_l = ["x", "a", "}", "", "{", "c", "x"]
+        for lines, msg in ((base_l, "base"),):
+            (w / "notes.txt").write_text("\n".join(lines) + "\n")
+            run("git", "add", "-A", cwd=w)
+            run("git", "commit", "-q", "-s", "-m", msg, cwd=w)
+        run("git", "checkout", "-q", "-b", "topic", cwd=w)
+        (w / "notes.txt").write_text("\n".join(branch_l) + "\n")
+        run("git", "commit", "-q", "-s", "-am", "topic", cwd=w)
+        run("git", "checkout", "-q", "main", cwd=w)
+        (w / "notes.txt").write_text("\n".join(main_l) + "\n")
+        run("git", "commit", "-q", "-s", "-am", "main", cwd=w)
+        run("git", "checkout", "-q", "topic", cwd=w)
+        rb = run("git", "rebase", "main", cwd=w, check=False)
+        st = unmerged(w).get("notes.txt", {})
+        written = (w / "notes.txt").read_bytes()
+        marks = {m.group(1): m.group(2).decode() for m in _MARK_RE.finditer(written)}
+        with tempfile.TemporaryDirectory() as d:
+            for n, name in ((2, "o"), (1, "b"), (3, "t")):
+                (Path(d) / name).write_bytes(_stage_bytes(w, st, n) or b"")
+            plain = subprocess.run(["git", "merge-file", "-p", "-L", marks.get(b"<<<<<<<", ""), "-L", "base",
+                                    "-L", marks.get(b">>>>>>>", ""), *(str(Path(d) / x) for x in ("o", "b", "t"))],
+                                   capture_output=True).stdout
+        expect(rb.returncode != 0 and bool(st) and b"<<<<<<<" in written and b"<<<<<<<" in plain and plain != written,
+               "(the default diff, same labels, would write this conflict differently)")
+        expect(untouched_conflict(w, "notes.txt", st), "a conflict as git rebase wrote it is untouched")
+        (w / "notes.txt").write_bytes(written.replace(b"\n}\n", b"\n} edited\n", 1))
+        expect(not untouched_conflict(w, "notes.txt", st), "... and once edited by hand it is not")
+        run("git", "rebase", "--abort", cwd=w, check=False)
 
         # 1. Known conflict: main and the branch each add a connector.
         print("known registry conflict (both sides onboard a connector):")

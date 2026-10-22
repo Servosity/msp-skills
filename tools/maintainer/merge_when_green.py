@@ -94,6 +94,7 @@ Pure stdlib plus the `gh` CLI.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import difflib
 import hashlib
 import json
@@ -101,6 +102,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -157,18 +159,25 @@ def _printable(s: str) -> str:
 # Git
 # --------------------------------------------------------------------------- #
 
+def _bound(remaining: Callable[[], float] | None) -> float | None:
+    """A call's timeout: what is left of the caller's deadline (capped by
+    rr.run_bounded at rr.CALL_CAP_S), or the cap alone outside any wait."""
+    return None if remaining is None else remaining()
+
+
 class Git:
     def __init__(self, repo: Path, env: dict | None = None) -> None:
         self.repo = Path(repo)
         self.env = env
+        self.remaining: Callable[[], float] | None = None  # set by Merger while a deadline runs
 
     def run(self, *args: str, cwd: Path | None = None, check: bool = True,
             env_extra: dict | None = None) -> subprocess.CompletedProcess:
         env = dict(self.env or os.environ)
         if env_extra:
             env.update(env_extra)
-        p = subprocess.run(["git", *args], cwd=str(cwd or self.repo), capture_output=True,
-                           text=True, env=env)
+        p = rr.run_bounded(["git", *args], cwd=str(cwd or self.repo), capture_output=True,
+                           text=True, env=env, timeout=_bound(self.remaining))
         if check and p.returncode != 0:
             raise Stop(EXIT_ERROR, f"git {' '.join(args)} failed: {p.stderr.strip()[-1500:]}")
         return p
@@ -177,15 +186,15 @@ class Git:
         return self.run(*args, cwd=cwd).stdout.strip()
 
     def raw(self, *args: str) -> bytes:
-        p = subprocess.run(["git", *args], cwd=str(self.repo), capture_output=True,
-                           env=self.env or os.environ)
+        p = rr.run_bounded(["git", *args], cwd=str(self.repo), capture_output=True,
+                           env=self.env or os.environ, timeout=_bound(self.remaining))
         if p.returncode != 0:
             raise Stop(EXIT_ERROR, f"git {' '.join(args)} failed: {p.stderr.decode('utf-8', 'replace')[-800:]}")
         return p.stdout
 
     def show(self, rev: str, path: str) -> str | None:
-        p = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=str(self.repo),
-                           capture_output=True, env=self.env or os.environ)
+        p = rr.run_bounded(["git", "show", f"{rev}:{path}"], cwd=str(self.repo),
+                           capture_output=True, env=self.env or os.environ, timeout=_bound(self.remaining))
         return p.stdout.decode("utf-8", "surrogateescape") if p.returncode == 0 else None
 
     def is_ancestor(self, a: str, b: str) -> bool:
@@ -517,9 +526,13 @@ def same_versions(a: dict[str, str], b: dict[str, str], need: set[str] | frozens
 class GitHub:
     def __init__(self, slug: str) -> None:
         self.slug = slug
+        self.remaining: Callable[[], float] | None = None  # set by Merger while a deadline runs
 
     def _gh(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-        p = subprocess.run(["gh", *args], capture_output=True, text=True)
+        # Bounded: gh's HTTP client has no timeout, and a stalled call would
+        # otherwise hold the branch lock past every deadline. A timeout raises
+        # rr.CallTimeout (fail closed; after a merge, exit 8).
+        p = rr.run_bounded(["gh", *args], capture_output=True, text=True, timeout=_bound(self.remaining))
         if check and p.returncode != 0:
             raise Stop(EXIT_ERROR, f"gh {' '.join(args[:3])} failed: {p.stderr.strip()[-800:]}")
         return p
@@ -688,7 +701,7 @@ def _ancestry() -> set[int]:
     pids, pid = set(), os.getpid()
     while pid > 1 and pid not in pids:
         pids.add(pid)
-        p = subprocess.run(["ps", "-o", "ppid=", "-p", str(pid)], capture_output=True, text=True)
+        p = rr.run_bounded(["ps", "-o", "ppid=", "-p", str(pid)], capture_output=True, text=True, timeout=30)
         try:
             pid = int(p.stdout.strip())
         except ValueError:
@@ -722,7 +735,8 @@ def processes_in(path: Path, method: str | None = None) -> list[tuple[int, str]]
         lsof = shutil.which("lsof")
         if not lsof:
             raise Stop(EXIT_REFUSED, "cannot tell whether another process is using a worktree (no lsof); refusing")
-        p = subprocess.run([lsof, "-n", "-P", "-w", "-a", "-d", "cwd", "-Fpcn"], capture_output=True, text=True)
+        p = rr.run_bounded([lsof, "-n", "-P", "-w", "-a", "-d", "cwd", "-Fpcn"], capture_output=True, text=True,
+                           timeout=60)
         if p.returncode != 0:
             raise Stop(EXIT_REFUSED, f"process inspection failed (lsof exit {p.returncode}: "
                                      f"{_printable(p.stderr.strip())[:200]}); refusing to rewrite a worktree that may be in use")
@@ -1021,7 +1035,7 @@ class Merger:
                + "".join(f"- {s}\n" for s in subjects) + "\n" + "\n".join(trailers) + "\n")
         tree = g.out("rev-parse", f"{head}^{{tree}}")
         env = {"GIT_AUTHOR_NAME": an, "GIT_AUTHOR_EMAIL": ae, "GIT_AUTHOR_DATE": ad}
-        p = subprocess.run(["git", "commit-tree", tree, "-p", mb], input=msg, capture_output=True, text=True,
+        p = rr.run_bounded(["git", "commit-tree", tree, "-p", mb], input=msg, capture_output=True, text=True,
                            cwd=str(g.repo), env={**(g.env or os.environ), **env})
         if p.returncode != 0:
             raise Stop(EXIT_ERROR, f"git commit-tree failed: {p.stderr.strip()}")
@@ -1125,7 +1139,23 @@ class Merger:
                 failed.append({"kind": "run", "name": n, "conclusion": "failure"})
         return pending, failed
 
+    @contextlib.contextmanager
+    def _deadline(self, seconds: float):
+        """Bound every git and gh call made inside by what is left of `seconds`
+        (rr.run_bounded caps each call at rr.CALL_CAP_S, and kills it after)."""
+        end = self.clock() + seconds
+        prev = (self.git.remaining, getattr(self.gh, "remaining", None))
+        self.git.remaining = self.gh.remaining = lambda: end - self.clock()
+        try:
+            yield
+        finally:
+            self.git.remaining, self.gh.remaining = prev
+
     def _wait_for_checks(self, sha: str, base: str, required: list[str]) -> str:
+        with self._deadline(self.o.timeout_s):
+            return self._wait_for_checks_until(sha, base, required)
+
+    def _wait_for_checks_until(self, sha: str, base: str, required: list[str]) -> str:
         deadline = self.clock() + self.o.timeout_s
         last_key, green_since = None, None
         while self.clock() < deadline:
@@ -1227,6 +1257,10 @@ class Merger:
 
     # -- merge and reports -------------------------------------------------- #
     def _final_gate(self, sha: str, base: str, required: list[str], branch: str) -> list[list[str]] | None:
+        with self._deadline(self.o.timeout_s):
+            return self._final_gate_reads(sha, base, required, branch)
+
+    def _final_gate_reads(self, sha: str, base: str, required: list[str], branch: str) -> list[list[str]] | None:
         """EVERY precondition of the merge, re-read in one place, as late as
         possible: `_run` calls `_merge` straight after it. Re-reads main (and,
         through `_fetch`, this tool's freshness against that main), the PR,
@@ -1274,12 +1308,21 @@ class Merger:
         afterwards that the head's checks still read as the gate saw them and
         that the merge commit sits on the validated base with the validated
         tree. A refused merge goes back to the top (re-fetch, re-validate) as
-        "retry"."""
+        "retry". Once the merge call is made, anything that stops the proof
+        (a timeout, an unreadable answer) is exit 8: the PR may be merged, and
+        the chain must stop until main is checked."""
         o = self.o
-        ok, text = self.gh.merge(o.pr, sha)
-        pr = self.gh.pr(o.pr)
+        try:
+            ok, text = self.gh.merge(o.pr, sha)
+            pr = self.gh.pr(o.pr)
+        except Exception as exc:
+            raise Stop(EXIT_RACE_RED, f"the merge call for #{o.pr} did not complete ({str(exc)[:300]}); it may "
+                                      "have merged: stop the chain and check main by hand")
         if not ok:
             self.say(f"==> GitHub refused the merge: {_printable(text)[-300:]}")
+            if pr.get("state") == "MERGED":
+                raise Stop(EXIT_RACE_RED, "the merge call reported an error, but the PR is MERGED, unverified: stop "
+                                          "the chain and check main by hand")
             if pr.get("state") != "OPEN":
                 raise Stop(EXIT_ERROR, f"the PR is {pr.get('state')} after a refused merge; inspect it by hand")
             if pr.get("headRefOid") != sha:
@@ -1287,15 +1330,25 @@ class Merger:
             return "retry"
         if pr.get("state") != "MERGED":
             raise Stop(EXIT_ERROR, f"the merge did not land (state {pr.get('state')})")
+        try:
+            return self._prove_merge(pr, sha, base, verdicts, required)
+        except Stop:
+            raise
+        except Exception as exc:
+            raise Stop(EXIT_RACE_RED, f"merged #{o.pr}, but proving the merge did not complete "
+                                      f"({type(exc).__name__}: {str(exc)[:300]}): stop the chain and check main by hand")
+
+    def _prove_merge(self, pr: dict, sha: str, base: str, verdicts: list[list[str]], required: list[str]) -> int:
+        o = self.o
         merge = ((pr.get("mergeCommit") or {}).get("oid")) or ""
         self.git.run("fetch", "-q", "--no-tags", o.remote, f"+refs/heads/main:refs/remotes/{o.remote}/main")
         if not merge or self.git.run("cat-file", "-e", f"{merge}^{{commit}}", check=False).returncode != 0:
-            raise Stop(EXIT_ERROR, f"merged, but the merge commit {merge[:12] or '(none reported)'} cannot be read "
-                                   "to prove it sits on the validated base; check main by hand")
-        after = self._verdicts_after_merge(sha, required)
-        if after != verdicts:
-            raise Stop(EXIT_RACE_RED, f"merged #{o.pr} as {merge[:12]}, but the checks on {sha[:12]} changed between "
-                                      f"the final gate and the merge ({'; '.join(_changed(verdicts, after)[:5])}): "
+            raise Stop(EXIT_RACE_RED, f"merged, but the merge commit {merge[:12] or '(none reported)'} cannot be "
+                                      "read to prove it sits on the validated base: stop the chain and check main "
+                                      "by hand")
+        same, detail = self._checks_after_merge(sha, required, verdicts)
+        if not same:
+            raise Stop(EXIT_RACE_RED, f"merged #{o.pr} as {merge[:12]}, but the checks on {sha[:12]} {detail}: "
                                       "stop the chain; nothing may be tagged or released from main until its CI on "
                                       f"{merge[:12]} is green")
         parent = self.git.out("rev-parse", f"{merge}^1")
@@ -1320,34 +1373,58 @@ class Merger:
         raise Stop(EXIT_RACE_RED, race + f" Main's CI on {merge[:12]} is {verdict.upper()} ({detail}): stop the "
                                          "chain; nothing may be tagged or released from main until it is green.")
 
-    def _verdicts_after_merge(self, sha: str, required: list[str]) -> list[list[str]] | None:
-        """The head's check verdicts read again after the merge, or None when
-        no complete listing can be read (which never matches: unverified).
-        The snapshot must also pass the gate's own _evaluate(), so nothing the
-        gate judged (the combined status, a missing required context) can
-        read green afterwards by being left out of the comparison."""
-        for _ in range(3):
-            try:
-                snap = self.gh.snapshot(sha)
-            except Exception as exc:  # unreadable after a merge is "unverified" (exit 8), never exit 1
-                self.say(f"    the checks on {sha[:12]} could not be read after the merge ({str(exc)[:200]})")
-                snap = {"incomplete": "lookup failed"}
-            # GitHub's runs?head_sha listing sometimes answers a consistent
-            # empty page (total_count 0) for a commit that has runs (measured:
-            # 1 read in 6 on 2026-10-22). An expected workflow missing is a bad
-            # read to retry, not a changed verdict.
-            names = {r.get("name") for r in snap.get("runs", [])}
-            if not snap.get("incomplete") and all(w in names for w in self.o.expect_workflows):
-                pending, failed = self._evaluate(snap, required)
-                bad = pending + [f"{f.get('name')} {f.get('conclusion')}" for f in failed]
-                return verdicts_of(snap) + ([["not-green", "; ".join(bad)[:300], "", ""]] if bad else [])
-            self.sleep(self.o.poll_s)
-        return None
+    def _checks_after_merge(self, sha: str, required: list[str], verdicts: list[list[str]]) -> tuple[bool, str]:
+        """(same, detail): the head's checks read again after the merge, up to
+        three reads, against the verdicts the final gate saw. CONTRARY EVIDENCE
+        IS KEPT across reads: a row the gate never saw (changed, pending,
+        failed, or a different combined status) on ANY read stops the run,
+        even a partial read's, and a later read that matches never erases it.
+        A complete read must also equal the gate's rows exactly and pass the
+        gate's own _evaluate(). Reads that are only missing data (an
+        incomplete listing, GitHub's empty runs page, a timeout) are retried;
+        if none is ever complete the merge is unverified."""
+        gate = {tuple(r) for r in verdicts}
+        evidence: list[str] = []
+        with self._deadline(self.o.timeout_s):
+            for _ in range(3):
+                try:
+                    snap = self.gh.snapshot(sha)
+                except Exception as exc:  # unreadable after a merge is "unverified" (exit 8), never exit 1
+                    self.say(f"    the checks on {sha[:12]} could not be read after the merge ({str(exc)[:200]})")
+                    self.sleep(self.o.poll_s)
+                    continue
+                rows = {tuple(r) for r in verdicts_of(snap)}
+                evidence += [f"now {' '.join(r).strip()}" for r in sorted(rows - gate)]
+                # GitHub's runs?head_sha listing sometimes answers a consistent
+                # empty page (total_count 0) for a commit that has runs
+                # (measured: 1 read in 6 on 2026-10-22): missing data, retried.
+                names = {r.get("name") for r in snap.get("runs", [])}
+                complete = not snap.get("incomplete") and all(w in names for w in self.o.expect_workflows)
+                if complete:
+                    pending, failed = self._evaluate(snap, required)
+                    evidence += [f"was {' '.join(r).strip()}" for r in sorted(gate - rows)]
+                    evidence += [f"not green: {x}" for x in pending + [f"{f.get('name')} {f.get('conclusion')}"
+                                                                        for f in failed]]
+                if evidence:
+                    seen: list[str] = []
+                    for e in evidence:
+                        if e not in seen:
+                            seen.append(e)
+                    return False, f"changed between the final gate and the merge ({'; '.join(seen[:6])})"
+                if complete:
+                    return True, ""
+                self.sleep(self.o.poll_s)
+        return False, ("could not be verified after the merge (no complete check listing could be read in "
+                       "3 reads)")
 
     def _watch_main_ci(self, merge: str) -> tuple[str, str]:
         """("green" | "red" | "unverified", detail) for the push-to-main CI of
         `merge`. Waits until every run for that commit has completed (and at
         least one CI run exists), within the check timeout."""
+        with self._deadline(self.o.timeout_s):
+            return self._watch_main_ci_until(merge)
+
+    def _watch_main_ci_until(self, merge: str) -> tuple[str, str]:
         deadline = self.clock() + self.o.timeout_s
         last_error = ""
         while self.clock() < deadline:
@@ -1568,9 +1645,13 @@ class FakeGitHub:
         self.before_merge: Callable[["FakeGitHub"], None] | None = None
         self.merge_calls = 0
         self.snapshots = 0
-        self.snapshot_error_after_merge = False
-        self.combined_after_merge: str | None = None
-        self.empty_runs_after_merge = 0  # reads after the merge that list no workflow runs (a GitHub flake)
+        # Each read after the merge consumes one entry: {} reads normally,
+        # {"error": True} fails the lookup, {"sleep": True} stalls in a real
+        # bounded child (killed at its bound), and any other key replaces that
+        # field of the snapshot ("runs": [] is GitHub's empty-page flake).
+        self.after_merge: list[dict] = []
+        self.remaining_seen: list[float] = []  # what the deadline left, at each snapshot
+        self.merge_stalls = False
         self._next = 1000
 
     def _git(self, *a: str) -> str:
@@ -1599,8 +1680,13 @@ class FakeGitHub:
 
     def snapshot(self, sha: str) -> dict:
         self.snapshots += 1
-        if self.snapshot_error_after_merge and self.state == "MERGED":
+        rem = getattr(self, "remaining", None)
+        self.remaining_seen.append(rem() if rem else -1.0)
+        script = self.after_merge.pop(0) if self.state == "MERGED" and self.after_merge else {}
+        if script.get("error"):
             raise Stop(EXIT_ERROR, "gh api failed: HTTP 502: Bad Gateway")
+        if script.get("sleep"):
+            rr.run_bounded(["sleep", "30"], timeout=1)  # a stalled gh: killed after 1s, raises CallTimeout
         if self.on_snapshot:
             self.on_snapshot(self, sha, self.snapshots)
         cache = getattr(self, "cache", {})
@@ -1616,11 +1702,7 @@ class FakeGitHub:
                                                                           ("security-gate", "security-gate"))]
         snap = {"runs": runs, "checks": checks, "statuses": [{"context": "CodeRabbit", "state": "success"}],
                 "combined_state": "success"}
-        if self.combined_after_merge and self.state == "MERGED":
-            snap["combined_state"] = self.combined_after_merge  # the rows still read success
-        if self.empty_runs_after_merge and self.state == "MERGED":
-            self.empty_runs_after_merge -= 1
-            snap["runs"] = []
+        snap.update({k: v for k, v in script.items() if k not in ("error", "sleep")})
         return snap
 
     def job_log(self, job_id: int) -> str:
@@ -1654,6 +1736,8 @@ class FakeGitHub:
 
     def merge(self, n: int, sha: str) -> tuple[bool, str]:
         self.merge_calls += 1
+        if self.merge_stalls:
+            rr.run_bounded(["sleep", "30"], timeout=1)  # the merge call hangs: killed at its bound
         if self.refuse_merges > 0:
             self.refuse_merges -= 1
             return False, "Base branch was modified. Review and try the merge again."
@@ -2234,7 +2318,7 @@ def _self_test() -> int:
         again = subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); import repo_lock\n"
                                 "repo_lock.acquire('own-test', root=sys.argv[2]); print('acquired')",
                                 str(TOOLS_DIR), str(work)], capture_output=True, text=True, env=env).stdout.strip()
-        expect(again == "acquired", "a killed holder's lock is free at once (the kernel drops it; no stale reclaim)")
+        expect(again == "acquired", "a killed holder's lock is reclaimed at once (no liveness flock, its pid is dead)")
 
         def probe_lock(name: str) -> str:
             return subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); import repo_lock\n"
@@ -2259,6 +2343,80 @@ def _self_test() -> int:
         holder = subprocess.Popen(["sleep", "0"])
         os.kill(holder.pid, signal.SIGTERM)
         holder.wait()
+
+        # T8d2: ONE protocol with the old copy release.py and release_batch.sh
+        # ran (main's only repo_lock.py, pinned): a paused session restarting
+        # from an old worktree must still exclude, and be excluded by, this one.
+        print("lock protocol shared with the old copy (main's O_EXCL repo_lock.py):")
+        old_rev = "dcd340827d84988a5d27146dcfa91bc1704f8453"
+        lockrepo = tmp / "lockrepo"
+        (lockrepo / "tools/maintainer").mkdir(parents=True)
+        sh("git", "init", "-q", cwd=lockrepo)
+        readable = True
+        for f in ("repo_lock.py", "registry.py"):
+            shown = subprocess.run(["git", "-C", str(TOOLS_DIR), "show", f"{old_rev}:tools/maintainer/{f}"],
+                                   capture_output=True, text=True)
+            readable = readable and shown.returncode == 0
+            (lockrepo / "tools/maintainer" / f).write_text(shown.stdout)
+        expect(readable, f"the old copy at {old_rev[:12]} is readable (needs full history)")
+        copies = {"old": str(lockrepo / "tools/maintainer"), "new": str(TOOLS_DIR)}
+        hold_code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import repo_lock\n"
+                     "kw = {} if sys.argv[2] == 'old' else {'root': sys.argv[3]}\n"
+                     "try:\n    l = repo_lock.acquire('compat', **kw)\n"
+                     "except repo_lock.LockHeld:\n    print('held', flush=True); sys.exit(0)\n"
+                     "print('acquired', flush=True)\n"
+                     "if sys.stdin.readline().strip() == 'release':\n"
+                     "    repo_lock.release(l); print('released', flush=True)\n"
+                     "sys.stdin.readline()\n")
+
+        def lock_holder(copy: str) -> subprocess.Popen:
+            h = subprocess.Popen([sys.executable, "-c", hold_code, copies[copy], copy, str(lockrepo)], env=env,
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            procs.append(h)
+            assert h.stdout is not None and h.stdout.readline().strip() == "acquired", f"{copy} could not hold"
+            return h
+
+        def try_lock(copy: str) -> str:  # acquire and exit at once (each copy's exit hook releases)
+            return subprocess.run([sys.executable, "-c", hold_code, copies[copy], copy, str(lockrepo)], env=env,
+                                  input="\n\n", capture_output=True, text=True).stdout.strip()
+        for holding, other in (("old", "new"), ("new", "old")):
+            h = lock_holder(holding)
+            refused = try_lock(other)
+            assert h.stdin is not None and h.stdout is not None
+            h.stdin.write("release\n")
+            h.stdin.flush()
+            released = h.stdout.readline().strip()
+            after_release = try_lock(other)
+            h.stdin.write("\n")
+            h.stdin.flush()
+            h.wait(timeout=20)
+            expect(refused == "held", f"the {holding} copy holds: the {other} copy is refused ({refused})")
+            expect(released == "released" and after_release == "acquired",
+                   f"the {holding} copy releases: the {other} copy acquires ({after_release})")
+            h = lock_holder(holding)
+            os.kill(h.pid, signal.SIGKILL)
+            h.wait()
+            expect(try_lock(other) == "acquired", f"a killed {holding}-copy holder is reclaimed by the {other} copy")
+        # The reclaim unlinks only the inode it inspected: an old copy that
+        # reclaims and re-creates the file in between keeps its new lock.
+        lock = repo_lock._locks_dir(lockrepo) / "inode-test.lock"
+        dead = subprocess.Popen(["sleep", "0"])
+        dead.wait()
+        lock.write_text(json.dumps({"pid": dead.pid, "host": socket.gethostname()}))
+        real_alive = repo_lock._holder_alive
+
+        def recreated_meanwhile(holder: dict) -> bool:
+            lock.unlink()
+            lock.write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(), "by": "old copy"}))
+            return real_alive(holder)
+        repo_lock._holder_alive = recreated_meanwhile  # type: ignore[assignment]
+        try:
+            repo_lock._reclaim_if_dead(lock, "inode-test")
+        finally:
+            repo_lock._holder_alive = real_alive  # type: ignore[assignment]
+        expect(lock.is_file() and json.loads(lock.read_text()).get("by") == "old copy",
+               "a reclaim never unlinks a lock file re-created after it looked (same-inode check)")
+        lock.unlink()
 
         # T8e: process inspection fails closed.
         print("process inspection:")
@@ -2393,7 +2551,7 @@ def _self_test() -> int:
         origin, work, branch = world()
         new_connector_pr(work, extra_commit=False)
         fake = FakeGitHub(origin, env, 34, branch, "skill: bravo", green)
-        fake.snapshot_error_after_merge = True
+        fake.after_merge = [{"error": True}] * 9
         rc, logs = merger(work, fake, require=())
         expect(rc == EXIT_RACE_RED and fake.merged is not None
                and any("no complete check listing" in s for s in logs),
@@ -2404,19 +2562,82 @@ def _self_test() -> int:
             origin, work, branch = world()
             new_connector_pr(work, extra_commit=False)
             fake = FakeGitHub(origin, env, 36, branch, "skill: bravo", green)
-            fake.empty_runs_after_merge = flaky
+            fake.after_merge = [{"runs": []}] * flaky
             rc, logs = merger(work, fake, require=())
             expect(rc == want and fake.merged is not None, f"after the merge, {label} (rc={rc})")
         for combined in ("failure", "pending"):
             origin, work, branch = world()
             new_connector_pr(work, extra_commit=False)
             fake = FakeGitHub(origin, env, 35, branch, "skill: bravo", green)
-            fake.combined_after_merge = combined
+            fake.after_merge = [{"combined_state": combined}]
             rc, logs = merger(work, fake, require=())
             expect(rc == EXIT_RACE_RED and fake.merged is not None
                    and any("changed between the final gate and the merge" in s and f"combined {combined}" in s
                            for s in logs),
                    f"a combined status of {combined} after the merge, its rows still success: exit 8 (rc={rc})")
+        # Contrary evidence is kept across reads: a partial first read (no
+        # workflow rows) that already shows a red combined status is not
+        # erased by a green second read.
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 37, branch, "skill: bravo", green)
+        fake.after_merge = [{"runs": [], "combined_state": "failure"}, {}]
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and any("combined failure" in s for s in logs),
+               f"a partial read showing a red combined status, then a green read: still exit 8 (rc={rc})")
+
+        # T8i: no call outlives its bound (gh's HTTP client has no timeout).
+        print("bounded calls (a stalled gh or git is killed; fail closed):")
+        stub = tmp / "stallbin"
+        stub.mkdir()
+        pidfile, donefile = tmp / "stall.pid", tmp / "stall.done"
+        (stub / "gh").write_text(f"#!/bin/sh\necho $$ >'{pidfile}'\nsleep 30\ntouch '{donefile}'\n")
+        (stub / "gh").chmod(0o755)
+        old_path = os.environ["PATH"]
+        os.environ["PATH"] = f"{stub}{os.pathsep}{old_path}"
+        g3 = GitHub("o/r")
+        g3.remaining = lambda: 1.0
+        t0 = time.monotonic()
+        try:
+            g3.snapshot("abc")
+            raised = "nothing"
+        except rr.CallTimeout as exc:
+            raised = str(exc)
+        finally:
+            os.environ["PATH"] = old_path
+        took = time.monotonic() - t0
+        stalled_pid = int(pidfile.read_text()) if pidfile.exists() else -1
+        try:
+            os.kill(stalled_pid, 0)
+            still = True
+        except (ProcessLookupError, OverflowError, ValueError):
+            still = False
+        except PermissionError:
+            still = True
+        expect("did not finish within 1s" in raised and took < 10 and not still and not donefile.exists(),
+               f"a gh call that stalls is killed at the deadline's remaining 1s and raises ({took:.1f}s, {raised[:60]})")
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 38, branch, "skill: bravo", green)
+        fake.after_merge = [{"sleep": True}] * 9
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and fake.merged is not None and any("could not be verified" in s for s in logs),
+               f"checks reads that time out after the merge: exit 8, unverified (rc={rc})")
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 39, branch, "skill: bravo", green)
+        fake.merge_stalls = True
+        rc, logs = merger(work, fake, require=())
+        expect(rc == EXIT_RACE_RED and any("did not complete" in s and "may have merged" in s for s in logs),
+               f"a merge call that times out: exit 8, it may have merged (rc={rc})")
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 40, branch, "skill: bravo", green)
+        rc, logs = merger(work, fake, require=())
+        waits = [r for r in fake.remaining_seen]
+        expect(rc == 0 and len(waits) >= 3 and all(0 < r <= 60 for r in waits),
+               f"every checks read (the wait, the final gate, after the merge) is bounded by a remaining "
+               f"deadline ({waits[:4]})")
 
         # T9: failing checks.
         print("failing checks (flake, real, unknown, stale base):")

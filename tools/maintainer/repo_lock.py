@@ -19,21 +19,25 @@ BEFORE the worktree exists; this module is a deliberate re-implementation of
 that pattern adapted for run-inside-a-worktree semantics. If the two ever
 converge, this repo-side copy is the canonical one.)
 
-Semantics:
-  - an exclusive, non-blocking flock(2) on the lock file, held on an open
-    descriptor for as long as the lock is held. The KERNEL drops it when the
-    holder exits, however it exits (crash, SIGKILL), so there is no stale lock
-    and no reclaim step two contenders could race through (the pid-based
-    reclaim this replaced let two processes both delete-and-recreate a dead
-    holder's file and both believe they held the lock)
-  - JSON payload {pid, host, started, argv, ...} written into the file while
-    held, so a held lock is self-documenting; release empties it and unlocks,
-    and never deletes the file (deleting a lock file another process has
-    already opened is how two holders appear)
-  - released via atexit on normal or exceptional interpreter exit, and by an
-    explicit release() that only ever touches a lock THIS process holds
-  - where fcntl is unavailable (not macOS or Linux) it falls back to the old
-    O_CREAT|O_EXCL file with pid-based stale reclaim, ownership-aware
+Semantics. ONE protocol, shared with every older copy of this file (the
+O_EXCL copy release.py and release_batch.sh used before; a paused session can
+restart from an old worktree, so both copies must exclude each other):
+  - exclusion is an atomic create of `<name>.lock` (os.O_CREAT | os.O_EXCL)
+    holding the JSON payload {pid, host, started, argv, ...} the old copy reads
+  - while held, the creator also keeps an flock(2) on that open descriptor, as
+    a LIVENESS signal only: the kernel drops it however the holder exits
+  - on EEXIST: an flock held by someone means a live holder (refused); no
+    flock means an old copy holds it or the holder died, so the old pid rule
+    decides (a live pid on this host, a foreign host, or an unreadable payload
+    is alive). A dead holder's file is unlinked only while holding its flock
+    and only if the path still names that same inode, then the create retries
+  - release unlinks the file, as the old copy does, only while the path still
+    names this process's inode and only for the handle this acquisition
+    returned, in the process that acquired it (an old handle, a forked child or
+    a second release touch nothing); via atexit too
+  - without fcntl (not macOS or Linux) the same protocol runs without the flock
+  - residual, as between two old copies: an old copy's unlocked reclaim can
+    race a new copy's reclaim of the same dead holder's file
 
 Pure stdlib. Not for NFS; this repo is a local checkout, which is the supported
 case.
@@ -132,60 +136,87 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=_forget_inherited)
 
 
-def _owned_by_me(lock: Path) -> bool:
-    holder = _holder(lock)
-    return holder.get("pid") == os.getpid() and holder.get("host") == socket.gethostname()
+def _same_file(fd: int, path: Path) -> bool:
+    """True while `path` still names the inode open on `fd`."""
+    try:
+        a, b = os.fstat(fd), os.stat(path)
+    except OSError:
+        return False
+    return (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
 
 
 def release(lock: Path) -> None:
     """Release a lock THIS process holds, and drop its exit hook. Pass the
-    handle acquire() returned: under flock, a different Path object naming the
-    same file (an old handle from an earlier acquisition) releases nothing.
-
-    Ownership-aware: once this process has released a lock, another process
-    may acquire the same name, and a later release (an exit hook, or a second
-    call) must not delete THEIR lock file. So the file is removed only while it
-    still names this process."""
+    handle acquire() returned: a different Path object naming the same file
+    (an old handle from an earlier acquisition) releases nothing, and so does a
+    forked child or a second call. The file is unlinked (as the old copy does)
+    only while the path still names this acquisition's inode, so a lock another
+    process created since is never deleted; closing the descriptor then drops
+    the flock."""
     held = _HELD_FDS.get(str(lock))
-    if fcntl is not None:
-        if held is None or held[2] is not lock or held[1] != os.getpid():
-            return  # not THIS acquisition in THIS process: touch nothing
-        _HELD_FDS.pop(str(lock))
-        hook = _EXIT_HOOKS.pop(str(lock), None)
-        if hook is not None:
-            atexit.unregister(hook)  # type: ignore[arg-type]
-        fd = held[0]
-        try:
-            os.ftruncate(fd, 0)
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        except OSError:
-            pass
-        finally:
-            os.close(fd)
-        return
+    if held is None or held[2] is not lock or held[1] != os.getpid():
+        return  # not THIS acquisition in THIS process: touch nothing
+    _HELD_FDS.pop(str(lock))
     hook = _EXIT_HOOKS.pop(str(lock), None)
     if hook is not None:
         atexit.unregister(hook)  # type: ignore[arg-type]
+    fd = held[0]
     try:
-        if _owned_by_me(lock):
-            lock.unlink(missing_ok=True)
+        if _same_file(fd, lock):
+            lock.unlink()
     except OSError:
         pass
+    finally:
+        os.close(fd)
 
 
-def _remove_stale(lock: Path) -> None:
-    """Remove a lock whose holder is dead (reclaim)."""
+def _holder_of(fd: int) -> dict:
+    """The payload of the inode open on `fd` (not whatever the path names now)."""
     try:
-        lock.unlink(missing_ok=True)
-    except OSError:
-        pass
-
-
-def _holder(lock: Path) -> dict:
-    try:
-        return json.loads(lock.read_text(encoding="utf-8"))
+        os.lseek(fd, 0, os.SEEK_SET)
+        chunks = []
+        while True:
+            b = os.read(fd, 65536)
+            if not b:
+                break
+            chunks.append(b)
+        return json.loads(b"".join(chunks).decode("utf-8"))
     except (OSError, ValueError):
         return {}
+
+
+def _held_message(name: str, holder: dict, lock: Path) -> str:
+    return (f"lock '{name}' held by pid {holder.get('pid', '?')} on "
+            f"{holder.get('host', '?')} since {holder.get('started', '?')} "
+            f"(argv: {' '.join(holder.get('argv', [])) or '?'}) - "
+            f"lock file: {lock}")
+
+
+def _reclaim_if_dead(lock: Path, name: str) -> None:
+    """The lock file exists. Raise LockHeld if its holder may be alive;
+    otherwise remove it (only while holding its flock, and only if the path
+    still names the inode inspected) so the caller can retry the create."""
+    try:
+        fd = os.open(lock, os.O_RDONLY)
+    except FileNotFoundError:
+        return  # released meanwhile: retry the create
+    try:
+        if fcntl is not None:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as exc:
+                if exc.errno not in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES):
+                    raise
+                raise LockHeld(_held_message(name, _holder_of(fd), lock))  # a live holder's liveness flock
+        holder = _holder_of(fd)
+        if _holder_alive(holder):  # an old copy's holder, a foreign host, or a half-written payload
+            raise LockHeld(_held_message(name, holder, lock))
+        if _same_file(fd, lock):
+            lock.unlink()
+    except FileNotFoundError:
+        pass
+    finally:
+        os.close(fd)  # drops our flock
 
 
 def _holder_alive(holder: dict) -> bool:
@@ -228,50 +259,29 @@ def acquire(name: str = "release", holder_info: dict | None = None,
         **(holder_info or {}),
     }, indent=2) + "\n"
 
-    if fcntl is not None:
-        if str(lock) in _HELD_FDS:
-            raise LockHeld(f"lock '{name}' is already held by this process - lock file: {lock}")
-        fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o644)
+    if str(lock) in _HELD_FDS:
+        raise LockHeld(f"lock '{name}' is already held by this process - lock file: {lock}")
+    for _attempt in range(3):
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as exc:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o644)
+        except FileExistsError:
+            _reclaim_if_dead(lock, name)  # raises LockHeld while the holder may be alive
+            continue
+        try:
+            if fcntl is not None:
+                # The liveness signal. Blocking: a reclaimer holds it only for
+                # the moment it reads our (still empty, so "alive") payload.
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            os.write(fd, payload.encode("utf-8"))
+        except BaseException:
+            if _same_file(fd, lock):
+                lock.unlink()
             os.close(fd)
-            if exc.errno not in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES):
-                raise
-            holder = _holder(lock)
-            raise LockHeld(
-                f"lock '{name}' held by pid {holder.get('pid', '?')} on "
-                f"{holder.get('host', '?')} since {holder.get('started', '?')} "
-                f"(argv: {' '.join(holder.get('argv', [])) or '?'}) - "
-                f"lock file: {lock}"
-            )
-        os.ftruncate(fd, 0)
-        os.write(fd, payload.encode("utf-8"))
+            raise
         lock = Path(lock)  # a fresh object: THIS acquisition's handle
         _HELD_FDS[str(lock)] = (fd, os.getpid(), lock)
         hook = functools.partial(release, lock)
         _EXIT_HOOKS[str(lock)] = hook
         atexit.register(hook)
         return lock
-
-    for _attempt in (1, 2):
-        try:
-            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(payload)
-            hook = functools.partial(release, lock)
-            _EXIT_HOOKS[str(lock)] = hook
-            atexit.register(hook)
-            return lock
-        except FileExistsError:
-            holder = _holder(lock)
-            if _holder_alive(holder):
-                raise LockHeld(
-                    f"lock '{name}' held by pid {holder.get('pid', '?')} on "
-                    f"{holder.get('host', '?')} since {holder.get('started', '?')} "
-                    f"(argv: {' '.join(holder.get('argv', [])) or '?'}) - "
-                    f"lock file: {lock}"
-                )
-            # Holder is dead on this host: reclaim and retry once.
-            _remove_stale(lock)
     raise LockHeld(f"could not acquire lock '{name}' at {lock}")

@@ -139,6 +139,15 @@ present and SUCCESS; and merges with `--match-head-commit` only when all of it i
 main has not moved since the rebase, and the required approvals are current. A refused merge
 is re-validated from the top, never retried blindly.
 
+**Trust boundary: it executes the PR branch's code with your credentials.** The branch's own
+generators (`build-catalog.py`, `build-llms.py` and whatever they import) run in the private
+worktree as you, with your git and `gh` credentials and access to the clone's shared git
+directory, before any approval or CI, and during `--dry-run` too. It refuses forks, but a
+same-repository branch is trusted code. Run it only on PRs by Servosity staff. This is a
+ratified, accepted decision while every write collaborator is Servosity staff, the same trust
+boundary as running `verify_all.sh` on a PR checkout, and it must be revisited before anyone
+outside Servosity gets write access.
+
 **One final gate, immediately before the merge call.** After the wait says green, everything
 the merge depends on is read again in one place, and the merge call is the very next thing it
 does: `main` (fetched, and this tool's own code compared with that `main`), the approvals'
@@ -146,8 +155,10 @@ change fingerprint, every check, workflow run and status on the exact head (stil
 with the same verdicts the wait saw), the PR (open, into main,
 this head) and `main` once more. Any change sends the run back to validate from the top; a
 same-head re-run that has turned pending or red is never merged on the strength of the earlier
-green. After the merge, the head's checks are read again and compared with the gate's: any
-difference (or no readable listing) exits **8**. Every listing is read in one paginated call
+green. After the merge, the head's checks are read again (up to three reads) and compared with
+the gate's: any difference (or no readable listing) exits **8**, and contrary evidence seen on
+any read (a row the gate never saw: changed, pending, failed, a different combined status) is
+kept, so a later read that matches never erases it. Every listing is read in one paginated call
 that keeps each page's `total_count`, and counts as complete only when the pages agree, no row
 repeats, and the distinct rows equal that count (a bare row count passes when one run is added
 and another removed between pages). GitHub's `runs?head_sha` listing sometimes answers an empty
@@ -161,7 +172,20 @@ from updated main) instead of validating with the old ones.
 **Residual window.** The seconds between the gate's last reads and GitHub executing the merge
 remain. Only server-side enforcement closes them: a merge queue, or requiring every aggregate
 check in branch protection (today only `security-gate` is required). The after-merge
-comparison and the parent/tree proof below detect what lands in that window.
+comparison and the parent/tree proof below detect what lands in that window. Neither the
+paginated listings nor `cut_tags.sh`'s in-flight count can prove their pages came from one
+snapshot when one row is deleted and another added between pages; that is accepted as part of
+this window, because check runs are not deleted, a re-run surfaces as a new latest run that
+reads pending, the after-merge comparison (keeping contrary evidence from every read) is the
+backstop, and the release cap is a soft limit (the API failure came at 52 runs in flight; the
+cap is 4).
+
+**Bounded calls.** Every git, `gh` and generator call in these tools runs in its own process
+group, bounded by what is left of the current wait's deadline and at most `MSP_CALL_TIMEOUT_S`
+seconds (300; `CUT_TAGS_CALL_TIMEOUT` for `cut_tags.sh`). `gh`'s HTTP client has no timeout of its
+own, so without this one stalled response would hold the branch lock forever. A call past its
+bound is killed with its children and fails closed; once the merge call has been made, a timeout
+(or anything else that stops the proof of the merge) exits **8**, because the PR may be merged.
 
 **Accepted, detected risk: main moving inside the merge call.** GitHub's merge call pins the
 head (`--match-head-commit`, the validated SHA) but cannot pin the base, and this repository's
@@ -205,8 +229,20 @@ prints it in the README footer.
 
 Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved, stale copy of the tool); 3 a
 conflict it will not resolve; 4 an approval is not current; 5 a check failed; 6 timed out; 7
-merged in a race, main's CI then green; 8 merged, but main's CI is red or unverified after a race,
-or the head's checks changed between the final gate and the merge (stop the chain).
+merged in a race, main's CI then green; 8 merged (or possibly merged), but main's CI is red or
+unverified after a race, the head's checks changed between the final gate and the merge, or the
+merge call or its proof did not complete (stop the chain and check main by hand).
+
+**`repo_lock.py`: one protocol with older copies.** `release.py` and `release_batch.sh` on older
+worktrees hold the same `msp-skills-locks/<name>.lock` with the original O_EXCL-and-pid copy, so
+this copy keeps that as the exclusion: an atomic `O_CREAT|O_EXCL` create holding the
+`{pid, host, ...}` record the old copy reads, and release unlinks the file. It also keeps an
+`flock` on the open file while it holds the lock, as a liveness signal only. Facing an existing
+file: a held `flock` means a live holder; otherwise the old pid rule decides, and a dead holder's
+file is unlinked only while holding its `flock` and only if the path still names that inode. The
+self-test runs main's original copy against this one in both directions (each refuses while the
+other holds, acquires after the other releases, and reclaims after the other is killed).
+
 
 ### `resolve_registry.py`
 

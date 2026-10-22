@@ -61,7 +61,8 @@
 # default: read from the remote URL), CUT_TAGS_RUN_TRIES/_RUN_SLEEP (30 x 5s),
 # CUT_TAGS_SPACING (15s between tags), CUT_TAGS_SEAL_TRIES/_SEAL_SLEEP (90 x 20s),
 # CUT_TAGS_MAX_IN_FLIGHT (4), CUT_TAGS_FLIGHT_TRIES/_FLIGHT_SLEEP (120 x 30s),
-# CUT_TAGS_RERUN_BATCH (3).
+# CUT_TAGS_RERUN_BATCH (3), CUT_TAGS_CALL_TIMEOUT (300s: the most any one gh or
+# git call may take before it and its children are killed).
 set -euo pipefail
 
 TOOLS=$(cd "$(dirname "$0")" && pwd)
@@ -71,6 +72,30 @@ SELF="$TOOLS/$(basename "$0")"
 SELF_TEXT=$(cat "$SELF")
 SELF_NOTED=0
 PYTHON=${PYTHON:-python3}
+
+# Every gh and git call is bounded: gh's HTTP client has no timeout of its own,
+# so one stalled response would otherwise hold the release-tag lock forever.
+# The child runs in its own process group; past CUT_TAGS_CALL_TIMEOUT the whole
+# group is killed and the call fails with 124, which every caller treats as a
+# failure (fail closed).
+BOUNDED_PY='import os, signal, subprocess, sys
+t = float(sys.argv[1])
+p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+try:
+    rc = p.wait(timeout=t)
+except BaseException as exc:
+    try:
+        os.killpg(p.pid, signal.SIGKILL)
+    except OSError:
+        pass
+    p.wait()
+    if isinstance(exc, subprocess.TimeoutExpired):
+        sys.stderr.write("TIMEOUT %s did not finish within %ss (killed)\n" % (" ".join(sys.argv[2:5]), sys.argv[1]))
+        sys.exit(124)
+    raise
+sys.exit(rc if rc >= 0 else 128 - rc)'
+gh() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" gh "$@"; }
+git() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" git "$@"; }
 LOG=""
 WT_MAP=""
 WT_COUNT=0
@@ -197,8 +222,9 @@ fetch_retry() { # <fetch args...>: a fetch, retried (another cutter may hold the
 # --------------------------------------------------------------------------- #
 # The release-tag lock: one cutter (or re-runner) at a time between "is there
 # capacity?" and "its Release run is registered", so two runs can never both
-# see room under the cap and both push. A flock(2) on a file in the clone's
-# shared git dir (the same primitive and place as repo_lock.py), owned by a
+# see room under the cap and both push. A flock(2) on release-tags.lock in the
+# clone's shared git dir (only cut_tags.sh takes that file, and every copy of it
+# uses flock, so no older O_EXCL protocol has to be honoured), owned by a
 # small python HOLDER process: its descriptor is close-on-exec and it starts
 # nothing, so no git hook or other child of this script can inherit the lock
 # and keep it alive. It releases when told to, and on its own the moment this
@@ -915,6 +941,11 @@ case "$1 $2" in
     # reports one more than the last, whose total the rows match, so only the
     # page-agreement check catches it); flip: a run in "requested" moves to
     # "queued" after every read.
+    if [ -f "$state/gh-stall" ]; then  # a stalled API response
+      echo "$$" >"$state/gh-stall.pid"
+      sleep 30
+      echo late >"$state/gh-stall.late"
+    fi
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
     n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
     [ -f "$state/slow-count" ] && sleep 0.3  # widen the check-then-push window for the concurrency test
@@ -1160,6 +1191,18 @@ RETIRE
   [ "$rc" -eq 0 ] && has "ALL-PUSHED 1 of 1" \
     && [ "$(git --git-dir "$tmp/origin.git" rev-parse refs/tags/zz-g2-v0.1.0)" = "$sha4" ]
   expect "one inconsistent listing is read again; consistent, 3 of a cap of 4 lets the tag through" $?
+  : >"$tmp/gh-stall"
+  t0=$(date +%s)
+  out=$(CUT_TAGS_CALL_TIMEOUT=1 CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  took=$(($(date +%s) - t0))
+  rm -f "$tmp/gh-stall"
+  spid=$(cat "$tmp/gh-stall.pid" 2>/dev/null || echo 0)
+  sleep 1
+  rc2=1
+  if [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" && [ "$took" -lt 20 ] && [ "$spid" -gt 0 ] \
+    && ! kill -0 "$spid" 2>/dev/null && [ ! -f "$tmp/gh-stall.late" ] \
+    && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null; then rc2=0; fi
+  expect "a gh call that stalls is killed at CUT_TAGS_CALL_TIMEOUT (with its children; ${took}s) and nothing is pushed" "$rc2"
   rm -f "$tmp/split-total" "$tmp/drain-at" "$tmp"/runs/*
 
   echo "receipts mode:"
@@ -1399,6 +1442,12 @@ MOVE
   done
   rm -f "$tmp"/runs/*
 
+  echo "--help:"
+  out=$(bash "$SELF" --help 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] && has "CUT_TAGS_CALL_TIMEOUT" && has "CUT_TAGS_MAX_IN_FLIGHT" && ! has "set -euo pipefail" \
+    && ! has "#!/usr/bin/env"
+  expect "--help prints the whole header, through its Environment section, and stops at the first code line" $?
+
   echo "stale copies of this script:"
   : >"$tmp/drafts.txt"
   mkdir -p "$tmp/repo/tools/maintainer"
@@ -1438,7 +1487,8 @@ main() {
         shift
         ;;
       -h | --help)
-        sed -n '2,50p' "$SELF"
+        # The whole header comment, up to the first line that is not one.
+        awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$SELF"
         return 0
         ;;
       -*) die "unknown option $1" ;;
