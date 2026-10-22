@@ -564,26 +564,45 @@ class GitHub:
         base_runs = f"repos/{self.slug}/actions/runs?head_sha={sha}&per_page=100"
         base_checks = f"repos/{self.slug}/commits/{sha}/check-runs?filter=latest&per_page=100"
         base_status = f"repos/{self.slug}/commits/{sha}/status?per_page=100"
-        runs = self._lines("api", "--paginate", base_runs,
-                           "--jq", ".workflow_runs[] | {id, name, event, status, conclusion}")
-        checks = self._lines("api", "--paginate", base_checks,
-                             "--jq", ".check_runs[] | {id, name, status, conclusion, app: .app.slug}")
-        statuses = self._lines("api", "--paginate", base_status, "--jq", ".statuses[] | {context, state}")
-        totals = {
-            "workflow runs": (len(runs), self._lines("api", base_runs, "--jq", "{n: .total_count}")),
-            "check runs": (len(checks), self._lines("api", base_checks, "--jq", "{n: .total_count}")),
-            "statuses": (len(statuses), self._lines("api", base_status, "--jq", "{n: .total_count, state}")),
-        }
+        runs, _, p_runs = self._listing(base_runs, "workflow_runs", "{id, name, event, status, conclusion}", "id")
+        checks, _, p_checks = self._listing(base_checks, "check_runs",
+                                            "{id, name, status, conclusion, app: .app.slug}", "id")
+        statuses, pages, p_status = self._listing(base_status, "statuses", "{context, state}", "context",
+                                                  page_extra=", state: .state")
         snap: dict = {"runs": runs, "checks": checks, "statuses": statuses}
-        for what, (have, rows) in totals.items():
-            want = rows[0].get("n") if rows else None
-            if not isinstance(want, int) or want != have:
-                snap["incomplete"] = f"{what}: read {have} of {want}"
-        combined = (totals["statuses"][1] or [{}])[0].get("state")
-        if statuses and combined not in ("success", "pending", "failure", "error"):
+        for what, problem in (("workflow runs", p_runs), ("check runs", p_checks), ("statuses", p_status)):
+            if problem:
+                snap["incomplete"] = f"{what}: {problem}"
+        states = {pg.get("state") for pg in pages}
+        combined = next(iter(states)) if len(states) == 1 else None
+        if len(states) > 1:
+            snap["incomplete"] = f"the combined status changed between pages ({sorted(map(str, states))})"
+        elif statuses and combined not in ("success", "pending", "failure", "error"):
             snap["incomplete"] = f"combined status state {combined!r}"
         snap["combined_state"] = combined
         return snap
+
+    def _listing(self, url: str, key: str, fields: str, ident: str,
+                 page_extra: str = "") -> tuple[list[dict], list[dict], str | None]:
+        """(rows, page headers, problem) for one paginated listing, read in ONE
+        call that keeps every page's total_count. Complete only when every page
+        reports the same total_count, no row identity repeats, and the distinct
+        identities equal it: a bare row count passes when one item is added and
+        another removed between pages (a repeated success, a new failure unread)."""
+        rows, pages = [], []
+        for d in self._lines("api", "--paginate", url, "--jq",
+                             f'{{"_page": .total_count{page_extra}}}, (.{key}[] | {fields})'):
+            (pages if "_page" in d else rows).append(d)
+        totals = {pg.get("_page") for pg in pages}
+        ids = [r.get(ident) for r in rows]
+        total = next(iter(totals)) if len(totals) == 1 else None
+        if not isinstance(total, int):
+            return rows, pages, f"pages report total_count {sorted(map(str, totals)) or 'nowhere'}"
+        if len(set(ids)) != len(ids):
+            return rows, pages, "a row appears twice (the listing moved while it was read)"
+        if len(ids) != total:
+            return rows, pages, f"read {len(ids)} of {total}"
+        return rows, pages, None
 
     def job_log(self, job_id: int) -> str:
         p = self._gh("api", "--allow-escape-sequences", f"repos/{self.slug}/actions/jobs/{job_id}/logs",
@@ -604,9 +623,8 @@ class GitHub:
         """Push-event workflow runs for a commit on main, and whether the
         listing is complete against GitHub's total_count."""
         url = f"repos/{self.slug}/actions/runs?head_sha={sha}&event=push&per_page=100"
-        runs = self._lines("api", "--paginate", url, "--jq", ".workflow_runs[] | {id, name, status, conclusion}")
-        total = self._lines("api", url, "--jq", "{n: .total_count}")
-        return runs, bool(total) and total[0].get("n") == len(runs)
+        runs, _, problem = self._listing(url, "workflow_runs", "{id, name, status, conclusion}", "id")
+        return runs, problem is None
 
     def catalog_busy(self) -> bool:
         rows = self._lines("api", f"repos/{self.slug}/actions/workflows/catalog.yml/runs?per_page=10",
@@ -1314,7 +1332,12 @@ class Merger:
             except Exception as exc:  # unreadable after a merge is "unverified" (exit 8), never exit 1
                 self.say(f"    the checks on {sha[:12]} could not be read after the merge ({str(exc)[:200]})")
                 snap = {"incomplete": "lookup failed"}
-            if not snap.get("incomplete"):
+            # GitHub's runs?head_sha listing sometimes answers a consistent
+            # empty page (total_count 0) for a commit that has runs (measured:
+            # 1 read in 6 on 2026-10-22). An expected workflow missing is a bad
+            # read to retry, not a changed verdict.
+            names = {r.get("name") for r in snap.get("runs", [])}
+            if not snap.get("incomplete") and all(w in names for w in self.o.expect_workflows):
                 pending, failed = self._evaluate(snap, required)
                 bad = pending + [f"{f.get('name')} {f.get('conclusion')}" for f in failed]
                 return verdicts_of(snap) + ([["not-green", "; ".join(bad)[:300], "", ""]] if bad else [])
@@ -1547,6 +1570,7 @@ class FakeGitHub:
         self.snapshots = 0
         self.snapshot_error_after_merge = False
         self.combined_after_merge: str | None = None
+        self.empty_runs_after_merge = 0  # reads after the merge that list no workflow runs (a GitHub flake)
         self._next = 1000
 
     def _git(self, *a: str) -> str:
@@ -1594,6 +1618,9 @@ class FakeGitHub:
                 "combined_state": "success"}
         if self.combined_after_merge and self.state == "MERGED":
             snap["combined_state"] = self.combined_after_merge  # the rows still read success
+        if self.empty_runs_after_merge and self.state == "MERGED":
+            self.empty_runs_after_merge -= 1
+            snap["runs"] = []
         return snap
 
     def job_log(self, job_id: int) -> str:
@@ -2025,31 +2052,51 @@ def _self_test() -> int:
             def __init__(self, rc: int, out: str) -> None:
                 self.returncode, self.stdout, self.stderr = rc, out, ""
 
-        def stub_for(statuses: list[dict], total: int, combined: str):
+        # Each listing is a list of pages: (total_count, page fields, rows).
+        run_ok = {"id": 1, "name": "CI", "event": "pull_request", "status": "completed", "conclusion": "success"}
+        check_ok = {"id": 2, "name": "security-gate", "status": "completed", "conclusion": "success",
+                    "app": "github-actions"}
+
+        def stub_for(runs=None, checks=None, statuses=None):
+            pages = {"/actions/runs": runs or [(1, {}, [run_ok])], "/check-runs": checks or [(1, {}, [check_ok])],
+                     "/status": statuses}
+
             def _gh(*a: str, check: bool = True) -> _Stub:
                 url = next(x for x in a if x.startswith("repos/"))
-                paged = "--paginate" in a
-                if "/actions/runs" in url:
-                    return _Stub(0, '{"id":1,"name":"CI","event":"pull_request","status":"completed","conclusion":"success"}'
-                                 if paged else '{"n":1}')
-                if "/check-runs" in url:
-                    return _Stub(0, '{"id":2,"name":"security-gate","status":"completed","conclusion":"success",'
-                                    '"app":"github-actions"}' if paged else '{"n":1}')
-                return _Stub(0, "\n".join(json.dumps(s) for s in statuses) if paged
-                             else json.dumps({"n": total, "state": combined}))
+                assert "--paginate" in a, "every listing is one paginated call"
+                listing = next(v for k, v in pages.items() if k in url)
+                return _Stub(0, "\n".join(json.dumps(row) for total, extra, rows in listing
+                                          for row in [{"_page": total, **extra}, *rows]))
             return _gh
         ok_statuses = [{"context": f"ctx{i}", "state": "success"} for i in range(30)]
-        verdicts = []
-        for statuses, total, combined in ((ok_statuses, 30, "success"), (ok_statuses, 31, "failure"),
-                                          (ok_statuses, 30, "failure"), (ok_statuses, 30, "pending")):
+        run_bad = {**run_ok, "id": 3, "conclusion": "failure"}
+        cases = (
+            ("30 of 30 statuses is green", {"statuses": [(30, {"state": "success"}, ok_statuses)]}, "green"),
+            ("30 of 31 (a failure on page two) is not",
+             {"statuses": [(31, {"state": "failure"}, ok_statuses)]}, "pending"),
+            ("a failing combined state fails", {"statuses": [(30, {"state": "failure"}, ok_statuses)]}, "failed"),
+            ("a pending combined state waits", {"statuses": [(30, {"state": "pending"}, ok_statuses)]}, "pending"),
+            ("a run added and another removed between pages (a repeated success, the new failure unread: 2 rows "
+             "of total 2) is not green", {"runs": [(2, {}, [run_ok]), (2, {}, [run_ok])],
+                                          "statuses": [(30, {"state": "success"}, ok_statuses)]}, "pending"),
+            ("pages disagreeing on total_count are not green",
+             {"runs": [(2, {}, [run_ok]), (3, {}, [run_bad])],
+              "statuses": [(30, {"state": "success"}, ok_statuses)]}, "pending"),
+            ("the combined state changing between status pages is not green",
+             {"statuses": [(30, {"state": "success"}, ok_statuses[:15]),
+                           (30, {"state": "failure"}, ok_statuses[15:])]}, "pending"),
+            ("two complete pages are green",
+             {"runs": [(2, {}, [run_ok]), (2, {}, [{**run_ok, "id": 4}])],
+              "statuses": [(30, {"state": "success"}, ok_statuses[:15]),
+                           (30, {"state": "success"}, ok_statuses[15:])]}, "green"),
+        )
+        for label, spec, want in cases:
             g2 = GitHub("o/r")
-            g2._gh = stub_for(statuses, total, combined)  # type: ignore[method-assign]
+            g2._gh = stub_for(**spec)  # type: ignore[method-assign]
             m2 = Merger(Git(work, env), g2, Options(pr=1, expect_workflows=("CI",)), out=lambda s: None)
             pending, failed = m2._evaluate(g2.snapshot("abc"), ["security-gate"])
-            verdicts.append(("green" if not pending and not failed else "pending" if pending else "failed"))
-        expect(verdicts == ["green", "pending", "failed", "pending"],
-               f"30 of 30 statuses is green; 30 of 31 (a failure on page two) is not; a failing combined state "
-               f"fails; a pending combined state waits ({verdicts})")
+            got = "green" if not pending and not failed else "pending" if pending else "failed"
+            expect(got == want, f"snapshot: {label} ({got})")
 
         # T8b4: required checks must be readable.
         class _P:
@@ -2350,6 +2397,15 @@ def _self_test() -> int:
         expect(rc == EXIT_RACE_RED and fake.merged is not None
                and any("no complete check listing" in s for s in logs),
                f"checks that cannot be read after the merge: exit 8, unverified, not exit 0 or 1 (rc={rc})")
+        for flaky, want, label in ((1, EXIT_OK, "one read listing no workflow runs (GitHub's empty-page flake) is "
+                                                "read again: still the gate's verdicts, exit 0"),
+                                   (9, EXIT_RACE_RED, "reads that keep listing no workflow runs: exit 8, unverified")):
+            origin, work, branch = world()
+            new_connector_pr(work, extra_commit=False)
+            fake = FakeGitHub(origin, env, 36, branch, "skill: bravo", green)
+            fake.empty_runs_after_merge = flaky
+            rc, logs = merger(work, fake, require=())
+            expect(rc == want and fake.merged is not None, f"after the merge, {label} (rc={rc})")
         for combined in ("failure", "pending"):
             origin, work, branch = world()
             new_connector_pr(work, extra_commit=False)

@@ -66,6 +66,10 @@ set -euo pipefail
 
 TOOLS=$(cd "$(dirname "$0")" && pwd)
 SELF="$TOOLS/$(basename "$0")"
+# The copy that is running, read once at start: freshness compares main with
+# it, not with the file on disk later (a shared checkout pulled mid-run).
+SELF_TEXT=$(cat "$SELF")
+SELF_NOTED=0
 PYTHON=${PYTHON:-python3}
 LOG=""
 WT_MAP=""
@@ -264,19 +268,25 @@ tag_unlock() {
   LOCK_HOLDER=""
 }
 
-fetch_and_check_self() { # fetch tags + main, refuse a stale copy of this script
-  fetch_retry "$REMOTE" --tags "+refs/heads/main:refs/remotes/$REMOTE/main" || die "REFUSE cannot fetch $REMOTE"
+fetch_main() { # [--tags]: fetch main and set MAIN_SHA; refuse a stale copy of this script
+  # Every fetch of main goes through here, so a main that changes this
+  # script's rules mid-run (a long capacity wait) stops the run instead of
+  # being acted on with the rules loaded at start. Call it in the main shell,
+  # never inside $(...) or with its output redirected: its REFUSE must stop
+  # the run and be seen.
+  fetch_retry "$REMOTE" "$@" "+refs/heads/main:refs/remotes/$REMOTE/main" || die "REFUSE cannot fetch $REMOTE"
   MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
   local theirs
   if theirs=$(git -C "$REPO" show "$MAIN_SHA:tools/maintainer/cut_tags.sh" 2>/dev/null); then
-    if [ "$theirs" != "$(cat "$SELF")" ]; then
+    if [ "$theirs" != "$SELF_TEXT" ]; then
       if [ "${CUT_TAGS_ALLOW_STALE:-}" = 1 ]; then
         say "WARN this cut_tags.sh differs from origin/main's; running anyway (CUT_TAGS_ALLOW_STALE=1)"
       else
-        die "REFUSE this cut_tags.sh differs from origin/main's copy; run it from an up-to-date checkout"
+        die "REFUSE the running cut_tags.sh differs from origin/main ${MAIN_SHA:0:12}'s copy; restart from an up-to-date checkout"
       fi
     fi
-  else
+  elif [ "$SELF_NOTED" = 0 ]; then
+    SELF_NOTED=1
     say "NOTE origin/main has no tools/maintainer/cut_tags.sh to compare this copy with"
   fi
 }
@@ -393,7 +403,7 @@ rerun_failed() {
   # pass main's pipeline probe on that commit first, and the run must be for it.
   local dry=$1 fail=0 t info id st concl hsha commit rel queue="" n_q=0 batch="" n_b=0 handled=0 entry bt bid errf
   local why attempt now i requested
-  fetch_and_check_self
+  fetch_main --tags
   new_tempfile
   errf=$NEW_TMP
   while IFS= read -r t; do
@@ -448,6 +458,7 @@ rerun_failed() {
       fail=1
       continue
     fi
+    fetch_main
     if ! probe_rerun_from_main "$t" "$commit" >"$errf" 2>&1; then
       sed 's/^/    /' "$errf"
       say "PROBE-REFUSED $t: release.yml at $commit must not be re-run (it could seal an incomplete immutable release)"
@@ -476,6 +487,7 @@ rerun_failed() {
     commit=$(printf '%s' "$entry" | awk '{print $3}')
     # Everything that justified this re-run is read again now: another operator
     # may have finished it, sealed the release, or main may have changed.
+    fetch_main
     if ! why=$(still_rerunnable "$bt" "$bid" "$commit" "$errf"); then
       tag_unlock
       say "SKIP $bt: $why"
@@ -538,13 +550,12 @@ rerun_failed() {
   return "$fail"
 }
 
-probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on this clone
+probe_from_main() { # <probe args...>: the probe of the main fetch_main just fetched
   # The probe imports nothing local and reads burned_versions.json beside
   # itself, so the two files from main's tip ARE main's probe; extracting them
-  # per check is cheap, so the probe is never older than the moment it runs.
+  # per check is cheap. Callers run fetch_main immediately before, so the probe
+  # is never older than the moment it runs.
   local d rc=0
-  fetch_retry "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" || return 1
-  MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
   new_tempdir
   d=$NEW_TMP
   if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
@@ -558,12 +569,11 @@ probe_from_main() { # <probe args...>: origin/main's probe, freshly fetched, on 
 }
 
 probe_rerun_from_main() { # <tag> <commit>: may this cut tag's release run again?
-  # origin/main's probe, freshly fetched, with every requirement a NEW tag must
-  # meet except "not cut yet": the commit's pipeline drafts and seals last, the
-  # version is not burned, the commit's manifest carries that version.
+  # The probe of the main fetch_main just fetched (callers run it immediately
+  # before), with every requirement a NEW tag must meet except "not cut yet":
+  # the commit's pipeline drafts and seals last, the version is not burned, the
+  # commit's manifest carries that version.
   local d rc=0
-  fetch_retry "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" || return 1
-  MAIN_SHA=$(git -C "$REPO" rev-parse "refs/remotes/$REMOTE/main")
   new_tempdir
   d=$NEW_TMP
   if ! git -C "$REPO" show "$MAIN_SHA:tools/maintainer/check_release_pipeline.py" >"$d/check_release_pipeline.py" ||
@@ -600,7 +610,7 @@ remote_tag_commit() { # the commit a remote tag points at (peeled), or nothing
 
 cut() {
   local sha=$1 dry=$2 full t slug ver remote_at run i probe_out shawt handled=0
-  fetch_and_check_self
+  fetch_main --tags
   full=$(git -C "$REPO" rev-parse --verify -q "${sha}^{commit}") || die "REFUSE $sha is not a commit in $REPO"
   worktree_at "$full"
   shawt=$NEW_WT
@@ -629,6 +639,7 @@ cut() {
       fi
       die "EXISTS-ELSEWHERE $t points at $remote_at, not $full (stopping; never move a release tag)"
     fi
+    fetch_main
     if ! probe_from_main --tag "$t" --sha "$full" >"$probe_out" 2>&1; then
       sed 's/^/    /' "$probe_out"
       die "PROBE-REFUSED $t (origin/main ${MAIN_SHA:0:12}'s probe)"
@@ -668,7 +679,7 @@ cut() {
 
 receipts() {
   local fail=0 checked=0 t json draft n i st drafts d stranded="" inflight="" commit wt
-  fetch_and_check_self
+  fetch_main --tags
   while IFS= read -r t; do
     [ -n "$t" ] || continue
     checked=$((checked + 1))
@@ -1333,6 +1344,60 @@ HOOK
   [ -n "$hook_child" ] && kill "$hook_child" 2>/dev/null
   rm -f "$tmp/repo/.git/hooks/pre-push"
   expect "a hook's leftover child does not keep the lock after cut_tags exits (it is held by a separate holder)" "$rc_free"
+
+  echo "main changing this script mid-run (every fetch of main re-checks it):"
+  for s in zz-h1 zz-h2 zz-h3; do
+    connector "$s" 0.1.0
+    printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
+  done
+  cp "$SELF" "$tmp/repo/tools/maintainer/cut_tags.sh"  # main carries exactly the running copy: fresh at start
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "three more connectors; main carries this cut_tags.sh" -s
+  git -C "$tmp/repo" push -q origin main
+  sha5=$(git -C "$tmp/repo" rev-parse HEAD)
+  : >"$tmp/drafts.txt"
+  mkdir -p "$tmp/copy"
+  # While the cut waits for capacity, main moves: $1 = what changes on main;
+  # with "and-disk" the running copy on disk is pulled to match main too.
+  cat >"$tmp/on-count-template.sh" <<'MOVE'
+cd "${CT_STATE:?}/repo" || exit 1
+case "$1" in
+  script*) echo "# newer on main" >>tools/maintainer/cut_tags.sh ;;
+  *) echo "unrelated" >>NOTES.txt ;;
+esac
+git add -A && git commit -q -m "main moves mid-run" -s && git push -q origin main
+case "$1" in *and-disk) echo "# newer on main" >>"${CT_STATE:?}/copy/cut_tags.sh" ;; esac
+MOVE
+  for c in "script h1 $SELF" "unrelated h2 $SELF" "script-and-disk h3 $tmp/copy/cut_tags.sh"; do
+    what=${c%% *}; rest=${c#* }; tag="zz-${rest%% *}-v0.1.0"; script=${rest#* }
+    cp "$SELF" "$tmp/copy/cut_tags.sh"  # each case starts fresh: main and the copy equal the running script
+    cp "$SELF" "$tmp/repo/tools/maintainer/cut_tags.sh"
+    if ! git -C "$tmp/repo" diff --quiet; then
+      git -C "$tmp/repo" commit -q -am "main carries this cut_tags.sh again" -s
+      git -C "$tmp/repo" push -q origin main
+    fi
+    rm -f "$tmp"/runs/*
+    echo in_progress >"$tmp/runs/aa-busy"  # a cap of 1 is full: the cut waits, main moves meanwhile
+    # shellcheck disable=SC2016  # $CT_STATE expands when the fake runs the hook
+    printf 'sh "$CT_STATE/on-count-template.sh" %s\n' "$what" >"$tmp/on-count.sh"
+    printf '%s\n' "$tag" >"$tmp/tags-h.txt"
+    out=$(CUT_TAGS_MAX_IN_FLIGHT=1 CUT_TAGS_FLIGHT_SLEEP=0 bash "$script" "$sha5" "$tmp/tags-h.txt" 2>&1) && rc=0 || rc=$?
+    pushed=0
+    git --git-dir "$tmp/origin.git" rev-parse -q --verify "refs/tags/$tag" >/dev/null && pushed=1
+    case "$what" in
+      unrelated)
+        [ "$rc" -eq 0 ] && [ -f "$tmp/on-count.ran" ] && [ "$pushed" -eq 1 ] && has "ALL-PUSHED 1 of 1"
+        expect "main moving with an unrelated commit during the wait: still fresh, the tag is pushed" $? ;;
+      script)
+        [ "$rc" -ne 0 ] && [ -f "$tmp/on-count.ran" ] && [ "$pushed" -eq 0 ] && has "REFUSE the running cut_tags.sh differs"
+        expect "main changing cut_tags.sh during the wait: the next fetch of main refuses, nothing is pushed" $? ;;
+      *)
+        [ "$rc" -ne 0 ] && [ "$pushed" -eq 0 ] && has "REFUSE the running cut_tags.sh differs"
+        expect "the same with the running copy's file pulled to match: compared with the copy loaded at start, refused" $? ;;
+    esac
+    rm -f "$tmp/on-count.ran"
+  done
+  rm -f "$tmp"/runs/*
 
   echo "stale copies of this script:"
   : >"$tmp/drafts.txt"

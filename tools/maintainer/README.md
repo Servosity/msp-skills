@@ -142,12 +142,18 @@ is re-validated from the top, never retried blindly.
 **One final gate, immediately before the merge call.** After the wait says green, everything
 the merge depends on is read again in one place, and the merge call is the very next thing it
 does: `main` (fetched, and this tool's own code compared with that `main`), the approvals'
-change fingerprint, every check, workflow run and status on the exact head (every page, against
-`total_count`, still green and with the same verdicts the wait saw), the PR (open, into main,
+change fingerprint, every check, workflow run and status on the exact head (still green and
+with the same verdicts the wait saw), the PR (open, into main,
 this head) and `main` once more. Any change sends the run back to validate from the top; a
 same-head re-run that has turned pending or red is never merged on the strength of the earlier
 green. After the merge, the head's checks are read again and compared with the gate's: any
-difference (or no readable listing) exits **8**. Every fetch of `main` during a run, not only
+difference (or no readable listing) exits **8**. Every listing is read in one paginated call
+that keeps each page's `total_count`, and counts as complete only when the pages agree, no row
+repeats, and the distinct rows equal that count (a bare row count passes when one run is added
+and another removed between pages). GitHub's `runs?head_sha` listing sometimes answers an empty
+but consistent page for a commit that has runs (1 read in 6 on 2026-10-22); before the merge the
+expected workflows (`CI`, `security-gate`) then read as not started, and after it such a read is
+read again rather than taken as a changed verdict. Every fetch of `main` during a run, not only
 the first, re-checks the tool's freshness against it, comparing the code loaded at start (not
 the files on disk now), so rules that `main` changes mid-run stop the run (exit 2: restart
 from updated main) instead of validating with the old ones.
@@ -226,7 +232,9 @@ printed ALL-PUSHED). Per tag: skip it if it is already on the remote at this SHA
 anywhere else, run `check_release_pipeline.py --tag --sha` from a worktree at `origin/main`
 (the newest probe and burned-versions ledger) and `changelog_section.py --check` from a worktree
 at the SHA, push it alone, and wait for its Release run to register. The probe is extracted from
-`origin/main` afresh for every tag, after any wait, so a version retired meanwhile is refused.
+`origin/main` afresh for every tag, after any wait, so a version retired meanwhile is refused,
+and every fetch of `main` re-checks this script against it (the copy loaded at start, not the
+file on disk), so a `main` that changes the cutter's rules mid-run stops it.
 Before every push it waits
 until fewer than `CUT_TAGS_MAX_IN_FLIGHT` (default 4) Release runs are in flight across the
 repository: one tag per push is not enough by itself (52 tags pushed one at a time still put 52
