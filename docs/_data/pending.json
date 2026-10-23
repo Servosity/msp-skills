@@ -357,9 +357,9 @@
     "released_hash": "sha256:471dff55f4b3d6ff1128834475483a07c3660254bedb238df84f7fc8ada9b385"
   },
   "nerdio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "nerdio-v0.1.6",
+    "latest_tag": "nerdio-v0.1.7",
     "current_hash": "sha256:9ab28cbf4ded418fe7020c16f4441481c8b262899e83daba7cf935a3036e320d",
     "released_hash": "sha256:9ab28cbf4ded418fe7020c16f4441481c8b262899e83daba7cf935a3036e320d"
   },
@@ -371,9 +371,9 @@
     "released_hash": "sha256:c6ab5487920d4e835494be32c292e0d1d242a2d1a040ff3ab0813821e850ee0e"
   },
   "pagerduty": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "pagerduty-v0.1.5",
+    "latest_tag": "pagerduty-v0.1.6",
     "current_hash": "sha256:8b45c6fbd359f746f1a5d4479fcf7928f7ef02f4a5b8a9013a298b560cf9034b",
     "released_hash": "sha256:8b45c6fbd359f746f1a5d4479fcf7928f7ef02f4a5b8a9013a298b560cf9034b"
   },
