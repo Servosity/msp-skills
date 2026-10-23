@@ -182,23 +182,23 @@
     "released_hash": "sha256:c7256f67f12e6921e7ce0f7c99fa376169d820812b0e068ec7113b58c3f809dd"
   },
   "crowdstrike": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "crowdstrike-v0.1.9",
+    "latest_tag": "crowdstrike-v0.1.10",
     "current_hash": "sha256:4cf578e774ad76d45df3395c8254071f92122c3718e037955a3cceaba4e03eca",
     "released_hash": "sha256:4cf578e774ad76d45df3395c8254071f92122c3718e037955a3cceaba4e03eca"
   },
   "datagate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "datagate-v0.1.4",
+    "latest_tag": "datagate-v0.1.5",
     "current_hash": "sha256:13ed9e7473754e2d3c4c76e04bde9b5cec3ecd88958c30ebb55f2e64f6ee1f45",
     "released_hash": "sha256:13ed9e7473754e2d3c4c76e04bde9b5cec3ecd88958c30ebb55f2e64f6ee1f45"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "datto-bcdr-v0.1.9",
+    "latest_tag": "datto-bcdr-v0.1.10",
     "current_hash": "sha256:20ba7e2e78c5aee297696afa98967989fdf9b801c3e9c50f7ca049376468d130",
     "released_hash": "sha256:20ba7e2e78c5aee297696afa98967989fdf9b801c3e9c50f7ca049376468d130"
   },
