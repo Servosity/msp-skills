@@ -49,9 +49,9 @@
     "released_hash": "sha256:c0a402b00925ee287c1efbf1c1e53cb76df0dc5e66e9488945048d12af620eec"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.7",
-    "latest_tag": "auvik-v0.2.6",
+    "latest_tag": "auvik-v0.2.7",
     "current_hash": "sha256:8b7a3ad36e4f1b58a72ef8a5ca53a65be0effaf9f3b1a0c08e6ffdea0f51751f",
     "released_hash": "sha256:8b7a3ad36e4f1b58a72ef8a5ca53a65be0effaf9f3b1a0c08e6ffdea0f51751f"
   },
