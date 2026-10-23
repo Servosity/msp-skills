@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/backup-radar-mcp",
   "title": "Backup Radar MCP",
   "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/backup-radar/backup-radar-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/backup-radar-v0.1.1/backup-radar-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/backup-radar-v0.1.2/backup-radar-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

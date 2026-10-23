@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "sophos-central-mcp",
   "display_name": "Sophos Central",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
   "author": {
     "name": "Servosity Inc."

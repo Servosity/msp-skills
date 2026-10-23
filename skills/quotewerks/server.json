@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/quotewerks-mcp",
   "title": "QuoteWerks MCP",
   "description": "Find, build and reprice QuoteWerks Web quotes with previews, plus margin and win-rate reports.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/quotewerks/quotewerks-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/quotewerks-v0.1.2/quotewerks-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/quotewerks-v0.1.3/quotewerks-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

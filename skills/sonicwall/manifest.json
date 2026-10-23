@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "sonicwall-mcp",
   "display_name": "SonicWall",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
   "author": {
     "name": "Servosity Inc."

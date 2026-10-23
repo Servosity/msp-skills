@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "bitdefender-mcp",
   "display_name": "Bitdefender GravityZone",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
   "author": {
     "name": "Servosity Inc."

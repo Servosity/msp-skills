@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - unreleased
+## [0.1.3] - 2026-10-23
 
 ### Fixed
 - `--json` turns on JSON output on `networks firmware-upgrades update-network-staged-stages` again: the command declared its own `--json` value flag for its body. The JSON array of staged upgrade groups is now `--stages-json`.

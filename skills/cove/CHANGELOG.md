@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.12] - unreleased
+## [0.1.12] - 2026-10-23
 
 ### Security
 - **An error can no longer show your Cove API token.** The JSON-RPC client printed the first 300 bytes of an error answer, and the server's error message, unchanged, so a Login error that repeated the token showed it; the MCP server's endpoint tools masked nothing, because COVE_PASSWORD is not part of their configuration. Now an error whose text carries the API token or the session visa, as written, HTML-entity-encoded, JSON-escaped, URL-encoded at any depth, base64 or hex, is replaced by `[text withheld: it repeated a secret value this program holds]`; the HTTP status is kept. The same check also runs on every error a command prints, including `--json` and `--agent` error output, and on every MCP error result; successful output is unchanged.

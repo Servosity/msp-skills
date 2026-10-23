@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/td-synnex-mcp",
   "title": "TD SYNNEX MCP",
   "description": "StreamOne ION reseller API plus a local licence book: renewals, margin, seat true-up",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/td-synnex/td-synnex-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/td-synnex-v0.1.1/td-synnex-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/td-synnex-v0.1.2/td-synnex-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cisco-meraki-mcp",
   "display_name": "Cisco Meraki",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
   "author": {
     "name": "Servosity Inc."

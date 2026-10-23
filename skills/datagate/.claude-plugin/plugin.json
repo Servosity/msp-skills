@@ -1,6 +1,6 @@
 {
   "name": "datagate",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
   "author": {
     "name": "msp-skills contributors"

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.7] - unreleased
+## [0.1.7] - 2026-10-23
 
 ### Fixed
 - `--agent` turns on agent mode on `org create-sample` and `org create-scan` again: their own `--agent` value flag hid it. The explorer (agent) ID is now `--agent-id`; the request body still carries its `agent` field.

@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/proxmox-mcp",
   "title": "Proxmox MCP",
   "description": "Read-only Proxmox VE and Backup Server: which client guests have a verified, recent restore point.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/proxmox/proxmox-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/proxmox-v0.1.1/proxmox-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/proxmox-v0.1.2/proxmox-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
