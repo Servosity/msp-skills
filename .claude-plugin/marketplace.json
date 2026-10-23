@@ -1356,6 +1356,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "cloudally",
+      "source": "./skills/cloudally",
+      "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "cloudally",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

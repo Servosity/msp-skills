@@ -1,0 +1,253 @@
+{
+  "slug": "cloudally",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. The hand-authored command files under internal/cli (auth_login, auth_use_account, auth_cloudally_refresh, doctor_verdict) carry no DO NOT EDIT marker, so regen-merge keeps them whole; the backstop entries below catch a reprint that drops their wiring.",
+  "handfixes": [
+    {
+      "id": "notice-carries-the-contributor-credit",
+      "summary": "cli/NOTICE names this connector's contributor, in the Apache-2.0 attribution channel",
+      "why": "CONTRIBUTING.md promises that a contributor's credit survives a regeneration. The press regenerates cli/NOTICE from its own template, which carries the CLI Printing Press attribution but not this repo's per-connector 'contributed by' sentence, so a reprint would silently delete the only place the credit lives.",
+      "status": "active",
+      "spec_encode_followup": "The press has no per-connector contributor field, so there is nothing to encode upstream today.",
+      "asserts": [
+        {
+          "file": "cli/NOTICE",
+          "contains": "The CloudAlly connector was contributed by Jeff Moore (@sonofskywalker3).",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor classifies the authenticated GET /v2/user answer and turns the api row red on a 404 or a non-JSON answer, instead of calling every non-401/403 answer 'not verified' while the api row stays 'reachable (HTTP 404 at /)'",
+      "why": "The 4.33.5 doctor probed /v2/user but left report[\"api\"] at 'reachable (HTTP 404 at /)' when every API path 404s (a base_url aimed at a web UI), so check_doctor_truth.py's wrong-base state failed: the API read as healthy. doctor_verdict.go (ported from watchguard) reports 'valid' only for a JSON object with members or a JSON array, names CLOUDALLY_BASE_URL in the wrong-base remedy, and points a 401 at auth login. check_doctor_truth.py --slug cloudally failed 1 assertion before this fix and passes after (run on Linux; on Windows the gate's 0600 chmod does not satisfy the credential-file DACL guard, which is true of every connector). See issue #282.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "const doctorProbePath = \"/v2/user\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "report[\"api\"] = fmt.Sprintf(\"ERROR the host answered but %s is not there - %s\", doctorProbePath, doctorWrongBaseHint)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, report)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "report[\"credentials\"] = \"valid\""
+        }
+      ]
+    },
+    {
+      "id": "root-short-vendor-casing",
+      "summary": "the root command's Short and Long read 'CloudAlly CLI - ...' with the vendor's casing and a complete one-line description",
+      "why": "The generator emitted 'Cloudally CLI' with a long-dash separator and a Short truncated mid-sentence; MCP clients and --help show it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Short: `CloudAlly CLI - CloudAlly's Management API v2 in one CLI and MCP server",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "x-text-osv-floor",
+      "summary": "golang.org/x/text is pinned at v0.42.0 (>= 0.41.0)",
+      "why": "osv flags golang.org/x/text v0.39.0 for GO-2026-5970 and GO-2026-6629; the press go.mod template emits v0.39.0, so a reprint reintroduces it. Same pin as sonicwall and watchguard.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/go.mod",
+          "contains": "golang.org/x/text v0.42.0"
+        }
+      ]
+    },
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Ported unchanged from skills/sonicwall (same 4.33.5 template defect). Press creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string; the converter renders the built-in local Administrator as the alias LA, so that account's own ACE never matched and every credential read was refused. The fix resolves each trustee to its SID and compares SIDs; the allow-list is unchanged.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl. Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL rendered flags first (D:PAINO_ACCESS_CONTROL) is refused",
+      "why": "Ported unchanged from skills/sonicwall (same 4.33.5 template defect). Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL, but SDDL puts DACL flags first, so a world-accessible token file was accepted.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates and upstream issue as windows-sddl-alias-sid-compare: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "manifest-mcp-name-not-pp",
+      "summary": "manifest.json names the MCP server and its entry point cloudally-mcp, not cloudally-pp-mcp",
+      "why": "The press manifest uses the -pp- binary names; a re-onboard that re-derives name / entry_point / mcp_config.command from it points the .mcpb at a binary the release build never emits.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"entry_point\": \"bin/cloudally-mcp\""
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "cloudally-pp-mcp"
+        }
+      ]
+    },
+    {
+      "id": "install-credentials-declared-on-every-channel",
+      "summary": "every operator variable the binaries read is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md, with CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET required and CLOUDALLY_ACCESS_TOKEN optional and blank",
+      "why": "The press manifest declared only CLOUDALLY_ACCESS_TOKEN and the four login inputs, but every request also needs the client-id and client-secret headers, so a Claude Desktop install was never prompted for the two values it cannot work without. A pasted access token expires and then overrides the token auth login saved and refreshes, so the docs tell operators to leave it blank and run auth login once.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"CLOUDALLY_CLIENT_ID\": \"${user_config.cloudally_client_id}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"CLOUDALLY_CLIENT_SECRET\": \"${user_config.cloudally_client_secret}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"CLOUDALLY_MCP_READ_ONLY\": \"${user_config.cloudally_mcp_read_only}\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"CLOUDALLY_CLIENT_SECRET\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"CLOUDALLY_ACCESS_TOKEN\": \"\"",
+          "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "auth-use-account-wired",
+      "summary": "the generated auth command registers the hand-authored `auth use-account`",
+      "why": "auth use-account mints an account-scoped token from the partner login (POST .../partner-access-token) and swaps it in, which is how a partner acts inside one customer. Its command file is hand-authored and survives a reprint, but the AddCommand line lives in the generated auth.go, so a reprint silently drops the subcommand.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cmd.AddCommand(newAuthUseAccountCmd(flags))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "async-job-poll-uses-tasks-get",
+      "summary": "the async-job wait on distributor-account-tasks get, reseller-accounts backup-statuses and user status polls /v2/backup-tasks/{id} and names `tasks get <id>` as the recovery command",
+      "why": "The generator wires --wait on these commands to a sibling status endpoint and may pick /v2/resellers/accounts/{accountId}/backup-tasks/{id} or /v2/distributors/accounts/{accountId}/backup-tasks/{id}. WaitForJob substitutes only {id}, so {accountId} reaches the wire unsubstituted, and the printed recovery hint named `jobs get`, which reads the CLI's own local job table rather than CloudAlly. /v2/backup-tasks/{id} takes only the task id and `tasks get` is the matching read.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/distributor_account_tasks_get.go",
+          "contains": "WaitForJob(ctx, c, \"/v2/backup-tasks/{id}\", asyncJobID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/distributor_account_tasks_get.go",
+          "contains": "\"cloudally-cli tasks get \"+asyncJobID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/reseller_accounts_backup-statuses.go",
+          "contains": "WaitForJob(ctx, c, \"/v2/backup-tasks/{id}\", asyncJobID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/user_status.go",
+          "contains": "WaitForJob(ctx, c, \"/v2/backup-tasks/{id}\", asyncJobID",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "AGENTS.md carries the live CloudAlly rules an agent needs before running write commands",
+      "why": "A re-onboard regenerates these docs from the press templates, which know only the documented API. The rules were observed against a production partner tenant on 2026-10-15, for example that recovery export answers 200 with an empty body and creates no job.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "AGENTS.md",
+          "contains": "## CloudAlly rules for agents"
+        }
+      ]
+    },
+    {
+      "id": "api-discovery-hint-names-shipped-binary",
+      "class": "pp-name-leak",
+      "summary": "the `api` discovery hints tell the operator to run cloudally-cli, the binary this repo ships, instead of cloudally-pp-cli, which does not exist",
+      "why": "The press prints three follow-up hints from api_discovery.go ('Use ... <method> --help', 'Run ... api to list all interfaces', 'Use ... api <interface>'), formatting the binary name as '%s-pp-cli' around the slug. The -pp- strip renamed the binaries and the Cobra strings but missed this format string, so the CLI told an operator (or an agent) to run a binary that is not installed. check_no_pp_leak.py reports the '%s-pp-' format string in Go; a reprint re-emits it.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the strip should rewrite '%s-pp-cli' format strings in generated Go the same way it rewrites the Cobra Use/Example strings (msp-skills strip-pp-cli).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "Run '%s-cli api' to list all interfaces",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "Use '%s-cli api <interface>' to see methods.",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "not_contains": "%s-pp-cli"
+        }
+      ]
+    }
+  ]
+}
