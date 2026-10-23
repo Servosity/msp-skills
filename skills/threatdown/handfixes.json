@@ -1178,6 +1178,120 @@
      "not_contains": "--addr :7777"
     }
    ]
+  },
+  {
+   "id": "dry-run-never-mints",
+   "class": "write-safety",
+   "summary": "--dry-run never mints a token or changes stored credentials: neither the client's automatic client-credentials mint nor `auth login --dry-run` sends the client secret to the token URL, and `auth set-token --dry-run` and `auth logout --dry-run` neither save nor clear anything",
+   "why": "tools/maintainer/class_harness.py write-safety found every --dry-run of a write command putting one request on the wire: authHeader ran before the dry-run branch and, with no cached token, POSTed the client ID and secret to the token URL and cached the token, while the generated comment and the docs say a dry run sends nothing. `auth login` minted through its own path and ignored --dry-run, and `auth set-token` and `auth logout` saved and cleared credentials under --dry-run (found by Codex review round 1). Same fix shape as connectwise-rmm, sophos-central and watchguard (dry-run-never-mints). TestDryRunNeverMintsAToken, TestAuthLoginDryRunSendsNothing and TestAuthSetTokenAndLogoutHonorDryRun count requests to a stub token server (each with a live control that proves the probe reaches the mint) and fail on the generated code.",
+   "status": "active",
+   "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && c.needsClientCredentialsMint() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - no request sent, nothing saved)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dry_run_mint_test.go",
+     "contains": "func TestDryRunNeverMintsAToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_dry_run_test.go",
+     "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - nothing saved)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - nothing changed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_dry_run_test.go",
+     "contains": "func TestAuthSetTokenAndLogoutHonorDryRun(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "derive-lock-tests-deterministic",
+   "class": "test-determinism",
+   "summary": "The two derive-lock tests (ContendedAppendIsDerivedBeforeReturn, CaughtUpPassDoesNotWait) wait on what the pass is doing, read from goroutine stacks, instead of fixed 200 ms, 500 ms and 5 s windows; every remaining wait is bounded by the test binary's own deadline",
+   "why": "On windows(fortinet) in CI (2026-10-22, PR #421) the contended test failed with 'contended pass did not finish after the peer released the lock': after release the pass opens a fresh SQLite store and commits, and a slow Windows runner took longer than the fixed 5 s. The 200 ms 'did not return while held' window was also weak: on a slow runner it could elapse before the pass even reached the wait. The contended test now waits until the pass is provably blocked in cliutil.WithFileLock called from DeriveFlagCorrections (it cannot return before release), so it is stronger, not weaker. Proven: a pass that returns early under contention fails it; a caught-up pass that polls or blocks fails the caught-up test; with a simulated 6 s store open after the lock, the old test fails with the CI message and the new one passes.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the generated internal/learn derive_test.go should use this state-based wait in place of the fixed windows.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "contains": "func deriveBlockedOnLock() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "contains": "for !deriveBlockedOnLock() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "not_contains": "case <-time.After(200 * time.Millisecond):"
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "not_contains": "if time.Since(start) > 500*time.Millisecond {"
+    }
+   ]
+  },
+  {
+   "id": "token-request-stays-on-origin",
+   "class": "auth-wire",
+   "summary": "The token client's same-origin check compares hosts the way the network resolves them: an IP literal by address with an exact IPv6 zone, a DNS name ASCII case-insensitively, a non-ASCII name exactly",
+   "why": "Owner decision on PR #441 (finish the auth-wire class). Press 4.33.5 already sends every token request through cliutil.OAuthTokenHTTPClient, but its oauthTokenSameOrigin compared hostnames with strings.EqualFold, which also folds IPv6 zone names (fe80::1%LAN0 passed for fe80::1%lan0, two different peers when the interfaces differ) and Unicode case. It now compares an IP literal exactly as a netip.Addr (zone included) and folds ASCII case only for DNS names. TestOAuthTokenSameOriginComparesHostsLikeTheNetwork failed on the previous commit and passes now; TestAuthLoginRefusesATokenRedirectToAnotherOrigin pins the login path.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: auth.go.tmpl and client.go.tmpl in press 4.33.5 already route token requests through cliutil.OAuthTokenHTTPClient; oauthTokenSameOrigin should compare IP literals exactly (zone included) and fold ASCII case only for DNS names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "func oauthTokenSameHost(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "not_contains": "if !strings.EqualFold(target.Hostname(), origin.Hostname()) {"
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token_origin_test.go",
+     "contains": "func TestOAuthTokenSameOriginComparesHostsLikeTheNetwork(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_token_redirect_test.go",
+     "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

@@ -4,9 +4,13 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.8] - unreleased
+
+### Security
+- **The token request no longer follows a redirect to another server.** `auth login` and the automatic sign-in sent the token request, with your client secret, on to whatever host a redirect from the token URL named. A redirect off the token server now fails instead.
 
 ### Fixed
+- **`--dry-run` sends nothing, not even a token request.** With no saved token, a dry run used to request one first, sending your client ID and secret to the token URL and saving the token, although a dry run promises that no request is sent. `auth login --dry-run` now also only shows the request it would make, and `auth set-token --dry-run` and `auth logout --dry-run` no longer save or clear your stored credentials.
 - `since` help, the root command list, `which` and the MCP agent-context now describe what the command does: it lists the synced subscription history plus subscriptions created or updated in the window. They said it diffs subscription snapshots, which it never did.
 
 ## [0.1.7] - 2026-10-22

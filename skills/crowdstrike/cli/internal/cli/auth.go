@@ -97,6 +97,12 @@ Credentials default to FALCON_CLIENT_ID (Client ID) and FALCON_CLIENT_SECRET (Cl
 			if tokenURL == "" {
 				tokenURL = "https://api.crowdstrike.com/oauth2/token"
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview never
+			// sends the secret or writes credentials.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
+				return nil
+			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {
 				return authErr(err)
@@ -159,7 +165,10 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient.Do(req)
+	// Hand-wired (handfixes.json: token-request-stays-on-origin): the press
+	// 4.33.5 token client; a 307 off the token origin must not replay the
+	// client secret.
+	resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("calling token endpoint: %w", err)
 	}
@@ -250,6 +259,11 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return configErr(err)
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview saves nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "would save the token to %s\n(dry run - nothing saved)\n", cfg.Path)
+				return nil
+			}
 			cfg.AuthHeaderVal = ""
 			if err := cfg.SaveTokens("", "", args[0], "", cfg.TokenExpiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
@@ -276,6 +290,11 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)
+			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview clears nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "would clear the stored credentials (%s)\n(dry run - nothing changed)\n", cfg.Path)
+				return nil
 			}
 			if err := cfg.ClearTokens(); err != nil {
 				return configErr(fmt.Errorf("clearing tokens: %w", err))

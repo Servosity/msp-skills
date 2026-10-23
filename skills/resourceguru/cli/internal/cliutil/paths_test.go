@@ -6,9 +6,12 @@ package cliutil
 import (
 	"bytes"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -225,4 +228,42 @@ func captureStderr(t *testing.T, fn func()) string {
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
 	return buf.String()
+}
+
+func TestRenamePrivateFileWithRetryRetriesWindowsPermissionFailures(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-only retry behavior")
+	}
+
+	dir := t.TempDir()
+	tmpPath := filepath.Join(dir, "temporary")
+	path := filepath.Join(dir, "published")
+	if err := os.WriteFile(tmpPath, []byte("credential"), 0o600); err != nil {
+		t.Fatalf("write temporary file: %v", err)
+	}
+	for _, failure := range []error{fs.ErrPermission, syscall.Errno(32)} {
+		attempts := 0
+		err := renamePrivateFileWithRetryFunc(func(source, target string) error {
+			attempts++
+			if attempts == 1 {
+				return failure
+			}
+			return os.Rename(source, target)
+		}, tmpPath, path)
+		if err != nil {
+			t.Fatalf("renamePrivateFileWithRetryFunc(%v) error = %v", failure, err)
+		}
+		if attempts != 2 {
+			t.Fatalf("rename attempts for %v = %d, want 2", failure, attempts)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("published file missing after retry for %v: %v", failure, err)
+		}
+		if err := os.Remove(path); err != nil {
+			t.Fatalf("remove published test file: %v", err)
+		}
+		if err := os.WriteFile(tmpPath, []byte("credential"), 0o600); err != nil {
+			t.Fatalf("rewrite temporary file: %v", err)
+		}
+	}
 }

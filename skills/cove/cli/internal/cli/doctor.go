@@ -16,6 +16,7 @@ import (
 	"cove-pp-cli/internal/client"
 	"cove-pp-cli/internal/cliutil"
 	"cove-pp-cli/internal/config"
+	"cove-pp-cli/internal/coverpc"
 	"cove-pp-cli/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -159,7 +160,10 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// Check auth
-			report["auth"] = "not required"
+			// Hand-wired (handfixes.json: doctor-verifies-cove-login): Cove signs
+			// in with a JSON-RPC Login, so "not required" was false.
+			coveCreds := coverpc.CredentialsFromEnv()
+			report["auth"] = coveDoctorAuth
 
 			// Check auth environment variables
 
@@ -223,7 +227,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
-					if authHeader == "" {
+					if coveCreds.Present() {
+						// Hand-wired (handfixes.json: doctor-verifies-cove-login):
+						// probe the Login every real command depends on.
+						if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
+							report["credentials"] = "skipped (API unreachable)"
+						} else {
+							report["credentials"] = coveDoctorLogin(cmd.Context(), cfg.BaseURL, flags.timeout)
+						}
+					} else if authHeader == "" {
 						// No credential to probe. Say so: this row used to be omitted
 						// entirely, so the report simply had no Credentials line and an
 						// operator (or an agent parsing doctor --json) saw silence where

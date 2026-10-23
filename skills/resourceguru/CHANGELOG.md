@@ -4,7 +4,10 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.7] - unreleased
+
+### Fixed
+- **Windows: two processes saving credentials at the same time no longer lose a save.** Moving the new credentials file into place failed with "Access is denied" while another process had the file open, so one of two saves could fail. The save now retries that step briefly (about half a second at most, only on Windows), as the newer connectors already do.
 
 ### Changed
 - `cli/NOTICE` now names the product `resourceguru-cli`, the binary this connector installs, instead of the generator's internal `-pp-cli` name. No code change.

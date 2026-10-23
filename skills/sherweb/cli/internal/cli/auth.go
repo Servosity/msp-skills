@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"sherweb-pp-cli/internal/client"
 	"sherweb-pp-cli/internal/cliutil"
 	"sherweb-pp-cli/internal/config"
 )
@@ -97,7 +98,18 @@ Credentials default to SHERWEB_CLIENT_ID (Client ID) and SHERWEB_CLIENT_SECRET (
 			if tokenURL == "" {
 				tokenURL = "https://api.sherweb.com/auth/oidc/connect/token"
 			}
-			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret, cfg.SherwebSubscriptionKey)
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview never
+			// sends the secret or writes credentials.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
+				return nil
+			}
+			// Hand-wired (handfixes.json: redirect-strips-every-credential): the
+			// token request carries the client secret in its body and the
+			// subscription key in a header, and Go replays both on a 307, so the
+			// login client never follows a hop off the token origin.
+			tokenClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: client.RefuseCrossOriginRedirect}
+			tok, err := mintClientCredentialsToken(tokenClient, tokenURL, clientID, clientSecret, cfg.SherwebSubscriptionKey)
 			if err != nil {
 				return authErr(err)
 			}
@@ -255,6 +267,11 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return configErr(err)
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview saves nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "would save the token to %s\n(dry run - nothing saved)\n", cfg.Path)
+				return nil
+			}
 			cfg.AuthHeaderVal = ""
 			if err := cfg.SaveTokens("", "", args[0], "", cfg.TokenExpiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
@@ -281,6 +298,11 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)
+			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview clears nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "would clear the stored credentials (%s)\n(dry run - nothing changed)\n", cfg.Path)
+				return nil
 			}
 			if err := cfg.ClearTokens(); err != nil {
 				return configErr(fmt.Errorf("clearing tokens: %w", err))

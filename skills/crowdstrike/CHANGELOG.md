@@ -4,6 +4,15 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - unreleased
+
+### Security
+- **The token request no longer follows a redirect to another server.** `auth login` and the automatic sign-in sent the token request, with your client secret, on to whatever host a redirect from the token URL named. A redirect off the token server now fails instead.
+- **`fleet sync --member-cid` no longer sends your client secret to another server.** The child-tenant sign-in followed a redirect from the token URL to any host and resent the token request, client secret included. It now uses the same token client as the other sign-ins, which stays on the token server.
+
+### Fixed
+- **`--dry-run` sends nothing, not even a token request.** With no saved token, a dry run used to request one first, sending your client ID and secret to the token URL and saving the token, although a dry run promises that no request is sent. `auth login --dry-run` now also only shows the request it would make, and `auth set-token --dry-run` and `auth logout --dry-run` no longer save or clear your stored credentials.
+
 ## [0.1.9] - 2026-10-22
 
 ### Security

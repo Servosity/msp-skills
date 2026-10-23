@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.12] - unreleased
+
+### Security
+- **Credentials no longer follow a redirect to another server.** If the API answered with a redirect to a different host or port, or from https down to http, the connector forwarded the JSON-RPC login password and session visa to it. It now removes every credential header on such a redirect, and refuses to resend a request body (which can carry a secret) anywhere but the server you configured.
+
+### Fixed
+- **`doctor` checks the Cove login.** It reported "auth: not required" and "no credential is configured" even with COVE_PARTNER, COVE_USERNAME and COVE_PASSWORD set. It now names the JSON-RPC login and, when those are set, signs in once and reports whether Cove accepted the credentials (by Cove error number only, never the server's text).
+
 ## [0.1.11] - 2026-10-22
 
 ### Security

@@ -432,7 +432,10 @@ func fleetClientForCID(ctx context.Context, cfg *config.Config, flags *rootFlags
 	}
 	// Bound the token mint by the same --timeout the API client honors; a
 	// hung token endpoint must not stall the whole fleet sync.
-	mintClient := &http.Client{Timeout: flags.timeout}
+	// Hand-wired (handfixes.json: member-cid-token-stays-on-origin): the form
+	// carries the client secret, and a plain client replays it on a 307 to
+	// another host; the token client follows same-origin hops only.
+	mintClient := cliutil.OAuthTokenHTTPClient(&http.Client{Timeout: flags.timeout})
 	tok, err := mintMemberCIDToken(ctx, mintClient, tokenURL, clientID, clientSecret, cid)
 	if err != nil {
 		return nil, err

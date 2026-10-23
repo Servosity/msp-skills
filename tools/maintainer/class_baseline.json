@@ -75,24 +75,7 @@
    "xero",
    "zammad"
   ],
-  "auth-wire": [
-   "connectwise-automate",
-   "connectwise-manage",
-   "cove",
-   "n-central",
-   "sherweb"
-  ],
-  "write-safety": [
-   "appdirect",
-   "crowdstrike",
-   "halopsa",
-   "immybot",
-   "nerdio",
-   "ninjaone",
-   "pax8",
-   "sherweb",
-   "skykick",
-   "threatdown"
-  ]
+  "auth-wire": [],
+  "write-safety": []
  }
 }

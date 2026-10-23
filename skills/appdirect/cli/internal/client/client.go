@@ -792,7 +792,10 @@ func (c *Client) authHeader(ctx context.Context) (string, error) {
 	}
 	// 60s window avoids in-flight requests racing the expiry boundary.
 	// Double-checked lock so only one goroutine mints under contention.
-	if needsClientCredentialsMint(c.Config) {
+	// Hand-wired (handfixes.json: dry-run-never-mints): --dry-run previews
+	// with cached material only; minting would POST the client secret to the
+	// token URL and persist the token, which a preview must never do.
+	if !c.DryRun && needsClientCredentialsMint(c.Config) {
 		if c.ccMu == nil {
 			c.ccMu = &sync.Mutex{}
 		}
@@ -926,7 +929,7 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 		return fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req) // hand-fix: token-request-stays-on-origin
 	if err != nil {
 		return fmt.Errorf("calling token endpoint: %w", err)
 	}
@@ -986,7 +989,7 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 		return fmt.Errorf("building refresh request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req) // hand-fix: token-request-stays-on-origin
 	if err != nil {
 		return fmt.Errorf("refreshing access token: %w", err)
 	}

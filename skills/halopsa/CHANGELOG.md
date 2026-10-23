@@ -4,9 +4,13 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.22] - unreleased
+
+### Security
+- **The token request no longer follows a redirect to another server.** `auth login` and the automatic sign-in sent the token request, with your client secret, on to whatever host a redirect from the token URL named. A redirect off the token server now fails instead.
 
 ### Fixed
+- **`--dry-run` sends nothing, not even a token request.** With no saved token, a dry run used to request one first, sending your client ID and secret to the token URL and saving the token, although a dry run promises that no request is sent. `auth login --dry-run` now also only shows the request it would make, and `auth set-token --dry-run` and `auth logout --dry-run` no longer save or clear your stored credentials.
 - `--agent` turns on agent mode on every command again. Seven commands declared their own `--agent` value flag, so a bare `--agent` stopped with "flag needs an argument" and `--agent --dry-run` sent the live request with "--dry-run" as the filter. They are renamed: `--agent-ids` on `tickets list`, `opportunities list` and `projects list`; `--agent-param` on `remote-session list`; `--agent-id` on `impersonation-request`; `--agent-name` on `time gaps` and `triage`. The API still receives its `agent` parameter.
 
 ## [0.2.21] - 2026-10-22
