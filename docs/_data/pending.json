@@ -329,9 +329,9 @@
     "released_hash": "sha256:4a9a19bc12eb8eab72b0cc30669a37dd4db5ed1ebae540d11576fbbdf4a6c3ab"
   },
   "microsoft-graph": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.6",
-    "latest_tag": "microsoft-graph-v0.2.5",
+    "latest_tag": "microsoft-graph-v0.2.6",
     "current_hash": "sha256:89735a82473ccf9de9ab846b470778e07456b6858a5059e3eee954cc0bc56308",
     "released_hash": "sha256:89735a82473ccf9de9ab846b470778e07456b6858a5059e3eee954cc0bc56308"
   },
@@ -343,9 +343,9 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "mspbots-v0.1.5",
+    "latest_tag": "mspbots-v0.1.6",
     "current_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557",
     "released_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557"
   },
