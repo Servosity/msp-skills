@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -98,6 +99,77 @@ func safeSegment(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// readUnderRoot has the shape of press 4.34.0's resolveMCPUploadFromRoot: the
+// root's location is a parameter and the name is resolved inside it, so
+// whether the name can leave the operator's directory depends on each caller.
+func readUnderRoot(root, raw string) ([]byte, error) {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	rel := raw
+	if filepath.IsAbs(raw) {
+		if rr, err := filepath.Rel(root, raw); err == nil {
+			rel = rr
+		}
+	}
+	f, err := r.Open(filepath.ToSlash(rel))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
+}
+
+// readUnderRootVia adds a second call level between the caller and the root.
+func readUnderRootVia(root, raw string) ([]byte, error) {
+	return readUnderRoot(strings.TrimSpace(root), raw)
+}
+
+func uploadCmd() *cobra.Command {
+	var envName, viaName, constName, beside, linkTarget, rootDir, nameUnderDir, joinDir, nameUnderJoin, opened string
+	cmd := &cobra.Command{Use: "upload", RunE: func(*cobra.Command, []string) error {
+		// Confined: the root is the operator's environment setting, the
+		// way 4.34.0 reads <SLUG>_MCP_UPLOAD_ROOT.
+		_, _ = readUnderRoot(os.Getenv("FIXTURE_UPLOAD_ROOT"), envName)
+		_, _ = readUnderRootVia(os.Getenv("FIXTURE_UPLOAD_ROOT"), viaName)
+		// Confined: a constant root, used in place.
+		if r, err := os.OpenRoot("."); err == nil {
+			_, _ = r.ReadFile(constName)
+			// Beside a confined root, a plain open still names a path.
+			_, _ = os.Open(beside)
+			// A symlink's target is stored, not resolved in the root.
+			_ = r.Symlink(linkTarget, "link")
+			_ = r.Close()
+		}
+		// Steered: the same helper, called with a root the caller chose.
+		_, _ = readUnderRoot(rootDir, nameUnderDir)
+		// Steered through a component: the root sits under a chosen name.
+		if r, err := os.OpenRoot(filepath.Join(os.TempDir(), joinDir)); err == nil {
+			_, _ = r.Stat(nameUnderJoin)
+			_ = r.Close()
+		}
+		if r, err := os.OpenRoot(opened); err == nil {
+			_, _ = r.Open("fixed.txt")
+			_ = r.Close()
+		}
+		return nil
+	}}
+	f := cmd.Flags()
+	f.StringVar(&envName, "comp-root-env", "", "a name inside the operator's upload root")
+	f.StringVar(&viaName, "comp-root-two-levels", "", "the same, two calls away from the root")
+	f.StringVar(&constName, "comp-root-const", "", "a name inside a constant root")
+	f.StringVar(&beside, "want-beside-root", "", "opened with os.Open next to a confined root")
+	f.StringVar(&linkTarget, "want-root-symlink-target", "", "the target of a symlink made in a root")
+	f.StringVar(&rootDir, "want-root-dir", "", "the directory a root is opened at, inside a helper")
+	f.StringVar(&nameUnderDir, "want-root-name-steered", "", "a name inside a root the caller steered")
+	f.StringVar(&joinDir, "comp-root-join-dir", "", "a directory name under a fixed root path")
+	f.StringVar(&nameUnderJoin, "want-root-name-under-join", "", "a name inside a root steered by a component")
+	f.StringVar(&opened, "want-root-opened", "", "the directory a root is opened at")
+	return cmd
 }
 
 var homeDir string
@@ -230,7 +302,7 @@ func RootCmd() *cobra.Command {
 		_, err := os.Create(*ptr)
 		return err
 	}}
-	root.AddCommand(run, ptrCmd)
+	root.AddCommand(run, ptrCmd, uploadCmd())
 	return root
 }
 

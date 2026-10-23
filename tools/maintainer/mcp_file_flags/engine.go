@@ -56,13 +56,27 @@ type summary struct {
 	// decoder (json.Unmarshal into it): they fill every field of the
 	// pointee, not one value.
 	ptrwWhole map[int]*tagSet
+	// rootConds are os.Root operations whose root was opened at a path
+	// built from this function's parameters: the name names a path (keeps
+	// its lead tags) only at call sites where one of those parameters
+	// carries taint. See confinedSink.
+	rootConds map[string]*rootCond
+}
+
+// A rootCond is one os.Root operation still waiting on its root: recv holds
+// the parameter tags the root's location came from, name the tags of the
+// name the operation resolved inside it.
+type rootCond struct {
+	recv tagSet
+	name tagSet
+	site sinkSite
 }
 
 func newSummary(results int) *summary {
 	if results < 1 {
 		results = 1
 	}
-	return &summary{ret: make([]tagSet, results), sink: map[int]*sinkSite{}, store: map[int]map[objKey]bool{}, ptrw: map[int]*tagSet{}, ptrwWhole: map[int]*tagSet{}}
+	return &summary{ret: make([]tagSet, results), sink: map[int]*sinkSite{}, store: map[int]map[objKey]bool{}, ptrw: map[int]*tagSet{}, ptrwWhole: map[int]*tagSet{}, rootConds: map[string]*rootCond{}}
 }
 
 func resultCount(sig *types.Signature) int {
@@ -101,6 +115,9 @@ func (s *summary) size() int {
 	}
 	for _, t := range s.ptrwWhole {
 		n += t.count()
+	}
+	for _, c := range s.rootConds {
+		n += 1 + c.name.count()
 	}
 	return n
 }
@@ -707,6 +724,65 @@ func (st *fnState) recordSink(t tagSet, site sinkSite) {
 			st.local = true
 		}
 	})
+}
+
+// confinedSink records a name that an os.Root operation resolves inside its
+// root, whose location carries taint recv. os.Root refuses a name that
+// leaves the root (an absolute path, a ".." hop, an escaping symlink), so the
+// name alone only chooses an entry inside the root: its component form always
+// reaches the sink. The name chooses a host path (its lead tags reach the
+// sink) only when the root is not confined to a location the caller cannot
+// steer, that is, when any caller-chosen value reached the root's own path:
+//
+//   - recv is empty (a constant, the operator's environment): confined;
+//   - recv carries a global tag: the root is steered here, so the name keeps
+//     its lead tags;
+//   - recv carries only parameter tags: the answer depends on the caller, so
+//     the operation becomes a summary entry that applySummary resolves at each
+//     call site with that call's arguments.
+//
+// Any other shape (a free variable among recv or name tags) is resolved
+// conservatively as steered: it can only add findings.
+func (st *fnState) confinedSink(recv, name tagSet, site sinkSite) {
+	if name.empty() {
+		return
+	}
+	st.recordSink(name.demoted(), site)
+	switch {
+	case recv.empty():
+	case recv.hasGlobal() || !onlyParamTags(recv) || !onlyParamTags(name):
+		st.recordSink(name, site)
+	default:
+		st.addRootCond(recv, name, site)
+	}
+}
+
+// onlyParamTags reports whether every symbolic tag of t is a parameter tag.
+func onlyParamTags(t tagSet) bool {
+	ok := true
+	t.eachSymbolic(func(tag int) {
+		if !isParamTag(tag) {
+			ok = false
+		}
+	})
+	return ok
+}
+
+func (st *fnState) addRootCond(recv, name tagSet, site sinkSite) {
+	w := recv.w
+	for len(w) > 0 && w[len(w)-1] == 0 {
+		w = w[:len(w)-1]
+	}
+	key := fmt.Sprintf("%s|%s|%s|%x", site.Sink, site.Pos, site.Via, w)
+	c := st.sum.rootConds[key]
+	if c == nil {
+		c = &rootCond{recv: recv.clone(), site: site}
+		st.sum.rootConds[key] = c
+		st.local = true
+	}
+	if c.name.union(name) {
+		st.local = true
+	}
 }
 
 func (e *engine) addFinding(tag int, site sinkSite) {
@@ -1403,6 +1479,45 @@ func (st *fnState) applySummary(callee *ssa.Function, args, bindings []ssa.Value
 			st.recordSink(t, s)
 		}
 	}
+	// An os.Root operation inside the callee whose root came from its
+	// parameters: decide, with this call's arguments, whether the root is
+	// steered (see confinedSink). The name's component form already reached
+	// the sink through sum.sink.
+	condKeys := make([]string, 0, len(sum.rootConds))
+	for k := range sum.rootConds {
+		condKeys = append(condKeys, k)
+	}
+	sort.Strings(condKeys)
+	for _, k := range condKeys {
+		c := sum.rootConds[k]
+		var recv tagSet
+		unresolved := false
+		c.recv.eachSymbolic(func(tag int) {
+			if t, ok := argTags(tag); ok {
+				recv.union(t)
+			} else {
+				unresolved = true
+			}
+		})
+		var name tagSet
+		name.unionGlobal(c.name)
+		c.name.eachSymbolic(func(tag int) {
+			if t, ok := argTags(tag); ok {
+				name.union(t)
+			}
+		})
+		s := c.site
+		if s.Via == "" {
+			s.Via = st.e.pos(instr.Pos()) + " " + callee.String()
+		}
+		switch {
+		case name.empty():
+		case unresolved:
+			st.recordSink(name, s)
+		default:
+			st.confinedSink(recv, name, s)
+		}
+	}
 	for tag, objs := range sum.store {
 		if t, ok := argTags(tag); ok {
 			for k := range objs {
@@ -1466,6 +1581,28 @@ func (st *fnState) externalSink(fn *types.Func, args []ssa.Value, instr ssa.Call
 		offset = 1
 	}
 	if fsNameSinks[key] && len(args) > 0 && isEmbedFS(args[0]) {
+		return
+	}
+	if isRootMethod(fn) && len(args) > 0 {
+		// An operation through an os.Root lands at the root's location
+		// plus a name the root keeps inside it. Whoever steered the root
+		// chose where it lands; the name is resolved by confinedSink.
+		site := sinkSite{Sink: key, Pos: st.e.pos(instr.Pos())}
+		recv := st.load(args[0])
+		if !recv.empty() {
+			st.recordSink(recv, site)
+		}
+		for _, i := range idx {
+			if i+1 >= len(args) {
+				continue
+			}
+			t := st.tagsOf(args[i+1])
+			if rootUnconfinedParam(key, i) {
+				st.recordSink(t, site)
+			} else {
+				st.confinedSink(recv, t, site)
+			}
+		}
 		return
 	}
 	for _, i := range idx {

@@ -196,8 +196,10 @@ func sinkParams(fn *types.Func) []int {
 		return idx
 	}
 	if pkg == "os" {
-		// Every method of os.Root resolves names inside an opened directory.
-		if strings.HasPrefix(key, "os.Root.") {
+		// Every string parameter of an os.Root method names a location; the
+		// engine decides per call whether the root confines it (see
+		// isRootMethod).
+		if isRootMethod(fn) {
 			return stringParams(fn, nil)
 		}
 		return nil
@@ -219,6 +221,37 @@ func sinkParams(fn *types.Func) []int {
 		}
 	}
 	return stringParams(fn, thirdPartyPathParams)
+}
+
+// isRootMethod reports whether fn is a method of os.Root (Open, Create,
+// OpenFile, ReadFile, WriteFile, Stat, Mkdir, Remove, Rename, OpenRoot, ...).
+// An os.Root resolves every name relative to the directory it was opened at
+// and refuses one that leaves it: an absolute path, a ".." hop, or a symlink
+// whose target is outside. So such a name is confined only as far as the root
+// itself is: the engine (confinedSink) treats it as a component inside the
+// root when no caller-chosen value reached the root's own path (os.OpenRoot's
+// argument, itself a sink), and as a path otherwise. os.OpenInRoot is a plain
+// function and keeps its stdSinks rule.
+func isRootMethod(fn *types.Func) bool {
+	pkg, key := funcKey(fn)
+	sig, _ := fn.Type().(*types.Signature)
+	return pkg == "os" && sig != nil && sig.Recv() != nil && strings.HasPrefix(key, "os.Root.")
+}
+
+// rootUnconfinedParams are os.Root method parameters the root does not
+// resolve: Symlink stores its target (oldname) verbatim, and whoever later
+// opens the link outside the root follows it there. They stay plain sinks.
+var rootUnconfinedParams = map[string][]int{
+	"os.Root.Symlink": {0},
+}
+
+func rootUnconfinedParam(key string, i int) bool {
+	for _, j := range rootUnconfinedParams[key] {
+		if j == i {
+			return true
+		}
+	}
+	return false
 }
 
 // stringParams returns the indexes of fn's string-like parameters, all of
