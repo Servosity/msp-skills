@@ -452,9 +452,10 @@ jobs:
       - name: Component-flag validators reject hostile values (one place, not 31 connectors)
         run: python3 tools/maintainer/check_mcp_file_flags.py --check-component-validators
 
-  # Its own job, deliberately. This check is RED BY DESIGN for the window
-  # between a version-bump merge and the hand-cut tag that makes its pins real
-  # (and for the whole life of a release that was never cut). While it was a
+  # Its own job, deliberately. This check is RED BY DESIGN for a release that
+  # was never cut: once a version bump has been on main for longer than the
+  # in-flight window (PINS_INFLIGHT_HOURS, default 24) with no tag, every run
+  # fails until the tag is cut. While it was a
   # step inside `guards`, that red skipped every step after it - env schema,
   # MCP registry, install docs, DCO, ShellCheck, gitleaks, plugin validate: a
   # dozen unrelated gates silently not run on exactly the commits that most
@@ -467,6 +468,14 @@ jobs:
         with:
           fetch-depth: 0 # every tag local, BASE resolvable, no network call
 
+      - name: Pins gate self-test (every rule, both directions)
+        # Throwaway git repos: the rename, cross-file-move, one-uncut-bump and
+        # retired-version rules, and the in-flight window (a bump 1h old passes,
+        # 30h old fails, a recent edit to another field cannot reopen a dead
+        # pin, a pull request's own commits and a merged branch's commit date
+        # cannot extend it, window 0 turns it off).
+        run: python3 tools/maintainer/check_pinned_artifacts.py --self-test
+
       - name: Pinned release URLs resolve (tag cut, or an in-flight release)
         # check_md_links.py skips http(s) entirely, so nothing verified that the
         # version-pinned .mcpb identifiers and release links this repo publishes
@@ -476,8 +485,23 @@ jobs:
         #
         # BASE is what makes this checkable without failing every release
         # commit: a pin that is NEW or MOVED in this change-set is an in-flight
-        # release (allowed, with a reminder), a pin byte-identical to BASE whose
-        # tag still does not exist is a release that was never cut (failure).
+        # release (allowed, with a reminder).
+        #
+        # A pin that was already at BASE, whose tag does not exist, is either a
+        # release that was never cut or a release wave still cutting its tags
+        # (cut_tags.sh pushes one tag at a time with at most four in flight, so
+        # 81 connectors take hours). Telling them apart is the in-flight window:
+        # the pin is IN FLIGHT (allowed, with the same reminder) when the
+        # first-parent commit on BASE that bumped that slug's manifest to that
+        # version is less than PINS_INFLIGHT_HOURS (default 24, unset here; 0
+        # turns the window off) old by its committer date, measured against
+        # this run's clock, and the usual per-slug rules hold (the version
+        # before it was tagged or retired). Older than that it FAILS: the
+        # release was never cut and main is publishing a 404. The age comes
+        # from git history alone, never from the pull request's own commits,
+        # so this stays offline. Before the window, every unrelated PR was red
+        # for the whole length of a wave.
+        #
         # On a push BASE must be github.event.before, NOT origin/main: the
         # runner's origin/main already contains the push. The checkout above is
         # fetch-depth: 0, so every tag is local and no network call is made.
