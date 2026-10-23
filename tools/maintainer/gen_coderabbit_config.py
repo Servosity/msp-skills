@@ -136,11 +136,13 @@ class Scope:
 # The tree
 # --------------------------------------------------------------------------- #
 def tree_files(root: Path) -> list[str]:
-    """Every path a commit would carry under skills/: tracked files still on
-    disk plus untracked files git does not ignore (the same set ci_guards.sh
-    and verify_all.sh check). A tracked file missing from disk is skipped."""
-    p = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard",
-                        "--", SKILLS + "/"], capture_output=True, timeout=300)
+    """Every path a commit would carry, in the WHOLE repository: tracked files
+    still on disk plus untracked files git does not ignore (the same set
+    ci_guards.sh and verify_all.sh check). A tracked file missing from disk is
+    skipped. Every path is part of the safety check, so one that cannot be
+    read as UTF-8 fails the run instead of silently leaving it."""
+    p = subprocess.run(["git", "-C", str(root), "-c", "core.quotePath=false", "ls-files", "-z", "--cached",
+                        "--others", "--exclude-standard"], capture_output=True, timeout=300)
     if p.returncode != 0:
         raise GenError(f"git ls-files failed: {p.stderr.decode('utf-8', 'replace').strip()[-400:]}")
     out = set()
@@ -150,9 +152,7 @@ def tree_files(root: Path) -> list[str]:
         try:
             path = raw.decode("utf-8")
         except UnicodeDecodeError:
-            # Not representable in the YAML: it can only ever be kept, and a
-            # kept path that is not text cannot collide with an ASCII pattern.
-            continue
+            raise GenError(f"a path is not UTF-8 ({raw!r}): which files it would hide cannot be checked; rename it")
         try:
             os.lstat(root / path)
         except FileNotFoundError:
@@ -192,20 +192,45 @@ def handfix_files(root: Path, slug: str) -> set[str]:
     return out
 
 
+_HEADER_SCAN_LIMIT = 64 * 1024  # the press header sits in the first few lines
+
+
 def has_press_header(path: Path) -> bool:
-    """True when one of HEADER_LINES stands alone on a line before the
-    `package` clause. A file that only mentions the words later (a string, a
-    comment) is hand-written."""
+    """True when one of HEADER_LINES is a `//` comment standing alone on its
+    line in the comments that open the file, and the first thing after those
+    comments is the `package` clause. Read lexically, the way Go reads it:
+    any token that is not whitespace or a comment ends the header, so text
+    after `package` (even on the same line), inside a `/* */` block, or after
+    other text on its line is never the header. Anything unexpected (an
+    unterminated block comment, no package clause) reads as hand-written,
+    which keeps the file in review."""
     try:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                s = line.strip()
-                if s in HEADER_LINES:
-                    return True
-                if _PACKAGE.match(s):
-                    return False
+        with path.open("rb") as fh:
+            text = fh.read(_HEADER_SCAN_LIMIT).decode("utf-8", errors="replace")
     except OSError as exc:
         raise GenError(f"cannot read {path}: {exc}")
+    i, n, found, line_start = 0, len(text), False, True
+    if text.startswith("\ufeff"):
+        i = 1
+    while i < n:
+        c = text[i]
+        if c == "\n":
+            i, line_start = i + 1, True
+        elif c in " \t\r\f\v":
+            i += 1
+        elif text.startswith("//", i):
+            end = text.find("\n", i)
+            end = n if end < 0 else end
+            if line_start and text[i:end].strip() in HEADER_LINES:
+                found = True
+            i, line_start = end, False
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            if end < 0:
+                return False
+            i, line_start = end + 2, False
+        else:
+            return found and _PACKAGE.match(text, i) is not None
     return False
 
 
@@ -216,6 +241,9 @@ def classify(root: Path, files: list[str] | None = None) -> Scope:
     for path in files:
         parts = path.split("/")
         if len(parts) < 3 or parts[0] != SKILLS:
+            # Never excluded, and still checked against every pattern: under a
+            # case-blind matcher "Skills/..." could otherwise slip past.
+            scope.keep(path, "outside skills/")
             continue
         slug = parts[1]
         if slug not in ledgers:
@@ -307,8 +335,9 @@ def build_patterns(scope: Scope) -> list[str]:
     conservative; `verify` is the authority on safety and coverage."""
     kgo = sorted(p.lower() for p in scope.kept if p.lower().endswith(".go"))
     kgo_set = set(kgo)
-    # Only text after "skills/" can hold a cross-connector match.
-    kgo_tail = [k[len(SKILLS):] for k in kgo]
+    # Only a path that starts with "skills/" in some case can match a pattern;
+    # the text after it is what a cross-connector "*" can reach.
+    kgo_tail = [k[len(SKILLS):] for k in kgo if k.startswith(SKILLS + "/")]
 
     def pure_dir(d: str) -> bool:  # no kept Go file anywhere under d
         return not _in_prefix(kgo, d.lower() + "/")
@@ -612,6 +641,43 @@ def _self_test() -> int:
         expect(not matched(p5, "skills/acme/cli/internal/cli/widgets_x/notes.go", permissive_re),
                "a prefix pattern never reaches a kept file in a subdirectory, even if '*' crosses '/'")
         shutil.rmtree(root / "skills/acme/cli/internal/cli/widgets_x")
+
+        # Codex r1 P1-1: a package clause that does not start its line must
+        # still end the header; header text after it is not a header.
+        tricky = {
+            "block_pkg.go": f"/* handwritten */ package cli\n{HEADER_LINES[1]}\n",
+            "header_in_block.go": f"/*\n{GEN}\n*/\npackage cli\n",
+            "header_after_code.go": f"/* x */ {GEN}\npackage cli\n",
+            "header_after_pkg_same_line.go": f"package cli // {GEN}\n",
+        }
+        for name, body in tricky.items():
+            _write(root, f"skills/acme/cli/internal/cli/{name}", body)
+        _t7, s7, p7 = generate(root)
+        for name in tricky:
+            path = f"skills/acme/cli/internal/cli/{name}"
+            expect(path in s7.kept and not matched(p7, path, permissive_re),
+                   f"no press header before the package clause: {name} stays in review")
+        for name in tricky:
+            (root / f"skills/acme/cli/internal/cli/{name}").unlink()
+        _write(root, "skills/acme/cli/internal/cli/build_tagged.go",
+               f"//go:build linux\n\n/* note */\n// Copyright x\n{GEN}\n\npackage cli\n")
+        expect("skills/acme/cli/internal/cli/build_tagged.go" in classify(root).excluded,
+               "a build tag and comments before the press header still read as generated")
+        (root / "skills/acme/cli/internal/cli/build_tagged.go").unlink()
+
+        # Codex r1 P1-2: a path that is not UTF-8 cannot be classified, so the
+        # scope cannot be established: fail closed (it never silently drops).
+        blob = subprocess.run(["git", "-C", str(root), "hash-object", "-w", "--stdin"], input=b"package types\n",
+                              capture_output=True, check=True).stdout.decode().strip()
+        odd = b"skills/acme/cli/internal/types/\xff.go"
+        subprocess.run([b"git", b"-C", str(root).encode(), b"update-index", b"--add", b"--cacheinfo",
+                        b"100644," + blob.encode() + b"," + odd], check=True)
+        try:
+            generate(root)
+            expect(False, "a tracked path that is not UTF-8 fails the run")
+        except GenError:
+            expect(True, "a tracked path that is not UTF-8 fails the run")
+        subprocess.run([b"git", b"-C", str(root).encode(), b"update-index", b"--force-remove", odd], check=True)
 
         # A path a pattern cannot carry verbatim stays in review.
         _write(root, "skills/acme/cli/internal/cli/odd[1].go", _gen_go())
