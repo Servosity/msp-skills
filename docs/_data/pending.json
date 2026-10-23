@@ -63,9 +63,9 @@
     "released_hash": "sha256:af847ed70ddbce7af3bee5c3a207dbb49cef379cd883840b0fac3d8c4586f474"
   },
   "aws-billing": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "aws-billing-v0.1.6",
+    "latest_tag": "aws-billing-v0.1.7",
     "current_hash": "sha256:dd7c172e5ab8fab7b170e41abb54e8e05c6ddb79bc735cd0dec60c734c43e93a",
     "released_hash": "sha256:dd7c172e5ab8fab7b170e41abb54e8e05c6ddb79bc735cd0dec60c734c43e93a"
   },
@@ -84,9 +84,9 @@
     "released_hash": "sha256:66a43b75d579b2c6cf8220ec5cd13d67af5a6b5ac31182da7d84068400aa5ccb"
   },
   "betterstack": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "betterstack-v0.1.5",
+    "latest_tag": "betterstack-v0.1.6",
     "current_hash": "sha256:5133d05d4a5f298764be3b248165488b06233fb20fa69940bf14f7313f3efb7e",
     "released_hash": "sha256:5133d05d4a5f298764be3b248165488b06233fb20fa69940bf14f7313f3efb7e"
   },
