@@ -86,20 +86,32 @@ sets do not overlap: static flags the source pattern, runtime proves the shipped
 
 ### Wiring the secret-echo funnel into a connector: `apply_secret_funnel.py`
 
-A fresh or reprinted connector fails the secret-echo class: the press's masks cover a credential only as
-written or URL-escaped (cli-printing-press #5145). `apply_secret_funnel.py --slug <slug>` makes the change #444
-made by hand on 72 connectors. `onboard.py` runs it after vendoring.
+Before press 4.34.0, a fresh or reprinted connector fails the secret-echo class: the press's masks cover a
+credential only as written or URL-escaped (cli-printing-press #5145). `apply_secret_funnel.py --slug <slug>`
+makes the change #444 made by hand on 72 connectors. `onboard.py` runs it after vendoring.
+
+Press 4.34.0 (#5169) masks encoded forms itself, and its raw output passes the class test. The funnel still
+applies: a reprint keeps the connector's hand-written code (token endpoints, novel commands), which never passes
+through the generated masks and which the raw class test never exercises. The CLI and MCP error backstops and
+the held set cover that code.
 
 - It installs the canonical funnel from `tools/maintainer/secret_funnel/`, the one copy of record: the decoder
   (`internal/cliutil/secret_funnel.go`) and the CLI and MCP error backstops, plus their tests.
-- It makes the anchored edits press 4.19 to 4.33.5 need:
+- It makes the anchored edits press 4.19 to 4.34.0 need:
   - `client.go`: the masking funnel, the whole-body error check, the HTML summary, the token mint and refresh
     error bodies, and the held credentials;
   - `root.go` and every CLI error envelope;
   - the MCP server's outermost tool middleware;
   - the generated `auth login` exchange.
+
+  Press 4.34.0 moved three anchors. `maskCredentialText` declares `secrets` and ends in `finishCredentialMask`, and
+  the funnel wraps that call. `New` returns early when its HTTP client could not be built, so the hold goes
+  before that `if httpClient == nil` guard and covers both returns. Any other `New` with more than one return is
+  still refused.
 - It writes the `secret-echo-decoded-funnel` entry (class `secret-echo`) in `handfixes.json`, asserting only the
-  edits that are present.
+  edits that are present. On a reprint it replaces asserts the reprint made stale: an assert for one press shape
+  of the mask-return or error-body site is dropped only when the same site's assert for the current shape holds.
+  Every other recorded assert is kept, so a hand-added one that no longer holds still fails the proof.
 - It is idempotent: a re-run changes nothing. `--check` changes nothing and exits 0 only when the connector is
   fully wired.
 - Success is measured, not read back from its own edits. Every run passes the ledger through
