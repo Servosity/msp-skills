@@ -117,7 +117,9 @@ GH_REPO = "Servosity/msp-skills"
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 # The whole line must be the version: "4.33.5-rc.1" is a different version.
-VERSION_OUT_RE = re.compile(r"cli-printing-press(?: version)? v?(\d+\.\d+\.\d+)")
+# Releases from before the binary was named cli-printing-press (4.4.0, which
+# riverside-fm records) print "printing-press X.Y.Z".
+VERSION_OUT_RE = re.compile(r"(?:cli-)?printing-press(?: version)? v?(\d+\.\d+\.\d+)")
 
 # onboard.py (msp-skills-publish) vendors exactly this subset of a press tree.
 VENDOR_FILES = ("go.mod", "go.sum", "LICENSE", "NOTICE", "Makefile", ".golangci.yml")
@@ -241,10 +243,13 @@ def _scrubbed_env(tmp: Path) -> dict:
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 # What a process needs to start and run on macOS, and nothing that holds a
 # user's or another process's data: system libraries and binaries, the dyld
-# cache, devices, the time zone database.
+# cache, devices, the time zone database, and the two network databases a libc
+# reads at start. Press 4.34.0 links modernc.org/libc, whose netdb init opens
+# /etc/protocols and /etc/services and panics when it cannot, so without them
+# the binary dies before --version. Each is a single file, never /private/etc.
 JAIL_READ_SUBPATHS = ("/usr/lib", "/usr/share", "/usr/bin", "/bin", "/System", "/dev",
                       "/private/var/db/timezone", "/private/var/db/dyld")
-JAIL_READ_LITERALS = ("/", "/private/etc/localtime")
+JAIL_READ_LITERALS = ("/", "/private/etc/localtime", "/private/etc/protocols", "/private/etc/services")
 # Self-test only: the stand-in press is a Python script and needs its
 # interpreter; off macOS (no jail) the self-test runs it, our own script, bare.
 _JAIL_EXTRA_READ: list[str] = []
@@ -264,14 +269,19 @@ def jailed(argv: list[str], binary: Path, work: Path) -> list[str]:
     if sys.platform != "darwin" or not os.access(SANDBOX_EXEC, os.X_OK):
         raise Refuse("no process jail here (not macOS, not inside msp-sandbox): run the render "
                      "inside msp-sandbox (sandbox-run --offline)")
+    return [SANDBOX_EXEC, "-p", jail_profile(binary, work), *argv]
 
+
+def jail_profile(binary: Path, work: Path) -> str:
+    """The sandbox-exec profile jailed() runs the press under (a pure function,
+    so the self-test can check it on any platform)."""
     def q(path: str) -> str:
         return '"' + path.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
     w = os.path.realpath(work)
     b = os.path.realpath(binary)
     subpaths = [w, *JAIL_READ_SUBPATHS, *(os.path.realpath(x) for x in _JAIL_EXTRA_READ)]
-    profile = "".join([
+    return "".join([
         "(version 1)(allow default)(deny network*)",
         "(deny file-write*)",
         f"(allow file-write* (subpath {q(w)}) (literal \"/dev/null\") (literal \"/dev/tty\"))",
@@ -279,7 +289,6 @@ def jailed(argv: list[str], binary: Path, work: Path) -> list[str]:
         "(allow file-read-data " + " ".join(f"(subpath {q(s)})" for s in subpaths)
         + " " + " ".join(f"(literal {q(x)})" for x in (b, *JAIL_READ_LITERALS)) + ")",
     ])
-    return [SANDBOX_EXEC, "-p", profile, *argv]
 
 
 def press_version_of(binary: Path, tmp: Path) -> str | None:
@@ -341,7 +350,8 @@ def find_press(version: str, explicit: str | None, tmp: Path) -> Path:
                f"/cmd/cli-printing-press@v{version}")
     raise Refuse(f"no press binary reports version {version} (never rendered with another). "
                  f"Tried: {', '.join(tried) or 'none found'}. Install the exact version with: "
-                 f"{install}  (or pass --press-bin)")
+                 f"{install}  (a release from before the rename, such as 4.4.0, has only "
+                 f"cmd/printing-press; or pass --press-bin)")
 
 
 # --------------------------------------------------------------------------
@@ -1148,9 +1158,16 @@ def run(args) -> dict:
 FAKE_PRESS = r'''#!/usr/bin/env python3
 import os, sys, json
 V = "__FAKE_VERSION__"
+N = "__FAKE_NAME__"
+R = "__FAKE_READS__"
 a = sys.argv[1:]
 if a == ["--version"]:
-    print("cli-printing-press " + V); sys.exit(0)
+    if R:  # like modernc.org/libc's netdb init: no file, no start
+        try:
+            open(R).read()
+        except OSError as e:
+            sys.stderr.write("panic: open %s: %s\n" % (R, e)); sys.exit(2)
+    print(N + " " + V); sys.exit(0)
 if a and a[0] == "generate":
     out = a[a.index("--output") + 1]; name = a[a.index("--name") + 1]
     spec = open(a[a.index("--spec") + 1]).read()
@@ -1196,6 +1213,26 @@ def _self_test() -> int:
     check("external $ref regex hits a JSON URL ref", bool(EXTERNAL_REF_RE.search('{"$ref": "https://e/x"}')))
     check("internal $ref is allowed", not EXTERNAL_REF_RE.search('{"$ref": "#/components/schemas/A"}\n$ref: \'#/x\''))
     check("CRLF digest", spec_digests(b"a\r\nb") & spec_digests(b"a\nb") != set())
+    # A release from before the rename prints "printing-press X.Y.Z" (4.4.0).
+    vm = {line: (VERSION_OUT_RE.fullmatch(line) or [None, None])[1] for line in (
+        "cli-printing-press 4.34.0", "cli-printing-press version v4.33.5", "printing-press 4.4.0",
+        "printing-press 4.4.0-rc.1", "xprinting-press 4.4.0", "cli-printing-press 4.34")}
+    check("version line: cli-printing-press and the pre-rename printing-press are read",
+          vm["cli-printing-press 4.34.0"] == "4.34.0" and vm["cli-printing-press version v4.33.5"] == "4.33.5"
+          and vm["printing-press 4.4.0"] == "4.4.0", json.dumps(vm))
+    check("version line: a prerelease, another name or a short version is not a version",
+          vm["printing-press 4.4.0-rc.1"] is None and vm["xprinting-press 4.4.0"] is None
+          and vm["cli-printing-press 4.34"] is None, json.dumps(vm))
+    # The jail profile (pure, so this runs on every platform): the two netdb
+    # files press 4.34.0's libc opens are readable, one by one, and no more.
+    prof = jail_profile(Path("/bin/cat"), Path(tempfile.gettempdir()))
+    check("jail profile: /etc/protocols and /etc/services are readable files",
+          '(literal "/private/etc/protocols")' in prof and '(literal "/private/etc/services")' in prof, prof)
+    check("jail profile: the rest of /private/etc stays closed",
+          '(subpath "/private/etc")' not in prof and '(subpath "/etc")' not in prof
+          and not any(x.startswith("/private/etc") and x not in ("/private/etc/localtime", "/private/etc/protocols",
+                                                                 "/private/etc/services")
+                      for x in (*JAIL_READ_SUBPATHS, *JAIL_READ_LITERALS)), prof)
     saved_mode = os.environ.pop("SANDBOX_MODE", None)
     try:
         try:
@@ -1222,12 +1259,17 @@ def _self_test() -> int:
         bindir.mkdir()
         fake = bindir / "cli-printing-press"
 
-        def set_fake_version(v: str) -> None:
+        def write_fake(path: Path, v: str, name: str = "cli-printing-press", reads: str = "") -> Path:
             # The version lives in the script itself: the jail lets the press
             # read its own binary and nothing else of ours.
-            fake.write_text(FAKE_PRESS.replace("#!/usr/bin/env python3", f"#!{sys.executable}")
-                            .replace("__FAKE_VERSION__", v))
-            fake.chmod(0o755)
+            path.write_text(FAKE_PRESS.replace("#!/usr/bin/env python3", f"#!{sys.executable}")
+                            .replace("__FAKE_VERSION__", v).replace("__FAKE_NAME__", name)
+                            .replace("__FAKE_READS__", reads))
+            path.chmod(0o755)
+            return path
+
+        def set_fake_version(v: str) -> None:
+            write_fake(fake, v)
 
         set_fake_version("9.9.1")
         _JAIL_EXTRA_READ[:] = [sys.prefix, sys.base_prefix, os.path.dirname(os.path.realpath(sys.executable))]
@@ -1436,6 +1478,39 @@ def _self_test() -> int:
                 via_data = subprocess.run(jailed(["/bin/cat", "/System/Volumes/Data" + str(mine)],
                                                  Path("/bin/cat"), jw), capture_output=True).returncode
                 check("jail: cannot read HOME through /System/Volumes/Data", via_data != 0)
+
+        # A press whose start reads /etc/protocols or /etc/services (4.34.0's
+        # modernc.org/libc netdb init) is found under the jail; one that reads
+        # another /etc file still is not (macOS: the jail is real here).
+        if sys.platform == "darwin" and not os.environ.get("SANDBOX_MODE"):
+            for netdb in ("/etc/protocols", "/etc/services"):
+                np = write_fake(bindir / ("netdb-" + Path(netdb).name), "9.9.4", reads=netdb)
+                detail = ""
+                try:
+                    found = find_press("9.9.4", str(np), tmp) == np.resolve()
+                except Refuse as e:
+                    found = False
+                    detail = str(e)
+                check(f"jail: a press that reads {netdb} at start reports its version", found,
+                      "" if found else detail)
+            np = write_fake(bindir / "netdb-hosts", "9.9.4", reads="/etc/hosts")
+            try:
+                find_press("9.9.4", str(np), tmp)
+                check("jail: a press that reads another /etc file is still refused", False)
+            except Refuse:
+                check("jail: a press that reads another /etc file is still refused", True)
+        # A pre-rename press binary (printing-press 4.4.0) is found by its version.
+        old = write_fake(bindir / "printing-press", "9.9.3", name="printing-press")
+        try:
+            check("a pre-rename press binary is found by its version", find_press("9.9.3", str(old), tmp) == old.resolve())
+        except Refuse as e:
+            check("a pre-rename press binary is found by its version", False, str(e))
+        try:
+            find_press("9.9.5", str(old), tmp)
+            check("a pre-rename press binary of another version is refused", False)
+        except Refuse as e:
+            check("a pre-rename press binary of another version is refused",
+                  "9.9.5" in str(e) and "cmd/printing-press" in str(e), str(e))
 
         # --- round-2 classes (failing inputs first) ---
         # (g) the jail allows reads only where it must, not "everything but a list".
