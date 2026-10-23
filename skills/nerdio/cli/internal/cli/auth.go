@@ -97,6 +97,12 @@ Credentials default to NERDIO_CLIENT_ID (Client ID) and NERDIO_CLIENT_SECRET (Cl
 			if tokenURL == "" {
 				tokenURL = "https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token"
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview never
+			// sends the secret or writes credentials.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
+				return nil
+			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {
 				return authErr(err)

@@ -1235,6 +1235,61 @@
      "not_contains": "--addr :7777"
     }
    ]
+  },
+  {
+   "id": "derive-lock-tests-deterministic",
+   "class": "test-determinism",
+   "summary": "The two derive-lock tests (ContendedAppendIsDerivedBeforeReturn, CaughtUpPassDoesNotWait) wait on what the pass is doing, read from goroutine stacks, instead of fixed 200 ms, 500 ms and 5 s windows; every remaining wait is bounded by the test binary's own deadline",
+   "why": "On windows(fortinet) in CI (2026-10-22, PR #421) the contended test failed with 'contended pass did not finish after the peer released the lock': after release the pass opens a fresh SQLite store and commits, and a slow Windows runner took longer than the fixed 5 s. The 200 ms 'did not return while held' window was also weak: on a slow runner it could elapse before the pass even reached the wait. The contended test now waits until the pass is provably blocked in cliutil.WithFileLock called from DeriveFlagCorrections (it cannot return before release), so it is stronger, not weaker. Proven: a pass that returns early under contention fails it; a caught-up pass that polls or blocks fails the caught-up test; with a simulated 6 s store open after the lock, the old test fails with the CI message and the new one passes.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the generated internal/learn derive_test.go should use this state-based wait in place of the fixed windows.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "contains": "func deriveBlockedOnLock() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "contains": "for !deriveBlockedOnLock() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "not_contains": "case <-time.After(200 * time.Millisecond):"
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "not_contains": "if time.Since(start) > 500*time.Millisecond {"
+    }
+   ]
+  },
+  {
+   "id": "fgtcloud-token-cache-rename-retry",
+   "class": "windows-credential-rename",
+   "summary": "The FortiGate Cloud token cache is written through cliutil.AtomicWritePrivateFile (0600 temp file renamed into place, with the Windows rename retry) instead of its own temp-file rename",
+   "why": "writeCache published the cached access and refresh token with a bare os.Rename. On Windows that rename fails with 'Access is denied' while another run holds the cache open, and saveCache then deletes the cache, refresh token included, so two runs refreshing at once forced a fresh login. The shared writer carries the press's bounded retry (12 attempts, about 0.45 s at most, Windows access-denied and sharing violation only). TestWriteCacheConcurrentWritersAndReaders runs 4 writers and a reader for 25 rounds on the cache path.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "return cliutil.AtomicWritePrivateFile(path, b, 0o600, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "not_contains": "return os.Rename(tmp, path)"
+    },
+    {
+     "file": "cli/internal/fgtcloud/cache_concurrency_test.go",
+     "contains": "func TestWriteCacheConcurrentWritersAndReaders(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

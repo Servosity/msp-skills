@@ -102,6 +102,12 @@ Credentials default to HALOPSA_CLIENT_ID (Client ID) and HALOPSA_CLIENT_SECRET (
 			if err != nil {
 				return configErr(err)
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview never
+			// sends the secret or writes credentials.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
+				return nil
+			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {
 				return authErr(err)

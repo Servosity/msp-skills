@@ -89,19 +89,20 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 			// "Moved Permanently" body back to the caller.
 			return errors.New("stopped after 10 redirects")
 		}
-		// Same-host gate mirrors Go's shouldCopyHeaderOnRedirect: a
-		// cross-domain 3xx (open redirect or partner handoff) must not
-		// receive the auth credential, even though we are inside
-		// CheckRedirect where Go's automatic stripping has already run.
-		if req.URL.Host == via[0].URL.Host {
-			if h, err := c.authHeader(req.Context()); err == nil && h != "" {
-				req.Header.Set("Authorization", h)
+		// Hand-wired (handfixes.json: redirect-strips-every-credential): a hop
+		// that leaves the origin (another host:port, or https down to http)
+		// carries no credential at all. Go strips Authorization and Cookie only
+		// when the HOSTNAME changes, and never a custom header or a replayed
+		// body, so the client strips them itself (redirect_credentials.go).
+		if redirectLeavesOrigin(req.URL, via) {
+			if err := refuseCrossOriginBodyReplay(req); err != nil {
+				return err
 			}
-		} else {
-			// Cross-host hop: Go strips standard auth headers (Authorization,
-			// Cookie) but not custom ones, so a custom API-key header would be
-			// forwarded verbatim to the redirect target. Delete it explicitly.
-			req.Header.Del("Authorization")
+			c.stripRedirectCredentials(req.Header)
+			return nil
+		}
+		if h, err := c.authHeader(req.Context()); err == nil && h != "" {
+			req.Header.Set("Authorization", h)
 		}
 		return nil
 	}

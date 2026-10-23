@@ -457,6 +457,68 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "redirect-strips-every-credential",
+   "class": "auth-wire",
+   "summary": "A redirect that leaves the origin (another host:port, or https down to http) carries no credential: every credential header and every config-file header is stripped, and a hop that would replay a request body (307/308 of a non-GET) is refused",
+   "why": "tools/maintainer/class_harness.py auth-wire found n-central sending the User-API JWT, through the ncauth handshake client (no CheckRedirect at all) to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: client.go.tmpl CheckRedirect should strip every credential header (the primary, composed siblings and config-file headers) on any hop that leaves the origin, compare host:port and scheme, and refuse to replay a body off the origin; a hand-written auth client should get the same CheckRedirect.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if redirectLeavesOrigin(req.URL, via) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := refuseCrossOriginBodyReplay(req); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.stripRedirectCredentials(req.Header)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "// Cross-host hop: Go strips standard auth headers (Authorization,"
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials.go",
+     "contains": "\"Proxy-Authorization\", \"Cookie\", \"Cookie2\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials_test.go",
+     "contains": "func TestRedirectLeavingTheOriginStripsEveryCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials_test.go",
+     "contains": "func TestRedirectLeavingTheOriginRefusesToReplayABody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/ncauth/ncauth.go",
+     "contains": "CheckRedirect: refuseCrossOriginRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/ncauth/redirect_test.go",
+     "contains": "func TestHandshakeRefusesARedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

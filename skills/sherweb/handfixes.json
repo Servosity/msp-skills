@@ -488,6 +488,106 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "redirect-strips-every-credential",
+   "class": "auth-wire",
+   "summary": "A redirect that leaves the origin (another host:port, or https down to http) carries no credential: every credential header and every config-file header is stripped, and a hop that would replay a request body (307/308 of a non-GET) is refused",
+   "why": "tools/maintainer/class_harness.py auth-wire found sherweb sending the Ocp-Apim-Subscription-Key header (SHERWEB_SUBSCRIPTION_KEY) to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: client.go.tmpl CheckRedirect should strip every credential header (the primary, composed siblings and config-file headers) on any hop that leaves the origin, compare host:port and scheme, and refuse to replay a body off the origin; a hand-written auth client should get the same CheckRedirect.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if redirectLeavesOrigin(req.URL, via) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := refuseCrossOriginBodyReplay(req); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.stripRedirectCredentials(req.Header)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "// Cross-host hop: Go strips standard auth headers (Authorization,"
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials.go",
+     "contains": "\"Cookie2\", \"Ocp-Apim-Subscription-Key\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials_test.go",
+     "contains": "func TestRedirectLeavingTheOriginStripsEveryCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials_test.go",
+     "contains": "func TestRedirectLeavingTheOriginRefusesToReplayABody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "CheckRedirect: client.RefuseCrossOriginRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "mintClientCredentialsToken(http.DefaultClient,"
+    },
+    {
+     "file": "cli/internal/cli/auth_token_redirect_test.go",
+     "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-never-mints",
+   "class": "write-safety",
+   "summary": "--dry-run never mints a token: neither the client's automatic client-credentials mint nor `auth login --dry-run` sends the client secret to the token URL or saves anything",
+   "why": "tools/maintainer/class_harness.py write-safety found every --dry-run of a write command putting one request on the wire: authHeader ran before the dry-run branch and, with no cached token, POSTed the client ID and secret to the token URL and cached the token, while the generated comment and the docs say a dry run sends nothing. `auth login` minted through its own path and ignored --dry-run. Same fix shape as connectwise-rmm, sophos-central and watchguard (dry-run-never-mints). TestDryRunNeverMintsAToken and TestAuthLoginDryRunSendsNothing count requests to a stub token server (each with a live control that proves the probe reaches the mint) and fail on the generated code.",
+   "status": "active",
+   "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && needsClientCredentialsMint(c.Config) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - no request sent, nothing saved)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dry_run_mint_test.go",
+     "contains": "func TestDryRunNeverMintsAToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_dry_run_test.go",
+     "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

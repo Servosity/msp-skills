@@ -150,9 +150,11 @@ func New(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
+	// refuseCrossOriginRedirect (redirect.go): every call's body carries the
+	// password or the session visa, so no hop may leave the configured origin.
 	return &Client{
 		BaseURL:     baseURL,
-		HTTP:        &http.Client{Timeout: 60 * time.Second},
+		HTTP:        &http.Client{Timeout: 60 * time.Second, CheckRedirect: refuseCrossOriginRedirect},
 		Creds:       CredentialsFromEnv(),
 		SessionPath: DefaultSessionPath(),
 		limiter:     cliutil.NewAdaptiveLimiter(4),

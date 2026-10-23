@@ -97,6 +97,12 @@ Credentials default to NINJAONE_CLIENT_ID (Client ID) and NINJAONE_CLIENT_SECRET
 			if tokenURL == "" {
 				tokenURL = "https://app.ninjarmm.com/ws/oauth/token"
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview never
+			// sends the secret or writes credentials.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
+				return nil
+			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {
 				return authErr(err)

@@ -431,6 +431,105 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "redirect-strips-every-credential",
+   "class": "auth-wire",
+   "summary": "A redirect that leaves the origin (another host:port, or https down to http) carries no credential: every credential header and every config-file header is stripped, and a hop that would replay a request body (307/308 of a non-GET) is refused",
+   "why": "tools/maintainer/class_harness.py auth-wire found cove sending nothing the harness could see, because doctor never logged in; the JSON-RPC client (coverpc) followed a 307 with the password or visa in the body to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: client.go.tmpl CheckRedirect should strip every credential header (the primary, composed siblings and config-file headers) on any hop that leaves the origin, compare host:port and scheme, and refuse to replay a body off the origin; a hand-written auth client should get the same CheckRedirect.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if redirectLeavesOrigin(req.URL, via) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := refuseCrossOriginBodyReplay(req); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.stripRedirectCredentials(req.Header)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "// Cross-host hop: Go strips standard auth headers (Authorization,"
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials.go",
+     "contains": "\"Proxy-Authorization\", \"Cookie\", \"Cookie2\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials_test.go",
+     "contains": "func TestRedirectLeavingTheOriginStripsEveryCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials_test.go",
+     "contains": "func TestRedirectLeavingTheOriginRefusesToReplayABody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/coverpc/coverpc.go",
+     "contains": "CheckRedirect: refuseCrossOriginRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/coverpc/redirect_test.go",
+     "contains": "func TestJSONRPCRefusesARedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verifies-cove-login",
+   "class": "auth-wire",
+   "summary": "doctor reports Cove's real auth scheme (JSON-RPC Login with COVE_PARTNER, COVE_USERNAME, COVE_PASSWORD) and, when those are set, performs one Login and reports the verdict by Cove error number only, instead of 'auth: not required' and 'no credential is configured'",
+   "why": "The generated doctor had no model of the JSON-RPC visa login, so with all three credentials set it reported auth as not required and the credential as not configured, and probed only a credential-free GET: it could not tell a working install from a wrong password, and the auth-wire class saw no credential on the wire at all. The Login probe uses the same coverpc client every real command uses (with its cross-origin redirect refusal), never caches a session, and never prints the server's response text, so nothing the server reflects reaches the report. TestCoveDoctorLoginVerdict covers an accepted login, a refusal and a non-Cove error page, each reflecting the password, and fails if the verdict carries server text. Without COVE_* set (check_doctor_truth.py's auth_header states) the generated path is unchanged.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"auth\"] = coveDoctorAuth",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = coveDoctorLogin(cmd.Context(), cfg.BaseURL, flags.timeout)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"auth\"] = \"not required\""
+    },
+    {
+     "file": "cli/internal/cli/cove_doctor_login.go",
+     "contains": "func coveDoctorLogin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cove_doctor_login_test.go",
+     "contains": "func TestCoveDoctorLoginVerdict(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

@@ -50,7 +50,11 @@ const expirySkew = 60 * time.Second
 // lifetime) — and adapts down on 429, mirroring the data client's limiter.
 var authLimiter = cliutil.NewAdaptiveLimiter(5.0)
 
-func httpClient() *http.Client { return &http.Client{Timeout: 30 * time.Second} }
+// httpClient refuses any redirect that leaves the configured origin
+// (redirect.go): every handshake request carries the JWT or a token.
+func httpClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseCrossOriginRedirect}
+}
 
 func authBase(cfg *config.Config) string {
 	return strings.TrimRight(cfg.BaseURL, "/")

@@ -163,24 +163,11 @@ func writeCache(path string, t *cachedToken) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".fortigate-cloud-token-*")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	defer os.Remove(tmp)
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if _, err := f.Write(b); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	// The shared private-file writer: a fresh 0600 temp file renamed into
+	// place, retrying the rename while Windows reports the cache open in
+	// another process (two runs refreshing at once), so a concurrent refresh
+	// no longer deletes the cache and the refresh token it just received.
+	return cliutil.AtomicWritePrivateFile(path, b, 0o600, 0o700)
 }
 
 func (c *Client) grant(ctx context.Context, body map[string]string) (*cachedToken, error) {

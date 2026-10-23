@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -584,10 +585,74 @@ func holdDeriveLock(t *testing.T) (release func(), held <-chan struct{}) {
 	})
 	select {
 	case <-heldCh:
-	case <-time.After(5 * time.Second):
+	case <-deriveWaitLimit(t):
 		t.Fatal("holder did not acquire the derive lock")
 	}
 	return release, heldCh
+}
+
+// Hand-owned (handfixes.json: derive-lock-tests-deterministic). These tests
+// used fixed windows (200 ms, 500 ms, 5 s) to judge a pass that contends for
+// the derive lock. On a slow Windows runner the pass took longer than 5 s to
+// open its SQLite store after the peer released the lock, and a correct pass
+// failed. They now wait on what the pass is doing, read from goroutine stacks.
+
+// deriveWaitLimit bounds a wait by the test binary's own deadline instead of a
+// guess about machine speed: a real hang still fails with a message before
+// `go test -timeout` kills the binary. Without a deadline it never fires.
+func deriveWaitLimit(t *testing.T) <-chan time.Time {
+	t.Helper()
+	deadline, ok := t.Deadline()
+	if !ok {
+		return nil
+	}
+	return time.After(time.Until(deadline) * 9 / 10)
+}
+
+// deriveFramesNow returns the stack of every goroutine running
+// learn.DeriveFlagCorrections.
+func deriveFramesNow() []string {
+	buf := make([]byte, 1<<16)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+	var out []string
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if strings.Contains(g, "/internal/learn.DeriveFlagCorrections(") {
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// deriveBlockedOnLock reports whether a pass is in its blocking acquire:
+// cliutil.WithFileLock called from DeriveFlagCorrections (the try-lock poll is
+// cliutil.TryWithFileLock, a different frame). While holdDeriveLock's holder
+// owns the lock, such a pass cannot get past WithFileLock, so it cannot return
+// before release.
+func deriveBlockedOnLock() bool {
+	for _, g := range deriveFramesNow() {
+		if strings.Contains(g, "/internal/cliutil.WithFileLock(") {
+			return true
+		}
+	}
+	return false
+}
+
+// derivePollingForLock reports whether a pass is sleeping between try-lock
+// polls, which only a pass with an unread tail does.
+func derivePollingForLock() bool {
+	for _, g := range deriveFramesNow() {
+		if strings.Contains(g, "\ntime.Sleep(") {
+			return true
+		}
+	}
+	return false
 }
 
 func TestDeriveFlagCorrections_CaughtUpPassDoesNotWait(t *testing.T) {
@@ -602,21 +667,31 @@ func TestDeriveFlagCorrections_CaughtUpPassDoesNotWait(t *testing.T) {
 
 	release, _ := holdDeriveLock(t)
 	defer release()
-	start := time.Now()
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- learn.DeriveFlagCorrections(deriveOpener(dbPath), flagExists)
 	}()
-	select {
-	case deriveErr := <-errCh:
-		if deriveErr != nil {
-			t.Fatalf("caught-up pass: %v", deriveErr)
+	// The peer holds the lock until this test ends, so a pass that waits for
+	// it never returns: returning at all is the proof it did not wait, and a
+	// pass seen polling or blocked on the lock fails at once.
+	limit := deriveWaitLimit(t)
+	for returned := false; !returned; {
+		select {
+		case deriveErr := <-errCh:
+			if deriveErr != nil {
+				t.Fatalf("caught-up pass: %v", deriveErr)
+			}
+			returned = true
+		case <-limit:
+			t.Fatal("caught-up pass did not return while a peer held the lock")
+		case <-time.After(time.Millisecond):
+			if deriveBlockedOnLock() {
+				t.Fatal("caught-up pass blocked on a peer lock it did not need")
+			}
+			if derivePollingForLock() {
+				t.Fatal("caught-up pass polled for a peer lock it did not need")
+			}
 		}
-		if time.Since(start) > 500*time.Millisecond {
-			t.Fatalf("caught-up pass waited %s for a lock it did not need", time.Since(start))
-		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("caught-up pass blocked on a peer lock")
 	}
 	rows := listCandidateRows(t, dbPath)
 	if len(rows) != 1 || rows[0].Sightings != 1 {
@@ -636,13 +711,21 @@ func TestDeriveFlagCorrections_ContendedAppendIsDerivedBeforeReturn(t *testing.T
 	go func() {
 		errCh <- learn.DeriveFlagCorrections(deriveOpener(dbPath), flagExists)
 	}()
-	select {
-	case deriveErr := <-errCh:
-		if deriveErr != nil {
-			t.Fatalf("contended pass: %v", deriveErr)
+	// Wait until the pass is provably blocked in its lock acquire, where it
+	// cannot return before release; returning first is the bug. No fixed
+	// window: a slow machine only makes this loop run longer.
+	limit := deriveWaitLimit(t)
+	for !deriveBlockedOnLock() {
+		select {
+		case deriveErr := <-errCh:
+			if deriveErr != nil {
+				t.Fatalf("contended pass: %v", deriveErr)
+			}
+			t.Fatal("returned while a peer held the lock and the tail was still unread")
+		case <-limit:
+			t.Fatal("contended pass neither returned nor waited on the peer's lock")
+		case <-time.After(time.Millisecond):
 		}
-		t.Fatal("returned while a peer held the lock and the tail was still unread")
-	case <-time.After(200 * time.Millisecond):
 	}
 	release()
 	select {
@@ -650,7 +733,7 @@ func TestDeriveFlagCorrections_ContendedAppendIsDerivedBeforeReturn(t *testing.T
 		if deriveErr != nil {
 			t.Fatalf("pass after peer release: %v", deriveErr)
 		}
-	case <-time.After(5 * time.Second):
+	case <-limit:
 		t.Fatal("contended pass did not finish after the peer released the lock")
 	}
 	rows := listCandidateRows(t, dbPath)
