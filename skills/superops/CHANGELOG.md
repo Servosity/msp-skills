@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.12] - 2026-10-22
+
+### Security
+- Over MCP, `raw query` and `raw mutation` now refuse a positional GraphQL document given as `@path` (a local file the server would read); pass the document inline instead. Other commands still accept an `@`-leading value such as a client name, and the command line still accepts `@path`.
+
 ## [0.1.11] - 2026-10-22
 
 ### Security

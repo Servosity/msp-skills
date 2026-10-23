@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.9] - 2026-10-22
+
+### Security
+- `qbr-all --quarter` now requires the exact form YYYY-QN (N in 1-4). The old parser read a leading year and ignored trailing text, so a crafted quarter could place the report outside the `--out` directory.
+
 ## [0.6.8] - 2026-10-21
 
 ### Fixed
