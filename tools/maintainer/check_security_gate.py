@@ -72,9 +72,10 @@ still apply to that code.
 
 Folded in when installed (CI installs them): gosec, govulncheck, osv-scanner, semgrep.
   * gosec runs once per build target in GOSEC_TARGETS: the runner's own OS (Linux in CI
-    and release) and GOOS=windows. go/packages loads only the files one target builds,
-    so before the Windows pass no workflow ever scanned a `*_windows.go` file. Each pass
-    fails closed on its own; a finding only an extra pass reports says which target.
+    and release), GOOS=windows and GOOS=darwin. go/packages loads only the files one
+    target builds, so before these passes no workflow ever scanned a `*_windows.go` or
+    `*_darwin.go` file. Each pass fails closed on its own; a finding only an extra pass
+    reports says which target.
   * govulncheck = the REACHABILITY gate. Run in DEFAULT text/symbol mode: exit 3 = a
     vulnerable symbol is CALLED from this module (P1); 0 = none called. (-format json
     ALWAYS exits 0 regardless of findings, which silently neutered the prior gate.)
@@ -936,11 +937,12 @@ def precedent_for(slug: str, repo_rel: str, line, precedent: FleetPrecedent | No
 
 # gosec build targets. None is the runner's own GOOS/GOARCH (Linux in CI and release,
 # where this gate runs); every other entry is an extra pass with that GOOS/GOARCH and
-# cgo off, as the release builds. Windows was added 2026-10-23: no workflow had ever
-# scanned *_windows.go, and the first pass over the fleet found four MEDIUM G304s
-# there. darwin is not here yet: its first pass finds 110 findings (59 HIGH/MEDIUM)
-# in store_adopt_darwin.go across 18 connectors, which need a vetted wave first.
-GOSEC_TARGETS: tuple[tuple[str, str] | None, ...] = (None, ("windows", "amd64"))
+# cgo off, as the release builds. Added 2026-10-23, when no workflow had ever scanned a
+# file built only for another shipped OS: windows (its first fleet pass found four
+# MEDIUM G304s in *_windows.go) and darwin (110 findings, 59 HIGH/MEDIUM, all in the
+# store_adopt_darwin.go template of 17 connectors, each blocking one already carrying a
+# vetted base-owned entry). darwin arm64 and amd64 report the same findings.
+GOSEC_TARGETS: tuple[tuple[str, str] | None, ...] = (None, ("windows", "amd64"), ("darwin", "arm64"))
 
 
 def gosec_report(code: int, out: str) -> dict | None:
@@ -2720,9 +2722,10 @@ sys.exit(1 if case.get("issues") else 0)
 
 def _self_test_gosec_targets() -> int:
     """The per-target gosec passes, with a stand-in gosec on PATH: a finding only the
-    Windows pass reports blocks; with that pass removed it would not; a finding both
-    passes report counts once; each pass fails closed on its own; a base-owned entry
-    or the annotation rule treats a Windows-only finding like any other."""
+    Windows or only the darwin pass reports blocks; with those passes removed it would
+    not; a finding several passes report counts once; each pass fails closed on its
+    own; a base-owned entry or the annotation rule treats an extra-target finding like
+    any other."""
     global REPO
     failed = 0
     saved_repo, saved_env = REPO, {k: os.environ.get(k) for k in ("PATH", "FAKE_GOSEC_CASE", "FAKE_GOSEC_LOG")}
@@ -2742,6 +2745,7 @@ def _self_test_gosec_targets() -> int:
         os.environ["PATH"] = f"{bindir}{os.pathsep}/usr/bin{os.pathsep}/bin"
         shared = ("G104", "LOW", "shared.go", 7, "errors unhandled", False)
         win = ("G304", "MEDIUM", "open_windows.go", 13, "Potential file inclusion via variable", False)
+        mac = ("G115", "HIGH", "adopt_darwin.go", 155, "integer overflow conversion int32 -> uint32", False)
 
         def gate(case: dict, require: bool = True, suppress: set | None = None) -> list[dict]:
             os.environ["FAKE_GOSEC_CASE"] = json.dumps(case)
@@ -2758,16 +2762,30 @@ def _self_test_gosec_targets() -> int:
                       len(p1(found)) == 1 and p1(found)[0]["file"] == "skills/acme/cli/open_windows.go"
                       and "[GOOS=windows only]" in p1(found)[0]["evidence"]))
         cases.append(("a finding both passes report is counted once", sum(f["rule"] == "G104" for f in found) == 1))
-        cases.append(("the Windows pass runs with GOOS=windows and cgo off, after the runner's own pass",
-                      [ln.split()[:1] for ln in log.read_text().splitlines()] == [["native"], ["windows"]]
-                      and log.read_text().splitlines()[1] == "windows 0"))
+        cases.append(("the Windows and darwin passes run with their GOOS and cgo off, after the runner's own",
+                      [ln.split()[:1] for ln in log.read_text().splitlines()] == [["native"], ["windows"], ["darwin"]]
+                      and log.read_text().splitlines()[1:] == ["windows 0", "darwin 0"]))
+        found = gate({"native": {"issues": [shared]}, "windows": {"issues": [shared]},
+                      "darwin": {"issues": [shared, mac]}})
+        cases.append(("a finding only GOOS=darwin reports is a P1, labelled with its target",
+                      len(p1(found)) == 1 and p1(found)[0]["file"] == "skills/acme/cli/adopt_darwin.go"
+                      and "[GOOS=darwin only]" in p1(found)[0]["evidence"]
+                      and sum(f["rule"] == "G104" for f in found) == 1))
+        cases.append(("a base-owned (file, rule) entry accepts a darwin-only finding",
+                      not p1(gate({"native": {"issues": []}, "windows": {"issues": []}, "darwin": {"issues": [mac]}},
+                                  suppress={("skills/acme/cli/adopt_darwin.go", "G115")}))))
+        timeout = p1(gate({"native": {"issues": []}, "windows": {"issues": []}, "darwin": {"exit": 124}}))
+        cases.append(("a darwin pass that times out fails closed, named by its target",
+                      len(timeout) == 1 and timeout[0]["rule"] == "scanner-error"
+                      and "GOOS=darwin" in timeout[0]["evidence"]))
         cases.append(("the same tree with the finding gone from the Windows pass is clean",
                       not p1(gate({"native": {"issues": [shared]}, "windows": {"issues": [shared]}}))))
         saved_targets = GOSEC_TARGETS
         try:
             globals()["GOSEC_TARGETS"] = (None,)
-            cases.append(("(control) without the Windows pass that finding is never seen: the old blind spot",
-                          not p1(gate({"native": {"issues": [shared]}, "windows": {"issues": [shared, win]}}))))
+            cases.append(("(control) without the extra passes neither finding is seen: the old blind spot",
+                          not p1(gate({"native": {"issues": [shared]}, "windows": {"issues": [shared, win]},
+                                       "darwin": {"issues": [mac]}}))))
         finally:
             globals()["GOSEC_TARGETS"] = saved_targets
         timeout = p1(gate({"native": {"issues": []}, "windows": {"exit": 124}}))
