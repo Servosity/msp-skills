@@ -68,9 +68,16 @@ usage() { sed -n '13,18p' "$0" | sed 's/^# \{0,1\}//'; }
 DRY_RUN=0
 TARGET=0
 NEED=""
+BUMP="patch"
 for a in "$@"; do
   if [ -n "$NEED" ]; then
-    [ "$NEED" = "--bump" ] || TARGET=1
+    # Same reading as release.py's parse_args: --bump takes the last value,
+    # --slug/--slugs count only when they name at least one non-empty slug.
+    case "$NEED" in
+      --bump) BUMP="$a" ;;
+      --slug) [ -n "$(printf '%s' "$a" | tr -d '[:space:]')" ] && TARGET=1 ;;
+      --slugs) [ -n "$(printf '%s' "$a" | tr -d ',[:space:]')" ] && TARGET=1 ;;
+    esac
     NEED=""
     continue
   fi
@@ -83,6 +90,7 @@ for a in "$@"; do
   esac
 done
 [ -z "$NEED" ] || { echo "release_batch: $NEED needs a value" >&2; usage >&2; exit 2; }
+case "$BUMP" in patch|minor|major) ;; *) echo "release_batch: --bump must be patch|minor|major, got '$BUMP'" >&2; exit 2 ;; esac
 [ "$TARGET" -eq 1 ] || { echo "release_batch: no target (use --slug, --slugs or --all-pending)" >&2; usage >&2; exit 2; }
 
 PIPELINE_CHECK="$SCRIPT_DIR/check_release_pipeline.py"
