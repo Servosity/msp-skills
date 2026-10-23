@@ -52,7 +52,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Cisco Meraki MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cisco-meraki-v0.1.2/cisco-meraki-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Cisco Meraki release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cisco-meraki).)
+[**Download Cisco Meraki MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cisco-meraki-v0.1.3/cisco-meraki-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Cisco Meraki release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cisco-meraki).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
