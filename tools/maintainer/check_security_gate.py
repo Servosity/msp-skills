@@ -426,6 +426,10 @@ class BoundSuppressions:
             data = path.read_bytes()
         except OSError:
             return None
+        # A NUL byte is never valid Go source, and it is what the slug-neutral markers
+        # are made of: refuse such a file outright rather than reason about it.
+        if b"\0" in data:
+            return None
         for bind, neutral, digests in items:
             if bind == "file" and bound_digest(data, slug, neutral) in digests:
                 return "file"
@@ -457,7 +461,10 @@ def load_bound(ref: str | None = None, repo: Path | None = None) -> BoundSuppres
         raw = json.loads(txt).get("bound", []) if txt else []
     except (json.JSONDecodeError, AttributeError):
         raw = []
-    return BoundSuppressions(raw, repo)
+    bound = BoundSuppressions(raw, repo)
+    if not isinstance(raw, list):
+        bound.rejected.append("\"bound\" is not a list")
+    return bound
 
 
 def changed_files(base: str, slug: str) -> list[Path] | None:
@@ -3162,6 +3169,10 @@ def _self_test_bound() -> int:
         link.symlink_to(tmp / "skills" / "acme" / "cli" / "internal" / "x" / "x.go")
         p1, _ = gosec("acme", [entry("cli/internal/z/x.go", "G304", "file", [file_sha])], [g304(f_line, "internal/z/x.go")])
         cases.append(("a symlinked file is never accepted", len(p1) == 1))
+        put("acme", "internal/n/x.go", src + "\0")
+        p1, _ = gosec("acme", [entry("cli/internal/n/x.go", "G304", "file", [digest(src + "\0")])],
+                      [g304(f_line, "internal/n/x.go")])
+        cases.append(("a file holding a NUL byte (the marker alphabet) is never accepted, even listed", len(p1) == 1))
 
         # The builtin rules report only a file's first match, so only a file binding counts.
         upath = put("acme", "internal/u/u.go", usrc)
@@ -3328,7 +3339,8 @@ def bound_hash_main(spec: str) -> int:
     rel, _, line = spec.rpartition(":") if re.search(r":\d+$", spec) else (spec, "", "")
     parts = rel.split("/")
     path = REPO / rel
-    if len(parts) < 4 or parts[0] != "skills" or parts[2] != "cli" or not path.is_file():
+    if (len(parts) < 4 or parts[0] != "skills" or parts[2] != "cli" or ".." in parts
+            or not SLUG_RE.fullmatch(parts[1]) or not path.is_file()):
         print(f"usage: --bound-hash skills/<slug>/cli/<file>.go[:LINE] (got {spec!r})", file=sys.stderr)
         return 2
     slug, data = parts[1], path.read_bytes()
