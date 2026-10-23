@@ -153,6 +153,12 @@ dogfood-results.json
 workflow-verify-report.json
 tools-manifest.json
 spec.json
+# ...except the press's own metadata kept on purpose beside each connector in
+# skills/<dir>/press/ (onboard.py vendors it; check_press_metadata.py validates
+# it). Everything else the press writes stays ignored, there too.
+!skills/*/press/.printing-press.json
+!skills/*/press/tools-manifest.json
+!skills/*/press/spec.json
 # Maintainer-tool advisory locks (release queue serialization). Run-local only.
 tools/maintainer/.locks/
 # Adversarial-review receipts per skill. Run-local, never committed.

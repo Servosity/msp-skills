@@ -3,10 +3,12 @@
 # and the PR template. Run locally:  bash tools/ci_guards.sh
 #
 # Scope note: the human-authored surface is checked for style/personal-path
-# rules. The vendored, machine-generated Go source under skills/*/cli/ is
-# EXCLUDED from the em-dash and personal-path checks (it is generated and not the
-# contribution surface), but secret scanning (gitleaks, separate CI step) still
-# covers the whole tree.
+# rules. The vendored, machine-generated Go source under skills/*/cli/ and the
+# press's own metadata under skills/*/press/ (vendor specs: byte-exact, bound by
+# a checksum, so never re-styled) are EXCLUDED from the human-authored checks
+# (generated, not the contribution surface). check_press_metadata.py enforces
+# the personal-path and secret rules on press/ instead, and secret scanning
+# (gitleaks, separate CI step) still covers the whole tree.
 #
 # A guard fails on its OUTPUT, never on grep's exit status. These used to read
 # `if human_files | xargs grep ...; then fail=1`: when any listed file was
@@ -72,6 +74,10 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "a personal path + a missing file" fail \
     "printf 'see $home/x\n' >> skills/acme/README.md; rm skills/acme/guide.md"
   st_case "an em-dash in generated cli/ Go is exempt" pass ":"
+  st_case "an em-dash in press/ vendor metadata is exempt" pass \
+    "mkdir -p skills/acme/press; printf '{\"d\": \"a $em b\"}\n' > skills/acme/press/spec.json"
+  st_case "an em-dash in a press-named file outside press/ is not" fail \
+    "printf 'a $em b\n' > skills/acme/press-notes.md"
   st_case "a go.mod below the toolchain floor + a missing file" fail \
     "printf 'module acme-pp-cli\n\ngo 1.1.0\n' > skills/acme/cli/go.mod; rm skills/acme/guide.md"
   st_case "a go.mod at the floor, selected by a toolchain line" pass \
@@ -128,7 +134,7 @@ lists="$(mktemp -d "${TMPDIR:-/tmp}/ci_guards.XXXXXX")" || exit 2
 trap 'rm -rf "$lists"' EXIT
 GIT_LIST_ERR="$lists/git.err"
 all_files . > "$lists/all"
-all_files . ':(exclude)skills/*/cli/**' \
+all_files . ':(exclude)skills/*/cli/**' ':(exclude)skills/*/press/**' \
   ':(exclude)*.png' ':(exclude)*.jpg' ':(exclude)*.gif' ':(exclude)*.pdf' > "$lists/human"
 if [ -s "$GIT_LIST_ERR" ]; then
   # git could not list part of the tree (an unreadable directory): what it
