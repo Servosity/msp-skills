@@ -441,9 +441,9 @@
     "released_hash": "sha256:b65e8703ffc437bfdf67aadf6f3abba92494b4e1b0d71bbf032425fe257621d2"
   },
   "riverside-fm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "riverside-fm-v0.1.4",
+    "latest_tag": "riverside-fm-v0.1.5",
     "current_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9",
     "released_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9"
   },
@@ -462,9 +462,9 @@
     "released_hash": "sha256:fa278e9c621bcf91c153339dba7638a3ed343a9c74bc9d377ae79c9d6e897ba3"
   },
   "runzero": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "runzero-v0.1.6",
+    "latest_tag": "runzero-v0.1.7",
     "current_hash": "sha256:01c262f6eb49225b774a97bb580d26dfd71051a2b6da0eea01a6fbe77314458a",
     "released_hash": "sha256:01c262f6eb49225b774a97bb580d26dfd71051a2b6da0eea01a6fbe77314458a"
   },
