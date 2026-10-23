@@ -188,7 +188,7 @@ def handfix_files(root: Path, slug: str) -> set[str]:
             f = a.get("file") if isinstance(a, dict) else None
             if not isinstance(f, str) or not f:
                 raise GenError(f"{ledger.relative_to(root)}: handfixes[{i}] has an assert without a 'file'")
-            out.add(os.path.normpath(f"{SKILLS}/{slug}/{f}").replace(os.sep, "/"))
+            out.add(os.path.normpath(f"{SKILLS}/{slug}/{f}").replace(os.sep, "/").lower())
     return out
 
 
@@ -234,6 +234,14 @@ def has_press_header(path: Path) -> bool:
     return False
 
 
+def _named_in(path: str, ledger: set[str]) -> bool:
+    """A ledger names a file by its exact path; matched ignoring case (a
+    case-blind file system resolves "Root.go" to root.go, so the gate would
+    pass) and as a directory prefix. Both only ever keep more in review."""
+    low = path.lower()
+    return any(low == e or low.startswith(e.rstrip("/") + "/") for e in ledger)
+
+
 def classify(root: Path, files: list[str] | None = None) -> Scope:
     files = tree_files(root) if files is None else files
     scope = Scope()
@@ -253,7 +261,7 @@ def classify(root: Path, files: list[str] | None = None) -> Scope:
             scope.keep(path, "not a regular file")
         elif not path.endswith(".go"):
             scope.keep(path, "not Go")
-        elif path in ledgers[slug]:
+        elif _named_in(path, ledgers[slug]):
             scope.keep(path, "named in handfixes.json")
         elif not has_press_header(root / path):
             scope.keep(path, "no press header (hand-written)")
@@ -333,8 +341,17 @@ def _lcp(a: str, b: str) -> int:
 def build_patterns(scope: Scope) -> list[str]:
     """The exclusion patterns, coarsest first. Construction may be
     conservative; `verify` is the authority on safety and coverage."""
-    kgo = sorted(p.lower() for p in scope.kept if p.lower().endswith(".go"))
-    kgo_set = set(kgo)
+    # Every kept Go path, lowercased, read from the root and from every "/"
+    # (the readings verify() applies); only views starting with "skills/" can
+    # meet a pattern.
+    views = set()
+    for p in scope.kept:
+        low = p.lower()
+        if low.endswith(".go"):
+            views.update(v for v in [low] + [low[j + 1:] for j, ch in enumerate(low) if ch == "/"]
+                         if v.startswith(SKILLS + "/"))
+    kgo = sorted(views)
+    kgo_set = views
     # Only a path that starts with "skills/" in some case can match a pattern;
     # the text after it is what a cross-connector "*" can reach.
     kgo_tail = [k[len(SKILLS):] for k in kgo if k.startswith(SKILLS + "/")]
@@ -422,14 +439,27 @@ def verify(patterns: list[str], scope: Scope) -> list[str]:
             problems.append(f"pattern outside the emitted subset: {pat!r}")
     if problems:
         return problems
-    # Every pattern ends in .go (checked above) and the permissive reading is
-    # anchored, so only a kept path ending in .go, in any case, can match.
-    kept = sorted(p.lower() for p in scope.kept if p.lower().endswith(".go"))
+    # Every pattern ends in .go (checked above), so only a kept path ending in
+    # .go, in any case, can match. A matcher might also not anchor a pattern
+    # at the repository root, so each kept path is tried from every "/" too.
+    views: list[tuple[str, str]] = []
+    for p in scope.kept:
+        low = p.lower()
+        if not low.endswith(".go"):
+            continue
+        views.append((low, p))
+        views += [(low[j + 1:], p) for j, ch in enumerate(low) if ch == "/"]
+    views.sort()
+    keys = [v for v, _p in views]
     for pat in patterns:
         rx = permissive_re(pat)
-        for k in _in_prefix(kept, _literal_prefix(pat).lower()):
-            if rx.fullmatch(k):
-                problems.append(f"{pat} would hide {k}, which must stay in review")
+        lit = _literal_prefix(pat).lower()
+        lo = bisect.bisect_left(keys, lit)
+        for i in range(lo, len(keys)):
+            if not keys[i].startswith(lit):
+                break
+            if rx.fullmatch(keys[i]):
+                problems.append(f"{pat} would hide {views[i][1]}, which must stay in review")
     by_rest: dict[str, list[str]] = {}
     for p in scope.excluded:
         by_rest.setdefault(p.split("/", 2)[2], []).append(p)
@@ -479,8 +509,9 @@ def cmd_check(root: Path, out=print) -> int:
     if target.is_symlink() or (target.exists() and not target.is_file()):
         out(f"FAIL: {OUTPUT} is not a regular file")
         return 1
-    have = target.read_text(encoding="utf-8") if target.is_file() else None
-    if have == want:
+    raw = target.read_bytes() if target.is_file() else None
+    have = raw.decode("utf-8", errors="replace") if raw is not None else None
+    if raw == want.encode("utf-8"):
         out(f"OK: {OUTPUT} matches the generator ({want.count(chr(10) + '    - ')} exclusion patterns)")
         return 0
     out(f"FAIL: {OUTPUT} is {'missing' if have is None else 'stale'}: it is not what the generator writes for "
@@ -678,6 +709,27 @@ def _self_test() -> int:
         except GenError:
             expect(True, "a tracked path that is not UTF-8 fails the run")
         subprocess.run([b"git", b"-C", str(root).encode(), b"update-index", b"--force-remove", odd], check=True)
+
+        # A ledger entry differing only in case, or naming a directory, keeps the file.
+        led.write_text(json.dumps({"slug": "beta", "handfixes": [{"id": "c", "asserts": [
+            {"file": "cli/internal/cli/GADGETS_GET.go", "contains": "x"},
+            {"file": "cli/internal/types/more", "contains": "x"}]}]}) + "\n", encoding="utf-8")
+        s8 = classify(root)
+        expect("skills/beta/cli/internal/cli/gadgets_get.go" in s8.kept
+               and "skills/beta/cli/internal/types/more/deep.go" in s8.kept,
+               "a ledger path matching only ignoring case, or naming a directory, keeps the file in review")
+        led.write_text(json.dumps({"slug": "beta", "handfixes": []}) + "\n", encoding="utf-8")
+        # A matcher that does not anchor at the repository root.
+        unanchored = Scope(excluded=set(scope.excluded),
+                           kept=set(scope.kept) | {"vendor/skills/acme/cli/internal/cli/widgets_new.go"})
+        expect(any("would hide vendor/skills/acme" in x for x in verify(pats, unanchored)),
+               "verify also reads each pattern unanchored (a kept path under another directory)")
+        expect(not verify(build_patterns(unanchored), unanchored),
+               "and pattern construction avoids what that reading would hide")
+        # --check compares bytes: a CRLF copy of the right text is not the file.
+        (root / OUTPUT).write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+        expect(cmd_check(root, quiet) == 1, "--check compares bytes (a CRLF rewrite is stale)")
+        (root / OUTPUT).write_text(text, encoding="utf-8")
 
         # A path a pattern cannot carry verbatim stays in review.
         _write(root, "skills/acme/cli/internal/cli/odd[1].go", _gen_go())
