@@ -1836,6 +1836,38 @@
      "not_contains": "if time.Since(start) > 500*time.Millisecond {"
     }
    ]
+  },
+  {
+   "id": "token-request-stays-on-origin",
+   "class": "auth-wire",
+   "summary": "The token client's same-origin check compares hosts the way the network resolves them: an IP literal by address with an exact IPv6 zone, a DNS name ASCII case-insensitively, a non-ASCII name exactly",
+   "why": "Owner decision on PR #441 (finish the auth-wire class). Press 4.33.5 already sends every token request through cliutil.OAuthTokenHTTPClient, but its oauthTokenSameOrigin compared hostnames with strings.EqualFold, which also folds IPv6 zone names (fe80::1%LAN0 passed for fe80::1%lan0, two different peers when the interfaces differ) and Unicode case. It now compares an IP literal exactly as a netip.Addr (zone included) and folds ASCII case only for DNS names. TestOAuthTokenSameOriginComparesHostsLikeTheNetwork failed on the previous commit and passes now; TestAuthLoginRefusesATokenRedirectToAnotherOrigin pins the login path.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: auth.go.tmpl and client.go.tmpl in press 4.33.5 already route token requests through cliutil.OAuthTokenHTTPClient; oauthTokenSameOrigin should compare IP literals exactly (zone included) and fold ASCII case only for DNS names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "func oauthTokenSameHost(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "not_contains": "if !strings.EqualFold(target.Hostname(), origin.Hostname()) {"
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token_origin_test.go",
+     "contains": "func TestOAuthTokenSameOriginComparesHostsLikeTheNetwork(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_token_redirect_test.go",
+     "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

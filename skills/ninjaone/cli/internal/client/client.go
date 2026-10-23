@@ -935,7 +935,7 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 		return fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req) // hand-fix: token-request-stays-on-origin
 	if err != nil {
 		return fmt.Errorf("calling token endpoint: %w", err)
 	}
@@ -998,7 +998,7 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 		return fmt.Errorf("building refresh request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req) // hand-fix: token-request-stays-on-origin
 	if err != nil {
 		return fmt.Errorf("refreshing access token: %w", err)
 	}

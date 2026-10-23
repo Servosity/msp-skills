@@ -638,6 +638,66 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "token-request-stays-on-origin",
+   "class": "auth-wire",
+   "summary": "Every token request (auth login, the automatic client-credentials mint and the refresh grant) goes through cliutil.OAuthTokenHTTPClient, which follows same-origin redirects only, so the client secret never reaches a host a redirect from the token URL names",
+   "why": "Owner decision on PR #441 (finish the auth-wire class). `auth login` (through http.DefaultClient) and the automatic client-credentials mint and refresh grant (through c.HTTPClient, whose CheckRedirect follows a 307 to another host) replayed the token request body, the client secret included, to whatever host a redirect from the token URL named. Printed before press 4.33.5, which routes every token request through cliutil.OAuthTokenHTTPClient (a token client that follows same-origin hops only); this back-ports that file verbatim and uses it at the same call sites. TestAuthLoginRefusesATokenRedirectToAnotherOrigin and TestTokenMintRefusesARedirectToAnotherOrigin failed on the previous commit (the second host received the token request) and pass now. The host compare is also hardened (see the newer-print entries): an IP literal compares exactly, IPv6 zone included; a DNS name folds ASCII case only.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: auth.go.tmpl and client.go.tmpl in press 4.33.5 already route token requests through cliutil.OAuthTokenHTTPClient; oauthTokenSameOrigin should compare IP literals exactly (zone included) and fold ASCII case only for DNS names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "func OAuthTokenHTTPClient(base *http.Client) *http.Client {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "resp, err := httpClient.Do(req)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redirect_test.go",
+     "contains": "func TestTokenMintRefusesARedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "func oauthTokenSameHost(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "not_contains": "if !strings.EqualFold(target.Hostname(), origin.Hostname()) {"
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token_origin_test.go",
+     "contains": "func TestOAuthTokenSameOriginComparesHostsLikeTheNetwork(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_token_redirect_test.go",
+     "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

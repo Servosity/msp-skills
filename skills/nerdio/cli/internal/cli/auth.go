@@ -165,7 +165,10 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient.Do(req)
+	// Hand-wired (handfixes.json: token-request-stays-on-origin): the press
+	// 4.33.5 token client; a 307 off the token origin must not replay the
+	// client secret.
+	resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("calling token endpoint: %w", err)
 	}
