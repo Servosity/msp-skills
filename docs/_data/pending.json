@@ -70,9 +70,9 @@
     "released_hash": "sha256:dd7c172e5ab8fab7b170e41abb54e8e05c6ddb79bc735cd0dec60c734c43e93a"
   },
   "axcient": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.16",
-    "latest_tag": "axcient-v0.2.15",
+    "latest_tag": "axcient-v0.2.16",
     "current_hash": "sha256:a1498a47106eb3f2423f6d95e2a9e5f64640fd6d8205dab9573826a3645094c7",
     "released_hash": "sha256:a1498a47106eb3f2423f6d95e2a9e5f64640fd6d8205dab9573826a3645094c7"
   },
