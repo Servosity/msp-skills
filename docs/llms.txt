@@ -60,6 +60,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Cisco Meraki (Network Monitoring) - ask "Which client org is in the worst shape right now?" - See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cisco-meraki/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/install.sh)
+- CloudAlly (Backup/DR) - ask "What is the latest backup status of every mailbox and site across all my CloudAlly customers?" - See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/cloudally/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
 - connect-tool (Meta) - Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connect-tool/
 - ConnectSecure (Security) - ask "Which open vulnerabilities across every client are most likely to be exploited?" - See which vulnerabilities hit which assets at which clients, across your whole client base, in one command.
