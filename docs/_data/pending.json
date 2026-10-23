@@ -532,16 +532,16 @@
     "released_hash": "sha256:7d1c02548ab77e9fcf56466d446db77ff32c4abbbc8f95c9b920799b32fbfeb7"
   },
   "syncro": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "syncro-v0.1.6",
+    "latest_tag": "syncro-v0.1.7",
     "current_hash": "sha256:4836ce33d2085479300115ae9864e85ed1ef599eeee35500ce79def0706102c5",
     "released_hash": "sha256:4836ce33d2085479300115ae9864e85ed1ef599eeee35500ce79def0706102c5"
   },
   "tactical-rmm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "tactical-rmm-v0.1.6",
+    "latest_tag": "tactical-rmm-v0.1.7",
     "current_hash": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9",
     "released_hash": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9"
   },
