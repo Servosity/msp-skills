@@ -315,9 +315,9 @@
     "released_hash": "sha256:82fed0b9b94ce9a64ecbe6690b03e875a8e659e28d4f7af7ed35c9339b01d0e1"
   },
   "liongard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "liongard-v0.1.5",
+    "latest_tag": "liongard-v0.1.6",
     "current_hash": "sha256:fe77990aa18c559ad7311d6ef0623864a929a64ce94026ccaa6ac13e1664edc2",
     "released_hash": "sha256:fe77990aa18c559ad7311d6ef0623864a929a64ce94026ccaa6ac13e1664edc2"
   },
