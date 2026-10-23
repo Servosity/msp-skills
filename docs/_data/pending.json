@@ -217,9 +217,9 @@
     "released_hash": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6"
   },
   "fortinet": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "fortinet-v0.1.3",
+    "latest_tag": "fortinet-v0.1.4",
     "current_hash": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652",
     "released_hash": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652"
   },
