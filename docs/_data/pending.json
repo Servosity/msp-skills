@@ -154,9 +154,9 @@
     "released_hash": "sha256:9bd211f1dc25080bb8d20aefc6bcfcd5f5abff2963aa9985d2d41940de791d34"
   },
   "connectwise-manage": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.3",
-    "latest_tag": "connectwise-manage-v0.2.2",
+    "latest_tag": "connectwise-manage-v0.2.3",
     "current_hash": "sha256:29f12523bef981bb09dd44cd9ca85086887f713a223be69d1fe9bd59b8c9e7af",
     "released_hash": "sha256:29f12523bef981bb09dd44cd9ca85086887f713a223be69d1fe9bd59b8c9e7af"
   },
