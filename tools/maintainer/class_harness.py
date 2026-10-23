@@ -122,67 +122,107 @@ def encodings(value: str) -> dict[str, str]:
 def leaks(text: str, value: str) -> list[str]:
     """Return the names of every encoding of `value` that appears in `text`.
 
-    `text` is decoded through URL-unescape, HTML-unescape, JSON-unicode and
-    base64 before the search, so a value the connector merely re-encoded is
-    caught as well as one it passed through raw. A last-4-chars mask (`****abcd`)
-    never matches, because the whole value is the needle."""
-    hits = []
-    for name, enc in encodings(value).items():
-        if enc and enc in text:
-            hits.append(name)
-    # Decoded sweeps: undo one layer of each transport encoding and look for the
-    # raw value, so a form this function did not pre-compute (an offset base64,
-    # a `\u`-escaped fragment) is still caught. URL, HTML, JSON-unicode and a
-    # best-effort base64 pass.
-    decoded_views = [text]
-    try:
-        decoded_views.append(urllib.parse.unquote(text))
-        decoded_views.append(urllib.parse.unquote(urllib.parse.unquote(text)))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        decoded_views.append(html.unescape(text))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        decoded_views.append(_json_unescape(text))
-    except Exception:  # noqa: BLE001
-        pass
-    decoded_views.extend(_base64_decodings(text))
+    A precomputed encoding of `value` is reported by name. For everything else,
+    `text` is run through the canonical decode funnel (`_decode_views`) to a
+    fixed point - full JSON string unescaping, URL, HTML and base64 over EVERY
+    candidate run - and a `decoded` hit is reported if the whole value appears in
+    any view. A last-4-chars mask (`****abcd`) never matches, because the whole
+    value is the needle."""
+    hits = [name for name, enc in encodings(value).items() if enc and enc in text]
     precomputed = {"raw", "url", "url2", "html", "json_u", "base64", "base64url"}
-    for view in decoded_views:
-        if value in view and not (precomputed & set(hits)):
-            hits.append("decoded")
-            break
+    if not (precomputed & set(hits)):
+        for view in _decode_views(text):
+            if value in view:
+                hits.append("decoded")
+                break
     return hits
 
 
-_JSON_U = __import__("re").compile(r"\\u([0-9a-fA-F]{4})")
+# One candidate-run scan: runs long enough to carry a 25+ char credential in any
+# of base64, URL, HTML or JSON form. No sort-and-truncate (that could drop the
+# very run carrying the secret); the number of runs is bounded by output length.
+_RUN = __import__("re").compile(r"[A-Za-z0-9+/_=%.&;\\-]{12,}")
+_JSON_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f",
+                 '"': '"', "\\": "\\", "/": "/", "'": "'"}
 
 
-def _json_unescape(text: str) -> str:
-    """Decode \\uXXXX escapes wherever they appear (not only in valid JSON), so a
-    credential rendered with JSON unicode escapes is reconstructed."""
-    return _JSON_U.sub(lambda m: chr(int(m.group(1), 16)), text)
+def json_unescape(text: str) -> str:
+    """Decode JSON/JS string escapes wherever they appear (not only in valid
+    JSON): `\\uXXXX`, `\\xHH`, and the single-character escapes incl. `\\/` and
+    `\\"`. A credential rendered with any of these is reconstructed."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and i + 1 < n:
+            nxt = text[i + 1]
+            if nxt == "u" and i + 6 <= n:
+                try:
+                    out.append(chr(int(text[i + 2:i + 6], 16))); i += 6; continue
+                except ValueError:
+                    pass
+            elif nxt == "x" and i + 4 <= n:
+                try:
+                    out.append(chr(int(text[i + 2:i + 4], 16))); i += 4; continue
+                except ValueError:
+                    pass
+            elif nxt in _JSON_ESCAPES:
+                out.append(_JSON_ESCAPES[nxt]); i += 2; continue
+        out.append(c); i += 1
+    return "".join(out)
 
 
 def _base64_decodings(text: str) -> list[str]:
-    """Best-effort: decode every base64/base64url-looking run in `text` and
-    return the decoded strings, so a credential embedded in a base64 blob (even
-    with a prefix/suffix, e.g. base64 of "x"+secret) is reconstructed for the
-    search. Bounded to a handful of the longest runs to stay cheap."""
-    runs = __import__("re").findall(r"[A-Za-z0-9+/_=-]{12,}", text)
+    """Decode EVERY base64/base64url-looking run in `text` (no length ranking),
+    so a credential embedded in a base64 blob with a prefix or suffix is still
+    reconstructed. Per-run work is bounded; the run count is bounded by the
+    output length."""
     out = []
-    for run in sorted(set(runs), key=len, reverse=True)[:12]:
-        std = run.replace("-", "+").replace("_", "/")
+    for run in set(_RUN.findall(text)):
+        std = run.replace("-", "+").replace("_", "/").rstrip("=")
+        if len(std) < 12:
+            continue
         for cand in (std, std + "=" * (-len(std) % 4)):
             try:
                 dec = base64.b64decode(cand, validate=False).decode("latin-1", "replace")
-                if dec:
-                    out.append(dec)
+            except Exception:  # noqa: BLE001
+                continue
+            if dec:
+                out.append(dec)
+    return out
+
+
+def _decode_views(text: str) -> set:
+    """Every reconstruction of `text` reachable by undoing URL, HTML, JSON and
+    base64 encodings, iterated to a fixed point (bounded rounds) so a nested
+    encoding (base64 of a URL-escaped secret) is still undone."""
+    seen = {text}
+    frontier = [text]
+    for _ in range(4):  # fixed point, bounded
+        nxt = []
+        for t in frontier:
+            cands = []
+            try:
+                cands.append(urllib.parse.unquote(t))
+                cands.append(urllib.parse.unquote(urllib.parse.unquote(t)))
             except Exception:  # noqa: BLE001
                 pass
-    return out
+            try:
+                cands.append(html.unescape(t))
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                cands.append(json_unescape(t))
+            except Exception:  # noqa: BLE001
+                pass
+            cands.extend(_base64_decodings(t))
+            for c in cands:
+                if c and c not in seen:
+                    seen.add(c)
+                    nxt.append(c)
+        if not nxt:
+            break
+        frontier = nxt
+    return seen
 
 
 # --------------------------------------------------------------------------- #
@@ -703,15 +743,25 @@ def assert_baseline_shrinks(base_ref: str) -> int:
     except SystemExit as e:
         print(f"FAIL: {e}")
         return 1
+    # Resolve the base ref FIRST. An unreadable ref fails closed; only a VALID
+    # commit at which the baseline path is absent means "the PR that introduces
+    # the baseline" (a pass). Without this split, _git_show returning None for a
+    # bad ref would be mistaken for the new-baseline case and pass open.
+    rp = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{base_ref}^{{commit}}"],
+                        capture_output=True, text=True, cwd=ROOT, timeout=30)
+    if rp.returncode != 0 or not rp.stdout.strip():
+        print(f"FAIL: cannot resolve --assert-baseline-shrinks base ref {base_ref!r} "
+              f"(fails closed; a bad base never passes the shrink guard).")
+        return 1
+    base_sha = rp.stdout.strip()
     rel = str(BASELINE.relative_to(ROOT))
-    if _git_show(base_ref, rel) is None:
-        # The baseline does not exist at the base (this is the PR that introduces
-        # it). There is nothing to shrink against, and a brand-new baseline is
-        # reviewed on its own merits, so this is a pass, not a fail-closed error.
+    if _git_show(base_sha, rel) is None:
+        # Valid commit, but the baseline does not exist there: this is the PR
+        # that introduces it. Nothing to shrink against, so it is a pass.
         print(f"PASS: class_baseline.json is new at {base_ref}; nothing to shrink against.")
         return 0
     try:
-        base = load_baseline(base_ref)
+        base = load_baseline(base_sha)
     except SystemExit as e:
         print(f"FAIL: {e}")
         return 1
