@@ -52,7 +52,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download TD SYNNEX MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/td-synnex-v0.1.1/td-synnex-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON. ION needs one shell step first: install the CLI (Path B below) and run `td-synnex-cli auth mint --refresh-token-stdin` once (see [Authenticate](#authenticate)); the extension reads the token it saves. (Browse every TD SYNNEX release on the [releases page](https://github.com/servosity/msp-skills/releases?q=td-synnex).)
+[**Download TD SYNNEX MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/td-synnex-v0.1.2/td-synnex-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON. ION needs one shell step first: install the CLI (Path B below) and run `td-synnex-cli auth mint --refresh-token-stdin` once (see [Authenticate](#authenticate)); the extension reads the token it saves. (Browse every TD SYNNEX release on the [releases page](https://github.com/servosity/msp-skills/releases?q=td-synnex).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
