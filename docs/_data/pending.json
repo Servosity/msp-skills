@@ -350,9 +350,9 @@
     "released_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557"
   },
   "n-central": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "n-central-v0.1.7",
+    "latest_tag": "n-central-v0.1.8",
     "current_hash": "sha256:d45790225e20651bf23351a8bfe20eca448e43f5571235a2b4363d1a70d8bd20",
     "released_hash": "sha256:d45790225e20651bf23351a8bfe20eca448e43f5571235a2b4363d1a70d8bd20"
   },
