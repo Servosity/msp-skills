@@ -7,23 +7,23 @@
     "released_hash": "sha256:d553731f02ec318ca7403ee9fa916be3aed8c54e215d2a4db1a4ae98b9446f3d"
   },
   "acronis": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "acronis-v0.1.8",
+    "latest_tag": "acronis-v0.1.9",
     "current_hash": "sha256:7cf4502e7a81f723c1a2548744c7ea962a7c37ad233feddebf03fac036dbb1de",
     "released_hash": "sha256:7cf4502e7a81f723c1a2548744c7ea962a7c37ad233feddebf03fac036dbb1de"
   },
   "action1": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "action1-v0.1.9",
+    "latest_tag": "action1-v0.1.10",
     "current_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9",
     "released_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9"
   },
   "afi": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "afi-v0.1.7",
+    "latest_tag": "afi-v0.1.8",
     "current_hash": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6",
     "released_hash": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6"
   },
