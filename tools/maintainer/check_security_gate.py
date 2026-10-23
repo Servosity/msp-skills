@@ -943,6 +943,26 @@ def precedent_for(slug: str, repo_rel: str, line, precedent: FleetPrecedent | No
 GOSEC_TARGETS: tuple[tuple[str, str] | None, ...] = (None, ("windows", "amd64"))
 
 
+def gosec_report(code: int, out: str) -> dict | None:
+    """The report of one completed gosec run, or None when it did not complete.
+    Measured on gosec v2.29.0 with -quiet: a clean module exits 0 with no output; a
+    finding, and a package that fails to load, exit 1 WITH a JSON report. So exit 0
+    and no output is clean, exit 0 or 1 must otherwise carry an object with an
+    "Issues" list, and anything else (exit 1 with no report, any other exit, other
+    JSON) did not complete. Reading a missing report as "{}" made a failed run clean."""
+    if code == 0 and not (out or "").strip():
+        return {"Issues": []}
+    if code not in (0, 1):
+        return None
+    try:
+        report = json.loads(out)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(report, dict) or not isinstance(report.get("Issues"), list):
+        return None
+    return report
+
+
 def gosec_passes(mod: Path, slug: str, require: bool, add) -> list[dict]:
     """Every gosec issue across GOSEC_TARGETS, each once. An issue only an extra
     target reports carries `_target` ("GOOS=windows"). A pass that does not
@@ -954,14 +974,10 @@ def gosec_passes(mod: Path, slug: str, require: bool, add) -> list[dict]:
         label = "" if target is None else f"GOOS={target[0]}"
         code, out, _err = run(["gosec", "-quiet", "-fmt", "json", "-show-ignored", "./..."],
                               cwd=str(mod), timeout=600, env=env)
-        try:
-            gj = json.loads(out or "{}")
-        except json.JSONDecodeError:
-            gj = None
-        if not isinstance(gj, dict) or not isinstance(gj.get("Issues", []), list):
-            gj = None
-        if (gj is None or code in (124, 127)) and require:
-            detail = "timeout" if code == 124 else "not-installed" if code == 127 else "unparseable output"
+        gj = gosec_report(code, out)
+        if gj is None and require:
+            detail = ("timeout" if code == 124 else "not-installed" if code == 127
+                      else "no report" if not (out or "").strip() else "no usable report")
             add("gosec", "scanner-error", "P1", f"skills/{slug}/cli/go.mod", 0,
                 f"gosec{' (' + label + ')' if label else ''} did not complete ({detail}, exit {code}) "
                 "(fail-closed).")
@@ -2693,7 +2709,7 @@ with open(os.environ["FAKE_GOSEC_LOG"], "a") as fh:
     fh.write((goos or "native") + " " + os.environ.get("CGO_ENABLED", "") + "\n")
 case = json.loads(os.environ["FAKE_GOSEC_CASE"]).get(goos or "native", {})
 if case.get("exit") is not None and "issues" not in case:
-    print(case.get("out", "")); sys.exit(case["exit"])
+    sys.stdout.write(case.get("out", "")); sys.exit(case["exit"])  # exactly this output, no newline
 mod = os.getcwd()
 print(json.dumps({"Issues": [{"rule_id": r, "severity": sev, "file": os.path.join(mod, f), "line": str(ln),
                               "column": "2", "details": d, "nosec": ns}
@@ -2764,6 +2780,19 @@ def _self_test_gosec_targets() -> int:
         wrong_shape = p1(gate({"native": {"issues": []}, "windows": {"exit": 0, "out": "[]"}}))
         cases.append(("a Windows pass whose JSON is not gosec's shape fails closed", len(wrong_shape) == 1
                       and wrong_shape[0]["rule"] == "scanner-error"))
+        # Codex r1 P1: an exit-1 run with no report used to read as clean ("out or {}").
+        # Real gosec -quiet: clean = exit 0 with no output; findings or a load error =
+        # exit 1 WITH a JSON report. Anything else did not complete.
+        for label, case in (("exit 1 with no report", {"exit": 1, "out": ""}),
+                            ("exit 2 with no report", {"exit": 2, "out": ""}),
+                            ("exit 3 with a clean-looking report", {"exit": 3, "out": '{"Issues": []}'})):
+            got = p1(gate({"native": {"issues": []}, "windows": case}))
+            cases.append((f"a Windows pass with {label} fails closed",
+                          [f["rule"] for f in got] == ["scanner-error"]))
+            got = p1(gate({"native": case, "windows": {"issues": []}}))
+            cases.append((f"a native pass with {label} fails closed", [f["rule"] for f in got] == ["scanner-error"]))
+        cases.append(("a clean pass (exit 0, no output, as real gosec -quiet) is clean",
+                      not p1(gate({"native": {"exit": 0, "out": ""}, "windows": {"exit": 0, "out": ""}}))))
         cases.append(("a failed native pass still fails closed with the Windows pass clean",
                       [f["rule"] for f in p1(gate({"native": {"exit": 124}, "windows": {"issues": []}}))]
                       == ["scanner-error"]))
