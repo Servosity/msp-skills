@@ -224,9 +224,9 @@
     "released_hash": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652"
   },
   "google-workspace": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "google-workspace-v0.1.2",
+    "latest_tag": "google-workspace-v0.1.3",
     "current_hash": "sha256:440afe492ffac9cf73d840e7cd50dd1021e3d248ba9855a1c883e192dec903fc",
     "released_hash": "sha256:440afe492ffac9cf73d840e7cd50dd1021e3d248ba9855a1c883e192dec903fc"
   },
