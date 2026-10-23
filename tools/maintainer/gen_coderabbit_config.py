@@ -535,7 +535,7 @@ def cmd_stats(root: Path) -> int:
              "prefix": sum("*" in p and not p.endswith("/**/*.go") and not p.startswith(SKILLS + "/*/")
                            for p in patterns)}
     kinds["exact"] = len(patterns) - sum(kinds.values())
-    print(json.dumps({"excluded_files": len(scope.excluded), "kept_files_under_skills": len(scope.kept),
+    print(json.dumps({"excluded_files": len(scope.excluded), "kept_files": len(scope.kept),
                       "kept_by_reason": dict(sorted(scope.reasons.items())), "patterns": len(patterns),
                       "patterns_by_kind": kinds}, indent=2))
     return 0
@@ -800,7 +800,7 @@ def main(argv: list[str] | None = None) -> int:
     tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, target)
     print(f"wrote {OUTPUT}: {len(patterns)} exclusion patterns covering {len(scope.excluded)} untouched generated "
-          f"files; {len(scope.kept)} files under skills/ stay in review")
+          f"files; {len(scope.kept)} other files stay in review")
     return 0
 
 
