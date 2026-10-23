@@ -107,24 +107,41 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "a .coderabbit.yaml without its generator" fail "rm tools/maintainer/gen_coderabbit_config.py"
   st_case "the generator and .coderabbit.yaml both removed" fail \
     "rm tools/maintainer/gen_coderabbit_config.py .coderabbit.yaml"
-  # Guard 8 reads Markdown headings only. The phrase is assembled from two
-  # halves so this script never carries a line guard 8 would match.
+  # Guards 8 and 9 read pages and manifests the way a reader and a JSON
+  # parser do (Codex review, round 1). The phrase is assembled from two halves
+  # so this script never carries it.
   ppc="Printing Press"" CLI"
   ppl="printing press"" cli"
-  st_case "the press title line on a skill page" fail \
+  st_case "the press title on a skill page" fail \
     "printf -- '---\nname: acme\n---\n\n# Acme  -  $ppc\n' > skills/acme/SKILL.md"
-  st_case "the press title line as a lower-case H2 in a guide" fail \
+  st_case "the press title as a lower-case H2 in a guide" fail \
     "printf '## acme - $ppl\n' >> skills/acme/guide.md"
-  st_case "the press title line + a missing file" fail \
+  st_case "the press title as an indented heading" fail \
+    "printf '\n # Acme - $ppc\n' >> skills/acme/guide.md"
+  st_case "the press title as a Setext heading" fail \
+    "printf '\nAcme - $ppc\n=====\n' >> skills/acme/guide.md"
+  st_case "the press title in bold, wrapped over two lines" fail \
+    "printf 'Acme - **Printing** Press\nCLI\n' > skills/acme/SKILL.md"
+  st_case "the press title in HTML, split by a tag and an entity" fail \
+    "printf '<h1>Acme - Printing&#32;<b>Press</b> CLI</h1>\n' > skills/acme/page.md"
+  st_case "the press title + a missing file" fail \
     "printf '# Acme - $ppc\n' > skills/acme/SKILL.md; rm skills/acme/guide.md"
+  st_case "the press credited as CLI Printing Press, a client profile, a shell comment, cli/ and press/" pass \
+    "printf 'Built with CLI Printing Press. Uses a Printing Press client profile.\n' >> skills/acme/README.md; printf '#!/bin/sh\n# $ppc\n' > skills/acme/x.sh; printf '# Acme - $ppc\n' > skills/acme/cli/README.md; mkdir -p skills/acme/press; printf '# $ppc\n' > skills/acme/press/notes.md"
   st_case "a manifest with a null press version (immybot's old shape)" fail \
     "printf '{\n  \"name\": \"acme-mcp\",\n  \"printing_press_version\": null\n}\n' > skills/acme/manifest.json"
   st_case "a null press version nested in press_provenance + a missing file" fail \
     "printf '{\"press_provenance\": {\"printing_press_version\":null}}\n' > skills/acme/manifest.json; rm skills/acme/guide.md"
+  st_case "a null press version split across lines" fail \
+    "printf '{\n  \"printing_press_version\":\n    null\n}\n' > skills/acme/manifest.json"
+  st_case "a press version that is an escaped tab" fail \
+    "printf '{\"printing_press_version\": \"\\\\t\"}\n' > skills/acme/manifest.json"
+  st_case "a null press version hidden behind a duplicate key" fail \
+    "printf '{\"printing_press_version\": null, \"printing_press_version\": \"4.24.0\"}\n' > skills/acme/manifest.json"
+  st_case "a manifest that is not JSON" fail \
+    "printf '{\"printing_press_version\": \n' > skills/acme/manifest.json"
   st_case "a manifest with a recorded press version, or none at all" pass \
     "printf '{\"printing_press_version\": \"4.24.0\"}\n' > skills/acme/manifest.json; mkdir -p skills/other; printf '{\"name\": \"other-mcp\"}\n' > skills/other/manifest.json"
-  st_case "the phrase in prose, a shell comment and generated cli/ is not a title line" pass \
-    "printf 'Built with the $ppc toolchain.\n' >> skills/acme/README.md; printf '#!/bin/sh\n# $ppc\n' > skills/acme/x.sh; printf '# Acme - $ppc\n' > skills/acme/cli/README.md"
   # Root (or a disk without permissions) reads a chmod 000 path anyway, so
   # these two cases cannot be set up there: skipped, and said so.
   probe="$(mktemp "${TMPDIR:-/tmp}/ci_guards_probe.XXXXXX")"; chmod 000 "$probe"
@@ -311,31 +328,84 @@ else
   fail=1
 fi
 
-echo "==> 8. No press title line on a skill page"
+# pyscan <list> <program>: run a Python program over every file in a list.
+# Any line it prints is a finding, and so is a failure of the scan itself:
+# what could not be read was not checked. Guards 8 and 9 read pages and
+# manifests the way a reader and a JSON parser do, which grep cannot.
+pyscan() {
+  local list="$lists/$1" out rc
+  out="$(xargs -0 python3 -c "$2" < "$list" 2>&1)"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    out="${out:+$out
+}  the scan itself failed (exit $rc), which is not a pass"
+  fi
+  [ -n "$out" ] || return 1
+  printf '%s\n' "$out" | sed 's#^\./##'
+}
+
+echo "==> 8. No press title on a skill page"
 # cli-printing-press titles every SKILL.md "# <Vendor>  -  <press name> CLI".
-# This repo ships Claude Code Skills; the press is credited in each
-# connector's cli/NOTICE, not in the page title (decision 9 of the
-# 2026-10-21 publish plan). 62 SKILL.md files still carried that title in
-# October 2026 because nothing checked it, and onboard.py --resume re-vendors
-# SKILL.md from the press source, so a reprint brings it straight back.
-# Markdown headings only: the press is still named in prose and in NOTICE.
-# The phrase is built at runtime so this script never carries it.
-press_title="Printing Press"" CLI"
-all_files '*.md' '*.markdown' '*.mdx' ':(exclude)skills/*/cli/**' ':(exclude)skills/*/press/**' > "$lists/md"
-if scan md -i -E -e "^#{1,6}[[:space:]].*${press_title}"; then
-  note "a skill page is titled after the press; title it '<Vendor> - Claude Code Skill' (the press stays credited in cli/NOTICE)"
+# This repo ships Claude Code Skills; the press is credited as "CLI Printing
+# Press" in each connector's cli/NOTICE and page footer, not as the page's
+# title (decision 9 of the 2026-10-21 publish plan). 62 SKILL.md files still
+# carried that title in October 2026 because nothing checked it, and
+# onboard.py --resume re-vendors SKILL.md from the press source, so a reprint
+# brings it straight back. The phrase is banned anywhere in a rendered page
+# (Markdown or HTML, outside generated cli/ and press/), read as it renders:
+# entities decoded, escapes, tags and emphasis dropped, line breaks folded.
+# That covers every heading form (ATX, indented, Setext, HTML) without
+# parsing headings; no page uses the phrase in prose.
+guard7_py='import html, re, sys
+esc = re.compile(r"\\([!-/:-@\[-`{-~])")
+rx = re.compile(r"printing\s+press\s+cli(?![a-z0-9])", re.I)
+for f in sys.argv[1:]:
+    try:
+        raw = open(f, encoding="utf-8").read()
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"{f}: could not be read ({e.__class__.__name__})")
+        continue
+    t = re.sub(r"[*_`~]", "", re.sub(r"<[^>]*>", " ", esc.sub(r"\1", html.unescape(raw))))
+    for m in rx.finditer(t):
+        print(f"{f}:{t.count(chr(10), 0, m.start()) + 1}: " + " ".join(m.group(0).split()))'
+all_files '*.md' '*.markdown' '*.mdx' '*.html' '*.htm' \
+  ':(exclude)skills/*/cli/**' ':(exclude)skills/*/press/**' > "$lists/pages"
+if pyscan pages "$guard7_py"; then
+  note "a skill page is titled after the press; title it '<Vendor> - Claude Code Skill' (the press stays credited as CLI Printing Press in cli/NOTICE)"
   fail=1
 fi
 
-echo "==> 8. No manifest records a null press version"
+echo "==> 9. No manifest records a null press version"
 # An earlier onboard.py wrote "printing_press_version": null (and a
 # press_provenance block of nulls) whenever the source had no
 # .printing-press.json, and on every --docs-only run; immybot shipped that
 # shape until 2026-10-23. A null reads as provenance while recording none.
 # Unknown is written by leaving both keys out, which is what the hardened
 # onboard.py does; a known version is a string. Never guess one to pass this.
+# Parsed as JSON, every key at every depth, duplicates included, so neither
+# layout nor an escape can hide a null; a manifest that is not JSON fails.
+guard8_py='import json, sys
+class Obj(list):
+    pass
+def walk(o, path):
+    if isinstance(o, Obj):
+        for k, v in o:
+            p = f"{path}.{k}" if path else k
+            if k == "printing_press_version" and not (isinstance(v, str) and v.strip()):
+                print(f"{f}: {p} is {json.dumps(v)}")
+            walk(v, p)
+    elif isinstance(o, list):
+        for i, x in enumerate(o):
+            walk(x, f"{path}[{i}]")
+for f in sys.argv[1:]:
+    try:
+        doc = json.load(open(f, encoding="utf-8"), object_pairs_hook=Obj)
+    except (OSError, ValueError) as e:
+        print(f"{f}: not readable JSON ({e.__class__.__name__}), so its press version cannot be checked")
+        continue
+    walk(doc, "")'
 all_files 'skills/*/manifest.json' > "$lists/manifests"
-if scan manifests -E -e '"printing_press_version"[[:space:]]*:[[:space:]]*(null|""|"[[:space:]]+")'; then
+if pyscan manifests "$guard8_py"; then
   note "drop a null printing_press_version (and a null-filled press_provenance) instead of guessing; a reprint or onboard records the real one"
   fail=1
 fi
