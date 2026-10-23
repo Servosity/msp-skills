@@ -182,7 +182,13 @@ jobs:
       - name: Regenerate catalog
         if: steps.parse.outputs.ok == 'true'
         run: |
+          set -euo pipefail
           python3 tools/maintainer/build-catalog.py
+          # After the regeneration (the docs page Status is generated): the flip
+          # rewrote the README / pain-point Status paragraphs, and a "Beta" it
+          # cannot rewrite must stop the push here. This bot pushes straight to
+          # main, and CI's guards job runs the same --check on every later PR.
+          python3 tools/maintainer/verify_live.py --check
 
       - name: Commit and push
         if: steps.parse.outputs.ok == 'true'
@@ -196,7 +202,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tools/maintainer/skills.json catalog.json README.md docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
+          git add tools/maintainer/skills.json catalog.json README.md 'skills/*/README.md' 'skills/*/pain-point.md' docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit (already live-verified?)."
             exit 0
@@ -226,7 +232,8 @@ jobs:
             python3 tools/maintainer/verify_live.py "${args[@]}" \
               || echo "verify_live returned non-zero (already verified?) - continuing to diff check"
             python3 tools/maintainer/build-catalog.py
-            git add tools/maintainer/skills.json catalog.json README.md docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
+            python3 tools/maintainer/verify_live.py --check
+            git add tools/maintainer/skills.json catalog.json README.md 'skills/*/README.md' 'skills/*/pain-point.md' docs/_data/catalog.json docs/skills/ docs/_data/pending.json 2>/dev/null || true
             if git diff --cached --quiet; then
               echo "now in sync after peer commit - nothing left to push"
               exit 0

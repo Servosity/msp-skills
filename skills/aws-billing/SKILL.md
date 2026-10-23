@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.ps1
 ---
 
-# AWS Billing Intelligence  -  Printing Press CLI
+# AWS Billing Intelligence - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.ps1
 ---
 
-# ImmyBot - Printing Press CLI
+# ImmyBot - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pagerduty/install.ps1
 ---
 
-# PagerDuty  -  Printing Press CLI
+# PagerDuty - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

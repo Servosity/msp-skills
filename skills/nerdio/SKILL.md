@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/nerdio/install.ps1
 ---
 
-# Nerdio Manager  -  Printing Press CLI
+# Nerdio Manager - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

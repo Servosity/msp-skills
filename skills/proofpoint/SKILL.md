@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/proofpoint/install.ps1
 ---
 
-# Proofpoint TAP  -  Printing Press CLI
+# Proofpoint TAP - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

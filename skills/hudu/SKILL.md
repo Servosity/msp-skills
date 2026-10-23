@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hudu/install.ps1
 ---
 
-# Hudu  -  Printing Press CLI
+# Hudu - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

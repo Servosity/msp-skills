@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "unifi-network-pp-mcp",
+  "name": "unifi-network-mcp",
   "display_name": "UniFi",
   "version": "0.1.8",
   "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/unifi-network-pp-mcp",
+    "entry_point": "bin/unifi-network-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/unifi-network-pp-mcp",
+      "command": "${__dirname}/bin/unifi-network-mcp",
       "args": [],
       "env": {
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",

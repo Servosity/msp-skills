@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/proxmox/install.ps1
 ---
 
-# Proxmox VE + Backup Server  -  Printing Press CLI
+# Proxmox VE + Backup Server - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

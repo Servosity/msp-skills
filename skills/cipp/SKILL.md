@@ -13,7 +13,7 @@ metadata:
         - cipp-cli
 ---
 
-# CIPP  -  Printing Press CLI
+# CIPP - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

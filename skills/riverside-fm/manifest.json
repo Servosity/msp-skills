@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "riverside-fm-pp-mcp",
+  "name": "riverside-fm-mcp",
   "display_name": "Riverside",
   "version": "0.1.4",
   "description": "Riverside API surface as MCP tools.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/riverside-fm-pp-mcp",
+    "entry_point": "bin/riverside-fm-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/riverside-fm-pp-mcp",
+      "command": "${__dirname}/bin/riverside-fm-mcp",
       "args": [],
       "env": {
         "RIVERSIDE_FM_BASE_URL": "${user_config.riverside_fm_base_url}",

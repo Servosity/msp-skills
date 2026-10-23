@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "aws-billing-pp-mcp",
+  "name": "aws-billing-mcp",
   "display_name": "AWS Billing Intelligence",
   "version": "0.1.7",
   "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/aws-billing-pp-mcp",
+    "entry_point": "bin/aws-billing-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/aws-billing-pp-mcp",
+      "command": "${__dirname}/bin/aws-billing-mcp",
       "args": [],
       "env": {
         "AWS_ACCESS_KEY_ID": "${user_config.aws_access_key_id}",

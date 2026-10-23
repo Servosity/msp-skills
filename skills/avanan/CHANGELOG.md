@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- The `api` command's follow-up hints now tell you to run `avanan-cli`, the binary this connector installs, instead of the generator's internal `-pp-cli` name, which is not installed.
+
 ## [0.1.10] - 2026-10-22
 
 ### Security

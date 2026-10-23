@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/salesbuildr/install.ps1
 ---
 
-# Salesbuildr  -  Printing Press CLI
+# Salesbuildr - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

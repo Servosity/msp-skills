@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- `since` help, the root command list, `which` and the MCP agent-context now describe what the command does: it lists the synced subscription history plus subscriptions created or updated in the window. They said it diffs subscription snapshots, which it never did.
+
 ## [0.1.7] - 2026-10-22
 
 ### Security

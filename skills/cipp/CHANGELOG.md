@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- `--json` turns on JSON output on `add-intune-reusable-setting-template` again: the command declared its own `--json` value flag for the body field. That field is now `--json-field`.
+
 ## [0.1.11] - 2026-10-22
 
 ### Security

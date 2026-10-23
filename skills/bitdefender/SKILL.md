@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/bitdefender/install.ps1
 ---
 
-# Bitdefender GravityZone  -  Printing Press CLI
+# Bitdefender GravityZone - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

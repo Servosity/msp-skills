@@ -269,7 +269,7 @@ The strongest control is the **scope you grant the ImmyBot credentials** - the C
 
 ## Status
 
-Beta. Validated against the ImmyBot API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by @geekbrownbear (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/pull/276)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

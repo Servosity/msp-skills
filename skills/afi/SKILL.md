@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/afi/install.ps1
 ---
 
-# Afi  -  Printing Press CLI
+# Afi - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

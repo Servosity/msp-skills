@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sophos-central/install.ps1
 ---
 
-# Sophos Central  -  Printing Press CLI
+# Sophos Central - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

@@ -998,6 +998,86 @@
      "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
     }
    ]
+  },
+  {
+   "id": "local-agent-flags-renamed",
+   "class": "local-flag-shadows-global-switch",
+   "summary": "the seven command-local --agent flags are renamed (--agent-ids on tickets/opportunities/projects list, --agent-param on remote-session list, --agent-id on impersonation-request, --agent-name on time gaps and triage), so --agent is the agent-mode switch on every command; the API still receives its agent parameter",
+   "why": "A command-local flag that takes a value, registered under the name of a persistent root switch, replaces that switch on its command: Cobra keeps the command's own flag. Every SKILL, guide and MCP recipe tells an agent to add --agent for agent mode, so on this command a bare --agent stopped with 'flag needs an argument', and --agent followed by another flag swallowed that flag as its value (halopsa `tickets list --agent --dry-run` sent the live request: the --dry-run became the agent filter). The press does not reserve the root flag names when it names spec parameters (internal/generator/flag_collision.go reserves only its own --all/--wait/--stdin), so a reprint re-emits the shadow. tools/maintainer/check_command_tree.py now fails any value-taking local flag over a persistent switch.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: reserve the root persistent flag names (agent, json, dry-run, quiet, ...) in reservedFlagNamesForEndpoint so a spec parameter of the same name gets a distinct public flag; until then, keep the rename here.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tickets_list.go",
+     "contains": "StringVar(&flagAgent, \"agent-ids\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tickets_list.go",
+     "not_contains": "StringVar(&flagAgent, \"agent\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/opportunities_list.go",
+     "contains": "StringVar(&flagAgent, \"agent-ids\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/opportunities_list.go",
+     "not_contains": "StringVar(&flagAgent, \"agent\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/projects_list.go",
+     "contains": "StringVar(&flagAgent, \"agent-ids\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/projects_list.go",
+     "not_contains": "StringVar(&flagAgent, \"agent\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/remote-session_list.go",
+     "contains": "StringVar(&flagAgent, \"agent-param\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/remote-session_list.go",
+     "not_contains": "StringVar(&flagAgent, \"agent\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/promoted_impersonation-request.go",
+     "contains": "IntVar(&bodyAgent, \"agent-id\", 0",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_impersonation-request.go",
+     "not_contains": "IntVar(&bodyAgent, \"agent\", 0"
+    },
+    {
+     "file": "cli/internal/cli/time.go",
+     "contains": "StringVar(&agent, \"agent-name\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/time.go",
+     "not_contains": "StringVar(&agent, \"agent\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "StringVar(&agent, \"agent-name\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "not_contains": "StringVar(&agent, \"agent\", \"\""
+    }
+   ]
   }
  ]
 }

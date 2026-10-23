@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pax8/install.ps1
 ---
 
-# Pax8  -  Printing Press CLI
+# Pax8 - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -82,7 +82,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   pax8-cli overage --agent
   ```
-- **`since`**  -  Diff subscription snapshots and history over time to show new, cancelled, and quantity-changed subscriptions.
+- **`since`**  -  Show subscription changes in a window: synced history events plus subscriptions created or updated in it.
 
   _Reach for this to answer 'what changed in my book of business' without diffing exports by hand._
 
@@ -184,7 +184,7 @@ Joins a company to its subscriptions and invoices locally and narrows the deeply
 pax8-cli since 7d --agent
 ```
 
-Diffs subscription snapshots to show new, cancelled, and quantity-changed subscriptions.
+Lists the synced subscription history plus the subscriptions created or updated in the last 7 days.
 
 ### Find a product by vendor
 

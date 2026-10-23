@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/abnormal/install.ps1
 ---
 
-# Abnormal Security  -  Printing Press CLI
+# Abnormal Security - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

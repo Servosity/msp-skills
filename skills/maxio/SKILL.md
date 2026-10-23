@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/maxio/install.ps1
 ---
 
-# Maxio  -  Printing Press CLI
+# Maxio - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

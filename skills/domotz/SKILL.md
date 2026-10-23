@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/domotz/install.ps1
 ---
 
-# Domotz  -  Printing Press CLI
+# Domotz - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

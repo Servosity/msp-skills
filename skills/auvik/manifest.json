@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "auvik-pp-mcp",
+  "name": "auvik-mcp",
   "display_name": "Auvik",
   "version": "0.2.7",
   "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/auvik-pp-mcp",
+    "entry_point": "bin/auvik-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/auvik-pp-mcp",
+      "command": "${__dirname}/bin/auvik-mcp",
       "args": [],
       "env": {
         "AUVIK_API_KEY": "${user_config.auvik_api_key}",

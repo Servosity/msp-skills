@@ -124,12 +124,12 @@ func TestTriageOldestDaysFallsThroughToDateoccurred(t *testing.T) {
 	}
 }
 
-// --agent filters on the resolved label, so it must survive the CTE split, and
+// --agent-name filters on the resolved label, so it must survive the CTE split, and
 // its bind arguments must stay in statement order.
 func TestTriageAgentFilterMatchesResolvedName(t *testing.T) {
 	got := runTriage(t, triageFixture(t), "", "Grace")
 	if len(got) != 1 || got[0].who != "Grace" {
-		t.Fatalf("--agent Grace returned %+v, want exactly the Grace row", got)
+		t.Fatalf("--agent-name Grace returned %+v, want exactly the Grace row", got)
 	}
 }
 

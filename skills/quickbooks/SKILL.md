@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/quickbooks/install.ps1
 ---
 
-# QuickBooks Online  -  Printing Press CLI
+# QuickBooks Online - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

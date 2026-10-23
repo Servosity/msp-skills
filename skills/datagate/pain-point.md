@@ -29,6 +29,4 @@ of behind portal clicks:
 
 ## Status
 
-Beta. Built against DataGate's public API documentation; awaiting a
-live-verification report from an MSP running it against their own tenant (see
-[CONTRIBUTING.md](../../CONTRIBUTING.md), rung 1).
+Live-verified. Confirmed by an MSP via GitHub report against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/329)).

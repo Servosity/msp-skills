@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/autotask/install.ps1
 ---
 
-# Autotask PSA  -  Printing Press CLI
+# Autotask PSA - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

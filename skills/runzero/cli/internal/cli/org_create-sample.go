@@ -224,7 +224,7 @@ func newOrgCreateSampleCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagOid, "oid", "", "The current Organization")
-	cmd.Flags().StringVar(&bodyAgent, "agent", "", "Agent")
+	cmd.Flags().StringVar(&bodyAgent, "agent-id", "", "Agent (explorer) ID, a UUID, sent as the request body's agent field")
 	cmd.Flags().StringVar(&bodyExcludes, "excludes", "", "Excludes")
 	cmd.Flags().StringVar(&bodyExplorer, "explorer", "", "Explorer")
 	cmd.Flags().StringVar(&bodyInterfaces, "interfaces", "", "Interfaces")

@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/liongard/install.ps1
 ---
 
-# Liongard  -  Printing Press CLI
+# Liongard - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

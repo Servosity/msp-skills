@@ -79,7 +79,7 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "since [window]",
-		Short:       "Diff subscription snapshots and history over time to show new, cancelled, and quantity-changed subscriptions.",
+		Short:       "Show subscription changes in a window: synced history events plus subscriptions created or updated in it.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Long: `Show subscription changes within a recent window from the local store.
 

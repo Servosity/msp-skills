@@ -150,7 +150,7 @@ Highlights (not in the official API docs):
   • reconcile   Flag invoice lines that no longer match an active subscription, and active subscriptions that never got billed; --draft pre-checks the next unposted invoice.
   • mrr   Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with a per-product breakdown.
   • overage   Aggregate usage-lines per subscription and surface overages before they land on the customer invoice.
-  • since   Diff subscription snapshots and history over time to show new, cancelled, and quantity-changed subscriptions.
+  • since   Show subscription changes in a window: synced history events plus subscriptions created or updated in it.
   • company show   One view of a company with its subscriptions, contacts, invoices, and usage.
   • spend   Roll up invoice-items by company to show what each customer is costing across invoices.
 

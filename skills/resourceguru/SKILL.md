@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/resourceguru/install.ps1
 ---
 
-# Resource Guru  -  Printing Press CLI
+# Resource Guru - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

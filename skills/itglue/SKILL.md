@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/itglue/install.ps1
 ---
 
-# IT Glue  -  Printing Press CLI
+# IT Glue - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

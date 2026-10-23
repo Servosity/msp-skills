@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/microsoft-graph/install.ps1
 ---
 
-# Microsoft Graph  -  Printing Press CLI
+# Microsoft Graph - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

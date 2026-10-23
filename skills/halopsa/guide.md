@@ -183,7 +183,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this on Friday before submitting the timesheet. Stops 'I know I worked that ticket but where is it' archaeology._
 
   ```bash
-  halopsa-cli time gaps --agent=me --week current
+  halopsa-cli time gaps --agent-name=me --week current
   ```
 - **`contracts burn`**  -  Per contract: hours bank, hours consumed this period (sum of billable time on that client's tickets), days remaining, projected overage.
 
@@ -285,7 +285,7 @@ Get the client's complete situation in one query before answering the phone. Use
 ### Friday timesheet reconcile
 
 ```bash
-halopsa-cli time gaps --agent=me --week current --json
+halopsa-cli time gaps --agent-name=me --week current --json
 ```
 
 Find every ticket you touched this week with zero time logged so the gap doesn't ship with your timesheet.
@@ -4197,7 +4197,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/halo-pp-cli/config.toml`
+Config file: `~/.config/halopsa-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

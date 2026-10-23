@@ -464,7 +464,7 @@ func newProjectsListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagAdvancedSearch, "advanced-search", "", "Advanced search")
-	cmd.Flags().StringVar(&flagAgent, "agent", "", "(array of int) Returns tickets based on Agent ID's in the array.")
+	cmd.Flags().StringVar(&flagAgent, "agent-ids", "", "(array of int) Returns tickets based on Agent ID's in the array. Sent as the agent query parameter.")
 	cmd.Flags().StringVar(&flagAgentId, "agent-id", "", "(int) Filters by the specified agent.")
 	cmd.Flags().StringVar(&flagAlerttype, "alerttype", "", "(string) Includes fninjaalertid field in the response - 'ninjarmm' to use.")
 	cmd.Flags().StringVar(&flagAssetId, "asset-id", "", "(int) Filters by the specified asset.")

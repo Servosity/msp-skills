@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pipedrive/install.ps1
 ---
 
-# Pipedrive  -  Printing Press CLI
+# Pipedrive - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

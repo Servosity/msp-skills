@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/rocketcyber/install.ps1
 ---
 
-# RocketCyber  -  Printing Press CLI
+# RocketCyber - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

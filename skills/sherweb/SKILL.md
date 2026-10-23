@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sherweb/install.ps1
 ---
 
-# Sherweb  -  Printing Press CLI
+# Sherweb - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datagate/install.ps1
 ---
 
-# DataGate - Printing Press CLI
+# DataGate - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

@@ -13,7 +13,7 @@ metadata:
         - acronis-cli
 ---
 
-# Acronis Cyber Protect Cloud  -  Printing Press CLI
+# Acronis Cyber Protect Cloud - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

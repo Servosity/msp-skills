@@ -176,7 +176,7 @@ Run 'halopsa-cli sync' first to populate the local database.`,
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	cmd.Flags().StringVar(&team, "team", "", "Limit to one team")
-	cmd.Flags().StringVar(&agent, "agent", "", "Limit to one agent (matches agent_name)")
+	cmd.Flags().StringVar(&agent, "agent-name", "", "Limit to one agent (matches agent_name)")
 	cmd.Flags().IntVar(&staleDays, "stale-days", 7, "Days without action before a ticket counts as stale")
 	cmd.Flags().IntVar(&breachHrs, "breach-within", 24, "Hours-to-breach window")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Max agents to show")

@@ -197,7 +197,7 @@ Run more than one Backup/DR tool, or comparing options? These connectors work th
 
 ## Status
 
-Beta. Validated against the Acronis Cyber Protect Cloud API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by @asterisk79 (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/325)). Verified on v0.1.4; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

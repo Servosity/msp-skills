@@ -449,6 +449,52 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "since-help-says-history-not-snapshot-diff",
+   "class": "help-text-truth",
+   "summary": "`since` is described as synced history events plus subscriptions created or updated in the window, not a diff of subscription snapshots",
+   "why": "since.go never compares snapshots: it reads the synced subscription history and the current subscriptions whose created or updated date falls inside the window. The press copied the novel-feature blurb 'Diff subscription snapshots and history over time ...' into the command Short, the root help list, the `which` index and the MCP agent-context, so an agent was told the command does something it does not, and the docs quoted it (CodeRabbit on #419 fixed README/page.json only). A reprint re-emits the blurb into root.go, which.go and tools.go from the research notes.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: correct the novel-feature description in the pax8 research/novel-features record so a reprint emits the true text.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "Show subscription changes in a window: synced history events plus subscriptions created or updated in it.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Show subscription changes in a window: synced history events plus subscriptions created or updated in it.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Show subscription changes in a window: synced history events plus subscriptions created or updated in it.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Requires the subscription history synced into the local store; the list endpoint only returns current state.",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Diff subscription snapshots"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "Diff subscription snapshots"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "subscription snapshots"
+    }
+   ]
   }
  ]
 }

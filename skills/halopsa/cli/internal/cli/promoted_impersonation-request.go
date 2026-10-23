@@ -132,7 +132,7 @@ func newImpersonationRequestPromotedCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyWarning, "warning", "", "Warning")
-	cmd.Flags().IntVar(&bodyAgent, "agent", 0, "Agent")
+	cmd.Flags().IntVar(&bodyAgent, "agent-id", 0, "Agent ID, sent as the request body's agent field")
 	cmd.Flags().StringVar(&bodyEncId, "enc-id", "", "Enc id")
 	cmd.Flags().StringVar(&bodyIrid, "irid", "", "Irid")
 	cmd.Flags().StringVar(&bodyJwt, "jwt", "", "Jwt")

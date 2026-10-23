@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/n-central/install.ps1
 ---
 
-# N Central  -  Printing Press CLI
+# N Central - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

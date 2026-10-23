@@ -26,7 +26,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by DataGate.
 
-**✓ Live-verified by a real MSP** against a production tenant · 2026-09-16 · [receipt →](https://github.com/Servosity/msp-skills/issues/329). Verified on v0.1.0; the current release has changed since.
+**✓ Live-verified by an MSP via GitHub report** against a production tenant · 2026-09-16 · [receipt →](https://github.com/Servosity/msp-skills/issues/329). Verified on v0.1.0; the current release has changed since.
 
 Yes - there is an MCP server for DataGate. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects DataGate to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -127,7 +127,7 @@ Run more than one Billing tool, or comparing options? These connectors work the 
 
 ## Status
 
-Beta. Validated against the DataGate API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by an MSP via GitHub report against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/329)). Verified on v0.1.0; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

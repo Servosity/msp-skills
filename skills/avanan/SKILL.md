@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/avanan/install.ps1
 ---
 
-# Avanan  -  Printing Press CLI
+# Avanan - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sentinelone/install.ps1
 ---
 
-# SentinelOne  -  Printing Press CLI
+# SentinelOne - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

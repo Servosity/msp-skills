@@ -178,7 +178,7 @@ Run more than one PSA tool, or comparing options? These connectors work the same
 
 ## Status
 
-Beta. Validated against the Zammad API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. The version it verified was not recorded. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

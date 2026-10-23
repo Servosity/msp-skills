@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/betterstack/install.ps1
 ---
 
-# Better Stack  -  Printing Press CLI
+# Better Stack - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
