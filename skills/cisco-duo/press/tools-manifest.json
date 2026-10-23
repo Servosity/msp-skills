@@ -1,0 +1,2473 @@
+{
+  "api_name": "cisco-duo",
+  "base_url": "https://{api_host}",
+  "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {CISCO_DUO_IKEY}:{CISCO_DUO_SKEY}",
+    "env_vars": [
+      "CISCO_DUO_IKEY",
+      "CISCO_DUO_SKEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "CISCO_DUO_IKEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "Admin API integration key (ikey), e.g. DIWJ8X6AEYOR5OMC6TQ1."
+      },
+      {
+        "name": "CISCO_DUO_SKEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Admin API secret key (skey). Used only to sign requests."
+      }
+    ],
+    "key_url": "https://duo.com/docs/adminapi#first-steps"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_info_get-auth-attempts",
+      "description": "Authentication attempt counts by result (default last 30 days). Wire: GET /admin/v1/info/authentication_attempts signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Authentication Attempts Report'. Docs: Retrieve counts of authentication attempts for a given time period (not to exceed 180 days), broken down by result. Optional: mintime, maxtime. Returns the AccountInfoGetAuthAttemptsResponse.",
+      "method": "GET",
+      "path": "/admin/v1/info/authentication_attempts",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Window start, Unix SECONDS."
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "Window end, Unix SECONDS."
+        }
+      ]
+    },
+    {
+      "name": "account_info_get-summary",
+      "description": "Account summary: users, admins, integrations, telephony credits, edition. Wire: GET /admin/v1/info/summary signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Summary'. Docs: Returns a summary of account utilization information.",
+      "method": "GET",
+      "path": "/admin/v1/info/summary",
+      "params": []
+    },
+    {
+      "name": "account_info_get-telephony-credits-used",
+      "description": "Telephony credits used in a window (default last 30 days). Wire: GET /admin/v1/info/telephony_credits_used signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Telephony Credits Used Report'. Docs: This v1 endpoint will be deprecated in the future. You will need to migrate your use of this endpoint to the equivalent v2 endpoint when it becomes available to avoid service disruption. Optional: mintime, maxtime. Returns the AccountInfoGetTelephonyCreditsUsedResponse.",
+      "method": "GET",
+      "path": "/admin/v1/info/telephony_credits_used",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Window start, Unix SECONDS."
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "Window end, Unix SECONDS."
+        }
+      ]
+    },
+    {
+      "name": "account_info_get-user-auth-attempts",
+      "description": "Number of users with authentication attempts (default last 30 days). Wire: GET /admin/v1/info/user_authentication_attempts signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Users with Authentication Attempts Report'. Docs: Retrieve counts of users with authentication attempts for a given time period (not to exceed 180 days), broken down by result. Each count is the number of users who had at least one authentication attempt ending with that result. Optional: mintime, maxtime. Returns the AccountInfoGetUserAuthAttemptsResponse.",
+      "method": "GET",
+      "path": "/admin/v1/info/user_authentication_attempts",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Window start, Unix SECONDS."
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "Window end, Unix SECONDS."
+        }
+      ]
+    },
+    {
+      "name": "accounts_create",
+      "description": "Create a subaccount. Wire: POST /accounts/v1/account/create signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Subaccounts'. Docs: Create a new subaccount. Required: name. Returns the new AccountsCreateResponse.",
+      "method": "POST",
+      "path": "/accounts/v1/account/create",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name for the new subaccount.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_delete",
+      "description": "Delete a subaccount. Wire: POST /accounts/v1/account/delete signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Subaccounts'. Docs: Delete the account with ID account_id from the system. Required: account_id. Returns the new AccountsDeleteResponse.",
+      "method": "POST",
+      "path": "/accounts/v1/account/delete",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "body",
+          "description": "Subaccount ID to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_list",
+      "description": "List subaccounts of the MSP parent account. Wire: POST /accounts/v1/account/list signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Subaccounts'. Docs: Returns a list of subaccounts.",
+      "method": "POST",
+      "path": "/accounts/v1/account/list",
+      "params": []
+    },
+    {
+      "name": "admin_roles_get",
+      "description": "Get an administrator role. Wire: GET /admin/v1/admin_roles/{role_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Admin Role by ID'. Docs: Returns assignment detail for a standard admin role or a custom admin role identified by role_id. GET /admin/v1/admin_roles/[role_id] Parameters. Required: role_id.",
+      "method": "GET",
+      "path": "/admin/v1/admin_roles/{role_id}",
+      "params": [
+        {
+          "name": "role_id",
+          "type": "string",
+          "location": "path",
+          "description": "Role ID (e.g. help_desk).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admin_roles_list",
+      "description": "List administrator roles. Wire: GET /admin/v1/admin_roles signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Admin Roles'. Docs: Returns all administrative roles, both the eight standard roles and any custom roles.",
+      "method": "GET",
+      "path": "/admin/v1/admin_roles",
+      "params": []
+    },
+    {
+      "name": "admin_units_get",
+      "description": "Get an administrative unit. Wire: GET /admin/v1/administrative_units/{admin_unit_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Administrative Unit Details'. Docs: Returns details for a single administrative unit with admin_unit_id. Docs note: the docs describe one unit while the example wraps it in an array; modeled as one object. Required: admin_unit_id.",
+      "method": "GET",
+      "path": "/admin/v1/administrative_units/{admin_unit_id}",
+      "params": [
+        {
+          "name": "admin_unit_id",
+          "type": "string",
+          "location": "path",
+          "description": "Administrative unit ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admin_units_list",
+      "description": "List administrative units. Wire: GET /admin/v1/administrative_units signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Administrative Units'. Docs: Returns a paged list of all administrative units if no parameters specified. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Optional: limit, offset, admin_id (plus 2 more).",
+      "method": "GET",
+      "path": "/admin/v1/administrative_units",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        },
+        {
+          "name": "admin_id",
+          "type": "string",
+          "location": "query",
+          "description": "Only units containing this admin. Use at most one of admin_id, group_id, integration_key."
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "query",
+          "description": "Only units containing this group. Use at most one of admin_id, group_id, integration_key."
+        },
+        {
+          "name": "integration_key",
+          "type": "string",
+          "location": "query",
+          "description": "Only units containing this integration. Use at most one of admin_id, group_id, integration_key."
+        }
+      ]
+    },
+    {
+      "name": "admins_clear-inactivity",
+      "description": "Clear an administrator's inactivity expiration. Wire: POST /admin/v1/admins/{admin_id}/clear_inactivity signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Clear Administrator Expiration'. Docs: Clear expiration for the administrator with admin_id after the admin has been expired due to inactivity. The administrator's status changes from 'Expired' to the status applied to that admin before inactive expiration, and restores access to the Duo Admin Panel if the effective status is 'Active'. Required: admin_id. Returns the new AdminsClearInactivityResponse.",
+      "method": "POST",
+      "path": "/admin/v1/admins/{admin_id}/clear_inactivity",
+      "params": [
+        {
+          "name": "admin_id",
+          "type": "string",
+          "location": "path",
+          "description": "Administrator ID (admin_id from 'admins list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admins_create",
+      "description": "Create an administrator (activation link flow). Wire: POST /admin/v1/admins signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Administrator'. Docs: Create a new administrator. Required: email, name. Optional: phone, restricted_by_admin_units, role_id (plus 3 more). Returns the new AdminsCreateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/admins",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email address.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Administrator name.",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number, E.164 recommended. Docs: Phone number for the new administrator; E.164 format recommended (i.e. '+17345551212'). If no leading plus sign is provided then it is assumed to be a United States number and an implicit '+1' country code is prepended. Dashes and spaces are ignored. If this parameter is specified it cannot be empty."
+        },
+        {
+          "name": "restricted_by_admin_units",
+          "type": "bool",
+          "location": "body",
+          "description": "Restrict by administrative unit. Setting true for an Owner administrator fails. Docs: Is this administrator restricted by an administrative unit assignment? Either true or false. Defaults to false if not specified. Must be set to true in order to add the administrator to an administrative unit using the API. Note that attempting to set to true for administrators with the 'Owner' role results in a failure response."
+        },
+        {
+          "name": "role_id",
+          "type": "string",
+          "location": "body",
+          "description": "owner, service_manager, application_manager, user_manager, security_analyst, help_desk, billing, read_only, or a custom Role ID. Required whenever subaccount_role_id is set. Docs: The ID value of the administrator's role. One of: owner, service_manager, application_manager (formerly integration_manager), user_manager, security_analyst, help_desk, billing, read_only, or the 'Role ID' value for a custom admin role obtained via Retrieve Admin Roles or copied from the Admin Panel. The role IDs are case-sensitive. Defaults to owner if not specified. If the administrator is managed by directory sync, then the API may only set the role to owner, which converts the administrator to unmanaged by sync. Role IDs other than owner are effective only if the customer edition includes the Administrative Roles feature."
+        },
+        {
+          "name": "send_email",
+          "type": "string",
+          "location": "body",
+          "description": "1 to email the activation link. Docs: If set to 1, the activation link and an introductory message will be emailed to the new administrator. If set to 0, no email is sent, and the link is returned to the API method's caller only. Default: 0."
+        },
+        {
+          "name": "subaccount_role_id",
+          "type": "string",
+          "location": "body",
+          "description": "Role ID used when this admin accesses subaccounts. When set, role_id becomes required; if role_id is owner this must also be owner. Docs: The ID value of the administrator's role in subaccounts. One of: owner, service_manager, application_manager (formerly integration_manager), user_manager, security_analyst, help_desk, billing, read_only, or the 'Role ID' value for a custom admin role obtained via Retrieve Admin Roles or copied from the Admin Panel. The role IDs are case-sensitive. When specifying a subaccount role ID, the role_id parameter becomes required. Defaults to owner if not specified. If the role_id value is owner, the subaccount role ID must also be owner. If the administrator is managed by directory sync, then the API may only set the role to owner, which converts the administrator to unmanaged by sync. Role IDs other than owner are effective only if the customer edition includes the Administrative Roles feature. This parameter requires that the target is an MSP customer, can create subaccounts, or has existing subaccounts."
+        },
+        {
+          "name": "valid_days",
+          "type": "string",
+          "location": "body",
+          "description": "Days before the activation link expires (default 7, max 31)."
+        }
+      ]
+    },
+    {
+      "name": "admins_delete",
+      "description": "Delete an administrator. Wire: DELETE /admin/v1/admins/{admin_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Administrator'. Docs: Delete the administrator with administrator ID admin_id from the system. Administrators managed by directory sync can not be deleted via API. Required: admin_id. Returns the AdminsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/admins/{admin_id}",
+      "params": [
+        {
+          "name": "admin_id",
+          "type": "string",
+          "location": "path",
+          "description": "Administrator ID (admin_id from 'admins list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admins_get",
+      "description": "Get an administrator. Wire: GET /admin/v1/admins/{admin_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Administrator by ID'. Docs: Return the single administrator with the administrator ID admin_id. Required: admin_id. Returns the AdminsGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/admins/{admin_id}",
+      "params": [
+        {
+          "name": "admin_id",
+          "type": "string",
+          "location": "path",
+          "description": "Administrator ID (admin_id from 'admins list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admins_list",
+      "description": "List administrators. Wire: GET /admin/v1/admins signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Administrators'. Docs: Returns a paged list of administrators. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/admins",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "admins_list-activations",
+      "description": "List pending administrator activations. Wire: GET /admin/v1/admins/activations signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Pending Administrator Activations'. Docs: Returns a paged list of pending administrator activations. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Docs note: the docs prose says a paged list while its example shows a single object; modeled as the documented list. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/admins/activations",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "admins_reset",
+      "description": "Reset an administrator's failed authentication attempt count (admin lockout). Wire: POST /admin/v1/admins/{admin_id}/reset signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Reset Administrator Authentication Attempts'. Docs: Clear the number of failed login attempts for the administrator with admin_id. Re-enables an administrator who has been disabled due to too many failed authentication attempts. Required: admin_id. Returns the new AdminsResetResponse.",
+      "method": "POST",
+      "path": "/admin/v1/admins/{admin_id}/reset",
+      "params": [
+        {
+          "name": "admin_id",
+          "type": "string",
+          "location": "path",
+          "description": "Administrator ID (admin_id from 'admins list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admins_update",
+      "description": "Modify an administrator. Wire: POST /admin/v1/admins/{admin_id} signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Modify Administrator'. Docs: Change the name, phone number, or other properties of the administrator with the administrator ID admin_id. Required: admin_id. Optional: name, password_change_required, phone (plus 4 more). Returns the new AdminsUpdateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/admins/{admin_id}",
+      "params": [
+        {
+          "name": "admin_id",
+          "type": "string",
+          "location": "path",
+          "description": "Administrator ID (admin_id from 'admins list').",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Administrator name. Docs: New name for the administrator. Read-only if the administrator is managed by directory sync."
+        },
+        {
+          "name": "password_change_required",
+          "type": "bool",
+          "location": "body",
+          "description": "Require a new password at next login. Docs: Specify true to require that the administrator pick a new password at their next login, or false if no password change is required. May not be changed to true if the administrator has external password management enabled."
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number, E.164 recommended. Docs: The phone number; E.164 format recommended (i.e. '+17345551212'). If no leading plus sign is provided then it is assumed to be a United States number and an implicit '+1' country code is prepended. Dashes and spaces are ignored. If this parameter is specified it cannot be empty."
+        },
+        {
+          "name": "restricted_by_admin_units",
+          "type": "bool",
+          "location": "body",
+          "description": "Restrict by administrative unit. Setting true for an Owner administrator fails. Docs: Is this administrator restricted by an administrative unit assignment? Either true or false. Must be set to true in order to add the administrator to an administrative unit using the API. Note that attempting to set to true for administrators with the 'Owner' role results in a failure response."
+        },
+        {
+          "name": "role_id",
+          "type": "string",
+          "location": "body",
+          "description": "owner, service_manager, application_manager, user_manager, security_analyst, help_desk, billing, read_only, or a custom Role ID. Required whenever subaccount_role_id is set. Docs: The ID value of the administrator's new role. One of: owner, service_manager, application_manager (formerly integration_manager), user_manager, security_analyst, help_desk, billing, read_only, or the 'Role ID' value for a custom admin role obtained via Retrieve Admin Roles or copied from the Admin Panel. The role IDs are case-sensitive. Defaults to owner if not specified. If the administrator is managed by directory sync, then the API may only set the role to owner, which converts the administrator to unmanaged by sync. Role IDs other than owner are effective only if the customer edition includes the Administrative Roles feature."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Active or Disabled (case-sensitive). Owner administrators may not be disabled via API. Docs: The desired administrator account status. Either 'Active' or 'Disabled' (case-sensitive). Administrators with the 'Owner' role may not be disabled via API. To clear an inactive administrator's 'Expired' status, see Clear Administrator Expiration. Read-only if the administrator is managed by directory sync."
+        },
+        {
+          "name": "subaccount_role_id",
+          "type": "string",
+          "location": "body",
+          "description": "Role ID used when this admin accesses subaccounts. When set, role_id becomes required; if role_id is owner this must also be owner. Docs: The new role ID for the administrator when accessing a subaccount. One of: owner, service_manager, application_manager (formerly integration_manager), user_manager, security_analyst, help_desk, billing, read_only, or the 'Role ID' value for a custom admin role obtained via Retrieve Admin Roles or copied from the Admin Panel. The role IDs are case-sensitive. When specifying a subaccount role ID, the role_id parameter becomes required. Defaults to owner if not specified. If the role_id value is owner, the subaccount role ID must also be owner. If the administrator is managed by directory sync, then the API may only set the role to owner, which converts the administrator to unmanaged by sync. Role IDs other than owner are effective only if the customer edition includes the Administrative Roles feature. This parameter requires that the target is an MSP customer, can create subaccounts, or has existing subaccounts."
+        }
+      ]
+    },
+    {
+      "name": "billing_get-edition",
+      "description": "Get a subaccount's Duo edition. Wire: GET /admin/v1/billing/edition signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Get Subaccount Edition'. Docs: Returns the Duo edition information for a subaccount. Required: account_id.",
+      "method": "GET",
+      "path": "/admin/v1/billing/edition",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "query",
+          "description": "Subaccount ID as returned by 'accounts list' (20 characters, for example DA9VZOC5X63I2W72NRP9).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_get-telephony-credits",
+      "description": "Get a subaccount's telephony credits. Wire: GET /admin/v1/billing/telephony_credits signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Get Subaccount Telephony Credits'. Docs: Returns the available telephony credits for a subaccount. Required: account_id.",
+      "method": "GET",
+      "path": "/admin/v1/billing/telephony_credits",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "query",
+          "description": "Subaccount ID as returned by 'accounts list' (20 characters, for example DA9VZOC5X63I2W72NRP9).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_get-user-limit",
+      "description": "Get a subaccount's user limit and user count. Wire: GET /admin/v1/billing/user_limit signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Get Subaccount User Limit'. Docs: Returns the current user count and the hard user limit for a subaccount. Contact your MSP Partner Manager to have the user limit feature enabled for your account. Required: account_id.",
+      "method": "GET",
+      "path": "/admin/v1/billing/user_limit",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "query",
+          "description": "Subaccount ID as returned by 'accounts list' (20 characters, for example DA9VZOC5X63I2W72NRP9).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_set-edition",
+      "description": "Set a subaccount's Duo edition. Wire: POST /admin/v1/billing/edition signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Set Subaccount Edition'. Docs: Sets the effective Duo edition for a subaccount. Required: account_id, edition. Returns the new BillingSetEditionResponse.",
+      "method": "POST",
+      "path": "/admin/v1/billing/edition",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "body",
+          "description": "Subaccount ID as returned by 'accounts list' (20 characters, for example DA9VZOC5X63I2W72NRP9).",
+          "required": true
+        },
+        {
+          "name": "edition",
+          "type": "string",
+          "location": "body",
+          "description": "ENTERPRISE (Essentials), PLATFORM (Advantage), or BEYOND (Premier).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_set-telephony-credits",
+      "description": "Set a subaccount's telephony credit total (moved from the parent). Wire: POST /admin/v1/billing/telephony_credits signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Set Subaccount Telephony Credits'. Docs: Sets the telephony credits for a subaccount. Required: account_id, credits. Returns the new BillingSetTelephonyCreditsResponse.",
+      "method": "POST",
+      "path": "/admin/v1/billing/telephony_credits",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "body",
+          "description": "Subaccount ID as returned by 'accounts list' (20 characters, for example DA9VZOC5X63I2W72NRP9).",
+          "required": true
+        },
+        {
+          "name": "credits",
+          "type": "string",
+          "location": "body",
+          "description": "Total credits the subaccount will have after the transfer.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_set-user-limit",
+      "description": "Set or remove a subaccount's user limit. Wire: POST /admin/v1/billing/user_limit signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Set Subaccount User Limit'. Docs: Sets or removes the hard user limit on a subaccount. Contact your MSP Partner Manager to have the user limit feature enabled for your account. Required: account_id, user_limit. Returns the new BillingSetUserLimitResponse.",
+      "method": "POST",
+      "path": "/admin/v1/billing/user_limit",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "body",
+          "description": "Subaccount ID as returned by 'accounts list' (20 characters, for example DA9VZOC5X63I2W72NRP9).",
+          "required": true
+        },
+        {
+          "name": "user_limit",
+          "type": "string",
+          "location": "body",
+          "description": "Positive integer to enforce a hard limit, or 0 to remove it.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "bypass_codes_delete",
+      "description": "Delete (revoke) a bypass code. Wire: DELETE /admin/v1/bypass_codes/{bypass_code_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Bypass Code'. Docs: Delete the bypass code with ID bypass_code_id from the system. Required: bypass_code_id. Returns the BypassCodesDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/bypass_codes/{bypass_code_id}",
+      "params": [
+        {
+          "name": "bypass_code_id",
+          "type": "string",
+          "location": "path",
+          "description": "Bypass code ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "bypass_codes_get",
+      "description": "Get bypass code metadata. Wire: GET /admin/v1/bypass_codes/{bypass_code_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Bypass Code by ID'. Docs: Return information about a single bypass code with bypass_code_id. Output does not include the actual bypass code. Required: bypass_code_id. Returns the BypassCodesGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/bypass_codes/{bypass_code_id}",
+      "params": [
+        {
+          "name": "bypass_code_id",
+          "type": "string",
+          "location": "path",
+          "description": "Bypass code ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "bypass_codes_list",
+      "description": "List bypass code metadata across all users. Wire: GET /admin/v1/bypass_codes signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Bypass Codes'. Docs: Returns a paged list of information about all bypass codes. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Output does not include the actual bypass codes. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/bypass_codes",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "desktop_authenticators_delete",
+      "description": "Delete a Duo Desktop authenticator. Wire: DELETE /admin/v1/desktop_authenticators/{dakey} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Desktop Authenticator'. Docs: Delete the desktop authenticator with key dakey from the system. Required: dakey. Returns the DesktopAuthenticatorsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/desktop_authenticators/{dakey}",
+      "params": [
+        {
+          "name": "dakey",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop authenticator key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop_authenticators_get",
+      "description": "Get a Duo Desktop authenticator. Wire: GET /admin/v1/desktop_authenticators/{dakey} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Desktop Authenticator by Key'. Docs: Return the single desktop authenticator with dakey. Required: dakey. Returns the DesktopAuthenticatorsGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/desktop_authenticators/{dakey}",
+      "params": [
+        {
+          "name": "dakey",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop authenticator key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop_authenticators_list",
+      "description": "List Duo Desktop authenticators. Wire: GET /admin/v1/desktop_authenticators signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Desktop Authenticators'. Docs: Returns a paged list of desktop authenticators. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/desktop_authenticators",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "directory_sync_list",
+      "description": "List external directory syncs. Wire: GET /admin/v1/users/directorysync signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'List External Directory Syncs'. Docs: Returns a list of user external directory syncs with basic information.",
+      "method": "GET",
+      "path": "/admin/v1/users/directorysync",
+      "params": []
+    },
+    {
+      "name": "directory_sync_sync-user",
+      "description": "Create or update one user from an external directory. Wire: POST /admin/v1/users/directorysync/{directory_key}/syncuser signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Synchronize User from External Directory'. Docs: Initiate a sync to create, update, or mark for deletion the user specified by username against the directory specified by the directory_key. The directory_key for a directory can be found by navigating to Users → Directory Sync in the Duo Admin Panel, and then clicking on the configured directory. Learn more about syncing individual users from Active Directory, OpenLDAP, or Entra ID. Required: directory_key, username. Returns the new DirectorySyncSyncUserResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/directorysync/{directory_key}/syncuser",
+      "params": [
+        {
+          "name": "directory_key",
+          "type": "string",
+          "location": "path",
+          "description": "Directory key from 'directory-sync list'.",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username as it appears in the source directory.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get",
+      "description": "Get an endpoint. Wire: GET /admin/v1/endpoints/{epkey} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Endpoint by ID'. Docs: Return information for an individual endpoint with epkey. Required: epkey. Returns the EndpointsGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/endpoints/{epkey}",
+      "params": [
+        {
+          "name": "epkey",
+          "type": "string",
+          "location": "path",
+          "description": "Endpoint key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_list",
+      "description": "List endpoints (devices that accessed Duo apps). Wire: GET /admin/v1/endpoints signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Endpoints'. Docs: Returns a paged list of endpoints. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. When no limit is specified the response is limited to 100 results. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/endpoints",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "groups_create",
+      "description": "Create a group. Wire: POST /admin/v1/groups signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Group'. Docs: Create a new group. Required: name. Optional: desc, status. Returns the new GroupsCreateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/groups",
+      "params": [
+        {
+          "name": "desc",
+          "type": "string",
+          "location": "body",
+          "description": "Group description."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Group name.",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Authentication status for members (see Retrieve Groups)."
+        }
+      ]
+    },
+    {
+      "name": "groups_delete",
+      "description": "Delete a group. Wire: DELETE /admin/v1/groups/{group_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Group'. Docs: Delete a group. Required: group_id. Returns the GroupsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/groups/{group_id}",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo group ID (group_id from 'groups list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a group. Wire: GET /admin/v2/groups/{group_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Get Group Info'. Docs: See the Admin API v1 legacy instructions for more information about the Get Group Info v1 endpoint. Required: group_id. Returns the GroupsGetResponse.",
+      "method": "GET",
+      "path": "/admin/v2/groups/{group_id}",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo group ID (group_id from 'groups list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "List groups. Wire: GET /admin/v1/groups signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Groups'. Docs: Returns a paged list of groups. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/groups",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 100."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "groups_list-members",
+      "description": "List a group's members. Wire: GET /admin/v2/groups/{group_id}/users signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Get Group Members'. Required: group_id. Optional: limit, offset. Returns array of GroupsListMembersItem.",
+      "method": "GET",
+      "path": "/admin/v2/groups/{group_id}/users",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo group ID (group_id from 'groups list').",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "groups_update",
+      "description": "Update a group. Wire: POST /admin/v1/groups/{group_id} signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Update Group'. Docs: Update information about a group. Required: group_id. Optional: desc, name, status. Returns the new GroupsUpdateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/groups/{group_id}",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo group ID (group_id from 'groups list').",
+          "required": true
+        },
+        {
+          "name": "desc",
+          "type": "string",
+          "location": "body",
+          "description": "Group description."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Group name."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Authentication status for members (see Retrieve Groups)."
+        }
+      ]
+    },
+    {
+      "name": "identity_verification_cancel",
+      "description": "Cancel an identity verification. Wire: POST /admin/v2/identity_verification/{user_id}/cancel signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Cancel Identity Verification'. Docs: Cancels the identity verification process for a specified user. Requires the 'Grant identity verification - Write' API permission. Required: user_id, inquiry_id. Returns the new IdentityVerificationCancelResponse.",
+      "method": "POST",
+      "path": "/admin/v2/identity_verification/{user_id}/cancel",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "inquiry_id",
+          "type": "string",
+          "location": "body",
+          "description": "inquiry_id returned by start.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "identity_verification_get",
+      "description": "Get identity verification status for a user. Wire: GET /admin/v2/identity_verification/{user_id}/status signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Get Identity Verification Status'. Docs: Retrieves current status of the user's recent identity verification. Requires the 'Grant identity verification - Read' API permission. Required: user_id. Returns the IdentityVerificationGetResponse.",
+      "method": "GET",
+      "path": "/admin/v2/identity_verification/{user_id}/status",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "identity_verification_start",
+      "description": "Start a Duo identity verification for a user. Wire: POST /admin/v2/identity_verification/{user_id}/start signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Start Identity Verification'. Docs: Initiates the Duo Identity Verification process by generating an access code. This code is used to redirect the user to Persona for verification. User is identified by the user_id. Requires the 'Grant identity verification - Write' API permission. Required: user_id. Returns the new IdentityVerificationStartResponse.",
+      "method": "POST",
+      "path": "/admin/v2/identity_verification/{user_id}/start",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_get",
+      "description": "Get an integration. Wire: GET /admin/v3/integrations/{integration_key} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Integration by Integration Key'. Docs: Return the single integration with integration_key. Returns SSO parameters for generic Duo Single Sign-On applications only. Required: integration_key.",
+      "method": "GET",
+      "path": "/admin/v3/integrations/{integration_key}",
+      "params": [
+        {
+          "name": "integration_key",
+          "type": "string",
+          "location": "path",
+          "description": "Integration key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_list",
+      "description": "List integrations (applications); secret keys are not requested. Wire: GET /admin/v3/integrations signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Integrations'. Docs: Returns a paged list of integrations. Returns SSO parameters for generic Duo Single Sign-On applications only. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v3/integrations",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "logs_get-activity",
+      "description": "Activity log events (v2). Wire: GET /admin/v2/logs/activity signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Activity Logs'. Docs: Returns a paged list of activity log events ranging from the last 180 days up to as recently as two minutes before the API request. The events returned are subject to log retention, if set up in the account, as described here. To fetch all results, call repeatedly with the next_offset paging parameter as long as the result metadata has next_offset values. Required: mintime, maxtime. Optional: limit, next_offset, sort.",
+      "method": "GET",
+      "path": "/admin/v2/logs/activity",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Return records at or after this time. 13-digit Unix timestamp in milliseconds.",
+          "required": true
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "Return records at or before this time (must be \u003e mintime). 13-digit Unix timestamp in milliseconds.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 1000."
+        },
+        {
+          "name": "next_offset",
+          "type": "string",
+          "location": "query",
+          "description": "Paging cursor from the previous page's metadata.next_offset, as '\u003cms\u003e,\u003ctxid\u003e'."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "ts:desc (default) or ts:asc."
+        }
+      ]
+    },
+    {
+      "name": "logs_get-admin",
+      "description": "Administrator action log (v1, 1000 per call). Wire: GET /admin/v1/logs/administrator signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Administrator Logs'. Docs: This v1 endpoint will be deprecated in the future. Migrate your use of this logging endpoint to the Activity Logs v2 endpoint before then to avoid service disruption. Optional: mintime. Returns array of AdminLogEvent.",
+      "method": "GET",
+      "path": "/admin/v1/logs/administrator",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Only records after this Unix timestamp in SECONDS. Docs: Only return records that have a Unix timestamp in seconds after mintime. This can help to avoid fetching records that have already been retrieved."
+        }
+      ]
+    },
+    {
+      "name": "logs_get-auth",
+      "description": "Authentication log events (v2, filterable). Wire: GET /admin/v2/logs/authentication signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Authentication Logs'. Docs: See the Admin API v1 legacy instructions for more information about the Authentication Logs v1 endpoint. Required: mintime, maxtime. Optional: limit, next_offset, sort (plus 8 more). Returns the LogsGetAuthResponse.",
+      "method": "GET",
+      "path": "/admin/v2/logs/authentication",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Return records at or after this time. 13-digit Unix timestamp in milliseconds.",
+          "required": true
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "Return records at or before this time (must be \u003e mintime). 13-digit Unix timestamp in milliseconds.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 1000."
+        },
+        {
+          "name": "next_offset",
+          "type": "string",
+          "location": "query",
+          "description": "Paging cursor from the previous page's metadata.next_offset, as '\u003cms\u003e,\u003ctxid\u003e'."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "ts:desc (default) or ts:asc."
+        },
+        {
+          "name": "users",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by user_id (repeatable, OR)."
+        },
+        {
+          "name": "applications",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by integration_key (repeatable, OR)."
+        },
+        {
+          "name": "results",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by result: success, denied, fraud (repeatable, OR)."
+        },
+        {
+          "name": "reasons",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by reason, e.g. user_disabled, locked_out, deny_unenrolled_user (repeatable, OR)."
+        },
+        {
+          "name": "factors",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by factor, e.g. duo_push, bypass_code, phone_call (repeatable, OR)."
+        },
+        {
+          "name": "event_types",
+          "type": "array",
+          "location": "query",
+          "description": "authentication or enrollment (repeatable, OR)."
+        },
+        {
+          "name": "groups",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by group_id (repeatable, OR)."
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by WebAuthn/U2F token key (repeatable, OR)."
+        }
+      ]
+    },
+    {
+      "name": "logs_get-offline-enrollment",
+      "description": "Offline enrollment log (v1). Wire: GET /admin/v1/logs/offline_enrollment signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Offline Enrollment Logs'. Docs: This v1 endpoint will be deprecated in the future. Migrate your use of this logging endpoint to the Activity Logs v2 endpoint before then to avoid service disruption. Optional: mintime. Returns array of OfflineEnrollmentEvent.",
+      "method": "GET",
+      "path": "/admin/v1/logs/offline_enrollment",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Only records at or after this Unix timestamp in SECONDS. Docs: Only return records that have a Unix timestamp in seconds of mintime or later. Use mintime+1 to avoid receiving duplicate data."
+        }
+      ]
+    },
+    {
+      "name": "logs_get-telephony",
+      "description": "Telephony log events (v2). Wire: GET /admin/v2/logs/telephony signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Telephony Logs'. Docs: See the Admin API v1 legacy instructions for more information about the Telephony Logs v1 endpoint. Required: mintime, maxtime. Optional: limit, next_offset, sort. Returns the LogsGetTelephonyResponse.",
+      "method": "GET",
+      "path": "/admin/v2/logs/telephony",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Return records at or after this time. 13-digit Unix timestamp in milliseconds.",
+          "required": true
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "Return records at or before this time (must be \u003e mintime). 13-digit Unix timestamp in milliseconds.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 1000."
+        },
+        {
+          "name": "next_offset",
+          "type": "string",
+          "location": "query",
+          "description": "Paging cursor from the previous page's metadata.next_offset, as '\u003cms\u003e,\u003ctxid\u003e'."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "ts:desc (default) or ts:asc."
+        }
+      ]
+    },
+    {
+      "name": "passport_get-config",
+      "description": "Get Duo Passport configuration. Wire: GET /admin/v2/passport/config signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Passport Configuration'. Docs: Returns the configuration for Duo Passport.",
+      "method": "GET",
+      "path": "/admin/v2/passport/config",
+      "params": []
+    },
+    {
+      "name": "phones_create",
+      "description": "Create a phone. Wire: POST /admin/v1/phones signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Phone'. Docs: Create a new phone with a specified phone number or other parameters. Optional: extension, name, number (plus 4 more). Returns the new PhonesCreateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/phones",
+      "params": [
+        {
+          "name": "extension",
+          "type": "string",
+          "location": "body",
+          "description": "Extension."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Free-form label."
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number, E.164 recommended (+17345551212). Docs: The phone number; E.164 format recommended (i.e. '+17345551212'). If no leading plus sign is provided then it is assumed to be a United States number and an implicit '+1' country code is prepended. Dashes and spaces are ignored. A phone with a smartphone platform but no number is a tablet."
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "body",
+          "description": "Phone platform. Use Generic Smartphone plus an activation code when unsure."
+        },
+        {
+          "name": "postdelay",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds to wait after the extension before the prompt."
+        },
+        {
+          "name": "predelay",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds to wait after pickup before dialing the extension."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Phone type."
+        }
+      ]
+    },
+    {
+      "name": "phones_create-activation-url",
+      "description": "Create a Duo Mobile activation code/URL for a phone (reactivation). Wire: POST /admin/v1/phones/{phone_id}/activation_url signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Activation Code'. Docs: Generate a Duo Mobile activation code. This method will fail if the phone's type or platform are Unknown. Required: phone_id. Optional: install, valid_secs. Returns the new PhonesCreateActivationUrlResponse.",
+      "method": "POST",
+      "path": "/admin/v1/phones/{phone_id}/activation_url",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        },
+        {
+          "name": "install",
+          "type": "string",
+          "location": "body",
+          "description": "1 to also return an install URL. Docs: Specify 1 to also return an installation URL for Duo Mobile; 0 to not return a URL. Default: 0."
+        },
+        {
+          "name": "valid_secs",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds the code stays valid. Default 86400. Docs: The number of seconds this activation code remains valid. Default: 86400 (one day). Expiration not supported for legacy phone platforms that support passcode generation only (not Duo Push)."
+        }
+      ]
+    },
+    {
+      "name": "phones_delete",
+      "description": "Delete a phone. Wire: DELETE /admin/v1/phones/{phone_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Phone'. Docs: Delete the phone with ID phone_id from the system. Required: phone_id. Returns the PhonesDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/phones/{phone_id}",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phones_get",
+      "description": "Get a phone. Wire: GET /admin/v1/phones/{phone_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Phone by ID'. Docs: Return the single phone with phone_id. Required: phone_id. Returns the PhonesGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/phones/{phone_id}",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phones_list",
+      "description": "List phones, or look one up by number. Wire: GET /admin/v1/phones signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Phones'. Docs: Returns a paged list of phones. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. If no number or extension parameters are provided, the list will contain all phones. Otherwise, the list will contain either a single phone (if a match was found), or no phones. Optional: limit, offset, number (plus 1 more).",
+      "method": "GET",
+      "path": "/admin/v1/phones",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "query",
+          "description": "Phone number in E.164 format."
+        },
+        {
+          "name": "extension",
+          "type": "string",
+          "location": "query",
+          "description": "Extension, if any."
+        }
+      ]
+    },
+    {
+      "name": "phones_send-sms-activation",
+      "description": "Text a Duo Mobile activation link to a phone. Wire: POST /admin/v1/phones/{phone_id}/send_sms_activation signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Send Activation Code via SMS'. Docs: The recommended maximum length for activation_msg and installation_msg is 80 characters. Required: phone_id. Optional: activation_msg, install, installation_msg (plus 1 more). Returns the new PhonesSendSmsActivationResponse.",
+      "method": "POST",
+      "path": "/admin/v1/phones/{phone_id}/send_sms_activation",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        },
+        {
+          "name": "activation_msg",
+          "type": "string",
+          "location": "body",
+          "description": "Custom activation message; must contain \u003cacturl\u003e. Docs: A custom activation message to send to the user. Must contain '\u003cacturl\u003e', which is replaced with the activation URL. Do not include any dot-embedded text, such as first.last usernames, example.com domain names, or additional URLs."
+        },
+        {
+          "name": "install",
+          "type": "string",
+          "location": "body",
+          "description": "1 to send an install SMS first. Docs: Specify 1 to cause an installation SMS message to be sent before the activation message, or 0 to not send an installation SMS message. Default: 0."
+        },
+        {
+          "name": "installation_msg",
+          "type": "string",
+          "location": "body",
+          "description": "Custom install message; must contain \u003cinsturl\u003e. Only valid with install set to 1. Docs: A custom installation message to send to the user. Only valid if installation was requested. Must contain the phrase '\u003cinsturl\u003e', which is replaced with the installation URL. Do not include any dot-embedded text, such as first.last usernames, example.com domain names, or additional URLs."
+        },
+        {
+          "name": "valid_secs",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds the code stays valid. Default 86400."
+        }
+      ]
+    },
+    {
+      "name": "phones_send-sms-installation",
+      "description": "Text Duo Mobile install instructions to a phone. Wire: POST /admin/v1/phones/{phone_id}/send_sms_installation signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Send Installation URL via SMS'. Docs: The recommended maximum length for installation_msg is 80 characters. Required: phone_id. Optional: installation_msg. Returns the new PhonesSendSmsInstallationResponse.",
+      "method": "POST",
+      "path": "/admin/v1/phones/{phone_id}/send_sms_installation",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        },
+        {
+          "name": "installation_msg",
+          "type": "string",
+          "location": "body",
+          "description": "Custom message; must contain \u003cinsturl\u003e. Docs: A custom installation message to send to the user. Must contain the phrase '\u003cinsturl\u003e', which is replaced with the installation URL. Do not include any dot-embedded text, such as first.last usernames, example.com domain names, or additional URLs."
+        }
+      ]
+    },
+    {
+      "name": "phones_send-sms-passcodes",
+      "description": "Text a new batch of SMS passcodes to a phone. Wire: POST /admin/v1/phones/{phone_id}/send_sms_passcodes signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Send Passcodes via SMS'. Docs: Generate a new batch of SMS passcodes and send them to the phone in a single SMS message. Required: phone_id. Returns the new PhonesSendSmsPasscodesResponse.",
+      "method": "POST",
+      "path": "/admin/v1/phones/{phone_id}/send_sms_passcodes",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phones_set-quarantine-status",
+      "description": "Quarantine or release a device. Wire: POST /admin/v2/phones/{phone_id}/quarantine_status signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Set Quarantine Status'. Docs: Quarantine Status is available to Duo Premier and Duo Advantage plan customers. Required: phone_id, quarantine_status. Optional: quarantine_status_reason. Returns the new PhonesSetQuarantineStatusResponse.",
+      "method": "POST",
+      "path": "/admin/v2/phones/{phone_id}/quarantine_status",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        },
+        {
+          "name": "quarantine_status",
+          "type": "string",
+          "location": "body",
+          "description": "true to quarantine, false to restore.",
+          "required": true
+        },
+        {
+          "name": "quarantine_status_reason",
+          "type": "string",
+          "location": "body",
+          "description": "Optional reason (max 1024 chars)."
+        }
+      ]
+    },
+    {
+      "name": "phones_update",
+      "description": "Modify a phone. Wire: POST /admin/v1/phones/{phone_id} signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Modify Phone'. Docs: Change the details of the phone with ID phone_id. Required: phone_id. Optional: extension, name, number (plus 4 more). Returns the new PhonesUpdateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/phones/{phone_id}",
+      "params": [
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        },
+        {
+          "name": "extension",
+          "type": "string",
+          "location": "body",
+          "description": "Extension."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Free-form label."
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number, E.164 recommended (+17345551212). Docs: The new phone number; E.164 format recommended (i.e. '+17345551212'). If no leading plus sign is provided then it is assumed to be a United States number and an implicit '+1' country code is prepended. Dashes and spaces are ignored."
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "body",
+          "description": "Phone platform. Use Generic Smartphone plus an activation code when unsure."
+        },
+        {
+          "name": "postdelay",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds to wait after the extension before the prompt."
+        },
+        {
+          "name": "predelay",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds to wait after pickup before dialing the extension."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Phone type."
+        }
+      ]
+    },
+    {
+      "name": "policies_calculate-policy",
+      "description": "Show the effective policy for a user in an application. Wire: GET /admin/v2/policies/calculate signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Resulting Policy'. Docs: Returns the resulting policy for a given user/application pair. The resulting policy is constructed from the top-most sections from the entire stack of policies applied for a given ikey. Required: user_id, integration_key.",
+      "method": "GET",
+      "path": "/admin/v2/policies/calculate",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "query",
+          "description": "User ID to evaluate.",
+          "required": true
+        },
+        {
+          "name": "integration_key",
+          "type": "string",
+          "location": "query",
+          "description": "Integration key of the application to evaluate.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get-global-policy",
+      "description": "Get the global policy. Wire: GET /admin/v2/policies/global signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Policy by ID (global)'. Docs: Return the single policy with the specified policy_key. Use global as a shortcut for the global policy. Includs all policy section data. Docs note: the docs say a single policy object while the example starts with an array; modeled as one object. Returns the PoliciesGetGlobalPolicyResponse.",
+      "method": "GET",
+      "path": "/admin/v2/policies/global",
+      "params": []
+    },
+    {
+      "name": "policies_get-policy",
+      "description": "Get a policy. Wire: GET /admin/v2/policies/{policy_key} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Policy by ID'. Docs: Return the single policy with the specified policy_key. Use global as a shortcut for the global policy. Includs all policy section data. Docs note: the docs say a single policy object while the example starts with an array; modeled as one object. Required: policy_key. Returns the PoliciesGetPolicyResponse.",
+      "method": "GET",
+      "path": "/admin/v2/policies/{policy_key}",
+      "params": [
+        {
+          "name": "policy_key",
+          "type": "string",
+          "location": "path",
+          "description": "Policy key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "List policies with all sections. Wire: GET /admin/v2/policies signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Policies'. Docs: Retrieve a complete set of all policies. Includes all policy section data for each policy. Optional: limit, offset. Returns array of Policy.",
+      "method": "GET",
+      "path": "/admin/v2/policies",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 50; max 100."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "policies_summarize",
+      "description": "Summarize policies and where they apply. Wire: GET /admin/v2/policies/summary signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Summarize Policies'. Docs: Returns policy names, keys, and applications or groups to which a policy is applied.",
+      "method": "GET",
+      "path": "/admin/v2/policies/summary",
+      "params": []
+    },
+    {
+      "name": "registered_devices_block-device",
+      "description": "Block a registered device. Wire: POST /admin/v1/registered_devices/blocked/{compkey} signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Block Device by ID'. Docs: Block a device from accessing any applications protected by a Duo policy that requires device registration with compkey. Required: compkey. Returns the new RegisteredDevicesBlockDeviceResponse.",
+      "method": "POST",
+      "path": "/admin/v1/registered_devices/blocked/{compkey}",
+      "params": [
+        {
+          "name": "compkey",
+          "type": "string",
+          "location": "path",
+          "description": "Registered device key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "registered_devices_list",
+      "description": "List Duo Passport / registered devices. Wire: GET /admin/v1/registered_devices signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Registered Devices'. Docs: Returns a paged list of Duo Desktop registered devices. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset. If no number or extension parameters are provided, the list will contain all registered devices. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/registered_devices",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "registered_devices_list-blocked-devices",
+      "description": "List blocked registered devices. Wire: GET /admin/v1/registered_devices/blocked signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Blocked Devices'. Docs: Returns a paged list of blocked devices. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset. If no number or extension parameters are provided, the list will contain all registered devices. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/registered_devices/blocked",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "registered_devices_unblock-device",
+      "description": "Unblock a registered device. Wire: DELETE /admin/v1/registered_devices/blocked/{compkey} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Unblock Device by ID'. Docs: Unblock a device with compkey. Previously registered devices will retain their original registration data. Required: compkey. Returns the RegisteredDevicesUnblockDeviceResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/registered_devices/blocked/{compkey}",
+      "params": [
+        {
+          "name": "compkey",
+          "type": "string",
+          "location": "path",
+          "description": "Registered device key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "settings_get",
+      "description": "Get account settings. Wire: GET /admin/v1/settings signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Settings'. Docs: Returns global Duo settings. These settings can also be viewed and set in the Duo Admin Panel.",
+      "method": "GET",
+      "path": "/admin/v1/settings",
+      "params": []
+    },
+    {
+      "name": "tokens_delete",
+      "description": "Delete a hardware token. Wire: DELETE /admin/v1/tokens/{token_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete Hardware Token'. Docs: Delete the hardware token with ID token_id from the system. Required: token_id. Returns the TokensDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/tokens/{token_id}",
+      "params": [
+        {
+          "name": "token_id",
+          "type": "string",
+          "location": "path",
+          "description": "Hardware token ID (token_id from 'tokens list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tokens_get",
+      "description": "Get a hardware token. Wire: GET /admin/v1/tokens/{token_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Hardware Token by ID'. Docs: Return the single hardware token with token_id. Required: token_id. Returns the TokensGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/tokens/{token_id}",
+      "params": [
+        {
+          "name": "token_id",
+          "type": "string",
+          "location": "path",
+          "description": "Hardware token ID (token_id from 'tokens list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tokens_list",
+      "description": "List hardware tokens. Wire: GET /admin/v1/tokens signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Hardware Tokens'. Docs: Returns a paged list of OTP hardware tokens. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. If no type and serial parameters are provided, the list will contain all hardware tokens. Otherwise, the list will contain either a single hardware token (if a match was found) or no hardware tokens. Optional: limit, offset, type (plus 1 more).",
+      "method": "GET",
+      "path": "/admin/v1/tokens",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Token type (use with serial): h6, h8, yk, or d1."
+        },
+        {
+          "name": "serial",
+          "type": "string",
+          "location": "query",
+          "description": "Serial number (use with type)."
+        }
+      ]
+    },
+    {
+      "name": "tokens_resync",
+      "description": "Resynchronize an HOTP or Duo-D100 token with three successive codes. Wire: POST /admin/v1/tokens/{token_id}/resync signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Resync Hardware Token'. Docs: Resynchronize the hardware token with ID token_id by providing three successive codes from the token. Only HOTP and Duo-D100 tokens can be resynchronized. YubiKey tokens operating in their native AES mode do not need resynchronization. Required: token_id, code1, code2, code3. Returns the new TokensResyncResponse.",
+      "method": "POST",
+      "path": "/admin/v1/tokens/{token_id}/resync",
+      "params": [
+        {
+          "name": "token_id",
+          "type": "string",
+          "location": "path",
+          "description": "Hardware token ID (token_id from 'tokens list').",
+          "required": true
+        },
+        {
+          "name": "code1",
+          "type": "string",
+          "location": "body",
+          "description": "Code1",
+          "required": true
+        },
+        {
+          "name": "code2",
+          "type": "string",
+          "location": "body",
+          "description": "Code2",
+          "required": true
+        },
+        {
+          "name": "code3",
+          "type": "string",
+          "location": "body",
+          "description": "Code3",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "trust_monitor_list-events",
+      "description": "Trust Monitor events. Wire: GET /admin/v1/trust_monitor/events signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Events'. Docs: Returns a paged list of events surfaced by Trust Monitor from the last 180 days. To fetch all results, call repeatedly with the next_offset paging parameter as long as the result metadata has next_offset values. Required: mintime, maxtime. Optional: limit, offset, type.",
+      "method": "GET",
+      "path": "/admin/v1/trust_monitor/events",
+      "params": [
+        {
+          "name": "mintime",
+          "type": "int",
+          "location": "query",
+          "description": "Start of window. 13-digit Unix timestamp in milliseconds. Docs: Return records that have a 13-character Unix timestamp in milliseconds of mintime or later. This value must be strictly less than maxtime.",
+          "required": true
+        },
+        {
+          "name": "maxtime",
+          "type": "int",
+          "location": "query",
+          "description": "End of window. 13-digit Unix timestamp in milliseconds. Docs: Return records that have a 13-character Unix timestamp in milliseconds of maxtime or earlier. This value must be strictly greater than mintime.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records. Default 50; max 200."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Security event type."
+        }
+      ]
+    },
+    {
+      "name": "users_add-group",
+      "description": "Add a user to a group. Wire: POST /admin/v1/users/{user_id}/groups signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Associate Group with User'. Docs: Associate a group with ID group_id with the user with ID user_id. Required: user_id, group_id. Returns the new UsersAddGroupResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/{user_id}/groups",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "body",
+          "description": "Group ID to add the user to.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_add-phone",
+      "description": "Associate a phone with a user. Wire: POST /admin/v1/users/{user_id}/phones signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Associate Phone with User'. Docs: Associate a phone with the user with ID user_id. Required: user_id, phone_id. Returns the new UsersAddPhoneResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/{user_id}/phones",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "body",
+          "description": "Phone ID to associate.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_add-token",
+      "description": "Associate a hardware token with a user. Wire: POST /admin/v1/users/{user_id}/tokens signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Associate Hardware Token with User'. Docs: Associate a hardware token with the user with ID user_id. Required: user_id, token_id. Returns the new UsersAddTokenResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/{user_id}/tokens",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "token_id",
+          "type": "string",
+          "location": "body",
+          "description": "Hardware token ID to associate.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_bulk-create",
+      "description": "Create up to 100 users in one call. Wire: POST /admin/v1/users/bulk_create signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Multiple Users'. Docs: Create multiple users at once. If one user fails to add, the entire operation fails. You can create a maximum of 100 users per request at a rate limit of 50 calls per minute. Required: users. Returns array of User.",
+      "method": "POST",
+      "path": "/admin/v1/users/bulk_create",
+      "params": [
+        {
+          "name": "users",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-serialized list of user objects (username required; email, realname, etc. optional). Docs: Must be a serialized JSON list of objects, each of which contains information for a new user. For more information, see the list of user object attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_bulk-restore",
+      "description": "Restore up to 100 users from the Trash. Wire: POST /admin/v1/users/bulk_restore signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Restore Multiple Users from Trash'. Docs: Restore multiple users from the Trash at once. If one user fails to restore, the entire operation fails. You can restore a maximum of 100 users per request at a rate limit of 50 calls per minute. Restoring users from the Trash doesn't change the user's status. Restored users still have a 'disabled' status and can't log in. Refer to Restoring Users from Trash for more information. Required: user_id_list. Returns the new UsersBulkRestoreResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/bulk_restore",
+      "params": [
+        {
+          "name": "user_id_list",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-serialized array of user_id values (max 100).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_bulk-trash",
+      "description": "Send up to 100 users to the Trash. Wire: POST /admin/v1/users/bulk_send_to_trash signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Send Multiple Users to Trash'. Docs: Send multiple users to Trash. Once a user is in the Trash, the user is pending deletion for 7 days before being permanently deleted. Refer to Deleting and Restoring Users for more information. Required: user_id_list. Returns the new UsersBulkTrashResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/bulk_send_to_trash",
+      "params": [
+        {
+          "name": "user_id_list",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-serialized array of user_id values (max 100).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_create",
+      "description": "Create a user. Wire: POST /admin/v1/users signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create User'. Docs: Create a new user with the specified username. Required: username. Optional: date_of_birth, email, enable_auto_prompt (plus 5 more). Returns the new UsersCreateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users",
+      "params": [
+        {
+          "name": "date_of_birth",
+          "type": "string",
+          "location": "body",
+          "description": "YYYY-MM-DD (needed for Duo identity verification). Docs: The user's birthdate. Values must use the format YYYY-MM-DD if you plan to use Duo identity verification."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email address."
+        },
+        {
+          "name": "enable_auto_prompt",
+          "type": "string",
+          "location": "body",
+          "description": "1 to auto-prompt the last used method (Universal Prompt only). Docs: If set to 0, the user will be shown a list of authentication methods to initiate authentication. If set to 1, the user will be automatically prompted to use their last-used authentication method. Only effective in the Universal Prompt. Default: 1."
+        },
+        {
+          "name": "firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Given name."
+        },
+        {
+          "name": "lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Family name."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes visible in the Admin Panel. Docs: An optional description or notes field. Can be viewed in the Duo Admin Panel."
+        },
+        {
+          "name": "realname",
+          "type": "string",
+          "location": "body",
+          "description": "Display name shown in the Admin Panel."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Initial status. Default active."
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_create-bypass-codes",
+      "description": "Generate bypass codes for a user (replaces existing codes unless --preserve-existing). Wire: POST /admin/v1/users/{user_id}/bypass_codes signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Create Bypass Codes for User'. Docs: Clear all existing bypass codes for the user with ID user_id and return a list of count newly generated bypass codes, or specify codes that expire after valid_secs seconds, or reuse_count uses. To preserve existing bypass codes instead of clearing them the request must specify preserve_existing=true. Does not trigger email or Duo Push notifications to users. Required: user_id. Optional: codes, count, preserve_existing (plus 2 more). Returns array of string.",
+      "method": "POST",
+      "path": "/admin/v1/users/{user_id}/bypass_codes",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "codes",
+          "type": "string",
+          "location": "body",
+          "description": "CSV of specific codes to use. Mutually exclusive with count. Docs: CSV string of codes to use. Mutually exclusive with count."
+        },
+        {
+          "name": "count",
+          "type": "string",
+          "location": "body",
+          "description": "Number of random codes to create (max 10, default 10). Mutually exclusive with codes. Docs: Number of new bypass codes to create. At most 10 codes (the default) can be created at a time. Codes will be generated randomly."
+        },
+        {
+          "name": "preserve_existing",
+          "type": "bool",
+          "location": "body",
+          "description": "Keep the user's existing codes. Docs: Preserves existing bypass codes while creating new ones. Either true or false; effectively false if not specified. If true and the request would result in the target user reaching the limit of 100 codes per user, or if codes is used and specifies a bypass code that already exists for the target user, then an error is returned and no bypass codes are created for nor cleared from the user."
+        },
+        {
+          "name": "reuse_count",
+          "type": "string",
+          "location": "body",
+          "description": "Times each code can be used; 0 = unlimited. Default 1."
+        },
+        {
+          "name": "valid_secs",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds until the codes expire; 0 (default) = never."
+        }
+      ]
+    },
+    {
+      "name": "users_delete",
+      "description": "Permanently delete a user (API deletes skip the Trash; use users bulk-trash for a 7-day restore window). Wire: DELETE /admin/v1/users/{user_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete User'. Docs: Delete the user with ID user_id from the system. The API will not delete phones associated only with that user right away; remove them immediately with Delete Phone. This method returns 200 if the user was found or if no such user exists. Required: user_id. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_enroll",
+      "description": "Email an enrollment link to a new user. Wire: POST /admin/v1/users/enroll signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Enroll User'. Docs: Enroll a 2FA-only user with user name username and email address email, and send them an enrollment email with a single-use enrollment code that expires after valid_secs seconds. Enrollment codes expire immediately upon changing the user's email address after enrollment code creation. This endpoint does not create codes valid for Duo Directory user enrollment at sso.duosecurity.com portals. Required: email, username. Optional: valid_secs. Returns the new UsersEnrollResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/enroll",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email address to send the enrollment link to.",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username (or alias) to enroll.",
+          "required": true
+        },
+        {
+          "name": "valid_secs",
+          "type": "string",
+          "location": "body",
+          "description": "Seconds the enrollment code stays valid (max 2592000)."
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a user by ID (with phones, tokens, groups). Wire: GET /admin/v1/users/{user_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve User by ID'. Docs: Return the single user with user_id. Required: user_id. Returns the UsersGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_get-verification-push-response",
+      "description": "Check the result of a verification push. Wire: GET /admin/v1/users/{user_id}/verification_push_response signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Verification Push Response'. Docs: Retrieves the verification push result for the user with ID user_id. Push response information will be available for 120 seconds after the push was sent, after which this endpoint will return a 404. If no success or failure response was returned by this endpoint during these 120 seconds, it can be assumed that the push has timed out. Required: user_id, push_id. Returns the UsersGetVerificationPushResponseResponse.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/verification_push_response",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "push_id",
+          "type": "string",
+          "location": "query",
+          "description": "push_id returned by send-verification-push.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List users, or look one up by username or email. Wire: GET /admin/v1/users signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Users'. Docs: Returns a paged list of users. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. If username is not provided, the list will contain all users. If username is provided, the list will either contain a single user (if a match was found) or no users. Optional: limit, offset, username (plus 3 more).",
+      "method": "GET",
+      "path": "/admin/v1/users",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 300."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "query",
+          "description": "Look up a single user by username or username alias."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Look up a single user by email address."
+        },
+        {
+          "name": "user_id_list",
+          "type": "string",
+          "location": "query",
+          "description": "JSON-serialized array of up to 100 user_id values, e.g. ['DU...','DU...']. Ignores limit/offset. Do not combine with username, email or username_list. Docs: A list of user ids used to fetch multiple users by user_id. You can provide up to 100 user_id values. If you provide this parameter, you must not provide the username, email or username_list parameters. The limit and offset parameters will be ignored. Must be a JSON serialized array."
+        },
+        {
+          "name": "username_list",
+          "type": "string",
+          "location": "query",
+          "description": "JSON-serialized array of up to 100 usernames, e.g. ['jdoe','asmith']. Ignores limit/offset. Do not combine with username, email or user_id_list. Docs: A list of usernames used to fetch multiple users by username. You can provide up to 100 usernames. If you provide this parameter, you must not provide the username, email or user_id_list parameters. The limit and offset parameters will be ignored. Must be a JSON serialized array."
+        }
+      ]
+    },
+    {
+      "name": "users_list-bypass-codes",
+      "description": "List bypass code metadata for a user (codes themselves are never returned). Wire: GET /admin/v1/users/{user_id}/bypass_codes signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Bypass Codes by User ID'. Docs: Returns a paged list of bypass code metadata associated with the user with ID user_id. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Does not return the actual bypass codes. Required: user_id. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/bypass_codes",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "users_list-desktop-authenticators",
+      "description": "List a user's Duo Desktop authenticators. Wire: GET /admin/v1/users/{user_id}/desktopauthenticators signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Desktop Authenticators by User ID'. Docs: Returns a paged list of desktop authenticators associated with the user with ID user_id. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Required: user_id. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/desktopauthenticators",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "users_list-groups",
+      "description": "List a user's groups. Wire: GET /admin/v1/users/{user_id}/groups signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Groups by User ID'. Docs: Returns a paged list of groups associated with the user with ID user_id. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Required: user_id. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/groups",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "users_list-phones",
+      "description": "List a user's phones. Wire: GET /admin/v1/users/{user_id}/phones signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Phones by User ID'. Docs: Returns a paged list of phones associated with the user with ID user_id. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Required: user_id. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/phones",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "users_list-tokens",
+      "description": "List a user's hardware tokens. Wire: GET /admin/v1/users/{user_id}/tokens signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve Hardware Tokens by User ID'. Docs: Returns a paged list of OTP hardware tokens associated with the user with ID user_id. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Required: user_id. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/tokens",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    },
+    {
+      "name": "users_list-webauthn",
+      "description": "List a user's WebAuthn credentials. Wire: GET /admin/v1/users/{user_id}/webauthncredentials signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve WebAuthn Credentials by User ID'. Docs: Returns a list of WebAuthn credentials associated with the user with ID user_id. Required: user_id.",
+      "method": "GET",
+      "path": "/admin/v1/users/{user_id}/webauthncredentials",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_remove-group",
+      "description": "Remove a user from a group. Wire: DELETE /admin/v1/users/{user_id}/groups/{group_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Disassociate Group from User'. Docs: Disassociate a group from the user with ID user_id. This method will return 200 if the group was found or if no such group exists. Required: user_id, group_id. Returns the UsersRemoveGroupResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/users/{user_id}/groups/{group_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo group ID (group_id from 'groups list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_remove-phone",
+      "description": "Disassociate a phone from a user (the phone itself is kept). Wire: DELETE /admin/v1/users/{user_id}/phones/{phone_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Disassociate Phone from User'. Docs: Disassociate a phone from the user with ID user_id. The API will not automatically delete the phone after removing the last user association; remove it permanently with Delete Phone. This method returns 200 if the phone was found or if no such phone exists. Required: user_id, phone_id. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/users/{user_id}/phones/{phone_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo phone ID (phone_id from 'phones list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_remove-token",
+      "description": "Disassociate a hardware token from a user. Wire: DELETE /admin/v1/users/{user_id}/tokens/{token_id} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Disassociate Hardware Token from User'. Docs: Disassociate a hardware token from the user with ID user_id. This method will return 200 if the hardware token was found or if no such hardware token exists. Required: user_id, token_id. Returns the UsersRemoveTokenResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/users/{user_id}/tokens/{token_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "token_id",
+          "type": "string",
+          "location": "path",
+          "description": "Hardware token ID (token_id from 'tokens list').",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_send-verification-push",
+      "description": "Send a Duo Push to confirm a user's identity (returns a confirmation code). Wire: POST /admin/v1/users/{user_id}/send_verification_push signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Send Verification Push'. Docs: Sends a verification Duo Push to the user with ID user_id. Verification pushes can also be sent from the Duo Admin Panel. Required: user_id, phone_id.",
+      "method": "POST",
+      "path": "/admin/v1/users/{user_id}/send_verification_push",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "phone_id",
+          "type": "string",
+          "location": "body",
+          "description": "Push-activated phone belonging to the user.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_update",
+      "description": "Modify a user; --status active unlocks a locked-out user. Wire: POST /admin/v1/users/{user_id} signed with Duo v5 HMAC, parameters in a JSON body; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Modify User'. Docs: Change the username, username aliases, full name, status, and/or notes section of the user with ID user_id. Required: user_id. Optional: date_of_birth, email, enable_auto_prompt (plus 6 more). Returns the new UsersUpdateResponse.",
+      "method": "POST",
+      "path": "/admin/v1/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "Duo user ID (user_id from 'users list').",
+          "required": true
+        },
+        {
+          "name": "date_of_birth",
+          "type": "string",
+          "location": "body",
+          "description": "YYYY-MM-DD (needed for Duo identity verification). Docs: The user's birthdate. Values must use the format YYYY-MM-DD if you plan to use Duo identity verification."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email address."
+        },
+        {
+          "name": "enable_auto_prompt",
+          "type": "string",
+          "location": "body",
+          "description": "1 to auto-prompt the last used method (Universal Prompt only). Docs: If set to 0, the user will be shown a list of authentication methods to initiate authentication. If set to 1, the user will be automatically prompted to use their last-used authentication method. Only effective in the Universal Prompt. Default: 1."
+        },
+        {
+          "name": "firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Given name."
+        },
+        {
+          "name": "lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Family name."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes visible in the Admin Panel. Docs: The new notes field."
+        },
+        {
+          "name": "realname",
+          "type": "string",
+          "location": "body",
+          "description": "Display name shown in the Admin Panel."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "New status. 'active' clears a lockout. 'disabled' cannot be set for directory-synced users. Docs: The new status. Must be one of 'active', 'disabled', or 'bypass', or 'locked out'. See Retrieve Users for an explanation of these fields. The 'disabled' status may not be set via Admin API for users managed by Active Directory or Entra ID sync, nor can the API set 'active' status for users disabled by directory sync."
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username."
+        }
+      ]
+    },
+    {
+      "name": "webauthn_delete",
+      "description": "Delete a WebAuthn credential. Wire: DELETE /admin/v1/webauthncredentials/{webauthnkey} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Delete WebAuthn Credential'. Docs: Delete the WebAuthn credential with key webauthnkey from the system. Required: webauthnkey. Returns the WebauthnDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/admin/v1/webauthncredentials/{webauthnkey}",
+      "params": [
+        {
+          "name": "webauthnkey",
+          "type": "string",
+          "location": "path",
+          "description": "WebAuthn credential key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webauthn_get",
+      "description": "Get a WebAuthn credential. Wire: GET /admin/v1/webauthncredentials/{webauthnkey} signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve WebAuthn Credentials by Key'. Docs: Return the single WebAuthn credential with webauthnkey. Required: webauthnkey. Returns the WebauthnGetResponse.",
+      "method": "GET",
+      "path": "/admin/v1/webauthncredentials/{webauthnkey}",
+      "params": [
+        {
+          "name": "webauthnkey",
+          "type": "string",
+          "location": "path",
+          "description": "WebAuthn credential key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webauthn_list",
+      "description": "List WebAuthn credentials. Wire: GET /admin/v1/webauthncredentials signed with Duo v5 HMAC; success responses arrive as JSON with stat OK and the result under response; documented in the Duo Admin API reference section 'Retrieve WebAuthn Credentials'. Docs: Returns a paged list of all registered WebAuthn credentials. To fetch all results, call repeatedly with the offset parameter as long as the result metadata has a next_offset value. Optional: limit, offset.",
+      "method": "GET",
+      "path": "/admin/v1/webauthncredentials",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum records per page. Default 100; max 500."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset from 0 at which to start record retrieval. Default 0."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Lockout triage",
+      "command": "lockout triage",
+      "description": "See why one user cannot complete Duo MFA: status, lockout reason, the group status that overrides it, phones, outstanding bypass codes, last 24h failures, and the exact next command to run."
+    },
+    {
+      "name": "Lockout fix",
+      "command": "lockout fix",
+      "description": "Unlock a locked-out user, and with --bypass issue a single-use one-hour bypass code or with --reactivate-phone re-send Duo Mobile activation; a preview by default, --apply makes the changes and prints a before/after receipt."
+    },
+    {
+      "name": "Phone swap",
+      "command": "phone-swap",
+      "description": "Move a user to a new phone number: reuse or create the phone, attach it and text the activation link; a preview by default, --apply makes the changes. Old phones are retired on a second run once the new phone is activated, and a phone shared with another user is never deleted."
+    },
+    {
+      "name": "Fleet summary",
+      "command": "fleet summary",
+      "description": "One row per customer subaccount: edition, users against user limit, telephony credits, admin and integration counts. Needs an Admin API app in the MSP parent account; covers every subaccount and ignores --account-id."
+    },
+    {
+      "name": "Fleet risk",
+      "command": "fleet risk",
+      "description": "Per-customer counts of users in bypass, locked out, disabled, pending deletion or unenrolled, members of Bypass or Disabled groups, and standing bypass codes. Needs an MSP parent Admin API app; ignores --account-id."
+    },
+    {
+      "name": "Fleet find-user",
+      "command": "fleet find-user",
+      "description": "Find which customer tenants (and the MSP parent) contain a username, alias or email, with status and last login for each hit. Needs an MSP parent Admin API app; ignores --account-id."
+    },
+    {
+      "name": "Bypass exposure",
+      "command": "audit bypass",
+      "description": "List every synced user who can skip MFA: bypass status, a Bypass group, or a bypass code that never expires or has unlimited reuse, with the admin who issued it. Needs 'sync --resources users,bypass_codes' first; JSON reports complete=false when data is missing."
+    },
+    {
+      "name": "Stale audit",
+      "command": "audit stale",
+      "description": "Find unenrolled users heading for a lockout, inactive and pending-deletion users, expired, inactive or never-logged-in admins, and phones not seen recently. Needs 'sync --resources users,admins,phones' first; JSON reports complete=false when data is missing."
+    },
+    {
+      "name": "Enrollment chase",
+      "command": "enrollment chase",
+      "description": "List users still unenrolled after a given age (by default) and, with --apply, re-send their Duo enrollment emails, oldest first, up to --limit."
+    },
+    {
+      "name": "Failure rollup",
+      "command": "failures",
+      "description": "Roll up failed and fraud authentications per user, reason, factor and application over a window, with first and last seen and source IPs."
+    }
+  ]
+}

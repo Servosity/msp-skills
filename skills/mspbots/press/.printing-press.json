@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:52:06.489177Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "mspbots",
+  "display_name": "MSPbots",
+  "cli_name": "mspbots-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:c18a59b5cb3fbc56debf38cedf61083404c4824cc87d845672be26a03396164e",
+  "run_id": "20260605-145727",
+  "category": "monitoring",
+  "description": "The first MSPbots tool anywhere — readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+  "mcp_binary": "mspbots-pp-mcp",
+  "mcp_tool_count": 2,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "api_key",
+  "auth_env_vars": [
+    "MSPBOTS_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Resource registry",
+      "command": "registry",
+      "description": "Name your bound datasets and widgets once, then use readable aliases everywhere instead of 19-digit resource IDs."
+    },
+    {
+      "name": "Readable --where filters",
+      "command": "pull",
+      "description": "Write filters like \"Update Date \u003e= 2026-05-29\" and the CLI compiles them into MSPbots' comma-encoded operator DSL."
+    },
+    {
+      "name": "Timestamped snapshots",
+      "command": "snapshot",
+      "description": "Capture point-in-time copies of any dataset or widget into local SQLite — the history MSPbots doesn't keep."
+    },
+    {
+      "name": "Auto-paginating export",
+      "command": "export",
+      "description": "Dump an entire dataset or widget to CSV or JSONL, walking every page automatically."
+    },
+    {
+      "name": "Numeric trend",
+      "command": "trend",
+      "description": "Time-series and point-over-point deltas for any numeric column across stored snapshots."
+    },
+    {
+      "name": "Snapshot diff",
+      "command": "diff",
+      "description": "Row-level added/removed/changed comparison between two stored snapshots of the same resource."
+    },
+    {
+      "name": "Inferred schema describe",
+      "command": "describe",
+      "description": "Sample live rows and infer the column names and types of a dataset or widget."
+    }
+  ]
+}

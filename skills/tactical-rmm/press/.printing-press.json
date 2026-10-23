@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:04:49.383705Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "tactical-rmm",
+  "display_name": "Tactical RMM",
+  "cli_name": "tactical-rmm-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:db03f4caaba72e794658f426802101d479e7c8312717ad4d47e1fedb28b5b81e",
+  "run_id": "20260613-040310",
+  "category": "monitoring",
+  "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
+  "mcp_binary": "tactical-rmm-pp-mcp",
+  "mcp_tool_count": 211,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "api_key",
+  "auth_preference": "ApiKeyAuth",
+  "auth_env_vars": [
+    "TRMM_API_KEY"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "TRMM_API_KEY",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Tactical RMM API key (Settings > Global Settings > API Keys). Bypasses 2FA."
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet health snapshot",
+      "command": "fleet health",
+      "description": "Whole-fleet posture in one command: online/offline/overdue agents, failing checks, pending reboots, outstanding patches, active alerts."
+    },
+    {
+      "name": "Attention triage",
+      "command": "triage",
+      "description": "Ranked list of agents needing attention, scored across offline state, failing checks, reboots and patches."
+    },
+    {
+      "name": "Stale-agent detection",
+      "command": "agents stale",
+      "description": "Agents whose last check-in exceeds a threshold, with client and site."
+    },
+    {
+      "name": "Patch posture rollup",
+      "command": "patch posture",
+      "description": "Per-client/site rollup of pending Windows updates and reboots."
+    },
+    {
+      "name": "Bulk remote run by filter",
+      "command": "agents bulk-run",
+      "description": "Run a script/command across every agent matching a local-store filter (client/site/os/online)."
+    },
+    {
+      "name": "Check flapping detection",
+      "command": "checks flapping",
+      "description": "Checks that repeatedly flipped pass/fail within a window, from local snapshots."
+    },
+    {
+      "name": "Alert digest",
+      "command": "alerts digest",
+      "description": "Grouped alert summary by client/severity/type over a time window."
+    },
+    {
+      "name": "Fleet what-changed",
+      "command": "since",
+      "description": "What changed across the fleet since a window: new alerts, newly-offline agents."
+    },
+    {
+      "name": "Software / vulnerability sweep",
+      "command": "software find",
+      "description": "Which agents have a given software package installed across the fleet."
+    },
+    {
+      "name": "Monitoring coverage gaps",
+      "command": "coverage",
+      "description": "Agents missing checks (unmonitored endpoints)."
+    },
+    {
+      "name": "Maintenance-mode sweep",
+      "command": "maintenance set",
+      "description": "Put a filtered cohort of agents into maintenance mode in one command, with a reminder window (re-run with --clear to end it; Tactical RMM has no server-side expiry)."
+    },
+    {
+      "name": "Pending actions backlog",
+      "command": "actions pending",
+      "description": "Queued agent actions across the fleet grouped by agent and age, so stuck dispatches surface. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store)."
+    },
+    {
+      "name": "Check-failure leaderboard",
+      "command": "checks worst",
+      "description": "Failing checks ranked by blast radius - how many agents are red on each check."
+    },
+    {
+      "name": "Client posture scorecard",
+      "command": "clients scorecard",
+      "description": "One posture row per client: agent count, online share, failing checks, pending patches, open alerts."
+    },
+    {
+      "name": "Service-down sweep",
+      "command": "services down",
+      "description": "Agents where a named Windows service is stopped, across the whole fleet. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store)."
+    }
+  ],
+  "scorecard": {
+    "api_name": "tactical-rmm",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 8,
+      "mcp_description_quality": 0,
+      "mcp_token_efficiency": 0,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 10,
+      "mcp_surface_strategy": 10,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 6,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 8,
+      "data_pipeline_integrity": 10,
+      "sync_correctness": 10,
+      "type_fidelity": 2,
+      "dead_code": 4,
+      "live_api_verification": 0,
+      "total": 90,
+      "percentage": 90
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 211 tools (0 public, 211 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_description_quality",
+      "mcp_token_efficiency",
+      "live_api_verification"
+    ]
+  }
+}

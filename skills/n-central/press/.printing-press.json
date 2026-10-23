@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:59:00.699894Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "n-central",
+  "display_name": "N-central",
+  "cli_name": "n-central-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "n-central-spec.yaml",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:eff724d99786e20e65150d2ff3ff266fbca09acd14cb3d424f330fdcaf619b9e",
+  "run_id": "20260613-035900",
+  "category": "developer-tools",
+  "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
+  "mcp_binary": "n-central-pp-mcp",
+  "mcp_tool_count": 32,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "2024.6",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "NCENTRAL_JWT"
+  ],
+  "novel_features": [
+    {
+      "name": "Multi-server cross-tenant search",
+      "command": "fanout",
+      "description": "Search every configured N-central server at once \u2014 find a device, customer, or active issue across all your tenants without clicking through each console."
+    },
+    {
+      "name": "Custom-property drift/coverage audit",
+      "command": "props audit",
+      "description": "Report which devices or org units are missing a required custom-property value, as a coverage percentage grouped by customer."
+    },
+    {
+      "name": "Active-issue triage rollup",
+      "command": "triage",
+      "description": "Group active monitoring issues by customer, device, or monitor type and rank by severity \u2014 the daily NOC sweep as one command."
+    },
+    {
+      "name": "JWT / password-expiry guardian",
+      "command": "guardian",
+      "description": "Validate the access token, warn when the API user's password (and thus the JWT) is about to expire, and detect N-central's HTTP-200-with-error-body failures."
+    },
+    {
+      "name": "Maintenance-window gap report",
+      "command": "maint coverage",
+      "description": "List devices and sites with no maintenance window before a reboot/patch wave, so nothing reboots in business hours."
+    },
+    {
+      "name": "Cross-tenant device locator",
+      "command": "whereis",
+      "description": "Given a device name fragment, return its full path \u2014 server, service org, customer, site \u2014 plus its current active-issue count."
+    }
+  ]
+}

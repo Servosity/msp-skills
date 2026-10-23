@@ -1,0 +1,4719 @@
+{
+  "api_name": "runzero",
+  "base_url": "https://console.runzero.com/api/v1.0",
+  "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "RUNZERO_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "RUNZERO_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_create-asset-ownership-types",
+      "description": "Create new asset ownership types. Returns array of AssetOwnershipType.",
+      "method": "POST",
+      "path": "/account/assets/ownership-types",
+      "params": []
+    },
+    {
+      "name": "account_create-credential",
+      "description": "Create a new credential. Optional: acl, cidrs, global (plus 3 more). Returns array of string.",
+      "method": "PUT",
+      "path": "/account/credentials",
+      "params": [
+        {
+          "name": "acl",
+          "type": "object",
+          "location": "body",
+          "description": "Acl"
+        },
+        {
+          "name": "cidrs",
+          "type": "string",
+          "location": "body",
+          "description": "Cidrs"
+        },
+        {
+          "name": "global",
+          "type": "bool",
+          "location": "body",
+          "description": "Global"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "secret",
+          "type": "string",
+          "location": "body",
+          "description": "Secret"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type"
+        }
+      ]
+    },
+    {
+      "name": "account_create-custom-integration",
+      "description": "Create a new custom integration. Required: name. Optional: description, icon. Returns the new CustomIntegration.",
+      "method": "POST",
+      "path": "/account/custom-integrations",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A text description of the custom integration"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "Base64 encoded png with maximum size 256x256 pixels"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The unique name of the custom integration, without spaces.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_create-custom-integration-and-id",
+      "description": "Replace custom integration at provided ID. Required: customIntegrationId, name. Optional: description, icon. Returns the updated CustomIntegration.",
+      "method": "PUT",
+      "path": "/account/custom-integrations/{customIntegrationId}",
+      "params": [
+        {
+          "name": "customIntegrationId",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A text description of the custom integration"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "Base64 encoded png with maximum size 256x256 pixels"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The unique name of the custom integration, without spaces.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_create-group",
+      "description": "Create a new group. Optional: description, expires_at, name (plus 2 more). Returns the new Group.",
+      "method": "POST",
+      "path": "/account/groups",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "expires_at",
+          "type": "int",
+          "location": "body",
+          "description": "Expires at"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "org_default_role",
+          "type": "string",
+          "location": "body",
+          "description": "Org default role"
+        },
+        {
+          "name": "org_roles",
+          "type": "object",
+          "location": "body",
+          "description": "Org roles"
+        }
+      ]
+    },
+    {
+      "name": "account_create-group-mapping",
+      "description": "Create a new SSO group mapping. Required: group_id, id, sso_attribute, sso_value. Optional: created_at, created_by_email, description (plus 2 more). Returns the new GroupMapping.",
+      "method": "POST",
+      "path": "/account/sso/groups",
+      "params": [
+        {
+          "name": "created_at",
+          "type": "int",
+          "location": "body",
+          "description": "Created at"
+        },
+        {
+          "name": "created_by_email",
+          "type": "string",
+          "location": "body",
+          "description": "Created by email"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "body",
+          "description": "Group id",
+          "required": true
+        },
+        {
+          "name": "group_name",
+          "type": "string",
+          "location": "body",
+          "description": "Group name"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "sso_attribute",
+          "type": "string",
+          "location": "body",
+          "description": "Sso attribute",
+          "required": true
+        },
+        {
+          "name": "sso_value",
+          "type": "string",
+          "location": "body",
+          "description": "Sso value",
+          "required": true
+        },
+        {
+          "name": "updated_at",
+          "type": "int",
+          "location": "body",
+          "description": "Updated at"
+        }
+      ]
+    },
+    {
+      "name": "account_create-key",
+      "description": "Create a new key. Optional: comment, organization_id. Returns the updated OrganizationApikey.",
+      "method": "PUT",
+      "path": "/account/keys",
+      "params": [
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "Comment"
+        },
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "body",
+          "description": "Organization id"
+        }
+      ]
+    },
+    {
+      "name": "account_create-organization",
+      "description": "Create a new organization. Optional: description, expiration_assets_offline, expiration_assets_stale (plus 7 more). Returns the updated Organization.",
+      "method": "PUT",
+      "path": "/account/orgs",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "expiration_assets_offline",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before offline assets are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_assets_stale",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before stale assets are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_integration_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before integration attributes are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_scans",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before scan data is expired, as a decimal string."
+        },
+        {
+          "name": "expiration_settings",
+          "type": "string",
+          "location": "body",
+          "description": "JSON string containing optional attribute and vulnerability expiration settings."
+        },
+        {
+          "name": "expiration_vulnerabilities",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before vulnerabilities are expired, as a decimal string."
+        },
+        {
+          "name": "keep_latest_integration_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "Whether to retain only the latest integration attribute values, as a boolean string..."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent id"
+        }
+      ]
+    },
+    {
+      "name": "account_create-organization-export-token",
+      "description": "Create a new export token for an organization. Required: org_id. Optional: comment. Returns the new ExportToken.",
+      "method": "POST",
+      "path": "/account/orgs/{org_id}/exportTokens",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to create an export token for",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "Comment"
+        }
+      ]
+    },
+    {
+      "name": "account_create-scan-template",
+      "description": "Create a new scan template. Required: acl, global, name, organization_id. Optional: description, params. Returns the new ScanTemplate.",
+      "method": "POST",
+      "path": "/account/tasks/templates",
+      "params": [
+        {
+          "name": "acl",
+          "type": "object",
+          "location": "body",
+          "description": "A map of IDs to strings which describe how the template may be accessed. Currently there is no authoritative list of acceptable values. See existing templates for examples.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the template."
+        },
+        {
+          "name": "global",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the template is globally available to all organizations.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the template.",
+          "required": true
+        },
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the organization the template will be created in",
+          "required": true
+        },
+        {
+          "name": "params",
+          "type": "object",
+          "location": "body",
+          "description": "A number of scan parameter values. Currently there is no authoritative list of acceptable values. See existing templates for examples."
+        }
+      ]
+    },
+    {
+      "name": "account_create-user",
+      "description": "Create a new user account. Optional: client_admin, email, first_name (plus 3 more). Returns the updated User.",
+      "method": "PUT",
+      "path": "/account/users",
+      "params": [
+        {
+          "name": "client_admin",
+          "type": "bool",
+          "location": "body",
+          "description": "Client admin"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "org_default_role",
+          "type": "string",
+          "location": "body",
+          "description": "Org default role"
+        },
+        {
+          "name": "org_roles",
+          "type": "object",
+          "location": "body",
+          "description": "Org roles"
+        }
+      ]
+    },
+    {
+      "name": "account_create-user-invite",
+      "description": "Create a new user account and send an email invite. Optional: client_admin, email, first_name (plus 5 more). Returns the updated User.",
+      "method": "PUT",
+      "path": "/account/users/invite",
+      "params": [
+        {
+          "name": "client_admin",
+          "type": "bool",
+          "location": "body",
+          "description": "Client admin"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Message"
+        },
+        {
+          "name": "org_default_role",
+          "type": "string",
+          "location": "body",
+          "description": "Org default role"
+        },
+        {
+          "name": "org_roles",
+          "type": "object",
+          "location": "body",
+          "description": "Org roles"
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "location": "body",
+          "description": "Subject"
+        }
+      ]
+    },
+    {
+      "name": "account_delete-asset-ownership-type",
+      "description": "Delete a single asset ownership type. Required: ownership_type_id. Returns array of AssetOwnershipType. Destructive.",
+      "method": "DELETE",
+      "path": "/account/assets/ownership-types/{ownership_type_id}",
+      "params": [
+        {
+          "name": "ownership_type_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset ownership type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_delete-asset-ownership-types",
+      "description": "Delete asset ownership types. Returns array of AssetOwnershipType. Destructive.",
+      "method": "DELETE",
+      "path": "/account/assets/ownership-types",
+      "params": []
+    },
+    {
+      "name": "account_delete-custom-integration",
+      "description": "Delete an custom integration. Required: customIntegrationId. Returns the CustomIntegration. Destructive.",
+      "method": "DELETE",
+      "path": "/account/custom-integrations/{customIntegrationId}",
+      "params": [
+        {
+          "name": "customIntegrationId",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_delete-organization-export-token",
+      "description": "Removes the export token from the specified organization. Required: org_id, key_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/orgs/{org_id}/exportTokens/{key_id}",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        },
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the export token ID to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_delete-organization-export-token-deprecated",
+      "description": "This API has been deprecated. Please use `DELETE /account/orgs/{org_id}/exportTokens/{key_id}` instead. This API will fail if more than one export tokens exist for the given organization. Required: org_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/orgs/{org_id}/exportToken",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_export-events-json",
+      "description": "System event log as JSON. Optional: search, fields, page_size (plus 1 more).",
+      "method": "GET",
+      "path": "/account/events.json",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "an optional list of fields to export, comma-separated"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The number of results to return per request."
+        },
+        {
+          "name": "start_key",
+          "type": "string",
+          "location": "query",
+          "description": "The value to use for requesting the next page when requesting paginated results."
+        }
+      ]
+    },
+    {
+      "name": "account_export-events-jsonl",
+      "description": "System event log as JSON line-delimited. Optional: search, fields.",
+      "method": "GET",
+      "path": "/account/events.jsonl",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "an optional list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "account_get-agents",
+      "description": "Get all agents across all organizations. Optional: search. Returns array of Agent.",
+      "method": "GET",
+      "path": "/account/agents",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "account_get-apitoken",
+      "description": "Generate an access token using an API client. Required: client_id, client_secret, grant_type. Returns the new AccessToken.",
+      "method": "POST",
+      "path": "/account/api/token",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "body",
+          "description": "Client id",
+          "required": true
+        },
+        {
+          "name": "client_secret",
+          "type": "string",
+          "location": "body",
+          "description": "Client secret",
+          "required": true
+        },
+        {
+          "name": "grant_type",
+          "type": "string",
+          "location": "body",
+          "description": "Grant type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-asset-ownership-types",
+      "description": "Get all asset ownership types. Returns array of AssetOwnershipType.",
+      "method": "GET",
+      "path": "/account/assets/ownership-types",
+      "params": []
+    },
+    {
+      "name": "account_get-credential",
+      "description": "Get credential details. Required: credential_id. Returns array of string.",
+      "method": "GET",
+      "path": "/account/credentials/{credential_id}",
+      "params": [
+        {
+          "name": "credential_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the credential to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-credentials",
+      "description": "Get all account credentials. Optional: search. Returns array of Credential.",
+      "method": "GET",
+      "path": "/account/credentials",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "account_get-custom-integration",
+      "description": "Get single custom integration. Required: customIntegrationId. Returns the CustomIntegration.",
+      "method": "GET",
+      "path": "/account/custom-integrations/{customIntegrationId}",
+      "params": [
+        {
+          "name": "customIntegrationId",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-custom-integrations",
+      "description": "Get all custom integrations. Returns the CustomIntegration.",
+      "method": "GET",
+      "path": "/account/custom-integrations",
+      "params": []
+    },
+    {
+      "name": "account_get-group",
+      "description": "Get group details. Required: group_id. Returns the Group.",
+      "method": "GET",
+      "path": "/account/groups/{group_id}",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the group",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-group-mapping",
+      "description": "Get SSO group mapping details. Required: group_mapping_id. Returns the GroupMapping.",
+      "method": "GET",
+      "path": "/account/sso/groups/{group_mapping_id}",
+      "params": [
+        {
+          "name": "group_mapping_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the SSO group mapping",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-group-mappings",
+      "description": "Get all SSO group mappings. Returns the GroupMapping.",
+      "method": "GET",
+      "path": "/account/sso/groups",
+      "params": []
+    },
+    {
+      "name": "account_get-groups",
+      "description": "Get all groups. Returns the Group.",
+      "method": "GET",
+      "path": "/account/groups",
+      "params": []
+    },
+    {
+      "name": "account_get-key",
+      "description": "Get key details. Required: key_id. Returns the OrganizationApikey.",
+      "method": "GET",
+      "path": "/account/keys/{key_id}",
+      "params": [
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the key to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-keys",
+      "description": "Get all active API keys. Returns array of OrganizationApikey.",
+      "method": "GET",
+      "path": "/account/keys",
+      "params": []
+    },
+    {
+      "name": "account_get-license",
+      "description": "Get license details. Returns the License.",
+      "method": "GET",
+      "path": "/account/license",
+      "params": []
+    },
+    {
+      "name": "account_get-organization",
+      "description": "Get organization details. Required: org_id. Returns the Organization.",
+      "method": "GET",
+      "path": "/account/orgs/{org_id}",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-organization-export-token",
+      "description": "Get export token details. Required: org_id, key_id. Returns the ExportToken.",
+      "method": "GET",
+      "path": "/account/orgs/{org_id}/exportTokens/{key_id}",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        },
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the export token ID to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-organization-export-tokens",
+      "description": "Get all active export tokens for an organization. Required: org_id. Returns array of ExportToken.",
+      "method": "GET",
+      "path": "/account/orgs/{org_id}/exportTokens",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve export tokens for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-organizations",
+      "description": "Get all organization details. Optional: search. Returns array of Organization.",
+      "method": "GET",
+      "path": "/account/orgs",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "account_get-scan-template",
+      "description": "Get scan template details. Required: scan_template_id. Returns the ScanTemplate.",
+      "method": "GET",
+      "path": "/account/tasks/templates/{scan_template_id}",
+      "params": [
+        {
+          "name": "scan_template_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the scan template to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-scan-templates",
+      "description": "Get all scan templates across all organizations (up to 1000). Optional: search. Returns array of ScanTemplate.",
+      "method": "GET",
+      "path": "/account/tasks/templates",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "account_get-sites",
+      "description": "Get all sites details across all organizations. Optional: search. Returns array of Site.",
+      "method": "GET",
+      "path": "/account/sites",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "account_get-tasks",
+      "description": "Get all task details across all organizations (up to 1000). Optional: search. Returns array of Task.",
+      "method": "GET",
+      "path": "/account/tasks",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "account_get-user",
+      "description": "Get user details. Required: user_id. Returns the User.",
+      "method": "GET",
+      "path": "/account/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the user to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-users",
+      "description": "Get all users. Returns array of User.",
+      "method": "GET",
+      "path": "/account/users",
+      "params": []
+    },
+    {
+      "name": "account_remove-credential",
+      "description": "Remove this credential. Required: credential_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/credentials/{credential_id}",
+      "params": [
+        {
+          "name": "credential_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the credential to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_remove-group",
+      "description": "Remove this group. Required: group_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/groups/{group_id}",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the group",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_remove-group-mapping",
+      "description": "Remove this SSO group mapping. Required: group_mapping_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/sso/groups/{group_mapping_id}",
+      "params": [
+        {
+          "name": "group_mapping_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the SSO group mapping",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_remove-key",
+      "description": "Remove this key. Required: key_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/keys/{key_id}",
+      "params": [
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the key to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_remove-organization",
+      "description": "Remove this organization. Required: org_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/orgs/{org_id}",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_remove-scan-template",
+      "description": "Remove scan template. Required: scan_template_id. Returns the ScanTemplate. Destructive.",
+      "method": "DELETE",
+      "path": "/account/tasks/templates/{scan_template_id}",
+      "params": [
+        {
+          "name": "scan_template_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the scan template to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_remove-user",
+      "description": "Remove this user. Required: user_id. Destructive.",
+      "method": "DELETE",
+      "path": "/account/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the user to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_reset-user-lockout",
+      "description": "Resets the user's lockout status. Required: user_id. Returns the updated User.",
+      "method": "PATCH",
+      "path": "/account/users/{user_id}/resetLockout",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the user to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_reset-user-mfa",
+      "description": "Resets the user's MFA tokens. Required: user_id. Returns the updated User.",
+      "method": "PATCH",
+      "path": "/account/users/{user_id}/resetMFA",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the user to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_reset-user-password",
+      "description": "Sends the user a password reset email. Required: user_id. Returns the updated User.",
+      "method": "PATCH",
+      "path": "/account/users/{user_id}/resetPassword",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the user to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_rotate-apitoken",
+      "description": "Rotate the API client secret. Required: client_id, client_secret, grant_type. Returns the new ApiclientCredentials.",
+      "method": "POST",
+      "path": "/account/api/rotate",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "body",
+          "description": "Client id",
+          "required": true
+        },
+        {
+          "name": "client_secret",
+          "type": "string",
+          "location": "body",
+          "description": "Client secret",
+          "required": true
+        },
+        {
+          "name": "grant_type",
+          "type": "string",
+          "location": "body",
+          "description": "Grant type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_rotate-key",
+      "description": "Rotates the key secret. Required: key_id. Returns the updated OrganizationApikey.",
+      "method": "PATCH",
+      "path": "/account/keys/{key_id}/rotate",
+      "params": [
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the key to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_rotate-organization-export-token",
+      "description": "Rotates an organization export token and returns the updated token. Required: org_id, key_id.",
+      "method": "PATCH",
+      "path": "/account/orgs/{org_id}/exportTokens/{key_id}/rotate",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        },
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the export token ID to rotate",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_rotate-organization-export-token-deprecated",
+      "description": "This API has been deprecated. Please use `PATCH /account/orgs/{org_id}/exportTokens/{key_id}/rotate` instead. This API will fail if more than one export tokens exist for the given organization. Required: org_id. Returns the updated ExportToken.",
+      "method": "PATCH",
+      "path": "/account/orgs/{org_id}/exportToken/rotate",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_update-asset-ownership-type",
+      "description": "Update a single asset ownership type. Required: ownership_type_id, name. Optional: hidden, order, reference. Returns the updated AssetOwnershipType.",
+      "method": "PATCH",
+      "path": "/account/assets/ownership-types/{ownership_type_id}",
+      "params": [
+        {
+          "name": "ownership_type_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset ownership type",
+          "required": true
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "location": "body",
+          "description": "Hidden"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "order",
+          "type": "int",
+          "location": "body",
+          "description": "Order"
+        },
+        {
+          "name": "reference",
+          "type": "int",
+          "location": "body",
+          "description": "Reference"
+        }
+      ]
+    },
+    {
+      "name": "account_update-asset-ownership-types",
+      "description": "Update asset ownership types. Returns array of AssetOwnershipType.",
+      "method": "PUT",
+      "path": "/account/assets/ownership-types",
+      "params": []
+    },
+    {
+      "name": "account_update-custom-integration",
+      "description": "Update a single custom integration. Required: customIntegrationId. Optional: description, icon, name. Returns the updated CustomIntegration.",
+      "method": "PATCH",
+      "path": "/account/custom-integrations/{customIntegrationId}",
+      "params": [
+        {
+          "name": "customIntegrationId",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A text description of the custom integration"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "Base64 encoded png with maximum size 256x256 pixels"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The unique name of the custom integration, without spaces."
+        }
+      ]
+    },
+    {
+      "name": "account_update-group",
+      "description": "Update an existing group. Optional: description, expires_at, id (plus 3 more). Returns the updated Group.",
+      "method": "PUT",
+      "path": "/account/groups",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "expires_at",
+          "type": "int",
+          "location": "body",
+          "description": "Expires at"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "org_default_role",
+          "type": "string",
+          "location": "body",
+          "description": "Org default role"
+        },
+        {
+          "name": "org_roles",
+          "type": "object",
+          "location": "body",
+          "description": "Org roles"
+        }
+      ]
+    },
+    {
+      "name": "account_update-group-mapping",
+      "description": "Update an existing SSO group mapping. Required: group_id, id, sso_attribute, sso_value. Optional: created_at, created_by_email, description (plus 2 more). Returns the updated GroupMapping.",
+      "method": "PUT",
+      "path": "/account/sso/groups",
+      "params": [
+        {
+          "name": "created_at",
+          "type": "int",
+          "location": "body",
+          "description": "Created at"
+        },
+        {
+          "name": "created_by_email",
+          "type": "string",
+          "location": "body",
+          "description": "Created by email"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "body",
+          "description": "Group id",
+          "required": true
+        },
+        {
+          "name": "group_name",
+          "type": "string",
+          "location": "body",
+          "description": "Group name"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "sso_attribute",
+          "type": "string",
+          "location": "body",
+          "description": "Sso attribute",
+          "required": true
+        },
+        {
+          "name": "sso_value",
+          "type": "string",
+          "location": "body",
+          "description": "Sso value",
+          "required": true
+        },
+        {
+          "name": "updated_at",
+          "type": "int",
+          "location": "body",
+          "description": "Updated at"
+        }
+      ]
+    },
+    {
+      "name": "account_update-organization",
+      "description": "Update organization details. Required: org_id. Optional: description, expiration_assets_offline, expiration_assets_stale (plus 7 more). Returns the updated Organization.",
+      "method": "PATCH",
+      "path": "/account/orgs/{org_id}",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the organization to retrieve",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "expiration_assets_offline",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before offline assets are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_assets_stale",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before stale assets are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_integration_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before integration attributes are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_scans",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before scan data is expired, as a decimal string."
+        },
+        {
+          "name": "expiration_settings",
+          "type": "string",
+          "location": "body",
+          "description": "JSON string containing optional attribute and vulnerability expiration settings."
+        },
+        {
+          "name": "expiration_vulnerabilities",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before vulnerabilities are expired, as a decimal string."
+        },
+        {
+          "name": "keep_latest_integration_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "Whether to retain only the latest integration attribute values, as a boolean string..."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent id"
+        }
+      ]
+    },
+    {
+      "name": "account_update-scan-template",
+      "description": "Update scan template. Required: acl, global, id, organization_id. Optional: agent_id, client_id, created_at (plus 29 more). Returns the updated ScanTemplate.",
+      "method": "PUT",
+      "path": "/account/tasks/templates",
+      "params": [
+        {
+          "name": "acl",
+          "type": "object",
+          "location": "body",
+          "description": "A map of IDs to strings which describe how the template may be accessed. Currently there is no authoritative list of in-use values. See existing templates for examples.",
+          "required": true
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the explorer which may execute the template."
+        },
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the account which owns the template."
+        },
+        {
+          "name": "created_at",
+          "type": "int",
+          "location": "body",
+          "description": "Unix timestamp value indicating when the template was created."
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "location": "body",
+          "description": "The username of the account which created the template."
+        },
+        {
+          "name": "created_by_user_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the account which created the template."
+        },
+        {
+          "name": "cruncher_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the runZero cruncher the task is executing on."
+        },
+        {
+          "name": "custom_integration_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom integration source, if the last task executed with this template was an import of Asset Data."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The description of the template."
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "location": "body",
+          "description": "The error message, if any, of the last task using the template."
+        },
+        {
+          "name": "global",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the template is globally available to all organizations.",
+          "required": true
+        },
+        {
+          "name": "grace_period",
+          "type": "string",
+          "location": "body",
+          "description": "Additional time beyond hard expiration deadline by which the task may still be allowed to execute."
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "location": "body",
+          "description": "A flag indicating whether the item is hidden from common view."
+        },
+        {
+          "name": "hosted_zone_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the hosted zone that ran the last task the template was used with."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the template.",
+          "required": true
+        },
+        {
+          "name": "linked_task_count",
+          "type": "int",
+          "location": "body",
+          "description": "The number of tasks derived from the template."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the template."
+        },
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the organization the template is available in.",
+          "required": true
+        },
+        {
+          "name": "params",
+          "type": "object",
+          "location": "body",
+          "description": "A number of task parameter values. Currently there is no authoritative list of in-use values. See existing templates for examples."
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the parent entity of the task scheduled."
+        },
+        {
+          "name": "recur",
+          "type": "bool",
+          "location": "body",
+          "description": "A flag representing whether derived tasks are scheduled to repeat."
+        },
+        {
+          "name": "recur_frequency",
+          "type": "string",
+          "location": "body",
+          "description": "A string time duration value representing execution frequency, if scheduled to repeat. You may use values including as once, hourly, daily, weekly, monthly, continuous"
+        },
+        {
+          "name": "recur_last",
+          "type": "int",
+          "location": "body",
+          "description": "Unix timestamp representing the last execution if scheduled to repeat."
+        },
+        {
+          "name": "recur_last_task_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the task that last executed if scheduled to repeat."
+        },
+        {
+          "name": "recur_next",
+          "type": "int",
+          "location": "body",
+          "description": "Unix timestamp representing the next execution if scheduled to repeat."
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the site the template is being used in."
+        },
+        {
+          "name": "size_data",
+          "type": "int",
+          "location": "body",
+          "description": "The total size of result data of the last task the template was used with."
+        },
+        {
+          "name": "size_results",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results in the last task the template was used with."
+        },
+        {
+          "name": "size_site",
+          "type": "int",
+          "location": "body",
+          "description": "The size in assets of the site the last task the template was executed against."
+        },
+        {
+          "name": "source_id",
+          "type": "string",
+          "location": "body",
+          "description": "The numeric ID of the data source, if the task executed with this template is a runZero scan or third party data connection import."
+        },
+        {
+          "name": "start_time",
+          "type": "int",
+          "location": "body",
+          "description": "Unix timestamp representing the next execution time."
+        },
+        {
+          "name": "stats",
+          "type": "object",
+          "location": "body",
+          "description": "A map of statistics about the last task executed with the template. Currently there is no authoritative list of in-use values. See existing templates for examples."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "The status of the last task using the template."
+        },
+        {
+          "name": "template_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the template."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "The type of task the template creates."
+        },
+        {
+          "name": "updated_at",
+          "type": "int",
+          "location": "body",
+          "description": "Unix timestamp value indicating when the template was last modified."
+        }
+      ]
+    },
+    {
+      "name": "account_update-user",
+      "description": "Update a user's details. Required: user_id. Optional: client_admin, email, first_name (plus 3 more). Returns the updated User.",
+      "method": "PATCH",
+      "path": "/account/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the user to retrieve",
+          "required": true
+        },
+        {
+          "name": "client_admin",
+          "type": "bool",
+          "location": "body",
+          "description": "Client admin"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "org_default_role",
+          "type": "string",
+          "location": "body",
+          "description": "Org default role"
+        },
+        {
+          "name": "org_roles",
+          "type": "object",
+          "location": "body",
+          "description": "Org roles"
+        }
+      ]
+    },
+    {
+      "name": "health_get-check",
+      "description": "Returns a health check status (cloud and self-hosted). (public)",
+      "method": "GET",
+      "path": "/health",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "org_bulk-remove-custom-integration",
+      "description": "Remove custom integration from a list of assets. Required: custom_integration_id, asset_ids.",
+      "method": "POST",
+      "path": "/org/custom-integrations/{custom_integration_id}/bulk/remove",
+      "params": [
+        {
+          "name": "custom_integration_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        },
+        {
+          "name": "asset_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Asset ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_clear-bulk-asset-owners",
+      "description": "Clear all owners across multiple assets based on a search query. Required: search. Optional: _oid. Returns the new BulkAssetUpdateResult.",
+      "method": "POST",
+      "path": "/org/assets/bulk/clearOwners",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "body",
+          "description": "Search",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_clear-bulk-asset-tags",
+      "description": "Clear all tags across multiple assets based on a search query. Required: search. Optional: _oid. Returns the new OperationStatus.",
+      "method": "POST",
+      "path": "/org/assets/bulk/clearTags",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "body",
+          "description": "Search",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_create-sample",
+      "description": "Create a traffic sampling task for a given site. Required: site_id, interfaces. Optional: _oid, agent, excludes (plus 3 more). Returns the updated Task.",
+      "method": "PUT",
+      "path": "/org/sites/{site_id}/sample",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to scan",
+          "required": true
+        },
+        {
+          "name": "agent",
+          "type": "string",
+          "location": "body",
+          "description": "Agent"
+        },
+        {
+          "name": "excludes",
+          "type": "string",
+          "location": "body",
+          "description": "Excludes"
+        },
+        {
+          "name": "explorer",
+          "type": "string",
+          "location": "body",
+          "description": "Explorer"
+        },
+        {
+          "name": "interfaces",
+          "type": "string",
+          "location": "body",
+          "description": "Interfaces",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "type": "string",
+          "location": "body",
+          "description": "Tags"
+        },
+        {
+          "name": "targets",
+          "type": "string",
+          "location": "body",
+          "description": "Targets"
+        }
+      ]
+    },
+    {
+      "name": "org_create-scan",
+      "description": "Create a scan task for a given site. Required: site_id, targets. Optional: _oid, agent, excludes (plus 30 more). Returns the updated Task.",
+      "method": "PUT",
+      "path": "/org/sites/{site_id}/scan",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to scan",
+          "required": true
+        },
+        {
+          "name": "agent",
+          "type": "string",
+          "location": "body",
+          "description": "Agent"
+        },
+        {
+          "name": "excludes",
+          "type": "string",
+          "location": "body",
+          "description": "Excludes"
+        },
+        {
+          "name": "explorer",
+          "type": "string",
+          "location": "body",
+          "description": "Explorer"
+        },
+        {
+          "name": "explorer-group-id",
+          "type": "string",
+          "location": "body",
+          "description": "Explorer group id"
+        },
+        {
+          "name": "host-ping",
+          "type": "string",
+          "location": "body",
+          "description": "Host ping"
+        },
+        {
+          "name": "host-ping-probes",
+          "type": "string",
+          "location": "body",
+          "description": "Optional host ping probe list as comma separated strings. The example shows possibilities."
+        },
+        {
+          "name": "hosted-zone-id",
+          "type": "string",
+          "location": "body",
+          "description": "The string 'auto' will use any available hosted zone. Otherwise, provide the string name (hostedzone1) or UUID ('e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8') of a hosted zone."
+        },
+        {
+          "name": "hosted-zone-name",
+          "type": "string",
+          "location": "body",
+          "description": "The string 'auto' will use any available hosted zone. Otherwise, provide the string name (hostedzone1) of the hosted zone."
+        },
+        {
+          "name": "max-attempts",
+          "type": "string",
+          "location": "body",
+          "description": "Max attempts"
+        },
+        {
+          "name": "max-group-size",
+          "type": "string",
+          "location": "body",
+          "description": "Max group size"
+        },
+        {
+          "name": "max-host-rate",
+          "type": "string",
+          "location": "body",
+          "description": "Max host rate"
+        },
+        {
+          "name": "max-sockets",
+          "type": "string",
+          "location": "body",
+          "description": "Max sockets"
+        },
+        {
+          "name": "max-ttl",
+          "type": "string",
+          "location": "body",
+          "description": "Max ttl"
+        },
+        {
+          "name": "nameservers",
+          "type": "string",
+          "location": "body",
+          "description": "Nameservers"
+        },
+        {
+          "name": "passes",
+          "type": "string",
+          "location": "body",
+          "description": "Passes"
+        },
+        {
+          "name": "probes",
+          "type": "string",
+          "location": "body",
+          "description": "Optional probe list, otherwise all probes are used"
+        },
+        {
+          "name": "rate",
+          "type": "string",
+          "location": "body",
+          "description": "Rate"
+        },
+        {
+          "name": "scan-description",
+          "type": "string",
+          "location": "body",
+          "description": "A description of the scan."
+        },
+        {
+          "name": "scan-frequency",
+          "type": "string",
+          "location": "body",
+          "description": "A string time duration value representing execution frequency, if scheduled to repeat."
+        },
+        {
+          "name": "scan-grace-period",
+          "type": "string",
+          "location": "body",
+          "description": "Scan grace period"
+        },
+        {
+          "name": "scan-name",
+          "type": "string",
+          "location": "body",
+          "description": "Scan name"
+        },
+        {
+          "name": "scan-start",
+          "type": "string",
+          "location": "body",
+          "description": "Unix timestamp value indicating when the template was created."
+        },
+        {
+          "name": "scan-tags",
+          "type": "string",
+          "location": "body",
+          "description": "Scan tags"
+        },
+        {
+          "name": "scan-template",
+          "type": "string",
+          "location": "body",
+          "description": "Scan template"
+        },
+        {
+          "name": "screenshots",
+          "type": "string",
+          "location": "body",
+          "description": "Screenshots"
+        },
+        {
+          "name": "subnet-ping",
+          "type": "string",
+          "location": "body",
+          "description": "Subnet ping"
+        },
+        {
+          "name": "subnet-ping-net-size",
+          "type": "string",
+          "location": "body",
+          "description": "Subnet ping net size"
+        },
+        {
+          "name": "subnet-ping-probes",
+          "type": "string",
+          "location": "body",
+          "description": "Optional subnet ping probe list as comma separated strings. The example shows possibilities."
+        },
+        {
+          "name": "subnet-ping-sample-rate",
+          "type": "string",
+          "location": "body",
+          "description": "Subnet ping sample rate"
+        },
+        {
+          "name": "targets",
+          "type": "string",
+          "location": "body",
+          "description": "Targets",
+          "required": true
+        },
+        {
+          "name": "tcp-excludes",
+          "type": "string",
+          "location": "body",
+          "description": "Tcp excludes"
+        },
+        {
+          "name": "tcp-ports",
+          "type": "string",
+          "location": "body",
+          "description": "Tcp ports"
+        },
+        {
+          "name": "tos",
+          "type": "string",
+          "location": "body",
+          "description": "Tos"
+        }
+      ]
+    },
+    {
+      "name": "org_create-site",
+      "description": "Create a new site. Required: name. Optional: _oid, description, excludes (plus 2 more). Returns the updated Site.",
+      "method": "PUT",
+      "path": "/org/sites",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "excludes",
+          "type": "string",
+          "location": "body",
+          "description": "Excludes"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "body",
+          "description": "Scope"
+        },
+        {
+          "name": "subnets",
+          "type": "object",
+          "location": "body",
+          "description": "Subnets"
+        }
+      ]
+    },
+    {
+      "name": "org_export-asset-metrics-json",
+      "description": "Export asset metrics. Optional: _oid. Returns the OrgExportAssetMetricsJsonResponse.",
+      "method": "GET",
+      "path": "/org/metrics",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-asset-top-hwcsv",
+      "description": "Top asset hardware products as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/assets/hw.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-asset-top-oscsv",
+      "description": "Top asset operating systems as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/assets/os.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-asset-top-tags-csv",
+      "description": "Top asset tags as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/assets/tags.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-asset-top-types-csv",
+      "description": "Top asset types as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/assets/type.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-services-top-products-csv",
+      "description": "Top service products as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/services/products.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-services-top-protocols-csv",
+      "description": "Top service protocols as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/services/protocols.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-services-top-tcpcsv",
+      "description": "Top TCP services as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/services/tcp.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_export-services-top-udpcsv",
+      "description": "Top UDP services as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/services/udp.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-agent",
+      "description": "Get details for a single agent. Legacy path for /org/explorers/{explorer_id}. Required: agent_id. Optional: _oid. Returns the Agent.",
+      "method": "GET",
+      "path": "/org/agents/{agent_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the agent",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-agents",
+      "description": "Get all agents. Legacy path for /org/explorers. Optional: _oid. Returns array of Agent.",
+      "method": "GET",
+      "path": "/org/agents",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-asset",
+      "description": "Get asset details. Required: asset_id. Optional: _oid. Returns the Asset.",
+      "method": "GET",
+      "path": "/org/assets/{asset_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-assets",
+      "description": "Get all assets. Optional: _oid, search, fields. Returns array of Asset.",
+      "method": "GET",
+      "path": "/org/assets",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "org_get-custom-integration",
+      "description": "Get single custom integration. Required: customIntegrationId. Returns the CustomIntegration.",
+      "method": "GET",
+      "path": "/org/custom-integrations/{customIntegrationId}",
+      "params": [
+        {
+          "name": "customIntegrationId",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-custom-integrations",
+      "description": "Get all custom integrations. Returns the CustomIntegration.",
+      "method": "GET",
+      "path": "/org/custom-integrations",
+      "params": []
+    },
+    {
+      "name": "org_get-explorer",
+      "description": "Get details for a single explorer. This is the same call as legacy path /org/agents/{agent_id}. Required: explorer_id. Optional: _oid. Returns the Agent.",
+      "method": "GET",
+      "path": "/org/explorers/{explorer_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "explorer_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the explorer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-explorers",
+      "description": "Get all explorers. This is the same call as legacy path /org/agents. Optional: _oid. Returns array of Agent.",
+      "method": "GET",
+      "path": "/org/explorers",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-hosted-zone",
+      "description": "Get details for a single Hosted Zone. Hosted Zones are only available to Enterprise licensed customers. Required: hosted_zone_id. Optional: _oid. Returns the HostedZone.",
+      "method": "GET",
+      "path": "/org/hosted-zones/{hosted_zone_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "hosted_zone_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the hosted zone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-hosted-zones",
+      "description": "Get all hosted zones. Hosted Zones are only available to Enterprise licensed customers. Optional: _oid. Returns array of HostedZone.",
+      "method": "GET",
+      "path": "/org/hosted-zones",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-key",
+      "description": "Get API key details. Optional: _oid. Returns the OrganizationApikey.",
+      "method": "GET",
+      "path": "/org/key",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-organization",
+      "description": "Get organization details. Optional: _oid. Returns the Organization.",
+      "method": "GET",
+      "path": "/org",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-service",
+      "description": "Get service details. Required: service_id. Optional: _oid. Returns the Service.",
+      "method": "GET",
+      "path": "/org/services/{service_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "service_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the service to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-services",
+      "description": "Get all services. Optional: _oid, search. Returns array of Service.",
+      "method": "GET",
+      "path": "/org/services",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "org_get-site",
+      "description": "Get site details. Required: site_id. Optional: _oid. Returns the Site.",
+      "method": "GET",
+      "path": "/org/sites/{site_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-sites",
+      "description": "Get all sites. Optional: _oid. Returns array of Site.",
+      "method": "GET",
+      "path": "/org/sites",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_get-task",
+      "description": "Get task details. Required: task_id. Optional: _oid. Returns the Task.",
+      "method": "GET",
+      "path": "/org/tasks/{task_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-task-change-report",
+      "description": "Returns a temporary task change report data url. Required: task_id. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/tasks/{task_id}/changes",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-task-log",
+      "description": "Returns a temporary task log data url. Required: task_id. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/tasks/{task_id}/log",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-task-scan-data",
+      "description": "Returns a temporary task scan data url. Required: task_id. Optional: _oid.",
+      "method": "GET",
+      "path": "/org/tasks/{task_id}/data",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-tasks",
+      "description": "Get all tasks (last 1000). Optional: _oid, status, search. Returns array of Task.",
+      "method": "GET",
+      "path": "/org/tasks",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "an optional status string for filtering results"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "org_get-wireless-lan",
+      "description": "Get wireless LAN details. Required: wireless_id. Optional: _oid. Returns the Wireless.",
+      "method": "GET",
+      "path": "/org/wireless/{wireless_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "wireless_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the wireless LAN to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_get-wireless-lans",
+      "description": "Get all wireless LANs. Optional: _oid, search. Returns array of Wireless.",
+      "method": "GET",
+      "path": "/org/wireless",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "org_hide-task",
+      "description": "Signal that a completed task should be hidden. Required: task_id. Optional: _oid. Returns the new Task.",
+      "method": "POST",
+      "path": "/org/tasks/{task_id}/hide",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task to hide",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_import-nessus-scan-data",
+      "description": "Import a Nessus scan data file into a site. Required: site_id. Optional: _oid. Returns the updated Task.",
+      "method": "PUT",
+      "path": "/org/sites/{site_id}/import/nessus",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to import Nessus scan data into",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_import-packet-data",
+      "description": "Import a packet capture file into a site. Required: site_id. Optional: _oid. Returns the updated Task.",
+      "method": "PUT",
+      "path": "/org/sites/{site_id}/import/packet",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to import packet capture into",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_import-scan-data",
+      "description": "Import a scan data file into a site. Required: site_id. Optional: _oid. Returns the updated Task.",
+      "method": "PUT",
+      "path": "/org/sites/{site_id}/import",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to import scan data into",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_merge-assets",
+      "description": "Merge multiple assets. Required: asset_ids. Optional: _oid. Returns the updated OperationStatus.",
+      "method": "PATCH",
+      "path": "/org/assets/merge",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Asset ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-agent",
+      "description": "Remove and uninstall an agent. Legacy path for /org/explorers/{explorer_id}. Required: agent_id. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/agents/{agent_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the agent to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-asset",
+      "description": "Remove an asset. Required: asset_id. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/assets/{asset_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-asset-source",
+      "description": "Remove single source from asset. Required: asset_id, source_id. Destructive.",
+      "method": "DELETE",
+      "path": "/org/assets/{asset_id}/sources/{source_id}/remove",
+      "params": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to update",
+          "required": true
+        },
+        {
+          "name": "source_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the source",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-bulk-assets",
+      "description": "Removes multiple assets by ID. Required: asset_ids. Optional: _oid.",
+      "method": "POST",
+      "path": "/org/assets/bulk/delete",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Asset ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-custom-integration",
+      "description": "Remove single custom integration from asset. Required: asset_id, custom_integration_id. Destructive.",
+      "method": "DELETE",
+      "path": "/org/assets/{asset_id}/custom-integrations/{custom_integration_id}/remove",
+      "params": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to update",
+          "required": true
+        },
+        {
+          "name": "custom_integration_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the custom integration",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-explorer",
+      "description": "Remove and uninstall an explorer. This is the same call as legacy path /org/agents/{agent_id}. Required: explorer_id. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/explorers/{explorer_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "explorer_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the explorer to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-key",
+      "description": "Remove the current API key. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/key",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_remove-service",
+      "description": "Remove a service. Required: service_id. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/services/{service_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "service_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the service to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-site",
+      "description": "Remove a site and associated assets. Required: site_id. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/sites/{site_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_remove-wireless-lan",
+      "description": "Remove a wireless LAN. Required: wireless_id. Optional: _oid. Destructive.",
+      "method": "DELETE",
+      "path": "/org/wireless/{wireless_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "wireless_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the wireless LAN to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_rotate-key",
+      "description": "Rotate the API key secret and return the updated key. Optional: _oid. Returns the updated OrganizationApikey.",
+      "method": "PATCH",
+      "path": "/org/key/rotate",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "org_stop-task",
+      "description": "Signal that a task should be stopped or canceled.This will also remove recurring and scheduled tasks. Required: task_id. Optional: _oid. Returns the new Task.",
+      "method": "POST",
+      "path": "/org/tasks/{task_id}/stop",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task to stop",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-agent-settings",
+      "description": "Update the settings associated with the agent. Legacy path for /org/explorers/{explorer_id}. Required: agent_id. Optional: _oid, settings, site_id. Returns the updated Agent.",
+      "method": "PATCH",
+      "path": "/org/agents/{agent_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the agent to update",
+          "required": true
+        },
+        {
+          "name": "settings-max-concurrent-scans",
+          "wire_name": "settings.max_concurrent_scans",
+          "type": "int",
+          "location": "body",
+          "description": "Max concurrent scans"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "body",
+          "description": "Site id"
+        }
+      ]
+    },
+    {
+      "name": "org_update-asset-comments",
+      "description": "Update asset comments. Required: asset_id, comments. Optional: _oid. Returns the updated Asset.",
+      "method": "PATCH",
+      "path": "/org/assets/{asset_id}/comments",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to update",
+          "required": true
+        },
+        {
+          "name": "comments",
+          "type": "string",
+          "location": "body",
+          "description": "Comments",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-asset-criticality",
+      "description": "Update asset criticality. Required: asset_id, criticality. Optional: _oid. Returns the updated Asset.",
+      "method": "PATCH",
+      "path": "/org/assets/{asset_id}/criticality",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to update",
+          "required": true
+        },
+        {
+          "name": "criticality",
+          "type": "string",
+          "location": "body",
+          "description": "Criticality",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-asset-owners",
+      "description": "Update asset owners. Required: asset_id. Optional: _oid, ownerships. Returns the updated Asset.",
+      "method": "PATCH",
+      "path": "/org/assets/{asset_id}/owners",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to update",
+          "required": true
+        },
+        {
+          "name": "ownerships",
+          "type": "array",
+          "location": "body",
+          "description": "Ownerships"
+        }
+      ]
+    },
+    {
+      "name": "org_update-asset-tags",
+      "description": "Update asset tags. Required: asset_id, tags. Optional: _oid. Returns the updated Asset.",
+      "method": "PATCH",
+      "path": "/org/assets/{asset_id}/tags",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "asset_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the asset to update",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "type": "string",
+          "location": "body",
+          "description": "Tags",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-bulk-asset-criticality",
+      "description": "Update criticality across multiple assets based on a search query. Required: criticality, search. Optional: _oid. Returns the updated OperationStatus.",
+      "method": "PATCH",
+      "path": "/org/assets/bulk/criticality",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "criticality",
+          "type": "string",
+          "location": "body",
+          "description": "Criticality",
+          "required": true
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "body",
+          "description": "Search",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-bulk-asset-owners",
+      "description": "Update asset owners across multiple assets based on a search query. Required: ownerships, search. Optional: _oid. Returns the updated BulkAssetUpdateResult.",
+      "method": "PATCH",
+      "path": "/org/assets/bulk/owners",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "ownerships",
+          "type": "array",
+          "location": "body",
+          "description": "Ownerships",
+          "required": true
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "body",
+          "description": "Search",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-bulk-asset-tags",
+      "description": "Update tags across multiple assets based on a search query. Required: search, tags. Optional: _oid. Returns the updated OperationStatus.",
+      "method": "PATCH",
+      "path": "/org/assets/bulk/tags",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "body",
+          "description": "Search",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "type": "string",
+          "location": "body",
+          "description": "Tags",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_update-explorer-settings",
+      "description": "Update the settings associated with the Explorer. This is the same call as legacy path /org/agents/{agent_id}. Required: explorer_id. Optional: _oid, settings, site_id. Returns the updated Agent.",
+      "method": "PATCH",
+      "path": "/org/explorers/{explorer_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "explorer_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the explorer to update",
+          "required": true
+        },
+        {
+          "name": "settings-max-concurrent-scans",
+          "wire_name": "settings.max_concurrent_scans",
+          "type": "int",
+          "location": "body",
+          "description": "Max concurrent scans"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "body",
+          "description": "Site id"
+        }
+      ]
+    },
+    {
+      "name": "org_update-organization",
+      "description": "Update organization details. Optional: _oid, description, expiration_assets_offline (plus 8 more). Returns the updated Organization.",
+      "method": "PATCH",
+      "path": "/org",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "expiration_assets_offline",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before offline assets are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_assets_stale",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before stale assets are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_integration_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before integration attributes are expired, as a decimal string."
+        },
+        {
+          "name": "expiration_scans",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before scan data is expired, as a decimal string."
+        },
+        {
+          "name": "expiration_settings",
+          "type": "string",
+          "location": "body",
+          "description": "JSON string containing optional attribute and vulnerability expiration settings."
+        },
+        {
+          "name": "expiration_vulnerabilities",
+          "type": "string",
+          "location": "body",
+          "description": "Number of days before vulnerabilities are expired, as a decimal string."
+        },
+        {
+          "name": "keep_latest_integration_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "Whether to retain only the latest integration attribute values, as a boolean string..."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent id"
+        }
+      ]
+    },
+    {
+      "name": "org_update-site",
+      "description": "Update a site definition. Required: site_id, name. Optional: _oid, description, excludes (plus 2 more). Returns the updated Site.",
+      "method": "PATCH",
+      "path": "/org/sites/{site_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID or name of the site to update",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "excludes",
+          "type": "string",
+          "location": "body",
+          "description": "Excludes"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "body",
+          "description": "Scope"
+        },
+        {
+          "name": "subnets",
+          "type": "object",
+          "location": "body",
+          "description": "Subnets"
+        }
+      ]
+    },
+    {
+      "name": "org_update-task",
+      "description": "Update task parameters. Required: task_id. Optional: _oid, agent_id, client_id (plus 28 more). Returns the updated Task.",
+      "method": "PATCH",
+      "path": "/org/tasks/{task_id}",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the task to update",
+          "required": true
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Agent id"
+        },
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "body",
+          "description": "Client id"
+        },
+        {
+          "name": "created_at",
+          "type": "int",
+          "location": "body",
+          "description": "Created at"
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "location": "body",
+          "description": "Created by"
+        },
+        {
+          "name": "created_by_user_id",
+          "type": "string",
+          "location": "body",
+          "description": "Created by user id"
+        },
+        {
+          "name": "cruncher_id",
+          "type": "string",
+          "location": "body",
+          "description": "Cruncher id"
+        },
+        {
+          "name": "custom_integration_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom integration source, if the last task executed with this template was an import of Asset Data."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "location": "body",
+          "description": "Error"
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "location": "body",
+          "description": "Hidden"
+        },
+        {
+          "name": "hosted_zone_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the Hosted Zone which executes the task. If the"
+        },
+        {
+          "name": "hosted_zone_name",
+          "type": "string",
+          "location": "body",
+          "description": "The string 'auto' will use any available hosted zone. Otherwise, provide the string name (hostedzone1) of the hosted zone."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "body",
+          "description": "Organization id"
+        },
+        {
+          "name": "params",
+          "type": "object",
+          "location": "body",
+          "description": "Params"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent id"
+        },
+        {
+          "name": "recur",
+          "type": "bool",
+          "location": "body",
+          "description": "Recur"
+        },
+        {
+          "name": "recur_frequency",
+          "type": "string",
+          "location": "body",
+          "description": "Recur frequency"
+        },
+        {
+          "name": "recur_last",
+          "type": "int",
+          "location": "body",
+          "description": "Recur last"
+        },
+        {
+          "name": "recur_last_task_id",
+          "type": "string",
+          "location": "body",
+          "description": "Recur last task id"
+        },
+        {
+          "name": "recur_next",
+          "type": "int",
+          "location": "body",
+          "description": "Recur next"
+        },
+        {
+          "name": "site_id",
+          "type": "string",
+          "location": "body",
+          "description": "Site id"
+        },
+        {
+          "name": "source_id",
+          "type": "int",
+          "location": "body",
+          "description": "The numeric ID of the data source, if the task executed with this template is a runZero scan or third party data connection import."
+        },
+        {
+          "name": "start_time",
+          "type": "int",
+          "location": "body",
+          "description": "Start time"
+        },
+        {
+          "name": "stats",
+          "type": "object",
+          "location": "body",
+          "description": "Stats"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status"
+        },
+        {
+          "name": "template_id",
+          "type": "string",
+          "location": "body",
+          "description": "Template id"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type"
+        },
+        {
+          "name": "updated_at",
+          "type": "int",
+          "location": "body",
+          "description": "Updated at"
+        }
+      ]
+    },
+    {
+      "name": "org_upgrade-agent",
+      "description": "Force an agent to update and restart. Legacy path for /org/explorers/{explorer_id}/update. Required: agent_id. Optional: _oid.",
+      "method": "POST",
+      "path": "/org/agents/{agent_id}/update",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the agent to update",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_upgrade-explorer",
+      "description": "Force an explorer to update and restart. This is the same call as legacy path /org/agents/{agent_id}/update. Required: explorer_id. Optional: _oid.",
+      "method": "POST",
+      "path": "/org/explorers/{explorer_id}/update",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "explorer_id",
+          "type": "string",
+          "location": "path",
+          "description": "UUID of the explorer to update",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "releases_get-latest-agent-version",
+      "description": "Returns latest agent version. (public)",
+      "method": "GET",
+      "path": "/releases/agent/version",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "releases_get-latest-platform-version",
+      "description": "Returns latest platform version. (public)",
+      "method": "GET",
+      "path": "/releases/platform/version",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "releases_get-latest-scanner-version",
+      "description": "Returns latest scanner version. (public)",
+      "method": "GET",
+      "path": "/releases/scanner/version",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "runzero-export_assets-cisco-csv",
+      "description": "Cisco serial number and model name export for Cisco Smart Net Total Care Service. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/assets.cisco.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_assets-csv",
+      "description": "Asset inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/assets.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_assets-json",
+      "description": "Exports the asset inventory. Optional: _oid, search, fields (plus 2 more).",
+      "method": "GET",
+      "path": "/export/org/assets.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The number of results to return per request."
+        },
+        {
+          "name": "start_key",
+          "type": "string",
+          "location": "query",
+          "description": "The value to use for requesting the next page when requesting paginated results."
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_assets-jsonl",
+      "description": "Asset inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/assets.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_assets-nmap-xml",
+      "description": "Asset inventory as Nmap-style XML. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/assets.nmap.xml",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_certificates-csv",
+      "description": "Export the certificate inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/certificates.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_certificates-json",
+      "description": "Export the certificate inventory as JSON. Optional: _oid, search. Returns array of Certificate.",
+      "method": "GET",
+      "path": "/export/org/certificates.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_certificates-jsonl",
+      "description": "Export the certificate inventory as JSONL line-delimited. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/certificates.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_directory-groups-csv",
+      "description": "Group inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/groups.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_directory-groups-json",
+      "description": "Exports the group inventory. Optional: _oid, search, fields. Returns array of DirectoryGroup.",
+      "method": "GET",
+      "path": "/export/org/groups.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_directory-groups-jsonl",
+      "description": "Group inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/groups.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_directory-users-csv",
+      "description": "User inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/users.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_directory-users-json",
+      "description": "Exports the user inventory. Optional: _oid, search, fields. Returns array of DirectoryUser.",
+      "method": "GET",
+      "path": "/export/org/users.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_directory-users-jsonl",
+      "description": "User inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/users.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_findings-csv",
+      "description": "Export findings as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/findings.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_findings-json",
+      "description": "Export findings as JSON. Optional: _oid, search. Returns array of Finding.",
+      "method": "GET",
+      "path": "/export/org/findings.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_findings-jsonl",
+      "description": "Export findings as JSON line-delimited. Optional: _oid, search. Returns array of Finding.",
+      "method": "GET",
+      "path": "/export/org/findings.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_services-csv",
+      "description": "Service inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/services.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_services-json",
+      "description": "Service inventory as JSON. Optional: _oid, search, fields (plus 2 more).",
+      "method": "GET",
+      "path": "/export/org/services.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The number of results to return per request."
+        },
+        {
+          "name": "start_key",
+          "type": "string",
+          "location": "query",
+          "description": "The value to use for requesting the next page when requesting paginated results."
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_services-jsonl",
+      "description": "Service inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/services.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_sites-csv",
+      "description": "Site list as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/export/org/sites.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_sites-json",
+      "description": "Export all sites. Optional: _oid, search, fields. Returns array of Site.",
+      "method": "GET",
+      "path": "/export/org/sites.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_sites-jsonl",
+      "description": "Site list as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/sites.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_snmparpcache-csv",
+      "description": "SNMP ARP cache data as CSV. Optional: _oid.",
+      "method": "GET",
+      "path": "/export/org/snmp.arpcache.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_snow-assets-csv",
+      "description": "Export an asset inventory as CSV for ServiceNow integration. Optional: _oid.",
+      "method": "GET",
+      "path": "/export/org/assets.servicenow.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_snow-assets-json",
+      "description": "Exports the asset inventory as JSON. Optional: _oid. Returns array of AssetServiceNow.",
+      "method": "GET",
+      "path": "/export/org/assets.servicenow.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_snow-service-graph-assets-json",
+      "description": "Exports the asset inventory as JSON. Optional: _oid, search. Returns array of AssetServiceNow.",
+      "method": "GET",
+      "path": "/export/org/assets.servicegraph.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_snow-services-csv",
+      "description": "Export a service inventory as CSV for ServiceNow integration. Optional: _oid.",
+      "method": "GET",
+      "path": "/export/org/services.servicenow.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_software-csv",
+      "description": "Software inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/software.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_software-json",
+      "description": "Exports the software inventory. Optional: _oid, search, fields (plus 2 more).",
+      "method": "GET",
+      "path": "/export/org/software.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The number of results to return per request."
+        },
+        {
+          "name": "start_key",
+          "type": "string",
+          "location": "query",
+          "description": "The value to use for requesting the next page when requesting paginated results."
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_software-jsonl",
+      "description": "Software inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/software.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_splunk-asset-sync-created-json",
+      "description": "Exports the asset inventory in a sync-friendly manner using created_at as a checkpoint. Requires the Splunk entitlement. Optional: _oid, search, fields (plus 1 more). Returns array of Asset.",
+      "method": "GET",
+      "path": "/export/org/assets/sync/created/assets.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "an optional list of fields to export, comma-separated"
+        },
+        {
+          "name": "since",
+          "type": "int",
+          "location": "query",
+          "description": "an optional unix timestamp to use as a checkpoint"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_splunk-asset-sync-updated-json",
+      "description": "Exports the asset inventory in a sync-friendly manner using updated_at as a checkpoint. Requires the Splunk entitlement. Optional: _oid, search, fields (plus 1 more). Returns array of Asset.",
+      "method": "GET",
+      "path": "/export/org/assets/sync/updated/assets.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "an optional search string for filtering results"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "an optional list of fields to export, comma-separated"
+        },
+        {
+          "name": "since",
+          "type": "int",
+          "location": "query",
+          "description": "an optional unix timestamp to use as a checkpoint"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_subnet-utilization-stats-csv",
+      "description": "Subnet utilization statistics as as CSV. Optional: _oid, mask.",
+      "method": "GET",
+      "path": "/export/org/subnet.stats.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "mask",
+          "type": "string",
+          "location": "query",
+          "description": "an optional subnet mask size (ex:24)"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_tasks-json",
+      "description": "Exports organization tasks. Optional: _oid, search, fields. Returns array of Task.",
+      "method": "GET",
+      "path": "/export/org/tasks.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_tasks-jsonl",
+      "description": "Organization tasks as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/tasks.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_vulnerabilities-csv",
+      "description": "Export the vulnerability inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/vulnerabilities.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_vulnerabilities-json",
+      "description": "Export the vulnerability inventory as JSON. Optional: _oid, search, fields (plus 2 more).",
+      "method": "GET",
+      "path": "/export/org/vulnerabilities.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The number of results to return per request."
+        },
+        {
+          "name": "start_key",
+          "type": "string",
+          "location": "query",
+          "description": "The value to use for requesting the next page when requesting paginated results."
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_vulnerabilities-jsonl",
+      "description": "Export the vulnerability inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/vulnerabilities.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_wireless-csv",
+      "description": "Wireless inventory as CSV. Optional: _oid, search.",
+      "method": "GET",
+      "path": "/export/org/wireless.csv",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_wireless-json",
+      "description": "Wireless inventory as JSON. Optional: _oid, search, fields (plus 2 more).",
+      "method": "GET",
+      "path": "/export/org/wireless.json",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The number of results to return per request."
+        },
+        {
+          "name": "start_key",
+          "type": "string",
+          "location": "query",
+          "description": "The value to use for requesting the next page when requesting paginated results."
+        }
+      ]
+    },
+    {
+      "name": "runzero-export_wireless-jsonl",
+      "description": "Wireless inventory as JSON line-delimited. Optional: _oid, search, fields.",
+      "method": "GET",
+      "path": "/export/org/wireless.jsonl",
+      "params": [
+        {
+          "name": "_oid",
+          "type": "string",
+          "location": "query",
+          "description": "The current Organization"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "A search query in runZero search query syntax"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "A list of fields to export, comma-separated"
+        }
+      ]
+    },
+    {
+      "name": "runzero-import_custom-integration-assets",
+      "description": "Assets can be discovered, imported, and merged by runZero scan tasks, first-party integrations, and third-party defined custom integrations. See [/account/custom-integrations](#/account/getAccountCustomIntegrations). Currently only assets for custom integrations are importable here. Required: orgID, assetData, customIntegrationId, importTask, siteId. Returns the new Task.",
+      "method": "POST",
+      "path": "/import/org/{orgID}/assets",
+      "params": [
+        {
+          "name": "orgID",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the organization to import the assets into",
+          "required": true
+        },
+        {
+          "name": "assetData",
+          "type": "string",
+          "location": "body",
+          "description": "A gzip (not .tar.gz) compressed file containing ImportAsset objects. The file data may be a JSON array of ImportAsset objects, e.g. [{},{},...] or JSONL format, with a single JSON representation of an ImportAsset object on each new line, e.g. {}n{}n...",
+          "required": true
+        },
+        {
+          "name": "customIntegrationId",
+          "type": "string",
+          "location": "body",
+          "description": "The unique ID of the registered custom integration which produced the asset data. Uniqueness is not checked/enforced. See /account/custom-integrations api.",
+          "required": true
+        },
+        {
+          "name": "importTask",
+          "type": "object",
+          "location": "body",
+          "description": "Information which describes the task created when asset data is imported.",
+          "required": true
+        },
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the site assets are to be imported into.",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

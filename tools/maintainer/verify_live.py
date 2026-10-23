@@ -12,8 +12,25 @@ skill's "live_verified" key:
       "source": "build-session" | "circle" | "github" | "self",
       "evidence": "<url or note>",
       "verified_by": "<who confirmed it, e.g. @handle (MSP)>" | null,
-      "issue_url": "<clickable receipt link>" | null
+      "issue_url": "<clickable receipt link>" | null,
+      "verified_version": "X.Y.Z" | null,
+      "verified_cli_hash": "sha256:<hex>" | null,
+      "verified_basis": "reported" | "latest-release-at-flip" | "unknown"
     }
+
+The last three bind the badge to the code that was verified: the release
+version and the cli_hash.py hash of skills/<dir>/cli at that release's tag
+(computed from git objects, exactly as stamp_release.py stamps
+cli_hash_at_release). The catalog then shows "verified on vX.Y.Z" once the
+shipped release carries different code, so a badge never silently covers code
+no MSP ran. The basis says how the version was chosen:
+  reported                the reporter named it (--verified-version)
+  latest-release-at-flip  the newest release tag at the flip, skipping any
+                          cut from a commit made after the report
+                          (--reported-at); what a fresh install gave them
+  unknown                 nothing provable (both fields null)
+`--bind` sets these on an existing badge without touching its date or
+evidence (the backfill path, and a report that names its version later).
 
 A skill without the key is treated as "awaiting" - tools tolerate its absence.
 `verified_by` and `issue_url` are what the catalog + per-skill page actually
@@ -34,6 +51,8 @@ Usage:
         --evidence "https://github.com/Servosity/msp-skills/issues/139" \\
         --verified-by "@AvlCompCo (MSP)"   # issue_url defaults from --evidence
     python3 tools/maintainer/verify_live.py --revoke --slug halopsa
+    python3 tools/maintainer/verify_live.py --bind --slug cove --verified-version 0.1.3
+    python3 tools/maintainer/verify_live.py --bind --slug cove --unknown
     python3 tools/maintainer/verify_live.py --status
     python3 tools/maintainer/verify_live.py --slug halopsa --source self \\
         --evidence "redogfood" --force
@@ -45,11 +64,15 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import check_registry_state  # noqa: E402  (local tools/ module: the hash of a tagged tree)
+import release_state  # noqa: E402  (local tools/ module: one version order)
 
 ROOT = registry.ROOT
 REGISTRY = registry.REGISTRY
@@ -57,6 +80,77 @@ REGISTRY = registry.REGISTRY
 VALID_SOURCES = ("build-session", "circle", "github", "self")
 
 AWAITING = {"status": "awaiting", "date": None, "source": None, "evidence": None}
+
+BASES = ("reported", "latest-release-at-flip", "unknown")
+VERSION_RE = re.compile(r"^\d+\.\d+\.\d+\Z")
+UNKNOWN_BINDING = {"verified_version": None, "verified_cli_hash": None, "verified_basis": "unknown"}
+
+
+def _git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True, timeout=60)
+
+
+def _tag_exists(tag: str) -> bool:
+    return _git("rev-parse", "-q", "--verify", f"refs/tags/{tag}").returncode == 0
+
+
+def tag_cli_hash(slug: str, tag: str) -> str | None:
+    """cli_hash.py's hash of the connector's cli/ at `tag`, resolved through the
+    tagged commit's own registry (check_registry_state.tag_cli_hash, the rule
+    the CI gate re-checks), or None when it cannot be computed."""
+    return check_registry_state.tag_cli_hash(slug, {}, tag[len(slug) + 2:])
+
+
+def _parse_when(value: str) -> dt.datetime:
+    try:
+        when = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise SystemExit(f"verify_live: --reported-at {value!r} is not an ISO-8601 timestamp")
+    if when.tzinfo is None:
+        raise SystemExit(f"verify_live: --reported-at {value!r} needs a timezone (e.g. ...Z)")
+    return when
+
+
+def binding(slug: str, version: str | None = None, reported_at: str | None = None) -> dict:
+    """The verified_* fields for a flip of `slug` (see the module docstring)."""
+    cutoff = _parse_when(reported_at) if reported_at else None
+
+    def after_report(tag: str) -> bool:
+        """Cut from a commit made after the report: never what the reporter ran."""
+        if cutoff is None:
+            return False
+        made = _git("log", "-1", "--format=%cI", f"{tag}^{{commit}}").stdout.strip()
+        return not made or _parse_when(made) > cutoff
+
+    if version is not None:
+        if not VERSION_RE.match(version):
+            raise SystemExit(f"verify_live: --verified-version {version!r} is not X.Y.Z")
+        tag = f"{slug}-v{version}"
+        if not _tag_exists(tag):
+            raise SystemExit(f"verify_live: no local tag {tag} (git fetch --tags origin), so "
+                             f"the code at {version} cannot be hashed")
+        if after_report(tag):
+            raise SystemExit(f"verify_live: {tag} was cut from a commit made after the report "
+                             f"(--reported-at {reported_at}); the reporter cannot have run it")
+        h = tag_cli_hash(slug, tag)
+        if h is None:
+            raise SystemExit(f"verify_live: {tag} does not release {slug} at {version} in its own "
+                             "registry, or its cli/ cannot be hashed reproducibly")
+        return {"verified_version": version, "verified_cli_hash": h, "verified_basis": "reported"}
+    prefix = f"{slug}-v"
+    tags = [t for t in _git("tag", "--list", f"{prefix}*").stdout.split()
+            if VERSION_RE.match(t[len(prefix):])]
+    for tag in sorted(tags, key=lambda t: release_state._version_tuple(t[len(prefix):]), reverse=True):
+        if after_report(tag):
+            continue
+        h = tag_cli_hash(slug, tag)
+        if h is None:
+            break
+        return {"verified_version": tag[len(prefix):], "verified_cli_hash": h,
+                "verified_basis": "latest-release-at-flip"}
+    print(f"verify_live: WARNING no release tag of {slug} could be bound (fetch tags?); "
+          "recording the verified version as unknown", file=sys.stderr)
+    return dict(UNKNOWN_BINDING)
 
 
 def _read_registry() -> dict:
@@ -134,6 +228,8 @@ def cmd_verify(
     force: bool,
     verified_by: str | None = None,
     issue_url: str | None = None,
+    verified_version: str | None = None,
+    reported_at: str | None = None,
 ) -> int:
     reg = _read_registry()
     skills = reg.get("skills", {})
@@ -181,6 +277,7 @@ def cmd_verify(
         "https://github.com/"
     ):
         use_issue_url = evidence
+    bound = binding(slug, verified_version, reported_at)
     entry["live_verified"] = {
         "status": "live-verified",
         "date": use_date,
@@ -188,6 +285,7 @@ def cmd_verify(
         "evidence": evidence,
         "verified_by": verified_by,
         "issue_url": use_issue_url,
+        **bound,
     }
     _write_registry(reg)
 
@@ -195,7 +293,31 @@ def cmd_verify(
     print(f"  evidence:    {evidence}")
     print(f"  verified_by: {verified_by or '(default: Servosity (maintainer))'}")
     print(f"  issue_url:   {use_issue_url or '(none)'}")
+    print(f"  verified:    {bound['verified_version'] or 'unknown version'} ({bound['verified_basis']})")
     _print_followup(slug, source)
+    return 0
+
+
+def cmd_bind(slug: str, version: str | None, unknown: bool) -> int:
+    """Bind an EXISTING badge to the version it verified (or record that it is
+    unknown), leaving its date, source and evidence untouched."""
+    if (version is None) == (not unknown):
+        raise SystemExit("verify_live: --bind needs exactly one of --verified-version or --unknown")
+    reg = _read_registry()
+    entry = reg.get("skills", {}).get(slug)
+    if entry is None:
+        print(f"verify_live: unknown slug '{slug}'", file=sys.stderr)
+        return 1
+    lv = _entry_state(entry)
+    if lv.get("status") != "live-verified":
+        print(f"verify_live: '{slug}' is not live-verified; nothing to bind", file=sys.stderr)
+        return 1
+    lv.update(dict(UNKNOWN_BINDING) if unknown else binding(slug, version))
+    entry["live_verified"] = lv
+    _write_registry(reg)
+    print(f"{slug}: badge bound to {lv['verified_version'] or 'an unknown version'} "
+          f"({lv['verified_basis']}{', ' + lv['verified_cli_hash'][:19] + '...' if lv['verified_cli_hash'] else ''})")
+    _print_followup(slug, "bind")
     return 0
 
 
@@ -230,6 +352,10 @@ def parse_args(argv: list[str]) -> dict:
         "revoke": False,
         "status": False,
         "force": False,
+        "bind": False,
+        "unknown": False,
+        "verified_version": None,
+        "reported_at": None,
     }
     i = 0
     while i < len(argv):
@@ -252,6 +378,16 @@ def parse_args(argv: list[str]) -> dict:
         elif a == "--issue-url":
             i += 1
             opts["issue_url"] = argv[i]
+        elif a == "--verified-version":
+            i += 1
+            opts["verified_version"] = argv[i]
+        elif a == "--reported-at":
+            i += 1
+            opts["reported_at"] = argv[i]
+        elif a == "--bind":
+            opts["bind"] = True
+        elif a == "--unknown":
+            opts["unknown"] = True
         elif a == "--revoke":
             opts["revoke"] = True
         elif a == "--status":
@@ -275,12 +411,18 @@ def main(argv: list[str]) -> int:
             raise SystemExit("verify_live: --revoke requires --slug")
         return cmd_revoke(opts["slug"])
 
+    if opts["bind"]:
+        if not opts["slug"]:
+            raise SystemExit("verify_live: --bind requires --slug")
+        return cmd_bind(opts["slug"], opts["verified_version"], opts["unknown"])
+
     if opts["slug"]:
         if not opts["source"]:
             raise SystemExit("verify_live: a flip requires --source")
         return cmd_verify(
             opts["slug"], opts["source"], opts["evidence"], opts["date"], opts["force"],
             verified_by=opts["verified_by"], issue_url=opts["issue_url"],
+            verified_version=opts["verified_version"], reported_at=opts["reported_at"],
         )
 
     raise SystemExit(

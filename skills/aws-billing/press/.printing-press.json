@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-29T13:31:43.609978Z",
+  "printing_press_version": "4.19.0",
+  "api_name": "aws-billing",
+  "display_name": "AWS Billing Intelligence",
+  "cli_name": "aws-billing-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "DamienStevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "aws-billing-spec.yaml",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:af1aceb7a81137cfe09c8ee210dd8c119885063f62621544bd7dc82398fffb98",
+  "run_id": "20260529-075312",
+  "category": "cloud",
+  "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown — and cache it so you don't pay per Cost Explorer call.",
+  "mcp_binary": "aws-billing-pp-mcp",
+  "mcp_tool_count": 5,
+  "mcp_public_tool_count": 5,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "none",
+  "novel_features": [
+    {
+      "name": "Tiered IAM onboarding",
+      "command": "iam-setup",
+      "description": "Get from zero to a working billing read-only setup with copy-paste least-privilege policy, a one-click CloudFormation launch-stack, or an admin bootstrap path."
+    },
+    {
+      "name": "Permission-aware diagnosis",
+      "command": "doctor",
+      "description": "Probes the AWS credential chain and, on an AccessDenied, names the exact missing ce:/ec2: permission and whether you're in a member vs management account."
+    },
+    {
+      "name": "Per-account + aggregate org rollup",
+      "command": "consolidated",
+      "description": "Shows each linked account's bill with names resolved, the management rollup, and an inline month-over-month delta per account in one view."
+    },
+    {
+      "name": "Dollar-ranked waste rollup",
+      "command": "waste rank",
+      "description": "One table of every idle, orphaned, or over-provisioned resource the hunters found, sorted by estimated monthly dollars wasted, with a grand-total you could save."
+    },
+    {
+      "name": "gp2 to gp3 modernization savings",
+      "command": "waste gp2-gp3",
+      "description": "Lists gp2 EBS volumes and computes the exact monthly dollars saved by converting each to gp3."
+    },
+    {
+      "name": "Data-transfer bleed surface",
+      "command": "waste transfer",
+      "description": "Surfaces the cross-AZ, cross-region, and NAT-gateway data-transfer line items ranked by spend, with the AZ/region pair that's bleeding."
+    },
+    {
+      "name": "Deterministic bill Q\u0026A router",
+      "command": "ask",
+      "description": "Answers known questions about your bill (top services, biggest month-over-month mover, per-account total, transfer spend) straight from the local cache; emits the relevant slice as JSON for anything it can't answer directly."
+    }
+  ]
+}

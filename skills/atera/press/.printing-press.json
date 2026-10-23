@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:19:18.26979Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "atera",
+  "display_name": "Atera",
+  "cli_name": "atera-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:a279a94be1fd27a783eeaff0260b4a8e61cd209bbcd5067e5da4f14e7a7a1bfd",
+  "run_id": "20260613-031101",
+  "category": "monitoring",
+  "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
+  "mcp_binary": "atera-pp-mcp",
+  "mcp_tool_count": 140,
+  "mcp_ready": "full",
+  "api_version": "v3",
+  "auth_type": "api_key",
+  "auth_preference": "Account API",
+  "auth_env_vars": [
+    "ATERA_ACCOUNT_API"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "ATERA_API_KEY",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "ATERA_ACCOUNT_API",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Dark / stale agents",
+      "command": "agents stale",
+      "description": "Surface agents that have gone quiet \u2014 offline or not seen in N days \u2014 before the client calls to complain."
+    },
+    {
+      "name": "SLA breach-risk ranking",
+      "command": "tickets sla",
+      "description": "Rank open tickets by how close they are to breaching first-response or resolution SLA."
+    },
+    {
+      "name": "Fleet OS inventory + EOL",
+      "command": "agents inventory",
+      "description": "Roll up OS and OS-type counts across the whole estate and flag end-of-life operating systems."
+    },
+    {
+      "name": "Book of business",
+      "command": "customers book",
+      "description": "Per-customer rollup of agent count and contract mix (types + active/inactive) by joining customers, contracts, and agents."
+    },
+    {
+      "name": "Technician workload",
+      "command": "tickets workload",
+      "description": "Group open tickets and total logged duration by technician to spot who is overloaded."
+    },
+    {
+      "name": "Alert triage",
+      "command": "alerts triage",
+      "description": "Group open alerts by severity and customer, ranked by age, so the loudest problems surface first."
+    },
+    {
+      "name": "Contract coverage gap",
+      "command": "customers coverage",
+      "description": "Find under-contracted customers \u2014 managed agents with no active recurring or monitoring contract \u2014 before the renewal conversation."
+    },
+    {
+      "name": "Patch compliance sweep",
+      "command": "agents patch-status",
+      "description": "Roll up missing-patch counts across the whole estate, ranked by agent and customer, from the per-device patch endpoints."
+    },
+    {
+      "name": "What changed since",
+      "command": "since",
+      "description": "Show what was created in a time window \u2014 new agents, new tickets, new alerts \u2014 across the synced estate."
+    },
+    {
+      "name": "Contract expiry calendar",
+      "command": "contracts expiring",
+      "description": "See which contracts end inside a window, ranked by days-to-expiry and joined to the customer name."
+    },
+    {
+      "name": "Estate alert hotspots",
+      "command": "agents noisy",
+      "description": "Rank the machines and customers generating the most alerts over a window \u2014 the chronic problem devices."
+    }
+  ],
+  "scorecard": {
+    "api_name": "atera",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 8,
+      "mcp_description_quality": 0,
+      "mcp_token_efficiency": 0,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 10,
+      "mcp_surface_strategy": 10,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 10,
+      "vision": 9,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 0,
+      "data_pipeline_integrity": 7,
+      "sync_correctness": 10,
+      "type_fidelity": 4,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 92,
+      "percentage": 92
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 140 tools (0 public, 140 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_description_quality",
+      "mcp_token_efficiency",
+      "auth_protocol",
+      "live_api_verification"
+    ]
+  }
+}

@@ -1,0 +1,3223 @@
+{
+  "api_name": "nerdio",
+  "base_url": "https://nmm.example.com",
+  "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "oauth2",
+    "env_vars": [
+      "NERDIO_CLIENT_ID",
+      "NERDIO_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "NERDIO_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "NERDIO_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_list",
+      "description": "List all customer accounts. Returns array of Account.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts",
+      "params": []
+    },
+    {
+      "name": "app-roles_assignments",
+      "description": "List app role assignments.",
+      "method": "GET",
+      "path": "/rest-api/v1/app-role-assignments",
+      "params": []
+    },
+    {
+      "name": "app-roles_roles",
+      "description": "List available app roles.",
+      "method": "GET",
+      "path": "/rest-api/v1/app-role-assignments/roles",
+      "params": []
+    },
+    {
+      "name": "autoscale-profiles_account-get",
+      "description": "Get an account autoscale profile. Required: account-id, profile-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/autoscale-profiles/{profile_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "profile-id",
+          "wire_name": "profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Autoscale profile ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autoscale-profiles_account-list",
+      "description": "List autoscale profiles for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/autoscale-profiles",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autoscale-profiles_get",
+      "description": "Get an MSP-level autoscale profile. Required: profile-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/autoscale-profiles/{profile_id}",
+      "params": [
+        {
+          "name": "profile-id",
+          "wire_name": "profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Autoscale profile ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autoscale-profiles_list",
+      "description": "List MSP-level autoscale profiles. Returns array of AutoscaleProfile.",
+      "method": "GET",
+      "path": "/rest-api/v1/autoscale-profiles",
+      "params": []
+    },
+    {
+      "name": "backup_disable",
+      "description": "Disable backup for a protected item. Required: account-id, source-resource-id. Optional: protected-item-id, remove-all-backups.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/backup/disable",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "source-resource-id",
+          "wire_name": "sourceResourceId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure resource ID of the protected source",
+          "required": true
+        },
+        {
+          "name": "protected-item-id",
+          "wire_name": "protectedItemId",
+          "type": "string",
+          "location": "body",
+          "description": "Protected item ID"
+        },
+        {
+          "name": "remove-all-backups",
+          "wire_name": "removeAllBackups",
+          "type": "bool",
+          "location": "body",
+          "description": "Also remove all existing recovery points"
+        }
+      ]
+    },
+    {
+      "name": "backup_enable",
+      "description": "Enable backup for a resource with a policy. Required: account-id, source-resource-id, policy-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/backup/enable",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "source-resource-id",
+          "wire_name": "sourceResourceId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure resource ID to protect",
+          "required": true
+        },
+        {
+          "name": "policy-id",
+          "wire_name": "policyId",
+          "type": "string",
+          "location": "body",
+          "description": "Backup policy ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_protected-items",
+      "description": "List protected items for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/backup/protectedItems",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_recovery-points",
+      "description": "List recovery points for a protected item. Required: account-id, protected-item-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/backup/recoveryPoints",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "protected-item-id",
+          "wire_name": "protectedItemId",
+          "type": "string",
+          "location": "query",
+          "description": "Protected item ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_restore",
+      "description": "Restore a protected item from a recovery point. Required: account-id, source-resource-id, recovery-point-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/backup/restore",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "source-resource-id",
+          "wire_name": "sourceResourceId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure resource ID of the protected source",
+          "required": true
+        },
+        {
+          "name": "recovery-point-id",
+          "wire_name": "recoveryPointId",
+          "type": "string",
+          "location": "body",
+          "description": "Recovery point ID to restore from",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_run",
+      "description": "Trigger an on-demand backup of a protected item. Required: account-id, source-resource-id. Optional: protected-item-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/backup",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "source-resource-id",
+          "wire_name": "sourceResourceId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure resource ID of the source to back up",
+          "required": true
+        },
+        {
+          "name": "protected-item-id",
+          "wire_name": "protectedItemId",
+          "type": "string",
+          "location": "body",
+          "description": "Protected item ID"
+        }
+      ]
+    },
+    {
+      "name": "cost-estimator_get",
+      "description": "Get a cost estimate by ID. Required: estimate-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/costestimator/{estimate_id}",
+      "params": [
+        {
+          "name": "estimate-id",
+          "wire_name": "estimate_id",
+          "type": "string",
+          "location": "path",
+          "description": "Cost estimate ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cost-estimator_list",
+      "description": "List saved cost estimates.",
+      "method": "GET",
+      "path": "/rest-api/v1/costestimator/list",
+      "params": []
+    },
+    {
+      "name": "desktop-images_changelog",
+      "description": "Get desktop image change log. Required: account-id, subscription-id, resource-group, image-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}/change-log",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "image-name",
+          "wire_name": "image_name",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop image name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop-images_get",
+      "description": "Get desktop image details. Required: account-id, subscription-id, resource-group, image-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "image-name",
+          "wire_name": "image_name",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop image name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop-images_list",
+      "description": "List desktop images for an account. Required: account-id. Returns array of DesktopImage.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/desktop-image",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop-images_schedules",
+      "description": "Get desktop image schedule configurations. Required: account-id, subscription-id, resource-group, image-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}/schedule-configurations",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "image-name",
+          "wire_name": "image_name",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop image name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop-images_start",
+      "description": "Start (power on) a desktop image VM. Required: account-id, subscription-id, resource-group, image-name.",
+      "method": "PUT",
+      "path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}/start",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "image-name",
+          "wire_name": "image_name",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop image name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "desktop-images_stop",
+      "description": "Stop (power off) a desktop image VM. Required: account-id, subscription-id, resource-group, image-name.",
+      "method": "PUT",
+      "path": "/rest-api/v1/accounts/{account_id}/desktop-image/{subscription_id}/{resource_group}/{image_name}/stop",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "image-name",
+          "wire_name": "image_name",
+          "type": "string",
+          "location": "path",
+          "description": "Desktop image name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_app-failures",
+      "description": "List app installation failures on a device. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/apps/failures",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_apps",
+      "description": "List apps installed on a device. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/apps",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_bitlocker-keys",
+      "description": "Get BitLocker recovery keys for a device. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/bitlocker-keys",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_compliance",
+      "description": "Get compliance state for a device. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/compliance",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Get an Intune device by ID. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_hardware",
+      "description": "Get hardware inventory for a device. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/hardware",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_laps",
+      "description": "Get local admin password (LAPS) for a device. Required: account-id, device-id.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/local-admin-password",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "List Intune devices for an account. Required: account-id. Returns array of Device.",
+      "method": "GET",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_sync",
+      "description": "Trigger an Intune sync on a device. Required: account-id, device-id.",
+      "method": "POST",
+      "path": "/rest-api/v1-beta/accounts/{account_id}/devices/{device_id}/sync",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "device-id",
+          "wire_name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Intune device ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "directories_account",
+      "description": "List directory configurations for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/directories",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "directories_list",
+      "description": "List MSP-level directory configurations. Returns array of Directory.",
+      "method": "GET",
+      "path": "/rest-api/v1/directories",
+      "params": []
+    },
+    {
+      "name": "environment-variables_account",
+      "description": "List environment variables for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/environment-variables",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "environment-variables_list",
+      "description": "List MSP-level environment variables.",
+      "method": "GET",
+      "path": "/rest-api/v1/environment-variables",
+      "params": []
+    },
+    {
+      "name": "fslogix_account",
+      "description": "List FSLogix configurations for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/fslogix",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a group by ID. Required: account-id, group-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/groups/{group_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "group-id",
+          "wire_name": "group_id",
+          "type": "string",
+          "location": "path",
+          "description": "Group object ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_ad",
+      "description": "Get host pool Active Directory settings. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/active-directory",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_assigned-users",
+      "description": "List users assigned to a host pool. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/assigned-users",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_autoscale",
+      "description": "Get host pool autoscale configuration. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/autoscale-configuration",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_avd",
+      "description": "Get host pool AVD settings. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/avd",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_create",
+      "description": "Create a host pool in an account. Required: account-id, name, user-experience. Optional: description, time-zone-id, workspace-id (plus 2 more).",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Host pool name",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Host pool description"
+        },
+        {
+          "name": "user-experience",
+          "wire_name": "wvdPoolUserExperience",
+          "type": "string",
+          "location": "body",
+          "description": "Pool user experience (e.g. PooledMultiUserDesktop, PersonalSingleUserDesktop)",
+          "required": true
+        },
+        {
+          "name": "time-zone-id",
+          "wire_name": "timeZoneId",
+          "type": "string",
+          "location": "body",
+          "description": "Time zone ID for the pool"
+        },
+        {
+          "name": "workspace-id",
+          "wire_name": "workspaceId",
+          "type": "string",
+          "location": "body",
+          "description": "AVD workspace resource ID"
+        },
+        {
+          "name": "assignment-type",
+          "wire_name": "assignmentType",
+          "type": "string",
+          "location": "body",
+          "description": "Assignment type (personal pools: Automatic or Direct)"
+        },
+        {
+          "name": "hosts-count",
+          "wire_name": "hostsCount",
+          "type": "int",
+          "location": "body",
+          "description": "Host count (required for PersonalSingleUserDesktop)"
+        }
+      ]
+    },
+    {
+      "name": "host-pools_delete",
+      "description": "Delete a host pool. Required: account-id, subscription-id, resource-group, pool-name. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_fslogix",
+      "description": "Get host pool FSLogix configuration. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/fslogix",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_list",
+      "description": "List host pools for an account. Required: account-id. Returns array of HostPool.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_rdp",
+      "description": "Get host pool RDP settings. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/rdp-settings",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_schedules",
+      "description": "Get host pool schedule configurations. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/schedule-configurations",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_session-timeouts",
+      "description": "Get host pool session timeout settings. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/session-timeouts",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_sessions",
+      "description": "List active user sessions on a host pool. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/sessions",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_set-autoscale",
+      "description": "Update host pool autoscale configuration (pass full config JSON via --stdin). Required: account-id, subscription-id, resource-group, pool-name. Optional: scaleInRestriction, preStageHosts, removeMessaging (plus 1 more).",
+      "method": "PUT",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/autoscale-configuration",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        },
+        {
+          "name": "scaleInRestriction",
+          "type": "object",
+          "location": "body",
+          "description": "Scale-in restriction settings JSON"
+        },
+        {
+          "name": "preStageHosts",
+          "type": "object",
+          "location": "body",
+          "description": "Pre-stage hosts settings JSON"
+        },
+        {
+          "name": "removeMessaging",
+          "type": "object",
+          "location": "body",
+          "description": "User messaging settings JSON for host removal"
+        },
+        {
+          "name": "autoHeal",
+          "type": "object",
+          "location": "body",
+          "description": "Auto-heal settings JSON"
+        }
+      ]
+    },
+    {
+      "name": "host-pools_tags",
+      "description": "Get host pool Azure tags. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/tags",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "host-pools_vm-deployment",
+      "description": "Get host pool VM deployment settings. Required: account-id, subscription-id, resource-group, pool-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/vm-deployment",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hosts_list",
+      "description": "List session hosts in a host pool. Required: account-id, subscription-id, resource-group, pool-name. Returns array of Host.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/hosts",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hosts_restart",
+      "description": "Restart a session host VM. Required: account-id, subscription-id, resource-group, pool-name, host-name.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/hosts/{host_name}/restart",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        },
+        {
+          "name": "host-name",
+          "wire_name": "host_name",
+          "type": "string",
+          "location": "path",
+          "description": "Session host name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hosts_schedules",
+      "description": "Get schedule configurations for a session host. Required: account-id, host-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/hosts/{host_name}/schedule-configurations",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "host-name",
+          "wire_name": "host_name",
+          "type": "string",
+          "location": "path",
+          "description": "Session host name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hosts_start",
+      "description": "Start a session host VM. Required: account-id, subscription-id, resource-group, pool-name, host-name.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/hosts/{host_name}/start",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        },
+        {
+          "name": "host-name",
+          "wire_name": "host_name",
+          "type": "string",
+          "location": "path",
+          "description": "Session host name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hosts_stop",
+      "description": "Stop (deallocate) a session host VM. Required: account-id, subscription-id, resource-group, pool-name, host-name.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/host-pool/{subscription_id}/{resource_group}/{pool_name}/hosts/{host_name}/stop",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "pool-name",
+          "wire_name": "pool_name",
+          "type": "string",
+          "location": "path",
+          "description": "Host pool name",
+          "required": true
+        },
+        {
+          "name": "host-name",
+          "wire_name": "host_name",
+          "type": "string",
+          "location": "path",
+          "description": "Session host name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_get",
+      "description": "Get an invoice by ID. Required: invoice-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/invoices/{invoice_id}",
+      "params": [
+        {
+          "name": "invoice-id",
+          "wire_name": "invoice_id",
+          "type": "string",
+          "location": "path",
+          "description": "Invoice ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_list",
+      "description": "List invoices in a billing period. Required: period-start, period-end. Optional: hide-paid, hide-unpaid. Returns array of Invoice.",
+      "method": "GET",
+      "path": "/rest-api/v1/invoices",
+      "params": [
+        {
+          "name": "period-start",
+          "wire_name": "periodStart",
+          "type": "string",
+          "location": "query",
+          "description": "Billing period start (ISO 8601 date)",
+          "required": true
+        },
+        {
+          "name": "period-end",
+          "wire_name": "periodEnd",
+          "type": "string",
+          "location": "query",
+          "description": "Billing period end (ISO 8601 date)",
+          "required": true
+        },
+        {
+          "name": "hide-paid",
+          "wire_name": "hidePaid",
+          "type": "bool",
+          "location": "query",
+          "description": "Exclude paid invoices"
+        },
+        {
+          "name": "hide-unpaid",
+          "wire_name": "hideUnpaid",
+          "type": "bool",
+          "location": "query",
+          "description": "Exclude unpaid invoices"
+        }
+      ]
+    },
+    {
+      "name": "job_get",
+      "description": "Get an async job by ID. Required: job-id. Returns the Job.",
+      "method": "GET",
+      "path": "/rest-api/v1/job/{job_id}",
+      "params": [
+        {
+          "name": "job-id",
+          "wire_name": "job_id",
+          "type": "int",
+          "location": "path",
+          "description": "Job ID returned by a mutation",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "job_retry",
+      "description": "Restart a failed job. Required: job-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/job/{job_id}",
+      "params": [
+        {
+          "name": "job-id",
+          "wire_name": "job_id",
+          "type": "int",
+          "location": "path",
+          "description": "Job ID to restart",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "job_tasks",
+      "description": "List tasks of an async job. Required: job-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/job/{job_id}/tasks",
+      "params": [
+        {
+          "name": "job-id",
+          "wire_name": "job_id",
+          "type": "int",
+          "location": "path",
+          "description": "Job ID returned by a mutation",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "networks_all",
+      "description": "List all networks visible to an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/networks/all",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "networks_link",
+      "description": "Link an existing network to an account. Required: account-id, network-id, subnet-name.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/networks/link",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "network-id",
+          "wire_name": "networkId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure network resource ID",
+          "required": true
+        },
+        {
+          "name": "subnet-name",
+          "wire_name": "subnetName",
+          "type": "string",
+          "location": "body",
+          "description": "Subnet name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "networks_list",
+      "description": "List networks managed by NMM for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/networks",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "provisioning_link-network",
+      "description": "Link a network during account provisioning. Required: nmmId, existingResourceGroupName. Optional: existingNetwork.",
+      "method": "POST",
+      "path": "/rest-api/v1/accountprovisioning/linknetwork",
+      "params": [
+        {
+          "name": "nmmId",
+          "type": "int",
+          "location": "body",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "existingResourceGroupName",
+          "type": "string",
+          "location": "body",
+          "description": "Existing resource group name",
+          "required": true
+        },
+        {
+          "name": "existing-network-network-id",
+          "wire_name": "existingNetwork.networkId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure network resource ID"
+        },
+        {
+          "name": "existing-network-subnet-name",
+          "wire_name": "existingNetwork.subnetName",
+          "type": "string",
+          "location": "body",
+          "description": "Subnet name"
+        }
+      ]
+    },
+    {
+      "name": "provisioning_link-tenant",
+      "description": "Link an existing Entra tenant as a new NMM account (returns a job; poll jobs get). Required: subscription-id, azure-access-token, graph-access-token, company-name. Optional: active-directory-type (default: ExistingAD).",
+      "method": "POST",
+      "path": "/rest-api/v1/accountprovisioning/linktenant",
+      "params": [
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "azure-access-token",
+          "wire_name": "azureAccessToken",
+          "type": "string",
+          "location": "body",
+          "description": "ARM access token for the customer subscription",
+          "required": true
+        },
+        {
+          "name": "graph-access-token",
+          "wire_name": "graphAccessToken",
+          "type": "string",
+          "location": "body",
+          "description": "Microsoft Graph access token for the customer tenant",
+          "required": true
+        },
+        {
+          "name": "company-name",
+          "wire_name": "companyName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer company name",
+          "required": true
+        },
+        {
+          "name": "active-directory-type",
+          "wire_name": "activeDirectoryType",
+          "type": "string",
+          "location": "body",
+          "description": "Active Directory type (e.g. ExistingAD)"
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_all",
+      "description": "List all recovery vaults visible to an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/allvaults",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_create",
+      "description": "Create a recovery vault. Required: account-id, vault-name, resource-group-id, location. Optional: replication-type.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "vault-name",
+          "wire_name": "vaultName",
+          "type": "string",
+          "location": "body",
+          "description": "Recovery vault name",
+          "required": true
+        },
+        {
+          "name": "resource-group-id",
+          "wire_name": "resourceGroupId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure resource group ID",
+          "required": true
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "location": "body",
+          "description": "Azure region",
+          "required": true
+        },
+        {
+          "name": "replication-type",
+          "wire_name": "replicationType",
+          "type": "string",
+          "location": "body",
+          "description": "Replication type (e.g. LocallyRedundant, GeoRedundant)"
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_delete-policy",
+      "description": "Delete a backup policy. Required: account-id, vault-id, policy-name. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/policy",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "vault-id",
+          "wire_name": "vaultId",
+          "type": "string",
+          "location": "query",
+          "description": "Recovery vault resource ID",
+          "required": true
+        },
+        {
+          "name": "policy-name",
+          "wire_name": "policyName",
+          "type": "string",
+          "location": "query",
+          "description": "Backup policy name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_link",
+      "description": "Link an existing recovery vault to an account. Required: account-id, vault-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/link/vault",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "vault-id",
+          "wire_name": "vaultId",
+          "type": "string",
+          "location": "body",
+          "description": "Recovery vault resource ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_linked",
+      "description": "List recovery vaults linked to an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_policies",
+      "description": "List backup policies in a recovery vault. Required: account-id, vault-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/policies",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "vault-id",
+          "wire_name": "vaultId",
+          "type": "string",
+          "location": "query",
+          "description": "Recovery vault resource ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_policy",
+      "description": "Get a backup policy by name. Required: account-id, vault-id, policy-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/policy",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "vault-id",
+          "wire_name": "vaultId",
+          "type": "string",
+          "location": "query",
+          "description": "Recovery vault resource ID",
+          "required": true
+        },
+        {
+          "name": "policy-name",
+          "wire_name": "policyName",
+          "type": "string",
+          "location": "query",
+          "description": "Backup policy name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_region-policies",
+      "description": "Get vault policy info for an Azure region. Required: account-id, region.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/regionpolicyinfo/{region}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "location": "path",
+          "description": "Azure region name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "recovery-vaults_unlink",
+      "description": "Unlink a recovery vault from an account. Required: account-id, vault-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/recovery-vault/unlink/vault",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "vault-id",
+          "wire_name": "vaultId",
+          "type": "string",
+          "location": "body",
+          "description": "Recovery vault resource ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reservations_create",
+      "description": "Create a reservation. Required: account-id, order-name. Optional: order-id, price, billing-plan (plus 6 more).",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/reservations",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "order-id",
+          "wire_name": "orderId",
+          "type": "string",
+          "location": "body",
+          "description": "Reservation order ID"
+        },
+        {
+          "name": "order-name",
+          "wire_name": "orderName",
+          "type": "string",
+          "location": "body",
+          "description": "Reservation order name",
+          "required": true
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "location": "body",
+          "description": "Reservation price"
+        },
+        {
+          "name": "billing-plan",
+          "wire_name": "billingPlan",
+          "type": "string",
+          "location": "body",
+          "description": "Billing plan (e.g. Monthly, Upfront)"
+        },
+        {
+          "name": "start-date",
+          "wire_name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Reservation start date (ISO 8601)"
+        },
+        {
+          "name": "term",
+          "type": "string",
+          "location": "body",
+          "description": "Reservation term (e.g. P1Y, P3Y)"
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "location": "body",
+          "description": "Azure region"
+        },
+        {
+          "name": "vm-size",
+          "wire_name": "vmSize",
+          "type": "string",
+          "location": "body",
+          "description": "VM size (e.g. Standard_D4s_v5)"
+        },
+        {
+          "name": "instance-flexibility",
+          "wire_name": "instanceFlexibility",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable instance size flexibility"
+        },
+        {
+          "name": "quantity",
+          "type": "int",
+          "location": "body",
+          "description": "Number of instances reserved"
+        }
+      ]
+    },
+    {
+      "name": "reservations_delete",
+      "description": "Delete a reservation. Required: account-id, reservation-id. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/accounts/{account_id}/reservations/{reservation_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "reservation-id",
+          "wire_name": "reservation_id",
+          "type": "string",
+          "location": "path",
+          "description": "Reservation ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reservations_get",
+      "description": "Get a reservation by ID. Required: account-id, reservation-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/reservations/{reservation_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "reservation-id",
+          "wire_name": "reservation_id",
+          "type": "string",
+          "location": "path",
+          "description": "Reservation ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reservations_list",
+      "description": "List reservations for an account. Required: account-id. Returns array of Reservation.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/reservations",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reservations_resources",
+      "description": "List resources attached to a reservation. Required: account-id, reservation-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/reservations/{reservation_id}/resources",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "reservation-id",
+          "wire_name": "reservation_id",
+          "type": "string",
+          "location": "path",
+          "description": "Reservation ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reservations_update",
+      "description": "Update a reservation. Required: account-id, reservation-id. Optional: order-name, price, billing-plan (plus 1 more).",
+      "method": "PUT",
+      "path": "/rest-api/v1/accounts/{account_id}/reservations/{reservation_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "reservation-id",
+          "wire_name": "reservation_id",
+          "type": "string",
+          "location": "path",
+          "description": "Reservation ID",
+          "required": true
+        },
+        {
+          "name": "order-name",
+          "wire_name": "orderName",
+          "type": "string",
+          "location": "body",
+          "description": "Reservation order name"
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "location": "body",
+          "description": "Reservation price"
+        },
+        {
+          "name": "billing-plan",
+          "wire_name": "billingPlan",
+          "type": "string",
+          "location": "body",
+          "description": "Billing plan (e.g. Monthly, Upfront)"
+        },
+        {
+          "name": "quantity",
+          "type": "int",
+          "location": "body",
+          "description": "Number of instances reserved"
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_account-link",
+      "description": "Link a resource group to an account. Required: account-id, resource-group, subscription-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/resource-group/linked",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Resource group name",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_account-list",
+      "description": "List resource groups linked to an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/resource-group",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_account-set-default",
+      "description": "Set the default resource group for an account. Required: account-id, resource-group, subscription-id.",
+      "method": "PUT",
+      "path": "/rest-api/v1/accounts/{account_id}/resource-group/setDefault",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Resource group name",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_account-unlink",
+      "description": "Unlink a resource group from an account. Required: account-id, resource-group, subscription-id. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/accounts/{account_id}/resource-group/linked",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Resource group name",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_link",
+      "description": "Link a resource group at MSP level. Required: resource-group, subscription-id.",
+      "method": "POST",
+      "path": "/rest-api/v1/resource-group/linked",
+      "params": [
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Resource group name",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_list",
+      "description": "List MSP-level linked resource groups.",
+      "method": "GET",
+      "path": "/rest-api/v1/resource-group",
+      "params": []
+    },
+    {
+      "name": "resource-groups_set-default",
+      "description": "Set the default MSP-level resource group. Required: resource-group, subscription-id.",
+      "method": "PUT",
+      "path": "/rest-api/v1/resource-group/setDefault",
+      "params": [
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Resource group name",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource-groups_unlink",
+      "description": "Unlink an MSP-level resource group. Required: resource-group, subscription-id. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/resource-group/linked",
+      "params": [
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Resource group name",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscriptionId",
+          "type": "string",
+          "location": "body",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schedules_account-configurations",
+      "description": "Get configurations for an account schedule. Required: account-id, schedule-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/schedules/{schedule_id}/configurations",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "schedule-id",
+          "wire_name": "schedule_id",
+          "type": "int",
+          "location": "path",
+          "description": "Schedule ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schedules_account-get",
+      "description": "Get an account schedule. Required: account-id, schedule-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/schedules/{schedule_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "schedule-id",
+          "wire_name": "schedule_id",
+          "type": "int",
+          "location": "path",
+          "description": "Schedule ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schedules_account-list",
+      "description": "List schedules for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/schedules",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schedules_configurations",
+      "description": "Get configurations for an MSP-level schedule. Required: schedule-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/schedules/{schedule_id}/configurations",
+      "params": [
+        {
+          "name": "schedule-id",
+          "wire_name": "schedule_id",
+          "type": "int",
+          "location": "path",
+          "description": "Schedule ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schedules_get",
+      "description": "Get an MSP-level schedule. Required: schedule-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/schedules/{schedule_id}",
+      "params": [
+        {
+          "name": "schedule-id",
+          "wire_name": "schedule_id",
+          "type": "int",
+          "location": "path",
+          "description": "Schedule ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schedules_list",
+      "description": "List MSP-level schedules. Returns array of Schedule.",
+      "method": "GET",
+      "path": "/rest-api/v1/schedules",
+      "params": []
+    },
+    {
+      "name": "scripted-actions_account-list",
+      "description": "List scripted actions for an account. Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/scripted-actions",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripted-actions_list",
+      "description": "List MSP-level scripted actions. Returns array of ScriptedAction.",
+      "method": "GET",
+      "path": "/rest-api/v1/scripted-actions",
+      "params": []
+    },
+    {
+      "name": "scripted-actions_run",
+      "description": "Execute an MSP-level scripted action (returns a job). Required: script-id. Optional: adConfigId, paramsBindings, minutesToWait.",
+      "method": "POST",
+      "path": "/rest-api/v1/scripted-actions/{script_id}/execution",
+      "params": [
+        {
+          "name": "script-id",
+          "wire_name": "script_id",
+          "type": "int",
+          "location": "path",
+          "description": "Scripted action ID",
+          "required": true
+        },
+        {
+          "name": "adConfigId",
+          "type": "string",
+          "location": "body",
+          "description": "AD config ID (null for default)"
+        },
+        {
+          "name": "paramsBindings",
+          "type": "object",
+          "location": "body",
+          "description": "Script parameter bindings JSON"
+        },
+        {
+          "name": "minutesToWait",
+          "type": "int",
+          "location": "body",
+          "description": "Minutes to wait for completion"
+        }
+      ]
+    },
+    {
+      "name": "scripted-actions_run-account",
+      "description": "Execute a scripted action in an account context (returns a job). Required: account-id, script-id. Optional: adConfigId, paramsBindings, minutesToWait.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/scripted-actions/{script_id}/execution",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "script-id",
+          "wire_name": "script_id",
+          "type": "int",
+          "location": "path",
+          "description": "Scripted action ID",
+          "required": true
+        },
+        {
+          "name": "adConfigId",
+          "type": "string",
+          "location": "body",
+          "description": "AD config ID (null for default)"
+        },
+        {
+          "name": "paramsBindings",
+          "type": "object",
+          "location": "body",
+          "description": "Script parameter bindings JSON"
+        },
+        {
+          "name": "minutesToWait",
+          "type": "int",
+          "location": "body",
+          "description": "Minutes to wait for completion"
+        }
+      ]
+    },
+    {
+      "name": "scripted-actions_schedule",
+      "description": "Get the schedule for an account scripted action. Required: account-id, script-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/scripted-actions/{script_id}/schedule",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "script-id",
+          "wire_name": "script_id",
+          "type": "int",
+          "location": "path",
+          "description": "Scripted action ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripted-actions_unschedule",
+      "description": "Remove the schedule from an account scripted action. Required: account-id, script-id. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/accounts/{account_id}/scripted-actions/{script_id}/schedule",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "script-id",
+          "wire_name": "script_id",
+          "type": "int",
+          "location": "path",
+          "description": "Scripted action ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_account-create",
+      "description": "Create a secure variable in an account. Required: account-id, name, value.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/secure-variables",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Variable value (stored as a secret)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_account-delete",
+      "description": "Delete a secure variable from an account. Required: account-id, name. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/accounts/{account_id}/secure-variables",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_account-list",
+      "description": "List secure variables for an account (may expose stored secret values). Required: account-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/secure-variables",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_account-update",
+      "description": "Update a secure variable in an account. Required: account-id, name, value.",
+      "method": "PUT",
+      "path": "/rest-api/v1/accounts/{account_id}/secure-variables",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "New variable value",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_create",
+      "description": "Create an MSP-level secure variable. Required: name, value.",
+      "method": "POST",
+      "path": "/rest-api/v1/secure-variables",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Variable value (stored as a secret)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_delete",
+      "description": "Delete an MSP-level secure variable. Required: name. Destructive.",
+      "method": "DELETE",
+      "path": "/rest-api/v1/secure-variables",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "secure-variables_list",
+      "description": "List MSP-level secure variables (may expose stored secret values).",
+      "method": "GET",
+      "path": "/rest-api/v1/secure-variables",
+      "params": []
+    },
+    {
+      "name": "secure-variables_update",
+      "description": "Update an MSP-level secure variable. Required: name, value.",
+      "method": "PUT",
+      "path": "/rest-api/v1/secure-variables",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "New variable value",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "usages_account",
+      "description": "Get usage for one customer account between dates. Required: account-id, start-date, end-date. Optional: with-details.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/usages",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "start-date",
+          "wire_name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Usage window start (ISO 8601 date)",
+          "required": true
+        },
+        {
+          "name": "end-date",
+          "wire_name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Usage window end (ISO 8601 date)",
+          "required": true
+        },
+        {
+          "name": "with-details",
+          "wire_name": "withDetails",
+          "type": "bool",
+          "location": "query",
+          "description": "Include per-resource usage details"
+        }
+      ]
+    },
+    {
+      "name": "usages_msp",
+      "description": "Get MSP-level usage between dates. Required: start-date, end-date. Optional: with-details.",
+      "method": "GET",
+      "path": "/rest-api/v1/usages",
+      "params": [
+        {
+          "name": "start-date",
+          "wire_name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Usage window start (ISO 8601 date)",
+          "required": true
+        },
+        {
+          "name": "end-date",
+          "wire_name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Usage window end (ISO 8601 date)",
+          "required": true
+        },
+        {
+          "name": "with-details",
+          "wire_name": "withDetails",
+          "type": "bool",
+          "location": "query",
+          "description": "Include per-resource usage details"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a user by ID. Required: account-id, user-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/users/{user_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "user-id",
+          "wire_name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "User object ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_mfa",
+      "description": "Get MFA registration status for a user. Required: account-id, user-id.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/users/mfaStatus/{user_id}",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "user-id",
+          "wire_name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "User object ID (GUID)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_search",
+      "description": "Search/list users in an account (paginated POST search). Required: account-id. Optional: page-size (default: 100), page-num (default: 0), search-term.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/users",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Number of users per page"
+        },
+        {
+          "name": "page-num",
+          "wire_name": "pageNum",
+          "type": "int",
+          "location": "body",
+          "description": "Zero-based page number"
+        },
+        {
+          "name": "search-term",
+          "wire_name": "searchTerm",
+          "type": "string",
+          "location": "body",
+          "description": "Filter users by search string"
+        }
+      ]
+    },
+    {
+      "name": "workspaces_create",
+      "description": "Create an AVD workspace. Required: account-id, workspace-name, region, resource-group.",
+      "method": "POST",
+      "path": "/rest-api/v1/accounts/{account_id}/workspace",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "workspace-name",
+          "wire_name": "workspaceName",
+          "type": "string",
+          "location": "body",
+          "description": "Workspace name",
+          "required": true
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "location": "body",
+          "description": "Azure region",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resourceGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Azure resource group name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_list",
+      "description": "List AVD workspaces for an account. Required: account-id. Returns array of Workspace.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/workspace",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_sessions",
+      "description": "List sessions in a workspace. Required: account-id, subscription-id, resource-group, workspace-name.",
+      "method": "GET",
+      "path": "/rest-api/v1/accounts/{account_id}/workspace/{subscription_id}/{resource_group}/{workspace_name}/sessions",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "NMM customer account ID",
+          "required": true
+        },
+        {
+          "name": "subscription-id",
+          "wire_name": "subscription_id",
+          "type": "string",
+          "location": "path",
+          "description": "Azure subscription ID (GUID)",
+          "required": true
+        },
+        {
+          "name": "resource-group",
+          "wire_name": "resource_group",
+          "type": "string",
+          "location": "path",
+          "description": "Azure resource group name",
+          "required": true
+        },
+        {
+          "name": "workspace-name",
+          "wire_name": "workspace_name",
+          "type": "string",
+          "location": "path",
+          "description": "Workspace name",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

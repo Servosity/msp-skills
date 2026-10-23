@@ -60,6 +60,8 @@
       "install_mcp_doc": "skills/acronis/mcp-install.md",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
       "verification": "live-verified",
+      "verified_version": "0.1.4",
+      "verified_code": "changed",
       "category": "Backup/DR",
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking."
     },
@@ -199,6 +201,8 @@
       "install_mcp_doc": "skills/avanan/mcp-install.md",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Security",
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message."
     },
@@ -238,6 +242,8 @@
       "install_mcp_doc": "skills/axcient/mcp-install.md",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
       "verification": "live-verified",
+      "verified_version": "0.2.8",
+      "verified_code": "changed",
       "category": "Backup/DR",
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking."
     },
@@ -338,6 +344,8 @@
       "install_mcp_doc": "skills/cipp/mcp-install.md",
       "description": "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Security",
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once."
     },
@@ -537,6 +545,8 @@
       "install_mcp_doc": "skills/cove/mcp-install.md",
       "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Backup/DR",
       "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal."
     },
@@ -577,6 +587,8 @@
       "install_mcp_doc": "skills/datagate/mcp-install.md",
       "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
       "verification": "live-verified",
+      "verified_version": "0.1.0",
+      "verified_code": "changed",
       "category": "Billing",
       "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal."
     },
@@ -597,6 +609,8 @@
       "install_mcp_doc": "skills/datto-bcdr/mcp-install.md",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Backup/DR",
       "tagline": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask."
     },
@@ -738,6 +752,8 @@
       "install_mcp_doc": "skills/halopsa/mcp-install.md",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking."
     },
@@ -758,6 +774,8 @@
       "install_mcp_doc": "skills/hubspot/mcp-install.md",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "CRM",
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking."
     },
@@ -778,6 +796,8 @@
       "install_mcp_doc": "skills/hudu/mcp-install.md",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
       "verification": "live-verified",
+      "verified_version": "0.1.5",
+      "verified_code": "changed",
       "category": "Documentation",
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline."
     },
@@ -798,6 +818,8 @@
       "install_mcp_doc": "skills/huntress/mcp-install.md",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
       "verification": "live-verified",
+      "verified_version": "0.1.0",
+      "verified_code": "changed",
       "category": "Security",
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue."
     },
@@ -818,6 +840,8 @@
       "install_mcp_doc": "skills/immybot/mcp-install.md",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "RMM",
       "tagline": "Triage a night of failed maintenance by root cause, and rank one title across every tenant."
     },
@@ -1057,6 +1081,8 @@
       "install_mcp_doc": "skills/ninjaone/mcp-install.md",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
       "verification": "live-verified",
+      "verified_version": "0.1.4",
+      "verified_code": "changed",
       "category": "RMM",
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query."
     },
@@ -1197,6 +1223,8 @@
       "install_mcp_doc": "skills/quickbooks/mcp-install.md",
       "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Billing",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
     },
@@ -1394,6 +1422,8 @@
       "install_mcp_doc": "skills/sentinelone/mcp-install.md",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Security",
       "tagline": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking."
     },
@@ -1514,6 +1544,8 @@
       "install_mcp_doc": "skills/superops/mcp-install.md",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "PSA",
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking."
     },
@@ -1614,6 +1646,8 @@
       "install_mcp_doc": "skills/threatlocker/mcp-install.md",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
       "verification": "live-verified",
+      "verified_version": "0.2.0",
+      "verified_code": "changed",
       "category": "Security",
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
     },
@@ -1693,6 +1727,8 @@
       "install_mcp_doc": "skills/wordpress/mcp-install.md",
       "description": "Publish and manage WordPress pages, posts, media",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "Marketing"
     },
     {
@@ -1732,6 +1768,8 @@
       "install_mcp_doc": "skills/zammad/mcp-install.md",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
       "verification": "live-verified",
+      "verified_version": null,
+      "verified_code": "unknown",
       "category": "PSA",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call."
     }

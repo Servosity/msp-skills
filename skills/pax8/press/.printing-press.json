@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:06:22.520708Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "pax8",
+  "display_name": "Pax8",
+  "cli_name": "pax8-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:eaa147c5030e5b1a49cc369d963c156708838cf78329f5661ed11f3737b0d1c6",
+  "run_id": "20260605-215919",
+  "category": "commerce",
+  "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
+  "mcp_binary": "pax8-pp-mcp",
+  "mcp_tool_count": 29,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "OAuth2",
+  "auth_env_vars": [
+    "PAX8_CLIENT_ID",
+    "PAX8_CLIENT_SECRET"
+  ],
+  "novel_features": [
+    {
+      "name": "Billing reconciliation",
+      "command": "reconcile",
+      "description": "Flag invoice lines that no longer match an active subscription, and active subscriptions that never got billed; --draft pre-checks the next unposted invoice."
+    },
+    {
+      "name": "MRR and margin",
+      "command": "mrr",
+      "description": "Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with a per-product breakdown."
+    },
+    {
+      "name": "Usage overage detection",
+      "command": "overage",
+      "description": "Aggregate usage-lines per subscription and surface overages before they land on the customer invoice."
+    },
+    {
+      "name": "Subscription change feed",
+      "command": "since",
+      "description": "Diff subscription snapshots and history over time to show new, cancelled, and quantity-changed subscriptions."
+    },
+    {
+      "name": "Customer 360",
+      "command": "company show",
+      "description": "One view of a company with its subscriptions, contacts, invoices, and usage."
+    },
+    {
+      "name": "Spend per company",
+      "command": "spend",
+      "description": "Roll up invoice-items by company to show what each customer is costing across invoices."
+    }
+  ]
+}

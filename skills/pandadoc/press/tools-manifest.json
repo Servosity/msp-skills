@@ -1,0 +1,3797 @@
+{
+  "api_name": "pandadoc",
+  "base_url": "https://api.pandadoc.com/public/v1",
+  "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has — stalled deals, aging, recipient engagement, and open quote value from a local store.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "in": "header",
+    "env_vars": [
+      "PANDADOC_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "PANDADOC_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "contacts_create",
+      "description": "This method adds a contact into a contacts list. Optional: city, company, country (plus 8 more). Returns the new ContactDetailsResponse.",
+      "method": "POST",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "city",
+          "type": "string",
+          "location": "body",
+          "description": "A city name"
+        },
+        {
+          "name": "company",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's company name"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "location": "body",
+          "description": "A country name"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "An email address of the contact"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's first name"
+        },
+        {
+          "name": "job_title",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's job title"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's last name"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "A phone number"
+        },
+        {
+          "name": "postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "A postal code"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "A state name"
+        },
+        {
+          "name": "street_address",
+          "type": "string",
+          "location": "body",
+          "description": "A street address"
+        }
+      ]
+    },
+    {
+      "name": "contacts_delete",
+      "description": "This method deletes a contact. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/contacts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Contact id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_details",
+      "description": "Returns contact details by its ID. Required: id.",
+      "method": "GET",
+      "path": "/contacts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Contact id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_list",
+      "description": "This method returns a list of contacts associated with a workspace. Optional: email.",
+      "method": "GET",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Optional search parameter. Filter results by exact match."
+        }
+      ]
+    },
+    {
+      "name": "contacts_update",
+      "description": "This method updates a contact details. Required: id. Optional: city, company, first_name (plus 6 more). Returns the updated ContactDetailsResponse.",
+      "method": "PATCH",
+      "path": "/contacts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Contact id.",
+          "required": true
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "company",
+          "type": "string",
+          "location": "body",
+          "description": "Company"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "job_title",
+          "type": "string",
+          "location": "body",
+          "description": "Job title"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "Postal code"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "State"
+        },
+        {
+          "name": "street_address",
+          "type": "string",
+          "location": "body",
+          "description": "Street address"
+        }
+      ]
+    },
+    {
+      "name": "content-library-items_create",
+      "description": "This API endpoint allows users to create an empty item in the content library. No actual content or data is required to be provided in the initial creation. Optional: name, url. Returns the new ContentLibraryResponse.",
+      "method": "POST",
+      "path": "/content-library-items",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Content Library Item."
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Secure (HTTPS) and publicly accessible URL to the PDF document."
+        }
+      ]
+    },
+    {
+      "name": "content-library-items_list",
+      "description": "The endpoint retrieves items from the content library in PandaDoc. This endpoint supports filtering options to narrow down the results, allowing users to search by query, tags, folder, and more. \u003e ### ⚠️ Please avoid empty values for the parameters \u003e API returns '400' error when any of the parameters has an empty value. Please remove such a parameter from the request or add a value. Optional: q, id, deleted (plus 4 more).",
+      "method": "GET",
+      "path": "/content-library-items",
+      "params": [
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Search query. Filter by content library item name."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "Specify content library item ID."
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "location": "query",
+          "description": "Returns only the deleted content library items."
+        },
+        {
+          "name": "folder_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "The UUID of the folder where the content library items are stored."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Specify how many content library items to return. Default is 50 content library items, maximum is 100 content library items."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Specify which page of the dataset to return."
+        },
+        {
+          "name": "tag",
+          "type": "string",
+          "location": "query",
+          "description": "Search tag. Filter by content library item tag."
+        }
+      ]
+    },
+    {
+      "name": "content-library-items_status",
+      "description": "Requesting the CLI status helps verify that a CLI is in the expected state before invoking additional API methods. ## Available CLI Statuses The following is a complete list of all possible CLI statuses returned: | CLI Status | Status Description | |-----------------|--------------------| | `cli.UPLOADED` | The CLI upload process has been initiated and is currently in progress. It will soon transition to the `cli.PROCESSED` state. | | `cli.PROCESSED` | The CLI has been successfully uploaded and created. At this stage, all aspects of the CLI are editable. | | `cli.ERROR` | The CLI upload process has failed. Please refer to the error details in the response for more information. |. Required: id. Returns the ContentLibraryResponse.",
+      "method": "GET",
+      "path": "/content-library-items/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Content Library Item ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "content-library-items_details_content-library-item",
+      "description": "Retrieve detailed information about a specific content library item using its ID. The details include: - **Roles** - **All fields with values** - **All tokens with values** - **Pricing information (pricing tables, products, etc)** - **Metadata** - **Tags** - **Modification Timestamps**: note that `date_modified` means any changes associated with the CLI, while `content_date_modified` logs any changes in CLI content. Required: id. Returns the ContentLibraryItemResponse.",
+      "method": "GET",
+      "path": "/content-library-items/{id}/details",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Content Library Item ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "content-library-items-upload_create-content-library-item-from-upload",
+      "description": "This asynchronous endpoint allows users to create a new CLI by uploading a file. The uploaded file is processed in the background to generate the CLI. The maximum allowable file size for upload is 100 MB. Field tags and form fields are not supported yet. Once the file is uploaded, the processing will happen asynchronously, and users need to check the status of the CLI creation. Optional: data, file. Returns the new ContentLibraryResponse.",
+      "method": "POST",
+      "path": "/content-library-items?upload",
+      "params": [
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Data"
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Binary PDF File"
+        }
+      ]
+    },
+    {
+      "name": "documents_bulk-delete",
+      "description": "Delete multiple documents in one request by sending a JSON array. Each element must be an object with an `id` field (the document ID, same value as elsewhere in the Documents API). The caller must have permission to delete each document. Documents must belong to the authenticated workspace. This batch operation returns **200 OK** with a JSON body containing an `id` array of deleted document IDs. That differs from [Delete Document](#operation/deleteDocument) (`DELETE /public/v1/documents/{id}`), which returns **204 No Content** for a single document. Destructive.",
+      "method": "DELETE",
+      "path": "/documents",
+      "params": []
+    },
+    {
+      "name": "documents_create",
+      "description": "\u003e See the [Create document from template](https://developers.pandadoc.com/docs/create-document-from-template) tutorial for details on how to use this endpoint, as well as a sample template.",
+      "method": "POST",
+      "path": "/documents",
+      "params": [
+        {
+          "name": "editor_ver",
+          "type": "string",
+          "location": "query",
+          "description": "Set this parameter as `ev1` if you want to create a document from PDF with Classic Editor when both editors are enabled for the workspace."
+        },
+        {
+          "name": "use_form_field_properties",
+          "type": "string",
+          "location": "query",
+          "description": "Set this parameter as `yes` or `1` or `true` (only when upload pdf with form fields) if you want to respect form fields properties, like `required`."
+        }
+      ]
+    },
+    {
+      "name": "documents_create-folder",
+      "description": "Create a new folder to store your documents. For the full list of folder operations and their limitations, see [Organize Documents and Folders](https://developers.pandadoc.com/docs/organize-folders). Required: name. Optional: parent_uuid. Returns the new DocumentsFolderCreateResponse.",
+      "method": "POST",
+      "path": "/documents/folders",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name the folder for the Documents you are creating.",
+          "required": true
+        },
+        {
+          "name": "parent_uuid",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the parent folder. To create a new folder in the root folder, remove this parameter in the request."
+        }
+      ]
+    },
+    {
+      "name": "documents_delete",
+      "description": "Delete a document by ID. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/documents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_list",
+      "description": "This endpoint will let you list and search for the documents. ### [Here](https://developers.pandadoc.com/docs/list-search-documents-api) you can find how to filter, search and order documents. Optional: template_id, form_id, folder_uuid (plus 18 more). Returns array of DocumentsListItem.",
+      "method": "GET",
+      "path": "/documents",
+      "params": [
+        {
+          "name": "template_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filters by parent template. This Parameter can't be used with form_id."
+        },
+        {
+          "name": "form_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filters by parent form. This parameter can't be used with template_id."
+        },
+        {
+          "name": "folder_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filters by the folder where the documents are stored."
+        },
+        {
+          "name": "contact_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filters by recipient or approver with this 'contact_id'."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Limits the size of the response. Default is 50 documents, maximum is 100 documents."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Paginates the search result. Increase value to get the next page of results."
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Defines the sorting of the result. Use `date_created` for ASC and `-date_created` for DESC sorting."
+        },
+        {
+          "name": "created_from",
+          "type": "string",
+          "location": "query",
+          "description": "Limits results to the documents with the `date_created` greater than or equal to this value."
+        },
+        {
+          "name": "created_to",
+          "type": "string",
+          "location": "query",
+          "description": "Limits results to the documents with the `date_created` less than this value."
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "location": "query",
+          "description": "Returns only the deleted documents."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "Id"
+        },
+        {
+          "name": "completed_from",
+          "type": "string",
+          "location": "query",
+          "description": "Limits results to the documents with the `date_completed` greater than or equal to this value."
+        },
+        {
+          "name": "completed_to",
+          "type": "string",
+          "location": "query",
+          "description": "Limits results to the documents with the `date_completed` less than this value."
+        },
+        {
+          "name": "membership_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter documents by the owner's 'membership_id'."
+        },
+        {
+          "name": "metadata",
+          "type": "array",
+          "location": "query",
+          "description": "Filters documents by metadata. Pass metadata in the format of `metadata_{metadata-key}={metadata-value}` such as `metadata_opportunity_id=2181432`. The `metadata_` prefix is always required."
+        },
+        {
+          "name": "modified_from",
+          "type": "string",
+          "location": "query",
+          "description": "Limits results to the documents with the `date_modified` greater than or equal to this value."
+        },
+        {
+          "name": "modified_to",
+          "type": "string",
+          "location": "query",
+          "description": "Limits results to the documents with the `date_modified` less than this value."
+        },
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Filters documents by name or reference number (stored on the template level)."
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "query",
+          "description": "Filters documents by the status. * 0: document.draft * 1: document.sent * 2: document.completed * 3: document.uploaded * 4: document.error * 5: document.viewed * 6: document.waiting_approval * 7: document.approved * 8: document.rejected * 9: document.waiting_pay * 10: document.paid * 11: document.voided * 12: document.declined * 13: document.external_review"
+        },
+        {
+          "name": "status__ne",
+          "type": "int",
+          "location": "query",
+          "description": "Exludes documents with this status. * 0: document.draft * 1: document.sent * 2: document.completed * 3: document.uploaded * 4: document.error * 5: document.viewed * 6: document.waiting_approval * 7: document.approved * 8: document.rejected * 9: document.waiting_pay * 10: document.paid * 11: document.voided * 12: document.declined * 13: document.external_review"
+        },
+        {
+          "name": "tag",
+          "type": "string",
+          "location": "query",
+          "description": "Filters documents by tag."
+        }
+      ]
+    },
+    {
+      "name": "documents_list-by-linked-object",
+      "description": "Get a list of documents connected to a linked object - an entity from an integration. Required: entity_id, entity_type, provider. Optional: order_by (default: -date_created), owner_ids (default: [[]]). Returns array of DocumentsListByLinkedObjectItem.",
+      "method": "GET",
+      "path": "/documents/linked-objects",
+      "params": [
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "query",
+          "description": "You can get entity id from your integration, for example, from a url of a HubSpot deal.",
+          "required": true
+        },
+        {
+          "name": "entity_type",
+          "type": "string",
+          "location": "query",
+          "description": "See the available entity types: https://developers.pandadoc.com/reference/link-service#examples-of-the-most-popular-crms",
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "string",
+          "location": "query",
+          "description": "See the available providers: https://developers.pandadoc.com/reference/link-service#examples-of-the-most-popular-crms",
+          "required": true
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order by"
+        },
+        {
+          "name": "owner_ids",
+          "type": "array",
+          "location": "query",
+          "description": "Owner ids"
+        }
+      ]
+    },
+    {
+      "name": "documents_list-folders",
+      "description": "Get the list of folders which contain Documents in your account. \u003e 📘 \u003e \u003e The root folder is not listed in the response. For the full list of folder operations and their limitations, see [Organize Documents and Folders](https://developers.pandadoc.com/docs/organize-folders). Optional: parent_uuid, count (default: 50), page. Returns array of DocumentsListFoldersItem.",
+      "method": "GET",
+      "path": "/documents/folders",
+      "params": [
+        {
+          "name": "parent_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "The UUID of the folder containing folders. To list the folders located in the root folder, remove this parameter in the request."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Optionally, specify how many folders to return."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optionally, specify which page of the dataset to return."
+        }
+      ]
+    },
+    {
+      "name": "documents_rename-folder",
+      "description": "Rename Documents Folder. For the full list of folder operations and their limitations, see [Organize Documents and Folders](https://developers.pandadoc.com/docs/organize-folders). Required: id, name. Returns the updated DocumentsFolderRenameResponse.",
+      "method": "PUT",
+      "path": "/documents/folders/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the folder that you are renaming.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Provide a new name for the folder.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_status",
+      "description": "It is useful to request document status to ensure a document is in the expected state before calling additional API methods. ### Required Document Statuses Here are some common methods and the `document.status` required to proceed: | API Method | Required Document State | | :------------------- | :---------------------- | | Send A Document | `document.draft` | | Get Document Details | `document.draft` | | Embed A Document | `document.sent` | | Download A Document | `document.completed` | \u003e 📘 Polling vs Webhooks \u003e \u003e If you are using the `GET` document status endpoint for [**polling**](https://en.wikipedia.org/wiki/Polling_(computer_science)), we also support and recommend using **webhooks** for event-driven needs: \u003chttps://developers.pandadoc.com/docs/listen-document-status-changes#/\u003e ### Available Document Statuses The following is a complete list of all possible document statuses returned: | Document Status | Status Description | | :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `document.uploaded` | The document has just been created or uploaded. It is in processing and will be in `document.draft` state soon. | | `document.error` | The document creation has failed. This status is terminal, you should stop polling after getting it. | `document.draft` | The document is in a draft state. All aspects of the document can be edited in this state. Our API does not support edits after the document has been created, but it can still be edited manually on \u003chttps://app.pandadoc.com\u003e | | `document.sent` | The document has been 'sealed' and optionally sent. No further document edits can occur except for document recipient(s) filling out or signing the document. | | `document.viewed` | Document recipient(s) have viewed the sent document. | | `document.waiting_approval` | The document has an [automatic approval workflow](https://support.pandadoc.com/en/articles/9714799-approval-workflow) and has not yet been approved. | | `document.rejected` | The document has an [automatic approval workflow](https://support.pandadoc.com/en/articles/9714799-approval-workflow) and was rejected. | | `document.approved` | The document has an [automatic approval workflow](https://support.pandadoc.com/en/articles/9714799-approval-workflow) and was approved. | | `document.waiting_pay` | The document has a [Stripe payment](https://support.pandadoc.com/en/articles/9714942-stripe-checkout-payments) option and is awaiting payment. | | `document.paid` | The document has a [Stripe payment](https://support.pandadoc.com/en/articles/9714942-stripe-checkout-payments) option and was paid. | | `document.completed` | The document has been completed by all recipients. | | `document.voided` | The document expired and is no longer available for completion or signature. | | `document.declined` | The document was [manually marked](https://support.pandadoc.com/en/articles/9714842-manually-change-document-status) as 'Declined' | | `document.external_review` | The document is reviewed by it's recipient using Suggest Edit feature |. Required: id. Returns the DocumentStatusResponse.",
+      "method": "GET",
+      "path": "/documents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_transfer-all-ownership",
+      "description": "This method transfers ownership of all documents from one member to another. Optional: from_membership_id, to_membership_id. Partial update.",
+      "method": "PATCH",
+      "path": "/documents/ownership",
+      "params": [
+        {
+          "name": "from_membership_id",
+          "type": "string",
+          "location": "body",
+          "description": "A unique identifier of a workspace member from whom you want to transfer ownership."
+        },
+        {
+          "name": "to_membership_id",
+          "type": "string",
+          "location": "body",
+          "description": "A unique identifier of a workspace member to whom you want to transfer ownership."
+        }
+      ]
+    },
+    {
+      "name": "documents_update",
+      "description": "Use the PATCH method to update a PandaDoc document. \u003e 🚧 Document status \u003e \u003e You can only update a document in the Draft status (`document.draft`). \u003e \u003e After creating a new document, it usually retains a `document.uploaded` status for 3-5 seconds while the document syncs across PandaDoc servers. When the document is available for further API calls, the document moves to the `document.draft` state. Use [Document Status](https://developers.pandadoc.com/reference/document-status) or Webhooks to check document status. Required: id. Optional: fields, images, metadata (plus 7 more). Partial update.",
+      "method": "PATCH",
+      "path": "/documents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "fields",
+          "type": "object",
+          "location": "body",
+          "description": "Set specific values to the fields. This object maps merge field names to their corresponding values. Each key represents a merge field name, and each value is an object containing the data to populate that field with. The structure allows you to pre-populate various field types including text inputs, checkboxes, dropdowns, and date fields. **Key Points:** - Keys must match the exact merge field names from your template or file. - Values must be wrapped in an object with a `value` property. - Supported value types: string, number, boolean. - Date fields should use RFC 3339 format (e.g., '2019-12-31T00:00:00.000Z'). - Signature fields cannot be pre-filled. **Example Usage:** - Text field: `'CustomerName': {'value': 'John Doe'}` - Checkbox: `'AgreeToTerms': {'value': true}` - Date field: `'DeliveryDate': {'value': '2019-12-31T00:00:00.000Z'}`"
+        },
+        {
+          "name": "images",
+          "type": "array",
+          "location": "body",
+          "description": "You can pass a list of images to image blocks (one image in one block) for replacement."
+        },
+        {
+          "name": "metadata",
+          "type": "object",
+          "location": "body",
+          "description": "You can pass arbitrary data in the key-value format to associate custom information with a document. This information is returned in any API requests for the document details by id. If metadata exists in a document then the value will be updated. Otherwise, metadata will be added to the document."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the document."
+        },
+        {
+          "name": "pricing_tables",
+          "type": "array",
+          "location": "body",
+          "description": "Pricing tables"
+        },
+        {
+          "name": "recipients",
+          "type": "array",
+          "location": "body",
+          "description": "The list of recipients you're sending the document to. The ID or email are required. If the ID is passed, an existing recipient will be updated. If the email is passed, a new recipient will be added to CC."
+        },
+        {
+          "name": "tables",
+          "type": "array",
+          "location": "body",
+          "description": "Tables"
+        },
+        {
+          "name": "tags",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Mark your document with one or several tags."
+        },
+        {
+          "name": "texts",
+          "type": "array",
+          "location": "body",
+          "description": "You can pass a list of texts to text blocks for replacement."
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body",
+          "description": "Create or initialize multiple variables with their values using tokens/values list."
+        }
+      ]
+    },
+    {
+      "name": "documents_append-content-library-item_to-document",
+      "description": "Appends a Content Library Item (CLI) to a document and provides a name mapping for its content blocks. Required: id. Optional: cli. Returns the new AppendClidataResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/append-content-library-item",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document id.",
+          "required": true
+        },
+        {
+          "name": "cli-id",
+          "wire_name": "cli.id",
+          "type": "string",
+          "location": "body",
+          "description": "CLI ID to append to the first section.",
+          "required": true
+        },
+        {
+          "name": "cli-pages",
+          "wire_name": "cli.pages",
+          "type": "array",
+          "location": "body",
+          "description": "The list of the CLI's pages you want to change in a result document"
+        }
+      ]
+    },
+    {
+      "name": "documents_attachments_create-document",
+      "description": "Creates an attachment for a particular document. Required: id. Optional: name, source. Returns the new DocumentAttachmentResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/attachments",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Optional name to set for uploaded file"
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "body",
+          "description": "URL link to the file to be attached to a document"
+        }
+      ]
+    },
+    {
+      "name": "documents_attachments_delete-document",
+      "description": "Deletes an attachment from the document. Required: id, attachment_id. Destructive.",
+      "method": "DELETE",
+      "path": "/documents/{id}/attachments/{attachment_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        },
+        {
+          "name": "attachment_id",
+          "type": "string",
+          "location": "path",
+          "description": "Attachment UUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_attachments_details-document",
+      "description": "Returns details of the specific document's attachment. Required: id, attachment_id.",
+      "method": "GET",
+      "path": "/documents/{id}/attachments/{attachment_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        },
+        {
+          "name": "attachment_id",
+          "type": "string",
+          "location": "path",
+          "description": "Attachment UUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_attachments_download-document",
+      "description": "Download an attachment by ID. Required: id, attachment_id.",
+      "method": "GET",
+      "path": "/documents/{id}/attachments/{attachment_id}/download",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        },
+        {
+          "name": "attachment_id",
+          "type": "string",
+          "location": "path",
+          "description": "Attachment UUID.",
+          "required": true
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "application/*"
+        }
+      ]
+    },
+    {
+      "name": "documents_attachments_list-document",
+      "description": "Returns a list of attachments associated with a specified document. Required: id.",
+      "method": "GET",
+      "path": "/documents/{id}/attachments",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_attachments-upload_create-document-attachment-from-file-upload",
+      "description": "Creates an attachment for a particular document. Required: id. Optional: file, name. Returns the new DocumentAttachmentResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/attachments?upload",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID",
+          "required": true
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Binary file to be attached to a document"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Optional name to set for uploaded file"
+        }
+      ]
+    },
+    {
+      "name": "documents_auto-reminders_get-document-settings",
+      "description": "Retrieves the current auto reminder configuration for a specified document. Required: document_id. Returns the AutoReminders.",
+      "method": "GET",
+      "path": "/documents/{document_id}/auto-reminders",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the document.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_auto-reminders_status-document",
+      "description": "Retrieves the current auto reminder status per recipient for a specified document. Recipients who could not receive reminders due to validations (recipient groups, non-signers, etc.) will be skipped and not included in the response. Required: document_id. Returns array of AutoRemindersStatusDocumentItem.",
+      "method": "GET",
+      "path": "/documents/{document_id}/auto-reminders/status",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the document.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_auto-reminders_update-document-settings",
+      "description": "Configures automatic reminders for document recipients. These reminders are sent after the document's initial dispatch. Settings include enabling reminders, delivery method (email/SMS), initial delay, and recurrence frequency. Required: document_id, enabled. Optional: delivery_method, initial_delay_days, is_recurring (plus 1 more). Returns the updated UpdateDocumentAutoRemindersResponse.",
+      "method": "PATCH",
+      "path": "/documents/{document_id}/auto-reminders",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the document.",
+          "required": true
+        },
+        {
+          "name": "delivery_method",
+          "type": "string",
+          "location": "body",
+          "description": "The method used to deliver reminders (e.g., email, SMS)."
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Toggles auto-reminders for the document. If `true`, reminders are scheduled based on the configuration.",
+          "required": true
+        },
+        {
+          "name": "initial_delay_days",
+          "type": "int",
+          "location": "body",
+          "description": "Number of days to wait after sending the document before the first reminder is sent."
+        },
+        {
+          "name": "is_recurring",
+          "type": "bool",
+          "location": "body",
+          "description": "If `true`, reminders will be sent repeatedly at specified intervals after the initial reminder."
+        },
+        {
+          "name": "recurrence_frequency_days",
+          "type": "int",
+          "location": "body",
+          "description": "Number of days between recurring reminders, applicable if `is_recurring` is `true`."
+        }
+      ]
+    },
+    {
+      "name": "documents_details_document",
+      "description": "Return detailed data about a document. Use Document Status for getting just a basic info and status. Get details about a document by its `id`. Details include: - Basic document information (name, document state, owner, sender, grand total, etc.) - Recipients (completion status, signing order, etc.) - Fields with values (incl. Collect Files field) - Tokens (variables) with values - Pricing information (pricing tables, products, quotes, etc.) - Content block names for table, image, and text blocks (tables, images, texts) - Metadata - Tags - Linked objects - [Approval flow](https://support.pandadoc.com/en/articles/9714799-approval-workflow) (if present) - Active editing lock (holder and expiry), when the document is locked - Timestamps associated with a document. Note that `date_modified` means any changes associated with the recipients and document status, while `content_date_modified` reflects any changes in the document content. Required: id. Returns the DocumentDetailsResponse.",
+      "method": "GET",
+      "path": "/documents/{id}/details",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_download_document",
+      "description": "Download documents as a PDF. Required: id. Optional: watermark_color, watermark_font_size, watermark_opacity (plus 2 more).",
+      "method": "GET",
+      "path": "/documents/{id}/download",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "watermark_color",
+          "type": "string",
+          "location": "query",
+          "description": "HEX code (for example `#FF5733`)."
+        },
+        {
+          "name": "watermark_font_size",
+          "type": "int",
+          "location": "query",
+          "description": "Font size of the watermark."
+        },
+        {
+          "name": "watermark_opacity",
+          "type": "float",
+          "location": "query",
+          "description": "In range 0.0-1.0"
+        },
+        {
+          "name": "watermark_text",
+          "type": "string",
+          "location": "query",
+          "description": "Specify watermark text."
+        },
+        {
+          "name": "separate_files",
+          "type": "bool",
+          "location": "query",
+          "description": "Download document bundle as a zip-archive of separate PDFs (1 file per section)."
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "application/pdf"
+        }
+      ]
+    },
+    {
+      "name": "documents_download-protected_document",
+      "description": "Download a completed document as a verifiable PDF (Download Protected Document) \u003e 🚧 Production key only \u003e \u003e This endpoint only works with a Production key. You'll get a 401 Unauthorized error when trying to use a Sandbox key. Download a signed PDF of a completed document. Required: id. Optional: separate_files (default: false).",
+      "method": "GET",
+      "path": "/documents/{id}/download-protected",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "separate_files",
+          "type": "bool",
+          "location": "query",
+          "description": "Download document bundle as a zip-archive of separate PDFs (1 file per section)."
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "application/pdf"
+        }
+      ]
+    },
+    {
+      "name": "documents_draft_document-revert-to",
+      "description": "Revert your document back to draft to continue editing it. \u003e 📘 Returning to Draft works for any document status except Removed. ## After you move your document to the Draft status - `Signature` and `Initials` fields are cleared. All other fields stay filled in. - Recipients are **not** notified that the document is back in Draft. - You'll need to resend the document so that recipients can sign the updated version. Required: id. Returns the new DocumentRevertToDraftResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/draft",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_editing-sessions_create-document",
+      "description": "Creates a new editing session for the Embedded Editor. The response includes an E-Token, which is required to open the document. \u003e 🚧 **Important:** The Embedded Editor can only open documents that have a `draft` status. #### Limitations - **Single Active Session per User-Document Pair** Only one editing session can be active at a time for a specific user and document. Creating a new session for the same user-document pair will automatically invalidate the previous one. - **Weekly Session Cap** A maximum of **250** editing sessions can be created for a single document per week. Any attempt to exceed this limit will result in a `403 Forbidden` error. Required: id, email. Optional: lifetime (default: 3600). Returns the new EditingSessionsCreateDocumentResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/editing-sessions",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email of the user to create the editing session for",
+          "required": true
+        },
+        {
+          "name": "lifetime",
+          "type": "int",
+          "location": "body",
+          "description": "Lifetime of the E-Token in seconds."
+        }
+      ]
+    },
+    {
+      "name": "documents_esign-disclosure_document",
+      "description": "Retrieves the current version of eSign disclosure text for a specified document. Required: document_id. Returns the DocumentEsignDisclosure.",
+      "method": "GET",
+      "path": "/documents/{document_id}/esign-disclosure",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the document.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_fields_create-document",
+      "description": "Creates fields for a particular document. For CFR11-compliant workspaces (21 CFR Part 11), signature fields must have a minimum size of 108×33. Required: id. Optional: fields. Returns array of DocumentFieldsField.",
+      "method": "POST",
+      "path": "/documents/{id}/fields",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        },
+        {
+          "name": "fields",
+          "type": "array",
+          "location": "body",
+          "description": "An array of fields to place on a document."
+        }
+      ]
+    },
+    {
+      "name": "documents_fields_list-document",
+      "description": "Return the list of fields for a particular document. Required: id. Returns array of DocumentFieldsField.",
+      "method": "GET",
+      "path": "/documents/{id}/fields",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_fields_update-document-assignment",
+      "description": "Assign, reassign, or unassign document fields to recipients. Supports bulk operations by accepting multiple field assignment items in a single request. \u003e 🚧 Before you start \u003e \u003e - The document must be in the 'Draft' (`document.draft`) status. \u003e - You must have the 'Can Edit Document' permission. Required: id, fields. Partial update.",
+      "method": "PATCH",
+      "path": "/documents/{id}/fields",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        },
+        {
+          "name": "fields",
+          "type": "array",
+          "location": "body",
+          "description": "An array of field assignment operations. Each item specifies a field and the recipient it should be assigned to.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_linked-objects_create",
+      "description": "Create a linked object in the document. \u003e 🚧 \u003e \u003e You can only link each document to each CRM once. This ensures the consistent functionality of the [two-way CRM sync](https://support.pandadoc.com/en/articles/9714877-hubspot-crm#h_3a3344e8-2a6e-4fd8-86be-0da8c121e4ac). \u003e \u003e You can, however, link one document to several external systems. Required: id, entity_id, entity_type, provider. Returns array of LinkedObjectChild.",
+      "method": "POST",
+      "path": "/documents/{id}/linked-objects",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "body",
+          "description": "Entity unique identifier. The system validates if the entity exists.",
+          "required": true
+        },
+        {
+          "name": "entity_type",
+          "type": "string",
+          "location": "body",
+          "description": "Entity type. See the available entity types: https://developers.pandadoc.com/reference/link-service#examples-of-the-most-popular-crms",
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "string",
+          "location": "body",
+          "description": "CRM name (lowercase). See the list of available providers: https://developers.pandadoc.com/reference/link-service#examples-of-the-most-popular-crms",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_linked-objects_delete",
+      "description": "Delete a linked object associated with a document. Required: id, linked_object_id. Destructive.",
+      "method": "DELETE",
+      "path": "/documents/{id}/linked-objects/{linked_object_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "linked_object_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify linked object ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_linked-objects_list",
+      "description": "Get a list of linked objects for the document. Required: id. Returns array of LinkedObjectCreateResponse.",
+      "method": "GET",
+      "path": "/documents/{id}/linked-objects",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_move-to-folder_document",
+      "description": "This operation allows you to move a document to a folder by specifying the document ID and folder ID. Required: id, folder_id.",
+      "method": "POST",
+      "path": "/documents/{id}/move-to-folder/{folder_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "folder_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify folder ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_ownership_transfer-document",
+      "description": "This operation allows transferring the ownership of a document to another user by specifying the document ID and membership ID. Required: id. Optional: membership_id. Partial update.",
+      "method": "PATCH",
+      "path": "/documents/{id}/ownership",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "membership_id",
+          "type": "string",
+          "location": "body",
+          "description": "A unique identifier of a workspace member."
+        }
+      ]
+    },
+    {
+      "name": "documents_quotes_update",
+      "description": "This operation updates the details of a specific quote within a document by specifying the document ID and quote ID. Required: document_id, quote_id. Optional: currency, sections, settings (plus 1 more). Returns the updated QuoteResponse.",
+      "method": "PUT",
+      "path": "/documents/{document_id}/quotes/{quote_id}",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "quote_id",
+          "type": "string",
+          "location": "path",
+          "description": "Quote ID",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code (ISO 4217)"
+        },
+        {
+          "name": "sections",
+          "type": "array",
+          "location": "body",
+          "description": "Quote sections - this property overrides existing sections in the specified order. If you want to change only one section, you must still pass other sections IDs. Otherwise these sections will be removed."
+        },
+        {
+          "name": "settings-selection-type",
+          "wire_name": "settings.selection_type",
+          "type": "string",
+          "location": "body",
+          "description": "Selection type"
+        },
+        {
+          "name": "summary-custom-columns",
+          "wire_name": "summary.custom_columns",
+          "type": "object",
+          "location": "body",
+          "description": "Custom columns"
+        },
+        {
+          "name": "summary-discounts",
+          "wire_name": "summary.discounts",
+          "type": "object",
+          "location": "body",
+          "description": "Summary level discounts."
+        },
+        {
+          "name": "summary-fees",
+          "wire_name": "summary.fees",
+          "type": "object",
+          "location": "body",
+          "description": "Summary level fees."
+        },
+        {
+          "name": "summary-taxes",
+          "wire_name": "summary.taxes",
+          "type": "object",
+          "location": "body",
+          "description": "Summary level taxes."
+        }
+      ]
+    },
+    {
+      "name": "documents_recipients_add-document",
+      "description": "Add a CC recipient to a document. \u003e 🚧 Before you start \u003e \u003e To add a CC recipient, please ensure that: \u003e \u003e - You have the 'Can Manage Recipients' permission. \u003e - This recipient is already created in your contacts. If not, add them using the [Create Contact](https://developers.pandadoc.com/reference/create-contact) endpoint. To add a new CC recipient to a document, two parameters must be included in the request body: - `kind`: Set this parameter to `contact` to specify an individual contact. - `id`: Input the ID of the desired contact. To retrieve the contact's ID, use the [List Contacts](https://developers.pandadoc.com/reference/list-contacts) endpoint to access a list of all contacts, and then locate the desired contact by searching using the name or email address within the returned list. ### Document status You can add CC recipients in any document status except for the 'Expired' (`document.voided`) and 'Declined' (`document.declined`). \u003e 📘 Email notification to access the document \u003e \u003e **Note**: When a document is in one of the following statuses: 'Sent' (`document.sent`), 'Viewed' (`document.viewed`), 'Completed' (`document.completed`), 'Waiting for Payment' (`document.waiting_pay`), or 'Paid' (`document.paid`), any added CC recipient will receive an instant notification at their email address, allowing them access to the document. Required: id, id, kind (default: contact). Returns the new DocumentRecipientResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/recipients",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID",
+          "required": true
+        },
+        {
+          "name": "id-2",
+          "wire_name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Contact uuid.",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "body",
+          "description": "Kind",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_recipients_delete-document",
+      "description": "Remove a recipient from a document. \u003e 🚧 Before you start \u003e \u003e Please ensure that you have the 'Can Manage Recipients' permission. To remove a recipient from a document, you must specify their ID in the path parameter (note that this is different from their contact's ID). The recipient's ID can be retrieved via the [Document Details](https://developers.pandadoc.com/reference/document-details) endpoint. ### Document status - Removing a signer is only possible when the document is in the 'Draft' (`document.draft`) status and this action will unassign all fields associated with that signer. - Removing a CC recipient is allowed in any document status except for the 'Expired' (`document.voided`) and 'Declined' (`document.declined`). If a CC recipient is removed, their access will be revoked. Required: id, recipient_id. Destructive.",
+      "method": "DELETE",
+      "path": "/documents/{id}/recipients/{recipient_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID",
+          "required": true
+        },
+        {
+          "name": "recipient_id",
+          "type": "string",
+          "location": "path",
+          "description": "Recipient UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_recipients_edit-document",
+      "description": "Modify recipient's personal details. \u003e 🚧 Before you start \u003e \u003e To edit a recipient, please ensure that you have the 'Can Edit Document' permission. Use this endpoint to easily fix typos in a recipient's name or email, or to change any other recipient information in a sent document. \u003e 📘 Please note that changes made to a recipient within a document will also update their `Contact` information. However, these changes will not update information about this recipient in other documents where they have already been added. ### Document status - You can edit a signer in the following document statuses: - 'Draft' (`document.draft`), - 'Waiting Approval' (`document.waiting_approval`), - 'Approved' (`document.approved`), - 'Rejected' (`document.rejected`), - 'Sent' (`document.sent`), - 'Viewed' (`document.viewed`), but only until they have signed the document. - You can edit a CC recipient in any document status **except**: - 'Expired' (`document.voided`), - 'Declined' (`document.declined`). \u003e 📘 Updating a recipient's email after sending a document \u003e \u003e **Note**: If you update a recipient's email address after sending a document, they will receive an instant notification at the new email address, allowing them access to the document. Access via the previous email will be revoked. ### Restrictions for updating a recipient's email - You cannot change emails of PandaDoc users. - You cannot use the email addresses of existing contacts. If you need to use an email from an existing contact, use the [Change Signer](https://developers.pandadoc.com/reference/change-signer) endpoint to replace a signer with this contact. ### Recipient communication preferences PandaDoc honors recipient opt-outs when re-notifying a recipient on a sent document. The request will return `400 Bad Request` in the following cases: - **Email** — when changing a recipient's email or enabling email delivery, if the new email address has been marked as opted-out for your organization (for example, the recipient previously reported a PandaDoc email from your organization as spam). - **SMS** — when changing a recipient's phone number or enabling SMS delivery, if the recipient has opted out of receiving SMS messages (for example, by replying STOP). To remove a recipient from the opt-out list, contact PandaDoc Support. Required: id, recipient_id. Optional: city, company, delivery_methods (plus 10 more). Partial update.",
+      "method": "PATCH",
+      "path": "/documents/{id}/recipients/recipient/{recipient_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID.",
+          "required": true
+        },
+        {
+          "name": "recipient_id",
+          "type": "string",
+          "location": "path",
+          "description": "Recipient UUID.",
+          "required": true
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "company",
+          "type": "string",
+          "location": "body",
+          "description": "Company"
+        },
+        {
+          "name": "delivery-methods-email",
+          "wire_name": "delivery_methods.email",
+          "type": "bool",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "delivery-methods-sms",
+          "wire_name": "delivery_methods.sms",
+          "type": "bool",
+          "location": "body",
+          "description": "Sms"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "You cannot use the email of another contact when updating a recipient contact."
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "job_title",
+          "type": "string",
+          "location": "body",
+          "description": "Job title"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "Postal code"
+        },
+        {
+          "name": "redirect-is-enabled",
+          "wire_name": "redirect.is_enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Is enabled",
+          "required": true
+        },
+        {
+          "name": "redirect-url",
+          "wire_name": "redirect.url",
+          "type": "string",
+          "location": "body",
+          "description": "A URL to redirect to after the document is signed.",
+          "required": true
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "State"
+        },
+        {
+          "name": "street_address",
+          "type": "string",
+          "location": "body",
+          "description": "Street address"
+        },
+        {
+          "name": "verification-settings-id-verification-enabled",
+          "wire_name": "verification_settings.id_verification.enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enabled"
+        },
+        {
+          "name": "verification-settings-kba-verification-max-attempts-count",
+          "wire_name": "verification_settings.kba_verification.max_attempts_count",
+          "type": "int",
+          "location": "body",
+          "description": "Max attempts count"
+        },
+        {
+          "name": "verification-settings-kba-verification-score-threshold",
+          "wire_name": "verification_settings.kba_verification.score_threshold",
+          "type": "int",
+          "location": "body",
+          "description": "Score threshold"
+        },
+        {
+          "name": "verification-settings-kba-verification-time-limit-sec",
+          "wire_name": "verification_settings.kba_verification.time_limit_sec",
+          "type": "int",
+          "location": "body",
+          "description": "Time limit sec"
+        },
+        {
+          "name": "verification-settings-passcode-verification-passcode",
+          "wire_name": "verification_settings.passcode_verification.passcode",
+          "type": "string",
+          "location": "body",
+          "description": "Document passcode.",
+          "required": true
+        },
+        {
+          "name": "verification-settings-phone-verification-phone-number",
+          "wire_name": "verification_settings.phone_verification.phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "A phone number to send a passcode to.",
+          "required": true
+        },
+        {
+          "name": "verification-settings-verification-place",
+          "wire_name": "verification_settings.verification_place",
+          "type": "string",
+          "location": "body",
+          "description": "Specifies when a recipient must complete the verification process: - `before_open` (before opening the document), - `before_sign` (before signing the document)."
+        }
+      ]
+    },
+    {
+      "name": "documents_recipients_reassign-document",
+      "description": "Reassign fields to another signer. \u003e 🚧 Before you start \u003e \u003e To change a signer in a document, please ensure that: \u003e \u003e - You have the 'Can Manage Recipients' permission. \u003e - New signer is already created in your contacts. If not, add them using the [Create Contact](https://developers.pandadoc.com/reference/create-contact) endpoint. You can reassign fields to another signer before the original signer has signed the document. You can choose any person except those recipients who have already signed the document. The endpoint path includes the `recipient_id` of the original signer and the request body must include the following two parameters: - `kind`: Set this parameter to `contact` to specify an individual contact. - `id`: Input the ID of the contact you want to use as a replacement for the original signer. To retrieve the contact's ID, use the [List Contacts](https://developers.pandadoc.com/reference/list-contacts) endpoint to access a list of all contacts, and then locate the desired contact by searching using the name or email address within the returned list. Once you execute the call to change the signer, the original signer will be entirely removed from the document. If you wish to retain the original signer as a CC recipient, you can re-add them using the [Add CC Recipient](https://developers.pandadoc.com/reference/add-new-recipient-cc) endpoint. \u003e 🚧 Pre-filled fields \u003e \u003e If you change the signer in a document that has already been sent, the signer's pre-filled fields will be completely reset. In the 'Draft' (`document.draft`) status, pre-filled fields will remain. Required: id, recipient_id, id, kind (default: contact). Returns the new DocumentRecipientResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/recipients/{recipient_id}/reassign",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document UUID",
+          "required": true
+        },
+        {
+          "name": "recipient_id",
+          "type": "string",
+          "location": "path",
+          "description": "Recipient UUID",
+          "required": true
+        },
+        {
+          "name": "id-2",
+          "wire_name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Contact uuid.",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "body",
+          "description": "Kind",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_sections_delete",
+      "description": "Removes selected section from the document. Required: document_id, section_id. Destructive.",
+      "method": "DELETE",
+      "path": "/documents/{document_id}/sections/{section_id}",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "section_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify section ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_sections_details",
+      "description": "Receive the upload status of the document and sections by their `upload_id`. Requesting document section upload status is useful to ensure a document section upload is in the expected state before calling additional API methods. In response, you receive an array with `sections_uuid`. You can receive information about each section using the [Document Section Info](https://developers.pandadoc.com/reference/document-section-info) endpoint. ```json 'section_uuids': [ 'H8T8CJofGY6JwTsWsPuDEF', '8MwLaU4SaZywqLiDk26mDF' ] ``` ## Available Document Section Upload Statuses The following is a complete list of all possible document statuses returned: | Document Status | Status Description | | :----------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `document_sections_upload.UPLOADED` | The document section upload process has just been created. It is in processing and will be in `document_sections_upload.PROCESSED` state momentarily. | | `document_sections_upload.PROCESSED` | The document sections upload is processed and the sections are already created in the document. All aspects of the document sections can be edited in this state. | | `document_sections_upload.ERROR` | Document section upload procces has been failed. For more information check error details in the response. |. Required: document_id, upload_id. Returns array of string.",
+      "method": "GET",
+      "path": "/documents/{document_id}/sections/uploads/{upload_id}",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID.",
+          "required": true
+        },
+        {
+          "name": "upload_id",
+          "type": "string",
+          "location": "path",
+          "description": "Upload ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_sections_info",
+      "description": "Receive information about each section. Required: document_id, section_id. Returns the SectionInfoResponse.",
+      "method": "GET",
+      "path": "/documents/{document_id}/sections/{section_id}",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID.",
+          "required": true
+        },
+        {
+          "name": "section_id",
+          "type": "string",
+          "location": "path",
+          "description": "Section ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_sections_list",
+      "description": "Retrieve information about the sections within a document. Required: document_id. Returns array of SectionsListItem.",
+      "method": "GET",
+      "path": "/documents/{document_id}/sections",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_sections_upload",
+      "description": "With this endpoint, you can add a new section to an existing PandaDoc document (create a bundle). You can upload a section to the document using a PandaDoc template or a file by URL. \u003e ⏱️ Document Section creation is a non-blocking (asynchronous) operation \u003e \u003e The document creation process may take some time. \u003e \u003e With a successful request, you receive a response with the created upload ID and status `document_sections_upload.uploaded`. After processing completes on our servers, usually a few seconds, the document moves to the `document_sections_upload.PROCESSED` status. ## Using a PandaDoc template \u003e 🚧 Current Version Limitations \u003e \u003e Images in sections are currently not supported. \u003e 📘 Pricing tables note \u003e \u003e Each pricing table must have a unique name to populate it with data correctly. A PandaDoc template is a document template created and edited in the PandaDoc web application. Our [help center](https://support.pandadoc.com/en/articles/9714616-save-time-with-a-reusable-template) has further information on PandaDoc templates. If you don't have any PandaDoc Template yet, you can easily create one by clicking [Copy a Sample PandaDoc template](https://app.pandadoc.com/get-this-template/?pt=public_template\u0026pub=eiC3a6qBVfEfbw7VCYgaeN). This will open the PandaDoc application in a new tab, copy the sample template into your account, and create a new document from the template. ## Using a File by URL Using this endpoint you can add a section to the existing document. The section is created from a file you upload. The file can be a PDF, DocX, or RTF. \u003e 📘 We've prepared two samples that you can use to test the request. \u003e Download them here: \u003e \u003e - [Download a Sample PDF with Form Fields](https://cdn2.hubspot.net/hubfs/2127247/public-templates/SamplePandaDocPdf_FormFields.pdf) \u003e - [Download a Sample PDF with Field Tags](https://5132871.fs1.hubspotusercontent-na1.net/hubfs/5132871/SamplePandaDocPdf_FieldTags_updated.pdf) \u003e ❗️ Limitations \u003e \u003e * This method does not support multiple documents. \u003e * The maximum supported file size is 50 MB. API returns '413 Request entity too large' in case of bigger files. \u003e * PandaDoc does not support creating document from a PDF with encrypted files (to check whether a file is encrypted or not, try Get info -\u003e Secure: Password Encrypted). ### PDF Form Fields PandaDoc recognizes PDF form fields. To enable this feature, pass the optional `parse_form_fields` value as `true` when making a create document section API call. We support Text fields, Dropdowns, and Signature fields. If you would like to pass additional parameters to configure PDF form fields, use the PDF field name as an optId. You can use a PDF editor such as Adobe Acrobat, Foxit to get and edit field names in your PDF. [**Download a Sample PDF with Form Fields**](https://cdn2.hubspot.net/hubfs/2127247/public-templates/SamplePandaDocPdf_FormFields.pdf) ### PDF/DocX/RTF Field Tags This parsing format allows a word processor such as [Microsoft Word](https://support.office.com/en-us/article/Save-as-PDF-d85416c5-7d77-4fd6-a216-6f4bf7c7c110?ui=en-US\u0026rs=en-US\u0026ad=US) or [Google Docs](https://support.google.com/drive/answer/2423534?co=GENIE.Platform%3DDesktop\u0026hl=en) to prepare a document and save it in PDF, DocX or RTF format. Within the text, PandaDoc parses field tags. A field tag starts and ends with brackets. The field tag includes basic information on how to create a form field in the PandaDoc document. The request JSON object `optId` can also extend this information for even greater control. Here is an example of how the field tag in a PDF/DocX/RTF is converted to a text field in the PandaDoc document: ![](https://files.readme.io/38afedf-ex3.png 'ex3.png') [**Download a Sample PDF with Field Tags**](https://cdn2.hubspot.net/hubfs/2127247/public-templates/SamplePandaDocPdf_FieldTags.pdf) #### PDF Field Tag Key ![](https://files.readme.io/a81fbf1-field-tag-structure.png 'field-tag-structure.png') | Number | Key | Description | Example | | :----- | :---------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------- | | 1 | `fieldType` | Field type from the table documented below | `signature`, or `s` for shorthand | | 2 | `*` | Optional `*` denotes the field is not required | `*` | | 3 | `role` | Role name. Associate the field tag with a recipient role. Roles must be assigned to recipients in the request body. In this case we are using role `s1` to keep the length short and denote the concept of 'signer 1'. `s1` would be the value passed as role in a recipient JSON object. | `s1` | | 4 | `optId` | Optional field Id. Specify more information about the field tag within the post request by using this id. | `sigBox17` | | 5 | `_____` | Use underscores to widen the field if desired. The form fields in PandaDoc will scale to the length and size of your field tag. | `_____` | \u003e 🚧 Role names restrictions \u003e \u003e Underscores are not supported in role names for a file with a Field Tag. #### PDF/DocX/RTF Field Tag Supported Types | Field Type | Short Notation | Is PandaDoc Field | | :---------- | :------------- | :---------------- | | `textfield` | `t` | Field | | `checkbox` | `c` | Field | | `signature` | `s` | Field | | `date` | `d` | Field | | `initials` | `i` | Field | | `dropdown` | `dd` | Field | ```json Field Tags Example 'fields': { 'textfield': { 'value': 'Jane', 'role': 'user' }, 'dropdown': { 'value': 'opt1', 'role': 'user', 'options':[ 'opt1', 'opt2', 'opt3' ] }, 'checkbox': { 'value': true, 'role': 'user' }, 'date':{ 'value': '2022-05-20', 'role': 'user' }, 'signature': { 'value': '', 'role': 'user' } } ``` \u003e 📘 Fields in PandaDoc \u003e \u003e The following article explains how to use Fields: [Everything you need to know about Fields](https://support.pandadoc.com/en/articles/9714583-fields) ### Signing order Set a signing order for document section sections created from a file. ```json 'recipients': [ { 'email': 'josh@example.com', 'first_name': 'Josh', 'last_name': 'Ron', 'role': 'user', 'signing_order': 1 } ] ``` \u003e 📘 Signing order in PandaDoc \u003e \u003e The following article explains how to use signing order: [How to use signing order](https://support.pandadoc.com/en/articles/9714771-signing-order) ### Error handling | Error description | Type | Root cause | |---|---|---| | Document version 1 is not supported. | Validation errors: Form fields | The creation document section is supported only for document version 2 | | PDF content hasn't been processed: document is broken or locked | Processing errors: Failed to process document content | Document converter service can’t process PDF. This may be caused by locked PDF or if it’s broken. | | Error occurred while parsing PDF field tags. Please try PDF flattening or reach out to support | Processing errors: Field tag / Form field validation error | Doc converter managed to parse PDF and extract tags, but at least 1 of them is invalid (having negative position, for example). Usually we recommend PDF flattening and it helps | | No role='{role}' for field tag specified in `recipients` found, roles passed were {roles} | Validation errors: Field tags | Role is invalid. When the role specified in field tag is empty or wasn’t provided in a payload for any recipient | | All field tags within PDF must be declared within `fields`  object of the JSON Payload. No field with optId='{optid}' found in fields object, fields passed were {optids} | Validation errors: Field tags | Label is invalid. Occurs when **optId** specified in field tag is empty or no field with **name = optId** was provided in a payload | | One of field tags in PDF with type='{field}' doesn't have a role | Validation errors: Field tags | Field tag in PDF has no role. One of field tags in PDF with type=% doesn't have a role. | | Role for form field with name='{role}' is not provided in payload | Validation errors: Form fields | Role for form field with ‘name’ is not provided. Occurs when `role` for form field with name=%s  is not provided in payload | | Field for form field with name='{name}' is not specified in payload, available names are {names} | Validation errors: Form fields | Field ‘name’ is not specified in payload. Occurs when no field with name = form field name was provided in a payload | | No role='{role}' for form field specified in 'recipients' found, roles passed were {roles}' | Validation errors: Form fields | Failed to resolve field actor for `role` in form field with ‘name’.   Occurs when role from the form field is not found in recipient’s from payload | | Failed to download file from link {url}. | Source errors | Error on attempt to download file.  An error has occurred on an attempt to download file using the provided ‘url’ in payload | | Failed to download file from link {url} (status code: {status code}) | Source errors | Error with HTTP status code on attempt to download file.  An error has occurred on an attempt to download file using the provided ‘url’ in payload - remote server responded with the HTTP status code | | Content type='{type}' is not supported, available types are {types} | Source errors | Content type is not supported.  Content type should be one of the following: PDF, ZIP, doc, docx, RTF | | The maximum file size is exceeded, limit is {limit} MB | Source errors | The file size has exceeded the allowed limits. An error occurred while trying to download a file that is too large (limit is 50M) | . Required: document_id. Optional: merge_field_scope.",
+      "method": "POST",
+      "path": "/documents/{document_id}/sections/uploads",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "merge_field_scope",
+          "type": "string",
+          "location": "query",
+          "description": "Determines how the fields are mapped when creating a section. * document: Default value. The fields of the entire document are updated. * upload: Only the fields from the created section are updated. The merge field is appended with the upload ID."
+        }
+      ]
+    },
+    {
+      "name": "documents_sections_upload-with-upload",
+      "description": "With this endpoint, you can add a new section to an existing PandaDoc document (create a bundle). The section is created from a file you upload. The file can be a PDF, DocX, or RTF. \u003e 📘 We've prepared two samples that you can use to test the request. \u003e Download them here: \u003e \u003e - [Download a Sample PDF with Form Fields](https://cdn2.hubspot.net/hubfs/2127247/public-templates/SamplePandaDocPdf_FormFields.pdf) \u003e - [Download a Sample PDF with Field Tags](https://5132871.fs1.hubspotusercontent-na1.net/hubfs/5132871/SamplePandaDocPdf_FieldTags_updated.pdf) \u003e 🚧 Usage specifics \u003e \u003e 1. This method uses a `multipart/form-data` request type instead of the `application/json` typically found in the PandaDoc API. This is to accommodate the upload of the included document. \u003e 2. You can send a URL instead of a file in the document creation request. \u003e In this case, you need to use the `application/json` content type and add the URL parameter in the body request. As an example, see [Create from public PDF](https://developers.pandadoc.com/docs/create-and-send-a-document-from-a-publicly-available-pdf) guide for more details. \u003e 3. A file you upload is not stored in your PandaDoc account, so you have to upload it with every request. \u003e ❗️ Limitations \u003e \u003e 1. This method does not support multiple documents. \u003e 2. The maximum supported file size is 50 MB. API returns '413 Request entity too large' in case of bigger files. \u003e 3. PandaDoc does not support creating document from a PDF with encrypted files (to check whether a file is encrypted or not, try Get info -\u003e Secure: Password Encrypted). \u003e ⏱️ Document Section creation is a non-blocking (asynchronous) operation \u003e \u003e The document creation process may take some time. \u003e \u003e With a successful request, you receive a response with the created upload ID and status `document_sections_upload.uploaded`. After processing completes on our servers, usually a few seconds, the document moves to the `document_sections_upload.PROCESSED` status. ## PDF Form Fields PandaDoc recognizes PDF form fields. To enable this feature, pass the optional `parse_form_fields` value as `true` when making a create document section API call. We support Text fields, Dropdowns, and Signature fields. If you would like to pass additional parameters to configure PDF form fields, use the PDF field name as an optId. You can use a PDF editor such as Adobe Acrobat, Foxit to get and edit field names in your PDF. [**Download a Sample PDF with Form Fields**](https://cdn2.hubspot.net/hubfs/2127247/public-templates/SamplePandaDocPdf_FormFields.pdf) ## PDF/DocX/RTF Field Tags This parsing format allows a word processor such as [Microsoft Word](https://support.office.com/en-us/article/Save-as-PDF-d85416c5-7d77-4fd6-a216-6f4bf7c7c110?ui=en-US\u0026rs=en-US\u0026ad=US) or [Google Docs](https://support.google.com/drive/answer/2423534?co=GENIE.Platform%3DDesktop\u0026hl=en) to prepare a document and save it in PDF, DocX or RTF format. Within the text, PandaDoc parses field tags. A field tag starts and ends with brackets. The field tag includes basic information on how to create a form field in the PandaDoc document. The request JSON object `optId` can also extend this information for even greater control. Here is an example of how the field tag in a PDF/DocX/RTF is converted to a text field in the PandaDoc document: ![](https://files.readme.io/38afedf-ex3.png 'ex3.png') [**Download a Sample PDF with Field Tags**](https://cdn2.hubspot.net/hubfs/2127247/public-templates/SamplePandaDocPdf_FieldTags.pdf) ### PDF Field Tag Key ![](https://files.readme.io/a81fbf1-field-tag-structure.png 'field-tag-structure.png') | Number | Key | Description | Example | | :----- | :---------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------- | | 1 | `fieldType` | Field type from the table documented below | `signature`, or `s` for shorthand | | 2 | `*` | Optional `*` denotes the field is not required | `*` | | 3 | `role` | Role name. Associate the field tag with a recipient role. Roles must be assigned to recipients in the request body. In this case we are using role `s1` to keep the length short and denote the concept of 'signer 1'. `s1` would be the value passed as role in a recipient JSON object. | `s1` | | 4 | `optId` | Optional field Id. Specify more information about the field tag within the post request by using this id. | `sigBox17` | | 5 | `_____` | Use underscores to widen the field if desired. The form fields in PandaDoc will scale to the length and size of your field tag. | `_____` | \u003e 🚧 Role names restrictions \u003e \u003e Underscores are not supported in role names for a file with a Field Tag. ### PDF/DocX/RTF Field Tag Supported Types | Field Type | Short Notation | Is PandaDoc Field | | :---------- | :------------- | :---------------- | | `textfield` | `t` | Field | | `checkbox` | `c` | Field | | `signature` | `s` | Field | | `date` | `d` | Field | | `initials` | `i` | Field | | `dropdown` | `dd` | Field | \u003e 📘 Fields in PandaDoc \u003e \u003e The following article explains how to use Fields: [Everything you need to know about Fields](https://support.pandadoc.com/en/articles/9714583-fields) ```json Field Tags Example 'fields': { 'textfield': { 'value': 'Jane', 'role': 'user' }, 'dropdown': { 'value': 'opt1', 'role': 'user', 'options':[ 'opt1', 'opt2', 'opt3' ] }, 'checkbox': { 'value': true, 'role': 'user' }, 'date':{ 'value': '2022-05-20', 'role': 'user' }, 'signature': { 'value': '', 'role': 'user' } } ``` ## Signing order Set a signing order for document section sections created from a file. ```json 'recipients': [ { 'email': 'josh@example.com', 'first_name': 'Josh', 'last_name': 'Ron', 'role': 'user', 'signing_order': 1 } ] ``` ## Error handling | Error description | Type | Root cause | |---|---|---| | Document version 1 is not supported. | Validation errors: Form fields | The creation document section is supported only for document version 2 | | PDF content hasn't been processed: document is broken or locked | Processing errors: Failed to process document content | Document converter service can’t process PDF. This may be caused by locked PDF or if it’s broken. | | Error occurred while parsing PDF field tags. Please try PDF flattening or reach out to support | Processing errors: Field tag / Form field validation error | Doc converter managed to parse PDF and extract tags, but at least 1 of them is invalid (having negative position, for example). Usually we recommend PDF flattening and it helps | | No role='{role}' for field tag specified in `recipients` found, roles passed were {roles} | Validation errors: Field tags | Role is invalid. When the role specified in field tag is empty or wasn’t provided in a payload for any recipient | | All field tags within PDF must be declared within `fields`  object of the JSON Payload. No field with optId='{optid}' found in fields object, fields passed were {optids} | Validation errors: Field tags | Label is invalid. Occurs when **optId** specified in field tag is empty or no field with **name = optId** was provided in a payload | | One of field tags in PDF with type='{field}' doesn't have a role | Validation errors: Field tags | Field tag in PDF has no role. One of field tags in PDF with type=% doesn't have a role. | | Role for form field with name='{role}' is not provided in payload | Validation errors: Form fields | Role for form field with ‘name’ is not provided. Occurs when `role` for form field with name=%s  is not provided in payload | | Field for form field with name='{name}' is not specified in payload, available names are {names} | Validation errors: Form fields | Field ‘name’ is not specified in payload. Occurs when no field with name = form field name was provided in a payload | | No role='{role}' for form field specified in 'recipients' found, roles passed were {roles}' | Validation errors: Form fields | Failed to resolve field actor for `role` in form field with ‘name’.   Occurs when role from the form field is not found in recipient’s from payload | | Failed to download file from link {url}. | Source errors | Error on attempt to download file.  An error has occurred on an attempt to download file using the provided ‘url’ in payload | | Failed to download file from link {url} (status code: {status code}) | Source errors | Error with HTTP status code on attempt to download file.  An error has occurred on an attempt to download file using the provided ‘url’ in payload - remote server responded with the HTTP status code | | Content type='{type}' is not supported, available types are {types} | Source errors | Content type is not supported.  Content type should be one of the following: PDF, ZIP, doc, docx, RTF | | The maximum file size is exceeded, limit is {limit} MB | Source errors | The file size has exceeded the allowed limits. An error occurred while trying to download a file that is too large (limit is 50M) |. Required: document_id. Optional: merge_field_scope, data, file.",
+      "method": "POST",
+      "path": "/documents/{document_id}/sections/uploads?upload",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "merge_field_scope",
+          "type": "string",
+          "location": "query",
+          "description": "Determines how the fields are mapped when creating a section. * document: Default value. The fields of the entire document are updated. * upload: Only the fields from the created section are updated. The merge field is appended with the upload ID."
+        },
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Data"
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Binary PDF/DocX/RTF File."
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "multipart/form-data"
+        }
+      ]
+    },
+    {
+      "name": "documents_send_document",
+      "description": "\u003e 🚧 Using the Sandbox Key \u003e \u003e When you use a [sandbox API key](https://developers.pandadoc.com/reference/sandbox-key) during the free trial period, the sender and recipient email addresses must be from the same organisation (email domain). ## Document State - You can only send a document in the `document.draft` status. - After creating a new document, it usually retains a `document.uploaded` status for 3-5 seconds while the document syncs across PandaDoc servers. When the document is available for further API calls, it moves to the `document.draft` state. Use [Document Status](/reference/document-status) or [Webhooks](/reference/on-document-status-change) to check document status. - Moving a document to the `document.sent` status finalizes the document structure, before recipients can complete it. - If a template used for the document creation has an approval workflow turned on, the sent document moves to the `document.waiting_approval` status. Once the document is approved, you need to make the call again to move the document to `document.sent` status. ## Send and Silence Notifications - By default, PandaDoc sends a notification email to the recipient, as well as notifications the sender has configured. You may disable all notifications for recipients by passing `silent: true`. This is useful when you are using alternative delivery methods such as linking to the document or embedding the document. - The `silent: true` parameter disables sent, viewed, comment and completed document email notifications. 'Document Approval' notification won't be affected by this parameter. - If you pass `silent: false`, the document is going to be delivered by email and/or SMS. ![Example email. Branding can be changed in workspace settings](https://files.readme.io/cc5a03e-email2.png) ## Select Approver from Group If you have previously set up an approval workflow with selectable groups on the UI, you can select a particular approver from this group. Learn more about [selectable groups](https://support.pandadoc.com/en/articles/9714799-approval-workflow#h_01H4GNY5GSGG38BPYY46XV7GB4). To set an approver, we recommend to follow these steps: 1. Run the [Document Details](https://developers.pandadoc.com/reference/document-details) request. 2. Copy the `steps` part from the `approval_execution` section of the response into the `selected_approvers` field of the Send Document payload. 3. Modify your payload according to business needs: set `is_selected` to true for one approver. \u003e 📘 **Note**: You can change the selected approver only if you revert your document back to the `document.draft` status. Required: id. Optional: forwarding_settings, message, reply_to (plus 4 more). Returns array of SendDocumentItem.",
+      "method": "POST",
+      "path": "/documents/{id}/send",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "forwarding-settings-forwarding-allowed",
+          "wire_name": "forwarding_settings.forwarding_allowed",
+          "type": "bool",
+          "location": "body",
+          "description": "Your recipient will be able/not able to forward the document to another email address."
+        },
+        {
+          "name": "forwarding-settings-forwarding-with-reassigning-allowed",
+          "wire_name": "forwarding_settings.forwarding_with_reassigning_allowed",
+          "type": "bool",
+          "location": "body",
+          "description": "Your recipient will be able/not able to forward the right to fill out all fields (including signature) assigned to them to another email address."
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "A message that will be sent by email with a link to a document to sign."
+        },
+        {
+          "name": "reply_to",
+          "type": "string",
+          "location": "body",
+          "description": "Email address that will be used as a reply-to address for the document. To use this parameter, please contact the support team to have it enabled for your account."
+        },
+        {
+          "name": "selected-approvers-steps",
+          "wire_name": "selected_approvers.steps",
+          "type": "array",
+          "location": "body",
+          "description": "Approval steps."
+        },
+        {
+          "name": "sender-email",
+          "wire_name": "sender.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email."
+        },
+        {
+          "name": "sender-membership-id",
+          "wire_name": "sender.membership_id",
+          "type": "string",
+          "location": "body",
+          "description": "Membership ID."
+        },
+        {
+          "name": "silent",
+          "type": "bool",
+          "location": "body",
+          "description": "If set to `true`, disables email notifications for document recipients and the document sender. Also disables scheduled reminders (manual reminders still possible). Doesn't affect 'Approve document' email notification sent to the Approver."
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "location": "body",
+          "description": "Value that will be used as the email subject."
+        }
+      ]
+    },
+    {
+      "name": "documents_send-reminder_create-manual-reminder",
+      "description": "Sends manual reminders to one or more recipients of a specified document. Required: document_id. Optional: reminders. Returns array of SendReminderCreateManualReminderItem.",
+      "method": "POST",
+      "path": "/documents/{document_id}/send-reminder",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the document.",
+          "required": true
+        },
+        {
+          "name": "reminders",
+          "type": "array",
+          "location": "body",
+          "description": "A list of reminders to be sent to specified recipients. Use this field to specify which recipients should receive a reminder and through which delivery methods. Each email reminder contains document sender in the From field, ensuring the recipient always sees consistent sender details and branding."
+        }
+      ]
+    },
+    {
+      "name": "documents_session_create-document-link",
+      "description": "Creates a document session for a recipient to view and sign a document. \u003e 📘 How to create an Embedded Sign session \u003e For more information on how to create an Embedded Sign session, see the [Embedded Signing](https://developers.pandadoc.com/docs/embedded-signing) documentation. Required: id, recipient. Optional: lifetime (default: 3600). Returns the new DocumentCreateLinkResponse.",
+      "method": "POST",
+      "path": "/documents/{id}/session",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Document ID",
+          "required": true
+        },
+        {
+          "name": "lifetime",
+          "type": "float",
+          "location": "body",
+          "description": "The duration in seconds for which the document link will remain valid. The link will expire and become inaccessible after this time period. For security, we recommend setting the lifetime to less than one year (e.g., `'lifetime': 31535999`). If not specified, the default value is 1 hour (3600 seconds)."
+        },
+        {
+          "name": "recipient",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of the person who will receive access to the document.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_status_change-document",
+      "description": "PandaDoc has eight document statuses, but you can manually set your document status to only four: ### Document statuses - Completed - `document.completed` - API code `2` - Expired - `document.voided` - code `11` - Paid - `document.paid` - code `10`. **Important**: You can only set it if you have a payment app connected. - Declined - `document.declined` - code `12` \u003e 🚧 Pass a numeric code for the corresponding document status, for example, `2` for `document.completed`. Find more details in [[Editor 2.0] Manually change document status](https://support.pandadoc.com/en/articles/9714842-manually-change-document-status) topic. | Current Status | To Completed: | To Expired: | To Paid: | To Declined: | |----------------|---------------|-------------|----------|--------------| | Draft | YES | NO | YES | YES | | Approved | NO | NO | NO | NO | | Sent | YES | YES | NO | YES | | Viewed | YES | YES | NO | YES | | Completed (Auto) | NO | NO | NO | YES | | Waithing for payment | NO | NO | YES | YES | | Paid | NO | NO | NO | NO | | Expired | YES | NO | YES | YES | | Declined | YES | NO | YES | NO | \u003e ✅ - from `document.voided` to `document.paid` \u003e \u003e ❌ - from `document.paid` to `document.voided`. Required: id, status. Optional: note, notify_recipients. Partial update.",
+      "method": "PATCH",
+      "path": "/documents/{id}/status",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Provide “private notes” regarding the manual status change."
+        },
+        {
+          "name": "notify_recipients",
+          "type": "bool",
+          "location": "body",
+          "description": "Send a notification email about the status change to all recipients."
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "body",
+          "description": "Number code for the target document status. See notes for the codes corresponding to each status.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_status-upload_change-document-status-with-upload",
+      "description": "PandaDoc has eight document statuses, but you can manually set your document status to only four: ### Document statuses - Completed - `document.completed` - API code `2` - Expired - `document.voided` - code `11` - Paid - `document.paid` - code `10`. **Important**: You can only set it if you have a payment app connected. - Declined - `document.declined` - code `12` \u003e 🚧 Pass a numeric code for the corresponding document status, for example, `2` for `document.completed`. Find more details in [[Editor 2.0] Manually change document status](https://support.pandadoc.com/en/articles/9714842-manually-change-document-status) topic. | Current Status | To Completed: | To Expired: | To Paid: | To Declined: | |----------------|---------------|-------------|----------|--------------| | Draft | YES | NO | YES | YES | | Approved | NO | NO | NO | NO | | Sent | YES | YES | NO | YES | | Viewed | YES | YES | NO | YES | | Completed (Auto) | NO | NO | NO | YES | | Waithing for payment | NO | NO | YES | YES | | Paid | NO | NO | NO | NO | | Expired | YES | NO | YES | YES | | Declined | YES | NO | YES | NO | \u003e ✅ - from `document.voided` to `document.paid` \u003e \u003e ❌ - from `document.paid` to `document.voided`. Required: id. Optional: data, file. Partial update.",
+      "method": "PATCH",
+      "path": "/documents/{id}/status?upload",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document ID.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Data"
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Binary attachment file"
+        }
+      ]
+    },
+    {
+      "name": "documents-upload_create-document-from-upload",
+      "description": "\u003e See the [Create from PDF](https://developers.pandadoc.com/docs/create-document-from-file) tutorial for the usage specifics and sample PDF files.",
+      "method": "POST",
+      "path": "/documents?upload",
+      "params": [
+        {
+          "name": "editor_ver",
+          "type": "string",
+          "location": "query",
+          "description": "Set this parameter as `ev1` if you want to create a document from PDF with Classic Editor when both editors are enabled for the workspace."
+        },
+        {
+          "name": "use_form_field_properties",
+          "type": "string",
+          "location": "query",
+          "description": "Set this parameter as `yes` or `1` or `true` (only when upload pdf with form fields) if you want to respect form fields properties, like `required`."
+        },
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Data"
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Binary PDF File"
+        }
+      ]
+    },
+    {
+      "name": "documents-upload-markdown_create-document-from-markdown-upload",
+      "description": "Upload a Markdown (`.md`) file to create a new document. The file content will be converted into a PandaDoc document.",
+      "method": "POST",
+      "path": "/documents?upload-markdown",
+      "params": [
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Request body for creating a document from an uploaded Markdown file. \u003e **Alpha:** Markdown file upload is currently in alpha. This functionality may change or be removed without notice."
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "The Markdown file to upload. Accepted content types: `text/markdown`, `text/x-markdown`."
+        }
+      ]
+    },
+    {
+      "name": "forms_list",
+      "description": "Retrieve a paginated list of forms with optional filtering and sorting options. Optional: count, page, status (plus 3 more). Returns array of FormsListItem.",
+      "method": "GET",
+      "path": "/forms",
+      "params": [
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Specify how many forms to return. Default is 50 forms, maximum is 100 forms."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Specify which page of the dataset to return."
+        },
+        {
+          "name": "status",
+          "type": "array",
+          "location": "query",
+          "description": "Specify which status of the forms dataset to return."
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the form dataset order to return."
+        },
+        {
+          "name": "asc",
+          "type": "bool",
+          "location": "query",
+          "description": "Specify sorting the result-set in ascending or descending order."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the form name."
+        }
+      ]
+    },
+    {
+      "name": "logs_details",
+      "description": "Returns details of the specific API log event. Required: id.",
+      "method": "GET",
+      "path": "/logs/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Log event id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "logs_list",
+      "description": "Get the list of all logs within the selected workspace. Optionally filter by date, page, and `#` of items per page. Optional: since (default: -90d), to, count (default: 100) (plus 5 more). Returns array of LogsListItem.",
+      "method": "GET",
+      "path": "/logs",
+      "params": [
+        {
+          "name": "since",
+          "type": "string",
+          "location": "query",
+          "description": "Determines a point in time from which logs should be fetched. Either a specific ISO 8601 datetime or a relative identifier such as '-90d' (for past 90 days)."
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "Determines a point in time from which logs should be fetched. Either a specific ISO 8601 datetime or a relative identifier such as '-10d' (for past 10 days) or a special 'now' value."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "The amount of items on each page. The total number of accessible items (`count × page`) must not exceed 10,000."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Returns page of the results by number. The total number of accessible items (`count × page`) must not exceed 10,000."
+        },
+        {
+          "name": "statuses",
+          "type": "array",
+          "location": "query",
+          "description": "Returns only the predefined status codes."
+        },
+        {
+          "name": "methods",
+          "type": "array",
+          "location": "query",
+          "description": "Returns only the predefined HTTP methods. Allows GET, POST, PUT, PATCH, and DELETE."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Returns the results containing a string."
+        },
+        {
+          "name": "environment_type",
+          "type": "string",
+          "location": "query",
+          "description": "Returns logs for production/sandbox."
+        }
+      ]
+    },
+    {
+      "name": "members_details",
+      "description": "A method to retrieve a member's details by ID. **User** - is an account with a license in the Organization. **Member** - is a User with a predefined Role in the Workspace. | Parameter | Description | |---|---| | `user_id` | A unique identifier of the `user` in the **organization** | | `membership_id` | A unique identifier of the `user` in the **workspace** | | `email` | A user email address | | `first_name` | A user's first name | | `last_name` | A user's last name | | `is_active` | A boolean value that identifies if a member is active and not blocked | | `workspace` | A unique identifier of the user's current active workspace | | `workspace_name` | A name of the user's current active workspace | | `email_verified` | A boolean value that identifies if the email is verified | | `role` | A member's role in the workspace | | `user_license` | A user license in the organization:  `Full (Standard)`;  `Read-only`;  `eSignature`;  `Guest`;  `Creator` | | `date_created` | A date when a member was added to the workspace | | `date_modified` | Last modified date of a member |. Required: id. Returns the MemberDetailsResponse.",
+      "method": "GET",
+      "path": "/members/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Membership id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "members_details-current",
+      "description": "Returns the member details of the current user (the owner of the API key). **User** - is an account with a license in the Organization. **Member** - is a User with a predefined Role in the Workspace. | Parameter | Description | |---|---| | `user_id` | A unique identifier of the `user` in the **organization** | | `membership_id` | A unique identifier of the `user` in the **workspace** | | `email` | A user email address | | `first_name` | A user's first name | | `last_name` | A user's last name | | `is_active` | A boolean value that identifies if a member is active and not blocked | | `workspace` | A unique identifier of the user's current active workspace | | `workspace_name` | A name of the user's current active workspace | | `email_verified` | A boolean value that identifies if the email is verified | | `role` | A member's role in the workspace | | `user_license` | A user license in the organization:  `Full (Standard)`;  `Read-only`;  `eSignature`;  `Guest`;  `Creator` | | `date_created` | A date when a member was added to the workspace | | `date_modified` | Last modified date of a member |.",
+      "method": "GET",
+      "path": "/members/current",
+      "params": []
+    },
+    {
+      "name": "members_list",
+      "description": "Retrieve all members details of the workspace implied by the OAuth token or API key. For each member, the `workspace` parameter shows their active workspace, that is the workspace they are currently working in. This means the `workspace` value can differ from the workspace implied by your API key. Returns array of MemberDetailsResponse.",
+      "method": "GET",
+      "path": "/members",
+      "params": []
+    },
+    {
+      "name": "members_token_create-member",
+      "description": "\u003e 🚧 \u003e \u003e This endpoint is only exposed upon request. Please reach out to your Account Manager to get access. \u003e 📘 \u003e \u003e Make sure you're using Public API keys generated by Org Admin, otherwise you'll receive a 403 response. Required: member_id. Optional: lifetime (default: 3600). Returns the new CreateMemberTokenResponse.",
+      "method": "POST",
+      "path": "/members/{member_id}/token",
+      "params": [
+        {
+          "name": "member_id",
+          "type": "string",
+          "location": "path",
+          "description": "Member id.",
+          "required": true
+        },
+        {
+          "name": "lifetime",
+          "type": "int",
+          "location": "body",
+          "description": "Token lifetime in seconds."
+        }
+      ]
+    },
+    {
+      "name": "public_add-dsv-named-items",
+      "description": "Adds one or more named items to the specified document by ID. These items define the document's structure and hierarchy (e.g., sections or headings) for display or navigation purposes within the Document Structure View (DSV). Required: document_id, items. Returns array of PublicAddDsvNamedItemsItem.",
+      "method": "POST",
+      "path": "/public/v2/dsv/{document_id}/add-named-items",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the document to which the DSV named items will be added.",
+          "required": true
+        },
+        {
+          "name": "items",
+          "type": "array",
+          "location": "body",
+          "description": "List of named items representing structural elements of the document.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_create-catalog-item",
+      "description": "Create a new catalog item. Required: price_configuration, title. Optional: bundle_items, category_id, custom_fields (plus 4 more). Returns the new ProductCatalogItemResponse.",
+      "method": "POST",
+      "path": "/public/v2/product-catalog/items",
+      "params": [
+        {
+          "name": "bundle_items",
+          "type": "array",
+          "location": "body",
+          "description": "Bundle items"
+        },
+        {
+          "name": "category_id",
+          "type": "string",
+          "location": "body",
+          "description": "Category id"
+        },
+        {
+          "name": "custom_fields",
+          "type": "array",
+          "location": "body",
+          "description": "Custom fields"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "images",
+          "type": "array",
+          "location": "body",
+          "description": "Images"
+        },
+        {
+          "name": "price-configuration-billing-cycle",
+          "wire_name": "price_configuration.billing_cycle",
+          "type": "string",
+          "location": "body",
+          "description": "Billing cycle"
+        },
+        {
+          "name": "price-configuration-billing-type",
+          "wire_name": "price_configuration.billing_type",
+          "type": "string",
+          "location": "body",
+          "description": "Billing type"
+        },
+        {
+          "name": "price-configuration-cost",
+          "wire_name": "price_configuration.cost",
+          "type": "float",
+          "location": "body",
+          "description": "Cost"
+        },
+        {
+          "name": "price-configuration-currency",
+          "wire_name": "price_configuration.currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency",
+          "required": true
+        },
+        {
+          "name": "price-configuration-price",
+          "wire_name": "price_configuration.price",
+          "type": "float",
+          "location": "body",
+          "description": "Price"
+        },
+        {
+          "name": "price-configuration-pricing-method",
+          "wire_name": "price_configuration.pricing_method",
+          "type": "int",
+          "location": "body",
+          "description": "Pricing method",
+          "required": true
+        },
+        {
+          "name": "price-configuration-tiers",
+          "wire_name": "price_configuration.tiers",
+          "type": "array",
+          "location": "body",
+          "description": "only for volume based pricing"
+        },
+        {
+          "name": "sku",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "Title",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type"
+        }
+      ]
+    },
+    {
+      "name": "public_create-export-docx-task",
+      "description": "\u003e ⏱️ Export as DOCX is a non-blocking (asynchronous) operation \u003e The document generation process may take some time. \u003e With a successful request, you receive a response with task ID, status **created** and document id. After process completes, usually in a few minutes, the task status moves to the **done** state. \u003e You can download documents up to 300 pages. For documents of 301+ pages, you will receive an error “400: The number of pages more then limit 300”. Required: document_id. Returns the new DocumentDocxExport.",
+      "method": "POST",
+      "path": "/public/beta/documents/{document_id}/docx-export-tasks",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_create-notarization-request",
+      "description": "Create a notarization request to connect with a notary and complete online notarizations for your signers within minutes. \u003e 🚧 **Important:** This endpoint supports only documents in draft status. ## Prerequisites \u003e 🚧 Before you start \u003e \u003e Ensure the following before creating a notarization request: \u003e \u003e - Install the Notary On-Demand or Notary add-on \u003e - Create a document for notarization and get its `document_id`. To create a document, use the [Create Document from Template](https://developers.pandadoc.com/reference/create-document-from-pandadoc-template) or [Create Document from File Upload](https://developers.pandadoc.com/reference/create-document-from-pdf) endpoint. ## Request Details For the notarization request, include in the request body: - `document_id` - At least one `invitees`, specifying their `email`, `first_name`, and `last_name` - Optionally, include a `message` for your signers - Optionally, using `disable_invitees_notifications` you can disable all notifications for invitees including email with invitation for notarization. This is useful when you are using alternative delivery methods. - If in-house notary must be assigned to this request, include the `notary` object with the notary's `id`, `scheduled_at` timestamp, and an optional `message` for the notary After the API call is executed, your signers will receive an email invitation for notarization. Alternatively, you can directly share the `notarization_link` with your signers, which is available in the 201 response body. Upon successful notarization, you will receive an email with a link to the notarized document. ## Usage Tips \u003e 📘 Best Practices \u003e \u003e - Ensure that signers are added as both invitees in the request body and recipients in the document to avoid inconveniences during notary sessions \u003e - Signers will receive an email with a notary link upon a successful API call; this link is also in the 201 response \u003e - In case if notary is not specified in the request, signers will use the link to connect with commissioned online notaries, available Mon-Fri, 9 AM - 9 PM Central Time, typically responding within 2 minutes \u003e - If notary is specified, signers will use the link to connect with your in-house notary at the scheduled time ## Limits A maximum of 100 API calls per minute is permitted. Exceeding this limit triggers a 429 Too Many Requests error. ## Troubleshooting **Solutions for 4xx Response Codes:** - **403 Forbidden (Inactive Add-on)**: Ensure the Notary On-Demand or Notary add-on is installed - **403 Forbidden (Transactions Limit)**: Purchase additional transactions either through the Notary UI or by contacting the Sales team - **429 Too Many Requests**: If you hit the limit, hold your API calls, then send them after waiting for the retry time \u003e 📘 To learn more about PandaDoc Notary On-Demand, visit our [website](https://notary.pandadoc.com/notary-on-demand/). Required: document_id, invitation. Optional: disable_invitees_notifications (default: false), notary. Returns array of PublicCreateNotarizationRequestItem.",
+      "method": "POST",
+      "path": "/public/v2/notary/notarization-requests",
+      "params": [
+        {
+          "name": "disable_invitees_notifications",
+          "type": "bool",
+          "location": "body",
+          "description": "Disable all notifications for invitees including email with invitation for notarization. This is useful when you are using alternative delivery methods."
+        },
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the Document for notarization.",
+          "required": true
+        },
+        {
+          "name": "invitation-invitees",
+          "wire_name": "invitation.invitees",
+          "type": "array",
+          "location": "body",
+          "description": "Invitees"
+        },
+        {
+          "name": "invitation-message",
+          "wire_name": "invitation.message",
+          "type": "string",
+          "location": "body",
+          "description": "Optional message for invitation email."
+        },
+        {
+          "name": "notary-id",
+          "wire_name": "notary.id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of an ACTIVE notary",
+          "required": true
+        },
+        {
+          "name": "notary-message",
+          "wire_name": "notary.message",
+          "type": "string",
+          "location": "body",
+          "description": "Optional custom message for the notary in the invitation email"
+        },
+        {
+          "name": "notary-scheduled-at",
+          "wire_name": "notary.scheduled_at",
+          "type": "string",
+          "location": "body",
+          "description": "ISO 8601 timestamp for scheduled notarization",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_delete-catalog-item",
+      "description": "Delete catalog item. Required: item_uuid. Destructive.",
+      "method": "DELETE",
+      "path": "/public/v2/product-catalog/items/{item_uuid}",
+      "params": [
+        {
+          "name": "item_uuid",
+          "type": "string",
+          "location": "path",
+          "description": "Catalog item UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_delete-notarization-request",
+      "description": "Use this method to delete a notarization request. Once notarization request is deleted it cannot be restored. \u003e 🚧 Notarization Request status \u003e \u003e You can only delete a notarization request in status 'SENT', 'WAITING_FOR_NOTARY' or 'INCOMPLETE'. \u003e If the notarization request is in any other status, the request will return a 400 Bad Request error. By default all invitees will receive email notification about deletion of the notarization request. If you want to disable this notification, you can use the `disable_invitees_notifications` parameter when creating request (see [Create Notarization Request](https://developers.pandadoc.com/reference/create-notarization-request)). Required: session_request_id. Destructive.",
+      "method": "DELETE",
+      "path": "/public/v2/notary/notarization-requests/{session_request_id}",
+      "params": [
+        {
+          "name": "session_request_id",
+          "type": "string",
+          "location": "path",
+          "description": "Notarization Request ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_details-log-v2",
+      "description": "Returns details of the specific API log event. Required: id.",
+      "method": "GET",
+      "path": "/public/v2/logs/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Log event id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_document-settings-get",
+      "description": "Retrieves the settings for a specified document. Supported fields: language, qualified_electronic_signature, expires_in (in days). Required: document_id. Returns the DocumentSettingsResponse.",
+      "method": "GET",
+      "path": "/public/v2/documents/{document_id}/settings",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the document to retrieve settings for.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_document-settings-update",
+      "description": "Updates the settings for a specified document. Supported fields: language, qualified_electronic_signature, expires_in (in days). Required: document_id. Optional: expires_in, language, qualified_electronic_signature. Returns the updated DocumentSettingsResponse.",
+      "method": "PATCH",
+      "path": "/public/v2/documents/{document_id}/settings",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the document to update settings for.",
+          "required": true
+        },
+        {
+          "name": "expires_in",
+          "type": "int",
+          "location": "body",
+          "description": "Document expiration in days. Minimum is 1 day."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "Document language code (e.g., 'en-US', 'fr-FR')."
+        },
+        {
+          "name": "qualified_electronic_signature",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates whether the document requires a Qualified Electronic Signature (QES) during the signing process. If `true`, signers must complete the document using a third-party qualified electronic signature provider according to supported verification rules."
+        }
+      ]
+    },
+    {
+      "name": "public_get-catalog-item",
+      "description": "Catalog Item Details. Required: item_uuid. Returns the ProductCatalogItemResponse.",
+      "method": "GET",
+      "path": "/public/v2/product-catalog/items/{item_uuid}",
+      "params": [
+        {
+          "name": "item_uuid",
+          "type": "string",
+          "location": "path",
+          "description": "Catalog item UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_get-document-ai-metadata",
+      "description": "Returns the AI metadata fields populated for the document. Each result combines the field definition (`id`, `key`, `field_type`, `settings`) with the extracted value (`value`, `acceptance_status`). Only fields that have an extracted value for the document are returned. The endpoint signals AI extraction state via the HTTP status code: - `202 extraction_pending` — extraction is in progress. Clients should retry after the number of seconds indicated in the `Retry-After` header. - `204 No Content` — extraction has terminally failed for this document. No body is returned; retrying will not help — contact support. - `409 not_started` — extraction has not been triggered for this document (typically because the document is not yet completed). Required: document_id. Optional: limit (default: 100), offset (default: 0).",
+      "method": "GET",
+      "path": "/public/beta/documents/{document_id}/ai-metadata",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of the document.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of fields to return in one response."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of fields to skip before starting to collect the result set. For predictable paging, use multiples of `limit`."
+        }
+      ]
+    },
+    {
+      "name": "public_get-document-content",
+      "description": "Returns the document content for the specified document. Use query parameter `format` to select the content format. Required: document_id, format.",
+      "method": "GET",
+      "path": "/public/beta/documents/{document_id}/content",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of the document.",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Document content representation to return.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_get-document-summary",
+      "description": "Returns a summary for the specified document. Use query parameter `type` to select summary granularity. Required: document_id, type.",
+      "method": "GET",
+      "path": "/public/beta/documents/{document_id}/summary",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of the document.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Document summary granularity to return.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_get-docx-export-task",
+      "description": "\u003e 📘 This endpoint returns the current state of a DOCX export task for a document. \u003e The endpoint supports downloading only multiple files if the document contains several sections. Downloading as a single file in this case is not possible. Required: document_id, task_id.",
+      "method": "GET",
+      "path": "/public/beta/documents/{document_id}/docx-export-tasks/{task_id}",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify document id.",
+          "required": true
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "Specify Task id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_list-document-audit-trail",
+      "description": "Retrieves the full audit trail for a specified document. The audit trail includes detailed user actions such as sending, viewing, signing, and editing, along with metadata like timestamps, IP addresses, and user identity. This endpoint is accessible to authorized workspace administrators only. Required: document_id. Optional: limit (default: 20), offset (default: 0). Returns array of PublicListDocumentAuditTrailItem.",
+      "method": "GET",
+      "path": "/public/v2/documents/{document_id}/audit-trail",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the document to retrieve the audit trail for.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of items to skip before starting to collect the result set."
+        }
+      ]
+    },
+    {
+      "name": "public_list-logs-v2",
+      "description": "Get the list of all logs within the selected workspace. Optionally filter by date, page, and `#` of items per page. Optional: since (default: -90d), to, count (default: 100) (plus 5 more). Returns array of PublicListLogsV2Item.",
+      "method": "GET",
+      "path": "/public/v2/logs",
+      "params": [
+        {
+          "name": "since",
+          "type": "string",
+          "location": "query",
+          "description": "Determines a point in time from which logs should be fetched. Either a specific ISO 8601 datetime or a relative identifier such as '-90d' (for past 90 days)."
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "Determines a point in time from which logs should be fetched. Either a specific ISO 8601 datetime or a relative identifier such as '-10d' (for past 10 days) or a special 'now' value."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "The amount of items on each page. The total number of accessible items (`count × page`) must not exceed 10,000."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Returns page of the results by number. The total number of accessible items (`count × page`) must not exceed 10,000."
+        },
+        {
+          "name": "statuses",
+          "type": "array",
+          "location": "query",
+          "description": "Returns only the predefined status codes."
+        },
+        {
+          "name": "methods",
+          "type": "array",
+          "location": "query",
+          "description": "Returns only the predefined HTTP methods. Allows GET, POST, PUT, PATCH, and DELETE."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Returns the results containing a string."
+        },
+        {
+          "name": "environment_type",
+          "type": "string",
+          "location": "query",
+          "description": "Returns logs for production/sandbox."
+        }
+      ]
+    },
+    {
+      "name": "public_list-notaries",
+      "description": "Retrieve a list of notaries associated with your organization. ## Important Notes - At the moment, notaries can be added to organization only manually through the PandaDoc Notary UI. - Organization must have Notary addon enabled to use this endpoint. Optional: status, commission_state, offset (default: 0) (plus 2 more). Returns array of PublicListNotariesItem.",
+      "method": "GET",
+      "path": "/public/v2/notary/notaries",
+      "params": [
+        {
+          "name": "status",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by status (comma-separated values supported). Valid values are INVITED, UNDER_REVIEW, ACTIVE, REJECTED, INACTIVE"
+        },
+        {
+          "name": "commission_state",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by commission state (comma-separated values supported)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to skip"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results to return"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Sort by name, email, or status (default is email). Use a - prefix for descending order (e.g., -email)"
+        }
+      ]
+    },
+    {
+      "name": "public_list-notarization-requests",
+      "description": "Retrieve a paginated list of notarization requests for your organization. Results can be filtered by status, creator, or document, and sorted by status or by the request's creation or completion dates. ## Permissions \u003e 🔒 **Requirements** \u003e \u003e - The **Notary On-Demand** or **Notary** add-on must be enabled for your organization. Without an active add-on, the endpoint returns `403 Forbidden`. \u003e - The request is executed with the permissions of the API key owner. By default, the response only includes notarization requests created by the API key owner. To list notarization requests created by any user in the organization, the API key owner must have the **Can view any notarization request** permission. ## Limits A maximum of 100 API calls per minute is permitted. Exceeding this limit triggers a 429 Too Many Requests error. Optional: status, created_by_user_id, document_id (plus 3 more).",
+      "method": "GET",
+      "path": "/public/v2/notary/notarization-requests",
+      "params": [
+        {
+          "name": "status",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by status (comma-separated values supported)."
+        },
+        {
+          "name": "created_by_user_id",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by creator user ID (comma-separated values supported)."
+        },
+        {
+          "name": "document_id",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by document ID (comma-separated values supported)."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to skip."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results to return."
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field. Use a `-` prefix for descending order (e.g., `-date_created`). When omitted, results are sorted by `date_created` ascending (oldest first)."
+        }
+      ]
+    },
+    {
+      "name": "public_notarization-request-details",
+      "description": "Get details about a notarization request by its `id`. Details include: - Basic notarization request information (status, creator, invitees). - Signed documents information with links for downloading. - Notarization session recording information with link for downloading. - Timestamps associated with a notarization request. - Termination reason and details when the notarization session was not completed successfully. ## Available Notarization Request Statuses The following is a complete list of all possible notarization request statuses returned: | Notarization Request Status | Status Description | | :-------------------------- | :----------------------------------------------------------------------------------------------------------------- | | SENT | Notarization request has been created. Invitees are notified and can start the process of finding a notary. | | WAITING_FOR_NOTARY | One of the invitees initialised the process of finding a notary. | | ACCEPTED | Notarization request has been accepted by the notary. At this time nobody has joined the notarization session yet. | | LIVE | Notarization session has started. | | COMPLETED | Notarization session is finished. Documents have been successfully signed and ready for downloading. | | INCOMPLETE | Notarization session has started but was not completed successfully. | ## Signed documents Signed documents are the documents that were successfully signed during the notarization session. The signed document's info is available only if the notarization request has `COMPLETED` status, otherwise the returned list will be empty. In case you uploaded several documents for notarization then the `signed_documents` list will contain links for downloading for each document separately (with `SINGLE` document type) and link for the combined document (with `COMBINED` document type accordingly). ## Recording Recording is the video of the notarization session. The recording info is available only if the notarization request has `COMPLETED` status and recording is available, otherwise the returned object will be empty. \u003e 📘 Links expire in 1 hour \u003e \u003e **Note**: The signed document and recording links expire in 1 hour. After this time it will be not possible to download files using the returned urls. In this case you need to call endpoint again since each request generates a new link. ## Limits A maximum of 100 API calls per minute is permitted. Exceeding this limit triggers a 429 Too Many Requests error. Required: session_request_id. Returns the NotarizationRequestDetailsResponse.",
+      "method": "GET",
+      "path": "/public/v2/notary/notarization-requests/{session_request_id}",
+      "params": [
+        {
+          "name": "session_request_id",
+          "type": "string",
+          "location": "path",
+          "description": "Notarization Request ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_search-catalog-items",
+      "description": "This method searches for items in your [product catalog](https://support.pandadoc.com/en/articles/9714691-product-catalog). Use the `query` parameter to search in title, SKU, description, category name, custom fields name and value. You can also search for items by their type, billing type, and category id. Order search results, in both ascending and descending order, by these item properties: - SKU - Name - Price - Modification date Use the `exclude_uuids` parameter to exclude particular uuids from the search request. Optional: page, per_page, query (plus 6 more). Returns array of ProductCatalogSearchCatalogItemResponse.",
+      "method": "GET",
+      "path": "/public/v2/product-catalog/items/search",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "Page number."
+        },
+        {
+          "name": "per_page",
+          "type": "float",
+          "location": "query",
+          "description": "Items per page."
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query. Searches the following fields: Title, SKU, description, category name, custom fields name and value."
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Ordering principle for displaying search results."
+        },
+        {
+          "name": "types",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by catalog item types."
+        },
+        {
+          "name": "billing_types",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by billing types."
+        },
+        {
+          "name": "exclude_uuids",
+          "type": "array",
+          "location": "query",
+          "description": "A list of item uuids to be excluded from search."
+        },
+        {
+          "name": "category_id",
+          "type": "string",
+          "location": "query",
+          "description": "Category id."
+        },
+        {
+          "name": "no_category",
+          "type": "bool",
+          "location": "query",
+          "description": "No category"
+        }
+      ]
+    },
+    {
+      "name": "public_search-documents-ai",
+      "description": "Find documents from a natural-language query. PandaDoc AI interprets the query and returns the matching documents. PandaDoc offers two document search tools: this AI-powered search and the structured List Documents endpoint. Document Search Tools Guide — click to expand #### When to use AI Search (this endpoint) - The query is in natural language (e.g., 'show me all completed documents from Q2 2026') - The query mentions people by name (e.g., 'contracts shared with John Smith') - The query uses relative date expressions (e.g., 'last week', 'this quarter') - You want the system to automatically determine the best filtering strategy - You want follow-up suggestions to help refine the search #### When to use List Documents - You already have exact, structured filter parameters (specific status codes, precise ISO-8601 date ranges) - You need to paginate through a large result set (explicit page/count control) - You need faster, more predictable response times - You need deterministic, repeatable queries for automation workflows #### Comparison | Feature | AI Search | List Documents | | ------------------------ | --------------------------------------------------- | ------------------------------------------------ | | **Input** | Single natural-language query | Search query + optional structured filters | | **Date handling** | Understands relative dates ('last week', 'Q2 2026') | Requires explicit ISO-8601 date range | | **Status filtering** | Interprets from query ('completed', 'sent') | Requires numeric status codes | | **Contact/owner search** | Resolves people by name | Not supported | | **Pagination** | Returns top 100 results | Supports explicit page and page size (up to 100) | | **Suggestions** | Returns follow-up suggestions for refinement | No suggestions | | **Best for** | Conversational, exploratory search | Precise, structured, repeatable queries | The response may return fewer items than the total matches. The search caps the returned list based on query complexity: `count` shows the number of items returned in `results`. When the query matches more documents than returned, use one of the returned `suggestions` as a stricter follow-up query to narrow the results. \u003e 🚧 **Beta** \u003e \u003e This endpoint is currently in beta and may change without notice. Required: q.",
+      "method": "GET",
+      "path": "/public/beta/documents/search",
+      "params": [
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Natural-language search query. Supports filtering by status, owner, dates, and folder. Also supports keyword content search across document titles and body text.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_template-settings-get",
+      "description": "Retrieves the settings for a specified template. Only the language field is currently supported. Required: template_id. Returns the TemplateSettingsResponse.",
+      "method": "GET",
+      "path": "/public/v2/templates/{template_id}/settings",
+      "params": [
+        {
+          "name": "template_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the template to retrieve settings for.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "public_template-settings-update",
+      "description": "Updates the settings for a specified template. Only the language field is currently supported. Required: template_id. Optional: language. Returns the updated TemplateSettingsResponse.",
+      "method": "PATCH",
+      "path": "/public/v2/templates/{template_id}/settings",
+      "params": [
+        {
+          "name": "template_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the template to update settings for.",
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "Document language code (e.g., 'en-US', 'fr-FR')."
+        }
+      ]
+    },
+    {
+      "name": "public_update-catalog-item",
+      "description": "Update catalog item. Required: item_uuid. Optional: bundle_items, category_id, product_variant (plus 2 more). Returns the updated ProductCatalogItemResponse.",
+      "method": "PATCH",
+      "path": "/public/v2/product-catalog/items/{item_uuid}",
+      "params": [
+        {
+          "name": "item_uuid",
+          "type": "string",
+          "location": "path",
+          "description": "Catalog item UUID",
+          "required": true
+        },
+        {
+          "name": "bundle_items",
+          "type": "array",
+          "location": "body",
+          "description": "Bundle items"
+        },
+        {
+          "name": "category_id",
+          "type": "string",
+          "location": "body",
+          "description": "Category id"
+        },
+        {
+          "name": "product-variant-custom-fields",
+          "wire_name": "product_variant.custom_fields",
+          "type": "array",
+          "location": "body",
+          "description": "Custom fields"
+        },
+        {
+          "name": "product-variant-description",
+          "wire_name": "product_variant.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "product-variant-images",
+          "wire_name": "product_variant.images",
+          "type": "array",
+          "location": "body",
+          "description": "Images"
+        },
+        {
+          "name": "product-variant-price-configuration-billing-cycle",
+          "wire_name": "product_variant.price_configuration.billing_cycle",
+          "type": "string",
+          "location": "body",
+          "description": "Billing cycle"
+        },
+        {
+          "name": "product-variant-price-configuration-billing-type",
+          "wire_name": "product_variant.price_configuration.billing_type",
+          "type": "string",
+          "location": "body",
+          "description": "Billing type"
+        },
+        {
+          "name": "product-variant-price-configuration-cost",
+          "wire_name": "product_variant.price_configuration.cost",
+          "type": "float",
+          "location": "body",
+          "description": "Cost"
+        },
+        {
+          "name": "product-variant-price-configuration-currency",
+          "wire_name": "product_variant.price_configuration.currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency",
+          "required": true
+        },
+        {
+          "name": "product-variant-price-configuration-price",
+          "wire_name": "product_variant.price_configuration.price",
+          "type": "float",
+          "location": "body",
+          "description": "Price"
+        },
+        {
+          "name": "product-variant-price-configuration-pricing-method",
+          "wire_name": "product_variant.price_configuration.pricing_method",
+          "type": "int",
+          "location": "body",
+          "description": "Pricing method",
+          "required": true
+        },
+        {
+          "name": "product-variant-price-configuration-tiers",
+          "wire_name": "product_variant.price_configuration.tiers",
+          "type": "array",
+          "location": "body",
+          "description": "only for volume based pricing"
+        },
+        {
+          "name": "product-variant-sku",
+          "wire_name": "product_variant.sku",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "Title"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type"
+        }
+      ]
+    },
+    {
+      "name": "sms-opt-outs_list-recent",
+      "description": "Retrieves a list of the most recent SMS opt-out changes for each phone numbers used in your workspace. \u003e 📘 You can filter results by time range using `timestamp_from` and `timestamp_to`. Optional: timestamp_from, timestamp_to. Returns array of SmsOptOutsListRecentItem.",
+      "method": "GET",
+      "path": "/sms-opt-outs",
+      "params": [
+        {
+          "name": "timestamp_from",
+          "type": "string",
+          "location": "query",
+          "description": "The start of the timestamp. If no timestamp is provided, 1 hour before the current time will be used."
+        },
+        {
+          "name": "timestamp_to",
+          "type": "string",
+          "location": "query",
+          "description": "The end of the timestamp range. If no timestamp is provided the current time will be used."
+        }
+      ]
+    },
+    {
+      "name": "templates_create",
+      "description": "This operation allows you to create a new template by providing the necessary template details. Optional: fields, folder_uuid, metadata (plus 4 more). Returns the new TemplateCreateResponse.",
+      "method": "POST",
+      "path": "/templates",
+      "params": [
+        {
+          "name": "fields",
+          "type": "array",
+          "location": "query",
+          "description": "A comma-separated list of additional fields to include in the response."
+        },
+        {
+          "name": "folder_uuid",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the folder where the created template should be stored."
+        },
+        {
+          "name": "metadata",
+          "type": "object",
+          "location": "body",
+          "description": "You can pass arbitrary data in the key-value format to associate custom information with a template. This information is returned in any API requests for the template details by id."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the template."
+        },
+        {
+          "name": "owner-email",
+          "wire_name": "owner.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "owner-membership-id",
+          "wire_name": "owner.membership_id",
+          "type": "string",
+          "location": "body",
+          "description": "Membership id"
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body",
+          "description": "Create or initialize multiple CUSTOM variables with their values using tokens/values list. Template's predefined variables are read-only. Any attempts to do so will be ignored."
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Secure (HTTPS) and publicly accessible URL to the PDF document."
+        }
+      ]
+    },
+    {
+      "name": "templates_create-folder",
+      "description": "Create a new folder to store your templates. For the full list of folder operations and their limitations, see [Organize Templates and Folders](https://developers.pandadoc.com/docs/organize-folders). Required: name. Optional: parent_uuid. Returns the new TemplatesFolderCreateResponse.",
+      "method": "POST",
+      "path": "/templates/folders",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name the folder for Templates you are creating.",
+          "required": true
+        },
+        {
+          "name": "parent_uuid",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the parent folder. To create a new folder in the root folder, remove this parameter in the request."
+        }
+      ]
+    },
+    {
+      "name": "templates_delete",
+      "description": "Delete a template. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/templates/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Template ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "templates_list",
+      "description": "Retrieves a list of templates. You can filter results by a search query, tags, or fields. Optional: q, shared, deleted (plus 6 more). Returns array of TemplateCreateResponse.",
+      "method": "GET",
+      "path": "/templates",
+      "params": [
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Search query. Filter by template name."
+        },
+        {
+          "name": "shared",
+          "type": "bool",
+          "location": "query",
+          "description": "Returns only the shared templates."
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "location": "query",
+          "description": "Returns only the deleted templates."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Specify how many templates to return."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Specify which page of the dataset to return."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "Specify template ID."
+        },
+        {
+          "name": "folder_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of the folder where the templates are stored."
+        },
+        {
+          "name": "tag",
+          "type": "array",
+          "location": "query",
+          "description": "Search tag. Filter by template tag."
+        },
+        {
+          "name": "fields",
+          "type": "array",
+          "location": "query",
+          "description": "A comma-separated list of additional fields to include in the response."
+        }
+      ]
+    },
+    {
+      "name": "templates_list-folders",
+      "description": "Get the list of folders that contain Templates in your account. \u003e 📘 \u003e \u003e The root folder is not listed in the response. For the full list of folder operations and their limitations, see [Organize Templates and Folders](https://developers.pandadoc.com/docs/organize-folders). Optional: parent_uuid, count (default: 50), page. Returns array of TemplatesListFoldersItem.",
+      "method": "GET",
+      "path": "/templates/folders",
+      "params": [
+        {
+          "name": "parent_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "The UUID of the folder containing folders. To list the folders located in the root folder, remove this parameter in the request."
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Optionally, specify how many folders to return."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optionally, specify which page of the dataset to return."
+        }
+      ]
+    },
+    {
+      "name": "templates_rename-folder",
+      "description": "Rename a templates folder. For the full list of folder operations and their limitations, see [Organize Templates and Folders](https://developers.pandadoc.com/docs/organize-folders). Required: id, name. Returns the updated TemplatesFolderRenameResponse.",
+      "method": "PUT",
+      "path": "/templates/folders/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The UUID of the folder which you are renaming.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Provide a new name for the folder.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "templates_status",
+      "description": "The following is a complete list of all possible template statuses returned:",
+      "method": "GET",
+      "path": "/templates/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Template ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "templates_update",
+      "description": "Update a template. Currently supports updating template variables (`tokens`) and managing template roles. \u003e 🚧 Template status \u003e \u003e You can only update a template in the PROCESSED status (`template.PROCESSED`). \u003e \u003e After creating a new template, it usually retains a `template.uploaded` status for 3-5 seconds while the template syncs across PandaDoc servers. When the template is available for further API calls, the template moves to the `template.PROCESSED` state. Use [Template Status](https://developers.pandadoc.com/reference/template-status) or Webhooks to check template status. ## Managing template roles Pass a `roles` array to replace the full set of template roles in a single request: - Items with an existing `id` update that role (`name`, `signing_order`). - Items without an `id` create a new role. - Existing roles whose `id` is not in the array are deleted. Role names must be unique within a template. Preassigned contacts and contact groups attached to roles in the template editor are preserved on updates and removed together with their role on deletion — they are not managed by this endpoint. Required: id. Optional: roles, tokens. Partial update.",
+      "method": "PATCH",
+      "path": "/templates/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Template ID",
+          "required": true
+        },
+        {
+          "name": "roles",
+          "type": "array",
+          "location": "body",
+          "description": "Replace the full set of template roles. Items with an existing `id` are updated, items without an `id` are created as new roles, and existing roles whose `id` is not present in the list are deleted."
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body",
+          "description": "Create or initialize multiple CUSTOM variables with their values using tokens/values list. Template's predefined variables are read-only. Any attempts to do so will be ignored."
+        }
+      ]
+    },
+    {
+      "name": "templates_details_template",
+      "description": "Get details about a template by `id`. Details include: - Basic template information (name, author, etc) - Roles - All fields with values - All tokens with values - Pricing information (pricing tables, products, quotes) - Template metadata - Template tags - Content placeholders - Modification timestamps. Note that `date_modified` means any changes associated with the template roles, while `content_date_modified` logs any changes in the template content. Required: id. Returns the TemplateDetailsResponse.",
+      "method": "GET",
+      "path": "/templates/{id}/details",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Template ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "templates_editing-sessions_create-template",
+      "description": "Creates a new editing session for the Embedded Editor. The response includes an E-Token, which is required to open the template. #### Limitations - **Single Active Session per User-Template Pair** Only one editing session can be active at a time for a specific user and template. Creating a new session for the same user-template pair will automatically invalidate the previous one. - **Weekly Session Cap** A maximum of **250** editing sessions can be created for a single template per week. Any attempt to exceed this limit will result in a `403 Forbidden` error. Required: id, email. Optional: lifetime (default: 3600). Returns the new EditingSessionsCreateTemplateResponse.",
+      "method": "POST",
+      "path": "/templates/{id}/editing-sessions",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Template ID",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email of the user to create the editing session for",
+          "required": true
+        },
+        {
+          "name": "lifetime",
+          "type": "int",
+          "location": "body",
+          "description": "Lifetime of the E-Token in seconds."
+        }
+      ]
+    },
+    {
+      "name": "templates-upload_create-template-with-upload",
+      "description": "This asynchronous endpoint allows users to create a new template by uploading a file. The uploaded file is processed in the background to generate the template. The maximum allowable file size for upload is 100 MB. Field tags and form fields are not supported yet. Once the file is uploaded, the processing will happen asynchronously, and users need to check [the status of the template](https://developers.pandadoc.com/reference/template-status) creation. Optional: fields, data, file. Returns the new TemplateCreateResponse.",
+      "method": "POST",
+      "path": "/templates?upload",
+      "params": [
+        {
+          "name": "fields",
+          "type": "array",
+          "location": "query",
+          "description": "A comma-separated list of additional fields to include in the response."
+        },
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Data"
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Binary PDF/DocX/RTF File."
+        }
+      ]
+    },
+    {
+      "name": "users_create",
+      "description": "Create users, and assign them roles, licenses, and workspaces. - You must be an organization admin to create users. - We check that the user email domain matches your organization domain. - We check that the user email and phone number have a valid format. Required: license, user, workspaces. Optional: notify_user, notify_ws_admins. Returns array of UsersCreateItem.",
+      "method": "POST",
+      "path": "/users",
+      "params": [
+        {
+          "name": "notify_user",
+          "type": "bool",
+          "location": "query",
+          "description": "Send a confirmation email to the user that was added to workspace(s)."
+        },
+        {
+          "name": "notify_ws_admins",
+          "type": "bool",
+          "location": "query",
+          "description": "Send a confirmation email to all workspace admins indicating that the user has been added to the workspace."
+        },
+        {
+          "name": "license",
+          "type": "string",
+          "location": "body",
+          "description": "License",
+          "required": true
+        },
+        {
+          "name": "user-email",
+          "wire_name": "user.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "user-first-name",
+          "wire_name": "user.first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "user-last-name",
+          "wire_name": "user.last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "user-phone-number",
+          "wire_name": "user.phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number"
+        },
+        {
+          "name": "workspaces",
+          "type": "array",
+          "location": "body",
+          "description": "Info for adding a user to a workspace(s)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_details",
+      "description": "Get detailed information about a specific user by their ID, including contact information, license type, and workspace roles. You must be an organization admin to get user details. Required: user_id. Returns array of UsersDetailsItem.",
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "A unique identifier of the user.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "Get a list of all users with membership in your organization, with their contact information, license type, and workspace roles. You must be an organization admin to list users. Optional: count (default: 50), page (default: 1), show_removed (default: true). Returns array of UsersListItem.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Number of elements in page."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number."
+        },
+        {
+          "name": "show_removed",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter option - show users with removed memberships."
+        }
+      ]
+    },
+    {
+      "name": "webhook-events_details",
+      "description": "This operation fetches detailed information about a specific webhook event using its unique identifier. Required: id. Returns the WebhookEventDetailsResponse.",
+      "method": "GET",
+      "path": "/webhook-events/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Webhook event uuid.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhook-events_list",
+      "description": "This operation retrieves a paginated list of all webhook events. Required: count, page. Optional: since, to, type (plus 2 more). Returns array of WebhookEventItemResponse.",
+      "method": "GET",
+      "path": "/webhook-events",
+      "params": [
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Specify how many event results to return.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Specify which page of the dataset to return.",
+          "required": true
+        },
+        {
+          "name": "since",
+          "type": "string",
+          "location": "query",
+          "description": "Return results where the event creation time is greater than or equal to this value."
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "Return results where the event creation time is less than this value."
+        },
+        {
+          "name": "type",
+          "type": "array",
+          "location": "query",
+          "description": "Returns results by the specified event types."
+        },
+        {
+          "name": "http_status_code",
+          "type": "array",
+          "location": "query",
+          "description": "Returns results with the specified HTTP status codes."
+        },
+        {
+          "name": "error",
+          "type": "array",
+          "location": "query",
+          "description": "Returns results with the following errors."
+        }
+      ]
+    },
+    {
+      "name": "webhook-subscriptions_create",
+      "description": "This operation creates a new webhook subscription by specifying its details. Required: name, triggers, url. Optional: active (default: true), payload. Returns the new WebhookSubscriptionItemResponse.",
+      "method": "POST",
+      "path": "/webhook-subscriptions",
+      "params": [
+        {
+          "name": "active",
+          "type": "bool",
+          "location": "body",
+          "description": "Set the status of the Webhooks subscription."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Set a name for the Webhooks subscription.",
+          "required": true
+        },
+        {
+          "name": "payload",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Set a payload structure."
+        },
+        {
+          "name": "triggers",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Set trigger events for the Webhooks subscription.",
+          "required": true
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Set the Webhooks subscription URL.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhook-subscriptions_delete",
+      "description": "This operation deletes a specific webhook subscription identified by its UUID. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/webhook-subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Webhook subscription uuid.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhook-subscriptions_details",
+      "description": "Get webhook subscription by uuid. Required: id. Returns the WebhookSubscriptionItemResponse.",
+      "method": "GET",
+      "path": "/webhook-subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Webhook subscription uuid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhook-subscriptions_list",
+      "description": "This operation fetches a paginated list of webhook subscriptions. Returns array of WebhookSubscriptionItemResponse.",
+      "method": "GET",
+      "path": "/webhook-subscriptions",
+      "params": []
+    },
+    {
+      "name": "webhook-subscriptions_update",
+      "description": "This operation updates the details of a webhook subscription. Required: id. Optional: active (default: true), name, payload (plus 2 more). Returns the updated WebhookSubscriptionItemResponse.",
+      "method": "PATCH",
+      "path": "/webhook-subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Webhook subscription uuid",
+          "required": true
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "location": "body",
+          "description": "Set the status of the Webhooks subscription."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Set a new name for the Webhooks subscription."
+        },
+        {
+          "name": "payload",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Set a new payload structure."
+        },
+        {
+          "name": "triggers",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Set trigger events for the Webhooks subscription."
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Set the new Webhooks subscription URL."
+        }
+      ]
+    },
+    {
+      "name": "webhook-subscriptions_shared-key_update-webhook-subscription",
+      "description": "This operation regenerates the shared key for a specific webhook subscription identified by its UUID. Required: id. Returns the updated WebhookSubscriptionSharedKeyResponse.",
+      "method": "PATCH",
+      "path": "/webhook-subscriptions/{id}/shared-key",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Webhook subscription uuid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_create",
+      "description": "Create a workspace in your organization. - You need to be an Org Admin to create a workspace. - You will be added to the new workspace with an Admin role. Required: name. Returns the new CreateWorkspaceResponse.",
+      "method": "POST",
+      "path": "/workspaces",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "A name for the new workspace.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_get-list",
+      "description": "Get a list of all the active workspaces in the organization. Optional: count (default: 50), page (default: 1). Returns array of WorkspacesGetListItem.",
+      "method": "GET",
+      "path": "/workspaces",
+      "params": [
+        {
+          "name": "count",
+          "type": "int",
+          "location": "query",
+          "description": "Number of elements in page."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number."
+        }
+      ]
+    },
+    {
+      "name": "workspaces_api-keys_create",
+      "description": "Generate a new API key for the workspace. Check out [API Key Authentication article](https://developers.pandadoc.com/reference/api-key-authentication-process) for detailed API Keys description. \u003e 📘 \u003e - Only an **Org Admin** can generate an API keys. \u003e - To make another user a key's owner, pass `user_id` of this user. The user should has an **Admin** role in the workspace. \u003e - Generating a new key invalidates existing key with the same type. Using this request, you can deactivate the key you're using for the request. Required: workspace_id, type (default: sandbox). Optional: user_id. Returns the new CreateApiKeyResponse.",
+      "method": "POST",
+      "path": "/workspaces/{workspace_id}/api-keys",
+      "params": [
+        {
+          "name": "workspace_id",
+          "type": "string",
+          "location": "path",
+          "description": "Workspace id.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "A type of API key.",
+          "required": true
+        },
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "body",
+          "description": "User id"
+        }
+      ]
+    },
+    {
+      "name": "workspaces_deactivate_workspace",
+      "description": "Deactivate the workspace, remove all the members from it and make it unavailable. Required: workspace_id. Returns the new DeactivateWorkspaceResponse.",
+      "method": "POST",
+      "path": "/workspaces/{workspace_id}/deactivate",
+      "params": [
+        {
+          "name": "workspace_id",
+          "type": "string",
+          "location": "path",
+          "description": "Workspace id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_members_add",
+      "description": "Add an existing user to a workspace. - You must be an organization admin or a workspace admin to add members. Required: workspace_id, role, user_id. Optional: notify_user, notify_ws_admins. Returns the new AddMemberResponse.",
+      "method": "POST",
+      "path": "/workspaces/{workspace_id}/members",
+      "params": [
+        {
+          "name": "workspace_id",
+          "type": "string",
+          "location": "path",
+          "description": "Workspace id",
+          "required": true
+        },
+        {
+          "name": "notify_user",
+          "type": "bool",
+          "location": "query",
+          "description": "Send a confirmation email to the user that was added to workspace(s)."
+        },
+        {
+          "name": "notify_ws_admins",
+          "type": "bool",
+          "location": "query",
+          "description": "Send a confirmation email to all workspace admins indicating that the user has been added to the workspace."
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "location": "body",
+          "description": "Role for a member.",
+          "required": true
+        },
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "body",
+          "description": "User id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_members_change-role",
+      "description": "Change the role of an existing workspace member. - You must be an organization admin, a workspace admin, or hold a role with permission to edit member roles to call this endpoint. - The `role` field accepts either a built-in role name (`Admin`, `Manager`, `Member`, `Collaborator`) or the name of a custom role defined for the workspace. - The role of the workspace owner cannot be changed. - The role of the last member with admin privileges in the workspace cannot be changed. - When a member with a `Guest` license is promoted to any non-`Collaborator` role, the user's license is automatically upgraded to `Full (Standard)`. If the organization has no free seats available, an additional seat is purchased. Required: workspace_id, member_id, role. Returns the updated UpdateMemberRoleResponse.",
+      "method": "PATCH",
+      "path": "/workspaces/{workspace_id}/members/{member_id}/role",
+      "params": [
+        {
+          "name": "workspace_id",
+          "type": "string",
+          "location": "path",
+          "description": "Workspace id.",
+          "required": true
+        },
+        {
+          "name": "member_id",
+          "type": "string",
+          "location": "path",
+          "description": "Member id.",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "location": "body",
+          "description": "Role for a member.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspaces_members_remove",
+      "description": "This operation removes a specified member from a workspace by providing the workspace ID and member ID. Required: workspace_id, member_id. Destructive.",
+      "method": "DELETE",
+      "path": "/workspaces/{workspace_id}/members/{member_id}",
+      "params": [
+        {
+          "name": "workspace_id",
+          "type": "string",
+          "location": "path",
+          "description": "Workspace id",
+          "required": true
+        },
+        {
+          "name": "member_id",
+          "type": "string",
+          "location": "path",
+          "description": "Member id",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

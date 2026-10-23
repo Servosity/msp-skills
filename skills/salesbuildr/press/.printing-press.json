@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:14:54.021651Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "salesbuildr",
+  "display_name": "Salesbuildr",
+  "cli_name": "salesbuildr-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:0cc8aff4b0b9bb96605d1d52c3aa555373d2757aa5a39a90fc6b7f5f741496c5",
+  "run_id": "20260606-180408",
+  "category": "sales-and-crm",
+  "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
+  "mcp_binary": "salesbuildr-pp-mcp",
+  "mcp_tool_count": 66,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "ApiKey",
+  "auth_env_vars": [
+    "SALESBUILDR_API_KEY"
+  ],
+  "endpoint_template_vars": [
+    "tenant"
+  ],
+  "endpoint_template_var_defaults": {
+    "tenant": "your-tenant"
+  },
+  "novel_features": [
+    {
+      "name": "Stale-quote radar",
+      "command": "quote stale",
+      "description": "Surface quotes that have been sent or approved but are aging past a cutoff, with the dollar value still at risk."
+    },
+    {
+      "name": "Low-margin line radar",
+      "command": "quote thin",
+      "description": "Find every quote line item across all open quotes whose markup falls below a floor."
+    },
+    {
+      "name": "Quote funnel",
+      "command": "quote funnel",
+      "description": "See stage-by-stage conversion of the quote lifecycle — count and dollar value at draft, sent, approved, declined, and expired."
+    },
+    {
+      "name": "Price-drift radar",
+      "command": "pricing drift",
+      "description": "Flag per-company pricing-book prices that have diverged from the master catalog price or cost."
+    },
+    {
+      "name": "Pipeline velocity",
+      "command": "opportunity velocity",
+      "description": "Aggregate sales-cycle duration and time-in-stage across the opportunity pipeline."
+    },
+    {
+      "name": "Win-rate breakdown",
+      "command": "opportunity winrate",
+      "description": "Compute won/lost ratios grouped by owner, stage, or category."
+    },
+    {
+      "name": "Product velocity",
+      "command": "product velocity",
+      "description": "Rank catalog products by how often they appear across quote line items and the total value quoted — your de-facto bestsellers."
+    },
+    {
+      "name": "PSA reconcile by external id",
+      "command": "reconcile-psa",
+      "description": "Find rows across companies, contacts, products, and opportunities whose external identifier is missing — the records that silently miss a PSA sync."
+    },
+    {
+      "name": "Recurring-revenue forecast",
+      "command": "opportunity mrr-forecast",
+      "description": "Weight open-pipeline monthly revenue and profit by probability, churn-adjusted."
+    },
+    {
+      "name": "Company whitespace",
+      "command": "company whitespace",
+      "description": "Show catalog products a company has never been quoted — the cross-sell gaps."
+    }
+  ]
+}

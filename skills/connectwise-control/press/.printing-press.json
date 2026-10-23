@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T13:19:57.663741Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "connectwise-control",
+  "display_name": "Connectwise Control",
+  "cli_name": "connectwise-control-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:e40cd22c73cba74fefd2f8af32ba6870215d99f3e6b092059e757e5356bed984",
+  "run_id": "20260613-131957",
+  "category": "monitoring",
+  "description": "Unofficial OpenAPI 3 description of the ConnectWise Control (ScreenConnect) instance REST surface",
+  "mcp_binary": "connectwise-control-pp-mcp",
+  "mcp_tool_count": 13,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "basicAuth",
+  "auth_env_vars": [
+    "CONNECTWISE_CONTROL_USERNAME",
+    "CONNECTWISE_CONTROL_PASSWORD"
+  ]
+}

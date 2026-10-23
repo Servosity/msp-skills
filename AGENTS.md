@@ -93,6 +93,13 @@ and posts the result as an issue comment. It is **advisory** - nothing gates on
 it. Whoever decides should record the decision in a reply on that issue so the
 next agent does not re-litigate it.
 
+A badge also records the code it verified: `verify_live.py` stores the release
+version and the cli hash of that tag, and the catalog says "verified on vX.Y.Z"
+once the shipped release carries different code. When a report names the
+version it ran, pass `--verified-version`; for an existing badge use `--bind`.
+Never copy `cli_hash_at_release` into a badge by hand: `check_registry_state.py`
+recomputes the hash from the tag and fails a binding that is not that code.
+
 ## What counts as released (READ THIS BEFORE YOU CUT OR TRUST A TAG)
 
 A tag is necessary and no longer sufficient. This repository has GitHub

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:15:28.12714Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "rewst",
+  "display_name": "Rewst",
+  "cli_name": "rewst-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "run_id": "20260612-223827",
+  "category": "developer-tools",
+  "description": "Generated from GraphQL schema",
+  "mcp_binary": "rewst-pp-mcp",
+  "mcp_tool_count": 152,
+  "mcp_ready": "full",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "REWST_API_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet execution health",
+      "command": "health",
+      "description": "One-call workflow execution health for an org: succeeded / failed / running / pending counts plus time saved, with a clear unhealthy verdict when failures are present."
+    },
+    {
+      "name": "Failure triage",
+      "command": "failures",
+      "description": "Recent failed workflow executions for an org, newest first, with workflow id, status, task counts, and age — the triage queue the API has no single endpoint for."
+    },
+    {
+      "name": "Automation ROI rollup",
+      "command": "roi",
+      "description": "Aggregates Rewst's humanSecondsSaved metric across an org's workflows into total hours/days saved and the top time-saving automations."
+    },
+    {
+      "name": "Dormant automation detector",
+      "command": "dormant",
+      "description": "Workflows that have not executed in N days — dead or orphaned automation that is still installed but no longer running."
+    },
+    {
+      "name": "Cross-org config drift",
+      "command": "drift",
+      "description": "Compares org variables and installed packs between two organizations and reports what one has that the other is missing."
+    },
+    {
+      "name": "Pack coverage matrix",
+      "command": "coverage",
+      "description": "Across a parent org's managed sub-orgs, shows which integration packs are installed where and flags orgs missing a pack — bounded by a scan cap."
+    }
+  ]
+}

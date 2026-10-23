@@ -1,0 +1,1649 @@
+{
+  "api_name": "itglue",
+  "base_url": "https://api.itglue.com",
+  "description": "Focused IT Glue REST API wrapper for MSP automation. The API follows the JSON:API media type and uses an x-api-key header. This spec covers the read surface used by existing read-only integrations plus the non-destructive write endpoints needed for contact sync, password mirroring, configuration creation, and onboarding documentation.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "x-api-key",
+    "in": "header",
+    "env_vars": [
+      "ITGLUE_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ITGLUE_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "IT Glue API key with permissions for the requested read and write operations."
+      }
+    ],
+    "key_url": "https://api.itglue.com/developer/"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "configurations_create",
+      "description": "Create a configuration. Required: data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/configurations",
+      "params": [
+        {
+          "name": "data-attributes-asset-tag",
+          "wire_name": "data.attributes.asset-tag",
+          "type": "string",
+          "location": "body",
+          "description": "Asset tag"
+        },
+        {
+          "name": "data-attributes-configuration-status-id",
+          "wire_name": "data.attributes.configuration-status-id",
+          "type": "int",
+          "location": "body",
+          "description": "Configuration status id"
+        },
+        {
+          "name": "data-attributes-configuration-type-id",
+          "wire_name": "data.attributes.configuration-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Configuration type id"
+        },
+        {
+          "name": "data-attributes-hostname",
+          "wire_name": "data.attributes.hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-mac-address",
+          "wire_name": "data.attributes.mac-address",
+          "type": "string",
+          "location": "body",
+          "description": "Mac address"
+        },
+        {
+          "name": "data-attributes-manufacturer-id",
+          "wire_name": "data.attributes.manufacturer-id",
+          "type": "int",
+          "location": "body",
+          "description": "Manufacturer id"
+        },
+        {
+          "name": "data-attributes-model-id",
+          "wire_name": "data.attributes.model-id",
+          "type": "int",
+          "location": "body",
+          "description": "Model id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-primary-ip",
+          "wire_name": "data.attributes.primary-ip",
+          "type": "string",
+          "location": "body",
+          "description": "Primary ip"
+        },
+        {
+          "name": "data-attributes-serial-number",
+          "wire_name": "data.attributes.serial-number",
+          "type": "string",
+          "location": "body",
+          "description": "Serial number"
+        },
+        {
+          "name": "data-relationships",
+          "wire_name": "data.relationships",
+          "type": "object",
+          "location": "body",
+          "description": "Relationships"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "configurations_get",
+      "description": "Retrieve a configuration. Required: id. Returns the JsonApiResource.",
+      "method": "GET",
+      "path": "/configurations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "configurations_list",
+      "description": "Use stable fields such as organization id, name, hostname, serial number, or asset tag before creating records. Optional: filter[id], filter[name], filter[organization_id] (plus 6 more). Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/configurations",
+      "params": [
+        {
+          "name": "filter[id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter id"
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "filter[organization_id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter organization id"
+        },
+        {
+          "name": "filter[serial_number]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter serial number"
+        },
+        {
+          "name": "filter[asset_tag]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter asset tag"
+        },
+        {
+          "name": "filter[hostname]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter hostname"
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Comma separated sort fields; prefix with - for descending."
+        }
+      ]
+    },
+    {
+      "name": "configurations_update",
+      "description": "Update a configuration. Required: id, data. Returns the updated JsonApiResource.",
+      "method": "PATCH",
+      "path": "/configurations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-asset-tag",
+          "wire_name": "data.attributes.asset-tag",
+          "type": "string",
+          "location": "body",
+          "description": "Asset tag"
+        },
+        {
+          "name": "data-attributes-configuration-status-id",
+          "wire_name": "data.attributes.configuration-status-id",
+          "type": "int",
+          "location": "body",
+          "description": "Configuration status id"
+        },
+        {
+          "name": "data-attributes-configuration-type-id",
+          "wire_name": "data.attributes.configuration-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Configuration type id"
+        },
+        {
+          "name": "data-attributes-hostname",
+          "wire_name": "data.attributes.hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-mac-address",
+          "wire_name": "data.attributes.mac-address",
+          "type": "string",
+          "location": "body",
+          "description": "Mac address"
+        },
+        {
+          "name": "data-attributes-manufacturer-id",
+          "wire_name": "data.attributes.manufacturer-id",
+          "type": "int",
+          "location": "body",
+          "description": "Manufacturer id"
+        },
+        {
+          "name": "data-attributes-model-id",
+          "wire_name": "data.attributes.model-id",
+          "type": "int",
+          "location": "body",
+          "description": "Model id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        },
+        {
+          "name": "data-attributes-primary-ip",
+          "wire_name": "data.attributes.primary-ip",
+          "type": "string",
+          "location": "body",
+          "description": "Primary ip"
+        },
+        {
+          "name": "data-attributes-serial-number",
+          "wire_name": "data.attributes.serial-number",
+          "type": "string",
+          "location": "body",
+          "description": "Serial number"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-relationships",
+          "wire_name": "data.relationships",
+          "type": "object",
+          "location": "body",
+          "description": "Relationships"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_create",
+      "description": "Idempotent callers should first search by organization id and email address. Required: data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Included for non-destructive deactivation where available in the tenant."
+        },
+        {
+          "name": "data-attributes-contact-type-id",
+          "wire_name": "data.attributes.contact-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Contact type id"
+        },
+        {
+          "name": "data-attributes-email",
+          "wire_name": "data.attributes.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "data-attributes-first-name",
+          "wire_name": "data.attributes.first-name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "data-attributes-important",
+          "wire_name": "data.attributes.important",
+          "type": "bool",
+          "location": "body",
+          "description": "Important"
+        },
+        {
+          "name": "data-attributes-last-name",
+          "wire_name": "data.attributes.last-name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-title",
+          "wire_name": "data.attributes.title",
+          "type": "string",
+          "location": "body",
+          "description": "Title"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_get",
+      "description": "Retrieve a contact. Required: id. Returns the JsonApiResource.",
+      "method": "GET",
+      "path": "/contacts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_list",
+      "description": "Use filter[email] or filter[organization_id] before creating contacts to avoid duplicates. Optional: filter[id], filter[name], filter[organization_id] (plus 4 more). Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "filter[id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter id"
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "filter[organization_id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter organization id"
+        },
+        {
+          "name": "filter[email]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter email"
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Comma separated sort fields; prefix with - for descending."
+        }
+      ]
+    },
+    {
+      "name": "contacts_update",
+      "description": "Use PATCH for contact deactivation; this spec intentionally does not expose DELETE. Required: id, data. Returns the updated JsonApiResource.",
+      "method": "PATCH",
+      "path": "/contacts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Included for non-destructive deactivation where available in the tenant."
+        },
+        {
+          "name": "data-attributes-contact-type-id",
+          "wire_name": "data.attributes.contact-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Contact type id"
+        },
+        {
+          "name": "data-attributes-email",
+          "wire_name": "data.attributes.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "data-attributes-first-name",
+          "wire_name": "data.attributes.first-name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "data-attributes-important",
+          "wire_name": "data.attributes.important",
+          "type": "bool",
+          "location": "body",
+          "description": "Important"
+        },
+        {
+          "name": "data-attributes-last-name",
+          "wire_name": "data.attributes.last-name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        },
+        {
+          "name": "data-attributes-title",
+          "wire_name": "data.attributes.title",
+          "type": "string",
+          "location": "body",
+          "description": "Title"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_create",
+      "description": "Create a document. Required: data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/documents",
+      "params": [
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "data-attributes-content",
+          "wire_name": "data.attributes.content",
+          "type": "string",
+          "location": "body",
+          "description": "Document body content, typically HTML or rich text from IT Glue."
+        },
+        {
+          "name": "data-attributes-document-folder-id",
+          "wire_name": "data.attributes.document-folder-id",
+          "type": "int",
+          "location": "body",
+          "description": "Document folder id"
+        },
+        {
+          "name": "data-attributes-my-glue",
+          "wire_name": "data.attributes.my-glue",
+          "type": "bool",
+          "location": "body",
+          "description": "My glue"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-public",
+          "wire_name": "data.attributes.public",
+          "type": "bool",
+          "location": "body",
+          "description": "Public"
+        },
+        {
+          "name": "data-attributes-restricted",
+          "wire_name": "data.attributes.restricted",
+          "type": "bool",
+          "location": "body",
+          "description": "Restricted"
+        },
+        {
+          "name": "data-relationships",
+          "wire_name": "data.relationships",
+          "type": "object",
+          "location": "body",
+          "description": "Relationships"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_get",
+      "description": "Retrieve a document. Required: id. Returns the JsonApiResource.",
+      "method": "GET",
+      "path": "/documents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "documents_list",
+      "description": "List documents. Optional: filter[id], filter[name], filter[organization_id] (plus 3 more). Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/documents",
+      "params": [
+        {
+          "name": "filter[id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter id"
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "filter[organization_id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter organization id"
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Comma separated sort fields; prefix with - for descending."
+        }
+      ]
+    },
+    {
+      "name": "documents_update",
+      "description": "Update a document. Required: id, data. Returns the updated JsonApiResource.",
+      "method": "PATCH",
+      "path": "/documents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "data-attributes-content",
+          "wire_name": "data.attributes.content",
+          "type": "string",
+          "location": "body",
+          "description": "Document body content, typically HTML or rich text from IT Glue."
+        },
+        {
+          "name": "data-attributes-document-folder-id",
+          "wire_name": "data.attributes.document-folder-id",
+          "type": "int",
+          "location": "body",
+          "description": "Document folder id"
+        },
+        {
+          "name": "data-attributes-my-glue",
+          "wire_name": "data.attributes.my-glue",
+          "type": "bool",
+          "location": "body",
+          "description": "My glue"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        },
+        {
+          "name": "data-attributes-public",
+          "wire_name": "data.attributes.public",
+          "type": "bool",
+          "location": "body",
+          "description": "Public"
+        },
+        {
+          "name": "data-attributes-restricted",
+          "wire_name": "data.attributes.restricted",
+          "type": "bool",
+          "location": "body",
+          "description": "Restricted"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-relationships",
+          "wire_name": "data.relationships",
+          "type": "object",
+          "location": "body",
+          "description": "Relationships"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_get",
+      "description": "Retrieve one organization. Required: id. Returns the JsonApiResource.",
+      "method": "GET",
+      "path": "/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_list",
+      "description": "List organizations. Optional: filter[id], filter[name], page[number] (plus 2 more). Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "filter[id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter id"
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Comma separated sort fields; prefix with - for descending."
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_create-organization-configuration",
+      "description": "Create a configuration under an organization. Required: organization_id, data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/organizations/{organization_id}/relationships/configurations",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-asset-tag",
+          "wire_name": "data.attributes.asset-tag",
+          "type": "string",
+          "location": "body",
+          "description": "Asset tag"
+        },
+        {
+          "name": "data-attributes-configuration-status-id",
+          "wire_name": "data.attributes.configuration-status-id",
+          "type": "int",
+          "location": "body",
+          "description": "Configuration status id"
+        },
+        {
+          "name": "data-attributes-configuration-type-id",
+          "wire_name": "data.attributes.configuration-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Configuration type id"
+        },
+        {
+          "name": "data-attributes-hostname",
+          "wire_name": "data.attributes.hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-mac-address",
+          "wire_name": "data.attributes.mac-address",
+          "type": "string",
+          "location": "body",
+          "description": "Mac address"
+        },
+        {
+          "name": "data-attributes-manufacturer-id",
+          "wire_name": "data.attributes.manufacturer-id",
+          "type": "int",
+          "location": "body",
+          "description": "Manufacturer id"
+        },
+        {
+          "name": "data-attributes-model-id",
+          "wire_name": "data.attributes.model-id",
+          "type": "int",
+          "location": "body",
+          "description": "Model id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-primary-ip",
+          "wire_name": "data.attributes.primary-ip",
+          "type": "string",
+          "location": "body",
+          "description": "Primary ip"
+        },
+        {
+          "name": "data-attributes-serial-number",
+          "wire_name": "data.attributes.serial-number",
+          "type": "string",
+          "location": "body",
+          "description": "Serial number"
+        },
+        {
+          "name": "data-relationships",
+          "wire_name": "data.relationships",
+          "type": "object",
+          "location": "body",
+          "description": "Relationships"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_create-organization-contact",
+      "description": "Create a contact under an organization. Required: organization_id, data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/organizations/{organization_id}/relationships/contacts",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Included for non-destructive deactivation where available in the tenant."
+        },
+        {
+          "name": "data-attributes-contact-type-id",
+          "wire_name": "data.attributes.contact-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Contact type id"
+        },
+        {
+          "name": "data-attributes-email",
+          "wire_name": "data.attributes.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "data-attributes-first-name",
+          "wire_name": "data.attributes.first-name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "data-attributes-important",
+          "wire_name": "data.attributes.important",
+          "type": "bool",
+          "location": "body",
+          "description": "Important"
+        },
+        {
+          "name": "data-attributes-last-name",
+          "wire_name": "data.attributes.last-name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-title",
+          "wire_name": "data.attributes.title",
+          "type": "string",
+          "location": "body",
+          "description": "Title"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_create-organization-document",
+      "description": "Create a document under an organization. Required: organization_id, data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/organizations/{organization_id}/relationships/documents",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "data-attributes-content",
+          "wire_name": "data.attributes.content",
+          "type": "string",
+          "location": "body",
+          "description": "Document body content, typically HTML or rich text from IT Glue."
+        },
+        {
+          "name": "data-attributes-document-folder-id",
+          "wire_name": "data.attributes.document-folder-id",
+          "type": "int",
+          "location": "body",
+          "description": "Document folder id"
+        },
+        {
+          "name": "data-attributes-my-glue",
+          "wire_name": "data.attributes.my-glue",
+          "type": "bool",
+          "location": "body",
+          "description": "My glue"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-public",
+          "wire_name": "data.attributes.public",
+          "type": "bool",
+          "location": "body",
+          "description": "Public"
+        },
+        {
+          "name": "data-attributes-restricted",
+          "wire_name": "data.attributes.restricted",
+          "type": "bool",
+          "location": "body",
+          "description": "Restricted"
+        },
+        {
+          "name": "data-relationships",
+          "wire_name": "data.relationships",
+          "type": "object",
+          "location": "body",
+          "description": "Relationships"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_list-organization-configurations",
+      "description": "List configurations for an organization. Required: organization_id. Optional: filter[name], page[number], page[size]. Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/organizations/{organization_id}/relationships/configurations",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_list-organization-contacts",
+      "description": "List contacts for an organization. Required: organization_id. Optional: filter[email], page[number], page[size]. Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/organizations/{organization_id}/relationships/contacts",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "filter[email]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter email"
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_list-organization-documents",
+      "description": "List documents for an organization. Required: organization_id. Optional: filter[name], page[number], page[size]. Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/organizations/{organization_id}/relationships/documents",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "organizations_relationships_update-organization-contact",
+      "description": "Update or deactivate an organization contact. Required: organization_id, id, data. Returns the updated JsonApiResource.",
+      "method": "PATCH",
+      "path": "/organizations/{organization_id}/relationships/contacts/{id}",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-archived",
+          "wire_name": "data.attributes.archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Included for non-destructive deactivation where available in the tenant."
+        },
+        {
+          "name": "data-attributes-contact-type-id",
+          "wire_name": "data.attributes.contact-type-id",
+          "type": "int",
+          "location": "body",
+          "description": "Contact type id"
+        },
+        {
+          "name": "data-attributes-email",
+          "wire_name": "data.attributes.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "data-attributes-first-name",
+          "wire_name": "data.attributes.first-name",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "data-attributes-important",
+          "wire_name": "data.attributes.important",
+          "type": "bool",
+          "location": "body",
+          "description": "Important"
+        },
+        {
+          "name": "data-attributes-last-name",
+          "wire_name": "data.attributes.last-name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "data-attributes-location-id",
+          "wire_name": "data.attributes.location-id",
+          "type": "int",
+          "location": "body",
+          "description": "Location id"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-title",
+          "wire_name": "data.attributes.title",
+          "type": "string",
+          "location": "body",
+          "description": "Title"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "passwords_create",
+      "description": "Creates either a general password or an embedded password when resource-id and resource-type are supplied. Required: data. Returns the new JsonApiResource.",
+      "method": "POST",
+      "path": "/passwords",
+      "params": [
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-password",
+          "wire_name": "data.attributes.password",
+          "type": "string",
+          "location": "body",
+          "description": "Password"
+        },
+        {
+          "name": "data-attributes-password-category-id",
+          "wire_name": "data.attributes.password-category-id",
+          "type": "int",
+          "location": "body",
+          "description": "Password category id"
+        },
+        {
+          "name": "data-attributes-password-folder-id",
+          "wire_name": "data.attributes.password-folder-id",
+          "type": "int",
+          "location": "body",
+          "description": "Password folder id"
+        },
+        {
+          "name": "data-attributes-resource-id",
+          "wire_name": "data.attributes.resource-id",
+          "type": "int",
+          "location": "body",
+          "description": "Resource id"
+        },
+        {
+          "name": "data-attributes-resource-type",
+          "wire_name": "data.attributes.resource-type",
+          "type": "string",
+          "location": "body",
+          "description": "Resource type"
+        },
+        {
+          "name": "data-attributes-url",
+          "wire_name": "data.attributes.url",
+          "type": "string",
+          "location": "body",
+          "description": "Url"
+        },
+        {
+          "name": "data-attributes-username",
+          "wire_name": "data.attributes.username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "passwords_get",
+      "description": "Retrieve a password metadata record. Required: id. Returns the JsonApiResource.",
+      "method": "GET",
+      "path": "/passwords/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "passwords_list",
+      "description": "Use filter[name] plus filter[organization_id] before creating password mirror records. Optional: filter[id], filter[name], filter[organization_id] (plus 3 more). Returns array of JsonApiResourceObject.",
+      "method": "GET",
+      "path": "/passwords",
+      "params": [
+        {
+          "name": "filter[id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter id"
+        },
+        {
+          "name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Exact match where supported by IT Glue."
+        },
+        {
+          "name": "filter[organization_id]",
+          "type": "int",
+          "location": "query",
+          "description": "Filter organization id"
+        },
+        {
+          "name": "page[number]",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page[size]",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Comma separated sort fields; prefix with - for descending."
+        }
+      ]
+    },
+    {
+      "name": "passwords_update",
+      "description": "Update a password. Required: id, data. Returns the updated JsonApiResource.",
+      "method": "PATCH",
+      "path": "/passwords/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-attributes-notes",
+          "wire_name": "data.attributes.notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "data-attributes-organization-id",
+          "wire_name": "data.attributes.organization-id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        },
+        {
+          "name": "data-attributes-password",
+          "wire_name": "data.attributes.password",
+          "type": "string",
+          "location": "body",
+          "description": "Password"
+        },
+        {
+          "name": "data-attributes-password-category-id",
+          "wire_name": "data.attributes.password-category-id",
+          "type": "int",
+          "location": "body",
+          "description": "Password category id"
+        },
+        {
+          "name": "data-attributes-password-folder-id",
+          "wire_name": "data.attributes.password-folder-id",
+          "type": "int",
+          "location": "body",
+          "description": "Password folder id"
+        },
+        {
+          "name": "data-attributes-resource-id",
+          "wire_name": "data.attributes.resource-id",
+          "type": "int",
+          "location": "body",
+          "description": "Resource id"
+        },
+        {
+          "name": "data-attributes-resource-type",
+          "wire_name": "data.attributes.resource-type",
+          "type": "string",
+          "location": "body",
+          "description": "Resource type"
+        },
+        {
+          "name": "data-attributes-url",
+          "wire_name": "data.attributes.url",
+          "type": "string",
+          "location": "body",
+          "description": "Url"
+        },
+        {
+          "name": "data-attributes-username",
+          "wire_name": "data.attributes.username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

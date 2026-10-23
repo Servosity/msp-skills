@@ -1,0 +1,656 @@
+{
+  "api_name": "n-central",
+  "base_url": "https://ncod.n-able.com/api",
+  "description": "N-able N-central RMM REST API — manage devices, customers, sites, org units, active issues, custom properties, scheduled tasks, and maintenance windows across an MSP's N-central instance.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "in": "header",
+    "env_vars": [
+      "NCENTRAL_JWT"
+    ],
+    "env_var_specs": [
+      {
+        "name": "NCENTRAL_JWT",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "access-groups_get",
+      "description": "Retrieve detailed information for an access group by ID. Required: accessGroupId. Returns the OrgUnit.",
+      "method": "GET",
+      "path": "/access-groups/{accessGroupId}",
+      "params": [
+        {
+          "name": "accessGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "accessGroupId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_get",
+      "description": "Retrieve a single customer by ID. Required: customerId. Returns the Customer.",
+      "method": "GET",
+      "path": "/customers/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "customerId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_list",
+      "description": "List all customers across the instance. Optional: pageNumber, pageSize, sortBy (plus 2 more). Returns array of Customer.",
+      "method": "GET",
+      "path": "/customers",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by (e.g. customerName)"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "asc or desc"
+        },
+        {
+          "name": "select",
+          "type": "string",
+          "location": "query",
+          "description": "Field-selection expression"
+        }
+      ]
+    },
+    {
+      "name": "customers_registration-token",
+      "description": "Retrieve the agent registration token for a customer (used to enroll new devices). Required: customerId. Returns the Customer.",
+      "method": "GET",
+      "path": "/customers/{customerId}/registration-token",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "customerId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device-filters_list",
+      "description": "List saved device filters for the API user. Returns array of OrgUnit.",
+      "method": "GET",
+      "path": "/device-filters",
+      "params": []
+    },
+    {
+      "name": "devices_assets",
+      "description": "Retrieve hardware/software asset inventory for a device. Required: deviceId. Returns the Device.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/assets",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "deviceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Retrieve a single device by ID. Required: deviceId. Returns the Device.",
+      "method": "GET",
+      "path": "/devices/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "deviceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "List all devices visible to the API user, across the org tree. Optional: filterId, pageNumber, pageSize (plus 3 more). Returns array of Device.",
+      "method": "GET",
+      "path": "/devices",
+      "params": [
+        {
+          "name": "filterId",
+          "type": "integer",
+          "location": "query",
+          "description": "Apply a saved N-central device filter by ID"
+        },
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by (e.g. longName, customerName)"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "asc or desc"
+        },
+        {
+          "name": "select",
+          "type": "string",
+          "location": "query",
+          "description": "Field-selection expression"
+        }
+      ]
+    },
+    {
+      "name": "devices_maintenance",
+      "description": "List patch maintenance windows configured for a device. Required: deviceId. Returns array of Device.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/maintenance-windows",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "deviceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_properties",
+      "description": "List custom property values for a device (the backbone of MSP automation/documentation). Required: deviceId. Returns array of Device.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/custom-properties",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "deviceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_status",
+      "description": "Retrieve the service-monitoring status (active issues / health) for a device. Required: deviceId. Returns array of ActiveIssue.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/service-monitor-status",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "deviceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_tasks",
+      "description": "List scheduled/automation tasks targeting this device. Required: deviceId. Returns array of Device.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/scheduled-tasks",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "deviceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_access-groups",
+      "description": "List access groups for an org unit. Required: orgUnitId. Returns array of OrgUnit.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/access-groups",
+      "params": [
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_active-issues",
+      "description": "Fetch active monitoring issues for an org unit (the daily NOC triage feed). Required: orgUnitId. Optional: pageNumber, pageSize, sortBy (plus 1 more). Returns array of ActiveIssue.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/active-issues",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (1-1000)"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "asc or desc"
+        },
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_children",
+      "description": "List the direct children of an org unit. Required: orgUnitId. Returns array of OrgUnit.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/children",
+      "params": [
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_devices",
+      "description": "List devices scoped to a specific org unit. Required: orgUnitId. Optional: pageNumber, pageSize. Returns array of Device.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/devices",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        },
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_get",
+      "description": "Retrieve a single org unit by ID. Required: orgUnitId. Returns the OrgUnit.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}",
+      "params": [
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_job-statuses",
+      "description": "Fetch job statuses for an org unit. Required: orgUnitId. Returns array of ActiveIssue.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/job-statuses",
+      "params": [
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_list",
+      "description": "List all organization units (SO, customer, and site nodes). Optional: pageNumber, pageSize, sortBy (plus 1 more). Returns array of OrgUnit.",
+      "method": "GET",
+      "path": "/org-units",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "asc or desc"
+        }
+      ]
+    },
+    {
+      "name": "org-units_registration-token",
+      "description": "Retrieve the agent registration token for an org unit. Required: orgUnitId. Returns the OrgUnit.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/registration-token",
+      "params": [
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-units_user-roles",
+      "description": "List user roles defined for an org unit. Required: orgUnitId. Returns array of OrgUnit.",
+      "method": "GET",
+      "path": "/org-units/{orgUnitId}/user-roles",
+      "params": [
+        {
+          "name": "orgUnitId",
+          "type": "string",
+          "location": "path",
+          "description": "orgUnitId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scheduled-tasks_get",
+      "description": "Retrieve general information for a scheduled task. Required: taskId. Returns the ActiveIssue.",
+      "method": "GET",
+      "path": "/scheduled-tasks/{taskId}",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "string",
+          "location": "path",
+          "description": "taskId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scheduled-tasks_run",
+      "description": "Create a direct-support scheduled task (run an Automation Policy, Script, or MacScript on a device). Required: name, itemId, taskType, customerId, deviceId. Returns the new ActiveIssue.",
+      "method": "POST",
+      "path": "/scheduled-tasks/direct",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Unique task name",
+          "required": true
+        },
+        {
+          "name": "itemId",
+          "type": "integer",
+          "location": "body",
+          "description": "Remote-execution item ID from the Script/Software Repository (must be API-enabled in N-central)",
+          "required": true
+        },
+        {
+          "name": "taskType",
+          "type": "string",
+          "location": "body",
+          "description": "AutomationPolicy, Script, or MacScript",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "integer",
+          "location": "body",
+          "description": "Target customer ID",
+          "required": true
+        },
+        {
+          "name": "deviceId",
+          "type": "integer",
+          "location": "body",
+          "description": "Target device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scheduled-tasks_status",
+      "description": "Retrieve aggregated status for a scheduled task. Required: taskId. Returns the ActiveIssue.",
+      "method": "GET",
+      "path": "/scheduled-tasks/{taskId}/status",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "string",
+          "location": "path",
+          "description": "taskId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "server_health",
+      "description": "Return the start and current time of the server (lightweight reachability check). Returns the OrgUnit. (public)",
+      "method": "GET",
+      "path": "/health",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "server_info",
+      "description": "Return version information for the N-central API service and systems. Returns the OrgUnit.",
+      "method": "GET",
+      "path": "/server-info",
+      "params": []
+    },
+    {
+      "name": "service-orgs_customers",
+      "description": "List all customers under a service organization. Required: soId. Returns array of Customer.",
+      "method": "GET",
+      "path": "/service-orgs/{soId}/customers",
+      "params": [
+        {
+          "name": "soId",
+          "type": "string",
+          "location": "path",
+          "description": "soId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-orgs_get",
+      "description": "Retrieve a single service organization by ID. Required: soId. Returns the ServiceOrg.",
+      "method": "GET",
+      "path": "/service-orgs/{soId}",
+      "params": [
+        {
+          "name": "soId",
+          "type": "string",
+          "location": "path",
+          "description": "soId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-orgs_list",
+      "description": "List all service organizations. Optional: pageNumber, pageSize, sortBy (plus 1 more). Returns array of ServiceOrg.",
+      "method": "GET",
+      "path": "/service-orgs",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "asc or desc"
+        }
+      ]
+    },
+    {
+      "name": "sites_get",
+      "description": "Retrieve a single site by ID. Required: siteId. Returns the Site.",
+      "method": "GET",
+      "path": "/sites/{siteId}",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "path",
+          "description": "siteId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_list",
+      "description": "List all sites across the instance. Optional: pageNumber, pageSize, sortBy (plus 1 more). Returns array of Site.",
+      "method": "GET",
+      "path": "/sites",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "asc or desc"
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List N-central users. Optional: pageNumber, pageSize. Returns array of OrgUnit.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "integer",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "pageSize",
+          "type": "integer",
+          "location": "query",
+          "description": "Items per page (default 50, -1 for all)"
+        }
+      ]
+    }
+  ]
+}

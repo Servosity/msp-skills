@@ -46,7 +46,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Check Point Software Technologies Ltd..
 
-**✓ Live-verified by @geekbrownbear (Bearium Networks, MSP)** against a production tenant · 2026-08-23 · [receipt →](https://github.com/Servosity/msp-skills/pull/271).
+**✓ Live-verified by @geekbrownbear (Bearium Networks, MSP)** against a production tenant · 2026-08-23 · [receipt →](https://github.com/Servosity/msp-skills/pull/271). The version it verified was not recorded.
 
 Yes - there is an MCP server for Avanan. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Avanan to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

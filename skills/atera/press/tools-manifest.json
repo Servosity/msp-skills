@@ -1,0 +1,4524 @@
+{
+  "api_name": "atera",
+  "base_url": "https://app.atera.com/api/v3",
+  "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "X-API-KEY",
+    "in": "header",
+    "env_vars": [
+      "ATERA_ACCOUNT_API"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ATERA_ACCOUNT_API",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_get-info",
+      "description": "Get info. Returns the AccountDto.",
+      "method": "GET",
+      "path": "/account",
+      "params": []
+    },
+    {
+      "name": "agents_delete",
+      "description": "Deletes an agent. Requires the agent ID. Required: agentId. Returns the AgentsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/agents/{agentId}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_get",
+      "description": "Returns a list of agents. Please note that the property 'LastPatchManagementReceived' is no longer supported and will return a null reference. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/agents",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "agents_get-by-customer",
+      "description": "Returns agents for a specified customer. Requires the customer ID. Please note that the property 'LastPatchManagementReceived' is no longer supported and will return a null reference. Required: customerId. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/agents/customer/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - Customer ID",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "agents_get-by-machine-name",
+      "description": "Returns agents installed on a specified machine. Requires the machine name. Please note that the property 'LastPatchManagementReceived' is no longer supported and will return a null reference. Required: machineName. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/agents/machine/{machineName}",
+      "params": [
+        {
+          "name": "machineName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System machine name",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (based on items per page)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page. Default is 20"
+        }
+      ]
+    },
+    {
+      "name": "agents_query-dto",
+      "description": "Returns an agent. Requires the agent ID. Please note that the property 'LastPatchManagementReceived' is no longer supported and will return a null reference. Required: agentId.",
+      "method": "GET",
+      "path": "/agents/{agentId}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_available-patches_agent-get-agent-available-updates",
+      "description": "Returns the available patches on the agent. Requires the Device guid. Required: deviceGuid.",
+      "method": "GET",
+      "path": "/agents/{deviceGuid}/available-patches",
+      "params": [
+        {
+          "name": "deviceGuid",
+          "type": "string",
+          "location": "path",
+          "description": "Required - Device guid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_installed-patches_agent-get-agent-installed-updates",
+      "description": "Returns the installed patches on the agent. Requires the Device guid. Required: deviceGuid.",
+      "method": "GET",
+      "path": "/agents/{deviceGuid}/installed-patches",
+      "params": [
+        {
+          "name": "deviceGuid",
+          "type": "string",
+          "location": "path",
+          "description": "Required - Device guid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_delete",
+      "description": "Deletes a specified alert. Requires the alert ID. Required: alertId. Returns the AlertsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/alerts/{alertId}",
+      "params": [
+        {
+          "name": "alertId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System alert ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_get",
+      "description": "Returns a list of alerts. Optional: page, itemsInPage, alertStatus.",
+      "method": "GET",
+      "path": "/alerts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 20)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20)"
+        },
+        {
+          "name": "alertStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Alert status"
+        }
+      ]
+    },
+    {
+      "name": "alerts_get-alertid",
+      "description": "Returns an alert. Requires the alert ID. Required: alertId.",
+      "method": "GET",
+      "path": "/alerts/{alertId}",
+      "params": [
+        {
+          "name": "alertId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System alert ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_post",
+      "description": "Creates a new alert. Requires the device's global unique identifier (GUID). Required: CustomerID, DeviceGuid, Title. Optional: AdditionalInfo, AlertCategoryID, Code (plus 10 more).",
+      "method": "POST",
+      "path": "/alerts",
+      "params": [
+        {
+          "name": "AdditionalInfo",
+          "type": "string",
+          "location": "body",
+          "description": "Additional info"
+        },
+        {
+          "name": "AlertCategoryID",
+          "type": "string",
+          "location": "body",
+          "description": "Alert category id"
+        },
+        {
+          "name": "Code",
+          "type": "int",
+          "location": "body",
+          "description": "Code"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "DeviceGuid",
+          "type": "string",
+          "location": "body",
+          "description": "Device guid",
+          "required": true
+        },
+        {
+          "name": "FolderID",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "MessageTemplate",
+          "type": "string",
+          "location": "body",
+          "description": "Message template"
+        },
+        {
+          "name": "Severity",
+          "type": "string",
+          "location": "body",
+          "description": "Severity"
+        },
+        {
+          "name": "SnoozedEndDate",
+          "type": "string",
+          "location": "body",
+          "description": "Snoozed end date"
+        },
+        {
+          "name": "ThresholdValue1",
+          "type": "string",
+          "location": "body",
+          "description": "Threshold value1"
+        },
+        {
+          "name": "ThresholdValue2",
+          "type": "string",
+          "location": "body",
+          "description": "Threshold value2"
+        },
+        {
+          "name": "ThresholdValue3",
+          "type": "string",
+          "location": "body",
+          "description": "Threshold value3"
+        },
+        {
+          "name": "ThresholdValue4",
+          "type": "string",
+          "location": "body",
+          "description": "Threshold value4"
+        },
+        {
+          "name": "ThresholdValue5",
+          "type": "string",
+          "location": "body",
+          "description": "Threshold value5"
+        },
+        {
+          "name": "TicketID",
+          "type": "int",
+          "location": "body",
+          "description": "Ticket id"
+        },
+        {
+          "name": "Title",
+          "type": "string",
+          "location": "body",
+          "description": "Title",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_resolve",
+      "description": "Resolve a specified alert. Requires the alert ID. Required: alertId. Returns the updated AlertsResolveResponse.",
+      "method": "PUT",
+      "path": "/alerts/{alertId}",
+      "params": [
+        {
+          "name": "alertId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System alert ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_get",
+      "description": "Returns a list of invoices. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/billing/invoices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "billing_invoice-query-dto",
+      "description": "Returns a specified invoice. Requires the invoice number. Required: invoiceNumber.",
+      "method": "GET",
+      "path": "/billing/invoice/{invoiceNumber}",
+      "params": [
+        {
+          "name": "invoiceNumber",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System invoice number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_delete",
+      "description": "Deletes the contact. Requires the contact ID. Required: contactId. Returns the ContactsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/contacts/{contactId}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_get",
+      "description": "Accepts whole or partial emails / phone numbers. If partial, will return all contacts whose emails / phone numbers contain the input string. Return Contact List. Optional: page, itemsInPage, searchOptions.email (plus 1 more). Returns array of ContactQueryDto.",
+      "method": "GET",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        },
+        {
+          "name": "searchOptions.email",
+          "type": "string",
+          "location": "query",
+          "description": "Search options email"
+        },
+        {
+          "name": "searchOptions.phone",
+          "type": "string",
+          "location": "query",
+          "description": "Search options phone"
+        }
+      ]
+    },
+    {
+      "name": "contacts_get-contactid",
+      "description": "Returns the specified contact. Requires the contact ID. Required: contactId.",
+      "method": "GET",
+      "path": "/contacts/{contactId}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_post",
+      "description": "Creates a new contact for an existing customer. Requires the customer ID or the customer name. Required: Email. Optional: CreatedOn, CustomerID, CustomerName (plus 9 more).",
+      "method": "POST",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "CreatedOn",
+          "type": "string",
+          "location": "body",
+          "description": "Created on"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "CustomerName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer name"
+        },
+        {
+          "name": "DepartmentID",
+          "type": "int",
+          "location": "body",
+          "description": "Department id"
+        },
+        {
+          "name": "DepartmentName",
+          "type": "string",
+          "location": "body",
+          "description": "Department name"
+        },
+        {
+          "name": "Email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "Firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Firstname"
+        },
+        {
+          "name": "InIgnoreMode",
+          "type": "bool",
+          "location": "body",
+          "description": "In ignore mode"
+        },
+        {
+          "name": "IsContactPerson",
+          "type": "bool",
+          "location": "body",
+          "description": "Is contact person"
+        },
+        {
+          "name": "JobTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Job title"
+        },
+        {
+          "name": "Lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Lastname"
+        },
+        {
+          "name": "MobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone"
+        },
+        {
+          "name": "Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        }
+      ]
+    },
+    {
+      "name": "contacts_put",
+      "description": "Updates an existing contact. Requires the contact ID. The following fields are editable: First Name (Firstname) Last Name (Lastname) Job Title (JobTitle) Is Contact Person (IsContactPerson) In Ignore Mode (InIgnoreMode) Phone (Phone). Required: contactId. Optional: Archived, CustomerID, CustomerName (plus 9 more). Returns the new Result.",
+      "method": "POST",
+      "path": "/contacts/{contactId}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact ID",
+          "required": true
+        },
+        {
+          "name": "Archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "CustomerName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer name"
+        },
+        {
+          "name": "DepartmentID",
+          "type": "int",
+          "location": "body",
+          "description": "Department id"
+        },
+        {
+          "name": "DepartmentName",
+          "type": "string",
+          "location": "body",
+          "description": "Department name"
+        },
+        {
+          "name": "Firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Firstname"
+        },
+        {
+          "name": "InIgnoreMode",
+          "type": "bool",
+          "location": "body",
+          "description": "In ignore mode"
+        },
+        {
+          "name": "IsContactPerson",
+          "type": "bool",
+          "location": "body",
+          "description": "Is contact person"
+        },
+        {
+          "name": "JobTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Job title"
+        },
+        {
+          "name": "Lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Lastname"
+        },
+        {
+          "name": "MobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone"
+        },
+        {
+          "name": "Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        }
+      ]
+    },
+    {
+      "name": "contacts_put-contactid",
+      "description": "Updates an existing contact. Requires the contact ID. The following fields are editable: First Name (Firstname) Last Name (Lastname) Job Title (JobTitle) Is Contact Person (IsContactPerson) In Ignore Mode (InIgnoreMode) Phone (Phone). Required: contactId. Optional: Archived, CustomerID, CustomerName (plus 9 more). Returns the updated Result.",
+      "method": "PUT",
+      "path": "/contacts/{contactId}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact ID",
+          "required": true
+        },
+        {
+          "name": "Archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "CustomerName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer name"
+        },
+        {
+          "name": "DepartmentID",
+          "type": "int",
+          "location": "body",
+          "description": "Department id"
+        },
+        {
+          "name": "DepartmentName",
+          "type": "string",
+          "location": "body",
+          "description": "Department name"
+        },
+        {
+          "name": "Firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Firstname"
+        },
+        {
+          "name": "InIgnoreMode",
+          "type": "bool",
+          "location": "body",
+          "description": "In ignore mode"
+        },
+        {
+          "name": "IsContactPerson",
+          "type": "bool",
+          "location": "body",
+          "description": "Is contact person"
+        },
+        {
+          "name": "JobTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Job title"
+        },
+        {
+          "name": "Lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Lastname"
+        },
+        {
+          "name": "MobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone"
+        },
+        {
+          "name": "Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        }
+      ]
+    },
+    {
+      "name": "contracts_get",
+      "description": "Returns a list of contracts. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/contracts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "contracts_get-by-customer",
+      "description": "Returns a list of contracts. Requires the customer ID. Required: customerId. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/contracts/customer/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System customer ID",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "contracts_post",
+      "description": "Creates a new customer. Requires the customer name. Optional: Active, BlockHoursContract, BlockMoneyContract (plus 16 more).",
+      "method": "POST",
+      "path": "/contracts",
+      "params": [
+        {
+          "name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active"
+        },
+        {
+          "name": "block-hours-contract-billing-period",
+          "wire_name": "BlockHoursContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "block-hours-contract-commit-rollover",
+          "wire_name": "BlockHoursContract.CommitRollover",
+          "type": "bool",
+          "location": "body",
+          "description": "Commit rollover"
+        },
+        {
+          "name": "block-hours-contract-hourly-rate-id",
+          "wire_name": "BlockHoursContract.HourlyRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Hourly rate id"
+        },
+        {
+          "name": "block-hours-contract-hours-included",
+          "wire_name": "BlockHoursContract.HoursIncluded",
+          "type": "float",
+          "location": "body",
+          "description": "Hours included"
+        },
+        {
+          "name": "block-hours-contract-overage-rate-id",
+          "wire_name": "BlockHoursContract.OverageRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Overage rate id"
+        },
+        {
+          "name": "block-money-contract-billing-period",
+          "wire_name": "BlockMoneyContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "block-money-contract-commit-rollover",
+          "wire_name": "BlockMoneyContract.CommitRollover",
+          "type": "bool",
+          "location": "body",
+          "description": "Commit rollover"
+        },
+        {
+          "name": "block-money-contract-contract-amount-rate-id",
+          "wire_name": "BlockMoneyContract.ContractAmountRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Contract amount rate id"
+        },
+        {
+          "name": "block-money-contract-hourly-rate-id",
+          "wire_name": "BlockMoneyContract.HourlyRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Hourly rate id"
+        },
+        {
+          "name": "block-money-contract-overage-rate-id",
+          "wire_name": "BlockMoneyContract.OverageRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Overage rate id"
+        },
+        {
+          "name": "ContractName",
+          "type": "string",
+          "location": "body",
+          "description": "Contract name"
+        },
+        {
+          "name": "ContractType",
+          "type": "string",
+          "location": "body",
+          "description": "Contract type"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "Default",
+          "type": "bool",
+          "location": "body",
+          "description": "Default"
+        },
+        {
+          "name": "EndDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "hourly-contract-additional-rate-i-ds",
+          "wire_name": "HourlyContract.AdditionalRateIDs",
+          "type": "array",
+          "location": "body",
+          "description": "Additional rate ids"
+        },
+        {
+          "name": "hourly-contract-billing-period",
+          "wire_name": "HourlyContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "hourly-contract-hourly-rate-id",
+          "wire_name": "HourlyContract.HourlyRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Hourly rate id"
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "online-backup-contract-billing-period",
+          "wire_name": "OnlineBackupContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "online-backup-contract-count-by",
+          "wire_name": "OnlineBackupContract.CountBy",
+          "type": "string",
+          "location": "body",
+          "description": "Count by"
+        },
+        {
+          "name": "online-backup-contract-per-gb-rate-id",
+          "wire_name": "OnlineBackupContract.PerGBRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Per gbrate id"
+        },
+        {
+          "name": "project-hourly-rate-contract-additional-rate-i-ds",
+          "wire_name": "ProjectHourlyRateContract.AdditionalRateIDs",
+          "type": "array",
+          "location": "body",
+          "description": "Additional rate ids"
+        },
+        {
+          "name": "project-hourly-rate-contract-total-amount-rate-id",
+          "wire_name": "ProjectHourlyRateContract.TotalAmountRateId",
+          "type": "int",
+          "location": "body",
+          "description": "Total amount rate id"
+        },
+        {
+          "name": "project-one-time-fee-contract-total-amount-rate-id",
+          "wire_name": "ProjectOneTimeFeeContract.TotalAmountRateId",
+          "type": "int",
+          "location": "body",
+          "description": "Total amount rate id"
+        },
+        {
+          "name": "remote-monitoring-contract-billing-period",
+          "wire_name": "RemoteMonitoringContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "remote-monitoring-contract-count-by",
+          "wire_name": "RemoteMonitoringContract.CountBy",
+          "type": "string",
+          "location": "body",
+          "description": "Count by"
+        },
+        {
+          "name": "remote-monitoring-contract-exclude-retired-devices",
+          "wire_name": "RemoteMonitoringContract.ExcludeRetiredDevices",
+          "type": "bool",
+          "location": "body",
+          "description": "Exclude retired devices"
+        },
+        {
+          "name": "remote-monitoring-contract-per-device-rate-id",
+          "wire_name": "RemoteMonitoringContract.PerDeviceRateID",
+          "type": "int",
+          "location": "body",
+          "description": "Per device rate id"
+        },
+        {
+          "name": "retainer-flat-fee-contract-billing-period",
+          "wire_name": "RetainerFlatFeeContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "retainer-flat-fee-contract-quantity",
+          "wire_name": "RetainerFlatFeeContract.Quantity",
+          "type": "float",
+          "location": "body",
+          "description": "Quantity"
+        },
+        {
+          "name": "retainer-flat-fee-contract-rate-id",
+          "wire_name": "RetainerFlatFeeContract.RateID",
+          "type": "int",
+          "location": "body",
+          "description": "Rate id"
+        },
+        {
+          "name": "SLAId",
+          "type": "int",
+          "location": "body",
+          "description": "Slaid"
+        },
+        {
+          "name": "StartDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date"
+        },
+        {
+          "name": "TaxId",
+          "type": "int",
+          "location": "body",
+          "description": "Tax id"
+        },
+        {
+          "name": "Taxable",
+          "type": "bool",
+          "location": "body",
+          "description": "Taxable"
+        }
+      ]
+    },
+    {
+      "name": "contracts_query-dto",
+      "description": "Returns a specified contract. Requires the contract ID. Required: contractId.",
+      "method": "GET",
+      "path": "/contracts/{contractId}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required. System contract ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contracts_update",
+      "description": "Updates an existing contract. Requires the contract ID. Required: contractId. Optional: Active, BlockHoursContract, BlockMoneyContract (plus 11 more). Returns the new Result.",
+      "method": "POST",
+      "path": "/contracts/{contractId}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required. System contract ID",
+          "required": true
+        },
+        {
+          "name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active"
+        },
+        {
+          "name": "block-hours-contract-billing-period",
+          "wire_name": "BlockHoursContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "block-hours-contract-commit-rollover",
+          "wire_name": "BlockHoursContract.CommitRollover",
+          "type": "bool",
+          "location": "body",
+          "description": "Commit rollover"
+        },
+        {
+          "name": "block-hours-contract-hours-included",
+          "wire_name": "BlockHoursContract.HoursIncluded",
+          "type": "float",
+          "location": "body",
+          "description": "Hours included"
+        },
+        {
+          "name": "block-money-contract-billing-period",
+          "wire_name": "BlockMoneyContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "block-money-contract-commit-rollover",
+          "wire_name": "BlockMoneyContract.CommitRollover",
+          "type": "bool",
+          "location": "body",
+          "description": "Commit rollover"
+        },
+        {
+          "name": "ContractName",
+          "type": "string",
+          "location": "body",
+          "description": "Contract name"
+        },
+        {
+          "name": "Default",
+          "type": "bool",
+          "location": "body",
+          "description": "Default"
+        },
+        {
+          "name": "EndDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "hourly-contract-billing-period",
+          "wire_name": "HourlyContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "online-backup-contract-billing-period",
+          "wire_name": "OnlineBackupContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "online-backup-contract-count-by",
+          "wire_name": "OnlineBackupContract.CountBy",
+          "type": "string",
+          "location": "body",
+          "description": "Count by"
+        },
+        {
+          "name": "remote-monitoring-contract-billing-period",
+          "wire_name": "RemoteMonitoringContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "remote-monitoring-contract-count-by",
+          "wire_name": "RemoteMonitoringContract.CountBy",
+          "type": "string",
+          "location": "body",
+          "description": "Count by"
+        },
+        {
+          "name": "remote-monitoring-contract-exclude-retired-devices",
+          "wire_name": "RemoteMonitoringContract.ExcludeRetiredDevices",
+          "type": "bool",
+          "location": "body",
+          "description": "Exclude retired devices"
+        },
+        {
+          "name": "retainer-flat-fee-contract-billing-period",
+          "wire_name": "RetainerFlatFeeContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "retainer-flat-fee-contract-quantity",
+          "wire_name": "RetainerFlatFeeContract.Quantity",
+          "type": "float",
+          "location": "body",
+          "description": "Quantity"
+        },
+        {
+          "name": "StartDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date"
+        },
+        {
+          "name": "TaxId",
+          "type": "int",
+          "location": "body",
+          "description": "Tax id"
+        },
+        {
+          "name": "Taxable",
+          "type": "bool",
+          "location": "body",
+          "description": "Taxable"
+        }
+      ]
+    },
+    {
+      "name": "contracts_update-contractid",
+      "description": "Updates an existing contract. Requires the contract ID. Required: contractId. Optional: Active, BlockHoursContract, BlockMoneyContract (plus 11 more). Returns the updated Result.",
+      "method": "PUT",
+      "path": "/contracts/{contractId}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required. System contract ID",
+          "required": true
+        },
+        {
+          "name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active"
+        },
+        {
+          "name": "block-hours-contract-billing-period",
+          "wire_name": "BlockHoursContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "block-hours-contract-commit-rollover",
+          "wire_name": "BlockHoursContract.CommitRollover",
+          "type": "bool",
+          "location": "body",
+          "description": "Commit rollover"
+        },
+        {
+          "name": "block-hours-contract-hours-included",
+          "wire_name": "BlockHoursContract.HoursIncluded",
+          "type": "float",
+          "location": "body",
+          "description": "Hours included"
+        },
+        {
+          "name": "block-money-contract-billing-period",
+          "wire_name": "BlockMoneyContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "block-money-contract-commit-rollover",
+          "wire_name": "BlockMoneyContract.CommitRollover",
+          "type": "bool",
+          "location": "body",
+          "description": "Commit rollover"
+        },
+        {
+          "name": "ContractName",
+          "type": "string",
+          "location": "body",
+          "description": "Contract name"
+        },
+        {
+          "name": "Default",
+          "type": "bool",
+          "location": "body",
+          "description": "Default"
+        },
+        {
+          "name": "EndDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "hourly-contract-billing-period",
+          "wire_name": "HourlyContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "online-backup-contract-billing-period",
+          "wire_name": "OnlineBackupContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "online-backup-contract-count-by",
+          "wire_name": "OnlineBackupContract.CountBy",
+          "type": "string",
+          "location": "body",
+          "description": "Count by"
+        },
+        {
+          "name": "remote-monitoring-contract-billing-period",
+          "wire_name": "RemoteMonitoringContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "remote-monitoring-contract-count-by",
+          "wire_name": "RemoteMonitoringContract.CountBy",
+          "type": "string",
+          "location": "body",
+          "description": "Count by"
+        },
+        {
+          "name": "remote-monitoring-contract-exclude-retired-devices",
+          "wire_name": "RemoteMonitoringContract.ExcludeRetiredDevices",
+          "type": "bool",
+          "location": "body",
+          "description": "Exclude retired devices"
+        },
+        {
+          "name": "retainer-flat-fee-contract-billing-period",
+          "wire_name": "RetainerFlatFeeContract.BillingPeriod",
+          "type": "string",
+          "location": "body",
+          "description": "Billing period"
+        },
+        {
+          "name": "retainer-flat-fee-contract-quantity",
+          "wire_name": "RetainerFlatFeeContract.Quantity",
+          "type": "float",
+          "location": "body",
+          "description": "Quantity"
+        },
+        {
+          "name": "StartDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date"
+        },
+        {
+          "name": "TaxId",
+          "type": "int",
+          "location": "body",
+          "description": "Tax id"
+        },
+        {
+          "name": "Taxable",
+          "type": "bool",
+          "location": "body",
+          "description": "Taxable"
+        }
+      ]
+    },
+    {
+      "name": "customers_delete",
+      "description": "Deletes a specified customer. Requires the customer ID. Required: customerId. Returns the CustomersDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/customers/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_get",
+      "description": "Returns a list of customers. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/customers",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "customers_get-customerid",
+      "description": "Returns a specified customer. Requires the customer ID. Required: customerId.",
+      "method": "GET",
+      "path": "/customers/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_post",
+      "description": "Creates a new customer. Requires the customer name. Required: CustomerName. Optional: Address, BusinessNumber, City (plus 11 more).",
+      "method": "POST",
+      "path": "/customers",
+      "params": [
+        {
+          "name": "Address",
+          "type": "string",
+          "location": "body",
+          "description": "Address"
+        },
+        {
+          "name": "BusinessNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Business number"
+        },
+        {
+          "name": "City",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "Country",
+          "type": "string",
+          "location": "body",
+          "description": "Country"
+        },
+        {
+          "name": "CreatedOn",
+          "type": "string",
+          "location": "body",
+          "description": "Created on"
+        },
+        {
+          "name": "CustomerName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer name",
+          "required": true
+        },
+        {
+          "name": "Domain",
+          "type": "string",
+          "location": "body",
+          "description": "Domain"
+        },
+        {
+          "name": "Fax",
+          "type": "string",
+          "location": "body",
+          "description": "Fax"
+        },
+        {
+          "name": "Latitude",
+          "type": "float",
+          "location": "body",
+          "description": "Latitude"
+        },
+        {
+          "name": "Links",
+          "type": "string",
+          "location": "body",
+          "description": "Links"
+        },
+        {
+          "name": "Longitude",
+          "type": "float",
+          "location": "body",
+          "description": "Longitude"
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "State",
+          "type": "string",
+          "location": "body",
+          "description": "State"
+        },
+        {
+          "name": "ZipCodeStr",
+          "type": "string",
+          "location": "body",
+          "description": "Zip code str"
+        }
+      ]
+    },
+    {
+      "name": "customers_post-attachments",
+      "description": "Requires the customer ID and attachment name, including the file extension. Requires attachment to be represented in Base64 encoding. Required: ContentBased64, CustomerId, Name.",
+      "method": "POST",
+      "path": "/customers/attachments",
+      "params": [
+        {
+          "name": "ContentBased64",
+          "type": "string",
+          "location": "body",
+          "description": "Content based64",
+          "required": true
+        },
+        {
+          "name": "CustomerId",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_post-folders",
+      "description": "Requires the folder name and customer ID. Threshold profile ID is optional; if not included, the folder will inherit the threshold profile applied to the customer, if applicable. Required: CustomerId, Name. Optional: ThresholdId.",
+      "method": "POST",
+      "path": "/customers/folders",
+      "params": [
+        {
+          "name": "CustomerId",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "ThresholdId",
+          "type": "int",
+          "location": "body",
+          "description": "Threshold id"
+        }
+      ]
+    },
+    {
+      "name": "customers_put",
+      "description": "Updates an existing customer. Requires the customer ID. The following fields are editable: Customer Name (CustomerName) Business Number (BusinessNumber) Domain (Domain) Address (Address) City (City) State (State) Country (Country) Phone (Phone) Fax (Fax) Notes (Notes) Links (Links) Longitude (Longitude) Latitude (Latitude) Zip Code (ZipCodeStr). Required: customerId. Optional: Address, BusinessNumber, City (plus 11 more). Returns the new Result.",
+      "method": "POST",
+      "path": "/customers/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        },
+        {
+          "name": "Address",
+          "type": "string",
+          "location": "body",
+          "description": "Address"
+        },
+        {
+          "name": "BusinessNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Business number"
+        },
+        {
+          "name": "City",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "Country",
+          "type": "string",
+          "location": "body",
+          "description": "Country"
+        },
+        {
+          "name": "CustomerName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer name"
+        },
+        {
+          "name": "Domain",
+          "type": "string",
+          "location": "body",
+          "description": "Domain"
+        },
+        {
+          "name": "Fax",
+          "type": "string",
+          "location": "body",
+          "description": "Fax"
+        },
+        {
+          "name": "Latitude",
+          "type": "float",
+          "location": "body",
+          "description": "Latitude"
+        },
+        {
+          "name": "Links",
+          "type": "string",
+          "location": "body",
+          "description": "Links"
+        },
+        {
+          "name": "Longitude",
+          "type": "float",
+          "location": "body",
+          "description": "Longitude"
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "State",
+          "type": "string",
+          "location": "body",
+          "description": "State"
+        },
+        {
+          "name": "ZipCodeStr",
+          "type": "string",
+          "location": "body",
+          "description": "Zip code str"
+        }
+      ]
+    },
+    {
+      "name": "customers_put-customerid",
+      "description": "Updates an existing customer. Requires the customer ID. The following fields are editable: Customer Name (CustomerName) Business Number (BusinessNumber) Domain (Domain) Address (Address) City (City) State (State) Country (Country) Phone (Phone) Fax (Fax) Notes (Notes) Links (Links) Longitude (Longitude) Latitude (Latitude) Zip Code (ZipCodeStr). Required: customerId. Optional: Address, BusinessNumber, City (plus 11 more). Returns the updated Result.",
+      "method": "PUT",
+      "path": "/customers/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        },
+        {
+          "name": "Address",
+          "type": "string",
+          "location": "body",
+          "description": "Address"
+        },
+        {
+          "name": "BusinessNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Business number"
+        },
+        {
+          "name": "City",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "Country",
+          "type": "string",
+          "location": "body",
+          "description": "Country"
+        },
+        {
+          "name": "CustomerName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer name"
+        },
+        {
+          "name": "Domain",
+          "type": "string",
+          "location": "body",
+          "description": "Domain"
+        },
+        {
+          "name": "Fax",
+          "type": "string",
+          "location": "body",
+          "description": "Fax"
+        },
+        {
+          "name": "Latitude",
+          "type": "float",
+          "location": "body",
+          "description": "Latitude"
+        },
+        {
+          "name": "Links",
+          "type": "string",
+          "location": "body",
+          "description": "Links"
+        },
+        {
+          "name": "Longitude",
+          "type": "float",
+          "location": "body",
+          "description": "Longitude"
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "State",
+          "type": "string",
+          "location": "body",
+          "description": "State"
+        },
+        {
+          "name": "ZipCodeStr",
+          "type": "string",
+          "location": "body",
+          "description": "Zip code str"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get",
+      "description": "Returns a custom field value. Requires a custom value ID. Required: rowId.",
+      "method": "GET",
+      "path": "/customvalues/{rowId}",
+      "params": [
+        {
+          "name": "rowId",
+          "type": "string",
+          "location": "path",
+          "description": "Required - Custom Value ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-agent-field",
+      "description": "Returns a custom field value for a specified agent. Requires the agent ID and custom field name. Required: agentId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/agentfield/{agentId}/{fieldName}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Agent ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-agent-fields",
+      "description": "Returns all custom field values for a specified agent. Requires the agent ID. Required: agentId.",
+      "method": "GET",
+      "path": "/customvalues/agentfields/{agentId}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-contact-field",
+      "description": "Returns a custom field value for a specified contact. Requires the contact ID and custom field name. Required: contactId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/contactfield/{contactId}/{fieldName}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-contact-fields",
+      "description": "Returns all custom field values for a specified contact. Requires the contact ID. Required: contactId.",
+      "method": "GET",
+      "path": "/customvalues/contactfields/{contactId}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-contract-field",
+      "description": "Returns a custom field value for a specified contract. Requires the contract ID and custom field name. Required: contractId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/contractfield/{contractId}/{fieldName}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System contract ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-contract-fields",
+      "description": "Returns all custom field values for a specified contract. Requires the contract ID. Required: contractId.",
+      "method": "GET",
+      "path": "/customvalues/contractfields/{contractId}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contract ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-custom-fields",
+      "description": "Get list of custom field and value options. Returns array of CustomFieldQueryDto.",
+      "method": "GET",
+      "path": "/customvalues/customfields",
+      "params": []
+    },
+    {
+      "name": "customvalues_custom-values-get-customer-field",
+      "description": "Returns a custom field value for a specified customer. Requires a customer ID and custom field name. Required: customerId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/customerfield/{customerId}/{fieldName}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Customer ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-customer-fields",
+      "description": "Returns all custom field values for a specified customer. Requires the customer ID. Required: customerId.",
+      "method": "GET",
+      "path": "/customvalues/customerfields/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Customer ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-generic-field",
+      "description": "Returns a custom field value for a specified generic. Requires the generic ID and custom field name. Required: genericDeviceId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/genericfield/{genericDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "genericDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Generic ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-generic-fields",
+      "description": "Returns all custom field values for a specified generic device. Requires the generic device ID. Required: genericDeviceId.",
+      "method": "GET",
+      "path": "/customvalues/genericfields/{genericDeviceId}",
+      "params": [
+        {
+          "name": "genericDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Generic Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-httpfield",
+      "description": "Returns a custom field value for a specified HTTP. Requires the HTTP ID and custom field name. Required: httpDeviceId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/httpfield/{httpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "httpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System HTTP ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-httpfields",
+      "description": "Returns all custom field values for a specified HTTP device. Requires the HTTP device ID. Required: httpDeviceId.",
+      "method": "GET",
+      "path": "/customvalues/httpfields/{httpDeviceId}",
+      "params": [
+        {
+          "name": "httpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System HTTP Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-slafield",
+      "description": "Returns a custom field value for a specified SLA. Requires the SLA ID and custom field name. Required: slaId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/slafield/{slaId}/{fieldName}",
+      "params": [
+        {
+          "name": "slaId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SLA ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-slafields",
+      "description": "Returns all custom field values for a specified SLA. Requires the SLA ID. Required: slaId.",
+      "method": "GET",
+      "path": "/customvalues/slafields/{slaId}",
+      "params": [
+        {
+          "name": "slaId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SLA ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-snmpfield",
+      "description": "Returns a custom field value for a specified SNMP. Requires the SNMP ID and custom field name. Required: snmpDeviceId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/snmpfield/{snmpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "snmpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SNMP ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-snmpfields",
+      "description": "Returns all custom field values for a specified SNMP device. Requires the SNMP device ID. Required: snmpDeviceId.",
+      "method": "GET",
+      "path": "/customvalues/snmpfields/{snmpDeviceId}",
+      "params": [
+        {
+          "name": "snmpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SNMP Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-tcpfield",
+      "description": "Returns a custom field value for a specified TCP. Requires the TCP ID and custom field name. Required: tcpDeviceId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/tcpfield/{tcpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "tcpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System TCP ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-tcpfields",
+      "description": "Returns all custom field values for a specified TCP device. Requires the TCP device ID. Required: tcpDeviceId.",
+      "method": "GET",
+      "path": "/customvalues/tcpfields/{tcpDeviceId}",
+      "params": [
+        {
+          "name": "tcpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System TCP Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-ticket-field",
+      "description": "Returns a custom field value for a specified ticket. Requires a ticket ID and a custom field name. Required: ticketId, fieldName.",
+      "method": "GET",
+      "path": "/customvalues/ticketfield/{ticketId}/{fieldName}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-get-ticket-fields",
+      "description": "Returns all custom field values for a specified ticket. Requires the ticket ID. Required: ticketId.",
+      "method": "GET",
+      "path": "/customvalues/ticketfields/{ticketId}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-agent-field",
+      "description": "Set value of custom field for specified Agent. Required: agentId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetAgentFieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/agentfield/{agentId}/{fieldName}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Agent id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-agent-field-agentfield",
+      "description": "Set value of custom field for specified Agent. Required: agentId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetAgentFieldAgentfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/agentfield/{agentId}/{fieldName}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Agent id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-agent-field-agentfield-2",
+      "description": "Set value of custom field for specified Agent. Required: agentId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetAgentFieldAgentfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/agentfield/{agentId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "agentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Agent id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-contact-field",
+      "description": "Set value of custom field for specified Contact. Required: contactId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetContactFieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/contactfield/{contactId}/{fieldName}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-contact-field-contactfield",
+      "description": "Set value of custom field for specified Contact. Required: contactId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetContactFieldContactfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/contactfield/{contactId}/{fieldName}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-contact-field-contactfield-2",
+      "description": "Set value of custom field for specified Contact. Required: contactId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetContactFieldContactfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/contactfield/{contactId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "contactId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Contact id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-contract-field",
+      "description": "Set value of custom field for specified Contract. Required: contractId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetContractFieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/contractfield/{contractId}/{fieldName}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System contract id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-contract-field-contractfield",
+      "description": "Set value of custom field for specified Contract. Required: contractId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetContractFieldContractfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/contractfield/{contractId}/{fieldName}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System contract id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-contract-field-contractfield-2",
+      "description": "Set value of custom field for specified Contract. Required: contractId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetContractFieldContractfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/contractfield/{contractId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "contractId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System contract id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-customer-field",
+      "description": "Set value of custom field for specified Customer. Required: customerId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetCustomerFieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/customerfield/{customerId}/{fieldName}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Customer id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-customer-field-customerfield",
+      "description": "Set value of custom field for specified Customer. Required: customerId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetCustomerFieldCustomerfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/customerfield/{customerId}/{fieldName}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Customer id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-customer-field-customerfield-2",
+      "description": "Set value of custom field for specified Customer. Required: customerId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetCustomerFieldCustomerfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/customerfield/{customerId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Customer id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-generic-field",
+      "description": "Set value of custom field for specified Generic. Required: genericDeviceId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetGenericFieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/genericfield/{genericDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "genericDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Generic id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-generic-field-genericfield",
+      "description": "Set value of custom field for specified Generic. Required: genericDeviceId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetGenericFieldGenericfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/genericfield/{genericDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "genericDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Generic id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-generic-field-genericfield-2",
+      "description": "Set value of custom field for specified Generic. Required: genericDeviceId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetGenericFieldGenericfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/genericfield/{genericDeviceId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "genericDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Generic id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-httpfield",
+      "description": "Set value of custom field for specified HTTP. Required: httpDeviceId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetHttpfieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/httpfield/{httpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "httpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System HTTP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-httpfield-httpfield",
+      "description": "Set value of custom field for specified HTTP. Required: httpDeviceId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetHttpfieldHttpfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/httpfield/{httpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "httpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System HTTP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-httpfield-httpfield-2",
+      "description": "Set value of custom field for specified HTTP. Required: httpDeviceId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetHttpfieldHttpfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/httpfield/{httpDeviceId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "httpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System HTTP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-slafield",
+      "description": "Set value of custom field for specified SLA. Required: slaId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetSlafieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/slafield/{slaId}/{fieldName}",
+      "params": [
+        {
+          "name": "slaId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SLA id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-slafield-slafield",
+      "description": "Set value of custom field for specified SLA. Required: slaId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetSlafieldSlafieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/slafield/{slaId}/{fieldName}",
+      "params": [
+        {
+          "name": "slaId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SLA id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-slafield-slafield-2",
+      "description": "Set value of custom field for specified SLA. Required: slaId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetSlafieldSlafield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/slafield/{slaId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "slaId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SLA id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-snmpfield",
+      "description": "Set value of custom field for specified SNMP. Required: snmpDeviceId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetSnmpfieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/snmpfield/{snmpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "snmpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SNMP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-snmpfield-snmpfield",
+      "description": "Set value of custom field for specified SNMP. Required: snmpDeviceId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetSnmpfieldSnmpfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/snmpfield/{snmpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "snmpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SNMP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-snmpfield-snmpfield-2",
+      "description": "Set value of custom field for specified SNMP. Required: snmpDeviceId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetSnmpfieldSnmpfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/snmpfield/{snmpDeviceId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "snmpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System SNMP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-tcpfield",
+      "description": "Set value of custom field for specified TCP. Required: tcpDeviceId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetTcpfieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/tcpfield/{tcpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "tcpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System TCP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-tcpfield-tcpfield",
+      "description": "Set value of custom field for specified TCP. Required: tcpDeviceId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetTcpfieldTcpfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/tcpfield/{tcpDeviceId}/{fieldName}",
+      "params": [
+        {
+          "name": "tcpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System TCP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-tcpfield-tcpfield-2",
+      "description": "Set value of custom field for specified TCP. Required: tcpDeviceId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetTcpfieldTcpfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/tcpfield/{tcpDeviceId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "tcpDeviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System TCP id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System Custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-ticket-field",
+      "description": "Set custom field value for specified Ticket. Required: ticketId, fieldName. Optional: Value. Returns the new CustomvaluesCustomValuesSetTicketFieldResponse.",
+      "method": "POST",
+      "path": "/customvalues/ticketfield/{ticketId}/{fieldName}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-ticket-field-ticketfield",
+      "description": "Set custom field value for specified Ticket. Required: ticketId, fieldName. Optional: Value. Returns the updated CustomvaluesCustomValuesSetTicketFieldTicketfieldResponse.",
+      "method": "PUT",
+      "path": "/customvalues/ticketfield/{ticketId}/{fieldName}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "Value"
+        }
+      ]
+    },
+    {
+      "name": "customvalues_custom-values-set-ticket-field-ticketfield-2",
+      "description": "Set custom field value for specified Ticket. Required: ticketId, fieldName, value. Returns the updated CustomvaluesCustomValuesSetTicketFieldTicketfield2Response.",
+      "method": "PUT",
+      "path": "/customvalues/ticketfield/{ticketId}/{fieldName}/{value}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket id",
+          "required": true
+        },
+        {
+          "name": "fieldName",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom field name",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "path",
+          "description": "Required - System custom value to set",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "departments_delete",
+      "description": "Deletes a specified department. Requires the department ID. Required: departmentId. Returns the DepartmentsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/departments/{departmentId}",
+      "params": [
+        {
+          "name": "departmentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "departments_get",
+      "description": "Returns a list of departments. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/departments",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "departments_get-departmentid",
+      "description": "Returns a specified department. Requires the department ID. Required: departmentId.",
+      "method": "GET",
+      "path": "/departments/{departmentId}",
+      "params": [
+        {
+          "name": "departmentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "departments_post",
+      "description": "Creates a new department. Requires the department name. Optional: Description, Name.",
+      "method": "POST",
+      "path": "/departments",
+      "params": [
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "departments_put",
+      "description": "Updates an existing department. Requires the department ID. The following fields are editable: Name: the name of the department Description: a shor desciption of the department. Required: departmentId, Name. Optional: Description, Id. Returns the new Result.",
+      "method": "POST",
+      "path": "/departments/{departmentId}",
+      "params": [
+        {
+          "name": "departmentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "Id",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "departments_put-departmentid",
+      "description": "Updates an existing department. Requires the department ID. The following fields are editable: Name: the name of the department Description: a shor desciption of the department. Required: departmentId, Name. Optional: Description, Id. Returns the updated Result.",
+      "method": "PUT",
+      "path": "/departments/{departmentId}",
+      "params": [
+        {
+          "name": "departmentId",
+          "type": "int",
+          "location": "path",
+          "description": "Required",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "Id",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_create-generic",
+      "description": "Returns device ID and Device Guid. Optional: CustomerID, FolderID, Hostname (plus 3 more).",
+      "method": "POST",
+      "path": "/devices/genericdevice",
+      "params": [
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "FolderID",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "Hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "Monitored",
+          "type": "bool",
+          "location": "body",
+          "description": "Monitored"
+        },
+        {
+          "name": "MonitoringAgentID",
+          "type": "int",
+          "location": "body",
+          "description": "Monitoring agent id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "devices_create-http",
+      "description": "Returns device ID and Device Guid. Optional: CustomerID, FolderID, Monitored (plus 4 more).",
+      "method": "POST",
+      "path": "/devices/httpdevice",
+      "params": [
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "FolderID",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "Monitored",
+          "type": "bool",
+          "location": "body",
+          "description": "Monitored"
+        },
+        {
+          "name": "MonitoringAgentID",
+          "type": "int",
+          "location": "body",
+          "description": "Monitoring agent id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "Pattern",
+          "type": "string",
+          "location": "body",
+          "description": "Pattern"
+        },
+        {
+          "name": "URL",
+          "type": "string",
+          "location": "body",
+          "description": "Url"
+        }
+      ]
+    },
+    {
+      "name": "devices_create-snmp-v1-v2",
+      "description": "Returns device ID and Device Guid. Optional: Community, CustomerID, FolderID (plus 7 more).",
+      "method": "POST",
+      "path": "/devices/snmpdevice/v1v2",
+      "params": [
+        {
+          "name": "Community",
+          "type": "string",
+          "location": "body",
+          "description": "Community"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "FolderID",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "Hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "Monitored",
+          "type": "bool",
+          "location": "body",
+          "description": "Monitored"
+        },
+        {
+          "name": "MonitoringAgentID",
+          "type": "int",
+          "location": "body",
+          "description": "Monitoring agent id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "Port",
+          "type": "int",
+          "location": "body",
+          "description": "Port"
+        },
+        {
+          "name": "SNMPType",
+          "type": "string",
+          "location": "body",
+          "description": "Snmptype"
+        },
+        {
+          "name": "SNMPVersion",
+          "type": "string",
+          "location": "body",
+          "description": "Snmpversion"
+        }
+      ]
+    },
+    {
+      "name": "devices_create-snmp-v3",
+      "description": "Returns device ID and Device Guid. Optional: AuthenticationAlg, AuthenticationPassword, CustomerID (plus 11 more).",
+      "method": "POST",
+      "path": "/devices/snmpdevice/v3",
+      "params": [
+        {
+          "name": "AuthenticationAlg",
+          "type": "string",
+          "location": "body",
+          "description": "Authentication alg"
+        },
+        {
+          "name": "AuthenticationPassword",
+          "type": "string",
+          "location": "body",
+          "description": "Authentication password"
+        },
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "FolderID",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "Hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "Monitored",
+          "type": "bool",
+          "location": "body",
+          "description": "Monitored"
+        },
+        {
+          "name": "MonitoringAgentID",
+          "type": "int",
+          "location": "body",
+          "description": "Monitoring agent id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "Port",
+          "type": "int",
+          "location": "body",
+          "description": "Port"
+        },
+        {
+          "name": "PrivacyAlg",
+          "type": "string",
+          "location": "body",
+          "description": "Privacy alg"
+        },
+        {
+          "name": "PrivacyPassword",
+          "type": "string",
+          "location": "body",
+          "description": "Privacy password"
+        },
+        {
+          "name": "SNMPType",
+          "type": "string",
+          "location": "body",
+          "description": "Snmptype"
+        },
+        {
+          "name": "Username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "_SecurityLevel",
+          "type": "string",
+          "location": "body",
+          "description": "Security level"
+        }
+      ]
+    },
+    {
+      "name": "devices_create-tcpdevice",
+      "description": "Returns device ID and Device Guid. Optional: CustomerID, FolderID, Hostname (plus 4 more).",
+      "method": "POST",
+      "path": "/devices/tcpdevice",
+      "params": [
+        {
+          "name": "CustomerID",
+          "type": "int",
+          "location": "body",
+          "description": "Customer id"
+        },
+        {
+          "name": "FolderID",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "Hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname"
+        },
+        {
+          "name": "Monitored",
+          "type": "bool",
+          "location": "body",
+          "description": "Monitored"
+        },
+        {
+          "name": "MonitoringAgentID",
+          "type": "int",
+          "location": "body",
+          "description": "Monitoring agent id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "Ports",
+          "type": "array",
+          "location": "body",
+          "description": "Ports"
+        }
+      ]
+    },
+    {
+      "name": "devices_delete",
+      "description": "Deletes a Generic device. Requires the device ID. Required: deviceId. Returns the DevicesDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/devices/genericdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_delete-http",
+      "description": "Deletes an HTTP device. Requires the device ID. Required: deviceId. Returns the DevicesDeleteHttpResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/devices/httpdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_delete-snmp",
+      "description": "Deletes an SNMP device. Requires the device ID. Required: deviceId. Returns the DevicesDeleteSnmpResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/devices/snmpdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_delete-tcp",
+      "description": "Deletes a TCP device. Requires the device ID. Required: deviceId. Returns the DevicesDeleteTcpResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/devices/tcpdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-generic",
+      "description": "Returns a list of Generic devices. Optional: page, itemsInPage, customerId (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/genericdevices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Customer ID (default is NULL)"
+        },
+        {
+          "name": "monitoringAgentId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Monitoring Agent ID (default is NULL)"
+        }
+      ]
+    },
+    {
+      "name": "devices_get-generic-genericdevice",
+      "description": "Returns a Generic device. Requires the device ID. Required: deviceId.",
+      "method": "GET",
+      "path": "/devices/genericdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-http",
+      "description": "Returns an HTTP device. Requires the device ID. Required: deviceId.",
+      "method": "GET",
+      "path": "/devices/httpdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-httpdevices",
+      "description": "Returns a list of HTTP devices. Optional: page, itemsInPage, customerId (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/httpdevices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Customer ID (default is NULL)"
+        },
+        {
+          "name": "monitoringAgentId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Monitoring Agent ID (default is NULL)"
+        }
+      ]
+    },
+    {
+      "name": "devices_get-snmpdevice",
+      "description": "Returns an SNMP device. Requires the device ID. Required: deviceId.",
+      "method": "GET",
+      "path": "/devices/snmpdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-snmpdevices",
+      "description": "Returns a list of SNMP devices. Optional: page, itemsInPage, customerId (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/snmpdevices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Customer ID (default is NULL)"
+        },
+        {
+          "name": "monitoringAgentId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Monitoring Agent ID (default is NULL)"
+        }
+      ]
+    },
+    {
+      "name": "devices_get-tcp",
+      "description": "Returns a list of TCP devices. Optional: page, itemsInPage, customerId (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/tcpdevices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Customer ID (default is NULL)"
+        },
+        {
+          "name": "monitoringAgentId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Monitoring Agent ID (default is NULL)"
+        }
+      ]
+    },
+    {
+      "name": "devices_get-tcp-tcpdevice",
+      "description": "Returns a TCP device. Requires the device ID. Required: deviceId.",
+      "method": "GET",
+      "path": "/devices/tcpdevice/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "knowledgebases_knowledge-base-get",
+      "description": "Returns a list of articles. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/knowledgebases",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "rates_delete-expense",
+      "description": "Deletes a specified expense. Requires the expense ID. Required: expenseId. Returns the RatesDeleteExpenseResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/rates/expenses/{expenseId}",
+      "params": [
+        {
+          "name": "expenseId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Expense ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rates_delete-product",
+      "description": "Deletes a specified product. Requires the product ID. Required: productId. Returns the RatesDeleteProductResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/rates/products/{productId}",
+      "params": [
+        {
+          "name": "productId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Product ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rates_expense-query-dto",
+      "description": "Returns a specified expense. Requires the expense ID. Required: expenseId.",
+      "method": "GET",
+      "path": "/rates/expenses/{expenseId}",
+      "params": [
+        {
+          "name": "expenseId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System expense ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rates_get-expenses",
+      "description": "Returns a list of expenses. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/rates/expenses",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "rates_get-products",
+      "description": "Returns a list of products. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/rates/products",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index, based on items per page (default is 1)"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 500)"
+        }
+      ]
+    },
+    {
+      "name": "rates_post-expense",
+      "description": "Creates a new expense. Requires an expense description. Required: Description. Optional: Amount, Category, SKU.",
+      "method": "POST",
+      "path": "/rates/expenses",
+      "params": [
+        {
+          "name": "Amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount"
+        },
+        {
+          "name": "Category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "SKU",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        }
+      ]
+    },
+    {
+      "name": "rates_post-product",
+      "description": "Creates a new product. Requires a product description. Required: Description. Optional: Amount, Category, SKU.",
+      "method": "POST",
+      "path": "/rates/products",
+      "params": [
+        {
+          "name": "Amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount"
+        },
+        {
+          "name": "Category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "SKU",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        }
+      ]
+    },
+    {
+      "name": "rates_product-query-dto",
+      "description": "Returns a specified product. Requires the product ID. Required: productId.",
+      "method": "GET",
+      "path": "/rates/products/{productId}",
+      "params": [
+        {
+          "name": "productId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System product ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rates_put-expense",
+      "description": "Updates a specified expense. Requires the expense ID. The following fields are editable: Description Category Amount SKU Archived. Required: expenseId. Optional: Amount, Archived, Category (plus 2 more). Returns the updated Result.",
+      "method": "PUT",
+      "path": "/rates/expenses/{expenseId}",
+      "params": [
+        {
+          "name": "expenseId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Expense ID",
+          "required": true
+        },
+        {
+          "name": "Amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount"
+        },
+        {
+          "name": "Archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "Category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "SKU",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        }
+      ]
+    },
+    {
+      "name": "rates_put-product",
+      "description": "Updates a specified product. Requires the product ID. The following fields are editable: Description Category Amount SKU Archived. Required: productId. Optional: Amount, Archived, Category (plus 2 more). Returns the updated Result.",
+      "method": "PUT",
+      "path": "/rates/products/{productId}",
+      "params": [
+        {
+          "name": "productId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Product ID",
+          "required": true
+        },
+        {
+          "name": "Amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount"
+        },
+        {
+          "name": "Archived",
+          "type": "bool",
+          "location": "body",
+          "description": "Archived"
+        },
+        {
+          "name": "Category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "SKU",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        }
+      ]
+    },
+    {
+      "name": "tickets_delete",
+      "description": "Deletes the specified ticket. Requires the ticket ID. Required: ticketId. Returns the TicketsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/tickets/{ticketId}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_get",
+      "description": "Returns a list of tickets. Optional: page, itemsInPage, customerId (plus 2 more).",
+      "method": "GET",
+      "path": "/tickets",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 50)"
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "query",
+          "description": "Customer id"
+        },
+        {
+          "name": "ticketStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Ticket status"
+        },
+        {
+          "name": "includeRelations",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional - Include ticket relation information (default is false)"
+        }
+      ]
+    },
+    {
+      "name": "tickets_get-billable-durations",
+      "description": "Returns the tickets (billable duration). Requires the ticket ID's.",
+      "method": "POST",
+      "path": "/tickets/billableduration",
+      "params": []
+    },
+    {
+      "name": "tickets_get-billable-workhours-site-duration",
+      "description": "Returns a summary of the specified tickets on-site and off-site workhours duration.",
+      "method": "POST",
+      "path": "/tickets/billableworkhourssiteduration",
+      "params": []
+    },
+    {
+      "name": "tickets_get-by-last-modified-async",
+      "description": "Returns a list of modified tickets. Optional: page, itemsInPage, date (plus 2 more).",
+      "method": "GET",
+      "path": "/tickets/lastmodified",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 50)"
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "description": "Optional - Ticket's last modified date in UTC (default is today. Recommended format ISO 8601)"
+        },
+        {
+          "name": "includeComments",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional - Include the ticket's last comments (default is false)"
+        },
+        {
+          "name": "includeRelations",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional - Include ticket relation information (default is false)"
+        }
+      ]
+    },
+    {
+      "name": "tickets_get-ticketid",
+      "description": "Returns the specified ticket. Requires the ticket ID. Required: ticketId. Optional: includeRelations.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        },
+        {
+          "name": "includeRelations",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional - Include ticket relation information (default is false)"
+        }
+      ]
+    },
+    {
+      "name": "tickets_post",
+      "description": "Creates a new ticket. Requires the enduser contact ID, title, and description. If you wish to create a new enduser for the ticket then you need to provide: Contact first name (EndUserFirstName) Contact last name (EndUserLastName) Email (EndUserEmail). Required: Description, TicketTitle. Optional: EndUserEmail, EndUserFirstName, EndUserID (plus 8 more).",
+      "method": "POST",
+      "path": "/tickets",
+      "params": [
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "EndUserEmail",
+          "type": "string",
+          "location": "body",
+          "description": "End user email"
+        },
+        {
+          "name": "EndUserFirstName",
+          "type": "string",
+          "location": "body",
+          "description": "End user first name"
+        },
+        {
+          "name": "EndUserID",
+          "type": "int",
+          "location": "body",
+          "description": "End user id"
+        },
+        {
+          "name": "EndUserLastName",
+          "type": "string",
+          "location": "body",
+          "description": "End user last name"
+        },
+        {
+          "name": "EndUserPhone",
+          "type": "string",
+          "location": "body",
+          "description": "End user phone"
+        },
+        {
+          "name": "TechnicianContactID",
+          "type": "int",
+          "location": "body",
+          "description": "Technician contact id"
+        },
+        {
+          "name": "TechnicianEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Technician email"
+        },
+        {
+          "name": "TicketImpact",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket impact"
+        },
+        {
+          "name": "TicketPriority",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket priority"
+        },
+        {
+          "name": "TicketStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket status"
+        },
+        {
+          "name": "TicketTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket title",
+          "required": true
+        },
+        {
+          "name": "TicketType",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket type"
+        }
+      ]
+    },
+    {
+      "name": "tickets_put",
+      "description": "Updates an existing ticket. Requires the ticket ID. The following fields are editable: Ticket Title (TicketTitle) Ticket Status (TicketStatus) Ticket Type (TicketType) Ticket Priority (TicketPriority) Ticket Impact (TicketImpact) Assigned Technician ID (TechnicianContactID). Required: ticketId. Optional: TechnicianContactID, TechnicianEmail, TicketImpact (plus 4 more). Returns the new Result.",
+      "method": "POST",
+      "path": "/tickets/{ticketId}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        },
+        {
+          "name": "TechnicianContactID",
+          "type": "int",
+          "location": "body",
+          "description": "Technician contact id"
+        },
+        {
+          "name": "TechnicianEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Technician email"
+        },
+        {
+          "name": "TicketImpact",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket impact"
+        },
+        {
+          "name": "TicketPriority",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket priority"
+        },
+        {
+          "name": "TicketStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket status"
+        },
+        {
+          "name": "TicketTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket title"
+        },
+        {
+          "name": "TicketType",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket type"
+        }
+      ]
+    },
+    {
+      "name": "tickets_put-ticketid",
+      "description": "Updates an existing ticket. Requires the ticket ID. The following fields are editable: Ticket Title (TicketTitle) Ticket Status (TicketStatus) Ticket Type (TicketType) Ticket Priority (TicketPriority) Ticket Impact (TicketImpact) Assigned Technician ID (TechnicianContactID). Required: ticketId. Optional: TechnicianContactID, TechnicianEmail, TicketImpact (plus 4 more). Returns the updated Result.",
+      "method": "PUT",
+      "path": "/tickets/{ticketId}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        },
+        {
+          "name": "TechnicianContactID",
+          "type": "int",
+          "location": "body",
+          "description": "Technician contact id"
+        },
+        {
+          "name": "TechnicianEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Technician email"
+        },
+        {
+          "name": "TicketImpact",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket impact"
+        },
+        {
+          "name": "TicketPriority",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket priority"
+        },
+        {
+          "name": "TicketStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket status"
+        },
+        {
+          "name": "TicketTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket title"
+        },
+        {
+          "name": "TicketType",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket type"
+        }
+      ]
+    },
+    {
+      "name": "tickets_track-status-modified",
+      "description": "Returns a list of resolved and closed tickets. Optional: page, itemsInPage, includeComments (plus 1 more).",
+      "method": "GET",
+      "path": "/tickets/statusmodified",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 50)"
+        },
+        {
+          "name": "includeComments",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional - Include FirstComment, LastEndUserComment, LastTechnicianComment (default is true)"
+        },
+        {
+          "name": "includeRelations",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional - Include ticket relation information (default is false)"
+        }
+      ]
+    },
+    {
+      "name": "tickets_attachments_ticket-get-by-ticket-id-async",
+      "description": "Returns the specified ticket's attachments as urls. Requires the ticket ID. Required: ticketId.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}/attachments",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_billableduration_ticket-get-billable-duration",
+      "description": "Returns the specified ticket (billable duration). Requires the ticket ID. Required: ticketId.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}/billableduration",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_comments_ticket-add-to-ticket-async",
+      "description": "Creates a new comment. Requires comment text and (TechnicianCommentDetails object or EnduserCommentDetails object) and optionally the comment Timestamp in UTC. If you wish to create a new contact comment for the ticket then you need to provide: EnduserCommentDetails object with existing enduser contact ID If you wish to create a new technicain internal comment for the ticket then you need to provide: TechnicianCommentDetails object with existing technician ID, and IsInternal set to true If you wish to create a new technicain comment for the ticket then you need to provide: TechnicianCommentDetails object with existing technician ID, and IsInternal set to false. Required: ticketId. Optional: CommentText, CommentTimestampUTC, EnduserCommentDetails (plus 1 more).",
+      "method": "POST",
+      "path": "/tickets/{ticketId}/comments",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        },
+        {
+          "name": "CommentText",
+          "type": "string",
+          "location": "body",
+          "description": "Comment text"
+        },
+        {
+          "name": "CommentTimestampUTC",
+          "type": "string",
+          "location": "body",
+          "description": "Comment timestamp utc"
+        },
+        {
+          "name": "enduser-comment-details-enduser-id",
+          "wire_name": "EnduserCommentDetails.EnduserId",
+          "type": "int",
+          "location": "body",
+          "description": "Enduser id"
+        },
+        {
+          "name": "technician-comment-details-is-internal",
+          "wire_name": "TechnicianCommentDetails.IsInternal",
+          "type": "bool",
+          "location": "body",
+          "description": "Is internal"
+        },
+        {
+          "name": "technician-comment-details-technician-email",
+          "wire_name": "TechnicianCommentDetails.TechnicianEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Technician email"
+        },
+        {
+          "name": "technician-comment-details-technician-id",
+          "wire_name": "TechnicianCommentDetails.TechnicianId",
+          "type": "int",
+          "location": "body",
+          "description": "Technician id"
+        }
+      ]
+    },
+    {
+      "name": "tickets_comments_ticket-get",
+      "description": "Returns the ticket comments. Requires the ticket ID. Required: ticketId. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}/comments",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 50)"
+        }
+      ]
+    },
+    {
+      "name": "tickets_nonbillableduration_ticket-get-non-billable-duration",
+      "description": "Returns the specified ticket (non-billable duration). Requires the ticket ID. Required: ticketId.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}/nonbillableduration",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_relations_ticket-add-ticket",
+      "description": "Ticket add ticket. Required: ticketId. Optional: RelatedTicketId, RelationType. Returns the new Result.",
+      "method": "POST",
+      "path": "/tickets/{ticketId}/relations",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        },
+        {
+          "name": "RelatedTicketId",
+          "type": "int",
+          "location": "body",
+          "description": "Related ticket id"
+        },
+        {
+          "name": "RelationType",
+          "type": "string",
+          "location": "body",
+          "description": "Relation type"
+        }
+      ]
+    },
+    {
+      "name": "tickets_relations_ticket-delete-ticket",
+      "description": "Ticket delete ticket. Required: ticketId, relationType. Returns the RelationsTicketDeleteTicketResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/tickets/{ticketId}/relations/{relationType}",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        },
+        {
+          "name": "relationType",
+          "type": "string",
+          "location": "path",
+          "description": "Relation type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_workhours_ticket-get",
+      "description": "Returns a record of the specified ticket's billable and non-billable workhours. Requires the ticket ID. Required: ticketId.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}/workhours",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_workhoursrecords_ticket-get-workhours-records",
+      "description": "Returns the ticket's workhours. Requires the ticket ID. Required: ticketId. Optional: page, itemsInPage.",
+      "method": "GET",
+      "path": "/tickets/{ticketId}/workhoursrecords",
+      "params": [
+        {
+          "name": "ticketId",
+          "type": "int",
+          "location": "path",
+          "description": "Required - System Ticket ID",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Page index (default is 1), based on items per page"
+        },
+        {
+          "name": "itemsInPage",
+          "type": "int",
+          "location": "query",
+          "description": "Optional - Number of items per page (default is 20, max is 50)"
+        }
+      ]
+    }
+  ]
+}

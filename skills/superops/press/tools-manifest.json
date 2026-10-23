@@ -1,0 +1,298 @@
+{
+  "api_name": "superops",
+  "base_url": "https://api.superops.ai",
+  "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {SUPEROPS_API_TOKEN}",
+    "env_vars": [
+      "SUPEROPS_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "SUPEROPS_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alerts_list",
+      "description": "List alerts. Optional: first (default: 50). Returns array of Alert.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max alerts per page"
+        }
+      ]
+    },
+    {
+      "name": "assets_get",
+      "description": "Get an asset by ID. Required: id. Returns the Asset.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Asset ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_list",
+      "description": "List assets. Optional: first (default: 50). Returns array of Asset.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max assets per page"
+        }
+      ]
+    },
+    {
+      "name": "clients_get",
+      "description": "Get a client by account ID. Required: id. Returns the Client.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Client account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_list",
+      "description": "List clients. Optional: first (default: 50). Returns array of Client.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max clients per page"
+        }
+      ]
+    },
+    {
+      "name": "contracts_list",
+      "description": "List client contracts. Optional: first (default: 50). Returns array of ClientContract.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max contracts per page"
+        }
+      ]
+    },
+    {
+      "name": "invoices_get",
+      "description": "Get an invoice by ID. Required: id. Returns the Invoice.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Invoice ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_list",
+      "description": "List invoices. Optional: first (default: 50). Returns array of Invoice.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max invoices per page"
+        }
+      ]
+    },
+    {
+      "name": "it-docs_list",
+      "description": "List IT documentation. Optional: first (default: 50). Returns array of ItDocumentation.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max IT docs per page"
+        }
+      ]
+    },
+    {
+      "name": "kb_list",
+      "description": "List knowledge base items. Optional: first (default: 50). Returns array of KbItem.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max KB items per page"
+        }
+      ]
+    },
+    {
+      "name": "service-items_list",
+      "description": "List service items. Optional: first (default: 50). Returns array of ServiceItem.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max service items per page"
+        }
+      ]
+    },
+    {
+      "name": "sites_list",
+      "description": "List client sites. Optional: first (default: 50). Returns array of ClientSite.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max sites per page"
+        }
+      ]
+    },
+    {
+      "name": "tasks_get",
+      "description": "Get a task by ID. Required: id. Returns the Task.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Task ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_list",
+      "description": "List tasks. Optional: first (default: 50). Returns array of Task.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max tasks per page"
+        }
+      ]
+    },
+    {
+      "name": "technicians_list",
+      "description": "List technicians. Optional: first (default: 50). Returns array of Technician.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max technicians per page"
+        }
+      ]
+    },
+    {
+      "name": "tickets_get",
+      "description": "Get a ticket by display ID. Required: id. Returns the Ticket.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Ticket ID (ticketId)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_list",
+      "description": "List tickets. Optional: first (default: 50). Returns array of Ticket.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max tickets per page"
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List client users. Optional: first (default: 50). Returns array of ClientUser.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max users per page"
+        }
+      ]
+    },
+    {
+      "name": "worklogs_list",
+      "description": "List worklog entries. Optional: first (default: 50). Returns array of WorklogEntry.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Max worklog entries per page"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "api_name": "aws-billing",
+  "base_url": "https://ce.us-east-1.amazonaws.com",
+  "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown — and cache it so you don't pay per Cost Explorer call.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "none"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_get",
+      "description": "Get one synced AWS account. Required: account_id. Returns the Account.",
+      "method": "GET",
+      "path": "/accounts/{account_id}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "12-digit AWS account ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_list",
+      "description": "List synced AWS accounts in the organization. Returns array of Account.",
+      "method": "GET",
+      "path": "/accounts",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "costs_list",
+      "description": "List synced cost lines. Optional: service, account_id, granularity. Returns array of CostLine.",
+      "method": "GET",
+      "path": "/costs",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "service",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by AWS service name"
+        },
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by 12-digit account ID"
+        },
+        {
+          "name": "granularity",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by granularity"
+        }
+      ]
+    },
+    {
+      "name": "forecasts_list",
+      "description": "List synced cost forecasts. Returns array of Forecast.",
+      "method": "GET",
+      "path": "/forecasts",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "inventory_list",
+      "description": "List synced resources with estimated monthly cost and waste. Optional: type, account_id. Returns array of InventoryResource.",
+      "method": "GET",
+      "path": "/inventory",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by resource type (ec2, ebs, snapshot, eip, s3)"
+        },
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by 12-digit account ID"
+        }
+      ]
+    }
+  ]
+}

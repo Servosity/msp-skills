@@ -49,7 +49,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/325",
         "verified_by": "@asterisk79 (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/325"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/325",
+        "verified_version": "0.1.4",
+        "verified_cli_hash": "sha256:fff2a332bd9678068e8f72bd517af96bcd834338200c2fa3549f873ba80a5b09",
+        "verified_basis": "reported"
       }
     },
     "action1": {
@@ -223,7 +226,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/pull/271",
         "verified_by": "@geekbrownbear (Bearium Networks, MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/pull/271"
+        "issue_url": "https://github.com/Servosity/msp-skills/pull/271",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "aws-billing": {
@@ -270,7 +276,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
         "verified_by": "@Xenith-B (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
+        "verified_version": "0.2.8",
+        "verified_cli_hash": "sha256:ae308248c1b7a6c6515c4afdfaa422f2c602788aa5072f53cb0855115e223157",
+        "verified_basis": "reported"
       }
     },
     "backup-radar": {
@@ -398,7 +407,10 @@
         "source": "circle",
         "evidence": "Reported in the Compounding Teams Community Discussion (https://compoundingteams.com/): Abhi Saini (Bearium Networks) ran cipp-cli against a live CIPP tenant on 2026-08-13 - tenant enumeration returned the fleet and posture fan-out ('fanout --endpoint <x> --all-tenants --save') pulled good data.",
         "verified_by": "Abhi Saini, Bearium Networks (MSP)",
-        "issue_url": "https://compoundingteams.com/"
+        "issue_url": "https://compoundingteams.com/",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "cisco-duo": {
@@ -638,7 +650,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/139",
         "verified_by": "@AvlCompCo (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/139"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/139",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "crowdstrike": {
@@ -687,7 +702,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/329",
         "verified_by": null,
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/329"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/329",
+        "verified_version": "0.1.0",
+        "verified_cli_hash": "sha256:e514d47e0987ad022c3eded8f7b8d418f871057619c50b7d0f93c7be55ace44a",
+        "verified_basis": "reported"
       }
     },
     "datto-bcdr": {
@@ -712,7 +730,10 @@
         "source": "circle",
         "evidence": "Reported in the Compounding Teams Community Discussion (https://compoundingteams.com/): Abhi Saini (Bearium Networks) connected datto-bcdr-cli to a live Datto BCDR tenant successfully on 2026-08-13.",
         "verified_by": "Abhi Saini, Bearium Networks (MSP)",
-        "issue_url": "https://compoundingteams.com/"
+        "issue_url": "https://compoundingteams.com/",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "datto-rmm": {
@@ -878,7 +899,10 @@
         "source": "self",
         "evidence": "Damien: verified live (2026-06-05)",
         "verified_by": "Servosity (maintainer)",
-        "issue_url": null
+        "issue_url": null,
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       },
       "category": "PSA",
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
@@ -908,7 +932,10 @@
         "source": "self",
         "evidence": "Damien: verified live against the Servosity HubSpot portal (2026-06-05)",
         "verified_by": "Servosity (maintainer)",
-        "issue_url": null
+        "issue_url": null,
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "hudu": {
@@ -933,7 +960,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/183",
         "verified_by": "@Xenith-B (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/183"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/183",
+        "verified_version": "0.1.5",
+        "verified_cli_hash": "sha256:f0804ed83856f0cc2e5255d3103302d5b0b818ce71d4b56b92befac114ccb032",
+        "verified_basis": "reported"
       }
     },
     "huntress": {
@@ -958,7 +988,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/144",
         "verified_by": "@Xenith-B (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/144"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/144",
+        "verified_version": "0.1.0",
+        "verified_cli_hash": "sha256:cabbf61ddeb69ab20e999dc45ce8d720fb9ae26b15ff74131c986f3080c50f3c",
+        "verified_basis": "reported"
       }
     },
     "immybot": {
@@ -984,7 +1017,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/pull/276",
         "verified_by": "@geekbrownbear (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/pull/276"
+        "issue_url": "https://github.com/Servosity/msp-skills/pull/276",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "itglue": {
@@ -1301,7 +1337,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/145",
         "verified_by": "@Xenith-B (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/145"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/145",
+        "verified_version": "0.1.4",
+        "verified_cli_hash": "sha256:bda419018cedb7efd8312c5e16f43245a7ccfb2b4ef034eeaaabf19397c444fb",
+        "verified_basis": "reported"
       }
     },
     "pagerduty": {
@@ -1472,7 +1511,10 @@
         "status": "live-verified",
         "date": "2026-06-15",
         "source": "self",
-        "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync across all 8 resources matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
+        "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync across all 8 resources matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env.",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "quotewerks": {
@@ -1709,7 +1751,10 @@
         "status": "live-verified",
         "date": "2026-06-16",
         "source": "github",
-        "evidence": "https://github.com/Servosity/msp-skills/issues/116"
+        "evidence": "https://github.com/Servosity/msp-skills/issues/116",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "servosity": {
@@ -1849,7 +1894,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/140",
         "verified_by": "@AvlCompCo (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/140"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/140",
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "syncro": {
@@ -1970,7 +2018,10 @@
         "source": "github",
         "evidence": "https://github.com/Servosity/msp-skills/issues/208",
         "verified_by": "@geekbrownbear (MSP)",
-        "issue_url": "https://github.com/Servosity/msp-skills/issues/208"
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/208",
+        "verified_version": "0.2.0",
+        "verified_cli_hash": "sha256:5d8c9d496a52e240cb9c6a1659015333f907d11d4b5bf24114fcd27ce9b68b04",
+        "verified_basis": "reported"
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     },
@@ -2065,7 +2116,10 @@
         "source": "self",
         "evidence": "Damien: verified live (2026-08-16)",
         "verified_by": "Servosity (maintainer)",
-        "issue_url": null
+        "issue_url": null,
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     },
     "xero": {
@@ -2115,7 +2169,10 @@
         "source": "self",
         "evidence": "Damien: verified live (2026-08-16)",
         "verified_by": "Servosity (maintainer)",
-        "issue_url": null
+        "issue_url": null,
+        "verified_version": null,
+        "verified_cli_hash": null,
+        "verified_basis": "unknown"
       }
     }
   }

@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:26:50.749969Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "crowdstrike",
+  "display_name": "CrowdStrike Falcon",
+  "cli_name": "crowdstrike-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:f799369bec15a27974d91a45354af1c5d2db9a2411ec64ddd4e9b0cbadf42ca3",
+  "run_id": "20260605-225928",
+  "category": "monitoring",
+  "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once — something no other Falcon tool (including the official MCP server) does.",
+  "mcp_binary": "crowdstrike-pp-mcp",
+  "mcp_tool_count": 73,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "oauth2",
+  "auth_env_vars": [
+    "FALCON_CLIENT_ID",
+    "FALCON_CLIENT_SECRET"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "FALCON_CLIENT_ID",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": false,
+      "description": "CrowdStrike API client ID (Falcon console \u003e API Clients \u0026 Keys)."
+    },
+    {
+      "name": "FALCON_CLIENT_SECRET",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": true,
+      "description": "CrowdStrike API client secret. Shown once at client creation."
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant fleet sync",
+      "command": "fleet sync",
+      "description": "Pull hosts, alerts, vulnerabilities, policies, and the Flight Control fabric from every child tenant into one local store keyed by CID. Requires a parent-CID API client with Flight Control (MSSP) scope; without it, sync degrades to the single authenticated CID."
+    },
+    {
+      "name": "MSP tenant scorecard",
+      "command": "fleet scorecard",
+      "description": "One posture board across all tenants: host count, sensor coverage, open critical alerts, critical vulns, and policy posture per CID."
+    },
+    {
+      "name": "Fleet vulnerability rollup",
+      "command": "fleet vulns",
+      "description": "Rank and filter Spotlight vulnerabilities across every tenant at once, by severity or CVE."
+    },
+    {
+      "name": "Stale-sensor detection",
+      "command": "fleet stale",
+      "description": "Find hosts across all tenants whose sensor has not checked in within N days."
+    },
+    {
+      "name": "Prevention-policy drift",
+      "command": "fleet policy-drift",
+      "description": "Diff each tenant's prevention policy settings against a baseline CID to surface under-protected tenants."
+    },
+    {
+      "name": "Unified alert triage queue",
+      "command": "fleet alerts",
+      "description": "One severity-sorted new-alert queue spanning all tenants, from the local store."
+    },
+    {
+      "name": "Offline fleet search",
+      "command": "fleet search",
+      "description": "Full-text search across synced hosts, alerts, vulnerabilities, and policies across all tenants, instantly and offline."
+    },
+    {
+      "name": "Tenant fabric map",
+      "command": "fleet tenants",
+      "description": "See the whole Flight Control fabric - every child CID, its CID groups, user groups, and role grants - as one offline roster."
+    },
+    {
+      "name": "Vuln-to-host remediation worklist",
+      "command": "fleet remediate",
+      "description": "Group fleet-wide exposure by remediation action - which single fix clears the most hosts and tenants."
+    },
+    {
+      "name": "Tenant exposure trend",
+      "command": "fleet trend",
+      "description": "See which tenants got worse since the last sync - week-over-week deltas in open critical alerts and critical vulnerabilities."
+    }
+  ]
+}

@@ -1,0 +1,371 @@
+{
+  "api_name": "connectwise-control",
+  "base_url": "https://your-instance.screenconnect.com",
+  "description": "Unofficial OpenAPI 3 description of the ConnectWise Control (ScreenConnect) instance REST surface, authored from the public ScreenConnect documentation and the community PowerShell wrapper github.com/christaylorcodes/ConnectWiseControlAPI.\nConnectWise Control has no first-party OpenAPI document. Its instance exposes RPC-style endpoints under `Services/\u003cService\u003e.ashx/\u003cMethod\u003e` that accept and return JSON. This spec models those endpoints with typed request/response schemas for a usable CLI; each operation's description records the exact JSON wire shape the live `.ashx` endpoint expects (most take a positional JSON array), since the documented endpoints are positional rather than named-field.\nAuthentication is HTTP Basic with an instance user's credentials. Mutating calls additionally require an `x-anti-forgery-token` header that the instance front page emits; reads generally work with Basic auth alone. The base URL is per-instance (your ScreenConnect host).",
+  "mcp_ready": "full",
+  "http_transport": "browser-chrome-h2",
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {CONNECTWISE_CONTROL_USERNAME}:{CONNECTWISE_CONTROL_PASSWORD}",
+    "env_vars": [
+      "CONNECTWISE_CONTROL_USERNAME",
+      "CONNECTWISE_CONTROL_PASSWORD"
+    ],
+    "env_var_specs": [
+      {
+        "name": "CONNECTWISE_CONTROL_USERNAME",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "inferred": true
+      },
+      {
+        "name": "CONNECTWISE_CONTROL_PASSWORD",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "audit_get-info",
+      "description": "Returns metadata about the audit subsystem (available event types and retention). Wire format: empty positional array `[]`.",
+      "method": "POST",
+      "path": "/Services/AuditService.ashx/GetAuditInfo",
+      "params": []
+    },
+    {
+      "name": "audit_query-log",
+      "description": "Queries audit-log records by session, time window, and event type. Wire format: a positional array carrying the query filter fields. Optional: endDate, eventTypes, includeSessionCaptures (default: false) (plus 3 more). Returns array of AuditEntry.",
+      "method": "POST",
+      "path": "/Services/AuditService.ashx/QueryAuditLog",
+      "params": [
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "eventTypes",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Event types"
+        },
+        {
+          "name": "includeSessionCaptures",
+          "type": "bool",
+          "location": "body",
+          "description": "Include session captures"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "body",
+          "description": "Limit"
+        },
+        {
+          "name": "sessionName",
+          "type": "string",
+          "location": "body",
+          "description": "Restrict to a session name."
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date"
+        }
+      ]
+    },
+    {
+      "name": "security_delete-user",
+      "description": "Deletes an instance user. Requires the `x-anti-forgery-token` header. Wire format: positional array `['\u003cuserName\u003e']`. Required: userName. Returns the new Acknowledgement.",
+      "method": "POST",
+      "path": "/Services/SecurityService.ashx/DeleteUser",
+      "params": [
+        {
+          "name": "userName",
+          "type": "string",
+          "location": "body",
+          "description": "User name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "security_get-configuration",
+      "description": "Returns the instance security configuration, including users and roles. Wire format: empty positional array `[]`.",
+      "method": "POST",
+      "path": "/Services/SecurityService.ashx/GetSecurityConfigurationInfo",
+      "params": []
+    },
+    {
+      "name": "security_save-user",
+      "description": "Creates a new instance user or updates an existing one. Requires the `x-anti-forgery-token` header. Wire format: a positional array carrying the user record fields. Required: userName. Optional: displayName, email, password (plus 1 more). Returns array of string.",
+      "method": "POST",
+      "path": "/Services/SecurityService.ashx/SaveUser",
+      "params": [
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "Initial or new password (write-only)."
+        },
+        {
+          "name": "securityGroups",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Security groups"
+        },
+        {
+          "name": "userName",
+          "type": "string",
+          "location": "body",
+          "description": "User name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "session_groups_list",
+      "description": "Returns all session groups configured on the instance.",
+      "method": "GET",
+      "path": "/Services/SessionGroupService.ashx/session-groups",
+      "params": []
+    },
+    {
+      "name": "sessions_add-event-to",
+      "description": "Queues a session event (such as Wake-on-LAN) against one or more sessions. Wire format: positional array `['\u003cgroup\u003e', ['\u003csessionID\u003e'], \u003csessionEventType\u003e, '']`. Required: eventType, sessionID. Optional: data, group (default: All Machines). Returns the new Acknowledgement.",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/AddEventToSessions",
+      "params": [
+        {
+          "name": "data",
+          "type": "string",
+          "location": "body",
+          "description": "Optional event data."
+        },
+        {
+          "name": "eventType",
+          "type": "int",
+          "location": "body",
+          "description": "Numeric session event type to queue.",
+          "required": true
+        },
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group"
+        },
+        {
+          "name": "sessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Session id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sessions_get-access-token",
+      "description": "Issues a one-time access token/URL to join a session. Wire format: positional array `['\u003cgroup\u003e', '\u003csessionID\u003e']`. Required: sessionID. Optional: group (default: All Machines). Returns the new SessionsGetAccessTokenResponse.",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/GetAccessToken",
+      "params": [
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group"
+        },
+        {
+          "name": "sessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Session id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sessions_get-detail",
+      "description": "Returns full detail (connections and recent events) for one session. Wire format: positional array `['\u003cgroup\u003e', '\u003csessionID\u003e']`. Required: sessionID. Optional: group (default: All Machines).",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/GetSessionDetails",
+      "params": [
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group"
+        },
+        {
+          "name": "sessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Session id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sessions_list",
+      "description": "Returns the live session list for a session type and group. Wire format: the endpoint expects a positional JSON array `[{ 'HostSessionInfo': { 'sessionType': \u003c0|1|2\u003e, 'sessionGroupPathParts': ['\u003cgroup\u003e'], 'filter': '\u003csearch\u003e', 'findSessionID': '\u003cguid\u003e', 'sessionLimit': \u003cn\u003e }, 'ActionCenterInfo': {} }, 0]` and returns sessions under `ResponseInfoMap.HostSessionInfo.Sessions`. Required: sessionType. Optional: filter, findSessionID, group (default: All Machines) (plus 1 more).",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/GetLiveData",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search filter."
+        },
+        {
+          "name": "findSessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Restrict to a single session id."
+        },
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Session group name (sessionGroupPathParts)."
+        },
+        {
+          "name": "sessionLimit",
+          "type": "int",
+          "location": "body",
+          "description": "Maximum number of sessions to return."
+        },
+        {
+          "name": "sessionType",
+          "type": "string",
+          "location": "body",
+          "description": "Session type to list.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sessions_run-command",
+      "description": "Queues a command or control event on a session. Used to run a shell or PowerShell command on a guest, or to end a session. Wire format: positional array `[['\u003cgroup\u003e'], [ \u003ccommandObject\u003e ]]` where the command object is an event such as `{ 'SessionID': '\u003cguid\u003e', 'EventType': 44, 'Data': '\u003ccommand\u003e' }` (EventType 44 = QueuedCommand). Running a command requires the `x-anti-forgery-token` header. Required: sessionID. Optional: command, group (default: All Machines), powershell (default: false) (plus 1 more). Returns the new Acknowledgement.",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/AddSessionEvents",
+      "params": [
+        {
+          "name": "command",
+          "type": "string",
+          "location": "body",
+          "description": "Command text to run on the guest endpoint."
+        },
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group"
+        },
+        {
+          "name": "powershell",
+          "type": "bool",
+          "location": "body",
+          "description": "Wrap the command for PowerShell execution."
+        },
+        {
+          "name": "sessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Session id",
+          "required": true
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "location": "body",
+          "description": "Command timeout in milliseconds."
+        }
+      ]
+    },
+    {
+      "name": "sessions_update-custom-property",
+      "description": "Sets one custom property value on a session. Wire format: positional array `['\u003cgroup\u003e', '\u003csessionID\u003e', \u003cpropertyIndex\u003e, '\u003cvalue\u003e']`. Requires the `x-anti-forgery-token` header. Required: propertyIndex, sessionID, value. Optional: group (default: All Machines). Returns the new Acknowledgement.",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/UpdateSessionCustomPropertyValue",
+      "params": [
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group"
+        },
+        {
+          "name": "propertyIndex",
+          "type": "int",
+          "location": "body",
+          "description": "Zero-based index of the custom property to set.",
+          "required": true
+        },
+        {
+          "name": "sessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Session id",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Value",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sessions_update-name",
+      "description": "Renames a session. Wire format: positional array `['\u003cgroup\u003e', '\u003csessionID\u003e', '\u003cnewName\u003e']`. Requires the `x-anti-forgery-token` header. Required: newName, sessionID. Optional: group (default: All Machines). Returns the new Acknowledgement.",
+      "method": "POST",
+      "path": "/Services/PageService.ashx/UpdateSessionName",
+      "params": [
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group"
+        },
+        {
+          "name": "newName",
+          "type": "string",
+          "location": "body",
+          "description": "New name",
+          "required": true
+        },
+        {
+          "name": "sessionID",
+          "type": "string",
+          "location": "body",
+          "description": "Session id",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

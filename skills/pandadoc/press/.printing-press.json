@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:17:44.74806Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "pandadoc",
+  "display_name": "PandaDoc",
+  "cli_name": "pandadoc-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:5c23e9b9d531c3babd5fdfeb5cac4942e0152b6af931f207e8df2ea1862ac696",
+  "run_id": "20260613-041539",
+  "category": "sales-and-crm",
+  "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
+  "mcp_binary": "pandadoc-pp-mcp",
+  "mcp_tool_count": 124,
+  "mcp_ready": "full",
+  "api_version": "7.30.1",
+  "auth_type": "api_key",
+  "auth_preference": "apiKey",
+  "auth_env_vars": [
+    "PANDADOC_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Document pipeline funnel",
+      "command": "pipeline",
+      "description": "See your whole document funnel at a glance \u2014 how many are in draft, sent, viewed, completed, or declined."
+    },
+    {
+      "name": "Stalled documents",
+      "command": "stalled",
+      "description": "Find documents that were sent but never completed within N days \u2014 the deals quietly dying."
+    },
+    {
+      "name": "Status aging report",
+      "command": "aging",
+      "description": "Show how long each document has sat in its current status, bucketed by age."
+    },
+    {
+      "name": "Recipient engagement",
+      "command": "engagement",
+      "description": "Rank recipients by how often they open and sign vs. let documents sit unread."
+    },
+    {
+      "name": "Template velocity",
+      "command": "template-stats",
+      "description": "Per-template document counts and completion rates \u2014 which templates actually close."
+    },
+    {
+      "name": "Open quote value",
+      "command": "value",
+      "description": "Sum the quote/pricing totals across all open (non-completed) documents \u2014 your in-flight dollar value."
+    },
+    {
+      "name": "Since-window changes",
+      "command": "since",
+      "description": "Show what changed in the last N hours \u2014 new documents and status transitions."
+    },
+    {
+      "name": "Webhook coverage audit",
+      "command": "webhook-coverage",
+      "description": "Compare your active webhook subscriptions against the full event catalog to find gaps."
+    },
+    {
+      "name": "Cold-client report",
+      "command": "cold-clients",
+      "description": "Rank clients by how long since they last signed anything \u2014 spot the accounts going quiet."
+    },
+    {
+      "name": "Pipeline value forecast",
+      "command": "forecast",
+      "description": "Bucket open quote dollars into healthy, aging, and stalled tiers by deal age."
+    },
+    {
+      "name": "Follow-up queue",
+      "command": "followup",
+      "description": "A ranked nudge worklist: stalled documents joined to recipient emails and days-since-sent, ready for outreach."
+    },
+    {
+      "name": "Reminder gaps",
+      "command": "reminder-gaps",
+      "description": "Find sent-but-incomplete documents that have no active auto-reminder set \u2014 queries the live API per document (needs PANDADOC_API_KEY)."
+    }
+  ],
+  "scorecard": {
+    "api_name": "pandadoc",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 8,
+      "mcp_description_quality": 0,
+      "mcp_token_efficiency": 0,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 10,
+      "mcp_surface_strategy": 10,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 10,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 10,
+      "data_pipeline_integrity": 10,
+      "sync_correctness": 10,
+      "type_fidelity": 5,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 97,
+      "percentage": 97
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 124 tools (0 public, 124 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_description_quality",
+      "mcp_token_efficiency",
+      "live_api_verification"
+    ]
+  }
+}

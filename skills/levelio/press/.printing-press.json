@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:23:18.887294Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "levelio",
+  "display_name": "Level",
+  "cli_name": "levelio-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:8b94dfd8cba311e1cabe910368cca7a890e6565c4413f7bbff1b7b533688c331",
+  "run_id": "20260606-173908",
+  "category": "monitoring",
+  "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
+  "mcp_binary": "levelio-pp-mcp",
+  "mcp_tool_count": 32,
+  "mcp_ready": "full",
+  "api_version": "v2",
+  "auth_type": "bearer_token",
+  "auth_preference": "api_key",
+  "auth_env_vars": [
+    "LEVEL_API_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "At-risk device ranking",
+      "command": "at-risk",
+      "description": "Rank the worst endpoints across every axis at once — active alerts, pending patches, low security score, and how long they have been dark — as a single weighted risk score."
+    },
+    {
+      "name": "Patch posture rollup",
+      "command": "patch-posture",
+      "description": "Aggregate OS updates across the fleet — available vs installed, by category and device, including patches that errored — so you can see exposure at a glance."
+    },
+    {
+      "name": "Fleet inventory rollup",
+      "command": "fleet",
+      "description": "One-screen inventory rollup, cross-tabbed any way you slice it — by OS, platform, group, or tag — with online and maintenance counts."
+    },
+    {
+      "name": "Alert triage clustering",
+      "command": "alert-triage",
+      "description": "Cluster unresolved alerts by group and severity with device context, so systemic fires surface above one-off noise."
+    },
+    {
+      "name": "Stale / dark devices",
+      "command": "stale",
+      "description": "List devices that have gone dark — not seen in N days — with an option to exclude machines intentionally in maintenance mode."
+    },
+    {
+      "name": "Client posture scorecard",
+      "command": "client-scorecard",
+      "description": "One row per top-level group (client) with device count, online %, open critical alerts, average security score, stale count, and patch exposure — the QBR-ready per-client rollup."
+    },
+    {
+      "name": "Custom-field coverage",
+      "command": "cf-coverage",
+      "description": "Audit which devices, groups, or the org are missing a custom-field value — the absence the UI can't show — via an anti-join."
+    },
+    {
+      "name": "Security posture",
+      "command": "security-posture",
+      "description": "Show the fleet security-score distribution and everyone under a threshold, optionally rolled up by group."
+    },
+    {
+      "name": "Group tree with rolled health",
+      "command": "group-tree",
+      "description": "Render the Level group hierarchy with each node showing its real rolled-up health — descendant device, alert, stale, and score counts."
+    },
+    {
+      "name": "Fleet drift since window",
+      "command": "since",
+      "description": "Show what changed in a recent time window — new alerts, newly published updates, and devices last seen — so you can answer 'what happened since I last looked'."
+    },
+    {
+      "name": "Alert recurrence ranking",
+      "command": "alert-recurrence",
+      "description": "Rank which alert names fire most often across the fleet and on how many distinct devices, so chronically noisy monitors surface above one-off fires."
+    },
+    {
+      "name": "Reboot-due devices",
+      "command": "reboot-due",
+      "description": "List devices waiting on a reboot to finalize installed patches — and how long they have been waiting — joined with online and maintenance state."
+    },
+    {
+      "name": "Tag hygiene audit",
+      "command": "tag-audit",
+      "description": "Surface tag-data drift: devices with zero tags, orphan tags applied to nothing, and duplicate tag names that fragment the fleet."
+    }
+  ]
+}

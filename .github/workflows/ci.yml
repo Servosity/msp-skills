@@ -164,6 +164,15 @@ jobs:
         #                       tools/maintainer/verify_all.sh. They run locally
         #                       before a PR; the self-tests here keep them from
         #                       rotting between uses.
+        #   check_press_metadata.py, check_registry_state.py
+        #                     - the press/ folder rules (an extra file such as a
+        #                       live dogfood transcript, a stale folder after a
+        #                       reprint, a spec that is not the one the press
+        #                       read, a personal path, a key block, an empty
+        #                       folder each fail; a consistent folder passes),
+        #                       the press floor's version order, and the badge
+        #                       binding (a hash that is not the tag's code, a
+        #                       badge with no binding, each fail).
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
@@ -179,6 +188,8 @@ jobs:
           # The recurring-bug-class harness: each class fires on a broken shape
           # and is silent on a healthy one (both directions, offline, no build).
           python3 tools/maintainer/class_harness.py --self-test
+          python3 tools/maintainer/check_press_metadata.py --self-test
+          python3 tools/maintainer/check_registry_state.py --self-test
 
       - name: Merge and release tool self-tests (#422)
         run: |
@@ -325,6 +336,22 @@ jobs:
           # it; if it is still unreadable the check fails closed (exit 2).
           if [ -n "${BASE:-}" ]; then git fetch -q origin "$BASE" 2>/dev/null || true; fi
           python3 tools/maintainer/check_registry_state.py ${BASE:+--base "$BASE"}
+
+      - name: Press metadata beside each connector, and the press floor for new ones
+        # skills/<dir>/press/ holds the press's own provenance, tools manifest
+        # and spec (onboard.py vendors it beside cli/). Where one exists it
+        # must agree with manifest.json and carry nothing secret-looking; a
+        # connector without one is reported in the coverage line, not failed.
+        # With a base, a connector this change ADDS must have been printed at
+        # or above tools/maintainer/press_floor.json (upstream's own declared
+        # minimum); the floor and its exemptions are read from the base too,
+        # so a PR cannot lower its own bar. Existing connectors are untouched.
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BASE:-}" ]; then git fetch -q origin "$BASE" 2>/dev/null || true; fi
+          python3 tools/maintainer/check_press_metadata.py ${BASE:+--base "$BASE"}
 
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'

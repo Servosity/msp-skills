@@ -1,0 +1,2289 @@
+{
+  "api_name": "connectwise-rmm",
+  "base_url": "https://openapi.service.itsupport247.net",
+  "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "CONNECTWISE_RMM_CLIENT_ID",
+      "CONNECTWISE_RMM_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "CONNECTWISE_RMM_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "CONNECTWISE_RMM_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://openapi.service.itsupport247.net"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "companies_get-company",
+      "description": "Get a company by ID. Scope: platform.companies.read. Required: companyId. Returns array of CompaniesGetCompanyItem.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/companies/{companyId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_list",
+      "description": "List all companies (clients). Scope: platform.companies.read. Returns array of Company.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/companies",
+      "params": []
+    },
+    {
+      "name": "custom_fields_get-company",
+      "description": "Get custom field values of a company. Scope: platform.custom_fields_values.read. Required: companyId. Optional: attributeIDs, withDefaults, originType (plus 1 more). Returns array of AttributeValue.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/companies/{companyId}/custom-fields",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the company",
+          "required": true
+        },
+        {
+          "name": "attributeIDs",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of attribute IDs"
+        },
+        {
+          "name": "withDefaults",
+          "type": "bool",
+          "location": "query",
+          "description": "Include default values if true"
+        },
+        {
+          "name": "originType",
+          "type": "string",
+          "location": "query",
+          "description": "Origin type for the attribute definitions. Possible values: 'partner', 'vendor'."
+        },
+        {
+          "name": "ownerID",
+          "type": "string",
+          "location": "query",
+          "description": "Unique identifier for the owner"
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_get-definition",
+      "description": "Get one custom field definition. Scope: platform.custom_fields_definitions.read. Required: definitionID. Returns array of string.",
+      "method": "GET",
+      "path": "/api/platform/v1/custom-field/definitions/{definitionID}",
+      "params": [
+        {
+          "name": "definitionID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the definition",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_get-endpoint",
+      "description": "Get custom field values of an endpoint. Scope: platform.custom_fields_values.read. Required: endpointID. Optional: attributeIDs, withDefaults, originType (plus 1 more). Returns array of AttributeValue.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/endpoints/{endpointID}/custom-fields",
+      "params": [
+        {
+          "name": "endpointID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the endpoint",
+          "required": true
+        },
+        {
+          "name": "attributeIDs",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of attribute IDs"
+        },
+        {
+          "name": "withDefaults",
+          "type": "bool",
+          "location": "query",
+          "description": "Include default values if true"
+        },
+        {
+          "name": "originType",
+          "type": "string",
+          "location": "query",
+          "description": "Origin type for the attribute definitions. Possible values: 'partner', 'vendor'."
+        },
+        {
+          "name": "ownerID",
+          "type": "string",
+          "location": "query",
+          "description": "Unique identifier for the owner"
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_get-site",
+      "description": "Get custom field values of a site. Scope: platform.custom_fields_values.read. Required: siteId. Optional: attributeIDs, withDefaults, originType (plus 1 more). Returns array of AttributeValue.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/sites/{siteId}/custom-fields",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the site",
+          "required": true
+        },
+        {
+          "name": "attributeIDs",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of attribute IDs"
+        },
+        {
+          "name": "withDefaults",
+          "type": "bool",
+          "location": "query",
+          "description": "Include default values if true"
+        },
+        {
+          "name": "originType",
+          "type": "string",
+          "location": "query",
+          "description": "Origin type for the attribute definitions. Possible values: 'partner', 'vendor'."
+        },
+        {
+          "name": "ownerID",
+          "type": "string",
+          "location": "query",
+          "description": "Unique identifier for the owner"
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_list-definitions",
+      "description": "List custom field definitions. Scope: platform.custom_fields_definitions.read. Optional: entityType, originType. Returns array of CustomFieldsListDefinitionsItem.",
+      "method": "GET",
+      "path": "/api/platform/v1/custom-field/definitions",
+      "params": [
+        {
+          "name": "entityType",
+          "type": "string",
+          "location": "query",
+          "description": "Entity type for which the attribute definitions are to be retrieved. Possible values: 'device', 'company', 'site'."
+        },
+        {
+          "name": "originType",
+          "type": "string",
+          "location": "query",
+          "description": "Origin type for the attribute definitions. Possible values: 'partner', 'vendor'."
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_set-company",
+      "description": "Set custom field values on a company. Scope: platform.custom_fields_values.write. Required: companyId. Returns array of AttributeValue.",
+      "method": "PUT",
+      "path": "/api/platform/v1/company/companies/{companyId}/custom-fields",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the company",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_set-endpoint",
+      "description": "Set custom field values on an endpoint. Scope: platform.custom_fields_values.write. Required: endpointID. Returns array of AttributeValue.",
+      "method": "PUT",
+      "path": "/api/platform/v1/device/endpoints/{endpointID}/custom-fields",
+      "params": [
+        {
+          "name": "endpointID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the endpoint",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_set-site",
+      "description": "Set custom field values on a site. Scope: platform.custom_fields_values.write. Required: siteId. Returns array of AttributeValue.",
+      "method": "PUT",
+      "path": "/api/platform/v1/company/sites/{siteId}/custom-fields",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the site",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_groups_list",
+      "description": "List all device groups (static, dynamic, predefined). Scope: platform.deviceGroups.read. Returns array of DeviceGroupWithRootBlockInVersionedPayload.",
+      "method": "GET",
+      "path": "/api/platform/v1/device-groups",
+      "params": []
+    },
+    {
+      "name": "endpoints_create-agent-install-token",
+      "description": "Get the agent install token for a company and site. Exposed API for Generate Token. Body {clientID, siteID}; returns {token}. The token maps a newly installed agent to that company and site. Scope: platform.agent-token.read (inferred from the published scope list; the operation does not state it). Required: clientID, siteID.",
+      "method": "POST",
+      "path": "/api/platform/v1/device/token",
+      "params": [
+        {
+          "name": "clientID",
+          "type": "string",
+          "location": "body",
+          "description": "Company (client) ID that owns the site",
+          "required": true
+        },
+        {
+          "name": "siteID",
+          "type": "string",
+          "location": "body",
+          "description": "Site ID the newly installed agent joins",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get",
+      "description": "Get full details (hardware, OS, agent) of one endpoint. Scope: platform.asset.read. Required: endpointID.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/endpoints/{endpointID}",
+      "params": [
+        {
+          "name": "endpointID",
+          "type": "string",
+          "location": "path",
+          "description": "endpoint id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-cpu-usage",
+      "description": "Get the latest CPU usage of an endpoint. Latest CPU usage. Required scope is not stated in the public sources. Required: endpointId. Returns the EndpointsGetCpuUsageResponse.",
+      "method": "GET",
+      "path": "/api/platform/v2/device/endpoints/{endpointId}/cpu-usage",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Endpoint ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-disk-usage",
+      "description": "Get the latest disk usage of an endpoint. Latest disk usage. Required scope is not stated in the public sources. Required: endpointId. Returns the EndpointsGetDiskUsageResponse.",
+      "method": "GET",
+      "path": "/api/platform/v2/device/endpoints/{endpointId}/disk-usage",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Endpoint ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-heartbeat",
+      "description": "Check agent availability (online/offline, last seen) for up to 400 endpoints. Agent Last Seen API. Query resourceType=endpoints and resources=\u003ccomma-separated IDs\u003e (max 400 endpoints). Returns {status: success|partial_success, successfulRecords: [{clientID, siteID, endpoints: [{endpointID, DcDateTimeUTC, Availability}]}], failedRecords: [{resourceType, resource, error}]}. Rate limit 40 requests per 5 minutes. Scope: platform.devices.read. Required: resourceType (default: endpoints), resources. Optional: offlineLookback, availability.",
+      "method": "GET",
+      "path": "/api/platform/v2/device/endpoints/heartbeat",
+      "params": [
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "query",
+          "description": "Type of the IDs in resources: endpoints, sites or clients.",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated IDs (max 400 endpoints).",
+          "required": true
+        },
+        {
+          "name": "offlineLookback",
+          "type": "string",
+          "location": "query",
+          "description": "Lookback window for offline detection."
+        },
+        {
+          "name": "availability",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by availability: true or false."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-memory-usage",
+      "description": "Get the latest memory usage of an endpoint. Latest memory usage; minute sets how many minutes of history to return. Required scope is not stated in the public sources. Required: endpointId. Optional: minute. Returns the EndpointsGetMemoryUsageResponse.",
+      "method": "GET",
+      "path": "/api/platform/v2/device/endpoints/{endpointId}/memory-usage",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "minute",
+          "type": "int",
+          "location": "query",
+          "description": "Minutes of history to look back."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-services",
+      "description": "List Windows services or daemons on one endpoint. Service details for an endpoint; filter by serviceName. Required scope is not stated in the public sources. Required: companyId, siteId, endpointId. Optional: serviceName, field. Returns the EndpointsGetServicesResponse.",
+      "method": "GET",
+      "path": "/api/platform/v2/device/companies/{companyId}/sites/{siteId}/endpoints/{endpointId}/services",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company ID.",
+          "required": true
+        },
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "path",
+          "description": "Site ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "serviceName",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to one service name."
+        },
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-summary",
+      "description": "Fetch projected endpoint inventory for companies, sites, or endpoints (Device Summary API). Device Summary API. Body {resourceType: company|site|endpoint, resources: [ids]} (max 4 companies, 10 sites, 500 endpoints). Query field= is a comma-separated projection (max 15), e.g. endpointID,deviceName,friendlyName,os,system; without it only endpointID, deviceName, friendlyName, resourceType and endpointType come back. Up to 500 records per page; page with limit and cursor. Only the platform category is supported today. Rate limit 100 per 10 minutes. ConnectWise University lists Origin and X-Request-ID as required headers; the CLI sends both on every request. Scope: platform.devices.read. Required: category (default: platform), resourceType, resources. Optional: field, limit, cursor (plus 2 more). Returns the new EndpointsGetSummaryResponse.",
+      "method": "POST",
+      "path": "/api/platform/v2/device/categories/{category}/endpoints",
+      "params": [
+        {
+          "name": "category",
+          "type": "string",
+          "location": "path",
+          "description": "Endpoint category; only platform is supported today.",
+          "required": true
+        },
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum results per page (up to 500)."
+        },
+        {
+          "name": "cursor",
+          "type": "int",
+          "location": "query",
+          "description": "Pagination cursor from the previous page; 0 for the first page."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort results by."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side filter expression for the result set."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the IDs in resources: company (max 4), site (max 10) or endpoint (max 500).",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Company, site or endpoint IDs (at least one).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get-system-state",
+      "description": "Get last boot time and logged-on users of an endpoint. Scope: platform.devices.read. Required: endpointId. Returns array of SystemStateLoggedOnUsers.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/endpoints/{endpointId}/system-state-info",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "This will contain Endpoint ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_list",
+      "description": "List every managed endpoint for the partner. Scope: platform.asset.read. Returns array of Endpoint.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/endpoints",
+      "params": []
+    },
+    {
+      "name": "endpoints_list-applications",
+      "description": "List installed applications on a set of endpoints. Software inventory. Body {resourceType: endpoints, resources: [endpoint IDs]}; filter by name and version; page with limit and cursor. Required scope is not stated in the public sources. Required: resourceType, resources. Optional: field, limit, cursor (plus 2 more). Returns the new EndpointsListApplicationsResponse.",
+      "method": "POST",
+      "path": "/api/platform/v2/device/endpoints/applications",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum results per page."
+        },
+        {
+          "name": "cursor",
+          "type": "int",
+          "location": "query",
+          "description": "Pagination cursor from the previous page; 0 for the first page."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by application name."
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by application version."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the IDs in resources, e.g. endpoints (or company, site for the device summary).",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "IDs of the resources named by resourceType (endpoint, site or company IDs).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_list-company",
+      "description": "List the endpoints of one company. Scope: platform.asset.read. Required: clientID. Returns array of Endpoint.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/clients/{clientID}/endpoints",
+      "params": [
+        {
+          "name": "clientID",
+          "type": "string",
+          "location": "path",
+          "description": "client ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_list-services",
+      "description": "List endpoint services for the partner. Scope: platform.asset.read. Returns array of Services.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/services",
+      "params": []
+    },
+    {
+      "name": "endpoints_list-site",
+      "description": "List the endpoints of one site. Scope: platform.asset.read. Required: clientID, siteID. Returns array of Endpoint.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/clients/{clientID}/sites/{siteID}/endpoints",
+      "params": [
+        {
+          "name": "clientID",
+          "type": "string",
+          "location": "path",
+          "description": "client ID",
+          "required": true
+        },
+        {
+          "name": "siteID",
+          "type": "string",
+          "location": "path",
+          "description": "site id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_uninstall",
+      "description": "Uninstall (offboard) the agent from one or more endpoints. Scope: platform.agent.delete. Required: endpoints, reason. Optional: feedback. Returns array of EndpointUninstallStatus. Destructive.",
+      "method": "DELETE",
+      "path": "/api/platform/v1/device/endpoints/uninstall",
+      "params": [
+        {
+          "name": "endpoints",
+          "type": "array",
+          "location": "body",
+          "description": "Endpoints to uninstall: [{endpointId, siteId, clientId, uninstallType: [RMM]}]",
+          "required": true
+        },
+        {
+          "name": "feedback",
+          "type": "string",
+          "location": "body",
+          "description": "Optional free-text feedback about the removal"
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body",
+          "description": "Why the agent is being removed, e.g. Maintenance (plan to re-install)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hypervisors_list-guests",
+      "description": "List guest VMs of a hypervisor host. Scope: platform.devices.read. Required: clientID, siteID, hostID. Returns array of Guest.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/hypervisors/clients/{clientID}/sites/{siteID}/hosts/{hostID}/guests",
+      "params": [
+        {
+          "name": "clientID",
+          "type": "string",
+          "location": "path",
+          "description": "Company ID",
+          "required": true
+        },
+        {
+          "name": "siteID",
+          "type": "string",
+          "location": "path",
+          "description": "Site ID",
+          "required": true
+        },
+        {
+          "name": "hostID",
+          "type": "string",
+          "location": "path",
+          "description": "hostID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hypervisors_list-hosts",
+      "description": "List monitored hypervisor hosts. Fetch hypervisors Hosts. Scope: platform.devices.read. Returns array of MonitorHosts.",
+      "method": "GET",
+      "path": "/api/platform/v1/device/hypervisors/hosts",
+      "params": []
+    },
+    {
+      "name": "patches_get-endpoint",
+      "description": "Get patch compliance summary and patch list for an endpoint. Scope: platform.patching.read. Required: endpointID. Returns array of PatchDetail.",
+      "method": "GET",
+      "path": "/api/platform/v1/patching/{endpointID}/patches",
+      "params": [
+        {
+          "name": "endpointID",
+          "type": "string",
+          "location": "path",
+          "description": "This will contain Endpoint ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "patches_get-os-patch-compliance",
+      "description": "Get OS patch compliance summary for a set of endpoints. Bulk OS patch compliance. Body {resourceType: endpoints, resources: [ids]}. Page with limit and cursor. Scope: platform.ospatching.management.read. Required: resourceType, resources. Optional: field, limit, cursor. Returns the new PatchesGetOsPatchComplianceResponse.",
+      "method": "POST",
+      "path": "/api/platform/v2/os-patching/compliance/summary",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum results per page."
+        },
+        {
+          "name": "cursor",
+          "type": "int",
+          "location": "query",
+          "description": "Pagination cursor from the previous page; 0 for the first page."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the IDs in resources, e.g. endpoints.",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Endpoint IDs (at least one).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "patches_get-os-patch-details",
+      "description": "Get OS patch details for a set of endpoints. Bulk OS patch details. Body {resourceType: endpoints, resources: [ids]}. Scope: platform.ospatching.management.read. Required: resourceType, resources. Optional: field. Returns the new PatchesGetOsPatchDetailsResponse.",
+      "method": "POST",
+      "path": "/api/platform/v2/os-patching/patches/details",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the IDs in resources, e.g. endpoints.",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Endpoint IDs (at least one).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "patches_get-os-patch-inventory",
+      "description": "Get the partner-wide OS patch inventory. Every OS patch known across the partner. Scope: platform.ospatching.management.read. Optional: field. Returns the PatchesGetOsPatchInventoryResponse.",
+      "method": "GET",
+      "path": "/api/platform/v2/os-patching/patches/inventory",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        }
+      ]
+    },
+    {
+      "name": "patches_get-third-party-patch-compliance",
+      "description": "Get third-party (non-OS) patch compliance for a set of endpoints. Bulk third-party application patch compliance. Body {resourceType: endpoints, resources: [ids]}. Page with limit and cursor. Scope: platform.tppatching.management.read. Required: resourceType, resources. Optional: field, limit, cursor. Returns the new PatchesGetThirdPartyPatchComplianceResponse.",
+      "method": "POST",
+      "path": "/api/platform/v2/third-party-patching/compliance/summary",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum results per page."
+        },
+        {
+          "name": "cursor",
+          "type": "int",
+          "location": "query",
+          "description": "Pagination cursor from the previous page; 0 for the first page."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the IDs in resources, e.g. endpoints (or company, site for the device summary).",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "IDs of the resources named by resourceType (endpoint, site or company IDs).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "patches_get-third-party-patch-details",
+      "description": "Get third-party (non-OS) patch details for a set of endpoints. Bulk third-party application patch details. Body {resourceType: endpoints, resources: [ids]}. Page with limit and cursor. Scope: platform.tppatching.management.read. Required: resourceType, resources. Optional: field, limit, cursor. Returns the new PatchesGetThirdPartyPatchDetailsResponse.",
+      "method": "POST",
+      "path": "/api/platform/v2/third-party-patching/patch/details",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of response fields to return (projection)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum results per page."
+        },
+        {
+          "name": "cursor",
+          "type": "int",
+          "location": "query",
+          "description": "Pagination cursor from the previous page; 0 for the first page."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the IDs in resources, e.g. endpoints (or company, site for the device summary).",
+          "required": true
+        },
+        {
+          "name": "resources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "IDs of the resources named by resourceType (endpoint, site or company IDs).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get-effective-policy",
+      "description": "Get the effective policy applied to an endpoint. Scope: platform.policies.read. Required: clientID, siteID, endpointID. Returns the EffectivePolicy.",
+      "method": "GET",
+      "path": "/api/platform/v1/policy/clients/{clientID}/sites/{siteID}/endpoints/{endpointID}/effective-policy",
+      "params": [
+        {
+          "name": "clientID",
+          "type": "string",
+          "location": "path",
+          "description": "Company ID",
+          "required": true
+        },
+        {
+          "name": "siteID",
+          "type": "string",
+          "location": "path",
+          "description": "Site ID",
+          "required": true
+        },
+        {
+          "name": "endpointID",
+          "type": "string",
+          "location": "path",
+          "description": "This will contain Endpoint ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get-effective-policy-override",
+      "description": "Get policy overrides for an endpoint. Scope: platform.policies.read. Required: clientID, siteID, endpointID. Returns the OverrideGetBody.",
+      "method": "GET",
+      "path": "/api/platform/v1/policy/clients/{clientID}/sites/{siteID}/endpoints/{endpointID}/effective-policy/override",
+      "params": [
+        {
+          "name": "clientID",
+          "type": "string",
+          "location": "path",
+          "description": "Company ID",
+          "required": true
+        },
+        {
+          "name": "siteID",
+          "type": "string",
+          "location": "path",
+          "description": "Site ID",
+          "required": true
+        },
+        {
+          "name": "endpointID",
+          "type": "string",
+          "location": "path",
+          "description": "This will contain Endpoint ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list-policy-categories",
+      "description": "List policy categories and subcategories. Scope: platform.policies.read. Returns array of DefinitionCategoryTreeGetBody.",
+      "method": "GET",
+      "path": "/api/platform/v1/policy/categories",
+      "params": []
+    },
+    {
+      "name": "rate_limits_get",
+      "description": "Get current rate limit.",
+      "method": "GET",
+      "path": "/v1/rate_limits",
+      "params": []
+    },
+    {
+      "name": "scripts_list",
+      "description": "List scripts created in the script editor (templateType fusionscript). Scope: platform.automation.read. Returns array of ScriptMetadata.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/scripts",
+      "params": []
+    },
+    {
+      "name": "scripts_list-custom-templates",
+      "description": "List custom task templates (templateType custom). Scope: platform.automation.read. Returns array of TaskDefinitionDetails.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/tasks",
+      "params": []
+    },
+    {
+      "name": "scripts_list-shell",
+      "description": "List out-of-the-box global script templates (templateType script). Scope: platform.automation.read. Returns array of ShellTemplateMetaData.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/shellScripts",
+      "params": []
+    },
+    {
+      "name": "sites_create",
+      "description": "Create a site under a company. Scope: platform.sites.write. Required: companyId, name, timeZone. Optional: activeFlag, description, externalIds (plus 9 more). Returns array of SitesCreateItem.",
+      "method": "POST",
+      "path": "/api/platform/v1/company/companies/{companyId}/sites",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "company id",
+          "required": true
+        },
+        {
+          "name": "activeFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "externalIds",
+          "type": "array",
+          "location": "body",
+          "description": "External ids"
+        },
+        {
+          "name": "friendlyName",
+          "type": "string",
+          "location": "body",
+          "description": "Friendly name"
+        },
+        {
+          "name": "industryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Industry code"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "physicalAddressFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Physical address flag"
+        },
+        {
+          "name": "primary-address-active-flag",
+          "wire_name": "primaryAddress.activeFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "primary-address-address-line1",
+          "wire_name": "primaryAddress.addressLine1",
+          "type": "string",
+          "location": "body",
+          "description": "Address line1"
+        },
+        {
+          "name": "primary-address-address-line2",
+          "wire_name": "primaryAddress.addressLine2",
+          "type": "string",
+          "location": "body",
+          "description": "Address line2"
+        },
+        {
+          "name": "primary-address-address-line3",
+          "wire_name": "primaryAddress.addressLine3",
+          "type": "string",
+          "location": "body",
+          "description": "Address line3"
+        },
+        {
+          "name": "primary-address-address-line4",
+          "wire_name": "primaryAddress.addressLine4",
+          "type": "string",
+          "location": "body",
+          "description": "Address line4"
+        },
+        {
+          "name": "primary-address-administrative-area",
+          "wire_name": "primaryAddress.administrativeArea",
+          "type": "string",
+          "location": "body",
+          "description": "Administrative area"
+        },
+        {
+          "name": "primary-address-billing-flag",
+          "wire_name": "primaryAddress.billingFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Billing flag"
+        },
+        {
+          "name": "primary-address-country-code",
+          "wire_name": "primaryAddress.countryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Country code",
+          "required": true
+        },
+        {
+          "name": "primary-address-dependent-locality",
+          "wire_name": "primaryAddress.dependentLocality",
+          "type": "string",
+          "location": "body",
+          "description": "Dependent locality"
+        },
+        {
+          "name": "primary-address-description",
+          "wire_name": "primaryAddress.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "primary-address-external-ids",
+          "wire_name": "primaryAddress.externalIds",
+          "type": "array",
+          "location": "body",
+          "description": "External ids"
+        },
+        {
+          "name": "primary-address-locality",
+          "wire_name": "primaryAddress.locality",
+          "type": "string",
+          "location": "body",
+          "description": "Locality"
+        },
+        {
+          "name": "primary-address-name",
+          "wire_name": "primaryAddress.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "primary-address-phone-number-id",
+          "wire_name": "primaryAddress.phoneNumberId",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number id"
+        },
+        {
+          "name": "primary-address-post-code",
+          "wire_name": "primaryAddress.postCode",
+          "type": "string",
+          "location": "body",
+          "description": "Post code"
+        },
+        {
+          "name": "primary-address-primary-flag",
+          "wire_name": "primaryAddress.primaryFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Primary flag"
+        },
+        {
+          "name": "primary-address-shipping-flag",
+          "wire_name": "primaryAddress.shippingFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Shipping flag"
+        },
+        {
+          "name": "primary-address-time-zone",
+          "wire_name": "primaryAddress.timeZone",
+          "type": "string",
+          "location": "body",
+          "description": "Time zone"
+        },
+        {
+          "name": "primary-address-type-id",
+          "wire_name": "primaryAddress.type.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "primary-email-active-flag",
+          "wire_name": "primaryEmail.activeFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "primary-email-description",
+          "wire_name": "primaryEmail.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "primary-email-email-address",
+          "wire_name": "primaryEmail.emailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address",
+          "required": true
+        },
+        {
+          "name": "primary-email-primary-flag",
+          "wire_name": "primaryEmail.primaryFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Primary flag"
+        },
+        {
+          "name": "primary-email-type-id",
+          "wire_name": "primaryEmail.type.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "primaryFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Primary flag"
+        },
+        {
+          "name": "primary-phone-number-active-flag",
+          "wire_name": "primaryPhoneNumber.activeFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "primary-phone-number-country-code",
+          "wire_name": "primaryPhoneNumber.countryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Country code",
+          "required": true
+        },
+        {
+          "name": "primary-phone-number-description",
+          "wire_name": "primaryPhoneNumber.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "primary-phone-number-extension",
+          "wire_name": "primaryPhoneNumber.extension",
+          "type": "string",
+          "location": "body",
+          "description": "Extension"
+        },
+        {
+          "name": "primary-phone-number-external-ids",
+          "wire_name": "primaryPhoneNumber.externalIds",
+          "type": "array",
+          "location": "body",
+          "description": "External ids"
+        },
+        {
+          "name": "primary-phone-number-national-number",
+          "wire_name": "primaryPhoneNumber.nationalNumber",
+          "type": "string",
+          "location": "body",
+          "description": "National number",
+          "required": true
+        },
+        {
+          "name": "primary-phone-number-primary-flag",
+          "wire_name": "primaryPhoneNumber.primaryFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Primary flag"
+        },
+        {
+          "name": "primary-phone-number-type-id",
+          "wire_name": "primaryPhoneNumber.type.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "primary-social-media-active-flag",
+          "wire_name": "primarySocialMedia.activeFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "primary-social-media-description",
+          "wire_name": "primarySocialMedia.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "primary-social-media-link",
+          "wire_name": "primarySocialMedia.link",
+          "type": "string",
+          "location": "body",
+          "description": "Link",
+          "required": true
+        },
+        {
+          "name": "primary-social-media-primary-flag",
+          "wire_name": "primarySocialMedia.primaryFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Primary flag"
+        },
+        {
+          "name": "primary-social-media-type-id",
+          "wire_name": "primarySocialMedia.type.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "timeZone",
+          "type": "string",
+          "location": "body",
+          "description": "Time zone",
+          "required": true
+        },
+        {
+          "name": "type-id",
+          "wire_name": "type.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        }
+      ]
+    },
+    {
+      "name": "sites_get",
+      "description": "Get a site by ID. Scope: platform.sites.read. Required: siteId. Returns array of SitesGetItem.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/sites/{siteId}",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "path",
+          "description": "site id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_list",
+      "description": "List all sites across every company. Scope: platform.sites.read. Returns array of Site.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/sites",
+      "params": []
+    },
+    {
+      "name": "sites_list-company",
+      "description": "List the sites of one company. Scope: platform.sites.read. Required: companyId. Returns array of Site.",
+      "method": "GET",
+      "path": "/api/platform/v1/company/companies/{companyId}/sites",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_update",
+      "description": "Partially update a site. Scope: platform.sites.write. Required: companyId, siteId. Returns array of SitesUpdateItem.",
+      "method": "PATCH",
+      "path": "/api/platform/v1/company/companies/{companyId}/sites/{siteId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "company id",
+          "required": true
+        },
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "path",
+          "description": "site id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_get-instance-results",
+      "description": "Get per-endpoint results of one task run. Scope: platform.automation.read. Required: taskId, instanceId. Returns array of TaskExecutionResult.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/tasks/{taskId}/instances/{instanceId}/results",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "string",
+          "location": "path",
+          "description": "TaskId - Time UUID",
+          "required": true
+        },
+        {
+          "name": "instanceId",
+          "type": "string",
+          "location": "path",
+          "description": "InstanceId - Time UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_get-instance-summary",
+      "description": "Get the run history (instances) of a task. Scope: platform.automation.read. Required: taskId. Optional: From, To. Returns array of InstanceSummary.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/tasks/{taskId}/instances/summary",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "string",
+          "location": "path",
+          "description": "TaskId - Time UUID",
+          "required": true
+        },
+        {
+          "name": "From",
+          "type": "string",
+          "location": "query",
+          "description": "Lower bound of the reporting window (date-time)"
+        },
+        {
+          "name": "To",
+          "type": "string",
+          "location": "query",
+          "description": "Upper bound of the reporting window (date-time)"
+        }
+      ]
+    },
+    {
+      "name": "tasks_list-endpoint-summaries",
+      "description": "List tasks that ran on one endpoint. Scope: platform.automation.read. Required: endpointId. Returns array of EndpointTaskSummary.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/endpoints/{endpointId}/tasks/summary",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "This will contain Endpoint ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_list-summaries",
+      "description": "List all scheduled tasks (the Scheduled Tasks page). Scope: platform.automation.read. Optional: From, To. Returns array of TaskSummary.",
+      "method": "GET",
+      "path": "/api/platform/v1/automation/tasks/summary",
+      "params": [
+        {
+          "name": "From",
+          "type": "string",
+          "location": "query",
+          "description": "Lower bound of the reporting window (date-time)"
+        },
+        {
+          "name": "To",
+          "type": "string",
+          "location": "query",
+          "description": "Upper bound of the reporting window (date-time)"
+        }
+      ]
+    },
+    {
+      "name": "tasks_schedule",
+      "description": "Schedule a script or template to run on target endpoints. Scope: platform.automation.create. Optional: description, name, parameters (plus 6 more). Returns the new ScheduleTaskResult.",
+      "method": "POST",
+      "path": "/api/platform/v1/automation/endpoints/schedule-tasks",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Task description shown to technicians"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Task name shown to technicians when the task is scheduled"
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "location": "body",
+          "description": "Script parameters as a compiled JSON string, e.g. {'body':'hostname','expectedExecutionTimeSec':300}"
+        },
+        {
+          "name": "resourcesType",
+          "type": "string",
+          "location": "body",
+          "description": "Endpoint kinds to run on: Desktop, Server, or Both"
+        },
+        {
+          "name": "schedule-category",
+          "wire_name": "schedule.category",
+          "type": "string",
+          "location": "body",
+          "description": "Time zone mode: LTZ (each endpoint's local time) or STZ (a specific time zone)"
+        },
+        {
+          "name": "schedule-end-date",
+          "wire_name": "schedule.endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date and time for recurring tasks, ISO 8601"
+        },
+        {
+          "name": "schedule-end-date-type",
+          "wire_name": "schedule.endDateType",
+          "type": "string",
+          "location": "body",
+          "description": "How a recurring task ends: BY (at endDate) or NEVER"
+        },
+        {
+          "name": "schedule-end-time-frame",
+          "wire_name": "schedule.endTimeFrame",
+          "type": "string",
+          "location": "body",
+          "description": "End of the run window, ISO 8601"
+        },
+        {
+          "name": "schedule-regularity",
+          "wire_name": "schedule.regularity",
+          "type": "string",
+          "location": "body",
+          "description": "When to run: Immediate, OneTime, Recurrent, or NextAgentCheckIn"
+        },
+        {
+          "name": "schedule-repeat-days-of-month",
+          "wire_name": "schedule.repeat.daysOfMonth",
+          "type": "array",
+          "location": "body",
+          "description": "Days of the month to run a monthly task"
+        },
+        {
+          "name": "schedule-repeat-days-of-week",
+          "wire_name": "schedule.repeat.daysOfWeek",
+          "type": "array",
+          "location": "body",
+          "description": "Days of the week to run a weekly task"
+        },
+        {
+          "name": "schedule-repeat-every",
+          "wire_name": "schedule.repeat.every",
+          "type": "float",
+          "location": "body",
+          "description": "Run every N units of the frequency (e.g. every 1 hour)"
+        },
+        {
+          "name": "schedule-repeat-frequency",
+          "wire_name": "schedule.repeat.frequency",
+          "type": "string",
+          "location": "body",
+          "description": "Recurrence unit: hourly, daily, weekly, or monthly"
+        },
+        {
+          "name": "schedule-repeat-period",
+          "wire_name": "schedule.repeat.period",
+          "type": "string",
+          "location": "body",
+          "description": "Recurrence period count"
+        },
+        {
+          "name": "schedule-repeat-run-time",
+          "wire_name": "schedule.repeat.runTime",
+          "type": "string",
+          "location": "body",
+          "description": "Time of day to run a recurring task, ISO 8601"
+        },
+        {
+          "name": "schedule-repeat-week-day",
+          "wire_name": "schedule.repeat.weekDay",
+          "type": "object",
+          "location": "body",
+          "description": "Week day"
+        },
+        {
+          "name": "schedule-repeat-week-days",
+          "wire_name": "schedule.repeat.weekDays",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Days of the week to run a weekly task"
+        },
+        {
+          "name": "schedule-schedule-type",
+          "wire_name": "schedule.scheduleType",
+          "type": "string",
+          "location": "body",
+          "description": "Schedule type: TIME or EVENT"
+        },
+        {
+          "name": "schedule-start-date",
+          "wire_name": "schedule.startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date and time, ISO 8601 (e.g. 2024-08-16T12:10:00.000Z)"
+        },
+        {
+          "name": "schedule-start-time-frame",
+          "wire_name": "schedule.startTimeFrame",
+          "type": "string",
+          "location": "body",
+          "description": "Start of the run window, ISO 8601"
+        },
+        {
+          "name": "schedule-time-frame-type",
+          "wire_name": "schedule.timeFrameType",
+          "type": "string",
+          "location": "body",
+          "description": "Run AT the start time, AFTER it, or BETWEEN start and end time frames"
+        },
+        {
+          "name": "schedule-time-zone",
+          "wire_name": "schedule.timeZone",
+          "type": "string",
+          "location": "body",
+          "description": "Time zone used with category STZ, e.g. Asia/Calcutta"
+        },
+        {
+          "name": "schedule-trigger-type",
+          "wire_name": "schedule.triggerType",
+          "type": "string",
+          "location": "body",
+          "description": "Event that triggers an EVENT schedule"
+        },
+        {
+          "name": "targetType",
+          "type": "string",
+          "location": "body",
+          "description": "Target kind: MANAGED_ENDPOINT or SITE"
+        },
+        {
+          "name": "targets",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Target IDs: endpoint IDs for MANAGED_ENDPOINT, site IDs for SITE"
+        },
+        {
+          "name": "templateID",
+          "type": "string",
+          "location": "body",
+          "description": "Template ID: from 'scripts list' (fusionscript), 'scripts list-shell' (script), or a custom template"
+        },
+        {
+          "name": "templateType",
+          "type": "string",
+          "location": "body",
+          "description": "Template type: script (global shell-script template), fusionscript (script editor), or custom"
+        }
+      ]
+    },
+    {
+      "name": "ticket_notes_create",
+      "description": "Add a note to a ticket. This API creates a new note for the specified ticket in the system. The 'id' parameter value in the request body is ignored, if provided. A new 'id' is created for the newly created note and provided in response body Scope: platform.tickets.update (inferred from the published scope list; the operation does not state it). Required: id, detail, visibility. Optional: extendedAttributes. Returns the new TicketNote.",
+      "method": "POST",
+      "path": "/api/platform/v1/service/ticketing/tickets/{id}/notes",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "the id of the ticket for which notes API is being called",
+          "required": true
+        },
+        {
+          "name": "detail",
+          "type": "string",
+          "location": "body",
+          "description": "Note text, 1 to 12000 characters",
+          "required": true
+        },
+        {
+          "name": "extendedAttributes",
+          "type": "array",
+          "location": "body",
+          "description": "Extended attributes"
+        },
+        {
+          "name": "visibility",
+          "type": "int",
+          "location": "body",
+          "description": "Visibility of the note: * 1 - Visible to all * 2 - Visible to a specific partner * 7 - Expert services,visible to partner and expert service users * 8 - Expert users,visible to expert users",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ticket_notes_list",
+      "description": "List notes on a ticket. This API fetches the selected notes for a specific ticket from system and returns it. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it). Required: id. Optional: detail, extendedAttributeIds, visibility (plus 3 more).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/tickets/{id}/notes",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "the id of the ticket for which notes API is being called",
+          "required": true
+        },
+        {
+          "name": "detail",
+          "type": "string",
+          "location": "query",
+          "description": "filter by note detail"
+        },
+        {
+          "name": "extendedAttributeIds",
+          "type": "string",
+          "location": "query",
+          "description": "filter by extendedAttributeIds"
+        },
+        {
+          "name": "visibility",
+          "type": "string",
+          "location": "query",
+          "description": "a comma separated list of visibility ids to filter by note visibility field Visibility of the note: * 1 - Visible to all * 2 - Visible to a specific partner * 7 - Expert services,visible to partner and expert service users * 8 - Expert users,visible to expert users"
+        },
+        {
+          "name": "createdBy",
+          "type": "string",
+          "location": "query",
+          "description": "a comma separated list of user ids to filter by note createdBy field"
+        },
+        {
+          "name": "createdAtFrom",
+          "type": "string",
+          "location": "query",
+          "description": "start date and time to filter by createdAt field supports 3 value formats 1. date only - '2019-01-31' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "createdAtTo",
+          "type": "string",
+          "location": "query",
+          "description": "end date and time to filter by createdAt field supports 3 value formats 1. date only - '2019-01-31' - in this case actual end date will be '2019-01-31T23:59:59' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        }
+      ]
+    },
+    {
+      "name": "ticket_settings_list-service-board-teams",
+      "description": "List teams of a service board. This API fetches all the team associations for a specific service-board. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it). Required: id. Returns array of ServiceBoardTeam.",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/service-boards/{id}/teams",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "the id of the service-board for which the team associations API is being called",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ticket_settings_list-service-boards",
+      "description": "List service boards. This API returns all the available service-boards in the system, for partner with provided partnerId. Pagination support is not available for this API yet, so this API may return large amount of data depending upon serviceBoards present in the system. The API accepts query parameters which should be provided to identify available service boards to assigns tickets to. As the CW Expert Service only support entitled companies and sites, providing companyId and siteId allows service to return only entitled service-boards. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it). Optional: companyId, siteId, typeId.",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/service-boards",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "the id of the company of the ticket for which service boards are to be fetched."
+        },
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "query",
+          "description": "the id of the site of the ticket for which service boards are to be fetched."
+        },
+        {
+          "name": "typeId",
+          "type": "string",
+          "location": "query",
+          "description": "the id of the ticket type which identifies which all service boards are available for ticket of that type to be assgined. If the type is not partner Level, then company and site id should also be provided."
+        }
+      ]
+    },
+    {
+      "name": "ticket_settings_list-ticket-categories",
+      "description": "List ticket categories. This API returns all the ticket categories for a partner. Pagination support is not available for this API yet, so this API may return large amount of data depending upon categories present for a partner in the system. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/categories",
+      "params": []
+    },
+    {
+      "name": "ticket_settings_list-ticket-priorities",
+      "description": "List ticket priorities. This API returns all the available priorities in the system. Pagination support is not available for this API yet, so this API may return large amount of data depending upon priorities present in the system. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/priorities",
+      "params": []
+    },
+    {
+      "name": "ticket_settings_list-ticket-sources",
+      "description": "List ticket sources. This API returns all the ticket sources for a partner. Pagination support is not available for this API yet, so this API may return large amount of data depending upon sources present for a partner in the system. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/sources",
+      "params": []
+    },
+    {
+      "name": "ticket_settings_list-ticket-statuses",
+      "description": "List ticket statuses. This API returns all the available statuses in the system. Pagination support is not available for this API yet, so this API may return large amount of data depending upon statuses present in the system. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/statuses",
+      "params": []
+    },
+    {
+      "name": "ticket_settings_list-ticket-tags",
+      "description": "List ticket tags. This API returns all the available tags in the system, for partner with provided partnerId. Pagination support is not available for this API yet, so this API may return large amount of data depending upon tags present in the system. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/tags",
+      "params": []
+    },
+    {
+      "name": "ticket_settings_list-ticket-types",
+      "description": "List ticket types. This API returns all the available types in the system. Pagination support is not available for this API yet, so this API may return large amount of data depending upon types present in the system. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it). Optional: entity.",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/types",
+      "params": [
+        {
+          "name": "entity",
+          "type": "string",
+          "location": "query",
+          "description": "Fetches the type stored in the system against the provided entity, the possible values is assignment"
+        }
+      ]
+    },
+    {
+      "name": "tickets_create",
+      "description": "Create a service ticket. This API creates a new ticket in the system. The 'read-only' parameters in the request body are ignored, if provided. See request body schema for details. Scope: platform.tickets.create (inferred from the published scope list; the operation does not state it). Required: description, serviceBoard, source, summary. Optional: assets, assignee, assigneeTeam (plus 17 more). Returns the new Ticket.",
+      "method": "POST",
+      "path": "/api/platform/v1/service/ticketing/tickets",
+      "params": [
+        {
+          "name": "assets",
+          "type": "array",
+          "location": "body",
+          "description": "The array of asset ids which are associated with this ticket."
+        },
+        {
+          "name": "assignee-id",
+          "wire_name": "assignee.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "assignee-team-id",
+          "wire_name": "assigneeTeam.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "assignee-team-name",
+          "wire_name": "assigneeTeam.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "category-id",
+          "wire_name": "category.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "category-name",
+          "wire_name": "category.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "createdAt",
+          "type": "string",
+          "location": "body",
+          "description": "Read-only field. The UTC timestamp when the ticket is created."
+        },
+        {
+          "name": "created-by-id",
+          "wire_name": "createdBy.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The description of the ticket.",
+          "required": true
+        },
+        {
+          "name": "dueDate",
+          "type": "string",
+          "location": "body",
+          "description": "The due date of the ticket as stored in system."
+        },
+        {
+          "name": "extendedAttributes",
+          "type": "array",
+          "location": "body",
+          "description": "Extended attributes"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Read-only field. This is auto-generated universally unique identifier (UUID) of the ticket"
+        },
+        {
+          "name": "nocTicketId",
+          "type": "string",
+          "location": "body",
+          "description": "Read-only field. The id of the ticket in NOCBO database."
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "body",
+          "description": "Read-only field. This is auto-generated number of the ticket."
+        },
+        {
+          "name": "priority-id",
+          "wire_name": "priority.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "priority-name",
+          "wire_name": "priority.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "service-board-id",
+          "wire_name": "serviceBoard.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "service-board-name",
+          "wire_name": "serviceBoard.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "site-id",
+          "wire_name": "site.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "source-id",
+          "wire_name": "source.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "source-name",
+          "wire_name": "source.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "status-id",
+          "wire_name": "status.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "status-name",
+          "wire_name": "status.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "location": "body",
+          "description": "The mandatory free-text summary of the ticket.",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "location": "body",
+          "description": "Tags"
+        },
+        {
+          "name": "type-id",
+          "wire_name": "type.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "type-name",
+          "wire_name": "type.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "updatedAt",
+          "type": "string",
+          "location": "body",
+          "description": "Read-only field. The UTC timestamp when the ticket is last updated."
+        },
+        {
+          "name": "updated-by-id",
+          "wire_name": "updatedBy.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "version",
+          "type": "int",
+          "location": "body",
+          "description": "Read-only field. The monotonically increasing version number of ticket. It is set to 1 on creation and is incremented for every update."
+        }
+      ]
+    },
+    {
+      "name": "tickets_get",
+      "description": "Get a service ticket. Fetches the ticket stored in the system against the provided id. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it). Required: id. Returns the Ticket.",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/tickets/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "the id of the ticket to be fetched",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_get-counts",
+      "description": "Get ticket counts. This API returns ticket counts Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/ticket-counts",
+      "params": []
+    },
+    {
+      "name": "tickets_list",
+      "description": "List service tickets (filterable; page by passing --page-size and --page-num together). This API returns selected tickets in the service. Pagination and filtering support is available, see details below. For support for Filtering, please note below strategy. In general, you can add as many filter criteria as required by adding those many query parameters. Each query parameter becomes one filter criterion and these are ultimately *AND*ed together (tickets matching all criteria are filtered). However there is a concept of group of criteria. Each filter query parameter supports (as indicated in description of parameter) an optional numeric suffix i.e 1, 2, etc. The query parameters which shares a common suffix become part of same group. This means ?number=123\u0026statusIds=3a8e2efd-5b8a-4911-9824-8d897cf828d3\u0026number1=3445\u0026number2=55666 forms three groups of criteria as below - group 1(with no suffix): number = 123 AND statusId = 3a8e2efd-5b8a-4911-9824-8d897cf828d3 - group 2(with suffix 1): number = 3445 - group 3(with suffix 2): number = 55666 All the criteria in same group are *AND*ed and then groups themselves are *OR*ed. This allows almost any type of query formation while fitering the tickets. Scope: platform.tickets.read (inferred from the published scope list; the operation does not state it). Optional: pageSize, pageNum, sortBy (plus 30 more).",
+      "method": "GET",
+      "path": "/api/platform/v1/service/ticketing/tickets",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "the page size of single page of the paginated records. Must be a positive integer i.e if number is negative, it is ignored. It shall be noted that pageSize must be sent with pageNum (see next). If any one of these two values is not present (but the other is present), error is returned. Also, if value is present but is ignored (due to being invalid), then pageNum is ignored."
+        },
+        {
+          "name": "pageNum",
+          "type": "int",
+          "location": "query",
+          "description": "the page number of paginated record to be fetched. Must be a positive integer i.e if number is negative, it is ignored. It shall be noted that pageNum must be sent with pageSize (see above). If any one of these two values is not present (but the other is present), error is returned. Also, if value is present but is ignored (due to being invalid), then pageSize is ignored. Care should be taken while providing this value so as to not request page with non-existing records, otherwise no records are returned and count of total record returned is also zero. E.g. if database contains 15 records, then requesting pageSize of 10 and pageNum of 3 would return empty response with total count of records as '0' even though there are 15 records in db. A good idea is to always start with pageNum '1' and use the total records number returned in response to make further calls."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "the id of field which should be used to sort the result before paginating it. Supported values are 'assignTo', 'number', 'updatedAt', 'createdAt', 'status', 'type', 'priority' , 'summary', 'assignTeam', 'dueDate', 'source' and 'extendedAttributes'. If not present, 'createdAt' is used as default."
+        },
+        {
+          "name": "sortDir",
+          "type": "string",
+          "location": "query",
+          "description": "defines if the paginated records are to be sorted ascending or descending. Only two values are supported viz. 'asc' and 'desc'. In case invalid value is sent, 'desc' is used as default"
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by ticket number. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "ticketIds",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of ticket ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by ticket summary. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "companyIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of company ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "siteIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of site ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "statusIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of status ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "statusNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of status names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy.examples - 'name1,name2', not in - '[notIn],name1,name2'"
+        },
+        {
+          "name": "priorityIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of priority ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "priorityNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of priority names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy.examples - 'name1,name2', not in - '[notIn],name1,name2'"
+        },
+        {
+          "name": "assigneeIds",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of assigee ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "assigneeTeamIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of assigneeTeam ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "assigneeTeamNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of assignee team names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy.examples - 'name1,name2', not in - '[notIn],name1,name2'"
+        },
+        {
+          "name": "sourceIds",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of source ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "sourceNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of source names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "extendedAttributeIds",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of extendedAttributeIds (comma separated). For OR filter is valid only for the first filter"
+        },
+        {
+          "name": "typeIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of ticket type ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "typeNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of type names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples - 'name1,name2', not in - '[notIn],name1,name2'"
+        },
+        {
+          "name": "categoryIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of ticket category ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "categoryNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of category names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples - 'name1,name2', not in - '[notIn],name1,name2'"
+        },
+        {
+          "name": "createdByIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of ticket createdBy ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "updatedByIds",
+          "type": "string",
+          "location": "query",
+          "description": "in/not in filter, defines search condition by list of ticket updatedBy ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. examples in - 'id1,id2' not in - '[notIn],id1,id2'"
+        },
+        {
+          "name": "createdAtFrom",
+          "type": "string",
+          "location": "query",
+          "description": "start date and time to filter by createdAt field. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. supports 3 value formats 1. date only - '2019-01-31' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "createdAtTo",
+          "type": "string",
+          "location": "query",
+          "description": "end date and time to filter by createdAt field. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. supports 3 value formats 1. date only - '2019-01-31' - in this case actual end date will be '2019-01-31T23:59:59' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "updatedAtFrom",
+          "type": "string",
+          "location": "query",
+          "description": "start date and time to filter by updatedAt field. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. supports 3 value formats 1. date only - '2019-01-31' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "updatedAtTo",
+          "type": "string",
+          "location": "query",
+          "description": "end date and time to filter by updatedAt field. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. supports 3 value formats 1. date only - '2019-01-31' - in this case actual end date will be '2019-01-31T23:59:59' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "dueDateFrom",
+          "type": "string",
+          "location": "query",
+          "description": "start date and time to filter by dueDate field. For OR filter numeric filter id can be added to name supports 3 value formats 1. date only - '2019-01-31' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "dueDateTo",
+          "type": "string",
+          "location": "query",
+          "description": "end date and time to filter by dueDate field. For OR filter numeric filter suffix can be added to name. See API description for filtering strategy. supports 3 value formats 1. date only - '2019-01-31' - in this case actual end date will be '2019-01-31T23:59:59' 2. date and time '2019-01-31T15:01:02' 3. rfc3339 - '2019-10-12T07:20:50.52+00:00'"
+        },
+        {
+          "name": "tagIds",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of tag ids (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        },
+        {
+          "name": "tagNames",
+          "type": "string",
+          "location": "query",
+          "description": "defines search condition by list of tag names (comma separated). For OR filter numeric filter suffix can be added to name. See API description for filtering strategy."
+        }
+      ]
+    },
+    {
+      "name": "tickets_update",
+      "description": "Update a service ticket with JSON Patch operations. This API updates the existing ticket based on JSON Patch request received. This API is suitable for changing specific fields of ticket without replacing the entire ticket object. For more details on JSON Patch, please check http://jsonpatch.com/ The 'read-only' fields of ticket body cannot be updated using this API. For getting 'read-only' fields info, see ticket schema details Scope: platform.tickets.update (inferred from the published scope list; the operation does not state it). Required: id. Returns the updated Ticket.",
+      "method": "PATCH",
+      "path": "/api/platform/v1/service/ticketing/tickets/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "the id of the ticket to be updated",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet stale-agent sweep",
+      "command": "fleet stale",
+      "description": "Every endpoint across all companies that is offline, missing from the heartbeat, or silent longer than a threshold, sorted by company and silence."
+    },
+    {
+      "name": "Per-company patch posture",
+      "command": "fleet patch-posture",
+      "description": "Companies ranked by patch risk: endpoints below a compliance bar, missing patches, pending reboots, out of support, stale assessments."
+    },
+    {
+      "name": "User-to-endpoint lookup",
+      "command": "fleet whois",
+      "description": "Which endpoints a person is logged on to now or was last logged on to, with company and site names."
+    },
+    {
+      "name": "Single-endpoint context card",
+      "command": "fleet brief",
+      "description": "One card for one endpoint: online or last seen, logged-on users, patch counts, and tickets linked to it or its site."
+    },
+    {
+      "name": "Company scorecard",
+      "command": "fleet scorecard",
+      "description": "Per-site health card for one company: endpoint mix, offline count, patch risk and tickets by status."
+    },
+    {
+      "name": "Task failure triage",
+      "command": "fleet task-failures",
+      "description": "Failed endpoints from a script run grouped by identical error text, joined to endpoint names, with IDs ready to re-run."
+    },
+    {
+      "name": "Reboot triage",
+      "command": "fleet reboot-due",
+      "description": "Endpoints with pending reboots split into reboot now, coordinate (user logged on or sessions unknown), offline, and availability unknown."
+    }
+  ]
+}

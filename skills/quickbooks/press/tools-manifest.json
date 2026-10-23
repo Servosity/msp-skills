@@ -1,0 +1,1410 @@
+{
+  "api_name": "quickbooks",
+  "base_url": "https://quickbooks.api.intuit.com/v3/company/YOUR_REALM_ID",
+  "description": "QuickBooks Online Accounting API CLI for MSPs and finance teams — read, write, sync, and analyze customers, invoices, items, payments, bills, vendors, accounts, and journal entries with an offline SQLite mirror and agent-native output.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {QUICKBOOKS_ACCESS_TOKEN}",
+    "in": "header",
+    "env_vars": [
+      "QUICKBOOKS_ACCESS_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "QUICKBOOKS_ACCESS_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [
+    {
+      "name": "Accept",
+      "value": "application/json"
+    }
+  ],
+  "tools": [
+    {
+      "name": "accounts_create",
+      "description": "Create an account in the chart of accounts. Required: name. Optional: account-type, account-sub-type, acct-num (plus 2 more). Returns the new Account.",
+      "method": "POST",
+      "path": "/account",
+      "params": [
+        {
+          "name": "name",
+          "wire_name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Unique account name",
+          "required": true
+        },
+        {
+          "name": "account-type",
+          "wire_name": "AccountType",
+          "type": "string",
+          "location": "body",
+          "description": "Account type, e.g. Bank, Accounts Receivable, Expense"
+        },
+        {
+          "name": "account-sub-type",
+          "wire_name": "AccountSubType",
+          "type": "string",
+          "location": "body",
+          "description": "Account subtype, e.g. CashOnHand, Checking"
+        },
+        {
+          "name": "acct-num",
+          "wire_name": "AcctNum",
+          "type": "string",
+          "location": "body",
+          "description": "Account number"
+        },
+        {
+          "name": "description",
+          "wire_name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Account description"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        }
+      ]
+    },
+    {
+      "name": "accounts_get",
+      "description": "Get a single account by Id. Required: id. Optional: minorversion (default: 75). Returns the Account.",
+      "method": "GET",
+      "path": "/account/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Account Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "accounts_list",
+      "description": "List/query accounts. Optional: query, minorversion (default: 75). Returns array of Account.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "accounts_update",
+      "description": "Sparse-update an account (requires Id + SyncToken). Required: id, sync-token. Optional: sparse (default: true), name, acct-num (plus 2 more). Returns the new Account.",
+      "method": "POST",
+      "path": "/account",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Account Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "name",
+          "wire_name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Unique account name"
+        },
+        {
+          "name": "acct-num",
+          "wire_name": "AcctNum",
+          "type": "string",
+          "location": "body",
+          "description": "Account number"
+        },
+        {
+          "name": "description",
+          "wire_name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Account description"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag (set false to deactivate)"
+        }
+      ]
+    },
+    {
+      "name": "bills_create",
+      "description": "Create a bill. Requires VendorRef + Line — use --stdin / --body-json for the full payload. Optional: doc-number, txn-date, due-date (plus 1 more). Returns the new Bill.",
+      "method": "POST",
+      "path": "/bill",
+      "params": [
+        {
+          "name": "doc-number",
+          "wire_name": "DocNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Bill/document number"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "due-date",
+          "wire_name": "DueDate",
+          "type": "string",
+          "location": "body",
+          "description": "Due date (YYYY-MM-DD)"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "bills_delete",
+      "description": "Delete a bill (hard delete; requires Id + SyncToken). Required: id, sync-token. Optional: operation (default: delete). Returns the new Bill.",
+      "method": "POST",
+      "path": "/bill",
+      "params": [
+        {
+          "name": "operation",
+          "type": "string",
+          "location": "query",
+          "description": "QBO operation selector"
+        },
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Bill Id to delete",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "bills_get",
+      "description": "Get a single bill by Id. Required: id. Optional: minorversion (default: 75). Returns the Bill.",
+      "method": "GET",
+      "path": "/bill/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Bill Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "bills_list",
+      "description": "List/query bills. Optional: query, minorversion (default: 75). Returns array of Bill.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "bills_update",
+      "description": "Sparse-update a bill (requires Id + SyncToken). Required: id, sync-token. Optional: sparse (default: true), doc-number, txn-date (plus 2 more). Returns the new Bill.",
+      "method": "POST",
+      "path": "/bill",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Bill Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "doc-number",
+          "wire_name": "DocNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Bill/document number"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "due-date",
+          "wire_name": "DueDate",
+          "type": "string",
+          "location": "body",
+          "description": "Due date (YYYY-MM-DD)"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "changes_cdc",
+      "description": "Fetch entities changed since a timestamp (RFC3339), e.g. for incremental sync. Required: changed-since. Optional: entities, minorversion (default: 75). Returns the QueryResponse.",
+      "method": "GET",
+      "path": "/cdc",
+      "params": [
+        {
+          "name": "entities",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated entity names to track"
+        },
+        {
+          "name": "changed-since",
+          "wire_name": "changedSince",
+          "type": "string",
+          "location": "query",
+          "description": "RFC3339 timestamp; returns objects changed at/after this time",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "customers_create",
+      "description": "Create a customer. Use --stdin / --body-json for nested fields (email, addresses). Required: display-name. Optional: given-name, family-name, company-name (plus 3 more). Returns the new Customer.",
+      "method": "POST",
+      "path": "/customer",
+      "params": [
+        {
+          "name": "display-name",
+          "wire_name": "DisplayName",
+          "type": "string",
+          "location": "body",
+          "description": "Unique display name",
+          "required": true
+        },
+        {
+          "name": "given-name",
+          "wire_name": "GivenName",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "family-name",
+          "wire_name": "FamilyName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "company-name",
+          "wire_name": "CompanyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name"
+        },
+        {
+          "name": "notes",
+          "wire_name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Free-form notes"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "taxable",
+          "wire_name": "Taxable",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the customer is taxable"
+        }
+      ]
+    },
+    {
+      "name": "customers_get",
+      "description": "Get a single customer by Id. Required: id. Optional: minorversion (default: 75). Returns the Customer.",
+      "method": "GET",
+      "path": "/customer/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Customer Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "customers_list",
+      "description": "List/query customers (SQL-like SELECT against the QBO query endpoint). Optional: query, minorversion (default: 75). Returns array of Customer.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string. Add WHERE/ORDERBY/STARTPOSITION/MAXRESULTS clauses inline."
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "customers_update",
+      "description": "Sparse-update a customer (requires Id + SyncToken). Use --stdin for full payloads. Required: id, sync-token. Optional: sparse (default: true), display-name, given-name (plus 5 more). Returns the new Customer.",
+      "method": "POST",
+      "path": "/customer",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Customer Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken (optimistic-lock version)",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update — merge only supplied fields"
+        },
+        {
+          "name": "display-name",
+          "wire_name": "DisplayName",
+          "type": "string",
+          "location": "body",
+          "description": "Unique display name"
+        },
+        {
+          "name": "given-name",
+          "wire_name": "GivenName",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "family-name",
+          "wire_name": "FamilyName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "company-name",
+          "wire_name": "CompanyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name"
+        },
+        {
+          "name": "notes",
+          "wire_name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Free-form notes"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag (set false to deactivate)"
+        },
+        {
+          "name": "taxable",
+          "wire_name": "Taxable",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the customer is taxable"
+        }
+      ]
+    },
+    {
+      "name": "invoices_create",
+      "description": "Create an invoice. Requires Line items + CustomerRef — use --stdin / --body-json for the full payload. Optional: doc-number, txn-date, due-date (plus 1 more). Returns the new Invoice.",
+      "method": "POST",
+      "path": "/invoice",
+      "params": [
+        {
+          "name": "doc-number",
+          "wire_name": "DocNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Invoice/document number"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "due-date",
+          "wire_name": "DueDate",
+          "type": "string",
+          "location": "body",
+          "description": "Due date (YYYY-MM-DD)"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "invoices_delete",
+      "description": "Delete an invoice (hard delete; requires Id + SyncToken). Required: id, sync-token. Optional: operation (default: delete). Returns the new Invoice.",
+      "method": "POST",
+      "path": "/invoice",
+      "params": [
+        {
+          "name": "operation",
+          "type": "string",
+          "location": "query",
+          "description": "QBO operation selector"
+        },
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Invoice Id to delete",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_get",
+      "description": "Get a single invoice by Id. Required: id. Optional: minorversion (default: 75). Returns the Invoice.",
+      "method": "GET",
+      "path": "/invoice/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Invoice Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "invoices_list",
+      "description": "List/query invoices. Optional: query, minorversion (default: 75). Returns array of Invoice.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "invoices_update",
+      "description": "Sparse-update an invoice (requires Id + SyncToken). Use --stdin for line edits. Required: id, sync-token. Optional: sparse (default: true), doc-number, txn-date (plus 2 more). Returns the new Invoice.",
+      "method": "POST",
+      "path": "/invoice",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Invoice Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "doc-number",
+          "wire_name": "DocNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Invoice/document number"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "due-date",
+          "wire_name": "DueDate",
+          "type": "string",
+          "location": "body",
+          "description": "Due date (YYYY-MM-DD)"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "items_create",
+      "description": "Create an item. Inventory items need account refs — use --stdin for those. Required: name, type. Optional: description, sku, unit-price (plus 3 more). Returns the new Item.",
+      "method": "POST",
+      "path": "/item",
+      "params": [
+        {
+          "name": "name",
+          "wire_name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Unique item name",
+          "required": true
+        },
+        {
+          "name": "type",
+          "wire_name": "Type",
+          "type": "string",
+          "location": "body",
+          "description": "Item type: Service | Inventory | NonInventory",
+          "required": true
+        },
+        {
+          "name": "description",
+          "wire_name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Item description"
+        },
+        {
+          "name": "sku",
+          "wire_name": "Sku",
+          "type": "string",
+          "location": "body",
+          "description": "Stock-keeping unit"
+        },
+        {
+          "name": "unit-price",
+          "wire_name": "UnitPrice",
+          "type": "float",
+          "location": "body",
+          "description": "Sales unit price"
+        },
+        {
+          "name": "purchase-cost",
+          "wire_name": "PurchaseCost",
+          "type": "float",
+          "location": "body",
+          "description": "Purchase cost"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "taxable",
+          "wire_name": "Taxable",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the item is taxable"
+        }
+      ]
+    },
+    {
+      "name": "items_get",
+      "description": "Get a single item by Id. Required: id. Optional: minorversion (default: 75). Returns the Item.",
+      "method": "GET",
+      "path": "/item/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Item Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "items_list",
+      "description": "List/query items. Optional: query, minorversion (default: 75). Returns array of Item.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "items_update",
+      "description": "Sparse-update an item (requires Id + SyncToken). Required: id, sync-token. Optional: sparse (default: true), name, description (plus 4 more). Returns the new Item.",
+      "method": "POST",
+      "path": "/item",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Item Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "name",
+          "wire_name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Unique item name"
+        },
+        {
+          "name": "description",
+          "wire_name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Item description"
+        },
+        {
+          "name": "sku",
+          "wire_name": "Sku",
+          "type": "string",
+          "location": "body",
+          "description": "Stock-keeping unit"
+        },
+        {
+          "name": "unit-price",
+          "wire_name": "UnitPrice",
+          "type": "float",
+          "location": "body",
+          "description": "Sales unit price"
+        },
+        {
+          "name": "purchase-cost",
+          "wire_name": "PurchaseCost",
+          "type": "float",
+          "location": "body",
+          "description": "Purchase cost"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag (set false to deactivate)"
+        }
+      ]
+    },
+    {
+      "name": "journal-entries_create",
+      "description": "Create a journal entry. Requires balanced Line debits/credits — use --stdin / --body-json. Optional: doc-number, txn-date, adjustment (plus 1 more). Returns the new JournalEntry.",
+      "method": "POST",
+      "path": "/journalentry",
+      "params": [
+        {
+          "name": "doc-number",
+          "wire_name": "DocNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Document number"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "adjustment",
+          "wire_name": "Adjustment",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether this is an adjusting entry"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "journal-entries_delete",
+      "description": "Delete a journal entry (hard delete; requires Id + SyncToken). Required: id, sync-token. Optional: operation (default: delete). Returns the new JournalEntry.",
+      "method": "POST",
+      "path": "/journalentry",
+      "params": [
+        {
+          "name": "operation",
+          "type": "string",
+          "location": "query",
+          "description": "QBO operation selector"
+        },
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "JournalEntry Id to delete",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "journal-entries_get",
+      "description": "Get a single journal entry by Id. Required: id. Optional: minorversion (default: 75). Returns the JournalEntry.",
+      "method": "GET",
+      "path": "/journalentry/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "JournalEntry Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "journal-entries_list",
+      "description": "List/query journal entries. Optional: query, minorversion (default: 75). Returns array of JournalEntry.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "journal-entries_update",
+      "description": "Sparse-update a journal entry (requires Id + SyncToken). Use --stdin for line edits. Required: id, sync-token. Optional: sparse (default: true), doc-number, txn-date (plus 1 more). Returns the new JournalEntry.",
+      "method": "POST",
+      "path": "/journalentry",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "JournalEntry Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "doc-number",
+          "wire_name": "DocNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Document number"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "payments_create",
+      "description": "Record a payment. Requires CustomerRef + TotalAmt — use --stdin / --body-json for the full payload. Optional: total-amt, txn-date, ref-num (plus 1 more). Returns the new Payment.",
+      "method": "POST",
+      "path": "/payment",
+      "params": [
+        {
+          "name": "total-amt",
+          "wire_name": "TotalAmt",
+          "type": "float",
+          "location": "body",
+          "description": "Total payment amount"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "ref-num",
+          "wire_name": "PaymentRefNum",
+          "type": "string",
+          "location": "body",
+          "description": "Payment reference number (check #, etc.)"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "payments_delete",
+      "description": "Delete a payment (hard delete; requires Id + SyncToken). Required: id, sync-token. Optional: operation (default: delete). Returns the new Payment.",
+      "method": "POST",
+      "path": "/payment",
+      "params": [
+        {
+          "name": "operation",
+          "type": "string",
+          "location": "query",
+          "description": "QBO operation selector"
+        },
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Payment Id to delete",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "payments_get",
+      "description": "Get a single payment by Id. Required: id. Optional: minorversion (default: 75). Returns the Payment.",
+      "method": "GET",
+      "path": "/payment/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Payment Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "payments_list",
+      "description": "List/query payments. Optional: query, minorversion (default: 75). Returns array of Payment.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "payments_update",
+      "description": "Sparse-update a payment (requires Id + SyncToken). Required: id, sync-token. Optional: sparse (default: true), total-amt, txn-date (plus 2 more). Returns the new Payment.",
+      "method": "POST",
+      "path": "/payment",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Payment Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "total-amt",
+          "wire_name": "TotalAmt",
+          "type": "float",
+          "location": "body",
+          "description": "Total payment amount"
+        },
+        {
+          "name": "txn-date",
+          "wire_name": "TxnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Transaction date (YYYY-MM-DD)"
+        },
+        {
+          "name": "ref-num",
+          "wire_name": "PaymentRefNum",
+          "type": "string",
+          "location": "body",
+          "description": "Payment reference number"
+        },
+        {
+          "name": "private-note",
+          "wire_name": "PrivateNote",
+          "type": "string",
+          "location": "body",
+          "description": "Internal memo"
+        }
+      ]
+    },
+    {
+      "name": "query_run",
+      "description": "Run a raw QBO query, e.g. 'select * from Invoice where Balance \u003e '0' orderby TxnDate'. Required: query. Optional: minorversion (default: 75). Returns the QueryResponse.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO SELECT statement",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "vendors_create",
+      "description": "Create a vendor. Use --stdin / --body-json for nested fields. Required: display-name. Optional: given-name, family-name, company-name (plus 3 more). Returns the new Vendor.",
+      "method": "POST",
+      "path": "/vendor",
+      "params": [
+        {
+          "name": "display-name",
+          "wire_name": "DisplayName",
+          "type": "string",
+          "location": "body",
+          "description": "Unique display name",
+          "required": true
+        },
+        {
+          "name": "given-name",
+          "wire_name": "GivenName",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "family-name",
+          "wire_name": "FamilyName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "company-name",
+          "wire_name": "CompanyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name"
+        },
+        {
+          "name": "acct-num",
+          "wire_name": "AcctNum",
+          "type": "string",
+          "location": "body",
+          "description": "Your account number with this vendor"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag"
+        },
+        {
+          "name": "vendor-1099",
+          "wire_name": "Vendor1099",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the vendor is a 1099 contractor"
+        }
+      ]
+    },
+    {
+      "name": "vendors_get",
+      "description": "Get a single vendor by Id. Required: id. Optional: minorversion (default: 75). Returns the Vendor.",
+      "method": "GET",
+      "path": "/vendor/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Vendor Id",
+          "required": true
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "vendors_list",
+      "description": "List/query vendors. Optional: query, minorversion (default: 75). Returns array of Vendor.",
+      "method": "GET",
+      "path": "/query",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "QBO query string"
+        },
+        {
+          "name": "minorversion",
+          "type": "int",
+          "location": "query",
+          "description": "QBO API minor version"
+        }
+      ]
+    },
+    {
+      "name": "vendors_update",
+      "description": "Sparse-update a vendor (requires Id + SyncToken). Required: id, sync-token. Optional: sparse (default: true), display-name, company-name (plus 3 more). Returns the new Vendor.",
+      "method": "POST",
+      "path": "/vendor",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "Id",
+          "type": "string",
+          "location": "body",
+          "description": "Vendor Id to update",
+          "required": true
+        },
+        {
+          "name": "sync-token",
+          "wire_name": "SyncToken",
+          "type": "string",
+          "location": "body",
+          "description": "Current SyncToken",
+          "required": true
+        },
+        {
+          "name": "sparse",
+          "type": "bool",
+          "location": "body",
+          "description": "Sparse update"
+        },
+        {
+          "name": "display-name",
+          "wire_name": "DisplayName",
+          "type": "string",
+          "location": "body",
+          "description": "Unique display name"
+        },
+        {
+          "name": "company-name",
+          "wire_name": "CompanyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name"
+        },
+        {
+          "name": "acct-num",
+          "wire_name": "AcctNum",
+          "type": "string",
+          "location": "body",
+          "description": "Your account number with this vendor"
+        },
+        {
+          "name": "active",
+          "wire_name": "Active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active flag (set false to deactivate)"
+        },
+        {
+          "name": "vendor-1099",
+          "wire_name": "Vendor1099",
+          "type": "bool",
+          "location": "body",
+          "description": "1099 contractor flag"
+        }
+      ]
+    }
+  ]
+}

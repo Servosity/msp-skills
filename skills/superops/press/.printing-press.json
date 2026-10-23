@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:37:08.461331Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "superops",
+  "display_name": "SuperOps",
+  "cli_name": "superops-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:75c960f532ac96efb29a77b04304be15626dfca8c78be0092351be6ed34748fb",
+  "run_id": "20260529-084506",
+  "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
+  "mcp_binary": "superops-pp-mcp",
+  "mcp_tool_count": 19,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "SUPEROPS_API_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "SLA breach board",
+      "command": "sla-watch",
+      "description": "See which open tickets are breaching or about to breach SLA, grouped by technician or client."
+    },
+    {
+      "name": "Unbilled worklog",
+      "command": "unbilled",
+      "description": "Find logged worklog time that never landed on an invoice, totaled in dollars per client."
+    },
+    {
+      "name": "Patch + alert risk",
+      "command": "at-risk-assets",
+      "description": "List assets missing a critical patch that also have an active (unresolved) alert."
+    },
+    {
+      "name": "Alert coverage",
+      "command": "alert-coverage",
+      "description": "Partition alerts into open (uncovered) vs resolved, grouped by client."
+    },
+    {
+      "name": "Client 360",
+      "command": "client-360",
+      "description": "One offline bundle of a client plus its sites, users, contracts, open tickets, assets, and open invoices."
+    },
+    {
+      "name": "Stale tickets",
+      "command": "stale-tickets",
+      "description": "Open tickets with no conversation, note, or worklog activity in N days."
+    },
+    {
+      "name": "Agent context pack",
+      "command": "context-ticket",
+      "description": "Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob (conversation/notes fetched live)."
+    }
+  ]
+}

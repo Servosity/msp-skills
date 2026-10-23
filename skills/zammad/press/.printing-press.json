@@ -1,0 +1,87 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-09-28T17:11:52.557878Z",
+  "printing_press_version": "4.32.5",
+  "api_name": "zammad",
+  "display_name": "Zammad",
+  "cli_name": "zammad-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "internal",
+  "spec_source": "official",
+  "spec_checksum": "sha256:e521e79949543778dfddb523bbe85f9e2d838763cb46c9f490826adee6802f77",
+  "run_id": "20260928-171152",
+  "category": "project-management",
+  "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI — plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
+  "mcp_binary": "zammad-pp-mcp",
+  "mcp_tool_count": 36,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "api_key",
+  "auth_env_vars": [
+    "ZAMMAD_API_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Ticket volume by agent",
+      "command": "agent-load",
+      "description": "See each agent's current ticket load broken out by state (open/pending/backlog) so you can balance work before it piles up."
+    },
+    {
+      "name": "Agent open/closed trend",
+      "command": "agent-trend",
+      "description": "Show whether each agent's queue is growing or shrinking across the last N weeks, with opened-vs-closed deltas."
+    },
+    {
+      "name": "Customer health indicators",
+      "command": "customer-health",
+      "description": "Rank organizations by a health signal built from open count, oldest-open age, reopen rate, velocity, and last activity."
+    },
+    {
+      "name": "Tickets open too long",
+      "command": "overdue",
+      "description": "Find aging tickets still in new/open/pending past a threshold, weighted by priority so the worst rise to the top."
+    },
+    {
+      "name": "Escalation sentiment triage",
+      "command": "escalate",
+      "description": "Surface active tickets whose recent customer messages read as upset (heuristic negative-signal scan), ranked by hits, age, and priority — with the matched snippets shown."
+    },
+    {
+      "name": "Proactive churn risk",
+      "command": "churn-risk",
+      "description": "Score each organization's churn risk from open backlog, overdue tickets, unanswered pending, and negative-sentiment customer messages, listing the contributing factors."
+    },
+    {
+      "name": "Feedback mining",
+      "command": "feedback-scan",
+      "description": "Bucket ticket and article text into feature-request, pricing, compliance, and bug themes with the source ticket refs and snippets."
+    },
+    {
+      "name": "Knowledge Base browse",
+      "command": "kb browse",
+      "description": "Print the Knowledge Base as a category/answer tree parsed from the init bundle."
+    },
+    {
+      "name": "Knowledge Base search",
+      "command": "kb search",
+      "description": "Offline text search over KB answer titles and bodies from the init bundle."
+    },
+    {
+      "name": "Knowledge Base get answer",
+      "command": "kb get",
+      "description": "Resolve a KB answer id from the init bundle to its full translated body."
+    },
+    {
+      "name": "Add ticket note",
+      "command": "ticket note",
+      "description": "Add an internal or partner-visible note to a ticket in one line, with correct content-type defaults."
+    }
+  ]
+}

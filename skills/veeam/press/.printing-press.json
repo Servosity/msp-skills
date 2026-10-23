@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:04:13.659999Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "veeam",
+  "display_name": "Veeam Service Provider Console",
+  "cli_name": "veeam-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:dc6273037832162c7911ad359a5f344d4fbdaceb478287951779b666b892629c",
+  "run_id": "manual",
+  "category": "monitoring",
+  "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
+  "mcp_binary": "veeam-pp-mcp",
+  "mcp_tool_count": 986,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "3.6.2",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "VEEAM_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet Health",
+      "command": "fleet-health",
+      "description": "One-pane cross-company backup health: jobs by last status, agents online/offline, and active alarms per tenant."
+    },
+    {
+      "name": "Stale Backups",
+      "command": "stale-backups",
+      "description": "Every backup job and agent job whose last successful run is older than N days, across all tenants, sorted by staleness."
+    },
+    {
+      "name": "At-Risk Workloads",
+      "command": "at-risk",
+      "description": "Protected workloads whose latest restore point is older than the RPO threshold (or missing entirely) \u2014 the data that would be lost on failure today."
+    },
+    {
+      "name": "Alarm Triage",
+      "command": "alarms-triage",
+      "description": "Active alarms grouped by company and severity with first-seen / last-seen from local history, deduped for fleet-wide triage."
+    },
+    {
+      "name": "License Usage",
+      "command": "license-usage",
+      "description": "Per-organization license consumption (used points) with the delta since the previous run."
+    },
+    {
+      "name": "Company Overview",
+      "command": "company-overview",
+      "description": "Single-tenant 360: backup servers, job status breakdown, agents, active alarms, protected workloads, and license usage assembled from the local store."
+    },
+    {
+      "name": "Fleet Drift",
+      "command": "since",
+      "description": "What changed across the fleet inside a time window: backup jobs that failed or warned, alarms that fired, and agents that newly activated."
+    }
+  ],
+  "scorecard": {
+    "api_name": "veeam",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 8,
+      "mcp_description_quality": 0,
+      "mcp_token_efficiency": 0,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 10,
+      "mcp_surface_strategy": 10,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 10,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 10,
+      "data_pipeline_integrity": 10,
+      "sync_correctness": 10,
+      "type_fidelity": 4,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 96,
+      "percentage": 96
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 986 tools (1 public, 985 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_description_quality",
+      "mcp_token_efficiency",
+      "live_api_verification"
+    ]
+  }
+}
