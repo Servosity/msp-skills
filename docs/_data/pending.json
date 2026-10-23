@@ -105,9 +105,9 @@
     "released_hash": "sha256:2b75c28984aa02654c2247d325e2155d24e83d07c669165f9059d2973630c86d"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.11",
-    "latest_tag": "cipp-v0.1.10",
+    "latest_tag": "cipp-v0.1.11",
     "current_hash": "sha256:719f9eac960e9e4f8d3d5baed1e979a42f2d9eb98b138ae4b730615a334cef12",
     "released_hash": "sha256:719f9eac960e9e4f8d3d5baed1e979a42f2d9eb98b138ae4b730615a334cef12"
   },
