@@ -14,16 +14,16 @@
     "released_hash": "sha256:48e500a6f17d1fb00fa341b7d7e6ac9c451d1c2022b39ce68d13f35f03902c79"
   },
   "action1": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "action1-v0.1.8",
+    "latest_tag": "action1-v0.1.9",
     "current_hash": "sha256:87d4dc41741a95f8b711656660d55f40d644c39062f836a5680826af6a4160cd",
     "released_hash": "sha256:87d4dc41741a95f8b711656660d55f40d644c39062f836a5680826af6a4160cd"
   },
   "afi": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "afi-v0.1.6",
+    "latest_tag": "afi-v0.1.7",
     "current_hash": "sha256:d465c55326b7fbdbe9233d1cab8f2e2ba0f90b04467e885b963daeba4d56696b",
     "released_hash": "sha256:d465c55326b7fbdbe9233d1cab8f2e2ba0f90b04467e885b963daeba4d56696b"
   },
