@@ -61,10 +61,29 @@ BRANCH="release/batch-$(date +%Y%m%d-%H%M%S)"
 # never `git add -A`).
 RELEASE_PATHSPECS="skills/*/manifest.json skills/*/.claude-plugin/plugin.json skills/*/server.json skills/*/CHANGELOG.md .claude-plugin/marketplace.json tools/maintainer/skills.json"
 
+# Validate the arguments BEFORE any side effect: release.py checks them too,
+# but only after this script has fetched and created its worktree, so a typo
+# or a reflexive `--help` used to start a real batch.
+usage() { sed -n '13,18p' "$0" | sed 's/^# \{0,1\}//'; }
 DRY_RUN=0
+TARGET=0
+NEED=""
 for a in "$@"; do
-  [ "$a" = "--dry-run" ] && DRY_RUN=1
+  if [ -n "$NEED" ]; then
+    [ "$NEED" = "--bump" ] || TARGET=1
+    NEED=""
+    continue
+  fi
+  case "$a" in
+    -h|--help) usage; exit 0 ;;
+    --dry-run) DRY_RUN=1 ;;
+    --all-pending) TARGET=1 ;;
+    --slug|--slugs|--bump) NEED="$a" ;;
+    *) echo "release_batch: unknown argument '$a'" >&2; usage >&2; exit 2 ;;
+  esac
 done
+[ -z "$NEED" ] || { echo "release_batch: $NEED needs a value" >&2; usage >&2; exit 2; }
+[ "$TARGET" -eq 1 ] || { echo "release_batch: no target (use --slug, --slugs or --all-pending)" >&2; usage >&2; exit 2; }
 
 PIPELINE_CHECK="$SCRIPT_DIR/check_release_pipeline.py"
 
