@@ -441,9 +441,9 @@
     "released_hash": "sha256:26919b63296a6cd9b89d8b56d45e0b76eead76731b1f5f93fe5deab11b96c103"
   },
   "riverside-fm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "riverside-fm-v0.1.3",
+    "latest_tag": "riverside-fm-v0.1.4",
     "current_hash": "sha256:e9c3cdf30e839db214ffd66e773c4bfd7928791426aaa46d045ecd542d34e5ee",
     "released_hash": "sha256:e9c3cdf30e839db214ffd66e773c4bfd7928791426aaa46d045ecd542d34e5ee"
   },
