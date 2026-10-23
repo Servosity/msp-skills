@@ -147,9 +147,9 @@
     "released_hash": "sha256:2bd84622a506a1886239d48c54d3b27961b79c1d1f763bbca69b41a6f4c00ea6"
   },
   "connectwise-control": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "connectwise-control-v0.1.6",
+    "latest_tag": "connectwise-control-v0.1.7",
     "current_hash": "sha256:9bd211f1dc25080bb8d20aefc6bcfcd5f5abff2963aa9985d2d41940de791d34",
     "released_hash": "sha256:9bd211f1dc25080bb8d20aefc6bcfcd5f5abff2963aa9985d2d41940de791d34"
   },
