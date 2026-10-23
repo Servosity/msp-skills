@@ -25,6 +25,15 @@ Always-on deterministic checks (no external tools needed):
     and failing an honest script for describing good practice is false-RED. Shell and
     PowerShell get SCRIPT_RULES with whole-line comments stripped first, so a script
     documenting its own `curl ... | bash` install line is not flagged for saying so.
+  * MCP-surface rules - seven STATE rules on a connector's vendored MCP server (cmd/*-mcp,
+    internal/mcp, go.mod), from the 2026-10-22 template security pass: StreamableHTTP with
+    no requireBearerAuth; mark3labs/mcp-go below v0.57.0 (no DNS-rebinding guard); an
+    _execute tool with no confirm gate; POST/PUT/PATCH/DELETE endpoint tools labeled
+    destructiveHint=false; GET registry entries named with an action verb and not marked
+    NeedsConfirm/Mutating; a `share` command; typed endpoint tools with no read-only drop.
+    They judge the whole connector, in diff mode too. A connector that failed a rule when
+    it landed is listed in security_gate_baseline.json and reports P2 until its reprint
+    burns it down; the list only shrinks (a slug added back is P1).
 
 TWO LANES. A skill WITH skills/<slug>/cli/go.mod gets the Go lane (dependency policy +
 gosec/govulncheck/osv-scanner/semgrep). A markdown-only skill has no Go module, so the
@@ -58,6 +67,9 @@ Usage:
     check_security_gate.py --rebuild-allowlist                   # seed dep_allowlist.json
     check_security_gate.py --slug ninjaone --json
     check_security_gate.py --self-test                           # summary + workflows, both ways
+    check_security_gate.py --mcp-surface --all --report          # MCP-surface rules only, fleet counts
+    check_security_gate.py --update-baseline                     # retire burned-down baseline entries
+    check_security_gate.py --seed-baseline                       # first entry for a NEW rule only
     check_security_gate.py --summarize --verdicts DIR --sha S --run-id N  # workflow summary job
 
 Exit code: 0 = pass (no P1), 1 = block (>=1 P1), 2 = usage error.
@@ -66,6 +78,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
+import io
 import json
 import os
 import re
@@ -78,6 +92,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 ALLOWLIST = Path(__file__).resolve().parent / "dep_allowlist.json"
 SUPPRESSIONS = Path(__file__).resolve().parent / "security_suppressions.json"
+BASELINE = Path(__file__).resolve().parent / "security_gate_baseline.json"
 
 BT = "`"  # Go raw-string delimiter; included so backtick evasions are caught.
 
@@ -763,6 +778,667 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
     return findings
 
 
+# --- MCP-surface rules (with a burn-down baseline) ---------------------------------
+# Seven classes found in the 2026-10-22 template security pass, each checked by
+# reading the connector's vendored MCP server source. They are STATE rules: they
+# judge the connector as it stands (not just the lines a PR changed), because a
+# connector that keeps the class ships it whether or not this PR touched that file.
+#
+# The fleet had these classes before the rules existed, so a connector already
+# failing a rule is listed under that rule in security_gate_baseline.json and only
+# reports (P2) until its reprint lands. Every other failure is P1. The baseline only
+# SHRINKS: a listed connector that stops failing is reported as burned down
+# (--update-baseline removes it), and a slug added back to a rule is P1. Rows read
+# the baseline from the trusted base (--policy-base) and keep only the entries the
+# PR's copy still lists, so a PR's own burn-down applies at once and its additions
+# never do.
+MCP_RULES = (
+    ("mcp-http-no-bearer-auth",
+     "StreamableHTTP server with no requireBearerAuth call: --transport http answers any "
+     "caller that can reach the port"),
+    ("mcp-go-no-rebinding-guard",
+     "mark3labs/mcp-go below v0.57.0 has no DNS-rebinding Host guard: a web page can drive "
+     "an HTTP server bound to localhost"),
+    ("mcp-execute-no-confirm",
+     "_execute tool with no confirm gate (a confirm parameter plus a codeOrchConfirmAccepted "
+     "check): every write runs on the first call"),
+    ("mcp-write-tool-nondestructive",
+     "POST/PUT/PATCH/DELETE endpoint tool annotated destructiveHint=false: MCP hosts may "
+     "auto-approve the write"),
+    ("mcp-mutating-get-as-read",
+     "GET registry entry named with an action verb and not marked NeedsConfirm/Mutating: "
+     "it runs as a read, with no confirm and through the read-only switch"),
+    ("mcp-share-command",
+     "share subcommand present: caller-chosen --remote/--repo allow git option injection "
+     "and pushing the local store anywhere"),
+    ("mcp-read-only-switch-skips-typed-tools",
+     "typed endpoint tools with no read-only drop (dropNonReadOnlyTools or IsMCPReadOnlyEnv "
+     "in tools.go): _MCP_READ_ONLY=1 leaves their writes callable"),
+)
+MCP_RULE_IDS = tuple(r for r, _ in MCP_RULES)
+MCP_RULE_MSG = dict(MCP_RULES)
+BASELINE_READDED = "mcp-baseline-readded"
+BASELINE_INVALID = "mcp-baseline-invalid"
+MCP_GO_FLOOR = (0, 57, 0)
+# Rule 5: the FIRST word of the path's last literal segment, split on case and
+# punctuation. Whole words, not prefixes: a prefix test flags /settings (set),
+# /addresses (add) and /assignments (assign), about 90 healthy reads across 21
+# connectors, which is false-RED.
+ACTION_VERBS = frozenset({"exec", "execute", "remove", "add", "set", "reset", "run", "invoke",
+                          "send", "create", "delete", "update", "assign", "reboot", "isolate",
+                          "wipe", "purge", "clear"})
+WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
+SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
+
+# Two views of a Go file, same length and offsets. `code`: comments blanked, literals
+# kept. `bare`: literal CONTENTS blanked too. Structure (calls, ifs, assignments) is
+# matched in `bare`, so text inside a string or a comment can never pose as code;
+# literal values are read from `code` at the same offset.
+_GO_LEXEME = re.compile(r'//[^\n]*|/\*.*?(?:\*/|\Z)|"(?:\\.|[^"\\\n])*"?'
+                        r"|'(?:\\.|[^'\\\n])*'?|`[^`]*`?", re.S)
+# A Go string literal in either form: "interpreted" or `raw`.
+_STR = r'(?:"(?:\\.|[^"\\\n])*"|`[^`]*`)'
+_DELIM = re.compile(r"[(){}\[\]\"'`]")
+
+
+def _go_code(text: str) -> str:
+    return _GO_LEXEME.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0))
+                          if m.group(0).startswith(("//", "/*")) else m.group(0), text)
+
+
+def _go_bare(code: str) -> str:
+    def blank(m: re.Match) -> str:
+        t = m.group(0)
+        return t[0] + re.sub(r"[^\n]", " ", t[1:-1]) + t[-1] if len(t) >= 2 else t
+    return _GO_LEXEME.sub(blank, code)
+
+
+def _unquote(lit: str) -> str:
+    """A Go string literal's value: raw verbatim, interpreted with escapes decoded (so
+    "mcp\\u002dgo" reads as mcp-go, as Go reads it)."""
+    if len(lit) >= 2 and lit[0] == "`":
+        return lit[1:-1]
+    if len(lit) >= 2 and lit[0] == '"':
+        try:
+            return lit[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape")
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            return lit[1:-1]
+    return lit
+
+
+def _lit_at(code: str, pos: int) -> str | None:
+    """The value of the string literal starting at (or after whitespace from) pos."""
+    m = re.compile(r"\s*(" + _STR + ")").match(code, pos)
+    return _unquote(m.group(1)) if m else None
+
+
+def _read_go(path: Path) -> tuple[str, str]:
+    try:
+        code = _go_code(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        code = ""
+    return code, _go_bare(code)
+
+
+def _line_at(text: str, pos: int) -> int:
+    return text.count("\n", 0, pos) + 1
+
+
+def _skip_literal(code: str, i: int) -> int:
+    """Index just past the string or rune literal that opens at code[i]."""
+    q = code[i]
+    if q == "`":
+        j = code.find("`", i + 1)
+        return len(code) if j < 0 else j + 1
+    j = i + 1
+    while j < len(code) and code[j] not in (q, "\n"):
+        j += 2 if code[j] == "\\" else 1
+    return min(j + 1, len(code))
+
+
+def _close(code: str, i: int) -> int:
+    """Index just past the bracket that closes the one at code[i] (literals skipped)."""
+    depth, j = 0, i
+    while True:
+        m = _DELIM.search(code, j)
+        if not m:
+            return len(code)
+        c, j = m.group(0), m.start()
+        if c in "\"'`":
+            j = _skip_literal(code, j)
+            continue
+        depth += 1 if c in "({[" else -1
+        j += 1
+        if depth == 0:
+            return j
+
+
+def _elements(code: str, open_idx: int):
+    """(start, end) of each {...} element directly inside the composite literal at open_idx."""
+    end, j = _close(code, open_idx) - 1, open_idx + 1
+    while j < end:
+        m = _DELIM.search(code, j, end)
+        if not m:
+            return
+        c, k = m.group(0), m.start()
+        if c in "\"'`":
+            j = _skip_literal(code, k)
+        elif c in "({[":
+            e = _close(code, k)
+            if c == "{":
+                yield k, e
+            j = e
+        else:
+            j = k + 1
+
+
+def _calls(bare: str, name: str) -> list[re.Match]:
+    """Call sites of `name` in real code, not its `func name(` declaration."""
+    return [m for m in re.finditer(rf"\b{name}\s*\(", bare)
+            if not re.search(r"\bfunc\s+$", bare[max(0, m.start() - 16):m.start()])]
+
+
+def _spans(bare: str, name: str) -> list[tuple[int, int]]:
+    """(open paren, end) of every call to `name`."""
+    return [(m.end() - 1, _close(bare, m.end() - 1)) for m in _calls(bare, name)]
+
+
+def _inside(pos: int, spans: list[tuple[int, int]]) -> bool:
+    return any(a < pos < b for a, b in spans)
+
+
+def _if_bodies(bare: str, cond: str) -> list[tuple[int, int]]:
+    """(open brace, end) of the body of each `if <cond> {`."""
+    return [(m.end() - 1, _close(bare, m.end() - 1))
+            for m in re.finditer(rf"\bif\s+{cond}\s*\{{", bare)]
+
+
+def _go_sources(d: Path) -> list[Path]:
+    """Non-test .go files directly in d (one Go package)."""
+    return sorted(p for p in d.glob("*.go") if not p.name.endswith("_test.go")) if d.is_dir() else []
+
+
+def _package(d: Path) -> dict[Path, tuple[str, str]]:
+    return {f: _read_go(f) for f in _go_sources(d)}
+
+
+def _rel(path: Path) -> str:
+    return str(path.relative_to(REPO))
+
+
+def _mcp_rule_http_auth(cli: Path) -> list[tuple]:
+    """The streamable server must be reachable ONLY through requireBearerAuth: each
+    NewStreamableHTTPServer(...) is an argument of requireBearerAuth(...), or is assigned
+    to a variable whose every later use is an argument of requireBearerAuth(...). Then no
+    unauthenticated MCP handler can be served, whatever else the file does with the wrapper."""
+    hits = []
+    for pkg in sorted(p for p in (cli / "cmd").glob("*") if p.is_dir()):
+        for f, (code, bare) in _package(pkg).items():
+            auth = _spans(bare, "requireBearerAuth")
+            for m in re.finditer(r"\bNewStreamableHTTPServer\s*\(", bare):
+                if _inside(m.start(), auth):
+                    continue
+                v = re.search(r"\b([A-Za-z_]\w*)\s*:?=\s*(?:\w+\.)?$", bare[max(0, m.start() - 80):m.start()])
+                end = _close(bare, m.end() - 1)
+                uses = (list(re.finditer(rf"\b{v.group(1)}\b", bare[end:]))
+                        if v and v.group(1) != "_" else [])
+                if uses and all(_inside(end + u.start(), auth) for u in uses):
+                    continue
+                hits.append((_rel(f), _line_at(code, m.start()), "", "server.NewStreamableHTTPServer"))
+    return hits
+
+
+def _semver_below(v: str, floor: tuple[int, int, int]) -> bool:
+    m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", v)
+    if not m:
+        return True  # unparseable: fail closed
+    t = tuple(int(x) for x in m.groups()[:3])
+    # A pre-release (or a pseudo-version) of the floor itself sorts below it.
+    return t < floor or (t == floor and bool(m.group(4)))
+
+
+MCP_GO = "github.com/mark3labs/mcp-go"
+_GOMOD_TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|`[^`]*`|=>|\S+')
+
+
+def _gomod_directives(text: str):
+    """(verb, tokens, line) for each require/replace entry, blocks expanded, quoted
+    tokens decoded the way Go's modfile parser decodes them."""
+    block = None
+    for ln, line in enumerate(text.split("\n"), 1):
+        s = line.strip()
+        if not s:
+            continue
+        if block:
+            if s == ")":
+                block = None
+            else:
+                yield block, [_unquote(t) for t in _GOMOD_TOKEN.findall(s)], ln
+            continue
+        m = re.match(r"(require|replace|exclude|retract)\s*\(\s*$", s)
+        if m:
+            block = m.group(1)
+            continue
+        m = re.match(r"(require|replace)\s+(.*)$", s)
+        if m:
+            yield m.group(1), [_unquote(t) for t in _GOMOD_TOKEN.findall(m.group(2))], ln
+
+
+def _mcp_rule_mcp_go(cli: Path) -> list[tuple]:
+    gomod = cli / "go.mod"
+    if not gomod.is_file():
+        return []
+    text = re.sub(r"//[^\n]*", "", gomod.read_text(encoding="utf-8", errors="replace"))
+    plain = re.sub(r'"(?:\\.|[^"\\\n])*"|`[^`]*`', lambda q: _unquote(q.group(0)), text)
+    if not re.search(r"(?<![\w./-])github\.com/mark3labs/mcp-go(?![\w./-])", plain):
+        return []
+    rel, req, reps = _rel(gomod), None, []
+    for verb, toks, ln in _gomod_directives(text):
+        if verb == "require" and len(toks) >= 2 and toks[0] == MCP_GO:
+            req = (toks[1], ln)
+        elif verb == "replace" and "=>" in toks and toks[0] == MCP_GO:
+            i = toks.index("=>")
+            old, new = toks[:i], toks[i + 1:]
+            reps.append((old[1] if len(old) > 1 else None, new[0] if new else "",
+                         new[1] if len(new) > 1 else "", ln))
+    if req is None:
+        return [(rel, 1, "", "mcp-go is named but no require line parses (fail-closed)")]
+    ver, ln = req
+    # Go applies a version-specific replace only to that version, else the wildcard one.
+    rep = next((r for r in reps if r[0] == ver), None) or next((r for r in reps if r[0] is None), None)
+    if rep:
+        _, target, tver, rln = rep
+        # A fork or a local path cannot prove the guard.
+        if target != MCP_GO or _semver_below(tver, MCP_GO_FLOOR):
+            return [(rel, rln, "", f"replace => {target} {tver}".strip())]
+        return []
+    return [(rel, ln, "", f"mcp-go {ver}")] if _semver_below(ver, MCP_GO_FLOOR) else []
+
+
+def _mcp_rule_execute_confirm(cli: Path) -> list[tuple]:
+    pkg = _package(cli / "internal" / "mcp")
+    param = refuse = False
+    for code, bare in pkg.values():
+        param = param or any(_lit_at(code, m.end()) == "confirm"
+                             for m in re.finditer(r"\bWithBoolean\s*\(", bare))
+        # The v4.33.8 gate: `if !codeOrchConfirmAccepted(...) {` whose body returns.
+        refuse = refuse or any(re.search(r"\breturn\b", bare[a:b])
+                               for a, b in _if_bodies(bare, r"!\s*codeOrchConfirmAccepted\s*\([^{]*?\)"))
+    if param and refuse:
+        return []
+    hits = []
+    for f, (code, bare) in pkg.items():
+        for m in re.finditer(r"\bNewTool\s*\(", bare):
+            name = _lit_at(code, m.end()) or ""
+            # Snake or kebab connector names: "cipp_execute", "cisco-meraki_execute".
+            if re.fullmatch(r"[a-z0-9][a-z0-9_-]*_execute", name):
+                hits.append((_rel(f), _line_at(code, m.start()), name, f"tool {name}"))
+    return hits
+
+
+def _method_at(code: str, bare: str, pos: int) -> str:
+    """The HTTP method expression at pos: a literal, or http.MethodX. Anything else
+    (a variable, a call) is '?', which every rule treats as a possible write."""
+    lit = _lit_at(code, pos)
+    if lit is not None:
+        return lit.upper() or "?"
+    m = re.compile(r"\s*http\.Method(\w+)\b").match(bare, pos)
+    return m.group(1).upper() if m else "?"
+
+
+def _typed_tools(cli: Path):
+    """(file, code, offset, registration, method, path, tool) for every makeAPIHandler
+    call in the internal/mcp package, any file. A call that is not an argument of an
+    AddTool(...) cannot be paired with its annotations: its registration is None and the
+    rules treat it as an unannotated write (fail-closed)."""
+    for f, (code, bare) in _package(cli / "internal" / "mcp").items():
+        adds = _spans(bare, "AddTool")
+        for h in _calls(bare, "makeAPIHandler"):
+            span = next(((a, b) for a, b in adds if a < h.start() < b), None)
+            method = _method_at(code, bare, h.end())
+            comma = re.compile(r"[^,)]*,").match(bare, h.end())
+            path = (_lit_at(code, comma.end()) if comma else None) or "?"
+            if span is None:
+                yield f, code, h.start(), None, method, path, "?"
+                continue
+            reg_bare = bare[span[0]:span[1]]
+            name = re.search(r"\bNewTool\s*\(", reg_bare)
+            tool = (_lit_at(code, span[0] + name.end()) if name else None) or "?"
+            yield f, code, span[0], reg_bare, method, path, tool
+
+
+def _ann(reg_bare: str | None, call: str, value: str) -> re.Match | None:
+    return re.search(rf"\b{call}\s*\(\s*{value}\s*\)", reg_bare) if reg_bare else None
+
+
+def _read_only(reg_bare: str | None) -> bool:
+    return bool(_ann(reg_bare, "WithReadOnlyHintAnnotation", "true"))
+
+
+def _mcp_rule_write_nondestructive(cli: Path) -> list[tuple]:
+    hits = []
+    for f, code, off, reg, method, path, tool in _typed_tools(cli):
+        if method not in WRITE_METHODS and method != "?":
+            continue
+        if reg is None:
+            hits.append((_rel(f), _line_at(code, off), tool,
+                         f"makeAPIHandler({method} {path}) outside AddTool: annotations unprovable"))
+            continue
+        nd = _ann(reg, "WithDestructiveHintAnnotation", "false")
+        # The MCP spec reads destructiveHint only when readOnlyHint is false, so a POST
+        # classified as a read (a search or report query) is not this class.
+        if not nd or (method in ("POST", "?") and _read_only(reg)):
+            continue
+        hits.append((_rel(f), _line_at(code, off + nd.start()), tool, f"{tool} ({method} {path})"))
+    return hits
+
+
+# Verb-led words that are nouns when read as one word: GET /addOns lists add-ons.
+_VERB_NOUNS = frozenset({"addon", "addons"})
+
+
+def _segment_words(seg: str) -> list[str]:
+    out: list[str] = []
+    for part in re.split(r"[^A-Za-z0-9]+", seg):
+        out += re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+", part)
+    return [w.lower() for w in out]
+
+
+def _verb_path(path: str) -> bool:
+    segs = [s for s in path.split("?", 1)[0].split("/")
+            if s and not (s.startswith("{") and s.endswith("}"))]
+    words = _segment_words(segs[-1]) if segs else []
+    return bool(words) and words[0] in ACTION_VERBS and "".join(words[:2]) not in _VERB_NOUNS
+
+
+def _mcp_rule_mutating_get(cli: Path) -> list[tuple]:
+    hits = []
+    for f, (code, bare) in _package(cli / "internal" / "mcp").items():
+        reg = re.search(r"\bcodeOrchEndpoints\s*=\s*\[\]\s*\*?codeOrchEndpoint\s*\{", bare)
+        if not reg:
+            continue
+        # Each element by its braces, so field order inside an entry does not matter.
+        for a, b in _elements(bare, reg.end() - 1):
+            entry = bare[a:b]
+            mf = re.search(r"\bMethod\s*:", entry)
+            pf = re.search(r"\bPath\s*:", entry)
+            if not mf or not pf:
+                continue
+            method = _method_at(code, bare, a + mf.end())
+            p = _lit_at(code, a + pf.end())
+            # A method that is not provably a non-GET counts as a GET (fail-closed).
+            if method not in ("GET", "?") or p is None:
+                continue
+            if re.search(r"\b(?:NeedsConfirm|Mutating)\s*:\s*true\b", entry):
+                continue
+            if _verb_path(p):
+                hits.append((_rel(f), _line_at(code, a + pf.start()), p, f"GET {p}"))
+    return hits
+
+
+def _mcp_rule_share(cli: Path) -> list[tuple]:
+    for f in sorted(cli.rglob("*.go")):
+        if f.name.endswith("_test.go"):
+            continue
+        try:
+            raw = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        # Cheap prefilter: the identifier, or a Use: literal that starts with s or an escape.
+        if "newShareCmd" not in raw and not re.search(r'\bUse\s*:\s*["`](?:s|\\)', raw):
+            continue
+        code, bare = _read_go(f)
+        m = re.search(r"\bnewShareCmd\b", bare)
+        if not m:
+            m = next((u for u in re.finditer(r"\bUse\s*:", bare)
+                      if re.match(r"share(?:\s|$)", _lit_at(code, u.end()) or "")), None)
+        if m:
+            return [(_rel(f), _line_at(code, m.start()), "", code[m.start():m.start() + 40].split("\n")[0].strip())]
+    return []
+
+
+def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
+    """Typed write tools must be unreachable under <PREFIX>_MCP_READ_ONLY=1: each one is
+    registered inside an `if !IsMCPReadOnlyEnv() {` body, or dropNonReadOnlyTools(...) is
+    called inside an `if IsMCPReadOnlyEnv() {` body AFTER every write is registered (same
+    file; a drop that runs first leaves the later writes callable)."""
+    writes = [t for t in _typed_tools(cli) if not _read_only(t[3])]
+    if not writes:
+        return []
+    env = r"(?:\w+\.)?IsMCPReadOnlyEnv\s*\(\s*\)"
+    pkg = _package(cli / "internal" / "mcp")
+    for f, (code, bare) in pkg.items():
+        drops = _calls(bare, "dropNonReadOnlyTools")
+        if any(_inside(d.start(), _if_bodies(bare, env))
+               and all(t[0] == f and t[2] < d.start() for t in writes) for d in drops):
+            return []
+    open_ = []
+    for t in writes:
+        bare = pkg[t[0]][1]
+        if not _inside(t[2], _if_bodies(bare, "!" + r"\s*" + env)):
+            open_.append(t)
+    if not open_:
+        return []
+    f, code, off, _, _, _, tool = open_[0]
+    return [(_rel(f), _line_at(code, off), "", f"{len(open_)} non-read-only typed tool(s), first {tool}")]
+
+
+MCP_RULE_FUNCS = {
+    "mcp-http-no-bearer-auth": _mcp_rule_http_auth,
+    "mcp-go-no-rebinding-guard": _mcp_rule_mcp_go,
+    "mcp-execute-no-confirm": _mcp_rule_execute_confirm,
+    "mcp-write-tool-nondestructive": _mcp_rule_write_nondestructive,
+    "mcp-mutating-get-as-read": _mcp_rule_mutating_get,
+    "mcp-share-command": _mcp_rule_share,
+    "mcp-read-only-switch-skips-typed-tools": _mcp_rule_read_only_drop,
+}
+
+
+def mcp_surface_hits(slug: str, suppress: set[tuple[str, str]]) -> dict[str, list[tuple]]:
+    """{rule: [(file, line, detail, evidence), ...]} for the rules this connector fails.
+
+    A base-owned suppression (file, rule) silences a rule for that file; for the
+    per-entry rules (write tools, verb GETs) (file, "rule:<tool or path>") silences
+    one entry."""
+    cli = REPO / "skills" / slug / "cli"
+    if not cli.is_dir():
+        return {}
+    out = {}
+    for rule, fn in MCP_RULE_FUNCS.items():
+        hits = [h for h in fn(cli)
+                if (h[0], rule) not in suppress and not (h[2] and (h[0], f"{rule}:{h[2]}") in suppress)]
+        if hits:
+            out[rule] = hits
+    return out
+
+
+def parse_baseline(text: str | None, require_all: bool) -> tuple[dict[str, set[str]] | None, list[str]]:
+    """(rule -> slugs, problems). None with no problems = the file does not exist.
+
+    require_all: every rule must have a key (an empty list once burned down), so a
+    key cannot be dropped and later re-seeded with new slugs. The BASE copy is read
+    without it: a rule newer than the base has no key there yet."""
+    if text is None:
+        return None, []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        return None, [f"security_gate_baseline.json is not valid JSON ({e.msg})"]
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, dict):
+        return None, ['security_gate_baseline.json has no "rules" object']
+    out, problems = {}, []
+    for r, slugs in rules.items():
+        if r not in MCP_RULE_IDS:
+            problems.append(f"baseline names an unknown rule {r!r}")
+        elif not isinstance(slugs, list) or not all(isinstance(s, str) and SLUG_RE.fullmatch(s)
+                                                    for s in slugs) or len(set(slugs)) != len(slugs):
+            problems.append(f"baseline rule {r!r} is not a list of distinct valid slugs")
+        else:
+            out[r] = set(slugs)
+    if require_all:
+        problems += [f"baseline has no entry for rule {r!r} (an empty list when burned down)"
+                     for r in MCP_RULE_IDS if r not in rules]
+    return out, problems
+
+
+def baseline_readditions(head: dict[str, set[str]], base: dict[str, set[str]] | None) -> list[tuple[str, str]]:
+    """(rule, slug) the working copy lists that the base does not: a re-addition. A
+    rule the base has no key for is new, and its first listing is the seed."""
+    if base is None:
+        return []
+    return [(r, s) for r in MCP_RULE_IDS if r in base for s in sorted(head.get(r, set()) - base[r])]
+
+
+def effective_baseline(policy_ref: str | None) -> tuple[dict[str, set[str]], list[str], list[tuple[str, str]]]:
+    """(baseline in force, problems, re-additions). Problems fail closed (P1)."""
+    head, problems = parse_baseline(_policy_text(BASELINE, None), require_all=True)
+    if head is None:
+        head = {}
+        problems = problems or [f"{BASELINE.name} is missing; every rule needs its entry"]
+    if not policy_ref:
+        return {r: head.get(r, set()) for r in MCP_RULE_IDS}, problems, []
+    if run(["git", "-C", str(REPO), "rev-parse", "--verify", "--quiet", f"{policy_ref}^{{commit}}"])[0] != 0:
+        return {r: set() for r in MCP_RULE_IDS}, problems + [f"cannot resolve --policy-base {policy_ref!r}"], []
+    base, bp = parse_baseline(_policy_text(BASELINE, policy_ref), require_all=False)
+    if base is None and not bp:
+        # No baseline at the base. If the base's gate already reads one, it was deleted:
+        # nothing is baselined, and a file re-created here must not become the seed.
+        gate = _policy_text(REPO / "tools" / "maintainer" / "check_security_gate.py", policy_ref) or ""
+        if BASELINE.name in gate:
+            return ({r: set() for r in MCP_RULE_IDS},
+                    problems + [f"the base gate reads {BASELINE.name} but the base has none (deleted?)"], [])
+        # The base predates the baseline (the change that introduces it): its seed.
+        return {r: head.get(r, set()) for r in MCP_RULE_IDS}, problems, []
+    base = base or {}
+    return baseline_in_force(head, base), problems + bp, baseline_readditions(head, base)
+
+
+def baseline_in_force(head: dict[str, set[str]], base: dict[str, set[str]]) -> dict[str, set[str]]:
+    """The base's entries the working copy still lists: a PR's own burn-down applies at
+    once, and a slug it adds never does. A rule with no base key yet uses its seed."""
+    return {r: (head.get(r, set()) & base[r]) if r in base else head.get(r, set()) for r in MCP_RULE_IDS}
+
+
+def _baseline_line(rule: str, slug: str) -> int:
+    try:
+        text = BASELINE.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    k = text.find(f'"{rule}"')
+    s = text.find(f'"{slug}"', k) if k >= 0 else -1
+    return _line_at(text, s) if s >= 0 else 0
+
+
+def scan_mcp_surface(slug: str, suppress: set[tuple[str, str]],
+                     baseline: dict[str, set[str]]) -> tuple[list[dict], list[str]]:
+    """(findings, burned-down rules) for one connector against the baseline in force."""
+    findings: list[dict] = []
+    hits = mcp_surface_hits(slug, suppress)
+    for rule in MCP_RULE_IDS:
+        h = hits.get(rule)
+        if not h:
+            continue
+        listed = slug in baseline.get(rule, set())
+        more = f" (+{len(h) - 1} more)" if len(h) > 1 else ""
+        findings.append({"tool": "mcp-surface", "rule": rule, "severity": "P2" if listed else "P1",
+                         "file": h[0][0], "line": h[0][1], "baselined": listed,
+                         "count": len(h),
+                         "evidence": (("baselined, burn-down pending: " if listed else "")
+                                      + f"{MCP_RULE_MSG[rule]} [{h[0][3]}{more}]")})
+    burned = [r for r in MCP_RULE_IDS if slug in baseline.get(r, set()) and r not in hits]
+    return findings, burned
+
+
+def baseline_policy_findings(problems: list[str], readded: list[tuple[str, str]]) -> list[dict]:
+    """P1s for a baseline that cannot be trusted: unreadable, or grown."""
+    findings: list[dict] = []
+    rel = str(BASELINE.relative_to(REPO))
+    for p in problems:
+        findings.append({"tool": "mcp-surface", "rule": BASELINE_INVALID, "severity": "P1",
+                         "file": rel, "line": 0, "evidence": f"{p} (fail-closed)."})
+    for r, s in readded:
+        findings.append({"tool": "mcp-surface", "rule": BASELINE_READDED, "severity": "P1",
+                         "file": rel, "line": _baseline_line(r, s),
+                         "evidence": f"{s} is listed under {r} but not in the base baseline: the "
+                                     "baseline only shrinks, so a connector cannot be (re-)added."})
+    return findings
+
+
+def _fleet_failing(suppress: set[tuple[str, str]]) -> dict[str, set[str]]:
+    failing: dict[str, set[str]] = {r: set() for r in MCP_RULE_IDS}
+    for slug in list_slugs():
+        for r in mcp_surface_hits(slug, suppress):
+            failing[r].add(slug)
+    return failing
+
+
+def _write_baseline(rules: dict[str, set[str]]) -> None:
+    BASELINE.write_text(json.dumps({
+        "_comment": ("Connectors that failed an MCP-surface rule in check_security_gate.py when "
+                     "the rule landed, listed per rule. A listed connector reports (P2) instead of "
+                     "blocking until its reprint fixes the class; any other connector failing the "
+                     "rule is P1. This list only shrinks: --update-baseline removes connectors that "
+                     "no longer fail, and a slug added back is P1. Every rule keeps its key, as an "
+                     "empty list once fully burned down."),
+        "rules": {r: sorted(rules[r]) for r in MCP_RULE_IDS},
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {BASELINE.relative_to(REPO)}: " + ", ".join(f"{r} {len(rules[r])}" for r in MCP_RULE_IDS))
+
+
+def update_baseline(suppress: set[tuple[str, str]]) -> int:
+    """Remove every (rule, slug) that no longer fails. Never adds anything: a missing
+    file or rule key is an error (--seed-baseline is the separate, explicit seed)."""
+    head, problems = parse_baseline(_policy_text(BASELINE, None), require_all=True)
+    if head is None or problems:
+        for p in problems or [f"{BASELINE.name} is missing"]:
+            print(f"ERROR: {p} (use --seed-baseline only for a rule that has no entry yet)", file=sys.stderr)
+        return 1
+    failing = _fleet_failing(suppress)
+    new = {r: head[r] & failing[r] for r in MCP_RULE_IDS}
+    for r in MCP_RULE_IDS:
+        for s in sorted(head[r] - new[r]):
+            print(f"burned down: {r}: {s}")
+    _write_baseline(new)
+    return 0
+
+
+def seed_baseline(suppress: set[tuple[str, str]]) -> int:
+    """Give a rule that has NO entry yet (a new rule, or the first baseline) today's
+    failures. Rules that already have an entry are left exactly as they are."""
+    head, problems = parse_baseline(_policy_text(BASELINE, None), require_all=False)
+    if problems:
+        for p in problems:
+            print(f"ERROR: {p}", file=sys.stderr)
+        return 1
+    head = head or {}
+    missing = [r for r in MCP_RULE_IDS if r not in head]
+    if not missing:
+        print("every rule already has an entry; nothing to seed (--update-baseline only removes)")
+        return 0
+    failing = _fleet_failing(suppress)
+    for r in missing:
+        head[r] = failing[r]
+        print(f"seeded: {r}: {len(failing[r])} connector(s)")
+    _write_baseline(head)
+    return 0
+
+
+def mcp_report(results: list[dict], baseline: dict[str, set[str]]) -> None:
+    """Fleet counts per rule, for the status doc."""
+    print(f"\nMCP-surface fleet report ({len(results)} skills scanned)")
+    print(f"  {'rule':<40} {'failing':>7} {'baselined':>9} {'new':>4} {'burned down':>11}")
+    for r in MCP_RULE_IDS:
+        fail = [x["slug"] for x in results for f in x["findings"] if f["rule"] == r]
+        new = [x["slug"] for x in results for f in x["findings"] if f["rule"] == r and not f["baselined"]]
+        burned = [x["slug"] for x in results if r in x.get("burned_down", [])]
+        print(f"  {r:<40} {len(fail):>7} {len(baseline.get(r, set())):>9} {len(new):>4} {len(burned):>11}")
+        if new:
+            print(f"    new (P1): {', '.join(new)}")
+        if burned:
+            print(f"    burned down (run --update-baseline): {', '.join(burned)}")
+
+
 # --- the security-gate workflow's summary job, and the gate's self-test ------------
 
 def summarize_gate(needs: dict, verdict_dir: Path, sha: str, run_id: str) -> list[str]:
@@ -1094,13 +1770,415 @@ def _self_test_changed_files() -> int:
     return failed
 
 
+# Fixture snippets for the MCP-surface self-test: the smallest shape of each class
+# as the press emits it, plus the shapes that must NOT fire (the healthy template,
+# near-miss names, a marker that only appears in a comment).
+_MAIN_OPEN = '''package main
+
+import "github.com/mark3labs/mcp-go/server"
+
+func main() {
+	httpSrv := server.NewStreamableHTTPServer(s)
+	_ = httpSrv.Start(":7777")
+}
+'''
+_MAIN_AUTH = '''package main
+
+import (
+	"net/http"
+
+	"github.com/mark3labs/mcp-go/server"
+)
+
+func main() {
+	inner := server.NewStreamableHTTPServer(s)
+	srv := &http.Server{Handler: requireBearerAuth(token, inner)}
+	_ = srv.ListenAndServe()
+}
+
+func requireBearerAuth(expected string, next http.Handler) http.Handler { return next }
+'''
+_MAIN_AUTH_COMMENT = _MAIN_OPEN.replace("func main() {", "// requireBearerAuth(token, inner) is applied upstream.\nfunc main() {")
+_MAIN_AUTH_DECL_ONLY = _MAIN_OPEN + "\nfunc requireBearerAuth(expected string, next http.Handler) http.Handler { return next }\n"
+_MAIN_STDIO = 'package main\n\nfunc main() {\n\t_ = server.ServeStdio(s)\n}\n'
+_MAIN_AUTH_DISCARDED = _MAIN_AUTH.replace("srv := &http.Server{Handler: requireBearerAuth(token, inner)}",
+                                          "_ = requireBearerAuth(token, inner)\n\tsrv := &http.Server{Handler: inner}")
+_MAIN_AUTH_VAR = _MAIN_AUTH.replace("srv := &http.Server{Handler: requireBearerAuth(token, inner)}",
+                                    "h := requireBearerAuth(token, inner)\n\tsrv := &http.Server{Handler: h}")
+_MAIN_AUTH_NESTED_DISCARD = _MAIN_AUTH.replace(
+    "srv := &http.Server{Handler: requireBearerAuth(token, inner)}",
+    "_ = fmt.Sprint(requireBearerAuth(token, inner))\n\tsrv := &http.Server{Handler: inner}")
+_MAIN_AUTH_IN_STRING = _MAIN_OPEN.replace("func main() {", "var _ = `requireBearerAuth(token, httpSrv)`\n\nfunc main() {")
+_MAIN_AUTH_DIRECT = _MAIN_OPEN.replace("httpSrv := server.NewStreamableHTTPServer(s)",
+                                       "httpSrv := &http.Server{Handler: requireBearerAuth(token, server.NewStreamableHTTPServer(s))}")
+_MAIN_AUTH_ARG = _MAIN_AUTH.replace("srv := &http.Server{Handler: requireBearerAuth(token, inner)}",
+                                    "srv := newMCPHTTPServer(addr, requireBearerAuth(token, inner))")
+
+
+def _fx_gomod(body: str) -> str:
+    return f"module example.com/acme-cli\n\ngo 1.26\n\n{body}\n"
+
+
+def _fx_execute_tool(name: str, gated: bool, check: bool = True) -> str:
+    param = '\n\t\t\tmcplib.WithBoolean("confirm", mcplib.Description("Set to true to run.")),' if gated else ""
+    body = ('\tif !codeOrchConfirmAccepted(args["confirm"]) {\n\t\treturn preview, nil\n\t}\n'
+            if gated and check else "")
+    return f'''package mcp
+
+func RegisterCodeOrchestrationTools(s *server.MCPServer) {{
+	s.AddTool(
+		mcplib.NewTool("{name}",
+			mcplib.WithString("endpoint_id", mcplib.Required()),{param}
+		),
+		handleCodeOrchExecute,
+	)
+}}
+
+func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {{
+{body}	return nil, nil
+}}
+
+func codeOrchConfirmAccepted(v any) bool {{
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}}
+'''
+
+
+def _fx_typed_tools(tools: list[tuple[str, str, str, list[str]]], extra: str = "") -> str:
+    regs = "".join(f'''	s.AddTool(
+		mcplib.NewTool("{n}",
+{"".join(f"			mcplib.{a},{chr(10)}" for a in ann)}		),
+		makeAPIHandler("{m}", "{p}", false, false, nil, nil, nil),
+	)
+''' for n, m, p, ann in tools)
+    return f'''package mcp
+
+func RegisterTools(s *server.MCPServer) {{
+{regs}{extra}}}
+
+// makeAPIHandler creates a generic MCP tool handler for an API endpoint.
+func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse bool, h map[string]string, b []mcpParamBinding, p []string) server.ToolHandlerFunc {{
+	return nil
+}}
+'''
+
+
+_RO = ["WithReadOnlyHintAnnotation(true)", "WithDestructiveHintAnnotation(false)"]
+_ND = ["WithDestructiveHintAnnotation(false)"]
+_D = ["WithDestructiveHintAnnotation(true)"]
+_DROP = "\tif cliutil.IsMCPReadOnlyEnv() {\n\t\tdropNonReadOnlyTools(s)\n\t}\n"
+
+
+def _fx_registry(entries: list[tuple[str, str, str]]) -> str:
+    """entries: (method, path, extra field line or '')."""
+    body = "".join(f'''	{{
+		ID:     "e{i}.list",
+		Method: "{m}",
+		Path:   "{p}",{chr(10) + chr(9) + chr(9) + x if x else ""}
+	}},
+''' for i, (m, p, x) in enumerate(entries))
+    return f"package mcp\n\nvar codeOrchEndpoints = []codeOrchEndpoint{{\n{body}}}\n"
+
+
+def _self_test_mcp_surface() -> int:
+    """Each MCP-surface rule fires on its class and stays silent on the healthy shape,
+    and the baseline only shrinks."""
+    global REPO, BASELINE
+    failed = 0
+    tmp = Path(tempfile.mkdtemp(prefix="gate-mcp-"))
+    saved = (REPO, BASELINE)
+    try:
+        REPO = tmp
+        BASELINE = tmp / "tools/maintainer/security_gate_baseline.json"
+        BASELINE.parent.mkdir(parents=True)
+
+        def put(slug: str, files: dict[str, str]) -> str:
+            for rel, text in files.items():
+                f = tmp / "skills" / slug / "cli" / rel
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text(text, encoding="utf-8")
+            return slug
+
+        n = 0
+
+        def case(rule: str, files: dict[str, str], want: bool, name: str,
+                 suppress: set[tuple[str, str]] | None = None) -> None:
+            nonlocal failed, n
+            n += 1
+            slug = put(f"c{n}", files)
+            got = rule in mcp_surface_hits(slug, suppress or set())
+            ok = got == want
+            print(f"  [{'PASS' if ok else 'FAIL'}] mcp-surface {rule}: {name} -> {'fires' if got else 'silent'}")
+            failed += not ok
+
+        main_go = "cmd/acme-mcp/main.go"
+        r1 = "mcp-http-no-bearer-auth"
+        case(r1, {main_go: _MAIN_OPEN}, True, "StreamableHTTP with no token check")
+        case(r1, {main_go: _MAIN_AUTH}, False, "server wrapped in requireBearerAuth (template v4.31.2+)")
+        case(r1, {main_go: _MAIN_AUTH_COMMENT}, True, "requireBearerAuth only named in a comment")
+        case(r1, {main_go: _MAIN_AUTH_DECL_ONLY}, True, "requireBearerAuth declared but never called")
+        case(r1, {main_go: _MAIN_STDIO}, False, "stdio-only server")
+        case(r1, {main_go: _MAIN_AUTH_DISCARDED}, True, "requireBearerAuth called but its result discarded")
+        case(r1, {main_go: _MAIN_AUTH_VAR}, False, "wrapped handler held in a variable, then served")
+        case(r1, {main_go: _MAIN_AUTH_ARG}, False,
+             "wrapped handler passed as an argument (template v4.33.9 shape)")
+        case(r1, {main_go: _MAIN_AUTH_NESTED_DISCARD}, True,
+             "wrapper result swallowed by another call while the raw server is served")
+        case(r1, {main_go: _MAIN_AUTH_IN_STRING}, True, "requireBearerAuth( only inside a raw string")
+        case(r1, {main_go: _MAIN_AUTH_DIRECT}, False, "server built directly inside requireBearerAuth(...)")
+
+        r2 = "mcp-go-no-rebinding-guard"
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.47.0\n)")}, True, "v0.47.0")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.57.0\n)")}, False, "v0.57.0")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.58.2\n)")}, False, "v0.58.2")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.57.0-rc.1\n)")}, True,
+             "a pre-release of v0.57.0")
+        case(r2, {"go.mod": _fx_gomod("require github.com/mark3labs/mcp-go v0.56.9 // indirect")}, True,
+             "single-line require below the floor")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.57.0\n)\n\n"
+                                   "replace github.com/mark3labs/mcp-go => github.com/mark3labs/mcp-go v0.47.0")},
+             True, "a replace pins an older version")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.57.0\n)\n\n"
+                                   "replace github.com/mark3labs/mcp-go => github.com/acme/mcp-go v0.60.0")},
+             True, "a replace swaps in a fork")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.47.0\n)\n\n"
+                                   "replace github.com/mark3labs/mcp-go => github.com/mark3labs/mcp-go v0.57.1")},
+             False, "a replace lifts the version to v0.57.1")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/spf13/cobra v1.9.1\n)")}, False, "no mcp-go at all")
+        case(r2, {"go.mod": _fx_gomod('require "github.com/mark3labs/mcp-go" v0.47.0')}, True, "quoted module path")
+        case(r2, {"go.mod": _fx_gomod('require "github.com/mark3labs/mcp-go" v0.57.0')}, False,
+             "quoted module path at the floor")
+        case(r2, {"go.mod": _fx_gomod('require "github.com/mark3labs/mcp\\u002dgo" v0.47.0')}, True,
+             "an escaped quoted module path (Go decodes it)")
+        case(r2, {"go.mod": _fx_gomod("require github.com/mark3labs/mcp-go v0.56.0\n\n"
+                                   "replace github.com/mark3labs/mcp-go v0.57.0 => github.com/mark3labs/mcp-go v0.57.1")},
+             True, "a version-specific replace Go ignores does not lift the floor")
+        case(r2, {"go.mod": _fx_gomod("require github.com/mark3labs/mcp-go v0.57.0\n\n"
+                                   "replace github.com/mark3labs/mcp-go v0.47.0 => github.com/mark3labs/mcp-go v0.47.0")},
+             False, "an unused low-version replace does not lower a safe require")
+        case(r2, {"go.mod": _fx_gomod("require github.com/mark3labs/mcp-go v0.47.0\n\n"
+                                   "replace github.com/mark3labs/mcp-go v0.47.0 => github.com/mark3labs/mcp-go v0.57.1")},
+             False, "a version-specific replace that applies lifts the floor")
+        case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go-fork v0.40.0\n)\n\n"
+                                   "exclude github.com/mark3labs/mcp-go v0.40.0")},
+             True, "mcp-go named but no require parses (fail-closed)")
+
+        r3, orch = "mcp-execute-no-confirm", "internal/mcp/code_orch.go"
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=False)}, True, "_execute with no confirm (pre-4.33.8)")
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=True)}, False,
+             "confirm parameter plus codeOrchConfirmAccepted (template v4.33.8+)")
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=True, check=False)}, True,
+             "confirm parameter declared but never checked")
+        case(r3, {orch: _fx_execute_tool("cisco-meraki_execute", gated=False)}, True, "kebab-case connector name")
+        case(r3, {orch: _fx_execute_tool("computers_command-execute", gated=False)}, False,
+             "a typed tool whose action is command-execute")
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=True).replace(
+            "if !codeOrchConfirmAccepted(args[\"confirm\"]) {", "_ = codeOrchConfirmAccepted(args[\"confirm\"])\n\tif false {")},
+             True, "the confirm check is called but nothing branches on it")
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=False).replace('NewTool("acme_execute"', "NewTool(`acme_execute`")},
+             True, "tool name as a raw string")
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=False)
+                  + 'var _ = `mcplib.WithBoolean("confirm") if !codeOrchConfirmAccepted(x) { return }`\n'},
+             True, "the whole gate only inside a raw string")
+        case(r3, {orch: _fx_execute_tool("acme_execute", gated=True).replace("\t\treturn preview, nil\n", "")},
+             True, "the refusal branch does not return")
+
+        r4, tools = "mcp-write-tool-nondestructive", "internal/mcp/tools.go"
+        case(r4, {tools: _fx_typed_tools([("computers_command-execute", "POST", "/Computers/{id}/CommandExecute", _ND)])},
+             True, "POST write labeled destructiveHint=false")
+        case(r4, {tools: _fx_typed_tools([("things_delete", "DELETE", "/things/{id}", _ND)])}, True,
+             "DELETE labeled destructiveHint=false")
+        case(r4, {tools: _fx_typed_tools([("things_create", "POST", "/things", _D)])}, False,
+             "POST labeled destructiveHint=true")
+        case(r4, {tools: _fx_typed_tools([("invoices_search", "POST", "/invoices/search", _RO)])}, False,
+             "read-only POST (a search)")
+        case(r4, {tools: _fx_typed_tools([("things_list", "GET", "/things", _RO)])}, False, "GET read")
+        case(r4, {tools: _fx_typed_tools([("things_delete", "DELETE", "/things/{id}", _ND)]).replace('"DELETE"', "`DELETE`")},
+             True, "method as a raw string")
+        case(r4, {tools: _fx_typed_tools([("things_create", "POST", "/things", _ND)]).replace('"POST"', "http.MethodPost")},
+             True, "method as http.MethodPost")
+        case(r4, {tools: _fx_typed_tools([("things_create", "POST", "/things", _ND)]).replace('"POST"', "verb")},
+             True, "method in a variable (cannot prove a read: fail-closed)")
+        case(r4, {"internal/mcp/endpoints.go": _fx_typed_tools([("things_create", "POST", "/things", _ND)])},
+             True, "registered in a file other than tools.go")
+        case(r4, {tools: _fx_typed_tools([], extra='\th := makeAPIHandler("POST", "/things", false, false, nil, nil, nil)\n'
+                                                 '\ts.AddTool(thingsCreateTool, h)\n')},
+             True, "handler hoisted out of AddTool (annotations unprovable: fail-closed)")
+
+        r5 = "mcp-mutating-get-as-read"
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "")])}, True, "GET /RemoveStandard")
+        case(r5, {orch: _fx_registry([("GET", "/ExecRunBackup/{id}", "")])}, True,
+             "GET /ExecRunBackup/{id} (trailing placeholder skipped)")
+        case(r5, {orch: _fx_registry([("GET", "/devices/{serial}/reboot", "")])}, True, "GET .../reboot")
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "Mutating:     true,")])}, False,
+             "marked Mutating")
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "NeedsConfirm: true,")])}, False,
+             "marked NeedsConfirm")
+        case(r5, {orch: _fx_registry([("GET", "/settings", ""), ("GET", "/addresses", ""),
+                                   ("GET", "/roles/{id}/assignments", ""), ("GET", "/ListStandards", "")])},
+             False, "reads whose names only START with a verb's letters")
+        case(r5, {orch: _fx_registry([("POST", "/ExecRunBackup", "")])}, False, "a POST (rules 3 and 4 own writes)")
+        case(r5, {orch: "package mcp\n\nvar codeOrchEndpoints = []codeOrchEndpoint{\n"
+                        "\t{ID: \"ok.list\", Method: \"GET\", Path: \"/ListStandards\", Mutating: true},\n"
+                        "\t{Method: \"GET\", Path: \"/RemoveStandard\", ID: \"remove\"},\n}\n"},
+             True, "a later entry with ID after Method and Path (entries split by braces, not by ID)")
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "")]).replace('"/RemoveStandard"', "`/RemoveStandard`")},
+             True, "path as a raw string")
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "")]).replace('Method: "GET"', "Method: http.MethodGet")},
+             True, "method as http.MethodGet")
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "")]).replace('Method: "GET"', "Method: verb")},
+             True, "method in a variable (cannot prove a non-GET: fail-closed)")
+        case(r5, {orch: _fx_registry([("GET", "/v2/sites/{id}/addOns", "")])}, False, "GET .../addOns lists add-ons")
+        case(r5, {orch: _fx_registry([("GET", "/RemoveStandard", "")])}, False, "per-entry base-owned suppression",
+             suppress={(f"skills/c{n + 1}/cli/{orch}", f"{r5}:/RemoveStandard")})
+
+        r6, share = "mcp-share-command", "internal/cli/share.go"
+        case(r6, {share: "package cli\n\nfunc newShareCmd(flags *rootFlags) *cobra.Command {\n\treturn nil\n}\n"},
+             True, "newShareCmd emitted")
+        case(r6, {share: 'package cli\n\nvar c = &cobra.Command{\n\tUse: "share",\n}\n'}, True, 'Use: "share"')
+        case(r6, {share: 'package cli\n\nvar a = &cobra.Command{Use: "shares <serialNumber>"}\n'
+                         'var b = &cobra.Command{Use: "share-point"}\n'}, False, "shares / share-point commands")
+        case(r6, {share: "package cli\n\n// newShareCmd was removed from this connector.\n"}, False,
+             "newShareCmd only in a comment")
+        case(r6, {share: "package cli\n\nvar c = &cobra.Command{Use: `share <remote>`}\n"}, True,
+             "Use as a raw string under another constructor name")
+        case(r6, {share: 'package cli\n\nvar c = &cobra.Command{Use: "\\u0073hare"}\n'}, True, "Use with an escaped literal")
+
+        r7 = "mcp-read-only-switch-skips-typed-tools"
+        writes = [("things_list", "GET", "/things", _RO), ("things_create", "POST", "/things", _D)]
+        case(r7, {tools: _fx_typed_tools(writes)}, True, "typed write tool and no read-only drop")
+        case(r7, {tools: _fx_typed_tools(writes, extra=_DROP)}, False, "dropNonReadOnlyTools under IsMCPReadOnlyEnv")
+        case(r7, {tools: _fx_typed_tools([("things_list", "GET", "/things", _RO)])}, False,
+             "only read-only typed tools: nothing to drop")
+        case(r7, {tools: _fx_typed_tools([])}, False, "code-orchestration connector (makeAPIHandler declared only)")
+        case(r7, {tools: _fx_typed_tools(writes, extra="\t// dropNonReadOnlyTools(s) when IsMCPReadOnlyEnv()\n")},
+             True, "the drop only in a comment")
+        case(r7, {tools: _fx_typed_tools(writes, extra="\t_ = cliutil.IsMCPReadOnlyEnv\n")}, True,
+             "IsMCPReadOnlyEnv named but never branched on")
+        guarded = _fx_typed_tools(writes).replace("\ts.AddTool(\n\t\tmcplib.NewTool(\"things_create\"",
+                                                  "\tif !cliutil.IsMCPReadOnlyEnv() {\n\ts.AddTool(\n\t\tmcplib.NewTool(\"things_create\"")
+        guarded = guarded.replace('makeAPIHandler("POST", "/things", false, false, nil, nil, nil),\n\t)\n',
+                                  'makeAPIHandler("POST", "/things", false, false, nil, nil, nil),\n\t)\n\t}\n')
+        case(r7, {tools: guarded}, False, "write registered inside if !IsMCPReadOnlyEnv() { (backup-radar shape)")
+        case(r7, {tools: _fx_typed_tools(writes, extra="\tif !cliutil.IsMCPReadOnlyEnv() {\n\t\tlog(s)\n\t}\n")},
+             True, "a read-only branch exists but the write is registered outside it")
+        case(r7, {tools: _fx_typed_tools(writes, extra="\tif cliutil.IsMCPReadOnlyEnv() {\n\t}\n")}, True,
+             "an empty read-only branch")
+        case(r7, {tools: _fx_typed_tools(writes, extra="\tif false {\n\t\tdropNonReadOnlyTools(s)\n\t}\n")}, True,
+             "dropNonReadOnlyTools called outside a read-only branch")
+        case(r7, {tools: _fx_typed_tools(writes).replace("func RegisterTools(s *server.MCPServer) {\n",
+                                                         "func RegisterTools(s *server.MCPServer) {\n" + _DROP)},
+             True, "the drop runs before the writes are registered")
+        case(r7, {tools: _fx_typed_tools(writes, extra="\tvar _ = `if cliutil.IsMCPReadOnlyEnv() { dropNonReadOnlyTools(s) }`\n")},
+             True, "the drop only inside a raw string")
+        case(r7, {tools: _fx_typed_tools([]), "internal/mcp/endpoints.go": _fx_typed_tools(writes).replace(
+                  "func makeAPIHandler", "func unusedHandler"),
+                  orch: "package mcp\n\nfunc gated(method string) bool {\n\treturn cliutil.IsMCPReadOnlyEnv() && method != \"GET\"\n}\n"},
+             True, "typed writes outside tools.go; code-orch's return expression is not a drop")
+
+        # --- the baseline -------------------------------------------------------------
+        def check(name: str, ok: bool) -> None:
+            nonlocal failed
+            print(f"  [{'PASS' if ok else 'FAIL'}] baseline: {name}")
+            failed += not ok
+
+        def doc(rules: dict[str, list[str]]) -> str:
+            return json.dumps({"rules": {r: rules.get(r, []) for r in MCP_RULE_IDS}})
+
+        b, p = parse_baseline(doc({r1: ["a"]}), require_all=True)
+        check("a well-formed file loads", not p and b[r1] == {"a"})
+        check("a missing file reads as absent, not empty", parse_baseline(None, True) == (None, []))
+        for label, text in (("not JSON", "{"), ("no rules object", "[]"),
+                            ("a rule that does not exist", json.dumps({"rules": {"nope": []}})),
+                            ("a slug list that is not a list", json.dumps({"rules": {r1: "a"}})),
+                            ("a duplicate slug", json.dumps({"rules": {r1: ["a", "a"]}})),
+                            ("a hostile slug", json.dumps({"rules": {r1: ["a;rm -rf /"]}}))):
+            check(f"{label} is refused", bool(parse_baseline(text, require_all=False)[1]))
+        check("a dropped rule key is refused (it could be re-seeded later)",
+              bool(parse_baseline(json.dumps({"rules": {r1: []}}), require_all=True)[1]))
+        base = {r1: {"a", "b"}, r2: {"a"}}
+        check("a re-addition is rejected",
+              baseline_readditions({r1: {"a", "b", "c"}, r2: {"a"}}, base) == [(r1, "c")])
+        check("a slug burned down then added back is rejected",
+              baseline_readditions({r1: {"a", "b"}, r2: {"a", "b"}}, base) == [(r2, "b")])
+        check("a shrink is not a re-addition", baseline_readditions({r1: {"a"}, r2: set()}, base) == [])
+        eff = baseline_in_force({r1: {"a", "c"}, r2: {"a"}, r3: {"x"}}, base)
+        check("in force: the PR's burn-down applies at once, its additions never",
+              eff[r1] == {"a"} and eff[r2] == {"a"})
+        check("in force: a rule newer than the base uses its seed", eff[r3] == {"x"})
+        pol = baseline_policy_findings(["bad"], [(r1, "c")])
+        check("re-additions and an unreadable baseline are P1",
+              [f["severity"] for f in pol] == ["P1", "P1"]
+              and {f["rule"] for f in pol} == {BASELINE_INVALID, BASELINE_READDED})
+
+        bad = put("bad", {main_go: _MAIN_OPEN})
+        good = put("good", {main_go: _MAIN_AUTH})
+        for s in (bad, good):
+            (tmp / "skills" / s / "SKILL.md").write_text("x\n", encoding="utf-8")
+        f_new, _ = scan_mcp_surface(bad, set(), {r1: set()})
+        f_old, _ = scan_mcp_surface(bad, set(), {r1: {bad}})
+        _, burned = scan_mcp_surface(good, set(), {r1: {good}})
+        check("a failing connector not in the baseline is P1", [f["severity"] for f in f_new] == ["P1"])
+        check("a failing baselined connector reports P2", [f["severity"] for f in f_old] == ["P2"])
+        check("a baselined connector that passes is burned down", burned == [r1])
+
+        BASELINE.write_text(doc({r1: [good]}), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = update_baseline(set())
+        after, _ = parse_baseline(BASELINE.read_text(encoding="utf-8"), require_all=True)
+        check("--update-baseline retires the burned-down entry and never adds a failing one",
+              rc == 0 and after[r1] == set())
+
+        # The loader end to end, through git: the base lists a, the working copy adds b.
+        def git(*a: str) -> None:
+            subprocess.run(["git", "-C", str(tmp), "-c", "user.email=t@example.com", "-c", "user.name=t", *a],
+                           check=True, capture_output=True)
+        git("init", "-q")
+        BASELINE.write_text(doc({r1: ["a"]}), encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        BASELINE.write_text(doc({r1: ["a", "b"]}), encoding="utf-8")
+        eff, probs, readded = effective_baseline("HEAD")
+        check("the loader rejects a slug the PR adds and keeps it out of force",
+              not probs and readded == [(r1, "b")] and eff[r1] == {"a"})
+        check("an unresolvable --policy-base fails closed", bool(effective_baseline("no-such-ref")[1]))
+        BASELINE.unlink()
+        check("a missing working baseline fails closed", bool(effective_baseline(None)[1]))
+        gate = tmp / "tools/maintainer/check_security_gate.py"
+        gate.write_text(f"BASELINE = '{BASELINE.name}'\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "baseline deleted")
+        BASELINE.write_text(doc({r6: ["c1"]}), encoding="utf-8")
+        eff, probs, _ = effective_baseline("HEAD")
+        check("a baseline deleted from the base is not re-seeded by the next change",
+              bool(probs) and eff[r6] == set())
+        BASELINE.write_text(json.dumps({"rules": {r1: []}}), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            rc_u = update_baseline(set())
+        check("--update-baseline refuses a file with a missing rule entry (it never adds)", rc_u == 1)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc_s = seed_baseline(set())
+        seeded, _ = parse_baseline(BASELINE.read_text(encoding="utf-8"), require_all=True)
+        check("--seed-baseline fills only rules with no entry and leaves the others untouched",
+              rc_s == 0 and seeded is not None and set(seeded) == set(MCP_RULE_IDS)
+              and seeded[r1] == set() and len(seeded[r2]) > 0)
+    finally:
+        REPO, BASELINE = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    return failed
+
+
 def self_test() -> int:
-    failed = _self_test_summary() + _self_test_workflows() + _self_test_changed_files()
+    failed = (_self_test_summary() + _self_test_workflows() + _self_test_changed_files()
+              + _self_test_mcp_surface())
     if failed:
         print(f"\nSELF-TEST FAIL: {failed} case(s) behaved wrong.")
         return 1
     print("\nSELF-TEST PASS: the summary fails on every missing or non-passing row, both gates pin "
-          "the same scanners with no cache, and the diff scope sees quoted names and renames.")
+          "the same scanners with no cache, the diff scope sees quoted names and renames, each "
+          "MCP-surface rule fires on its class and not on the healthy shape, and the baseline "
+          "only shrinks.")
     return 0
 
 
@@ -1122,7 +2200,8 @@ def has_go_module(slug: str) -> bool:
 
 
 def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[str, str]],
-              require: bool = False) -> dict:
+              require: bool = False, baseline: dict[str, set[str]] | None = None,
+              policy: list[dict] | None = None) -> dict:
     only = changed_files(base, slug) if base else None
     findings = []
     findings += scan_go_patterns(go_files(slug, only), suppress)
@@ -1141,12 +2220,45 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
         findings += scan_dependencies(slug, allow, only)
         findings += scan_external(slug, suppress, base, require)
 
+    # MCP-surface rules judge the whole connector, in diff mode too (STATE rules).
+    mcp, burned = scan_mcp_surface(slug, suppress, baseline or {})
+    findings += mcp + list(policy or [])
+
     p1 = [f for f in findings if f["severity"] == "P1"]
     return {"slug": slug, "base": base, "scope": "diff" if only is not None else "full",
             "lane": "go" if has_go_module(slug) else "scripts",
             "findings": findings, "p1_count": len(p1),
-            "verdict": "block" if p1 else "pass",
+            "verdict": "block" if p1 else "pass", "burned_down": burned,
             "tools": {t: have(t) for t in ("gosec", "govulncheck", "osv-scanner", "semgrep")}}
+
+
+def mcp_surface_main(args, suppress: set[tuple[str, str]], baseline: dict[str, set[str]],
+                     policy: list[dict]) -> int:
+    """--mcp-surface / --report: only the MCP-surface rules, for one slug or the fleet."""
+    slugs = [args.slug] if args.slug and not args.all else list_slugs()
+    results = []
+    for s in slugs:
+        f, burned = scan_mcp_surface(s, suppress, baseline)
+        results.append({"slug": s, "findings": f, "burned_down": burned,
+                        "p1_count": sum(x["severity"] == "P1" for x in f)})
+    blocked = [r for r in results if r["p1_count"]] or policy
+    if args.json:
+        print(json.dumps({"results": results, "policy": policy}, indent=2))
+    else:
+        for f in policy:
+            print(f"P1 {f['tool']}:{f['rule']} {f['file']}:{f['line']} - {f['evidence']}")
+        for r in results:
+            for f in r["findings"]:
+                print(f"[{r['slug']}] {f['severity']} {f['tool']}:{f['rule']} {f['file']}:{f['line']} - "
+                      f"{f['evidence']}")
+            for rule in r["burned_down"]:
+                print(f"[{r['slug']}] BURNED DOWN mcp-surface:{rule} - no longer fails it; "
+                      "--update-baseline retires the entry")
+        if args.report:
+            mcp_report(results, baseline)
+        print(f"\nmcp-surface: {len(slugs)} skill(s), "
+              f"{sum(r['p1_count'] for r in results) + len(policy)} P1 (new failures or baseline problems)")
+    return 1 if blocked else 0
 
 
 def main() -> int:
@@ -1154,14 +2266,26 @@ def main() -> int:
     ap.add_argument("--slug")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--base", help="git ref to diff against (e.g. origin/main); omit for full audit")
-    ap.add_argument("--policy-base", help="read dep_allowlist.json + security_suppressions.json from "
-                                          "this trusted ref instead of the (PR-controlled) working tree")
+    ap.add_argument("--policy-base", help="read dep_allowlist.json + security_suppressions.json + "
+                                          "security_gate_baseline.json from this trusted ref instead of "
+                                          "the (PR-controlled) working tree; the baseline in force is the "
+                                          "base's entries the working copy still lists")
     ap.add_argument("--rebuild-allowlist", action="store_true")
     ap.add_argument("--require-scanners", action="store_true",
                     help="fail CLOSED (P1) if a required scanner (gosec/govulncheck/osv-scanner) "
                          "is missing or errors. Set this in CI/release so a broken scanner install "
                          "cannot silently disable the gate. Omit for local dev (graceful skip).")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--mcp-surface", action="store_true",
+                    help="run only the MCP-surface rules (no scanners), for --slug or the fleet")
+    ap.add_argument("--report", action="store_true",
+                    help="MCP-surface fleet counts per rule: failing, baselined, new, burned down")
+    ap.add_argument("--update-baseline", action="store_true",
+                    help="remove every connector that no longer fails its rule from "
+                         "security_gate_baseline.json (never adds one)")
+    ap.add_argument("--seed-baseline", action="store_true",
+                    help="give a rule with NO entry yet (a new rule) today's failing connectors; "
+                         "existing entries are untouched")
     ap.add_argument("--self-test", action="store_true",
                     help="prove the workflow summary, the workflow pins and the diff scope both directions")
     ap.add_argument("--summarize", action="store_true",
@@ -1190,6 +2314,14 @@ def main() -> int:
 
     allow = load_allowlist(args.policy_base)
     suppress = load_suppressions(args.policy_base)
+    if args.update_baseline:
+        return update_baseline(suppress)
+    if args.seed_baseline:
+        return seed_baseline(suppress)
+    baseline, bl_problems, readded = effective_baseline(args.policy_base)
+    policy = baseline_policy_findings(bl_problems, readded)
+    if args.mcp_surface or args.report:
+        return mcp_surface_main(args, suppress, baseline, policy)
     if not allow:
         print("WARNING: dep_allowlist.json empty/missing - run --rebuild-allowlist (after vetting).",
               file=sys.stderr)
@@ -1198,7 +2330,9 @@ def main() -> int:
     if not slugs:
         ap.error("one of --slug, --all, or --rebuild-allowlist is required")
 
-    results = [gate_slug(s, args.base, allow, suppress, args.require_scanners) for s in slugs]
+    # A baseline problem is a policy failure, not a connector's: one row carries it.
+    results = [gate_slug(s, args.base, allow, suppress, args.require_scanners, baseline,
+                         policy if i == 0 else None) for i, s in enumerate(slugs)]
     blocked = [r for r in results if r["verdict"] == "block"]
 
     if args.json:
@@ -1210,6 +2344,9 @@ def main() -> int:
                   f"{r['p1_count']} P1 / {len(r['findings'])} findings")
             for f in r["findings"]:
                 print(f"    {f['severity']} {f['tool']}:{f['rule']} {f['file']}:{f['line']} - {f['evidence']}")
+            for rule in r.get("burned_down", []):
+                print(f"    BURNED DOWN mcp-surface:{rule} - {r['slug']} no longer fails it; "
+                      "--update-baseline retires the entry")
         missing = [t for t, ok in results[0]["tools"].items() if not ok] if results else []
         if missing:
             print(f"\nNOTE: external scanners not installed locally: {', '.join(missing)} "

@@ -201,6 +201,28 @@ jobs:
         # rather than only on the connectors a PR touched.
         run: python3 tools/maintainer/check_copyright.py
 
+      - name: MCP-surface rules over the whole fleet (the baseline only shrinks)
+        # The seven MCP-surface rules in check_security_gate.py (unauthenticated HTTP
+        # transport, mcp-go without the DNS-rebinding guard, an ungated _execute,
+        # write tools labeled non-destructive, verb-named GETs run as reads, the share
+        # command, typed tools the read-only switch misses). The security-gate rows
+        # apply them to the connectors a PR touches; this step applies them to the
+        # WHOLE fleet on every PR, every push to main and the weekly sweep, and prints
+        # the per-rule counts. A connector listed for a rule in
+        # tools/maintainer/security_gate_baseline.json is known exposure awaiting its
+        # reprint and only reports; any other failure fails. On a PR the baseline is
+        # read from the base commit, so a slug the PR adds to it fails instead.
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            python3 -I tools/maintainer/check_security_gate.py --mcp-surface --all --report --policy-base "$PR_BASE"
+          else
+            python3 -I tools/maintainer/check_security_gate.py --mcp-surface --all --report
+          fi
+
       - name: Markdown local links
         run: python3 tools/maintainer/check_md_links.py
 
