@@ -158,6 +158,14 @@ MACHINERY = (
     "tools/maintainer/class_secret_echo.py",
     "tools/maintainer/class_auth_wire.py",
     "tools/maintainer/class_write_safety.py",
+    # The verify gate and the harness it runs (verify_gate.py --slug in each
+    # build row). Only the skill's scripts/: its SKILL.md and feature map are
+    # prose. The release fixture install.sh is driven against is machinery
+    # for the same reason. verify_baseline.json is shrink-only DATA, guarded
+    # build-free by verify_gate.py --assert-baseline-shrinks.
+    "tools/maintainer/verify_gate.py",
+    ".claude/skills/verify-msp-skills/scripts/",
+    "tools/maintainer/installer_fixtures/fake_github.py",
     "tools/maintainer/windows_smoke.ps1",
     "tools/maintainer/windows_known_failures.py",
     "tools/maintainer/cli_hash.py",
@@ -523,6 +531,12 @@ def _self_test() -> int:
         ("tools/maintainer/mcp_file_flags/engine.go", True),
         ("tools/maintainer/mcp_file_flags/testdata/fixture/cli/cli.go", True),
         ("tools/maintainer/check_cli_claims.py", True),
+        ("tools/maintainer/verify_gate.py", True),
+        (".claude/skills/verify-msp-skills/scripts/verify.py", True),
+        (".claude/skills/verify-msp-skills/features/mcp-http.md", False),
+        (".claude/skills/verify-msp-skills/SKILL.md", False),
+        ("tools/maintainer/installer_fixtures/fake_github.py", True),
+        ("tools/maintainer/verify_baseline.json", False),
         ("tools/maintainer/windows_smoke.ps1", True),
         ("tools/maintainer/windows_known_failures.py", True),
         # content-classified per slug now (ledger_delta), like skills.json

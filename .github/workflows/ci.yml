@@ -196,6 +196,9 @@ jobs:
           # The recurring-bug-class harness: each class fires on a broken shape
           # and is silent on a healthy one (both directions, offline, no build).
           python3 tools/maintainer/class_harness.py --self-test
+          # The verify gate: an unlisted FAIL, a stale baseline entry and an
+          # ERROR each block; a baselined FAIL and a retired entry do not.
+          python3 tools/maintainer/verify_gate.py --self-test
           python3 tools/maintainer/check_press_metadata.py --self-test
           python3 tools/maintainer/check_registry_state.py --self-test
           python3 tools/maintainer/verify_live.py --self-test
@@ -217,6 +220,13 @@ jobs:
         # means nothing to compare, so it is skipped there.
         if: github.event_name == 'pull_request'
         run: python3 tools/maintainer/class_harness.py --assert-baseline-shrinks "${{ github.event.pull_request.base.sha }}"
+
+      - name: Verify baseline only shrinks (PR cannot widen its own baseline)
+        # Same guard as the class baseline above, for verify_baseline.json: a
+        # PR may only REMOVE (connector, feature) pairs vs the PR base. The
+        # build rows read the baseline from the base too (--policy-base).
+        if: github.event_name == 'pull_request'
+        run: python3 tools/maintainer/verify_gate.py --assert-baseline-shrinks "${{ github.event.pull_request.base.sha }}"
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -740,6 +750,62 @@ jobs:
         # everything. See tools/maintainer/README.md "Class tests".
         if: ${{ !cancelled() }}
         run: python3 tools/maintainer/class_harness.py --slug ${{ matrix.skill.name }}
+
+      - name: User path drives as designed (verify-msp-skills, this skill)
+        # .claude/skills/verify-msp-skills drives the BUILT connector the way a
+        # user does, in a scratch HOME against a fake vendor on 127.0.0.1 (proxy
+        # variables point every other host at it, which refuses and logs them):
+        # install.sh against a release fixture, MCP stdio (a real read call
+        # reaches the vendor), MCP HTTP (no token = refuse or loopback only;
+        # bearer auth enforced), write gating (preview first, send only on
+        # confirm), the read-only switch, and local data. verify_gate.py reads
+        # its verdict.json against tools/maintainer/verify_baseline.json, the
+        # features each connector fails on main today (3 to 6 fail by design
+        # before press 4.34.0): an unlisted FAIL blocks, a listed feature that
+        # now passes blocks until its entry is removed, an ERROR blocks as a
+        # harness error unless it is one of the harness errors the fleet had
+        # when the baseline was seeded (known_errors: reported, not gating,
+        # kept visible by verify-watch). On a PR the baseline is read from the
+        # base commit, so a PR cannot widen its own; the guards job proves it
+        # only shrinks. Measured on the seeding run (84 rows): median 32s
+        # added per row, 155s worst, 52 runner-minutes for the full matrix.
+        # The default-port check (7777) is per machine, and each row is its own
+        # machine. Runs even if an earlier step failed, so one row reports all.
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        env:
+          SLUG: ${{ matrix.skill.name }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          start="$(date +%s)"
+          out="$RUNNER_TEMP/verify-gate"
+          policy=()
+          if [ "$EVENT" = pull_request ]; then
+            # Shallow checkout: fetch the base commit so --policy-base can read
+            # the trusted baseline. Unreadable after this, the gate fails closed.
+            git fetch -q --no-tags --depth=1 origin "$PR_BASE" || true
+            policy=(--policy-base "$PR_BASE")
+          fi
+          echo "base fetch: $(( $(date +%s) - start ))s"
+          rc=0
+          python3 -I tools/maintainer/verify_gate.py --slug "$SLUG" ${policy[@]+"${policy[@]}"} \
+            --evidence-root "$out/evidence" --record "$out/gate.json" || rc=$?
+          echo "verify gate wall time: $(( $(date +%s) - start ))s"
+          exit "$rc"
+
+      - name: Keep the verify verdict (seeding and verify-watch read it)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-${{ matrix.skill.name }}
+          path: |
+            ${{ runner.temp }}/verify-gate/gate.json
+            ${{ runner.temp }}/verify-gate/evidence/**/verdict.json
+            ${{ runner.temp }}/verify-gate/evidence/**/SUMMARY.txt
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Test (linux, native)
         # Until this step the only `go test` in CI ran on the Windows rows, so a

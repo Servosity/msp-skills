@@ -24,6 +24,8 @@ the statusline, you do not need anything in this folder - see the root
 | `check_mcp_file_flags.py` | Proves an MCP tool call cannot name a file or directory on the MCP host. The Go analyzer in `mcp_file_flags/` derives, from data flow in the connector's code (not from flag names), every flag whose value can start a filesystem path; the script then boots the real MCP server beside a recording stand-in for the CLI and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, that an ordinary flag still reaches the CLI, and that no in-process tool hands request data to a filesystem call. `--slug`, `--all`, `--jobs N`. The analyzer's own both-directions proof is `go test ./...` in `mcp_file_flags/`. |
 | `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also fails a command-local flag that takes a value and shadows a persistent bare switch such as `--agent` or `--json` (the documented bare switch would swallow the next argument), and reports, without failing, every other local flag that shadows a global one. `--self-test` proves the classifier both ways. |
 | `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_echo.py`, `class_auth_wire.py`, `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
+| `verify_gate.py` | CI gate over `.claude/skills/verify-msp-skills`: `--slug X` runs its `verify.py run` (Linux: `--egress-guard proxy-env`) and compares the six feature verdicts with `verify_baseline.json`. An unlisted FAIL blocks; a listed feature that now passes blocks until its entry is removed; an ERROR blocks as a harness error, not a connector defect. `--policy-base REF` reads the baseline from the trusted base. `--assert-baseline-shrinks REF` (guards job), `--seed-from DIR` (first seed from CI verdict artifacts), `--self-test`. See [Verify gate](#verify-gate). |
+| `verify_baseline.json` | `connectors`: the verify features each connector FAILS on main today (3 to 6 by design before press 4.34.0). `known_errors`: the harness ERRORs the fleet had when it was seeded (reported, not gating). Both shrink-only, like `class_baseline.json`; a reprint PR removes its own entries. |
 | `class_baseline.json` | Connectors that FAIL a class today, per class. Same burn-down model as `security_gate_baseline.json` (#429): a listed connector reports, an unlisted one fails CI, the list only shrinks. |
 | `ci_guards.sh` | Repo hygiene: no em-dashes, no personal paths, no obvious secrets, a current `.coderabbit.yaml`, no press title on a skill page, no null press version in a manifest. Decides on each guard's output, so a file missing from disk cannot turn a violation into a pass; `--self-test` proves it. |
 | `check_press_metadata.py` | Validates `skills/<dir>/press/`, the press's own `.printing-press.json`, `tools-manifest.json` and spec that onboard.py keeps beside `cli/`: only those files, parseable, version and print (`generated_at`, `spec_checksum`) agreeing with `manifest.json`, the spec matching its checksum, nothing secret-looking or personal in the text or any decoded view of it (backslash escapes, percent-encoding, HTML entities), and a vendor spec only with `publication.json`'s proof that its exact bytes are already in this repository's history outside press/ (no network check exists; every other spec is withheld as "spec source not public", and publishing one from another source is a later, deliberate change). Withheld files carry one of a fixed set of reasons there, never text from a file, tool or server. A connector without the folder is counted in the coverage line, not failed. `--base` also fails a connector the change ADDS when it was printed below `press_floor.json`. `--inspect DIR` is onboard.py's per-file verdict. `--self-test`. |
@@ -194,6 +196,28 @@ per connector (connectwise-automate 6, ninjaone 9, halopsa 11, threatdown 14, td
 saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses the cross-host
 redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
+
+## Verify gate
+
+`.claude/skills/verify-msp-skills` drives one built connector through the user path (install,
+MCP stdio, MCP HTTP token and loopback, write gating, read-only switch, local data) and writes
+`verdict.json`. Every build row runs it through `verify_gate.py --slug <slug>` and uploads the
+verdict as the `verify-<slug>` artifact (30 days), which `verify-watch.yml` reads (added in its own
+PR, alongside `verify_maintained.json`).
+
+The baseline was seeded from real Linux CI verdicts, not local runs: the PR that added the gate ran
+the full matrix once in report-only mode, `verify_gate.py --seed-from <artifacts> --write` turned
+those verdicts into the baseline, and the next push switched the step to gating.
+
+A reprint on press 4.34.0 or later flips features 3 to 6 to PASS. The row then fails with
+`now PASSs but verify_baseline.json still lists it`: remove those entries in the reprint PR itself.
+An ERROR means the harness broke, so fix the harness (or the runner), not the connector. A new ERROR
+blocks. The five the fleet had at seeding (auvik, fortinet, proxmox and zammad write-gating: the
+harness finds no write endpoint to drive; n-central mcp-stdio: its auth flow rejects the fake vendor's
+generic reply) are listed under `known_errors`: reported with the harness-error label, not gating, and
+kept visible by `verify-watch.yml`, until the skill is fixed. A fixed one that now FAILs by design
+moves to `connectors` in the same PR; the shrink guard allows that move and refuses the reverse. The skill's own map is kept current by `/maintain-verification-skill`; `verify-watch.yml`
+opens a `verify-map-stale` issue when it falls behind.
 
 ## What CI builds, and when
 
