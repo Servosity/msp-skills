@@ -136,6 +136,14 @@ def build_entry(skill_dir: Path) -> dict:
         "description": manifest.get("description", meta.get("tagline", "")),
         "verification": _verification_state(meta, markdown_only),
     }
+    # A live-verified badge names the release it verified, and whether the
+    # shipped release still carries that code ("current" | "changed" |
+    # "unknown"; render_docs_page.verified_code). Only on badged entries, so
+    # every other entry stays byte-identical.
+    state, verified_version = render_docs_page.verified_code(meta)
+    if state is not None:
+        entry["verified_version"] = verified_version
+        entry["verified_code"] = state
     if meta.get("category"):
         entry["category"] = meta["category"]
     if meta.get("tagline"):
@@ -587,6 +595,11 @@ def build_docs_catalog(skills: list[dict]) -> dict:
             "issue_url": (
                 (SKILL_META[s["name"]].get("live_verified") or {}).get("issue_url")
             ),
+            # The release the badge verified and whether the shipped release
+            # still carries that code; verification-badge.html renders
+            # "verified on vX.Y.Z" when it does not. Null when not badged.
+            "verified_version": s.get("verified_version"),
+            "verified_code": s.get("verified_code"),
             "url": f"/skills/{s['name']}/",
         }
         for s in skills

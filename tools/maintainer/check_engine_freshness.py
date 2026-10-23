@@ -57,6 +57,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
 import release_state  # noqa: E402  (local tools/ module)
+import render_docs_page  # noqa: E402  (local tools/ module: the badge-vs-shipped-code rule)
 
 REPO = str(Path(__file__).resolve().parent.parent.parent)
 
@@ -242,6 +243,25 @@ def check(slug, bar, holder):
             f"published. Push the tag."
         )
 
+    # 3. The badge vs the shipped code: the same rule the catalog renders.
+    entry = registry.skills().get(slug, {})
+    code, verified = render_docs_page.verified_code(entry)
+    lv = entry.get("live_verified") or {}
+    if code == "changed":
+        findings.append(
+            f"- **The live-verified badge covers older code.** It was verified on "
+            f"**v{verified}** (`{str(lv.get('verified_cli_hash'))[:19]}...`); the current "
+            f"release `{slug}-v{entry.get('version')}` carries different CLI code "
+            f"(`{str(entry.get('cli_hash_at_release'))[:19]}...`). The catalog shows "
+            f"\"verified on v{verified}\" until someone confirms the current release."
+        )
+    elif code == "unknown":
+        findings.append(
+            "- **The badge does not record which version was verified.** If the report "
+            f"names it, bind it: `python3 tools/maintainer/verify_live.py --bind --slug {slug} "
+            "--verified-version X.Y.Z`."
+        )
+
     n = _handfix_count(slug)
     blocked = _reprint_blocked(slug)
     notes = []
@@ -258,7 +278,8 @@ def check(slug, bar, holder):
 
 def render(slug, findings, notes):
     if not findings:
-        return f"`{slug}` is on the current engine and its shipped binary matches `main`. Nothing to do."
+        return (f"`{slug}` is on the current engine, its shipped binary matches `main`, and "
+                "its badge covers the shipped code. Nothing to do.")
     count = "One thing looks" if len(findings) == 1 else f"{len(findings)} things look"
     out = [
         f"### Engine freshness check for `{slug}`",
