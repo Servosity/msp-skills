@@ -77,24 +77,82 @@ PYTHON=${PYTHON:-python3}
 # so one stalled response would otherwise hold the release-tag lock forever.
 # The child runs in its own process group; past CUT_TAGS_CALL_TIMEOUT the whole
 # group is killed and the call fails with 124, which every caller treats as a
-# failure (fail closed).
-BOUNDED_PY='import os, signal, subprocess, sys
+# failure (fail closed). Cancellation: on SIGINT, SIGTERM or SIGHUP, or when
+# the shell that started it dies, the wrapper kills and reaps the child's group
+# first and then dies by that signal (so bash sees it and stops too). Each
+# wrapper registers its pid in CUT_TAGS_CALLS, so cleanup can stop and wait for
+# any call still running BEFORE it releases the release-tag lock.
+if ! CALL_TIMEOUT=$(awk -v t="${CUT_TAGS_CALL_TIMEOUT:-300}" \
+  'BEGIN { if (t !~ /^[0-9]+([.][0-9]+)?$/ || t + 0 <= 0) exit 1; print (t + 0 > 300 ? 300 : t) }'); then
+  echo "REFUSE CUT_TAGS_CALL_TIMEOUT must be a positive, finite number of seconds (got '${CUT_TAGS_CALL_TIMEOUT}')" >&2
+  exit 2
+fi
+if [ "$CALL_TIMEOUT" != "${CUT_TAGS_CALL_TIMEOUT:-300}" ]; then
+  echo "NOTE CUT_TAGS_CALL_TIMEOUT=${CUT_TAGS_CALL_TIMEOUT} is above 300; using 300" >&2
+fi
+CUT_TAGS_CALLS="" # set by tmp_root; never inherited from a parent run
+export CUT_TAGS_CALLS
+BOUNDED_PY='import os, signal, subprocess, sys, time
 t = float(sys.argv[1])
-p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+ppid = os.getppid()
+reg = os.environ.get("CUT_TAGS_CALLS") or ""
+mark = os.path.join(reg, str(os.getpid())) if reg else ""
+caught = []
+
+
+def on_signal(signum, _frame):
+    caught.append(signum)
+    raise KeyboardInterrupt
+
+
+for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(s, on_signal)
+p = None
+rc = 0
 try:
-    rc = p.wait(timeout=t)
+    if mark:
+        try:
+            open(mark, "w").close()
+        except OSError:
+            mark = ""
+    p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+    end = time.monotonic() + t
+    while True:
+        try:
+            rc = p.wait(timeout=0.2)
+            break
+        except subprocess.TimeoutExpired:
+            if os.getppid() != ppid:  # the shell that started us is gone
+                caught.append(signal.SIGHUP)
+                raise KeyboardInterrupt
+            if time.monotonic() >= end:
+                raise
 except BaseException as exc:
-    try:
-        os.killpg(p.pid, signal.SIGKILL)
-    except OSError:
-        pass
-    p.wait()
+    if p is not None:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        p.wait()
+    if mark:
+        try:
+            os.unlink(mark)
+        except OSError:
+            pass
     if isinstance(exc, subprocess.TimeoutExpired):
         sys.stderr.write("TIMEOUT %s did not finish within %ss (killed)\n" % (" ".join(sys.argv[2:5]), sys.argv[1]))
         sys.exit(124)
+    if caught:
+        signal.signal(caught[0], signal.SIG_DFL)
+        os.kill(os.getpid(), caught[0])
     raise
+if mark:
+    try:
+        os.unlink(mark)
+    except OSError:
+        pass
 sys.exit(rc if rc >= 0 else 128 - rc)'
-bounded() { "$PYTHON" -I -c "$BOUNDED_PY" "${CUT_TAGS_CALL_TIMEOUT:-300}" "$@"; }
+bounded() { "$PYTHON" -I -c "$BOUNDED_PY" "$CALL_TIMEOUT" "$@"; }
 gh() { bounded gh "$@"; }
 git() { bounded git "$@"; }
 # The python checkers call git themselves (the probe reads release.yml at the
@@ -136,6 +194,25 @@ tmp_root() { # sets ROOT_TMP: this run's ONE private directory (made once)
   case "${TMPDIR:-/tmp}" in *"$NL"*) die "REFUSE TMPDIR contains a newline; set it to a plain directory" ;; esac
   ROOT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/cut_tags.XXXXXX") || die "REFUSE cannot create a temporary directory"
   [ -n "$ROOT_TMP" ] && [ -d "$ROOT_TMP" ] || die "REFUSE mktemp returned no directory"
+  mkdir "$ROOT_TMP/calls" || die "REFUSE cannot create the call registry"
+  CUT_TAGS_CALLS="$ROOT_TMP/calls"
+}
+
+stop_calls() { # stop every bounded call still running, and wait for each (it kills its own group first)
+  local f pid i=0
+  [ -n "$CUT_TAGS_CALLS" ] && [ -d "$CUT_TAGS_CALLS" ] || return 0
+  for f in "$CUT_TAGS_CALLS"/*; do
+    [ -f "$f" ] || continue
+    pid=${f##*/}
+    kill -TERM "$pid" 2>/dev/null || rm -f "$f"
+  done
+  while [ -n "$(ls -A "$CUT_TAGS_CALLS" 2>/dev/null)" ] && [ "$i" -lt 100 ]; do
+    for f in "$CUT_TAGS_CALLS"/*; do
+      [ -f "$f" ] && ! kill -0 "${f##*/}" 2>/dev/null && rm -f "$f"
+    done
+    sleep 0.1
+    i=$((i + 1))
+  done
 }
 
 new_tempdir() { # sets NEW_TMP to a fresh directory under ROOT_TMP
@@ -152,6 +229,7 @@ new_tempfile() { # sets NEW_TMP to a fresh file under ROOT_TMP
 
 cleanup() {
   local n=0
+  stop_calls # a call still running (an interrupted push) goes first, then the lock
   tag_unlock
   while [ "$n" -lt "$WT_COUNT" ]; do
     n=$((n + 1))
@@ -189,6 +267,7 @@ setup_repo() {
     [ -n "$GH_REPO" ] || die "cannot read owner/repo from $REMOTE ($url); set CUT_TAGS_GH_REPO"
   fi
   trap cleanup EXIT
+  tmp_root # the call registry exists before the first call that cleanup may have to stop
 }
 
 load_tags() { # <abs path>: sets TAG_LIST and TAG_COUNT, or dies
@@ -248,8 +327,15 @@ tag_lock() {
   tmp_root
   rm -f "$ROOT_TMP/lock.ready" "$ROOT_TMP/lock.release"
   "$PYTHON" - "$LOCK_PATH" "$$" "$ROOT_TMP/lock.ready" "$ROOT_TMP/lock.release" "${CUT_TAGS_LOCK_WAIT:-7200}" <<'PY' &
-import fcntl, json, os, socket, sys, time
+import fcntl, json, os, signal, socket, sys, time
 path, parent, ready, release, wait = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], float(sys.argv[5])
+# The lock is released only after every running call has stopped: told to by
+# cleanup (which stops the calls first), or, if the shell died outright, once
+# no registered call is still alive. A signal to the whole group must not free
+# it early, so INT, TERM and HUP are ignored here.
+for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(s, signal.SIG_IGN)
+calls = os.environ.get("CUT_TAGS_CALLS") or ""
 
 
 def parent_alive() -> bool:
@@ -277,6 +363,21 @@ os.write(fd, (json.dumps({"pid": parent, "host": socket.gethostname(), "tool": "
 open(ready, "w").close()
 while not os.path.exists(release) and parent_alive():
     time.sleep(0.1)
+if not os.path.exists(release) and calls:  # the shell died: wait for its calls to stop (they notice too)
+    end = time.time() + 30
+    while time.time() < end:
+        live = []
+        for name in (os.listdir(calls) if os.path.isdir(calls) else []):
+            try:
+                os.kill(int(name), 0)
+                live.append(name)
+            except (ProcessLookupError, ValueError):
+                pass
+            except PermissionError:
+                live.append(name)
+        if not live:
+            break
+        time.sleep(0.1)
 os.ftruncate(fd, 0)
 fcntl.flock(fd, fcntl.LOCK_UN)
 PY
@@ -347,13 +448,23 @@ in_flight() { # Release runs not yet completed, repo-wide (every wave counts)
 }
 
 wait_for_capacity() { # block until fewer than the cap of Release runs are in flight
-  local i=0 n cap=${CUT_TAGS_MAX_IN_FLIGHT:-4}
+  # A listing that cannot be counted (a failed gh call, pages that change while
+  # releases run) means "unknown, keep waiting": logged, never a push, and
+  # retried within the same CUT_TAGS_FLIGHT_TRIES x _FLIGHT_SLEEP budget as a
+  # full cap. Only that budget running out stops the run (a single transient
+  # failure once stopped a whole wave).
+  local i=0 n waited=0 cap=${CUT_TAGS_MAX_IN_FLIGHT:-4} tries=${CUT_TAGS_FLIGHT_TRIES:-120}
   while :; do
-    n=$(in_flight) || die "FLIGHT-UNKNOWN cannot count Release runs in flight (gh failed); stopping rather than over-committing"
-    [ "$n" -lt "$cap" ] && return 0
-    [ "$i" -eq 0 ] && say "WAIT $n Release run(s) in flight (cap $cap); waiting for one to finish"
+    if n=$(in_flight); then
+      [ "$n" -lt "$cap" ] && return 0
+      [ "$waited" -eq 1 ] || say "WAIT $n Release run(s) in flight (cap $cap); waiting for one to finish"
+      waited=1
+    else
+      n=unknown
+      say "FLIGHT-UNKNOWN cannot count Release runs in flight (try $((i + 1)) of $tries); not pushing, waiting"
+    fi
     i=$((i + 1))
-    [ "$i" -lt "${CUT_TAGS_FLIGHT_TRIES:-120}" ] || die "FLIGHT-TIMEOUT still $n Release run(s) in flight; stopping"
+    [ "$i" -lt "$tries" ] || die "FLIGHT-TIMEOUT Release runs in flight still $n after $tries tries; stopping"
     sleep "${CUT_TAGS_FLIGHT_SLEEP:-30}"
   done
 }
@@ -952,6 +1063,11 @@ case "$1 $2" in
       wait "$!"
       echo late >"$state/gh-stall.late"
     fi
+    if [ -s "$state/flight-fail" ] && [ "$(cat "$state/flight-fail")" -gt 0 ]; then  # a transient gh failure
+      echo $(($(cat "$state/flight-fail") - 1)) >"$state/flight-fail"
+      echo "HTTP 502: Bad Gateway" >&2
+      exit 1
+    fi
     if [ -f "$state/on-count.sh" ]; then mv "$state/on-count.sh" "$state/on-count.ran"; sh "$state/on-count.ran" >/dev/null 2>&1; fi
     n=$(grep -l in_progress "$state"/runs/* 2>/dev/null | wc -l | tr -d ' ')
     [ -f "$state/slow-count" ] && sleep 0.3  # widen the check-then-push window for the concurrency test
@@ -1143,10 +1259,23 @@ RETIRE
   printf '# Changelog\n\n## [0.1.7] - 2026-10-22\n\n### Fixed\n- A fix.\n' >"$tmp/repo/skills/zz-one/CHANGELOG.md"
   git -C "$tmp/repo" commit -q -am "zz-one 0.1.7" -s
   git -C "$tmp/repo" push -q origin main
-  out=$(PATH="$tmp/nogh:$PATH" bash -c 'mkdir -p "$1"; printf "#!/bin/sh\nexit 1\n" >"$1/gh"; chmod +x "$1/gh"; shift; bash "$@"' _ "$tmp/nogh" "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-unknown.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+  out=$(CUT_TAGS_FLIGHT_TRIES=3 CUT_TAGS_FLIGHT_SLEEP=0 PATH="$tmp/nogh:$PATH" bash -c 'mkdir -p "$1"; printf "#!/bin/sh\nexit 1\n" >"$1/gh"; chmod +x "$1/gh"; shift; bash "$@"' _ "$tmp/nogh" "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-unknown.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && [ "$(printf '%s\n' "$out" | grep -c FLIGHT-UNKNOWN)" -eq 3 ] && has "FLIGHT-TIMEOUT" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-one-v0.1.7 >/dev/null
-  expect "when the in-flight count cannot be read, nothing is pushed" $?
+  expect "a count that stays unreadable is waited out (each try logged), then stops at the budget; nothing pushed" $?
+  connector zz-p1 0.1.0
+  printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/zz-p1/CHANGELOG.md"
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "zz-p1" -s
+  git -C "$tmp/repo" push -q origin main
+  printf 'zz-p1-v0.1.0\n' >"$tmp/tags-p1.txt"
+  rm -f "$tmp"/runs/*
+  echo 2 >"$tmp/flight-fail"
+  out=$(CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=5 bash "$SELF" "$(git -C "$tmp/repo" rev-parse HEAD)" "$tmp/tags-p1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c FLIGHT-UNKNOWN)" -eq 2 ] && has "ALL-PUSHED 1 of 1" \
+    && git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-p1-v0.1.0 >/dev/null
+  expect "the in-flight listing fails twice (logged, waited), then reads 0: the tag is pushed (the #423 wave)" $?
+  rm -f "$tmp"/runs/* "$tmp/flight-fail"
   rc=1
   if [ "$(grep -vcx 1 "$tmp/origin.git/pushes.txt")" -eq 0 ] \
     && [ "$(grep -c . "$tmp/origin.git/pushes.txt")" -ge 8 ]; then rc=0; fi
@@ -1182,14 +1311,14 @@ RETIRE
   rm -f "$tmp/flip"
   echo completed >"$tmp/runs/aa-requested"
   : >"$tmp/short-listing"
-  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=2 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" && has "FLIGHT-TIMEOUT" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
   expect "a listing with fewer runs than its total_count is never counted: nothing is pushed" $?
   rm -f "$tmp/short-listing"
   echo 9 >"$tmp/split-total"
-  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
-  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" \
+  out=$(CUT_TAGS_MAX_IN_FLIGHT=4 CUT_TAGS_FLIGHT_SLEEP=0 CUT_TAGS_FLIGHT_TRIES=2 bash "$SELF" "$sha4" "$tmp/tags-g1.txt" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && has "FLIGHT-UNKNOWN" && has "FLIGHT-TIMEOUT" \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-g1-v0.1.0 >/dev/null
   expect "pages that keep disagreeing on total_count are never counted: nothing is pushed" $?
   echo 1 >"$tmp/split-total"
@@ -1313,7 +1442,12 @@ PY
   cat >"$tmp/on-done-702.sh" <<'SEAL'
 printf '{"isDraft": false, "assets": []}' >"${CT_STATE:?}/releases/r3-v0.1.0.json"
 SEAL
+  echo 2 >"$tmp/flight-fail" # the same liveness rule in recovery: two unreadable counts are waited out
   out=$(CUT_TAGS_RERUN_BATCH=2 CUT_TAGS_FLIGHT_SLEEP=0 bash "$SELF" --rerun-failed "$tmp/tags-recover.txt" 2>&1) && rrc=0 || rrc=$?
+  rm -f "$tmp/flight-fail"
+  rc=1
+  if [ "$(printf '%s\n' "$out" | grep -c FLIGHT-UNKNOWN)" -eq 2 ]; then rc=0; fi
+  expect "recovery logs two unreadable in-flight counts, waits them out, and still re-runs (checked next)" "$rc"
   rc=1
   if [ "$(grep '^rerun' "$tmp/calls.txt" | awk '{print $2}' | sort -n | tr '\n' ' ')" = "701 702 7011 " ]; then rc=0; fi
   expect "exactly the failed runs whose release is not published, on a safe pipeline and live version, are re-run" "$rc"
@@ -1487,6 +1621,117 @@ STALL
     && ! kill -0 "$gpid" 2>/dev/null \
     && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify refs/tags/zz-k1-v0.1.0 >/dev/null; then rc2=0; fi
   expect "a probe whose own git call stalls is killed at CUT_TAGS_CALL_TIMEOUT (${took}s): refused, nothing pushed" "$rc2"
+
+  echo "CUT_TAGS_CALL_TIMEOUT is validated and clamped:"
+  rc2=0
+  for v in inf -1 0 abc 1e3 nan; do
+    out=$(CUT_TAGS_CALL_TIMEOUT=$v bash "$SELF" --help 2>&1) && rc=0 || rc=$?
+    { [ "$rc" -eq 2 ] && has "positive, finite"; } || rc2=1
+  done
+  out=$(CUT_TAGS_CALL_TIMEOUT=900 bash "$SELF" --help 2>&1) && rc=0 || rc=$?
+  { [ "$rc" -eq 0 ] && has "is above 300; using 300"; } || rc2=1
+  expect "inf, -1, 0, abc, 1e3 and nan refuse to run (exit 2); 900 is clamped to 300 and says so" "$rc2"
+
+  echo "cancellation while the tag push is blocked:"
+  for s in zz-n1 zz-n2 zz-n3; do
+    connector "$s" 0.1.0
+    printf '# Changelog\n\n## [0.1.0] - 2026-10-22\n\n### Added\n- First release.\n' >"$tmp/repo/skills/$s/CHANGELOG.md"
+  done
+  cp "$SELF" "$tmp/repo/tools/maintainer/cut_tags.sh"
+  git -C "$tmp/repo" add -A
+  git -C "$tmp/repo" commit -q -m "zz-n1 zz-n2 zz-n3" -s
+  git -C "$tmp/repo" push -q origin main
+  sha6=$(git -C "$tmp/repo" rev-parse HEAD)
+  mkdir -p "$tmp/pushstall" "$tmp/runtmp"
+  # A real git, except that a push stalls in a child while push-stall exists.
+  cat >"$tmp/pushstall/git" <<'STALL'
+#!/bin/sh
+case " $* " in
+  *" push "*)
+    if [ -f "$CT_STATE/push-stall" ]; then
+      sleep 30 &
+      echo "$!" >"$CT_STATE/push-stall.pid"
+      wait "$!"
+    fi ;;
+esac
+exec "$REAL_GIT" "$@"
+STALL
+  chmod +x "$tmp/pushstall/git"
+  real_git=$(type -P git)
+  lock_free() {
+    "$PYTHON" -c 'import fcntl, os, sys
+fd = os.open(sys.argv[1], os.O_RDWR | os.O_CREAT)
+try:
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    sys.exit(1)' "$tmp/repo/.git/msp-skills-locks/release-tags.lock"
+  }
+  for c in "TERM-to-the-shell zz-n1" "INT-to-the-group zz-n2" "TERM-to-the-group-slow-call zz-n3"; do
+    how=${c%% *}
+    tag="${c#* }-v0.1.0"
+    printf '%s\n' "$tag" >"$tmp/tags-n.txt"
+    rm -f "$tmp"/runs/* "$tmp/push-stall.pid"
+    : >"$tmp/push-stall"
+    REAL_GIT=$real_git PATH="$tmp/pushstall:$PATH" TMPDIR="$tmp/runtmp" CUT_TAGS_FLIGHT_SLEEP=0 \
+      "$PYTHON" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
+      bash "$SELF" "$sha6" "$tmp/tags-n.txt" >"$tmp/cancel.out" 2>&1 &
+    cpid=$!
+    i=0
+    while [ ! -s "$tmp/push-stall.pid" ] && [ "$i" -lt 300 ]; do sleep 0.1; i=$((i + 1)); done
+    sleep 0.3
+    # Order matters: the lock may be free only once the push is dead (else
+    # another cutter could push while this one's push is still going).
+    rm -f "$tmp/order.txt"
+    "$PYTHON" -c 'import fcntl, os, subprocess, sys, time
+lock, pid, out = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+end = time.time() + 20
+while time.time() < end:
+    fd = os.open(lock, os.O_RDWR | os.O_CREAT)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        time.sleep(0.005)
+        continue
+    os.close(fd)
+    st = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    open(out, "w").write("push-alive-at-unlock" if st and not st.startswith("Z") else "ordered")
+    sys.exit(0)
+open(out, "w").write("lock-never-freed")' "$tmp/repo/.git/msp-skills-locks/release-tags.lock" \
+      "$(cat "$tmp/push-stall.pid")" "$tmp/order.txt" &
+    opid=$!
+    case "$how" in
+      TERM-to-the-group*)
+        # The call is slow to react (stopped for a moment): everything else in
+        # the group, the lock holder included, gets TERM first.
+        wpid=""
+        for f in "$tmp"/runtmp/cut_tags.*/calls/*; do [ -f "$f" ] && wpid=${f##*/}; done
+        [ -n "$wpid" ] && kill -STOP "$wpid" 2>/dev/null
+        kill -TERM -- "-$cpid" 2>/dev/null
+        sleep 1
+        [ -n "$wpid" ] && kill -CONT "$wpid" 2>/dev/null ;;
+      TERM*) kill -TERM "$cpid" 2>/dev/null ;;
+      INT*) kill -INT -- "-$cpid" 2>/dev/null ;;
+    esac
+    i=0
+    while kill -0 "$cpid" 2>/dev/null && [ "$i" -lt 200 ]; do sleep 0.1; i=$((i + 1)); done
+    alive=0
+    if kill -0 "$cpid" 2>/dev/null; then alive=1; kill -KILL -- "-$cpid" 2>/dev/null; fi
+    wait "$cpid" 2>/dev/null
+    crc=$?
+    wait "$opid" 2>/dev/null
+    order=$(cat "$tmp/order.txt" 2>/dev/null || echo none)
+    rm -f "$tmp/push-stall"
+    spid=$(cat "$tmp/push-stall.pid" 2>/dev/null || echo 0)
+    sleep 0.5
+    rc2=1
+    if [ "$alive" -eq 0 ] && [ "$crc" -ne 0 ] && [ "$spid" -gt 0 ] && ! kill -0 "$spid" 2>/dev/null \
+      && ! git --git-dir "$tmp/origin.git" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+      && lock_free && [ "$(git -C "$tmp/repo" worktree list | grep -c .)" -eq 1 ] \
+      && [ -z "$(ls -A "$tmp/runtmp")" ] && [ "$order" = ordered ]; then rc2=0; fi
+    expect "$how while the push is blocked: the push killed BEFORE the lock is freed ($order), nothing pushed, worktrees and temp removed (exit $crc)" "$rc2"
+  done
+  rm -f "$tmp"/runs/*
 
   echo "--help:"
   out=$(bash "$SELF" --help 2>&1) && rc=0 || rc=$?

@@ -368,10 +368,15 @@ def run(repo: Path, released_file: Path, listing: Path | None, dry_run: bool) ->
         if dry_run:
             print(f"stamp_release: dry run - would stamp {len(stamps)} and date {len(edits)} heading(s)")
             return 0
-        apply(repo, stamps, edits)
+        try:
+            apply(repo, stamps, edits)
+        except KeyboardInterrupt:
+            print("::error::stamp_release: interrupted while writing: some files may already be updated; "
+                  "check `git status` and restore them before running again", file=sys.stderr)
+            raise
         print(f"stamp_release: stamped {len(stamps)}, dated {len(edits)} heading(s)")
         return 0
-    except (StampError, OSError, ValueError, KeyError, repo_lock.LockHeld) as exc:
+    except (StampError, OSError, ValueError, KeyError, repo_lock.LockHeld, rr.CallTimeout) as exc:
         print(f"::error::stamp_release: {exc}", file=sys.stderr)
         return 1
     finally:
@@ -439,7 +444,7 @@ def _self_test() -> int:
             'case " $* " in *" cat-file --batch "*)\n'
             '  case "$STUB_MODE" in\n'
             '    truncate) read sha; printf "%s blob 10\\nx" "$sha"; exit 0 ;;\n'
-            f'    stall) "{real_git}" "$@"; sleep 30 & wait $! ; exit 0 ;;\n'
+            f'    stall) "{real_git}" "$@"; sleep 30 & echo $! >"$STUB_PID"; wait $! ; exit 0 ;;\n'
             "  esac ;;\n"
             "esac\n"
             f'exec "{real_git}" "$@"\n')
@@ -448,8 +453,8 @@ def _self_test() -> int:
         outcomes = {}
         try:
             os.environ["PATH"] = f"{stubdir}{os.pathsep}{old_path}"
-            rr.CALL_CAP_S = 1.0
             for mode in ("truncate", "stall"):
+                rr.CALL_CAP_S = 1.0 if mode == "stall" else 10.0  # only the stall needs a tight bound
                 os.environ["STUB_MODE"] = mode
                 t0 = time.monotonic()
                 try:
@@ -464,6 +469,36 @@ def _self_test() -> int:
                f"a truncated batch answer raises, never hashes short bytes ({outcomes.get('truncate')})")
         expect(outcomes.get("stall", ("?",))[0] == "CallTimeout" and outcomes["stall"][1] < 10,
                f"a git that stalls after answering is killed at the cap ({outcomes.get('stall')})")
+        # Cancellation: SIGTERM to a real stamp run while its git read is
+        # blocked kills that git's whole group, frees the release lock, writes
+        # nothing, and exits 130.
+        stub_pid = tmp / "stub.pid"
+        reg_now = (work / REGISTRY_REL).read_text()
+        proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--repo", str(work),
+                                 "--released-tags", str(released), "--listing", str(listing)],
+                                env={**os.environ, "PATH": f"{stubdir}{os.pathsep}{old_path}", "STUB_MODE": "stall",
+                                     "STUB_PID": str(stub_pid)}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for _ in range(400):
+            if stub_pid.exists():
+                break
+            time.sleep(0.05)
+        time.sleep(0.3)
+        proc.terminate()
+        try:
+            _o, err = proc.communicate(timeout=20)
+            prc = proc.returncode
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            _o, err = proc.communicate()
+            prc = "hung"
+        stub_alive = rr.process_alive(stub_pid.read_text() if stub_pid.exists() else "")
+        lock_file = Path(subprocess.run(["git", "-C", str(work), "rev-parse", "--git-common-dir"], capture_output=True,
+                                        text=True).stdout.strip())
+        lock_file = (lock_file if lock_file.is_absolute() else work / lock_file) / "msp-skills-locks" / "release.lock"
+        expect(prc == 130 and not stub_alive and not lock_file.exists()
+               and (work / REGISTRY_REL).read_text() == reg_now and "interrupted" in err,
+               f"SIGTERM while a stamp's git read is blocked: git killed, lock freed, nothing written, exit 130 "
+               f"(rc={prc}, git alive={stub_alive}, lock left={lock_file.exists()})")
         expect(run(work, released, listing, dry_run=True) == 0 and (work / REGISTRY_REL).read_text() == reg_before,
                "a dry run writes nothing")
         expect(run(work, released, listing, dry_run=False) == 0, "the stamp runs")
@@ -610,7 +645,12 @@ def main(argv: list[str] | None = None) -> int:
         return _self_test()
     if not args.released_tags:
         ap.error("--released-tags is required")
-    return run(args.repo.resolve(), args.released_tags, args.listing, args.dry_run)
+    rr.install_interrupt_handlers()  # SIGTERM/SIGHUP raise like Ctrl-C: the blocked git is killed, the lock freed
+    try:
+        return run(args.repo.resolve(), args.released_tags, args.listing, args.dry_run)
+    except KeyboardInterrupt as exc:  # before any write, unless run() already said otherwise above
+        print(f"::error::stamp_release: interrupted ({exc or 'SIGINT'})", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

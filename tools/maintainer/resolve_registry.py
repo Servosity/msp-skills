@@ -74,6 +74,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -504,7 +505,49 @@ def resolve_skill_readme(base: str | None, main: str | None, branch: str | None)
 # The most any one git, gh or generator call may take. gh's HTTP client has no
 # timeout of its own, so without a bound one stalled response holds a branch
 # lock (and every wait's deadline) forever.
-CALL_CAP_S = float(os.environ.get("MSP_CALL_TIMEOUT_S", "300"))
+MAX_CALL_S = 300.0
+
+
+def call_cap(raw: str | None) -> float:
+    """MSP_CALL_TIMEOUT_S, validated: a positive, finite number of seconds,
+    clamped to MAX_CALL_S (unset: MAX_CALL_S). Anything else refuses to run:
+    `inf` or `nan` would disable every bound, and 0 or less would fail every call."""
+    if raw is None or raw.strip() == "":
+        return MAX_CALL_S
+    try:
+        v = float(raw)
+    except ValueError:
+        v = math.nan
+    if not math.isfinite(v) or v <= 0:
+        raise SystemExit(f"REFUSE MSP_CALL_TIMEOUT_S must be a positive, finite number of seconds (got {raw!r})")
+    return min(v, MAX_CALL_S)
+
+
+CALL_CAP_S = call_cap(os.environ.get("MSP_CALL_TIMEOUT_S"))
+
+
+class Interrupted(KeyboardInterrupt):
+    """SIGTERM or SIGHUP, raised like Ctrl-C (SIGINT), so every `finally`
+    (cleanup, lock release) and run_bounded's kill of its child group run."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signal.Signals(signum).name)
+        self.signum = signum
+
+
+def _raise_interrupted(signum: int, _frame) -> None:
+    raise Interrupted(signum)
+
+
+def install_interrupt_handlers() -> dict:
+    """Make SIGTERM and SIGHUP raise Interrupted, and SIGINT raise
+    KeyboardInterrupt even when the launcher left it ignored (a background job
+    of a non-interactive shell inherits SIG_IGN). Returns the previous
+    handlers, for a test to restore."""
+    prev = {signal.SIGINT: signal.signal(signal.SIGINT, signal.default_int_handler)}
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        prev[sig] = signal.signal(sig, _raise_interrupted)
+    return prev
 
 
 class CallTimeout(RuntimeError):
@@ -515,6 +558,32 @@ class CallTimeout(RuntimeError):
     def __init__(self, message: str, stdout: str = "") -> None:
         super().__init__(message)
         self.stdout = stdout
+
+
+def process_alive(pid_text: str, wait: float = 2.0) -> bool:
+    """For the self-tests: is the process still running after up to `wait`
+    seconds? A killed orphan stays a zombie until whoever inherits it reaps it
+    (kill(pid, 0) still finds one; in a container whose PID 1 does not reap,
+    it stays one), so a zombie counts as gone. `ps` works on macOS and Linux."""
+    import time
+    try:
+        pid = int(pid_text)
+    except ValueError:
+        return False
+    end = time.monotonic() + wait
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            pass
+        st = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+        if not st or st.startswith("Z"):
+            return False
+        if time.monotonic() >= end:
+            return True
+        time.sleep(0.05)
 
 
 def run_bounded(argv: list[str], *, timeout: float | None = None, input=None, capture_output: bool = False,
@@ -1057,31 +1126,43 @@ def resolve(repo: Path, main_side: str | None = None, regen: bool = True,
         out("REFUSE: the conflicted files or the index changed while the resolution was being planned; "
             "nothing was written. Run it again.")
         return 2
-    for path, (_kind, text) in plan.items():
-        f = repo / path
-        if text is None:
-            git(repo, "rm", "-q", "--cached", "--ignore-unmatch", "--", path)
-            if f.exists():
-                f.unlink()
-            continue
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
-        git(repo, "add", "--", path)
+    # From the first write on, anything that stops the run (a timeout in the
+    # re-check, an interrupt) leaves a resolution that is written and staged
+    # but NOT verified: that is reported, and the run fails (3), never left as
+    # a silent traceback someone might follow with `git rebase --continue`.
+    try:
+        for path, (_kind, text) in plan.items():
+            f = repo / path
+            if text is None:
+                git(repo, "rm", "-q", "--cached", "--ignore-unmatch", "--", path)
+                if f.exists():
+                    f.unlink()
+                continue
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
+            git(repo, "add", "--", path)
 
-    if regen:
-        try:
-            trusted = "MERGE_HEAD" if (op == "merge" and main_side == "theirs") else "HEAD"
-            changed = regenerate_and_stage(repo, out, generators, trusted_rev=trusted)
-        except RuntimeError as exc:
-            out(f"RE-CHECK FAILED: {exc}")
-            return 3
-        out(f"  regenerated derived files: {', '.join(changed) if changed else 'no change'}")
-        problems = recheck(repo, main_formats, generators)
-        if problems:
-            out("RE-CHECK FAILED (the resolution is staged; abort the rebase or merge):")
-            for pr in problems:
-                out(f"  - {pr}")
-            return 3
+        if regen:
+            try:
+                trusted = "MERGE_HEAD" if (op == "merge" and main_side == "theirs") else "HEAD"
+                changed = regenerate_and_stage(repo, out, generators, trusted_rev=trusted)
+            except RuntimeError as exc:
+                out(f"RE-CHECK FAILED: {exc}")
+                return 3
+            out(f"  regenerated derived files: {', '.join(changed) if changed else 'no change'}")
+            problems = recheck(repo, main_formats, generators)
+            if problems:
+                out("RE-CHECK FAILED (the resolution is staged; abort the rebase or merge):")
+                for pr in problems:
+                    out(f"  - {pr}")
+                return 3
+    except BaseException as exc:
+        out(f"RE-CHECK FAILED ({type(exc).__name__}: {str(exc)[:300]}): the resolution is written and staged "
+            "but NOT verified; do not continue: abort the rebase or merge (`git rebase --abort` / "
+            "`git merge --abort`) and run this again")
+        if isinstance(exc, KeyboardInterrupt):
+            raise
+        return 3
     # The side that is main, as a commit: HEAD during a rebase (the commit being
     # built on) or a merge whose "ours" is main; MERGE_HEAD when main is merged in.
     main_ref = "MERGE_HEAD" if (op == "merge" and main_side == "theirs") else "HEAD"
@@ -1339,6 +1420,76 @@ def _self_test() -> int:
         (w / "notes.txt").write_bytes(written.replace(b"\n}\n", b"\n} edited\n", 1))
         expect(not untouched_conflict(w, "notes.txt", st), "... and once edited by hand it is not")
         run("git", "rebase", "--abort", cwd=w, check=False)
+
+        # Bounded calls: the cap is validated, and an interrupt (SIGTERM,
+        # raised as Interrupted) kills the blocked child's whole group.
+        print("bounded calls (the cap, and cancellation):")
+        verdicts = []
+        for raw in (None, "", "5", "900", "0", "-1", "inf", "nan", "abc"):
+            try:
+                verdicts.append(call_cap(raw))
+            except SystemExit:
+                verdicts.append("refused")
+        expect(verdicts == [300.0, 300.0, 5.0, 300.0] + ["refused"] * 5,
+               f"MSP_CALL_TIMEOUT_S: unset is 300, 900 is clamped to 300, 0/-1/inf/nan/abc refuse ({verdicts})")
+        bad_env = subprocess.run([sys.executable, str(_TOOLS / "resolve_registry.py"), "--dry-run"],
+                                 capture_output=True, text=True, env={**os.environ, "MSP_CALL_TIMEOUT_S": "inf"})
+        expect(bad_env.returncode != 0 and "positive, finite" in bad_env.stderr,
+               f"a tool started with MSP_CALL_TIMEOUT_S=inf refuses to run (rc={bad_env.returncode})")
+        import threading
+        import time
+        original_int = signal.signal(signal.SIGINT, signal.SIG_IGN)  # ignored, as a background launcher can leave it
+        prev = install_interrupt_handlers()
+        prev[signal.SIGINT] = original_int
+        expect(signal.getsignal(signal.SIGINT) is signal.default_int_handler,
+               "an inherited ignored SIGINT is made to raise again (Ctrl-C still cancels)")
+        gpid = tmp / "blocked.pid"
+        timer = threading.Timer(1.0, os.kill, (os.getpid(), signal.SIGTERM))
+        t0 = time.monotonic()
+        timer.start()
+        try:
+            run_bounded(["sh", "-c", f"sleep 30 & echo $! >'{gpid}'; wait $!"], timeout=60)
+            got = "returned"
+        except Interrupted as exc:
+            got = f"Interrupted({exc})"
+        finally:
+            timer.cancel()
+            for sig, h in prev.items():
+                signal.signal(sig, h)
+        took = time.monotonic() - t0
+        alive = process_alive(gpid.read_text() if gpid.exists() else "")
+        expect(got == "Interrupted(SIGTERM)" and took < 10 and not alive,
+               f"SIGTERM during a blocked call raises Interrupted and kills the call's whole group ({got}, {took:.1f}s)")
+
+        # The post-write re-check failing (a timeout) or being interrupted
+        # reports a staged, unverified resolution instead of escaping.
+        print("a re-check that times out or is interrupted after the write:")
+        mod = sys.modules[__name__]
+        real_recheck = mod.recheck
+        for exc_, label in ((CallTimeout("python3 tools/maintainer/build-catalog.py did not finish within 1s"),
+                             "times out"), (Interrupted(signal.SIGTERM), "is interrupted")):
+            w = scenario(f"recheck-{label.split()[-1]}")
+            run("git", "checkout", "-q", "-b", "skill/bravo", cwd=w)
+            add_connector(w, env, "bravo")
+            run("git", "checkout", "-q", "main", cwd=w)
+            add_connector(w, env, "charlie")
+            run("git", "checkout", "-q", "skill/bravo", cwd=w)
+            run("git", "rebase", "main", cwd=w, check=False)
+
+            def failing_recheck(*_a, e=exc_, **_k):
+                raise e
+            mod.recheck = failing_recheck
+            logs = []
+            try:
+                rc = resolve(w, out=logs.append)
+            except BaseException as raised:  # noqa: BLE001 - which exception escapes is the result
+                rc = f"raised {type(raised).__name__}"
+            finally:
+                mod.recheck = real_recheck
+            want = 3 if label == "times out" else "raised Interrupted"
+            expect(rc == want and any("NOT verified" in s and "abort the rebase" in s for s in logs),
+                   f"a re-check that {label}: reported as staged and unverified ({rc})")
+            run("git", "rebase", "--abort", cwd=w, check=False)
 
         # 1. Known conflict: main and the branch each add a connector.
         print("known registry conflict (both sides onboard a connector):")
@@ -1741,8 +1892,13 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.self_test:
         return _self_test()
-    repo = Path(git(Path(args.repo), "rev-parse", "--show-toplevel").stdout.strip())
-    return resolve(repo, args.main_side, regen=not args.no_regen, dry_run=args.dry_run)
+    install_interrupt_handlers()
+    try:
+        repo = Path(git(Path(args.repo), "rev-parse", "--show-toplevel").stdout.strip())
+        return resolve(repo, args.main_side, regen=not args.no_regen, dry_run=args.dry_run)
+    except KeyboardInterrupt as exc:  # SIGINT, or SIGTERM/SIGHUP: children are already killed
+        print(f"INTERRUPTED ({exc}): nothing more was done")
+        return 130
 
 
 if __name__ == "__main__":
