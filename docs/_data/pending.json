@@ -385,9 +385,9 @@
     "released_hash": "sha256:7825394c1dda9b9e3eba04af2059229523370c7fa525a857db3bb0317be2bd5f"
   },
   "pax8": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "pax8-v0.1.7",
+    "latest_tag": "pax8-v0.1.8",
     "current_hash": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df",
     "released_hash": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df"
   },
