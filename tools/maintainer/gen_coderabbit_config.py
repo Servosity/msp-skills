@@ -269,7 +269,25 @@ def classify(root: Path, files: list[str] | None = None) -> Scope:
             scope.keep(path, "path has characters a pattern cannot carry verbatim")
         else:
             scope.excluded.add(path)
+    for path in sorted(twins(scope.excluded, scope.kept)):
+        scope.excluded.discard(path)
+        scope.keep(path, "same path as a file that stays in review, ignoring case or from another directory")
     return scope
+
+
+def _views(path: str) -> list[str]:
+    """`path` lowercased, read from the root and from every "/" (how a
+    case-blind or unanchored matcher could see it)."""
+    low = path.lower()
+    return [low] + [low[j + 1:] for j, ch in enumerate(low) if ch == "/"]
+
+
+def twins(excluded: set[str], kept: set[str]) -> set[str]:
+    """Excluded paths no pattern can cover without also matching a kept file:
+    the same path ignoring case, or a kept path that ends in it after a "/".
+    Even an exact pattern would hide that kept file, so these stay in review."""
+    seen = {v for k in kept for v in _views(k)}
+    return {p for p in excluded if p.lower() in seen}
 
 
 # --------------------------------------------------------------------------- #
@@ -344,14 +362,8 @@ def build_patterns(scope: Scope) -> list[str]:
     # Every kept Go path, lowercased, read from the root and from every "/"
     # (the readings verify() applies); only views starting with "skills/" can
     # meet a pattern.
-    views = set()
-    for p in scope.kept:
-        low = p.lower()
-        if low.endswith(".go"):
-            views.update(v for v in [low] + [low[j + 1:] for j, ch in enumerate(low) if ch == "/"]
-                         if v.startswith(SKILLS + "/"))
+    views = {v for p in scope.kept if p.lower().endswith(".go") for v in _views(p) if v.startswith(SKILLS + "/")}
     kgo = sorted(views)
-    kgo_set = views
     # Only a path that starts with "skills/" in some case can match a pattern;
     # the text after it is what a cross-connector "*" can reach.
     kgo_tail = [k[len(SKILLS):] for k in kgo if k.startswith(SKILLS + "/")]
@@ -421,9 +433,10 @@ def build_patterns(scope: Scope) -> list[str]:
             cut = next((i for i in range(need, len(stem) + 1) if i == len(stem) or stem[i] in _BOUNDARY), None)
             if cut is not None:
                 patterns.add(f"{d}/{stem[:cut]}*.go")
-            elif f"{d}/{name}".lower() not in kgo_set:
+            else:
+                # classify() moved every case-only or unanchored twin of a kept
+                # file to kept, so the exact path is safe; verify() re-checks.
                 patterns.add(f"{d}/{name}")
-            # else: a kept file differs only in case; leave this one in review.
     return sorted(patterns)
 
 
@@ -442,14 +455,7 @@ def verify(patterns: list[str], scope: Scope) -> list[str]:
     # Every pattern ends in .go (checked above), so only a kept path ending in
     # .go, in any case, can match. A matcher might also not anchor a pattern
     # at the repository root, so each kept path is tried from every "/" too.
-    views: list[tuple[str, str]] = []
-    for p in scope.kept:
-        low = p.lower()
-        if not low.endswith(".go"):
-            continue
-        views.append((low, p))
-        views += [(low[j + 1:], p) for j, ch in enumerate(low) if ch == "/"]
-    views.sort()
+    views = sorted((v, p) for p in scope.kept if p.lower().endswith(".go") for v in _views(p))
     keys = [v for v, _p in views]
     for pat in patterns:
         rx = permissive_re(pat)
@@ -660,13 +666,37 @@ def _self_test() -> int:
         (root / newfile).unlink()
 
         # Case-insensitive and slash-crossing readings are guarded.
-        _write(root, "skills/acme/cli/internal/cli/ZONES.GO", "package cli\n")
+        # A case-only or unanchored twin of a kept file: no pattern can cover
+        # it without hiding the kept one, so it stays in review. Proved as a
+        # pure function on every OS, and on disk where the file system can
+        # hold both names (CI's Linux; a case-blind disk merges them).
+        ex = {"skills/acme/cli/internal/cli/zones.go", "skills/acme/cli/internal/cli/widgets_get.go"}
+        expect(twins(ex, {"skills/acme/cli/internal/cli/ZONES.GO"}) == {"skills/acme/cli/internal/cli/zones.go"}
+               and twins(ex, {"vendor/skills/acme/cli/internal/cli/zones.go"})
+               == {"skills/acme/cli/internal/cli/zones.go"} and not twins(ex, {"skills/acme/README.md"}),
+               "twins(): a kept path equal ignoring case, or ending in the path after a '/', keeps it in review")
+        _write(root, "vendor/skills/acme/cli/internal/cli/zones.go", "package cli\n")
         _t4, s4, p4 = generate(root)
-        expect(not matched(p4, "skills/acme/cli/internal/cli/ZONES.GO", permissive_re)
+        expect("skills/acme/cli/internal/cli/zones.go" in s4.kept
                and not matched(p4, "skills/acme/cli/internal/cli/zones.go", permissive_re)
                and matched(p4, "skills/beta/cli/internal/cli/zones.go"),
-               "a case-only twin of a kept file keeps both in review (a case-blind matcher cannot tell them apart)")
-        (root / "skills/acme/cli/internal/cli/ZONES.GO").unlink()
+               "on disk: a twin under another directory keeps the generated file in review, and generation succeeds")
+        shutil.rmtree(root / "vendor")
+        probe = root / "case-probe"
+        probe.write_text("x", encoding="utf-8")
+        case_blind = (root / "CASE-PROBE").exists()
+        probe.unlink()
+        if case_blind:
+            print("  skip a case-only twin on disk (this file system is case-insensitive; the pure case above covers it)")
+        else:
+            _write(root, "skills/acme/cli/internal/cli/ZONES.GO", "package cli\n")
+            _t9, s9, p9 = generate(root)
+            expect("skills/acme/cli/internal/cli/zones.go" in s9.kept
+                   and not matched(p9, "skills/acme/cli/internal/cli/ZONES.GO", permissive_re)
+                   and not matched(p9, "skills/acme/cli/internal/cli/zones.go", permissive_re)
+                   and matched(p9, "skills/beta/cli/internal/cli/zones.go"),
+                   "on disk: a case-only twin of a kept file keeps both in review, and generation succeeds")
+            (root / "skills/acme/cli/internal/cli/ZONES.GO").unlink()
         _write(root, "skills/acme/cli/internal/cli/widgets_x/notes.go", "package w\n")
         _t5, _s5, p5 = generate(root)
         expect(not matched(p5, "skills/acme/cli/internal/cli/widgets_x/notes.go", permissive_re),
