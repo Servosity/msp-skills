@@ -116,6 +116,18 @@ if [ "${1:-}" = "--self-test" ]; then
   else
     echo "  FAIL apply_secret_funnel.py --self-test"; sed 's/^/       /' "$tmp/sf-selftest.out"; bad=1
   fi
+  # fresh_render_diff.py (publish plan step 5.4) is a review aid, not a guard,
+  # so its self-test runs here, where CI already runs this script. It drives a
+  # stand-in press and needs no press binary or spec (CI has neither); the
+  # real-press proofs are in its PR. Off macOS it also proves the render
+  # refuses to run without a jail.
+  FRD_SRC="$(dirname "$SELF")/fresh_render_diff.py"
+  [ -f "$FRD_SRC" ] || { echo "FAIL: ci_guards self-test needs $FRD_SRC" >&2; exit 1; }
+  if python3 -I "$FRD_SRC" --self-test >"$tmp/frd-selftest.out" 2>&1; then
+    echo "  ok   fresh_render_diff.py --self-test"
+  else
+    echo "  FAIL fresh_render_diff.py --self-test"; sed 's/^/       /' "$tmp/frd-selftest.out"; bad=1
+  fi
   sf_install="cp \"$SF_SRC\" \"$(dirname "$SELF")/check_handfixes.py\" tools/maintainer/ && cp -R \"$SF_CANON\" tools/maintainer/"
   sf_carrier="mkdir -p skills/acme/cli/internal/cliutil skills/acme/cli/internal/cli skills/acme/cli/cmd/acme-mcp \
     && printf 'package main\n\nfunc main() { _ = server.NewMCPServer(\n\t\"acme\",\n\tversion,\n) }\n' > skills/acme/cli/cmd/acme-mcp/main.go \
