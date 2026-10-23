@@ -105,6 +105,25 @@ Fleet counts at seed (84 connectors, measured 2026-10-23, a fleet-wide `--all` e
 
 Step 7 of the pipeline plan empties these lists. No connector is fixed here.
 
+### Known gaps (open, tracked in #439)
+
+The final review round left five findings open. Each has a concrete failing input and a one-rule
+fix, and none can turn main red (every connector failing a class today is baselined). Each can let a
+future connector pass a class it should fail:
+
+1. **secret-echo decode.** The candidate-run pattern also matches `.`, so a `.`-prefixed base64
+   blob is decoded misaligned and the credential is not reconstructed. Fix: base64-alphabet token
+   boundaries.
+2. **write-safety attribution.** The token URL points at the fake server root, so a connector's
+   data `POST /` is exempted as a token exchange. Fix: a reserved token path on the fake server.
+3. **write-safety attribution.** Requests sent during the read-only `tools/list` discovery fall
+   outside the read-only capture window. Fix: attribute every read-only-session request.
+4. **secret-echo surface parity.** The MCP success probe reuses the CLI probe's HOME, so a shared
+   response cache can keep the reflected header from reaching MCP. Fix: a fresh HOME for it.
+5. **baseline guard.** A base whose baseline blob exists but cannot be read (an unhydrated partial
+   clone) is treated as "file absent". Not reachable in CI (full clone). Fix: prove absence with
+   `git ls-tree`; any other failure fails closed.
+
 ### Known limits (accepted)
 
 - The redirect hop changes port, not hostname. The connectors' own `CheckRedirect` compares
