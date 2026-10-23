@@ -164,7 +164,10 @@ def pid_alive(pid: int) -> bool:
         return False
     except PermissionError:
         return True
-    r = subprocess.run(["ps", "-p", str(pid), "-o", "stat="], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["ps", "-p", str(pid), "-o", "stat="], capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return True  # unknown: treat as alive, so nothing is reported stopped that was not
     return bool(r.stdout.strip()) and not r.stdout.strip().startswith("Z")
 
 
@@ -484,7 +487,8 @@ class Ctx:
 
     def save_state(self, cleaned: bool = False) -> None:
         write_json(self.run_dir / "state.json",
-                   {"slug": self.slug, "scratch": str(self.scratch), "pids": self.pids, "cleaned": cleaned})
+                   {"slug": self.slug, "scratch": str(self.scratch), "owner_pid": os.getpid(),
+                    "pids": self.pids, "cleaned": cleaned})
 
     def track(self, proc: subprocess.Popen, argv0) -> None:
         self.pids.append({"pid": proc.pid, "argv0": str(argv0)})
@@ -1056,6 +1060,27 @@ def http_bearer_auth(ctx: Ctx, d: Path) -> tuple[str, str]:
 # Feature 4: write gating on the execute tool.
 # --------------------------------------------------------------------------- #
 
+def is_token_mint(req: dict) -> bool:
+    return req["method"] == "POST" and "grant_type" in (req.get("body_head") or "")
+
+
+def endpoint_requests(reqs: list[dict], method: str, path: str) -> list[dict]:
+    """Requests for this endpoint: same method, and (when the endpoint has a
+    path) a request path ending in that path, placeholders matching one
+    segment. A fragment (JSON-RPC '#method') is never sent, so it is dropped."""
+    template = (path or "").split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    rx = None
+    if template and template != "?":
+        rx = re.compile(re.sub(r"\\\{[^}/]+\\\}", "[^/]+", re.escape(template)) + "/?$")
+    out = []
+    for r in reqs:
+        if r["method"] != method or is_token_mint(r):
+            continue
+        if rx is None or rx.search(r["path"].split("?", 1)[0]):
+            out.append(r)
+    return out
+
+
 def looks_like_preview(text: str) -> bool:
     data = parse_json_lenient(text)
     if isinstance(data, dict) and (data.get("confirmation_required") is True or data.get("preview") is True):
@@ -1091,7 +1116,7 @@ def f4_write_gating(ctx: Ctx) -> dict:
             args = {"endpoint_id": item.get("endpoint_id") or item.get("id"), "params": endpoint_params(item)}
             first = call_observed(ctx, cli, execute, args)
             write_json(d / "call-without-confirm.json", first)
-            sent = [r for r in first["vendor_requests"] if r["method"] == method]
+            sent = endpoint_requests(first["vendor_requests"], method, path)
             if sent:
                 return verdict(FAIL, f"{execute} sent {method} {path} to the vendor at once, with no confirm "
                                      "and no preview")
@@ -1102,7 +1127,7 @@ def f4_write_gating(ctx: Ctx) -> dict:
             write_json(d / "call-with-confirm.json", second)
     except ServerGone as e:
         return verdict(FAIL, str(e))
-    if not [r for r in second["vendor_requests"] if r["method"] == method]:
+    if not endpoint_requests(second["vendor_requests"], method, path):
         return verdict(FAIL, f"{execute} previewed {method} {path}, but confirm=true did not send it either: "
                              f"{tail(second['answer_head'], 1)}")
     return verdict(PASS, f"{execute} previewed {method} {path} without confirm (nothing sent); confirm=true sent it")
@@ -1307,12 +1332,17 @@ def run_slug(slug: str, features: list[int], args) -> int:
             except Exception as e:  # noqa: BLE001 - any harness crash is ERROR, with its traceback kept
                 (ctx.fdir(f"f{num}-{fid}") / "traceback.txt").write_text(traceback.format_exc(), encoding="utf-8")
                 res = verdict(ERROR, f"harness exception: {e!r}")
-            if num > 1 and not (ctx.cli.is_file() and ctx.mcp.is_file()):
+            if not (ctx.cli.is_file() and ctx.mcp.is_file()):
                 place_built(ctx)
+                if num == 1:
+                    ctx.notes.append("install.sh did not install; features 2-6 drove the built binaries directly")
             results[fid] = res
             print(f"  {num} {fid:<13} {res['verdict']:<5} {res['reason'][:150]}", flush=True)
     except HarnessError as e:
         problems.append(str(e))
+    except Exception as e:  # noqa: BLE001 - a crashed harness still writes its verdict
+        (run_dir / "traceback.txt").write_text(traceback.format_exc(), encoding="utf-8")
+        problems.append(f"harness exception: {e!r}")
     finally:
         for num, fid, _t in FEATURES:
             if num in features and fid not in results:
@@ -1398,7 +1428,10 @@ def cleanup_ctx(ctx: Ctx, keep: bool) -> None:
 
 
 def cmd_matches(pid: int, argv0: str) -> bool:
-    r = subprocess.run(["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return False  # cannot confirm it is ours: never signal it
     return Path(argv0).name in r.stdout
 
 
@@ -1429,6 +1462,9 @@ def leftover_runs(root: Path) -> list[Path]:
             state = json.loads(state_file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        owner = state.get("owner_pid")
+        if owner and owner != os.getpid() and pid_alive(owner) and cmd_matches(owner, HERE.name):
+            continue  # that run is still in progress; it cleans up after itself
         alive = any(pid_alive(e["pid"]) and cmd_matches(e["pid"], e["argv0"]) for e in state.get("pids", []))
         if alive or Path(state.get("scratch", "/nonexistent")).is_dir():
             out.append(state_file.parent)
@@ -1444,7 +1480,10 @@ def cmd_doctor(args) -> int:
         print(f"[{'ok' if good else 'FAIL':<4}] {label}: {detail}")
 
     go = shutil.which("go")
-    gov = subprocess.run([go, "version"], capture_output=True, text=True).stdout.strip() if go else ""
+    try:
+        gov = subprocess.run([go, "version"], capture_output=True, text=True, timeout=60).stdout.strip() if go else ""
+    except subprocess.TimeoutExpired:
+        gov = ""
     line(bool(go), "go", gov or "not on PATH (needed to build the connector)")
     slug = args.slug
     meta = registry.skills().get(slug)
@@ -1492,7 +1531,11 @@ def cmd_doctor(args) -> int:
         writable = True
     except OSError:
         writable = False
-    ignored = subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", str(root / "x" / "verdict.json")]).returncode == 0
+    try:
+        ignored = subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", str(root / "x" / "verdict.json")],
+                                 timeout=60).returncode == 0
+    except subprocess.TimeoutExpired:
+        ignored = False
     line(writable and (ignored or not under(str(root), REPO)), "evidence root",
          f"{root} ({'writable' if writable else 'NOT writable'}, "
          f"{'git-ignored' if ignored else 'outside the repo' if not under(str(root), REPO) else 'NOT git-ignored'})")
