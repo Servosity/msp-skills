@@ -23,7 +23,12 @@ the statusline, you do not need anything in this folder - see the root
 | `check_mcp_gate.py` | Boots a skill's MCP server over stdio and asserts the tenant gate does not default-deny. Probes the read-only tools the gate wraps in-process; skips Cobra mirrors (the child CLI gates those) and destructive tools. Needs no credentials. |
 | `check_mcp_file_flags.py` | Proves an MCP tool call cannot name a file or directory on the MCP host. The Go analyzer in `mcp_file_flags/` derives, from data flow in the connector's code (not from flag names), every flag whose value can start a filesystem path; the script then boots the real MCP server beside a recording stand-in for the CLI and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, that an ordinary flag still reaches the CLI, and that no in-process tool hands request data to a filesystem call. `--slug`, `--all`, `--jobs N`. The analyzer's own both-directions proof is `go test ./...` in `mcp_file_flags/`. |
 | `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also reports, without failing, command-local flags that shadow a global flag such as `--agent`. `--self-test` proves the classifier both ways. |
+| `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_echo.py`, `class_auth_wire.py`, `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
+| `class_baseline.json` | Connectors that FAIL a class today, per class. Same burn-down model as `security_gate_baseline.json` (#429): a listed connector reports, an unlisted one fails CI, the list only shrinks. |
 | `ci_guards.sh` | Repo hygiene: no em-dashes, no personal paths, no obvious secrets, a current `.coderabbit.yaml`. Decides on each guard's output, so a file missing from disk cannot turn a violation into a pass; `--self-test` proves it. |
+| `check_press_metadata.py` | Validates `skills/<dir>/press/`, the press's own `.printing-press.json`, `tools-manifest.json` and spec that onboard.py keeps beside `cli/`: only those files, parseable, version and print (`generated_at`, `spec_checksum`) agreeing with `manifest.json`, the spec matching its checksum, nothing secret-looking or personal in the text or any decoded view of it (backslash escapes, percent-encoding, HTML entities), and a vendor spec only with `publication.json`'s proof that its exact bytes are already in this repository's history outside press/ (no network check exists; every other spec is withheld as "spec source not public", and publishing one from another source is a later, deliberate change). Withheld files carry one of a fixed set of reasons there, never text from a file, tool or server. A connector without the folder is counted in the coverage line, not failed. `--base` also fails a connector the change ADDS when it was printed below `press_floor.json`. `--inspect DIR` is onboard.py's per-file verdict. `--self-test`. |
+| `press_floor.json` | The lowest cli-printing-press version a new connector may be printed with (upstream's own declared minimum, with the commit it was read at), read by `check_press_metadata.py` and onboard.py. `not_press_generated` exempts a connector the press never generated (read from the base, so a PR cannot exempt itself). It rises to upstream's current floor once the paused 4.33.5 prints have landed. |
+| `verify_live.py` | Flips a live-verified badge, or revokes it. A flip records the release it verified and the `cli_hash.py` hash of `cli/` at that tag (`--verified-version` when the report names it, else the newest release cut before `--reported-at`); `--bind` sets that on an existing badge. The catalog then reads "verified on vX.Y.Z" once the shipped code changes, and `check_registry_state.py` proves every recorded hash is the tag's code. |
 | `gen_governance.py` | Drafts a skill's `governance.md` from its CLI surface. |
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
 | `skills.json` | Per-skill metadata: owner/repo, binary names, vendor, status. |
@@ -36,6 +41,111 @@ the statusline, you do not need anything in this folder - see the root
 | `check_release_pipeline.py` | Refuses a SHA (`--sha`) or a whole tag (`--tag T --sha S`) that must not be released. Run it before every `git tag`. |
 | `burned_versions.json` | Version numbers a destroyed release already spent. Retired forever; never cut again. |
 | `hooks/pre-push` | Optional hook: refuses a release-tag push the probe refuses. Install with `git config core.hooksPath tools/maintainer/hooks`. |
+
+## Class tests
+
+The factory's review loops converge only once a whole bug CLASS is fixed, not one instance
+per round (the saas-alerts 45-round and synology 54-round secret-scrub loops). `class_harness.py`
+turns each recurring class into one automatic test that runs before any review, so a reviewer
+never spends a round rediscovering a member of a class a gate already covers.
+
+It is **black box**: every connector is its own Go module, so the harness drives the BUILT
+`<slug>-cli` and `<slug>-mcp` (stdio MCP) against a local fake HTTP server. It imports no
+connector Go package and hard-codes no per-connector names - the command surface comes from the
+binary's own `agent-context` JSON (which lists hidden groups, unlike `--help`), and the credential
+and base-URL wiring from `skills/<slug>/manifest.json`. It is stdlib Python only.
+
+Every class is proven BOTH directions. `--self-test` (run in CI's guards job) drives each class's
+decision functions on a broken shape and on a healthy one; the classes also fire on real
+shipped-today connectors (listed in `class_baseline.json`) and are silent on fixed ones. The PR
+that added the harness records a real past commit per class whose fix the class tracks.
+
+Ground truth over wording: the fake server records every request, so a finding is a fact about the
+wire (a credential arrived at a second host, a write reached the API under read-only, a dry run
+sent a request), never an inference from an error message. Each probe runs against a fresh, empty
+HOME, so a token one class caches cannot mask another class's finding. A connector a class cannot
+exercise gets an advisory `NOTE:` - reported, never baselined, never counted as a pass.
+
+### One table that pairs every class with what enforces it
+
+| Class (rule) | What enforces it | Fires on / silent on (measured) |
+| --- | --- | --- |
+| **Secret echo** - a credential value never reaches CLI output, errors or MCP results, in any encoding a server can reflect (URL, double-URL, HTML entities, JSON `\u`, base64/base64url, `Location`, `X-Request-Id`, truncated title), on error and success responses. | `class_secret_echo.py` (runtime): read commands and MCP read tools against a fake 403 that reflects each credential in body and headers; a 200 that reflects it in headers only (credential-free body); `--dry-run`, whose preview must mask the Authorization value. The MCP probe scans the session's raw stdout, stderr and whole result. Sentinels carry `.+/=` so each encoding is distinct. | Fires on 72 connectors (raw and URL forms masked; HTML, double-URL, JSON `\u` or base64 forms survive). Silent on the decoded-backstop connectors (cisco-duo, connectsecure, n-central, saas-alerts, watchguard) and riverside-fm (no credential). |
+| **Auth on the wire** - a configured credential is actually transmitted, and none follows a redirect to another host. | `class_auth_wire.py` (runtime): `doctor` against a fake server, then against one that 307s to a SECOND loopback server (different host:port); the second may receive no configured credential, no token the fake server minted, and no Authorization header. | Fires on 5 (connectwise-automate, connectwise-manage, cove, n-central, sherweb: each forwards a credential to the second host). Silent on the rest, which strip or refuse the hop. |
+| **Write safety** - every non-read MCP tool is refused under the read-only switch, and `--dry-run` sends nothing. | `class_write_safety.py` (runtime): with `<PREFIX>_MCP_READ_ONLY`, every write tool is called with real-shaped arguments (an `_execute` tool gets a genuine write endpoint id) in a CONTROL session with the switch off and again with it on; a write request reaching the fake API in the read-only session is a finding (a token mint, or a POST search agent-context marks read-only, is not a write). A write command (positional ids filled with a placeholder) run with `--dry-run` must put zero requests on the wire; any request it sends is a finding, and a clean dry run counts as proven only when the same command run for real reaches the API. **Complemented** by the static `mcp-read-only-switch-skips-typed-tools` rule in `check_security_gate.py` (#429), which reads `tools.go` for the drop pattern. | Fires on 10 OAuth client-credentials connectors whose dry run mints a token (appdirect, crowdstrike, halopsa, immybot, nerdio, ninjaone, pax8, sherweb, skykick, threatdown). Silent on connectwise-rmm, sophos-central and watchguard (same auth, `dry-run-never-mints` fix). Read-only: 9 of the 17 switched connectors proven to stop every write, 8 advisory, 0 violations. |
+| MCP local-file flags | Owned by the fleet gate `check_mcp_file_flags.py` (#431), not duplicated here. | - |
+
+**Static vs runtime read-only (measured 2026-10-23).** The static rule baselines **19** connectors,
+every one of which ships **no** `_MCP_READ_ONLY` switch, so the static rule marks them to adopt the
+drop pattern and the runtime class has no switch to drive. The runtime class drives the **17** that
+do ship one: 9 are proven (the control session wrote, the read-only session did not), 8 are
+advisory (no write tool produced an API write even with the switch off: their `_execute` tools or
+typed writes need arguments the probe cannot construct), and **0** let a write through. The two
+sets do not overlap: static flags the source pattern, runtime proves the shipped behavior.
+
+### Rollout: the shrink-only baseline
+
+`class_baseline.json` lists the connectors that FAIL a class today, per class, using the same
+burn-down model as `security_gate_baseline.json` (#429):
+
+- a **listed** connector is reported, not failed, until its fix or reprint closes the class;
+- an **unlisted** connector that fails is a CI failure (fix it, do not baseline it);
+- `--assert-baseline-shrinks <base>` (guards job, build-free) fails a PR whose baseline lists a
+  connector the base baseline did not, so a PR cannot widen its own list; it passes on the PR that
+  first introduces the file;
+- `--update-baseline` removes connectors that no longer fail and never adds; `--seed-baseline`
+  gives a class with no entry its first list;
+- a listed connector that now passes is reported by `--all` and `--report`, and `--all` fails on
+  it. The per-connector CI rows run `--slug`, which cannot see the rest of the list, so retirement
+  is enforced by `--update-baseline` (run it when a fix lands) rather than by every PR.
+
+Fleet counts at seed (84 connectors, measured 2026-10-23, a fleet-wide `--all` exits 0):
+
+| Class | Failing (baselined) | Passing | Advisory (not exercised) |
+| --- | --- | --- | --- |
+| secret-echo | 72 | 6 | 6 (avanan, blumira, hubspot, mspbots, proxmox, threatlocker: reads are local or need arguments) |
+| auth-wire | 5 | 79 | 0 |
+| write-safety | 10 | 47 | 27 (8 read-only not proven, see above; 21 whose write commands never reached the API even without `--dry-run`, so the dry run could not be proven clean) |
+
+Step 7 of the pipeline plan empties these lists. No connector is fixed here.
+
+### Known gaps (open, tracked in #439)
+
+The final review round left five findings open. Each has a concrete failing input and a one-rule
+fix, and none can turn main red (every connector failing a class today is baselined). Each can let a
+future connector pass a class it should fail:
+
+1. **secret-echo decode.** The candidate-run pattern also matches `.`, so a `.`-prefixed base64
+   blob is decoded misaligned and the credential is not reconstructed. Fix: base64-alphabet token
+   boundaries.
+2. **write-safety attribution.** The token URL points at the fake server root, so a connector's
+   data `POST /` is exempted as a token exchange. Fix: a reserved token path on the fake server.
+3. **write-safety attribution.** Requests sent during the read-only `tools/list` discovery fall
+   outside the read-only capture window. Fix: attribute every read-only-session request.
+4. **secret-echo surface parity.** The MCP success probe reuses the CLI probe's HOME, so a shared
+   response cache can keep the reflected header from reaching MCP. Fix: a fresh HOME for it.
+5. **baseline guard.** A base whose baseline blob exists but cannot be read (an unhydrated partial
+   clone) is treated as "file absent". Not reachable in CI (full clone). Fix: prove absence with
+   `git ls-tree`; any other failure fails closed.
+
+### Known limits (accepted)
+
+- The redirect hop changes port, not hostname. The connectors' own `CheckRedirect` compares
+  host:port, which is what the 5 findings exercise; Go's built-in Authorization stripping compares
+  hostnames only, so a connector relying on it alone is tested only for its custom headers.
+- A credential reflected in a 200 response BODY is the server's data and is printed by design;
+  the success probe reflects it in headers only.
+- Advisory connectors are coverage gaps, surfaced so they are never mistaken for passes.
+
+### Cost
+
+Each run builds the connector's two binaries and drives a bounded set of probes (at most 4 read
+commands, 8 MCP read tools, 12 MCP write tools and 4 write commands for the dry run, each probe
+process capped at 20 s). Measured serially on a warm module cache, all three classes take 6-29 s
+per connector (connectwise-automate 6, ninjaone 9, halopsa 11, threatdown 14, td-synnex 19,
+saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses the cross-host
+redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers. The classes run per changed connector in the `build` matrix row; a change
+to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
 ## What CI builds, and when
 

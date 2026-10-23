@@ -10,6 +10,9 @@ Usage:
       .verified_by    who confirmed it against a production tenant (live only)
       .source         where the receipt came from: "self" | "github" | "circle"
       .issue_url      optional receipt link (live only)
+      .verified_code  "current" | "changed" | "unknown" (live only): whether the
+                      shipped release still carries the code the receipt covers
+      .verified_version  the release it verified (live only, when recorded)
       .display_name   connector name
 
 live-verified -> terracotta-fill pill + optional receipt link.
@@ -33,7 +36,7 @@ source can never be misattributed to us.
 {%- endcase -%}
 {%- assign verif_by = conn.verified_by | default: verif_fallback -%}
 {%- if conn.verification == "live-verified" -%}
-<span class="verif-badge verified">&#10003; Live-verified by {{ verif_by }} against a production tenant{%- if conn.issue_url %} &middot; <a href="{{ conn.issue_url }}">receipt &rarr;</a>{%- endif -%}</span>
+<span class="verif-badge verified">&#10003; Live-verified by {{ verif_by }} against a production tenant{%- if conn.verified_code == "changed" %} on v{{ conn.verified_version }}; the current release has changed since{%- elsif conn.verified_code == "unknown" %} (version not recorded){%- endif -%}{%- if conn.issue_url %} &middot; <a href="{{ conn.issue_url }}">receipt &rarr;</a>{%- endif -%}</span>
 {%- else -%}
 <span class="verif-badge awaiting">Passes all 4 mechanical gates - awaiting its first MSP receipt. <a href="{{ site.receipt_form_url | default: '/verified/#receipt' }}">Be the first, 60 seconds &rarr;</a></span>
 {%- endif -%}

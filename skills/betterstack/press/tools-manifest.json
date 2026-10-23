@@ -1,0 +1,1050 @@
+{
+  "api_name": "betterstack",
+  "base_url": "https://uptime.betterstack.com/api/v2",
+  "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics — what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift — that the API alone can't answer.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {BETTERSTACK_API_TOKEN}",
+    "in": "header",
+    "env_vars": [
+      "BETTERSTACK_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "BETTERSTACK_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "heartbeat-groups_create",
+      "description": "Create a heartbeat group. Required: name. Optional: sort-index. Returns the new HeartbeatGroup.",
+      "method": "POST",
+      "path": "/heartbeat-groups",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Group name",
+          "required": true
+        },
+        {
+          "name": "sort-index",
+          "wire_name": "sort_index",
+          "type": "int",
+          "location": "body",
+          "description": "Sort position"
+        }
+      ]
+    },
+    {
+      "name": "heartbeat-groups_delete",
+      "description": "Delete a heartbeat group. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/heartbeat-groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Heartbeat group ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "heartbeat-groups_get",
+      "description": "Get a heartbeat group by ID. Required: id. Returns the HeartbeatGroup.",
+      "method": "GET",
+      "path": "/heartbeat-groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Heartbeat group ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "heartbeat-groups_list",
+      "description": "List heartbeat groups. Optional: page, per-page (default: 50). Returns array of HeartbeatGroup.",
+      "method": "GET",
+      "path": "/heartbeat-groups",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        }
+      ]
+    },
+    {
+      "name": "heartbeats_create",
+      "description": "Create a heartbeat. Required: name. Optional: period, grace, group-id (plus 5 more). Returns the new Heartbeat.",
+      "method": "POST",
+      "path": "/heartbeats",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Heartbeat name",
+          "required": true
+        },
+        {
+          "name": "period",
+          "type": "int",
+          "location": "body",
+          "description": "Expected check-in period in seconds"
+        },
+        {
+          "name": "grace",
+          "type": "int",
+          "location": "body",
+          "description": "Grace period in seconds before alerting"
+        },
+        {
+          "name": "group-id",
+          "wire_name": "heartbeat_group_id",
+          "type": "string",
+          "location": "body",
+          "description": "Heartbeat group to attach to"
+        },
+        {
+          "name": "policy-id",
+          "wire_name": "policy_id",
+          "type": "string",
+          "location": "body",
+          "description": "Escalation policy ID"
+        },
+        {
+          "name": "email",
+          "type": "bool",
+          "location": "body",
+          "description": "Send email alerts"
+        },
+        {
+          "name": "sms",
+          "type": "bool",
+          "location": "body",
+          "description": "Send SMS alerts"
+        },
+        {
+          "name": "call",
+          "type": "bool",
+          "location": "body",
+          "description": "Send phone-call alerts"
+        },
+        {
+          "name": "push",
+          "type": "bool",
+          "location": "body",
+          "description": "Send push alerts"
+        }
+      ]
+    },
+    {
+      "name": "heartbeats_delete",
+      "description": "Delete a heartbeat. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/heartbeats/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Heartbeat ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "heartbeats_get",
+      "description": "Get a heartbeat by ID. Required: id. Returns the Heartbeat.",
+      "method": "GET",
+      "path": "/heartbeats/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Heartbeat ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "heartbeats_list",
+      "description": "List heartbeats. Optional: page, per-page (default: 50). Returns array of Heartbeat.",
+      "method": "GET",
+      "path": "/heartbeats",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        }
+      ]
+    },
+    {
+      "name": "heartbeats_update",
+      "description": "Update a heartbeat (sends PATCH). Required: id. Optional: name, period, grace (plus 1 more). Returns the updated Heartbeat.",
+      "method": "PATCH",
+      "path": "/heartbeats/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Heartbeat ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "New heartbeat name"
+        },
+        {
+          "name": "period",
+          "type": "int",
+          "location": "body",
+          "description": "New expected period in seconds"
+        },
+        {
+          "name": "grace",
+          "type": "int",
+          "location": "body",
+          "description": "New grace period in seconds"
+        },
+        {
+          "name": "paused",
+          "type": "bool",
+          "location": "body",
+          "description": "Pause or unpause the heartbeat"
+        }
+      ]
+    },
+    {
+      "name": "incidents_acknowledge",
+      "description": "Acknowledge an incident. Required: id. Optional: by. Returns the new Incident.",
+      "method": "POST",
+      "path": "/incidents/{id}/acknowledge",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Incident ID",
+          "required": true
+        },
+        {
+          "name": "by",
+          "wire_name": "acknowledged_by",
+          "type": "string",
+          "location": "body",
+          "description": "Email of the person acknowledging"
+        }
+      ]
+    },
+    {
+      "name": "incidents_delete",
+      "description": "Delete an incident. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/incidents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Incident ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_get",
+      "description": "Get an incident by ID. Required: id. Returns the Incident.",
+      "method": "GET",
+      "path": "/incidents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Incident ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_list",
+      "description": "List incidents. Optional: page, per-page (default: 50), from (plus 5 more). Returns array of Incident.",
+      "method": "GET",
+      "path": "/incidents",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "Start date filter (YYYY-MM-DD)"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "End date filter (YYYY-MM-DD)"
+        },
+        {
+          "name": "monitor-id",
+          "wire_name": "monitor_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by source monitor ID"
+        },
+        {
+          "name": "heartbeat-id",
+          "wire_name": "heartbeat_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by source heartbeat ID"
+        },
+        {
+          "name": "resolved",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by resolved state"
+        },
+        {
+          "name": "acknowledged",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by acknowledged state"
+        }
+      ]
+    },
+    {
+      "name": "incidents_resolve",
+      "description": "Resolve an incident. Required: id. Optional: by. Returns the new Incident.",
+      "method": "POST",
+      "path": "/incidents/{id}/resolve",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Incident ID",
+          "required": true
+        },
+        {
+          "name": "by",
+          "wire_name": "resolved_by",
+          "type": "string",
+          "location": "body",
+          "description": "Email of the person resolving"
+        }
+      ]
+    },
+    {
+      "name": "monitor-groups_create",
+      "description": "Create a monitor group. Required: name. Optional: sort-index, paused. Returns the new MonitorGroup.",
+      "method": "POST",
+      "path": "/monitor-groups",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Group name",
+          "required": true
+        },
+        {
+          "name": "sort-index",
+          "wire_name": "sort_index",
+          "type": "int",
+          "location": "body",
+          "description": "Sort position"
+        },
+        {
+          "name": "paused",
+          "type": "bool",
+          "location": "body",
+          "description": "Pause all monitors in the group"
+        }
+      ]
+    },
+    {
+      "name": "monitor-groups_delete",
+      "description": "Delete a monitor group. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/monitor-groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Monitor group ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "monitor-groups_get",
+      "description": "Get a monitor group by ID. Required: id. Returns the MonitorGroup.",
+      "method": "GET",
+      "path": "/monitor-groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Monitor group ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "monitor-groups_list",
+      "description": "List monitor groups. Optional: page, per-page (default: 50). Returns array of MonitorGroup.",
+      "method": "GET",
+      "path": "/monitor-groups",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        }
+      ]
+    },
+    {
+      "name": "monitors_create",
+      "description": "Create a monitor. Required: type. Optional: url, name, check-frequency (plus 13 more). Returns the new Monitor.",
+      "method": "POST",
+      "path": "/monitors",
+      "params": [
+        {
+          "name": "type",
+          "wire_name": "monitor_type",
+          "type": "string",
+          "location": "body",
+          "description": "Monitor type: status, expected_status_code, keyword, keyword_absence, ping, tcp, udp, smtp, pop, imap, dns, playwright",
+          "required": true
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "URL or host to monitor"
+        },
+        {
+          "name": "name",
+          "wire_name": "pronounceable_name",
+          "type": "string",
+          "location": "body",
+          "description": "Human-readable monitor name"
+        },
+        {
+          "name": "check-frequency",
+          "wire_name": "check_frequency",
+          "type": "int",
+          "location": "body",
+          "description": "Seconds between checks (e.g. 30, 60, 180)"
+        },
+        {
+          "name": "request-timeout",
+          "wire_name": "request_timeout",
+          "type": "int",
+          "location": "body",
+          "description": "Request timeout in seconds"
+        },
+        {
+          "name": "recovery-period",
+          "wire_name": "recovery_period",
+          "type": "int",
+          "location": "body",
+          "description": "Seconds the monitor must be up before recovery"
+        },
+        {
+          "name": "confirmation-period",
+          "wire_name": "confirmation_period",
+          "type": "int",
+          "location": "body",
+          "description": "Seconds before a failure is confirmed"
+        },
+        {
+          "name": "group-id",
+          "wire_name": "monitor_group_id",
+          "type": "string",
+          "location": "body",
+          "description": "Monitor group to attach to"
+        },
+        {
+          "name": "policy-id",
+          "wire_name": "policy_id",
+          "type": "string",
+          "location": "body",
+          "description": "Escalation policy ID"
+        },
+        {
+          "name": "keyword",
+          "wire_name": "required_keyword",
+          "type": "string",
+          "location": "body",
+          "description": "Keyword to check for (keyword monitors)"
+        },
+        {
+          "name": "http-method",
+          "wire_name": "http_method",
+          "type": "string",
+          "location": "body",
+          "description": "HTTP method for status/keyword monitors"
+        },
+        {
+          "name": "paused",
+          "type": "bool",
+          "location": "body",
+          "description": "Create the monitor paused"
+        },
+        {
+          "name": "email",
+          "type": "bool",
+          "location": "body",
+          "description": "Send email alerts"
+        },
+        {
+          "name": "sms",
+          "type": "bool",
+          "location": "body",
+          "description": "Send SMS alerts"
+        },
+        {
+          "name": "call",
+          "type": "bool",
+          "location": "body",
+          "description": "Send phone-call alerts"
+        },
+        {
+          "name": "push",
+          "type": "bool",
+          "location": "body",
+          "description": "Send push alerts"
+        },
+        {
+          "name": "verify-ssl",
+          "wire_name": "verify_ssl",
+          "type": "bool",
+          "location": "body",
+          "description": "Verify SSL certificate"
+        }
+      ]
+    },
+    {
+      "name": "monitors_delete",
+      "description": "Delete a monitor. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/monitors/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Monitor ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "monitors_get",
+      "description": "Get a monitor by ID. Required: id. Returns the Monitor.",
+      "method": "GET",
+      "path": "/monitors/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Monitor ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "monitors_list",
+      "description": "List all monitors. Optional: page, per-page (default: 50), url (plus 1 more). Returns array of Monitor.",
+      "method": "GET",
+      "path": "/monitors",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number (starts at 1)"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by monitored URL"
+        },
+        {
+          "name": "name",
+          "wire_name": "pronounceable_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by display name"
+        }
+      ]
+    },
+    {
+      "name": "monitors_update",
+      "description": "Update a monitor (sends PATCH). Required: id. Optional: name, url, check-frequency (plus 2 more). Returns the updated Monitor.",
+      "method": "PATCH",
+      "path": "/monitors/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Monitor ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "wire_name": "pronounceable_name",
+          "type": "string",
+          "location": "body",
+          "description": "New display name"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "New URL/host"
+        },
+        {
+          "name": "check-frequency",
+          "wire_name": "check_frequency",
+          "type": "int",
+          "location": "body",
+          "description": "New check frequency in seconds"
+        },
+        {
+          "name": "paused",
+          "type": "bool",
+          "location": "body",
+          "description": "Pause or unpause the monitor"
+        },
+        {
+          "name": "policy-id",
+          "wire_name": "policy_id",
+          "type": "string",
+          "location": "body",
+          "description": "New escalation policy ID"
+        }
+      ]
+    },
+    {
+      "name": "on-calls_get",
+      "description": "Get an on-call calendar by ID (includes current on-call users). Required: id. Returns the OnCallCalendar.",
+      "method": "GET",
+      "path": "/on-calls/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "On-call calendar ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "on-calls_list",
+      "description": "List on-call calendars. Optional: page, per-page (default: 50). Returns array of OnCallCalendar.",
+      "method": "GET",
+      "path": "/on-calls",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        }
+      ]
+    },
+    {
+      "name": "policies_create",
+      "description": "Create an escalation policy. Required: name. Optional: repeat-count, repeat-delay. Returns the new Policy.",
+      "method": "POST",
+      "path": "/policies",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Policy name",
+          "required": true
+        },
+        {
+          "name": "repeat-count",
+          "wire_name": "repeat_count",
+          "type": "int",
+          "location": "body",
+          "description": "Times to repeat the escalation"
+        },
+        {
+          "name": "repeat-delay",
+          "wire_name": "repeat_delay",
+          "type": "int",
+          "location": "body",
+          "description": "Delay between repeats in seconds"
+        }
+      ]
+    },
+    {
+      "name": "policies_delete",
+      "description": "Delete an escalation policy. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/policies/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Policy ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get",
+      "description": "Get an escalation policy by ID. Required: id. Returns the Policy.",
+      "method": "GET",
+      "path": "/policies/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Policy ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "List escalation policies. Optional: page, per-page (default: 50). Returns array of Policy.",
+      "method": "GET",
+      "path": "/policies",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        }
+      ]
+    },
+    {
+      "name": "status-page-resources_delete",
+      "description": "Remove a resource from a status page. Required: status-page-id, id. Destructive.",
+      "method": "DELETE",
+      "path": "/status-pages/{status_page_id}/resources/{id}",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Resource ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-page-resources_get",
+      "description": "Get a status page resource. Required: status-page-id, id. Returns the StatusPageResource.",
+      "method": "GET",
+      "path": "/status-pages/{status_page_id}/resources/{id}",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Resource ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-page-resources_list",
+      "description": "List resources on a status page. Required: status-page-id. Returns array of StatusPageResource.",
+      "method": "GET",
+      "path": "/status-pages/{status_page_id}/resources",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-page-sections_create",
+      "description": "Create a status page section. Required: status-page-id, name. Optional: position. Returns the new StatusPageSection.",
+      "method": "POST",
+      "path": "/status-pages/{status_page_id}/sections",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Section name",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "location": "body",
+          "description": "Display position"
+        }
+      ]
+    },
+    {
+      "name": "status-page-sections_delete",
+      "description": "Delete a status page section. Required: status-page-id, id. Destructive.",
+      "method": "DELETE",
+      "path": "/status-pages/{status_page_id}/sections/{id}",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Section ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-page-sections_get",
+      "description": "Get a status page section. Required: status-page-id, id. Returns the StatusPageSection.",
+      "method": "GET",
+      "path": "/status-pages/{status_page_id}/sections/{id}",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Section ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-page-sections_list",
+      "description": "List sections of a status page. Required: status-page-id. Returns array of StatusPageSection.",
+      "method": "GET",
+      "path": "/status-pages/{status_page_id}/sections",
+      "params": [
+        {
+          "name": "status-page-id",
+          "wire_name": "status_page_id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-pages_create",
+      "description": "Create a status page. Required: company-name. Optional: subdomain, timezone. Returns the new StatusPage.",
+      "method": "POST",
+      "path": "/status-pages",
+      "params": [
+        {
+          "name": "company-name",
+          "wire_name": "company_name",
+          "type": "string",
+          "location": "body",
+          "description": "Company name shown on the page",
+          "required": true
+        },
+        {
+          "name": "subdomain",
+          "type": "string",
+          "location": "body",
+          "description": "Better Stack subdomain (e.g. mycompany)"
+        },
+        {
+          "name": "timezone",
+          "type": "string",
+          "location": "body",
+          "description": "Display timezone"
+        }
+      ]
+    },
+    {
+      "name": "status-pages_delete",
+      "description": "Delete a status page. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/status-pages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-pages_get",
+      "description": "Get a status page by ID. Required: id. Returns the StatusPage.",
+      "method": "GET",
+      "path": "/status-pages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Status page ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "status-pages_list",
+      "description": "List status pages. Optional: page, per-page (default: 50). Returns array of StatusPage.",
+      "method": "GET",
+      "path": "/status-pages",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 250)"
+        }
+      ]
+    }
+  ]
+}

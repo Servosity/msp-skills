@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T02:48:59.515774Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "connectwise-automate",
+  "display_name": "ConnectWise Automate",
+  "cli_name": "connectwise-automate-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:4de6643313ca8582c779ba0ccf64c0ef0aeb101f431423753cfcc29d74f2f03d",
+  "run_id": "20260613-023841",
+  "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+  "mcp_binary": "connectwise-automate-pp-mcp",
+  "mcp_tool_count": 36,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "CONNECTWISE_AUTOMATE_TOKEN"
+  ],
+  "endpoint_template_vars": [
+    "server"
+  ],
+  "endpoint_template_var_defaults": {
+    "server": "YOUR_SERVER.hostedrmm.com"
+  },
+  "auth_key_url": "https://docs.connectwise.com/ConnectWise_Automate",
+  "novel_features": [
+    {
+      "name": "Fleet health board",
+      "command": "fleet-health",
+      "description": "See every agent across every client in one roll-up: online/offline, last-contact age, and open-alert count, grouped by client."
+    },
+    {
+      "name": "Stale / abandoned agents",
+      "command": "stale-agents",
+      "description": "List computers not seen in N days, grouped by client — the offline agents bleeding license and hiding risk."
+    },
+    {
+      "name": "Patch compliance by client",
+      "command": "patch-compliance",
+      "description": "Per-client patch posture from synced patch history joined to computers — worst offenders first."
+    },
+    {
+      "name": "Client roll-up (QBR snapshot)",
+      "command": "client-rollup",
+      "description": "One-line-per-client snapshot: computers, locations, offline agents, and open alerts — built for the client review."
+    },
+    {
+      "name": "Cross-client alert triage",
+      "command": "alert-triage",
+      "description": "Open alerts across every client, ranked by priority and joined to computer → location → client, with duplicates collapsed."
+    },
+    {
+      "name": "OS / EOL inventory",
+      "command": "os-inventory",
+      "description": "Fleet-wide operating-system distribution with end-of-life OSes (Windows 7, Server 2008/2012) flagged for upgrade planning."
+    },
+    {
+      "name": "Fleet activity since N hours",
+      "command": "since",
+      "description": "Fleet activity in the last N hours from the records' own timestamps: alerts created, agents that checked in, and patches installed."
+    }
+  ]
+}

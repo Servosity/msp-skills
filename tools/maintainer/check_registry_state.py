@@ -12,6 +12,14 @@ Checks per slug, current file vs origin/main:
      other status. FAIL. (Key removed entirely = explicit revoke = allowed.)
   2. SHAPE - live_verified must be a dict or absent. null / strings FAIL
      (a null entry silently reads as awaiting in every consumer).
+  3. BINDING - a live-verified badge records the code it verified
+     (verify_live.py writes verified_version, verified_cli_hash and
+     verified_basis; --bind sets them on an existing badge). basis "unknown"
+     carries null for both; any other basis names X.Y.Z and a hash that must
+     EQUAL the cli_hash.py hash of skills/<dir>/cli at tag <slug>-vX.Y.Z,
+     computed here from git objects (so a hand-edited binding cannot claim
+     code it does not name). A tag missing from the clone fails: fetch tags.
+     An awaiting entry may not carry binding fields.
 
 Exit 0 = clean, 1 = violations (printed), 2 = environment error.
 
@@ -31,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -82,6 +91,107 @@ def load_base(ref: str = REGISTRY_REF) -> tuple[dict | None, str | None]:
     return skills, None
 
 
+BINDING_KEYS = ("verified_version", "verified_cli_hash", "verified_basis")
+BASES = ("reported", "latest-release-at-flip", "unknown")
+_HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}\Z")
+_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+\Z")
+
+
+def tag_cli_hash(slug: str, entry: dict, version: str) -> str | None:
+    """cli_hash.py's hash of the connector's cli/ at tag <slug>-v<version>, from
+    git objects. The directory comes from the TAGGED commit's own registry (never
+    today's source_dir, which a branch controls), and that commit must record
+    the same version in skills.json and manifest.json. None when the tag is not
+    in this clone, does not release this connector at that version, or cannot
+    be hashed reproducibly. `entry` is unused: kept so callers pass what they
+    have and the rule cannot drift back to it."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import stamp_release  # noqa: E402  (local tools/ module; imported lazily: git work)
+    tag = f"{slug}-v{version}"
+    if subprocess.run(["git", "-C", str(REPO), "rev-parse", "-q", "--verify", f"refs/tags/{tag}"],
+                      capture_output=True).returncode != 0:
+        return None
+    facts = stamp_release._tag_entry(REPO, tag, slug)
+    if facts is None or facts[1] != version or facts[2] != version:
+        return None
+    return stamp_release.tree_hash(REPO, tag, f"skills/{facts[0]}/cli")
+
+
+def binding_violations(slug: str, entry: dict, tag_hash=tag_cli_hash) -> list[str]:
+    lv = entry.get("live_verified")
+    if not isinstance(lv, dict):
+        return []
+    present = [k for k in BINDING_KEYS if k in lv]
+    if lv.get("status") != "live-verified":
+        return ([f"{slug}: {', '.join(present)} set on a badge that is not live-verified"]
+                if present else [])
+    basis = lv.get("verified_basis")
+    if basis not in BASES:
+        return [f"{slug}: live_verified.verified_basis is {basis!r}: a live-verified badge must "
+                f"record the code it verified ({', '.join(BASES)}). verify_live.py writes it at a "
+                f"flip; for an existing badge run `verify_live.py --bind --slug {slug} "
+                "--verified-version X.Y.Z` (or --unknown)."]
+    version, h = lv.get("verified_version"), lv.get("verified_cli_hash")
+    if basis == "unknown":
+        return ([] if version is None and h is None else
+                [f"{slug}: verified_basis 'unknown' must carry null verified_version and verified_cli_hash"])
+    if not (isinstance(version, str) and _VERSION_RE.match(version)
+            and isinstance(h, str) and _HASH_RE.match(h)):
+        return [f"{slug}: verified_version {version!r} / verified_cli_hash {h!r} are not X.Y.Z / sha256:<64 hex>"]
+    actual = tag_hash(slug, entry, version)
+    if actual is None:
+        return [f"{slug}: cannot check the badge binding: tag {slug}-v{version} is not in this "
+                "clone (git fetch --tags), does not release this connector at that version, or "
+                "its cli/ cannot be hashed reproducibly"]
+    if actual != h:
+        return [f"{slug}: verified_cli_hash {h[:19]}... is not the code at {slug}-v{version} "
+                f"({actual[:19]}...): the badge would claim code nobody verified"]
+    return []
+
+
+def _self_test() -> int:
+    good = "sha256:" + "a" * 64
+    other = "sha256:" + "b" * 64
+
+    def entry(**lv) -> dict:
+        return {"live_verified": {"status": "live-verified", "date": "2026-10-01", **lv}}
+
+    def fake(slug, e, version):
+        return {"1.0.0": good}.get(version)
+
+    cases = [
+        ("bound to the tag's code", entry(verified_version="1.0.0", verified_cli_hash=good,
+                                          verified_basis="reported"), True),
+        ("bound at a flip", entry(verified_version="1.0.0", verified_cli_hash=good,
+                                  verified_basis="latest-release-at-flip"), True),
+        ("recorded unknown", entry(verified_version=None, verified_cli_hash=None,
+                                   verified_basis="unknown"), True),
+        ("awaiting, no binding", {"live_verified": {"status": "awaiting"}}, True),
+        ("no live_verified at all", {}, True),
+        ("a badge with no binding (the pre-4.4 shape)", entry(), False),
+        ("a hash that is not the tag's code", entry(verified_version="1.0.0", verified_cli_hash=other,
+                                                    verified_basis="reported"), False),
+        ("a version with no tag in the clone", entry(verified_version="2.0.0", verified_cli_hash=good,
+                                                     verified_basis="reported"), False),
+        ("unknown but carrying a hash", entry(verified_version=None, verified_cli_hash=good,
+                                              verified_basis="unknown"), False),
+        ("a made-up basis", entry(verified_version="1.0.0", verified_cli_hash=good,
+                                  verified_basis="trust-me"), False),
+        ("a malformed hash", entry(verified_version="1.0.0", verified_cli_hash="abc",
+                                   verified_basis="reported"), False),
+        ("binding on an awaiting badge", {"live_verified": {"status": "awaiting",
+                                                            "verified_basis": "unknown"}}, False),
+    ]
+    bad = 0
+    for label, e, want_clean in cases:
+        clean = not binding_violations("x", e, fake)
+        ok = clean is want_clean
+        bad += 0 if ok else 1
+        print(f"  {'ok  ' if ok else 'FAIL'} {label} -> {'clean' if clean else 'violation'}")
+    print("self-test:", "PASS" if not bad else f"FAIL ({bad})")
+    return 0 if not bad else 1
+
+
 def lv_status(entry: dict):
     lv = entry.get("live_verified")
     return lv.get("status") if isinstance(lv, dict) else None
@@ -102,7 +212,10 @@ def main() -> int:
              "CONTAINS the push, so comparing against it would compare the push with itself. A "
              "--base that cannot be read is an environment error (exit 2): substituting "
              "origin/main there would compare a push with itself.")
+    ap.add_argument("--self-test", action="store_true", help="prove the BINDING rule both ways")
     args = ap.parse_args()
+    if args.self_test:
+        return _self_test()
 
     current = load_current()
     violations: list[str] = []
@@ -117,6 +230,10 @@ def main() -> int:
                 f"{entry['live_verified']!r} - must be a dict or absent "
                 "(absence = awaiting)"
             )
+
+    for slug, entry in current.items():
+        if isinstance(entry, dict):
+            violations += binding_violations(slug, entry)
 
     base_label = "origin/main"
     if args.base:
@@ -160,8 +277,8 @@ def main() -> int:
         for v in violations:
             print(f"  - {v}")
         return 1
-    scope = ("shape only; downgrade check SKIPPED" if base is None
-             else f"shape + downgrade vs {base_label}")
+    scope = ("shape + binding only; downgrade check SKIPPED" if base is None
+             else f"shape + binding + downgrade vs {base_label}")
     print(f"check_registry_state: OK ({len(current)} entries; {scope})")
     return 0
 

@@ -38,7 +38,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Zammad GmbH.
 
-**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-08-16.
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-08-16. The version it verified was not recorded.
 
 Yes - there is an MCP server for Zammad. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Zammad to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

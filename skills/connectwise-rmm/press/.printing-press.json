@@ -1,0 +1,122 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-13T23:02:50.825169Z",
+  "printing_press_version": "4.33.5",
+  "api_name": "connectwise-rmm",
+  "display_name": "ConnectWise RMM",
+  "cli_name": "connectwise-rmm-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:26527a257678343a78cfd4c6299ee3eaf99231e9098ddff2a88bfd156a3b9b3d",
+  "run_id": "20261013-163926-78b59e8f",
+  "category": "monitoring",
+  "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
+  "mcp_binary": "connectwise-rmm-pp-mcp",
+  "mcp_tool_count": 66,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "asioOAuth",
+  "auth_env_vars": [
+    "CONNECTWISE_RMM_CLIENT_ID",
+    "CONNECTWISE_RMM_CLIENT_SECRET"
+  ],
+  "auth_key_url": "https://openapi.service.itsupport247.net",
+  "novel_features": [
+    {
+      "name": "Fleet stale-agent sweep",
+      "command": "fleet stale",
+      "description": "Every endpoint across all companies that is offline, missing from the heartbeat, or silent longer than a threshold, sorted by company and silence."
+    },
+    {
+      "name": "Per-company patch posture",
+      "command": "fleet patch-posture",
+      "description": "Companies ranked by patch risk: endpoints below a compliance bar, missing patches, pending reboots, out of support, stale assessments."
+    },
+    {
+      "name": "User-to-endpoint lookup",
+      "command": "fleet whois",
+      "description": "Which endpoints a person is logged on to now or was last logged on to, with company and site names."
+    },
+    {
+      "name": "Single-endpoint context card",
+      "command": "fleet brief",
+      "description": "One card for one endpoint: online or last seen, logged-on users, patch counts, and tickets linked to it or its site."
+    },
+    {
+      "name": "Company scorecard",
+      "command": "fleet scorecard",
+      "description": "Per-site health card for one company: endpoint mix, offline count, patch risk and tickets by status."
+    },
+    {
+      "name": "Task failure triage",
+      "command": "fleet task-failures",
+      "description": "Failed endpoints from a script run grouped by identical error text, joined to endpoint names, with IDs ready to re-run."
+    },
+    {
+      "name": "Reboot triage",
+      "command": "fleet reboot-due",
+      "description": "Endpoints with pending reboots split into reboot now, coordinate (user logged on or sessions unknown), offline, and availability unknown."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet stale-agent sweep",
+      "command": "fleet stale",
+      "description": "Every endpoint across all companies that is offline, missing from the heartbeat, or silent longer than a threshold, sorted by company and silence."
+    },
+    {
+      "name": "Per-company patch posture",
+      "command": "fleet patch-posture",
+      "description": "Companies ranked by patch risk: endpoints below a compliance bar, missing patches, pending reboots, out of support, stale assessments."
+    },
+    {
+      "name": "User-to-endpoint lookup",
+      "command": "fleet whois",
+      "description": "Which endpoints a person is logged on to now or was last logged on to, with company and site names."
+    },
+    {
+      "name": "Single-endpoint context card",
+      "command": "fleet brief",
+      "description": "One card for one endpoint: online or last seen, logged-on users, patch counts, and tickets linked to it or its site."
+    },
+    {
+      "name": "Company scorecard",
+      "command": "fleet scorecard",
+      "description": "Per-site health card for one company: endpoint mix, offline count, patch risk and tickets by status."
+    },
+    {
+      "name": "Task failure triage",
+      "command": "fleet task-failures",
+      "description": "Failed endpoints from a script run grouped by identical error text, joined to endpoint names, with IDs ready to re-run."
+    },
+    {
+      "name": "Reboot triage",
+      "command": "fleet reboot-due",
+      "description": "Endpoints with pending reboots split into reboot now, coordinate (user logged on or sessions unknown), offline, and availability unknown."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 87,
+    "total": 87,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 97,
+      "grade": "A",
+      "total": 97
+    }
+  }
+}

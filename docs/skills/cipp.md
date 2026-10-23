@@ -46,7 +46,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by CyberDrain.
 
-**✓ Live-verified by Abhi Saini, Bearium Networks (MSP)** against a production tenant · 2026-08-13 · [receipt →](https://compoundingteams.com/).
+**✓ Live-verified by Abhi Saini, Bearium Networks (MSP)** against a production tenant · 2026-08-13 · [receipt →](https://compoundingteams.com/). The version it verified was not recorded.
 
 Yes - there is an MCP server for CIPP + Microsoft 365. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects CIPP + Microsoft 365 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

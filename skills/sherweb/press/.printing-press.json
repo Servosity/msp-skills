@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:19:58.233514Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "sherweb",
+  "display_name": "Sherweb",
+  "cli_name": "sherweb-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:955f940f67454a55314f7ef83a136d29952f3ce5d0ad0ad1ae69529deea9a0d4",
+  "run_id": "20260613-041821",
+  "category": "commerce",
+  "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
+  "mcp_binary": "sherweb-pp-mcp",
+  "mcp_tool_count": 19,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "oauth2ClientCredentials",
+  "auth_env_vars": [
+    "SHERWEB_CLIENT_ID",
+    "SHERWEB_CLIENT_SECRET"
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "Ocp-Apim-Subscription-Key",
+      "in": "header",
+      "scheme": "subscriptionKey",
+      "env_var": {
+        "name": "SHERWEB_SUBSCRIPTION_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "APIM gateway subscription key from cumulus.sherweb.com Security > APIs."
+      }
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Margin per customer",
+      "command": "margin",
+      "description": "See net margin per customer (what they owe you minus what you owe Sherweb) for any billing month."
+    },
+    {
+      "name": "Bill drift",
+      "command": "drift",
+      "description": "Diff the latest payable-charges snapshot against the prior sync to flag charges that appeared, vanished, or changed."
+    },
+    {
+      "name": "Orphaned subscriptions",
+      "command": "orphans",
+      "description": "List active subscriptions with zero receivable charges in the latest period \u2014 zombie subs you're paying for but not billing on."
+    },
+    {
+      "name": "Fleet subscription roll-up",
+      "command": "fleet-subs",
+      "description": "One table across ALL customers' subscriptions grouped by product/SKU, with total seats and customer counts."
+    },
+    {
+      "name": "Seat right-size advisor",
+      "command": "right-size",
+      "description": "Flag subscriptions where seats paid differ from metered seats used, per customer."
+    },
+    {
+      "name": "Amendment cost-delta preview",
+      "command": "amend-preview",
+      "description": "Preview the monthly cost change of a seat amendment before committing it, computed from stored pricing."
+    },
+    {
+      "name": "Margin trend across closes",
+      "command": "margin-trend",
+      "description": "See each customer's margin across the last N monthly closes so profitability slides surface before an account goes negative."
+    },
+    {
+      "name": "Subscription churn diff",
+      "command": "sub-changes",
+      "description": "Flag subscriptions added, cancelled, or quantity-changed between two syncs across the whole customer book."
+    },
+    {
+      "name": "Unbilled platform usage finder",
+      "command": "usage-leak",
+      "description": "Flag metered platform usage that has no matching receivable charge - consumption you absorb instead of billing."
+    }
+  ],
+  "scorecard": {
+    "api_name": "sherweb",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 10,
+      "mcp_description_quality": 10,
+      "mcp_token_efficiency": 7,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 0,
+      "mcp_surface_strategy": 0,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 9,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 10,
+      "data_pipeline_integrity": 7,
+      "sync_correctness": 10,
+      "type_fidelity": 4,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 93,
+      "percentage": 93
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 19 tools (0 public, 19 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_tool_design",
+      "mcp_surface_strategy",
+      "live_api_verification"
+    ]
+  }
+}

@@ -36,7 +36,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Hudu Technologies, Inc..
 
-**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-07-17 · [receipt →](https://github.com/Servosity/msp-skills/issues/183).
+**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-07-17 · [receipt →](https://github.com/Servosity/msp-skills/issues/183). Verified on v0.1.5; the current release has changed since.
 
 Yes - there is an MCP server for Hudu. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Hudu to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

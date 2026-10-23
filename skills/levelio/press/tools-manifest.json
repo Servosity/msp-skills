@@ -1,0 +1,876 @@
+{
+  "api_name": "levelio",
+  "base_url": "https://api.level.io",
+  "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "LEVEL_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "LEVEL_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alerts_list",
+      "description": "Returns a list of your alerts. Optional: device_id, status, limit (plus 2 more).",
+      "method": "GET",
+      "path": "/v2/alerts",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include alerts for the specified device_id."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include alerts with the given status."
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "alerts_show",
+      "description": "Retrieves the details of an existing alert. Required: id. Returns the Alert.",
+      "method": "GET",
+      "path": "/v2/alerts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the alert to retrieve.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_resolve_alert",
+      "description": "Resolves an active alert. If the alert is already resolved, this is a no-op and returns the alert as-is. Required: id.",
+      "method": "POST",
+      "path": "/v2/alerts/{id}/resolve",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the alert to resolve.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_trigger-webhook",
+      "description": "Triggers an automation via a webhook. Required: token. Optional: device_ids.",
+      "method": "POST",
+      "path": "/v2/automations/webhooks/{token}",
+      "params": [
+        {
+          "name": "token",
+          "type": "string",
+          "location": "path",
+          "description": "The token of the webhook to trigger.",
+          "required": true
+        },
+        {
+          "name": "device_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Trigger the automation for the specified devices. Conditions on the trigger will still be applied."
+        }
+      ]
+    },
+    {
+      "name": "custom-field-values_delete",
+      "description": "Deletes a custom field value for the organization, group, or device. Required: custom_field_id. Optional: assigned_to_id, force. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/custom_field_values",
+      "params": [
+        {
+          "name": "assigned_to_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the object to delete the value for. If not provided, the value will be deleted globally for the organization. Otherwise, the ID should represent a group or device whose custom field value will be deleted."
+        },
+        {
+          "name": "custom_field_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom field to delete the value for.",
+          "required": true
+        },
+        {
+          "name": "force",
+          "type": "bool",
+          "location": "body",
+          "description": "When 'force' is true, the value will be deleted for all descendants of the assigned_to_id. Otherwise, the value will be deleted only for the assigned_to_id and any descendants that don't have an explicit custom field value set."
+        }
+      ]
+    },
+    {
+      "name": "custom-field-values_list",
+      "description": "Returns a list of custom field values for the organization, groups, or devices. Optional: assigned_to_id, custom_field_id, limit (plus 2 more).",
+      "method": "GET",
+      "path": "/v2/custom_field_values",
+      "params": [
+        {
+          "name": "assigned_to_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include custom field values for the specified object. If not provided, global custom field values for the organization are returned. Otherwise, the ID should represent a group or device whose assigned custom field values will be returned."
+        },
+        {
+          "name": "custom_field_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include the value for the specified custom field."
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "custom-field-values_update",
+      "description": "Set a custom field value for the organization, group, or device. Required: custom_field_id, value. Optional: assigned_to_id, force. Returns the updated CustomFieldValue.",
+      "method": "PATCH",
+      "path": "/v2/custom_field_values",
+      "params": [
+        {
+          "name": "assigned_to_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the object to set the value for. If not provided, the value will be set globally for the organization. Otherwise, the ID should represent a group or device whose custom field value will be set."
+        },
+        {
+          "name": "custom_field_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom field to set the value for.",
+          "required": true
+        },
+        {
+          "name": "force",
+          "type": "bool",
+          "location": "body",
+          "description": "When 'force' is true, the provided value will override any custom field values that are set for descendants of the assigned_to_id. Otherwise, the value will be set only for the assigned_to_id and any descendants that don't have an explicit custom field value set."
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "The value to set for the custom field.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-fields_create",
+      "description": "Creates a custom field. Required: name. Optional: admin_only. Returns the new CustomField.",
+      "method": "POST",
+      "path": "/v2/custom_fields",
+      "params": [
+        {
+          "name": "admin_only",
+          "type": "bool",
+          "location": "body",
+          "description": "When 'admin_only' is true, this field's value can only be viewed or edited by an admin."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the custom field.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-fields_delete",
+      "description": "Deletes a custom field. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/custom_fields/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the custom field.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-fields_list",
+      "description": "Returns a list of custom fields. Optional: limit, starting_after, ending_before.",
+      "method": "GET",
+      "path": "/v2/custom_fields",
+      "params": [
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "custom-fields_show",
+      "description": "Retrieves the details of an existing custom field. Required: id. Returns the CustomField.",
+      "method": "GET",
+      "path": "/v2/custom_fields/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the custom field.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-fields_update",
+      "description": "Updates a custom field. Required: id. Optional: admin_only, name. Returns the updated CustomField.",
+      "method": "PATCH",
+      "path": "/v2/custom_fields/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the custom field.",
+          "required": true
+        },
+        {
+          "name": "admin_only",
+          "type": "bool",
+          "location": "body",
+          "description": "When 'admin_only' is true, this field's value can only be viewed or edited by an admin."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the custom field."
+        }
+      ]
+    },
+    {
+      "name": "devices_delete",
+      "description": "Deletes the specified device. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "Returns a list of your devices. Optional: group_id, ancestor_group_id, tag_id (plus 12 more).",
+      "method": "GET",
+      "path": "/v2/devices",
+      "params": [
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include devices with the given parent group id. If not provided, all devices are returned. If 'null' is provided, only devices without a parent group are returned."
+        },
+        {
+          "name": "ancestor_group_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include devices with the given group id as an ancestor."
+        },
+        {
+          "name": "tag_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include devices that have the specified tag."
+        },
+        {
+          "name": "hostname",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include devices with the specified hostname."
+        },
+        {
+          "name": "serial_number",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include devices with the specified serial number."
+        },
+        {
+          "name": "include_operating_system",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed operating system information in the response."
+        },
+        {
+          "name": "include_cpus",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed CPU information in the response."
+        },
+        {
+          "name": "include_memory",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed memory information in the response."
+        },
+        {
+          "name": "include_disks",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed disk and disk partitioninformation in the response."
+        },
+        {
+          "name": "include_network_interfaces",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed network interface information in the response."
+        },
+        {
+          "name": "include_motherboard",
+          "type": "bool",
+          "location": "query",
+          "description": "Include motherboard information in the response."
+        },
+        {
+          "name": "include_security",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed security information in the response."
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "devices_show",
+      "description": "Retrieves the details of an existing device. Required: id. Optional: include_operating_system, include_cpus, include_memory (plus 4 more). Returns the Device.",
+      "method": "GET",
+      "path": "/v2/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device to retrieve.",
+          "required": true
+        },
+        {
+          "name": "include_operating_system",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed operating system information in the response."
+        },
+        {
+          "name": "include_cpus",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed CPU information in the response."
+        },
+        {
+          "name": "include_memory",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed memory information in the response."
+        },
+        {
+          "name": "include_disks",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed disk and disk partitioninformation in the response."
+        },
+        {
+          "name": "include_network_interfaces",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed network interface information in the response."
+        },
+        {
+          "name": "include_motherboard",
+          "type": "bool",
+          "location": "query",
+          "description": "Include motherboard information in the response."
+        },
+        {
+          "name": "include_security",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed security information in the response."
+        }
+      ]
+    },
+    {
+      "name": "devices_update",
+      "description": "Updates the specified device. Required: id. Optional: group_id, name, notes. Returns the updated Device.",
+      "method": "PATCH",
+      "path": "/v2/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device to update.",
+          "required": true
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the group to assign the device to. If null, the device will be removed from its current group."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the device."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "The notes for the device."
+        }
+      ]
+    },
+    {
+      "name": "groups_create",
+      "description": "Creates a new group. Required: name. Optional: parent_id. Returns array of string.",
+      "method": "POST",
+      "path": "/v2/groups",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the group.",
+          "required": true
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "The parent group ID. If not provided, or null, a root group will be created."
+        }
+      ]
+    },
+    {
+      "name": "groups_delete",
+      "description": "Deletes an existing group. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the group to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "Returns a list of your groups. Optional: parent_id, limit, starting_after (plus 1 more).",
+      "method": "GET",
+      "path": "/v2/groups",
+      "params": [
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include groups with the given parent id. If not provided, all groups are returned. If 'null' is provided, only root groups are returned."
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "groups_show",
+      "description": "Retrieves the details of an existing group. Required: id. Returns array of string.",
+      "method": "GET",
+      "path": "/v2/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the group to retrieve.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_update",
+      "description": "Updates an existing group. Required: id. Optional: name, parent_id. Returns array of string.",
+      "method": "PATCH",
+      "path": "/v2/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the group to update.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the group."
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "The parent group ID. If not provided, or null, the group will be moved to the root level."
+        }
+      ]
+    },
+    {
+      "name": "groups_devices_assign-group",
+      "description": "Assigns the specified devices to the given group. Required: id, device_ids. Returns the new DevicesAssignGroupResponse.",
+      "method": "POST",
+      "path": "/v2/groups/{id}/devices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the group.",
+          "required": true
+        },
+        {
+          "name": "device_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "An array of device IDs to assign to the group.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_devices_remove-group",
+      "description": "Removes the specified devices from the group. Required: id, device_ids. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/groups/{id}/devices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the group.",
+          "required": true
+        },
+        {
+          "name": "device_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "An array of device IDs to remove from the group.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_create",
+      "description": "Creates a new tag. Required: name. Returns the new Tag.",
+      "method": "POST",
+      "path": "/v2/tags",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The tag name.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_delete",
+      "description": "Deletes a tag. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/tags/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the tag to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_list",
+      "description": "Returns a list of tags. Optional: device_id, limit, starting_after (plus 1 more).",
+      "method": "GET",
+      "path": "/v2/tags",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include tags for the specified device. If not provided, all tags are returned."
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "tags_show",
+      "description": "Retrieves a tag. Required: id. Returns the Tag.",
+      "method": "GET",
+      "path": "/v2/tags/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the tag to retrieve.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_update",
+      "description": "Updates an existing tag. Required: id. Optional: name. Returns the updated Tag.",
+      "method": "PATCH",
+      "path": "/v2/tags/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the tag to update.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the tag."
+        }
+      ]
+    },
+    {
+      "name": "tags_devices_remove-tag-from",
+      "description": "Removes a tag from the provided devices. Required: id, device_ids. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/tags/{id}/devices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tag to remove.",
+          "required": true
+        },
+        {
+          "name": "device_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "An array of device IDs to remove the tag from.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_devices_tag",
+      "description": "Applies a tag to the provided devices. Required: id, device_ids. Returns the new Tag.",
+      "method": "POST",
+      "path": "/v2/tags/{id}/devices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tag to apply.",
+          "required": true
+        },
+        {
+          "name": "device_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "An array of device IDs to tag.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "updates_list",
+      "description": "Returns a list of your updates. Optional: device_id, status, category (plus 3 more).",
+      "method": "GET",
+      "path": "/v2/updates",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include updates for the specified device_id."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include updates with the given status."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to only include updates with the given category."
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "location": "query",
+          "description": "Limit"
+        },
+        {
+          "name": "starting_after",
+          "type": "string",
+          "location": "query",
+          "description": "Starting after"
+        },
+        {
+          "name": "ending_before",
+          "type": "string",
+          "location": "query",
+          "description": "Ending before"
+        }
+      ]
+    },
+    {
+      "name": "updates_show",
+      "description": "Retrieves the details of an existing update. Required: id. Returns array of string.",
+      "method": "GET",
+      "path": "/v2/updates/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the update to retrieve.",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

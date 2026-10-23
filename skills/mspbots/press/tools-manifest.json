@@ -1,0 +1,98 @@
+{
+  "api_name": "mspbots",
+  "base_url": "https://api.mspbots.ai",
+  "description": "The first MSPbots tool anywhere — readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "apikey",
+    "format": "{MSPBOTS_API_KEY}",
+    "in": "header",
+    "env_vars": [
+      "MSPBOTS_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "MSPBOTS_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "dataset_get",
+      "description": "Fetch one page of rows from a dataset bound to your API key. Required: resourceId. Optional: page (default: 1), page-size (default: 50).",
+      "method": "GET",
+      "path": "/api/dataset/{resourceId}",
+      "params": [
+        {
+          "name": "resourceId",
+          "type": "string",
+          "location": "path",
+          "description": "Dataset resource ID (19-digit snowflake from the MSPbots app)",
+          "required": true
+        },
+        {
+          "name": "page",
+          "wire_name": "current",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, 1-based (wire key: current)",
+          "aliases": [
+            "current"
+          ]
+        },
+        {
+          "name": "page-size",
+          "wire_name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page (wire key: size)",
+          "aliases": [
+            "size"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "widget_get",
+      "description": "Fetch one page of data from a bound widget (widgets with measure or calculate layers are not supported by the Public API). Required: resourceId. Optional: page (default: 1), page-size (default: 50).",
+      "method": "GET",
+      "path": "/api/widget/{resourceId}",
+      "params": [
+        {
+          "name": "resourceId",
+          "type": "string",
+          "location": "path",
+          "description": "Widget resource ID (19-digit snowflake from the MSPbots app)",
+          "required": true
+        },
+        {
+          "name": "page",
+          "wire_name": "current",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, 1-based (wire key: current)",
+          "aliases": [
+            "current"
+          ]
+        },
+        {
+          "name": "page-size",
+          "wire_name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page (wire key: size)",
+          "aliases": [
+            "size"
+          ]
+        }
+      ]
+    }
+  ]
+}

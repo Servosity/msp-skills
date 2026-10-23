@@ -1,0 +1,13 @@
+{
+ "_comment": "The lowest cli-printing-press version a NEW connector may be printed with. Read by check_press_metadata.py (CI fails a PR that adds a connector below it) and by msp-skills-publish's onboard.py (refuses to scaffold one). Existing connectors are not affected. The value mirrors upstream's own declared minimum; raise it here, in one place, when upstream raises theirs. not_press_generated lists connectors that were never printed by the press (slug -> reason); CI reads that list from the PR's base, so a PR cannot exempt itself.",
+ "min_press_version": "4.28.0",
+ "source": {
+  "repo": "mvanhorn/cli-printing-press",
+  "file": "supported-versions.txt",
+  "key": "min_supported",
+  "set_by_commit": "1f77334ddc5a76add34b65e91ce675fe9ccd77df",
+  "read_at_commit": "c6010879b4bee3bcc40a184ab8e1e1e66c0076a3",
+  "read_on": "2026-10-22"
+ },
+ "not_press_generated": {}
+}

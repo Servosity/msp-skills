@@ -1,0 +1,3778 @@
+{
+  "api_name": "domotz",
+  "base_url": "https://api-{region}.domotz.com/public-api/v1",
+  "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "X-Api-Key",
+    "in": "header",
+    "env_vars": [
+      "DOMOTZ_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "DOMOTZ_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://portal.domotz.com/portal/settings/services?selected_menu=api_keys"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "agent_count",
+      "description": "Counts the collectors. Optional: display_name, team_name.",
+      "method": "HEAD",
+      "path": "/agent",
+      "params": [
+        {
+          "name": "display_name",
+          "type": "string",
+          "location": "query",
+          "description": "Consider only collectors with `display_name` containing the string (case insensitive)"
+        },
+        {
+          "name": "team_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filters by team name (companies only)"
+        }
+      ]
+    },
+    {
+      "name": "agent_delete",
+      "description": "Deletes a collector. Required: agent_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_get",
+      "description": "Returns the details of a collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_get-list-uptime",
+      "description": "Returns the uptime of all collectors. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/uptime",
+      "params": [
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_list",
+      "description": "Returns the list of collectors accessible by the user. Optional: page_size (default: 10), page_number (default: 0), display_name (plus 1 more).",
+      "method": "GET",
+      "path": "/agent",
+      "params": [
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "page_number",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "location": "query",
+          "description": "Display name"
+        },
+        {
+          "name": "team_name",
+          "type": "string",
+          "location": "query",
+          "description": "Team name"
+        }
+      ]
+    },
+    {
+      "name": "agent_activity-log_get-agent",
+      "description": "Returns the activity log of a collector. Required: agent_id. Optional: from, to, type.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/activity-log",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "If present, only the specified type(s) will be fetched."
+        }
+      ]
+    },
+    {
+      "name": "agent_connection_create-agent-vpnconnection",
+      "description": "Creates a temporary VPN server on the collector and returns the vpn configuration file content. Current consumption and consumption limits can be retrieved with a call to getConnectionConsumption endpoint. Required: agent_id, allowed_ip, routing_policy. Optional: ttl_hours (default: 1).",
+      "method": "POST",
+      "path": "/agent/{agent_id}/connection/vpn-session",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "allowed_ip",
+          "type": "string",
+          "location": "body",
+          "description": "The only public IP address allowed to access the connection. It will be impossible to use the connection from other IP addresses. You should use your public IP address.",
+          "required": true
+        },
+        {
+          "name": "routing_policy",
+          "type": "string",
+          "location": "body",
+          "description": "The traffic routing policy for the VPN connection: - *global*: All the traffic is routed through the VPN On Demand. More consumption on the Domotz Cloud - *local*: Only LAN traffic passes through the VPN On Demand. Less consumption on the Domotz Cloud",
+          "required": true
+        },
+        {
+          "name": "ttl_hours",
+          "type": "int",
+          "location": "body",
+          "description": "The duration in hours of the connection."
+        }
+      ]
+    },
+    {
+      "name": "agent_connection_delete-agent-vpnconnection",
+      "description": "Closes an active VPN connection session for the collector. Required: agent_id, vpn_session_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/connection/vpn-session/{vpn_session_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "vpn_session_id",
+          "type": "int",
+          "location": "path",
+          "description": "Session ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_connection_get-agent-vpnactive",
+      "description": "Returns the active VPN connections for the collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/connection/vpn-session",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_connection_get-consumption",
+      "description": "Returns the remote connection consumption on the given collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/connection/consumption",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_custom-tag_create-collector-binding",
+      "description": "Assigns a Tag to a Collector. Required: agent_id, custom_tag_id.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/custom-tag/{custom_tag_id}/binding",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "custom_tag_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom tag id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_custom-tag_delete-collector-binding",
+      "description": "Removes a Tag from a Collector. Required: agent_id, custom_tag_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/custom-tag/{custom_tag_id}/binding",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "custom_tag_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom tag id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_custom-tag_get-collector-bindings",
+      "description": "Retrieves all Tags assigned to a specific Collector. Required: agent_id. Returns array of DeviceTagResponseModel.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/custom-tag/binding",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_attach-to-outlet",
+      "description": "Attach a device to a power outlet. Required: agent_id, device_id, power_outlet_id, attached_device_id.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/power-outlet/{power_outlet_id}/attach/{attached_device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "power_outlet_id",
+          "type": "string",
+          "location": "path",
+          "description": "Outlet ID",
+          "required": true
+        },
+        {
+          "name": "attached_device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_backup-configuration",
+      "description": "Sends a command to backup a device configuration. Required: agent_id, device_id.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/configuration-management/backup",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_configuration-history-list",
+      "description": "Returns the list of available device configurations. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/configuration-management/history",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_connect-to",
+      "description": "Establishes a direct secure connection to the `device`. Current consumption and consumption limits can be retrieved with a call to getConnectionConsumption endpoint. Required: agent_id, device_id, allowed_ip, port, protocol. Optional: ttl_hours (default: 1). Returns the new ConnectionSession.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/connection",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "allowed_ip",
+          "type": "string",
+          "location": "body",
+          "description": "The only public IP address allowed to access the connection. It will be impossible to use the connection from other IP addresses. You should use your public IP address.",
+          "required": true
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "location": "body",
+          "description": "Port",
+          "required": true
+        },
+        {
+          "name": "protocol",
+          "type": "string",
+          "location": "body",
+          "description": "The protocol wrapped by the connection: - *http/https*: the `link` field in the reply will contain an `https` URL. A browser or a similar user agent must be used: the client must have cookies enabled and the capability of following 302 redirects. If the protocol is `https` the device's certificate will be accepted without checks and its information ignored (our server will act as a proxy). - *tcp*: the `link` field will be in the form `tcp://{host}:{port}`. Any connection established (e.g. with `telnet` or `ssh`) on these coordinates will be securely forwarded to the requested `port` of the device. - *ssh*: the `link` field will contain an `https` URL. A browser or a similar user agent must be used: the client must have cookies enabled and the capability of following 302 redirects. - *rdp*: the `link` field will contain an `https` URL. A browser or a similar user agent must be used: the client must have cookies enabled and the capability of following 302 redirects.",
+          "required": true
+        },
+        {
+          "name": "ttl_hours",
+          "type": "int",
+          "location": "body",
+          "description": "The duration in hours of the connection."
+        }
+      ]
+    },
+    {
+      "name": "agent_device_count-agent-applications",
+      "description": "Counts the applications of all devices belonging to the collector. The feature is only available on collectors under the Enterprise Plan. Required: agent_id. Optional: name, device_ids.",
+      "method": "HEAD",
+      "path": "/agent/{agent_id}/device/application",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `name`"
+        },
+        {
+          "name": "device_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `device_ids`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_count-agent-variables",
+      "description": "Returns the device variables count of the collector. Required: agent_id. Optional: value, path, has_history (plus 1 more).",
+      "method": "HEAD",
+      "path": "/agent/{agent_id}/device/variable",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `value`"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `path`"
+        },
+        {
+          "name": "has_history",
+          "type": "bool",
+          "location": "query",
+          "description": "Allows filtering by `has_history` field"
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `metric`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_count-applications",
+      "description": "Counts the applications. The feature is only available on collectors under the Enterprise Plan. Required: agent_id, device_id. Optional: name, device_ids.",
+      "method": "HEAD",
+      "path": "/agent/{agent_id}/device/{device_id}/application",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `name`"
+        },
+        {
+          "name": "device_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `device_ids`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_count-variables",
+      "description": "Returns device variables count. Required: agent_id, device_id. Optional: value, path, has_history (plus 1 more).",
+      "method": "HEAD",
+      "path": "/agent/{agent_id}/device/{device_id}/variable",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `value`"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `path`"
+        },
+        {
+          "name": "has_history",
+          "type": "bool",
+          "location": "query",
+          "description": "Allows filtering by `has_history` field"
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `metric`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-configuration",
+      "description": "Creates a device configuration backup in the configuration history. Required: agent_id, device_id, label, running. Optional: startup.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/configuration-management/history",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body",
+          "description": "Human readable configuration label",
+          "required": true
+        },
+        {
+          "name": "running",
+          "type": "string",
+          "location": "body",
+          "description": "Base64 encoded running configuration",
+          "required": true
+        },
+        {
+          "name": "startup",
+          "type": "string",
+          "location": "body",
+          "description": "Optional base64 encoded startup configuration"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-custom-tag-binding",
+      "description": "Assigns a Tag to a Device. Required: agent_id, device_id, custom_tag_id.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/custom-tag/{custom_tag_id}/binding",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        },
+        {
+          "name": "custom_tag_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom tag id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-external-host",
+      "description": "Creates an external host. Required: agent_id, host, name.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/external-host",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "host",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname or IP Address",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Device Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-eye-snmp",
+      "description": "Creates a new SNMP sensors. Required: agent_id, device_id, category, name, oid, value_type.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "The category of the OID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Domotz Sensors",
+          "required": true
+        },
+        {
+          "name": "oid",
+          "type": "string",
+          "location": "body",
+          "description": "The OID string",
+          "required": true
+        },
+        {
+          "name": "value_type",
+          "type": "string",
+          "location": "body",
+          "description": "The type of the OID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-eye-snmptrigger",
+      "description": "Creates a new SNMP Trigger for the sensor. For instance, to receive a notification when the value of the sensor is above a threshold x, it is required to add a trigger specifying the function_id = 2 (is greater than) and the operand value equals to [x]. The function_id value can be retrieved with the listEyesSNMPTriggerFunction call. To activate the alert, it is required to call createEyeSNMPTriggerAlert after the trigger creation. Required: agent_id, device_id, sensor_id, function_id, name, operands.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/trigger",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        },
+        {
+          "name": "function_id",
+          "type": "int",
+          "location": "body",
+          "description": "The unique identifier of the sensor function",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the trigger",
+          "required": true
+        },
+        {
+          "name": "operands",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The operands for the function",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-eye-snmptrigger-alert",
+      "description": "SNMP sensor trigger alert creation. Required: agent_id, device_id, sensor_id, trigger_id, medium_name (default: email).",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/trigger/{trigger_id}/alert/{medium_name}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        },
+        {
+          "name": "trigger_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor Trigger ID",
+          "required": true
+        },
+        {
+          "name": "medium_name",
+          "type": "string",
+          "location": "path",
+          "description": "the name of the medium",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_create-eye-tcp",
+      "description": "Creates a new TCP sensors. Required: agent_id, device_id, port.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/tcp",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "location": "body",
+          "description": "The port number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete",
+      "description": "Deletes a device, whether ONLINE, OFFLINE or DOWN. If a device is deleted while online, it may reappear when rediscovered automatically. Required: agent_id, device_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-custom-tag-binding",
+      "description": "Removes a Tag from a Device. Required: agent_id, device_id, custom_tag_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/custom-tag/{custom_tag_id}/binding",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        },
+        {
+          "name": "custom_tag_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom tag id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-down",
+      "description": "Deletes all the DOWN devices of *IP* protocol. Required: agent_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-eye-snmp",
+      "description": "Deletes the SNMP sensor. Required: agent_id, device_id, sensor_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-eye-snmptrigger",
+      "description": "Deletes the SNMP Trigger for the sensor. Required: agent_id, device_id, sensor_id, trigger_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/trigger/{trigger_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        },
+        {
+          "name": "trigger_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor Trigger ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-eye-snmptrigger-alert",
+      "description": "Deletes the alert for thee SNMP Trigger. Required: agent_id, device_id, sensor_id, trigger_id, medium_name (default: email). Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/trigger/{trigger_id}/alert/{medium_name}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        },
+        {
+          "name": "trigger_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor Trigger ID",
+          "required": true
+        },
+        {
+          "name": "medium_name",
+          "type": "string",
+          "location": "path",
+          "description": "the name of the medium",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-eye-tcp",
+      "description": "Deletes the TCP sensor. Required: agent_id, device_id, service_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/tcp/{service_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "service_id",
+          "type": "int",
+          "location": "path",
+          "description": "TCP Sensor ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_delete-inventory-field",
+      "description": "Deletes the Inventory field for the device. Required: agent_id, device_id, inventory_field. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/inventory/{inventory_field}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "inventory_field",
+          "type": "string",
+          "location": "path",
+          "description": "Field identifier, unique within the Inventory",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_detach-from-outlet",
+      "description": "Detach a device from a power outlet. Required: agent_id, device_id, power_outlet_id, attached_device_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/power-outlet/{power_outlet_id}/attach/{attached_device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "power_outlet_id",
+          "type": "string",
+          "location": "path",
+          "description": "Outlet ID",
+          "required": true
+        },
+        {
+          "name": "attached_device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_edit",
+      "description": "Changes a proprety of the device. Required: agent_id, device_id, field (default: importance).",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/{field}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "field",
+          "type": "string",
+          "location": "path",
+          "description": "The field to update - for the type and valid values see the description of the corresponding output parameter here",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get",
+      "description": "Returns the details of a device. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-agent-rtdstats",
+      "description": "Returns the Round Trip Delay statistics for all devices monitored by the collector. The aggregate values of _avg_min_, _avg_max_, _avg_median_ help to understand the baseline response time of a device in a weekly time frame, while _latest_median_ helps detecting a possible deviation from the baseline. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/rtd",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-configuration",
+      "description": "Returns the details of a device configuration entry. Required: agent_id, device_id, configuration_timestamp.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/configuration-management/history/{configuration_timestamp}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "configuration_timestamp",
+          "type": "string",
+          "location": "path",
+          "description": "Configuration timestamp ('latest' or YYYY-MM-DDTHH:MM:SS+00:00)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-custom-tag-bindings",
+      "description": "Retrieves all Tags assigned to a specific Device. Required: agent_id, device_id. Returns array of DeviceTagResponseModel.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/custom-tag/binding",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-eyes-snmphistory",
+      "description": "Returns the time series of the SNMP sensor collected samples. Required: agent_id, device_id, sensor_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/history",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-inventory",
+      "description": "Returns the device's inventory data. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/inventory",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-outlets",
+      "description": "Returns a list of the power outlets discovered on the device. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/power-outlet",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-power-actions",
+      "description": "Returns the power management actions available on the device at the current moment. See DevicePowerAction schema for further details. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/action/power",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-rtdhistory",
+      "description": "Returns the Round Trip Delay history for the device. Each item represents the statistical aggregate of a set of Round Trip Delay measurements. Required: agent_id, device_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/history/rtd",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-snmpauthentication",
+      "description": "Returns the SNMP authentication info. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/snmp-authentication",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-status-history",
+      "description": "Returns the time series of the state changes of the device. Required: agent_id, device_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/history/network/event",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-uptime",
+      "description": "Returns the uptime of the device. Required: agent_id, device_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/uptime",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_get-variable-history",
+      "description": "Returns the device variable history. Required: agent_id, device_id, variable_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/variable/{variable_id}/history",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "variable_id",
+          "type": "int",
+          "location": "path",
+          "description": "Variable ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_hide",
+      "description": "Hides a device (available only on DOWN devices). Required: agent_id, device_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/device/{device_id}/visibility",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list",
+      "description": "Returns all the devices of a collector. On per-device licensing collectors, only the managed devices are included. Required: agent_id. Optional: show_hidden (default: false), show_excluded (default: true).",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "show_hidden",
+          "type": "bool",
+          "location": "query",
+          "description": "Whether to include hidden devices in the returned list. Default is False"
+        },
+        {
+          "name": "show_excluded",
+          "type": "bool",
+          "location": "query",
+          "description": "Whether to include excluded devices in the returned list. Default is True"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-agent-applications",
+      "description": "Returns the list of applications of all the devices belonging to the collector. The feature is only available on collectors under the Enterprise Plan. Required: agent_id. Optional: page_size (default: 100), page_number (default: 0), name (plus 1 more).",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/application",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return. Min value is 1. Max value is 1000. Default value is 100"
+        },
+        {
+          "name": "page_number",
+          "type": "int",
+          "location": "query",
+          "description": "The requested page number, 0-indexed. Default value is 0"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `name`"
+        },
+        {
+          "name": "device_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `device_ids`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-agent-eyes-snmp",
+      "description": "Returns the list of configured SNMP sensors on the collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/eye/snmp",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-agent-eyes-tcp",
+      "description": "Returns the list of configured TCP sensors on the collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/eye/tcp",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-agent-variables",
+      "description": "Returns the list of all device variables of the collector. Required: agent_id. Optional: page_size (default: 100), page_number (default: 0), value (plus 5 more).",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/variable",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return. Min value is 1. Max value is 1000. Default value is 100"
+        },
+        {
+          "name": "page_number",
+          "type": "int",
+          "location": "query",
+          "description": "The requested page number, 0-indexed. Default value is 0"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `value`"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `path`"
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Allows ordering by `path`, `id`, `value`, `label`, `value_update_time`, `creation_time`, `device_id`"
+        },
+        {
+          "name": "sorting_direction",
+          "type": "string",
+          "location": "query",
+          "description": "The default is `asc`"
+        },
+        {
+          "name": "has_history",
+          "type": "bool",
+          "location": "query",
+          "description": "Allows filtering by `has_history` field"
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `metric`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-applications",
+      "description": "Returns the list of applications of the device. The feature is only available on collectors under the Enterprise Plan. Required: agent_id, device_id. Optional: page_size (default: 100), page_number (default: 0), name (plus 1 more).",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/application",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return. Min value is 1. Max value is 1000. Default value is 100"
+        },
+        {
+          "name": "page_number",
+          "type": "int",
+          "location": "query",
+          "description": "The requested page number, 0-indexed. Default value is 0"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `name`"
+        },
+        {
+          "name": "device_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `device_ids`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-eyes-snmp",
+      "description": "Returns the list of configured SNMP sensors. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-eyes-snmptrigger",
+      "description": "Returns the list of triggers for the SNMP Sensor. Required: agent_id, device_id, sensor_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/trigger",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-eyes-snmptrigger-function",
+      "description": "Returns the list of functions for the SNMP sensor trigger. Required: agent_id, device_id, sensor_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/snmp/{sensor_id}/function",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "sensor_id",
+          "type": "int",
+          "location": "path",
+          "description": "SNMP Sensor ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-eyes-tcp",
+      "description": "Returns the list of configured TCP sensors. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/eye/tcp",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-unmanaged",
+      "description": "Returns the list of unmanaged Devices for a specific Collector. This endpoint returns a limited set of data to support per-device licensing flows. The list of managed Devices can be retrieved using the listDevices API. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/monitoring-state/unmanaged",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_list-variables",
+      "description": "Returns the list of device variables. Required: agent_id, device_id. Optional: page_size (default: 100), page_number (default: 0), value (plus 5 more).",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/variable",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return. Min value is 1. Max value is 1000. Default value is 100"
+        },
+        {
+          "name": "page_number",
+          "type": "int",
+          "location": "query",
+          "description": "The requested page number, 0-indexed. Default value is 0"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `value`"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `path`"
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Allows ordering by `path`, `id`, `value`, `label`, `value_update_time`, `creation_time`"
+        },
+        {
+          "name": "sorting_direction",
+          "type": "string",
+          "location": "query",
+          "description": "The default is `asc`"
+        },
+        {
+          "name": "has_history",
+          "type": "bool",
+          "location": "query",
+          "description": "Allows filtering by `has_history` field"
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `metric`"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_onvif-snapshot",
+      "description": "Take a snapshot of the camera. Internally, a device connection is established. Current consumption and consumption limits can be retrieved with a call to getConnectionConsumption endpoint. Required: agent_id, device_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/device/{device_id}/multimedia/camera/snapshot",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "image/*"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_power-action-on",
+      "description": "Performs the action on the device, according to the specified {\u003cb\u003e field \u003c/b\u003e} value. The availability of such operations can be determined with a call to getDevicePowerActions operation. Required: agent_id, device_id, field (default: on).",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/action/power/{field}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "field",
+          "type": "string",
+          "location": "path",
+          "description": "Specifies the power action to perform",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_set-credentials",
+      "description": "Sets the device credentials to perform extended discovery. This operation will affect the \u003cb\u003e authentication_status \u003c/b\u003e of the device. Required: agent_id, device_id, password, username. Optional: scope (default: DEVICE_MANAGEMENT).",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/credentials",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "password",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "body",
+          "description": "The Scope for the Credentials. Default is 'DEVICE_MANAGEMENT' used for device integrations"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_set-inventory-field-value",
+      "description": "Sets the value of an Inventory field for the device, a value can't be set to `null`. Required: agent_id, device_id, inventory_field.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/inventory/{inventory_field}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "inventory_field",
+          "type": "string",
+          "location": "path",
+          "description": "Field identifier, unique within the Inventory",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_set-snmp-community",
+      "description": "Saves a snmp community (read, optionally write) on device. _Deprecated_, please use setSNMPAuthentication . Required: agent_id, device_id, read. Optional: write.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/snmp-community",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "read",
+          "type": "string",
+          "location": "body",
+          "description": "Defines new read snmp community",
+          "required": true
+        },
+        {
+          "name": "write",
+          "type": "string",
+          "location": "body",
+          "description": "Defines new write snmp community (defaults to read community if not used)"
+        }
+      ]
+    },
+    {
+      "name": "agent_device_set-snmpauthentication",
+      "description": "Sets the SNMP authentication info. _snmp_read_community_ and _snmp_write_community_ are relevant only for _V1_ and _V2_. _V3_NO_AUTH_ requires a valid _username_. _V3_AUTH_NO_PRIV_ requires _username_, _authentication_protocol_ and _authentication_key_. _V3_AUTH_PRIV_ requires _username_, _authentication_protocol_, _authentication_key_, _encryption_protocol_ and _encryption_key_. . Required: agent_id, device_id, version. Optional: authentication_key, authentication_protocol, encryption_key (plus 4 more).",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/snmp-authentication",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "authentication_key",
+          "type": "string",
+          "location": "body",
+          "description": "Authentication key"
+        },
+        {
+          "name": "authentication_protocol",
+          "type": "string",
+          "location": "body",
+          "description": "The SNMP authentication protocol"
+        },
+        {
+          "name": "encryption_key",
+          "type": "string",
+          "location": "body",
+          "description": "Encryption key"
+        },
+        {
+          "name": "encryption_protocol",
+          "type": "string",
+          "location": "body",
+          "description": "The SNMP encryption protocol"
+        },
+        {
+          "name": "snmp_read_community",
+          "type": "string",
+          "location": "body",
+          "description": "Snmp read community"
+        },
+        {
+          "name": "snmp_write_community",
+          "type": "string",
+          "location": "body",
+          "description": "Snmp write community"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "body",
+          "description": "The configured SNMP version",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_trigger-outlet-action",
+      "description": "Trigger an action on a power outlet. Required: agent_id, device_id, power_outlet_id, action (default: on).",
+      "method": "POST",
+      "path": "/agent/{agent_id}/device/{device_id}/power-outlet/{power_outlet_id}/action/{action}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "power_outlet_id",
+          "type": "string",
+          "location": "path",
+          "description": "Outlet ID",
+          "required": true
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "path",
+          "description": "Action to perform on the outlet",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_update-monitoring-state",
+      "description": "Sets the monitoring state of a device to either managed or unmanaged. This endpoint is available only for agents using per-device licensing. Required: agent_id, device_id, monitoring_state.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/monitoring-state",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "monitoring_state",
+          "type": "string",
+          "location": "body",
+          "description": "The value that the device monitoring state will assume",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_device_update-outlet",
+      "description": "Update the power outlet with the specified custom name. Required: agent_id, device_id, power_outlet_id. Optional: custom_name.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/device/{device_id}/power-outlet/{power_outlet_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "power_outlet_id",
+          "type": "string",
+          "location": "path",
+          "description": "Outlet ID",
+          "required": true
+        },
+        {
+          "name": "custom_name",
+          "type": "string",
+          "location": "body",
+          "description": "Custom name to assign to the outlet"
+        }
+      ]
+    },
+    {
+      "name": "agent_eye-statistics_eyes-usage-info",
+      "description": "Returns information about Domotz Sensors usage and limits. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/eye-statistics",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_history_get-agent-status",
+      "description": "Returns the time series of the state changes of the collector. Required: agent_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/history/network/event",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_history_get-speed-test",
+      "description": "Returns the time series of the Internet Speed measurements taken from the collector, both in download and in upload. Required: agent_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/history/network/speed",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_ip-conflict_get-agent-ipconflicts",
+      "description": "Returns the list of active IP conflicts on a collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/ip-conflict",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_metric-statistics_metric-usage-info",
+      "description": "Returns Domotz Sensors usage and limits. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/metric-statistics",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_add-excluded-device",
+      "description": "Excludes a device from collector monitoring. Required: agent_id, device_id.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/network/excluded-device/{device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_create-routed",
+      "description": "Creates a routed network. Required: agent_id, address, name, netmask.",
+      "method": "POST",
+      "path": "/agent/{agent_id}/network/routed",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "location": "body",
+          "description": "Address",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "netmask",
+          "type": "int",
+          "location": "body",
+          "description": "Netmask",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_delete-agent-external-host-scan-policy",
+      "description": "Restore the external host scan policy to default. Required: agent_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/network/external-host-scan-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_delete-agent-interfaces-policy",
+      "description": "Resets the network interface filtering policy to the default value. Required: agent_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/network/interfaces-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_delete-agent-ipscan-policy",
+      "description": "Resets the IP scan policy to the default value. Required: agent_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/network/ip-scan-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_delete-excluded-device",
+      "description": "Removes a device from the excluded devices list. Required: agent_id, device_id. Destructive.",
+      "method": "DELETE",
+      "path": "/agent/{agent_id}/network/excluded-device/{device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_get-agent-external-host-scan-policy",
+      "description": "Returns the current external host scan policy. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/network/external-host-scan-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_get-agent-interfaces",
+      "description": "Returns the networks monitored by the collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/network/interfaces",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_get-agent-interfaces-policy",
+      "description": "Returns the current network interface filtering policy. The interfaces policy defines the set of interfaces which will be ignored (`deny`) or scanned (`allow`) by the collector. The default behavior is to scan all available interfaces. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/network/interfaces-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_get-agent-ipscan-policy",
+      "description": "Returns the current IP addresses management policy. It is possible to specify a set of IP addresses in the `forced_ip_addresses` field array or a set of IP address ranges in the `forced_ip_ranges` field array to be always scanned. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/network/ip-scan-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_list-excluded-devices",
+      "description": "Returns all the excluded devices of a collector, i.e., devices present in Device Blacklist section. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/network/excluded-device",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_set-agent-external-host-scan-policy",
+      "description": "Updates the current external host scan policy. It is possible to enable/disable each one of the three available methods (ICMP, TCP-SYN, TCP-ACK). For TCP-SYN and TCP-ACK is mandatory to specify a set of TCP ports. If a method is not specified in the payload of the request, it will be configured as disabled. Required: agent_id. Optional: icmp, tcp_ack, tcp_syn.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/network/external-host-scan-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "icmp-enabled",
+          "wire_name": "icmp.enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable/disable this scan method",
+          "required": true
+        },
+        {
+          "name": "tcp-ack-enabled",
+          "wire_name": "tcp_ack.enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable/disable this scan method. The collector sends a TCP packet with only the acknowledgement (ACK) flag set, and a responding reset (RST) packet from the host reveals its presence.",
+          "required": true
+        },
+        {
+          "name": "tcp-ack-ports",
+          "wire_name": "tcp_ack.ports",
+          "type": "array",
+          "location": "body",
+          "description": "The list of TCP port to be scanned with this method. The list cannot be empty if this method is enabled",
+          "required": true
+        },
+        {
+          "name": "tcp-syn-enabled",
+          "wire_name": "tcp_syn.enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable or disable this scan method. The collector sends a SYN packet to the target host and waits for a response. If the target responds with a SYN/ACK packet or an RST packet, the host is considered up.",
+          "required": true
+        },
+        {
+          "name": "tcp-syn-ports",
+          "wire_name": "tcp_syn.ports",
+          "type": "array",
+          "location": "body",
+          "description": "The list of TCP port to be scanned with this method. The list cannot be empty if this method is enabled",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_set-agent-interfaces-policy",
+      "description": "Updates the current network interface filtering policy. Required: agent_id, policy, rules.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/network/interfaces-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "policy",
+          "type": "string",
+          "location": "body",
+          "description": "Policy",
+          "required": true
+        },
+        {
+          "name": "rules",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Rules can be expressed as lists of case-insensitive strings representing the names of the interfaces to be matched. The `*` wildcard can be used to match variable parts of the interface name. Example: `['eth*', 'tun0']`",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_set-agent-ipscan-policy",
+      "description": "Updates the current IP address scan policy. The list of IP addresses provided in `forced_ip_addresses` and the list of IP address ranges provided in `forced_ip_ranges` will be scanned regardless of the automatic discovery settings of the collector. Required: agent_id, forced_ip_addresses, forced_ip_ranges.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/network/ip-scan-policy",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "forced_ip_addresses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of IP addresses always checked by the collector. By default the list is empty and the collector performs hosts discovery automatically. The addresses must be expressed in dotted decimal notation and must belong to private networks (see iana-ipv4-special-registry )",
+          "required": true
+        },
+        {
+          "name": "forced_ip_ranges",
+          "type": "array",
+          "location": "body",
+          "description": "The list of IP address ranges always checked by the collector. By default the list is empty and the collector performs hosts discovery automatically. The addresses must be expressed in dotted decimal notation and must belong to private networks (see iana-ipv4-special-registry )",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network_set-dhcpdevice-discovery",
+      "description": "Enable/disable the collector DHCP Device Discovery. Required: agent_id, dhcp_device_discovery.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/network/dhcp-device-discovery",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "dhcp_device_discovery",
+          "type": "bool",
+          "location": "body",
+          "description": "When set to 'true', the collector will create devices that initiate DHCP requests even if they fail to obtain an IP address",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_network-topology_get",
+      "description": "Returns the collector's network topology. Required: agent_id.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/network-topology",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_ownership_move-agent",
+      "description": "Moves a collector under the control of a different team. Note: This API is restricted to users on the Enterprise Plan. Please contact sales@domotz.com to learn more. Required: agent_id, team_id.",
+      "method": "PUT",
+      "path": "/agent/{agent_id}/ownership/team/{team_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "team_id",
+          "type": "int",
+          "location": "path",
+          "description": "Team ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_uptime_get-agent",
+      "description": "Returns the uptime of the collector. Required: agent_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/uptime",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_variable_count-agent",
+      "description": "Returns the collector variables count of the collector. Required: agent_id. Optional: value, path, has_history (plus 1 more).",
+      "method": "HEAD",
+      "path": "/agent/{agent_id}/variable",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `value`"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `path`"
+        },
+        {
+          "name": "has_history",
+          "type": "bool",
+          "location": "query",
+          "description": "Allows filtering by `has_history` field"
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `metric`"
+        }
+      ]
+    },
+    {
+      "name": "agent_variable_get-agent-history",
+      "description": "Returns the collector variable history. Required: agent_id, variable_id. Optional: from, to.",
+      "method": "GET",
+      "path": "/agent/{agent_id}/variable/{variable_id}/history",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "variable_id",
+          "type": "int",
+          "location": "path",
+          "description": "Variable ID",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The start time of the time series. Default value is one week"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The end time of the time series. Default value is now"
+        }
+      ]
+    },
+    {
+      "name": "agent_variable_list-agent",
+      "description": "Returns the list of all collector variables of the collector. Required: agent_id. Optional: page_size (default: 100), page_number (default: 0), value (plus 5 more).",
+      "method": "GET",
+      "path": "/agent/{agent_id}/variable",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return. Min value is 1. Max value is 1000. Default value is 100"
+        },
+        {
+          "name": "page_number",
+          "type": "int",
+          "location": "query",
+          "description": "The requested page number, 0-indexed. Default value is 0"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `value`"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `path`"
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Allows ordering by `path`, `id`, `value`, `label`, `value_update_time`, `creation_time`"
+        },
+        {
+          "name": "sorting_direction",
+          "type": "string",
+          "location": "query",
+          "description": "The default is `asc`"
+        },
+        {
+          "name": "has_history",
+          "type": "bool",
+          "location": "query",
+          "description": "Allows filtering by `has_history` field"
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "location": "query",
+          "description": "Allows filtering by `metric`"
+        }
+      ]
+    },
+    {
+      "name": "alert-profile_get-agent",
+      "description": "Returns the alert profile bindings of a collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/alert-profile/binding/agent/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert-profile_get-alert-profiles2",
+      "description": "Returns the list of configured alert profiles. You can configure alert profiles on the Domotz Portal. Alert profiles define the association between a list of events and a notification channel (email, webhook or slack).",
+      "method": "GET",
+      "path": "/alert-profile",
+      "params": []
+    },
+    {
+      "name": "alert-profile_get-devices",
+      "description": "Returns the alert profile bindings of the devices of a collector. Required: agent_id.",
+      "method": "GET",
+      "path": "/alert-profile/binding/agent/{agent_id}/device",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert-profile_binding_bind-alert-profile-to-agent",
+      "description": "Bind an alert profile to a collector. After binding, a webhook will be sent to the configured service when one of the events associated to the profile occurs. You can configure the profile and the webhook endpoint on the Domotz Portal. Required: agent_id, alert_profile_id.",
+      "method": "POST",
+      "path": "/alert-profile/{alert_profile_id}/binding/agent/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "alert_profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Profile ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert-profile_binding_bind-alert-profile-to-device",
+      "description": "Bind an alert profile to a device. After binding, a webhook will be sent to the configured service when one of the events associated to the profile occurs. You can configure the profile and the webhook endpoint on the Domotz Portal. Required: agent_id, alert_profile_id, device_id.",
+      "method": "POST",
+      "path": "/alert-profile/{alert_profile_id}/binding/agent/{agent_id}/device/{device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "alert_profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Profile ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert-profile_binding_unbind-alert-profile-from-agent",
+      "description": "Unbind an alert profile from a collector. Required: agent_id, alert_profile_id. Destructive.",
+      "method": "DELETE",
+      "path": "/alert-profile/{alert_profile_id}/binding/agent/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "alert_profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Profile ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert-profile_binding_unbind-alert-profile-from-device",
+      "description": "Unbind an alert profile from a device. Required: agent_id, alert_profile_id, device_id. Destructive.",
+      "method": "DELETE",
+      "path": "/alert-profile/{alert_profile_id}/binding/agent/{agent_id}/device/{device_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "alert_profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Profile ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "area_list",
+      "description": "Returns all the areas of a Company. Note: This API is restricted to users on the Enterprise Plan. Please contact sales@domotz.com to learn more.",
+      "method": "GET",
+      "path": "/area",
+      "params": []
+    },
+    {
+      "name": "area_team_create",
+      "description": "Creates a new Team. Note: This API is restricted to users on the Enterprise Plan. Please contact sales@domotz.com to learn more. Required: area_id, leader, name.",
+      "method": "POST",
+      "path": "/area/{area_id}/team",
+      "params": [
+        {
+          "name": "area_id",
+          "type": "int",
+          "location": "path",
+          "description": "Area ID",
+          "required": true
+        },
+        {
+          "name": "leader-details-display-name",
+          "wire_name": "leader.details.display_name",
+          "type": "string",
+          "location": "body",
+          "description": "The Team Leader's display name",
+          "required": true
+        },
+        {
+          "name": "leader-name",
+          "wire_name": "leader.name",
+          "type": "string",
+          "location": "body",
+          "description": "The Team Leader's name",
+          "required": true
+        },
+        {
+          "name": "leader-password",
+          "wire_name": "leader.password",
+          "type": "string",
+          "location": "body",
+          "description": "The Team Leader's password",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The Team's name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "area_team_list",
+      "description": "Returns all the teams of an Area. Note: This API is restricted to users on the Enterprise Plan. Please contact sales@domotz.com to learn more. Required: area_id.",
+      "method": "GET",
+      "path": "/area/{area_id}/team",
+      "params": [
+        {
+          "name": "area_id",
+          "type": "int",
+          "location": "path",
+          "description": "Area ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_get",
+      "description": "Returns details of a Custom Driver. Required: custom_driver_id.",
+      "method": "GET",
+      "path": "/custom-driver/{custom_driver_id}",
+      "params": [
+        {
+          "name": "custom_driver_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom Driver ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_list",
+      "description": "Retrieves the list of available Custom Drivers. Returns array of CustomDriver.",
+      "method": "GET",
+      "path": "/custom-driver",
+      "params": []
+    },
+    {
+      "name": "custom-driver_list-associations",
+      "description": "Retrieves a list of all Custom Driver associations for a collector. Required: agent_id. Returns array of CustomDriverAssociation.",
+      "method": "GET",
+      "path": "/custom-driver/agent/{agent_id}/association",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_re-enable-associations",
+      "description": "Re-enable all disabled Custom Drivers for the current user. Optional: include_unrecoverable.",
+      "method": "POST",
+      "path": "/custom-driver/association/re-enable",
+      "params": [
+        {
+          "name": "include_unrecoverable",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, will also re-enable associations that the system has determined unable to recover (e.g. due to missing credentials). Defaults to false."
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_agent_create-custom-driver-association",
+      "description": "Apply a Custom Driver to a device. Required: custom_driver_id, agent_id, device_id. Optional: credentials, parameters, sample_period. Returns the new CustomDriverAssociationCreationResult.",
+      "method": "POST",
+      "path": "/custom-driver/{custom_driver_id}/agent/{agent_id}/device/{device_id}/association",
+      "params": [
+        {
+          "name": "custom_driver_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom Driver ID",
+          "required": true
+        },
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device ID",
+          "required": true
+        },
+        {
+          "name": "credentials-password",
+          "wire_name": "credentials.password",
+          "type": "string",
+          "location": "body",
+          "description": "password",
+          "required": true
+        },
+        {
+          "name": "credentials-username",
+          "wire_name": "credentials.username",
+          "type": "string",
+          "location": "body",
+          "description": "username",
+          "required": true
+        },
+        {
+          "name": "parameters",
+          "type": "array",
+          "location": "body",
+          "description": "A list of parameters to be used for the association. Only required if the Custom Driver uses parameters. Parameters with default values at the driver level can be skipped."
+        },
+        {
+          "name": "sample_period",
+          "type": "int",
+          "location": "body",
+          "description": "The sampling interval of the Custom Driver (in seconds). Must be one of [300, 600, 900, 1800, 3600, 7200, 21600, 43200, 86400] and equal to or greater than the minimal_sample_period of the Custom Driver. Default value is the minimal_sample_period of the Custom Driver"
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_agent_execute-custom-driver-action",
+      "description": "Executes a custom driver action on an associated device. Optional `parameters` override the association's stored values for this run only. Required: custom_driver_id, agent_id, device_id, action_id. Optional: parameters, test (default: true). Returns the new CustomDriverExecutionResponse.",
+      "method": "POST",
+      "path": "/custom-driver/{custom_driver_id}/agent/{agent_id}/device/{device_id}/execute/{action_id}",
+      "params": [
+        {
+          "name": "custom_driver_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom driver id",
+          "required": true
+        },
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        },
+        {
+          "name": "action_id",
+          "type": "string",
+          "location": "path",
+          "description": "Action id",
+          "required": true
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "location": "body",
+          "description": "Optional one-shot parameter overrides for this execution. Names matching an association's persisted parameter override the persisted value for this run only; names not declared by the driver schema are forwarded to the driver script as-is."
+        },
+        {
+          "name": "test",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, variables produced by the script are not persisted."
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_association_delete-custom-driver",
+      "description": "Remove a Custom Driver from a device. This irreversibly deletes all variables created by the driver for that device. Required: custom_driver_id, association_id. Destructive.",
+      "method": "DELETE",
+      "path": "/custom-driver/{custom_driver_id}/association/{association_id}",
+      "params": [
+        {
+          "name": "custom_driver_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom Driver ID",
+          "required": true
+        },
+        {
+          "name": "association_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom Driver Association ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-driver_association_update-custom-driver-parameters",
+      "description": "Update the parameters for a Custom Driver association. Required: custom_driver_id, association_id, parameters.",
+      "method": "PUT",
+      "path": "/custom-driver/{custom_driver_id}/association/{association_id}",
+      "params": [
+        {
+          "name": "custom_driver_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom Driver ID",
+          "required": true
+        },
+        {
+          "name": "association_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom Driver Association ID",
+          "required": true
+        },
+        {
+          "name": "parameters",
+          "type": "array",
+          "location": "body",
+          "description": "Parameters",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-tag_create",
+      "description": "Creates a new Tag. Required: color, name.",
+      "method": "POST",
+      "path": "/custom-tag",
+      "params": [
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "\u003cb\u003ePossible values:\u003c/b\u003e gray, light-blue, dark-green, yellow, red, purple, blue, orange, pink, green",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-tag_delete",
+      "description": "Deletes a Tag and removes it from Collectors and Devices. Required: custom_tag_id. Destructive.",
+      "method": "DELETE",
+      "path": "/custom-tag/{custom_tag_id}",
+      "params": [
+        {
+          "name": "custom_tag_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom tag id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom-tag_edit",
+      "description": "Updates one or more properties of an existing Tag. Required: custom_tag_id. Optional: color, name.",
+      "method": "PUT",
+      "path": "/custom-tag/{custom_tag_id}",
+      "params": [
+        {
+          "name": "custom_tag_id",
+          "type": "int",
+          "location": "path",
+          "description": "Custom tag id",
+          "required": true
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "\u003cb\u003ePossible values:\u003c/b\u003e gray, light-blue, dark-green, yellow, red, purple, blue, orange, pink, green"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "custom-tag_get",
+      "description": "Retrieves all Tags available in the account, including their metadata and usage counts. Returns array of TagResponseModel.",
+      "method": "GET",
+      "path": "/custom-tag",
+      "params": []
+    },
+    {
+      "name": "device-profile_list",
+      "description": "Returns the list of the available device profiles.",
+      "method": "GET",
+      "path": "/device-profile",
+      "params": []
+    },
+    {
+      "name": "device-profile_apply_device-profile",
+      "description": "Applies a device profile to a set of devices. Required: device_profile_id, device_ids.",
+      "method": "POST",
+      "path": "/device-profile/{device_profile_id}/apply",
+      "params": [
+        {
+          "name": "device_profile_id",
+          "type": "int",
+          "location": "path",
+          "description": "Device Profile ID",
+          "required": true
+        },
+        {
+          "name": "device_ids",
+          "type": "array",
+          "location": "body",
+          "description": "The list of device ids on which to apply the device profile",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_create-field",
+      "description": "Creates a new Inventory Field - the user will be able to set key-values pairs on every device. Required: inventory_field, label.",
+      "method": "POST",
+      "path": "/inventory/{inventory_field}",
+      "params": [
+        {
+          "name": "inventory_field",
+          "type": "string",
+          "location": "path",
+          "description": "Field identifier, unique within the Inventory",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body",
+          "description": "A detailed description of the field, for documentation",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_delete",
+      "description": "Clears the inventory. Destructive.",
+      "method": "DELETE",
+      "path": "/inventory",
+      "params": []
+    },
+    {
+      "name": "inventory_delete-field",
+      "description": "Deletes the Inventory Field. Required: inventory_field. Destructive.",
+      "method": "DELETE",
+      "path": "/inventory/{inventory_field}",
+      "params": [
+        {
+          "name": "inventory_field",
+          "type": "string",
+          "location": "path",
+          "description": "Field identifier, unique within the Inventory",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_get",
+      "description": "Enumerates all the Inventory fields. Returns array of InventoryField.",
+      "method": "GET",
+      "path": "/inventory",
+      "params": []
+    },
+    {
+      "name": "inventory_update-field",
+      "description": "Updates the Inventory Field. Required: inventory_field, label.",
+      "method": "PUT",
+      "path": "/inventory/{inventory_field}",
+      "params": [
+        {
+          "name": "inventory_field",
+          "type": "string",
+          "location": "path",
+          "description": "Field identifier, unique within the Inventory",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body",
+          "description": "A detailed description of the field, for documentation",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "meta_usage-info",
+      "description": "Returns information about API usage and limits.",
+      "method": "GET",
+      "path": "/meta/usage",
+      "params": []
+    },
+    {
+      "name": "rbac_create-user",
+      "description": "Create a new RBAC User. Required: email, user_group_ids. Optional: is_external (default: false), name, phone (plus 1 more).",
+      "method": "POST",
+      "path": "/rbac/member",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "is_external",
+          "type": "string",
+          "location": "body",
+          "description": "Is external"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "required_authentication_type",
+          "type": "string",
+          "location": "body",
+          "description": "Required authentication type"
+        },
+        {
+          "name": "user_group_ids",
+          "type": "array",
+          "location": "body",
+          "description": "User group ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_create-user-group",
+      "description": "Create a new RBAC User group. Required: name, role_ids, user_ids.",
+      "method": "POST",
+      "path": "/rbac/user-group",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "role_ids",
+          "type": "array",
+          "location": "body",
+          "description": "Role ids",
+          "required": true
+        },
+        {
+          "name": "user_ids",
+          "type": "array",
+          "location": "body",
+          "description": "User ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_delete-user",
+      "description": "Delete an RBAC User by user ID. Required: member_id. Destructive.",
+      "method": "DELETE",
+      "path": "/rbac/member/{member_id}",
+      "params": [
+        {
+          "name": "member_id",
+          "type": "int",
+          "location": "path",
+          "description": "Member id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_delete-user-group",
+      "description": "Delete an RBAC User group by user group ID. Required: user_group_id. Destructive.",
+      "method": "DELETE",
+      "path": "/rbac/user-group/{user_group_id}",
+      "params": [
+        {
+          "name": "user_group_id",
+          "type": "int",
+          "location": "path",
+          "description": "User group id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_edit-user",
+      "description": "Update an RBAC User by user ID. Note: User groups are replaced by those provided in the request; omit required_authentication_type to reset the User's required authentication type. Required: member_id. Optional: is_external (default: false), name, phone (plus 2 more).",
+      "method": "PUT",
+      "path": "/rbac/member/{member_id}",
+      "params": [
+        {
+          "name": "member_id",
+          "type": "int",
+          "location": "path",
+          "description": "Member id",
+          "required": true
+        },
+        {
+          "name": "is_external",
+          "type": "string",
+          "location": "body",
+          "description": "Is external"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "required_authentication_type",
+          "type": "string",
+          "location": "body",
+          "description": "Required authentication type"
+        },
+        {
+          "name": "user_group_ids",
+          "type": "string",
+          "location": "body",
+          "description": "User group ids"
+        }
+      ]
+    },
+    {
+      "name": "rbac_edit-user-group",
+      "description": "Update an RBAC User group by user group ID. Note: Users and roles are replaced by those provided in the request. Required: user_group_id. Optional: name, role_ids, user_ids.",
+      "method": "PUT",
+      "path": "/rbac/user-group/{user_group_id}",
+      "params": [
+        {
+          "name": "user_group_id",
+          "type": "int",
+          "location": "path",
+          "description": "User group id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "role_ids",
+          "type": "string",
+          "location": "body",
+          "description": "Role ids"
+        },
+        {
+          "name": "user_ids",
+          "type": "string",
+          "location": "body",
+          "description": "User ids"
+        }
+      ]
+    },
+    {
+      "name": "rbac_get-role",
+      "description": "Retrieve a Role and its Permissions. Note: When 'is_applied_to_all_entities' is true, 'entity_ids' is omitted. Required: role_id.",
+      "method": "GET",
+      "path": "/rbac/role/{role_id}",
+      "params": [
+        {
+          "name": "role_id",
+          "type": "int",
+          "location": "path",
+          "description": "Role id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_get-roles",
+      "description": "List all RBAC roles and associated user groups. Returns array of RoleEnrichedBackend.",
+      "method": "GET",
+      "path": "/rbac/role",
+      "params": []
+    },
+    {
+      "name": "rbac_get-user",
+      "description": "Retrieve RBAC User details by User ID. Required: member_id.",
+      "method": "GET",
+      "path": "/rbac/member/{member_id}",
+      "params": [
+        {
+          "name": "member_id",
+          "type": "int",
+          "location": "path",
+          "description": "Member id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_get-user-group",
+      "description": "Retrieve RBAC User group details by user group ID. Required: user_group_id.",
+      "method": "GET",
+      "path": "/rbac/user-group/{user_group_id}",
+      "params": [
+        {
+          "name": "user_group_id",
+          "type": "int",
+          "location": "path",
+          "description": "User group id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rbac_get-user-groups",
+      "description": "List all RBAC User groups with their details. Returns array of UserGroupEnriched.",
+      "method": "GET",
+      "path": "/rbac/user-group",
+      "params": []
+    },
+    {
+      "name": "rbac_get-users",
+      "description": "List all RBAC Users with their details. Returns array of UserWithDetails.",
+      "method": "GET",
+      "path": "/rbac/member",
+      "params": []
+    },
+    {
+      "name": "type_list-device-base",
+      "description": "Returns the device types list.",
+      "method": "GET",
+      "path": "/type/device/base",
+      "params": []
+    },
+    {
+      "name": "type_list-device-detected",
+      "description": "Returns the detected device types list.",
+      "method": "GET",
+      "path": "/type/device/detected",
+      "params": []
+    },
+    {
+      "name": "user_get",
+      "description": "Returns the account information.",
+      "method": "GET",
+      "path": "/user",
+      "params": []
+    },
+    {
+      "name": "user_alert-profile_get-deprecated-please-use-get-alert-profiles2",
+      "description": "Returns the list of configured alert profiles. You can configure alert profiles on the Domotz Portal. Alert profiles define the association between a list of events and a notification channel (email, webhook or slack). Required: user_id.",
+      "method": "GET",
+      "path": "/user/{user_id}/alert-profile",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "int",
+          "location": "path",
+          "description": "User ID",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

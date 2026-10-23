@@ -1,0 +1,5608 @@
+{
+  "api_name": "rewst",
+  "base_url": "https://api.rewst.io",
+  "description": "Generated from GraphQL schema",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "REWST_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "REWST_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "action-options_create",
+      "description": "Create a actionoption. Optional: replace, optionLabel, optionValue (plus 3 more). Returns the new ActionOption.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "replace",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "optionLabel",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "optionValue",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "organizationId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packConfigId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "resourceName",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "action-options_get",
+      "description": "Get a single actionoption. Optional: where, limit, offset (plus 1 more). Returns the ActionOption.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "actions_create",
+      "description": "Create a action. Required: orgId, referenceId. Optional: actionId, id, identifier (plus 2 more). Returns the new Action.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "actionId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "identifier",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "packConfigId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "referenceId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "workflowExecutionId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "actions_get",
+      "description": "Get a single action. Optional: where, search, limit (plus 3 more). Returns the Action.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "active-conversation-requests_get",
+      "description": "Get a single activeconversationrequest. Required: orgId, userId. Returns the ActiveConversationRequest.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "affected-workflow-infos_get",
+      "description": "Get a single affectedworkflowinfo. Required: actions, orgId. Returns the AffectedWorkflowInfo.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "api-client-lists_get",
+      "description": "Get a single apiclientlist. Required: orgId. Optional: pagination. Returns the ApiClientList.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "pagination",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "api-clients_get",
+      "description": "Get a single apiclient. Required: id. Returns the ApiClient.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "app-platform-reserved-domains_create",
+      "description": "Create a appplatformreserveddomain. Required: domain. Optional: isStaffAllowed. Returns the new AppPlatformReservedDomain.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isStaffAllowed",
+          "type": "boolean",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "app-platform-reserved-domains_get",
+      "description": "Get a single appplatformreserveddomain. Optional: where, search, offset (plus 1 more). Returns the AppPlatformReservedDomain.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "app-platform-reserved-domains_update",
+      "description": "Update a appplatformreserveddomain. Required: id. Optional: domain, isStaffAllowed. Returns the updated AppPlatformReservedDomain.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isStaffAllowed",
+          "type": "boolean",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "commonly-used-actions_get",
+      "description": "Get a single commonlyusedaction. Required: integrationId. Optional: limit, orgId. Returns the CommonlyUsedAction.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "component-instances_create",
+      "description": "Create a componentinstance. Required: pageNodes, pageId. Returns the new ComponentInstance.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "pageNodes",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "pageId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "component-instances_get",
+      "description": "Get a single componentinstance. Required: componentVersionId. Returns the ComponentInstance.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "componentVersionId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "component-instances_update",
+      "description": "Update a componentinstance. Required: id, componentVersionId, pageId. Returns the updated ComponentInstance.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        },
+        {
+          "name": "componentVersionId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "pageId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "component-trees_get",
+      "description": "Get a single componenttree. Required: componentId. Optional: limit. Returns the ComponentTree.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "componentId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "components_get",
+      "description": "Get a single component. Required: rootIds. Returns the Component.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "rootIds",
+          "type": "array",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "conversation-message-votes_create",
+      "description": "Create a conversationmessagevote. Required: conversationMessageId, vote. Optional: id, reason, comment. Returns the new ConversationMessageVote.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "conversationMessageId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "vote",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "conversation-message-votes_get",
+      "description": "Get a single conversationmessagevote. Optional: where. Returns the ConversationMessageVote.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "conversation-message-votes_update",
+      "description": "Update a conversationmessagevote. Required: conversationMessageId, vote. Optional: id, reason, comment. Returns the updated ConversationMessageVote.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "conversationMessageId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "vote",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "conversation-messages_create",
+      "description": "Create a conversationmessage. Required: content, role, conversationId. Optional: id, metadata, userId. Returns the new ConversationMessage.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "conversationId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "conversations_create",
+      "description": "Create a conversation. Required: orgId. Optional: id, title, type (plus 2 more). Returns the new Conversation.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "conversations_get",
+      "description": "Get a single conversation. Optional: where, limit, offset (plus 1 more). Returns the Conversation.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "conversations_update",
+      "description": "Update a conversation. Required: orgId. Optional: id, title, type (plus 2 more). Returns the updated Conversation.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "crate-override-options_create",
+      "description": "Create a crateoverrideoption. Optional: id, isDefault, label (plus 2 more). Returns the new CrateOverrideOption.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isDefault",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "crateOverrideId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "crate-override-options_update",
+      "description": "Update a crateoverrideoption. Optional: id, isDefault, label (plus 2 more). Returns the updated CrateOverrideOption.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isDefault",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "crateOverrideId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "crate-overrides_create",
+      "description": "Create a crateoverride. Optional: id, crateId, isMultiselect (plus 7 more). Returns the new CrateOverride.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "crateId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isMultiselect",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isDynamic",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "entity",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "defaultValue",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "crateTriggerIds",
+          "type": "array",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "crate-overrides_update",
+      "description": "Update a crateoverride. Optional: id, crateId, isMultiselect (plus 7 more). Returns the updated CrateOverride.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "crateId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isMultiselect",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isDynamic",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "entity",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "defaultValue",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "crateTriggerIds",
+          "type": "array",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "crate-unpacking-argument-sets_get",
+      "description": "Get a single crateunpackingargumentset. Optional: where. Returns the CrateUnpackingArgumentSet.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "crate-use-cases_get",
+      "description": "Get a single crateusecase. Optional: where, search, limit (plus 2 more). Returns the CrateUseCase.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "crates_create",
+      "description": "Create a crate. Required: orgId. Optional: associatedPacks, category, description (plus 18 more). Returns the new Crate.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "associatedPacks",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "primaryPackId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "providedValue",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "replicationRegions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "requiredOrgVariables",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "sourceEnvironment",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "workflowId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isPublic",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "maturity",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "setupAssistance",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "setupTime",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "createdAt",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "gid",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "crates_get",
+      "description": "Get a single crate. Required: templateId. Returns the Crate.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "crates_update",
+      "description": "Update a crate. Required: id. Optional: category, associatedPacks, description (plus 18 more). Returns the updated Crate.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "associatedPacks",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isPublic",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "lastPublishedAt",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "maturity",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "primaryPackId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "providedValue",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "replicationRegions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "requiredOrgVariables",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "setupAssistance",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "setupTime",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "workflowId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "gid",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "sourceEnvironment",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "database-notification-errors_get",
+      "description": "Get a single databasenotificationerror. Required: triggerId. Returns the DatabaseNotificationError.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "triggerId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "delete-org-interpreter-responses_delete",
+      "description": "Delete a deleteorginterpreterresponse. Required: id. Returns the DeleteOrgInterpreterResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "dropdown-options_get",
+      "description": "Get a single dropdownoption. Required: modelName, orgId. Optional: filterArg, limit, offset (plus 2 more). Returns the DropdownOption.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "modelName",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "filterArg",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "encoded-page-nodeses_get",
+      "description": "Get a single encodedpagenodes. Required: id, path. Optional: domain, query. Returns the EncodedPageNodes.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path"
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "feature-preview-settings_create",
+      "description": "Create a featurepreviewsetting. Required: description, isStaffOnly, label. Returns the new FeaturePreviewSetting.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isStaffOnly",
+          "type": "boolean",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "feature-preview-settings_get",
+      "description": "Get a single featurepreviewsetting. Optional: where, order. Returns the FeaturePreviewSetting.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "feature-preview-settings_update",
+      "description": "Update a featurepreviewsetting. Required: isEnabled, label, orgIds. Returns the updated FeaturePreviewSetting.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "isEnabled",
+          "type": "boolean",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgIds",
+          "type": "array",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "foreign-object-references_get",
+      "description": "Get a single foreignobjectreference. Required: orgId. Returns the ForeignObjectReference.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "form-audit-entries_get",
+      "description": "Get a single formauditentry. Required: orgId. Returns the FormAuditEntry.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "form-permission-states_get",
+      "description": "Get a single formpermissionstate. Required: formId. Optional: orgId, userOffset, userLimit (plus 2 more). Returns the FormPermissionState.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "formId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "userOffset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "userLimit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "userSearch",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "zedtoken",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "forms_create",
+      "description": "Create a form. Required: orgId. Optional: clonedFromId, cloneOverrides, description (plus 5 more). Returns the new Form.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "fields",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "forms_get",
+      "description": "Get a single form. Optional: where, orgContextId. Returns the Form.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "orgContextId",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "forms_update",
+      "description": "Update a form. Required: id, overrides. Returns the updated Form.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        },
+        {
+          "name": "overrides",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integration-workflow-outputs_create",
+      "description": "Create a integrationworkflowoutput. Optional: packId, orgId, includeFakeData. Returns the new IntegrationWorkflowOutput.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "packId",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "includeFakeData",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "integrations_get",
+      "description": "Get a single integration. Optional: limit, offset. Returns the Integration.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "interpreter-versions_get",
+      "description": "Get a single interpreterversion. Optional: language. Returns the InterpreterVersion.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "language",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "jinja-render-sessions_get",
+      "description": "Get a single jinjarendersession. Required: id. Optional: conversationId. Returns the JinjaRenderSession.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        },
+        {
+          "name": "conversationId",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "jinja2-documentations_get",
+      "description": "Get a single jinja2documentation. Required: filterName. Returns the Jinja2Documentation.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "filterName",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "job-requested-responses_create",
+      "description": "Create a jobrequestedresponse. Required: packConfigId. Returns the new JobRequestedResponse.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "packConfigId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "logins_get",
+      "description": "Get a single login. Required: domain. Returns the Login.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "message-vote-statses_get",
+      "description": "Get a single messagevotestats. Required: conversationMessageId. Returns the MessageVoteStats.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "conversationMessageId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "microsoft-c-s-p-customers_get",
+      "description": "Get a single microsoftcspcustomer. Optional: search, where. Returns the MicrosoftCSPCustomer.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "monaco-completion-items_get",
+      "description": "Get a single monacocompletionitem. Returns the MonacoCompletionItem.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": []
+    },
+    {
+      "name": "onboarding-questionnaire-responses_create",
+      "description": "Create a onboardingquestionnaireresponse. Required: onboardingRequirementId, questionField, responseValue. Optional: questionText. Returns the new OnboardingQuestionnaireResponse.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "onboardingRequirementId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "questionField",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "responseValue",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "questionText",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "onboarding-questionnaire-responses_get",
+      "description": "Get a single onboardingquestionnaireresponse. Optional: where, limit, offset (plus 1 more). Returns the OnboardingQuestionnaireResponse.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "org-breadcrumbs_get",
+      "description": "Get a single orgbreadcrumb. Required: orgId, rootOrgId. Returns the OrgBreadcrumb.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "rootOrgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-form-field-instances_get",
+      "description": "Get a single orgformfieldinstance. Required: formFieldId. Returns the OrgFormFieldInstance.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "formFieldId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-interpreter-settings_get",
+      "description": "Get a single orginterpretersetting. Required: orgId. Returns the OrgInterpreterSetting.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-search-results_get",
+      "description": "Get a single orgsearchresult. Required: rootOrgId, breadcrumbRootOrgId. Optional: search. Returns the OrgSearchResult.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "rootOrgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "breadcrumbRootOrgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org-support-accesses_create",
+      "description": "Create a orgsupportaccess. Required: orgId. Optional: expiresAt. Returns the new OrgSupportAccess.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "org-trigger-instances_get",
+      "description": "Get a single orgtriggerinstance. Optional: where, search, limit (plus 2 more). Returns the OrgTriggerInstance.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "org-trigger-instances_update",
+      "description": "Update a orgtriggerinstance. Optional: id, isManualActivation, organization (plus 5 more). Returns the updated OrgTriggerInstance.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isManualActivation",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "organization",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "lastSearchedAt",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "trigger",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "triggerId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "org-variables_create",
+      "description": "Create a orgvariable. Required: cascade, name, value, orgId. Optional: id, category, packConfigId. Returns the new OrgVariable.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "cascade",
+          "type": "boolean",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "packConfigId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "org-variables_get",
+      "description": "Get a single orgvariable. Required: visibleForOrgId. Optional: search, limit, offset (plus 1 more). Returns the OrgVariable.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "visibleForOrgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "org-variables_update",
+      "description": "Update a orgvariable. Required: name. Optional: cascade, category, id (plus 3 more). Returns the updated OrgVariable.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "cascade",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packConfigId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "organization-audit-entries_get",
+      "description": "Get a single organizationauditentry. Required: orgId. Returns the OrganizationAuditEntry.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization-imports_get",
+      "description": "Get a single organizationimport. Required: orgId. Optional: status, importType, limit (plus 2 more). Returns the OrganizationImport.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "importType",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "organization-onboarding-crate-requirements_get",
+      "description": "Get a single organizationonboardingcraterequirement. Optional: where, search, limit (plus 2 more). Returns the OrganizationOnboardingCrateRequirement.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "organization-onboarding-pack-requirements_get",
+      "description": "Get a single organizationonboardingpackrequirement. Optional: where, search, limit (plus 2 more). Returns the OrganizationOnboardingPackRequirement.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "organization-onboarding-requirements_create",
+      "description": "Create a organizationonboardingrequirement. Required: orgId. Optional: organizationType, status, onboardingStartedAt (plus 6 more). Returns the new OrganizationOnboardingRequirement.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "organizationType",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "onboardingStartedAt",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "onboardingCompletedAt",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "targetCustomerCount",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "requirementsPopulated",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "requirementsPopulatedAt",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "requirementsCompleted",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "updatedAt",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "organization-onboarding-requirements_get",
+      "description": "Get a single organizationonboardingrequirement. Optional: where. Returns the OrganizationOnboardingRequirement.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "organizations_create",
+      "description": "Create a organization. Required: listeningToWorkflowId, orgId, handlerWorkflowId, triggerOnStatuses. Optional: enabled, packOverrides. Returns the new Organization.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "listeningToWorkflowId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "packOverrides",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "handlerWorkflowId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "triggerOnStatuses",
+          "type": "array",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_get",
+      "description": "Get a single organization. Returns the Organization.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": []
+    },
+    {
+      "name": "organizations_update",
+      "description": "Update a organization. Required: triggerId, listeningToWorkflowId, orgId, handlerWorkflowId, triggerOnStatuses. Optional: enabled, packOverrides, cloneOverrides. Returns the updated Organization.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "triggerId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "listeningToWorkflowId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "packOverrides",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "handlerWorkflowId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "triggerOnStatuses",
+          "type": "array",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "pack-action-options_get",
+      "description": "Get a single packactionoption. Optional: where, limit, offset (plus 1 more). Returns the PackActionOption.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "pack-bundles_get",
+      "description": "Get a single packbundle. Optional: where, search, limit (plus 2 more). Returns the PackBundle.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "pack-configs_create",
+      "description": "Create a packconfig. Required: name, orgId, packId. Optional: id, default, description (plus 2 more). Returns the new PackConfig.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "default",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "config",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "packId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pack-configs_get",
+      "description": "Get a single packconfig. Required: packIds, orgId. Optional: includeSpec. Returns the PackConfig.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "packIds",
+          "type": "array",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "includeSpec",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "pack-configs_update",
+      "description": "Update a packconfig. Required: id. Optional: name, default, description (plus 4 more). Returns the updated PackConfig.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "default",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "config",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "pack-delete-responses_delete",
+      "description": "Delete a packdeleteresponse. Required: packId. Returns the PackDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "packId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pack-resource-types-containers_get",
+      "description": "Get a single packresourcetypescontainer. Returns the PackResourceTypesContainer.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": []
+    },
+    {
+      "name": "packs_create",
+      "description": "Create a pack. Required: configSchema, name, ref. Optional: actions, description, icon (plus 12 more). Returns the new Pack.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "configSchema",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isDefault",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isMultitenancyEnabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isOauthConfiguration",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgVariables",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packTestActionId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packType",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "ref",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "uid",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "packs_get",
+      "description": "Get a single pack. Required: orgId. Optional: actionFilter, packSearch, actionSearch (plus 1 more). Returns the Pack.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "actionFilter",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "packSearch",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "actionSearch",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "packs_update",
+      "description": "Update a pack. Optional: actions, configSchema, description (plus 16 more). Returns the updated Pack.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "configSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isDefault",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isMultitenancyEnabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isOauthConfiguration",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgVariables",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packTestActionId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "ref",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "setupInstructions",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "uid",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "packs-and-bundles-by-installed-states_get",
+      "description": "Get a single packsandbundlesbyinstalledstate. Required: orgId. Optional: includeCustomPack. Returns the PacksAndBundlesByInstalledState.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "includeCustomPack",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "page-nodes_get",
+      "description": "Get a single pagenode. Required: pageId. Returns the PageNode.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "pageId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pages_create",
+      "description": "Create a page. Required: name, path, orgId, id-2, type, isCanvas, props, displayName, nodes, craftId, linkedNodes, workflows-2. Optional: preset, id, loader (plus 15 more). Returns the new Page.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "preset",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "loader",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflows",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "variables",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id-2",
+          "wire_name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isCanvas",
+          "type": "boolean",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "props",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "custom",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "hidden",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "nodes",
+          "type": "array",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "craftId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "pageId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "linkedNodes",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "workflows-2",
+          "wire_name": "workflows",
+          "type": "array",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "templates",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "linkedPages",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "formId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "componentId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "pages_get",
+      "description": "Get a single page. Optional: where, limit, offset (plus 2 more). Returns the Page.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "pages_update",
+      "description": "Update a page. Required: id, siteId, id-2, type, isCanvas, props, displayName, nodes, craftId, linkedNodes, workflows-2. Optional: loader, workflows, pageNodes (plus 15 more). Returns the updated Page.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "loader",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "siteId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "workflows",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "pageNodes",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "variables",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "componentInstances",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "id-2",
+          "wire_name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isCanvas",
+          "type": "boolean",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "props",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "custom",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "hidden",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "nodes",
+          "type": "array",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "craftId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "pageId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "linkedNodes",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "workflows-2",
+          "wire_name": "workflows",
+          "type": "array",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "templates",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "linkedPages",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "formId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "componentId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "pending-tasks-aggregates_get",
+      "description": "Get a single pendingtasksaggregate. Optional: where. Returns the PendingTasksAggregate.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "permission-audit-log-lists_get",
+      "description": "Get a single permissionauditloglist. Required: orgId. Optional: includeSubOrgs, filters, limit (plus 1 more). Returns the PermissionAuditLogList.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "includeSubOrgs",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "filters",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "permissions_create",
+      "description": "Create a permission. Optional: id, orgIds, roleIds (plus 6 more). Returns the new Permission.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "override",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "objectType",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "relation",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "permissions_get",
+      "description": "Get a single permission. Optional: where. Returns the Permission.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "permissions_update",
+      "description": "Update a permission. Required: objectId. Optional: orgIds, subOrgIds, excludeOrgIds (plus 3 more). Returns the updated Permission.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "orgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "subOrgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "excludeOrgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "override",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "relation",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "psa-filter-optionses_get",
+      "description": "Get a single psafilteroptions. Required: orgId, psaRef, psaPackConfigId. Optional: refresh. Returns the PsaFilterOptions.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "psaRef",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "psaPackConfigId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "refresh",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "psa-organizations_get",
+      "description": "Get a single psaorganization. Required: orgId, psaRef, psaPackConfigId. Optional: accountTypes, statuses, refresh. Returns the PsaOrganization.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "psaRef",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "psaPackConfigId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "accountTypes",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "statuses",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "refresh",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "public-crates_get",
+      "description": "Get a single publiccrate. Optional: limit, offset. Returns the PublicCrate.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "reserved-organization-names_get",
+      "description": "Get a single reservedorganizationname. Required: order. Optional: where, limit, offset. Returns the ReservedOrganizationName.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "robo-rewsty-config-values_get",
+      "description": "Get a single roborewstyconfigvalue. Optional: where. Returns the RoboRewstyConfigValue.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "role-organization-counts_get",
+      "description": "Get a single roleorganizationcount. Required: roleIds, orgId. Returns the RoleOrganizationCount.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "role-organization-rows_get",
+      "description": "Get a single roleorganizationrow. Required: roleId. Optional: includeSubOrgs, limit, offset. Returns the RoleOrganizationRow.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "includeSubOrgs",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "role-user-counts_get",
+      "description": "Get a single roleusercount. Required: roleIds, orgId. Returns the RoleUserCount.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_create",
+      "description": "Create a role. Required: name, orgId. Optional: id, description, icon (plus 4 more). Returns the new Role.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "rolePermissions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "authorizedPermissions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "authorizedSpicedbPermissions",
+          "type": "array",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "roles_get",
+      "description": "Get a single role. Optional: where. Returns the Role.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "roles_update",
+      "description": "Update a role. Required: id. Optional: name, description, icon (plus 4 more). Returns the updated Role.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "rolePermissions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "authorizedPermissions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "authorizedSpicedbPermissions",
+          "type": "array",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "sensor-types_get",
+      "description": "Get a single sensortype. Optional: where, search, limit (plus 2 more). Returns the SensorType.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "site-domain-valids_get",
+      "description": "Get a single sitedomainvalid. Required: domain, orgId. Returns the SiteDomainValid.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_create",
+      "description": "Create a site. Required: orgId. Optional: name, domain, template (plus 5 more). Returns the new Site.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "template",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "theme",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "pages",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "sites_get",
+      "description": "Get a single site. Required: orgId. Returns the Site.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_update",
+      "description": "Update a site. Required: id. Optional: name, domain, orgId (plus 14 more). Returns the updated Site.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "layout",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "theme",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isLive",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "statusCode",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "statusMessage",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "customDomain",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isDnsValidated",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "useCustomDomain",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "themeReferenceOrgVariable",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "pages",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "faviconUrl",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "spice-d-b-check-results_get",
+      "description": "Get a single spicedbcheckresult. Required: where. Returns the SpiceDBCheckResult.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_create",
+      "description": "Create a tag. Required: orgId. Optional: id, name, description (plus 1 more). Returns the new Tag.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "tags_get",
+      "description": "Get a single tag. Optional: where, search, limit (plus 2 more). Returns the Tag.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "tags_update",
+      "description": "Update a tag. Required: id, name, orgId. Optional: description, color. Returns the updated Tag.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "task-count-by-dates_get",
+      "description": "Get a single taskcountbydate. Required: orgId, startDate, endDate. Returns the TaskCountByDate.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "task-count-by-hours_get",
+      "description": "Get a single taskcountbyhour. Required: orgId, date. Returns the TaskCountByHour.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "task-logs_create",
+      "description": "Create a tasklog. Required: originalWorkflowExecutionId, status. Optional: executionTime, id, input (plus 5 more). Returns the new TaskLog.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "executionTime",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "input",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "originalParentTaskId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "originalWorkflowExecutionId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "originalWorkflowTaskId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "taskExecutionId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "result",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "task-logs_get",
+      "description": "Get a single tasklog. Optional: where, search, limit (plus 2 more). Returns the TaskLog.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "templates_create",
+      "description": "Create a template. Required: body, name, orgId. Optional: clonedFromId, cloneOverrides, contentType (plus 8 more). Returns the new Template.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "body",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "contentType",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "context",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isShared",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "templates_get",
+      "description": "Get a single template. Optional: where. Returns the Template.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "templates_update",
+      "description": "Update a template. Required: id. Optional: body, clonedFromId, cloneOverrides (plus 10 more). Returns the updated Template.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "body",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "contentType",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "context",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isShared",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "time-saved-by-dates_get",
+      "description": "Get a single timesavedbydate. Required: orgId, startDate, endDate. Returns the TimeSavedByDate.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "time-saved-by-hours_get",
+      "description": "Get a single timesavedbyhour. Required: orgId, date. Returns the TimeSavedByHour.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "time-saved-group-by-orgs_get",
+      "description": "Get a single timesavedgroupbyorg. Required: orgId, updatedAt, useStatsTable. Optional: workflowStatus. Returns the TimeSavedGroupByOrg.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "workflowStatus",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "updatedAt",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "useStatsTable",
+          "type": "boolean",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "time-saved-group-by-workflows_get",
+      "description": "Get a single timesavedgroupbyworkflow. Required: orgId, updatedAt, useStatsTable. Optional: workflowStatus. Returns the TimeSavedGroupByWorkflow.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "workflowStatus",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "updatedAt",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "useStatsTable",
+          "type": "boolean",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "trigger-types_get",
+      "description": "Get a single triggertype. Optional: where, search, limit (plus 2 more). Returns the TriggerType.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "triggers_create",
+      "description": "Create a trigger. Optional: createPatch, activatedForOrgIds, activatedForTagIds (plus 21 more). Returns the new Trigger.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "createPatch",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "activatedForOrgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "activatedForTagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "autoActivateManagedOrgs",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "criteria",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "formId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isActivatedForOwner",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packOverrides",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "triggerTypeId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "vars",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "workflow",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflowBuilderInfo",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflowId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "triggers_get",
+      "description": "Get a single trigger. Optional: includeUnlisted, where, search (plus 5 more). Returns the Trigger.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "includeUnlisted",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "hasTagIds",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "excludeTagIds",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "triggers_update",
+      "description": "Update a trigger. Required: id. Optional: comment, commentDescription, createPatch (plus 21 more). Returns the updated Trigger.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "commentDescription",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "createPatch",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "activatedForOrgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "activatedForTagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "autoActivateManagedOrgs",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "criteria",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "formId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isActivatedForOwner",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packOverrides",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "vars",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "workflow",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflowBuilderInfo",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflowId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "user-delegated-accesses_get",
+      "description": "Get a single userdelegatedaccess. Required: organizationId. Returns the UserDelegatedAccess.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "user-favorite-actions_create",
+      "description": "Create a userfavoriteaction. Required: orgId, username, roleIds. Optional: isTestUser. Returns the new UserFavoriteAction.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "isTestUser",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "user-favorite-actions_update",
+      "description": "Update a userfavoriteaction. Required: id, roleIds. Returns the updated UserFavoriteAction.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "body",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "user-invites_create",
+      "description": "Create a userinvite. Required: email, orgId, roleIds. Optional: requiresApproval, sendEmail. Returns the new UserInvite.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "requiresApproval",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "body",
+          "required": true
+        },
+        {
+          "name": "sendEmail",
+          "type": "boolean",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "user-invites_get",
+      "description": "Get a single userinvite. Optional: where, search, limit (plus 2 more). Returns the UserInvite.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "user-preferenceses_update",
+      "description": "Update a userpreferences. Required: userId. Optional: isDarkModePreferred, dateFormat, datetimeFormat. Returns the updated UserPreferences.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "isDarkModePreferred",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "dateFormat",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "datetimeFormat",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "user-robo-rewsty-preferenceses_get",
+      "description": "Get a single userroborewstypreferences. Returns the UserRoboRewstyPreferences.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": []
+    },
+    {
+      "name": "user-robo-rewsty-preferenceses_update",
+      "description": "Update a userroborewstypreferences. Optional: alwaysAllowedTools, metadata. Returns the updated UserRoboRewstyPreferences.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "alwaysAllowedTools",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "users_create",
+      "description": "Create a user. Required: patchType, patch, comment, workflowId. Optional: commentDescription, foreignId. Returns the new User.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "patchType",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "patch",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "commentDescription",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "workflowId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "foreignId",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a single user. Returns the User.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": []
+    },
+    {
+      "name": "users_update",
+      "description": "Update a user. Required: id, roleIds. Returns the updated User.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "required": true
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflow-execution-statses_get",
+      "description": "Get a single workflowexecutionstats. Required: orgId, createdSince. Optional: rollUpTimeSaved, includeSubWorkflows. Returns the WorkflowExecutionStats.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "createdSince",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "rollUpTimeSaved",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "includeSubWorkflows",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "workflow-executions_get",
+      "description": "Get a single workflowexecution. Optional: where, search, limit (plus 3 more). Returns the WorkflowExecution.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        },
+        {
+          "name": "includeSubOrgs",
+          "type": "boolean",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "workflow-notes_get",
+      "description": "Get a single workflownote. Optional: where, search, limit (plus 2 more). Returns the WorkflowNote.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "workflow-patches_get",
+      "description": "Get a single workflowpatch. Optional: where, orderBy, limit (plus 2 more). Returns the WorkflowPatch.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "createdSince",
+          "type": "string",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "workflow-stats-by-orgs_get",
+      "description": "Get a single workflowstatsbyorg. Required: orgId, startDate, endDate. Returns the WorkflowStatsByOrg.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "required": true
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflow-tasks_get",
+      "description": "Get a single workflowtask. Optional: where, limit, offset (plus 1 more). Returns the WorkflowTask.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query"
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "location": "query"
+        }
+      ]
+    },
+    {
+      "name": "workflows_create",
+      "description": "Create a workflow. Optional: actionId, clonedFromId, cloneOverrides (plus 24 more). Returns the new Workflow.",
+      "method": "POST",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "actionId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "humanSecondsSaved",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "input",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "output",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "schemaVersion",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "tasks",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "timeout",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "transitions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "varsSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "notes",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "inputSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "outputSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    },
+    {
+      "name": "workflows_get",
+      "description": "Get a single workflow. Required: ids. Returns the Workflow.",
+      "method": "GET",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflows_update",
+      "description": "Update a workflow. Optional: comment, commentDescription, createPatch (plus 53 more). Returns the updated Workflow.",
+      "method": "PATCH",
+      "path": "/graphql",
+      "params": [
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "commentDescription",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "createPatch",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "overwrite",
+          "type": "boolean",
+          "location": "query"
+        },
+        {
+          "name": "overwritePatchId",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "openedAt",
+          "type": "string",
+          "location": "query"
+        },
+        {
+          "name": "actionId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "humanSecondsSaved",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "input",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "output",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "schemaVersion",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "tagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "tasks",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "timeout",
+          "type": "integer",
+          "location": "body"
+        },
+        {
+          "name": "tokens",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "transitions",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "varsSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "notes",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "inputSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "outputSchema",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "metadata",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "activatedForOrgIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "activatedForTagIds",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "autoActivateManagedOrgs",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "cloned-from-id-2",
+          "wire_name": "clonedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "clone-overrides-2",
+          "wire_name": "cloneOverrides",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "criteria",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "description-2",
+          "wire_name": "description",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "formId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "id-2",
+          "wire_name": "id",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "isActivatedForOwner",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "is-synchronized-2",
+          "wire_name": "isSynchronized",
+          "type": "boolean",
+          "location": "body"
+        },
+        {
+          "name": "name-2",
+          "wire_name": "name",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "org-id-2",
+          "wire_name": "orgId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "packOverrides",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "parameters-2",
+          "wire_name": "parameters",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "triggerTypeId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "unpacked-from-id-2",
+          "wire_name": "unpackedFromId",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "vars",
+          "type": "array",
+          "location": "body"
+        },
+        {
+          "name": "workflow",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflowBuilderInfo",
+          "type": "string",
+          "location": "body"
+        },
+        {
+          "name": "workflowId",
+          "type": "string",
+          "location": "body"
+        }
+      ]
+    }
+  ]
+}

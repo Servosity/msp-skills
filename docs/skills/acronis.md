@@ -44,7 +44,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Acronis International GmbH.
 
-**✓ Live-verified by @asterisk79 (MSP)** against a production tenant · 2026-09-11 · [receipt →](https://github.com/Servosity/msp-skills/issues/325).
+**✓ Live-verified by @asterisk79 (MSP)** against a production tenant · 2026-09-11 · [receipt →](https://github.com/Servosity/msp-skills/issues/325). Verified on v0.1.4; the current release has changed since.
 
 Yes - there is an MCP server for Acronis Cyber Protect Cloud. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Acronis Cyber Protect Cloud to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

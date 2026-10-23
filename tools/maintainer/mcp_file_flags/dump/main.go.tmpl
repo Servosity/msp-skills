@@ -24,6 +24,7 @@ type flagInfo struct {
 
 type node struct {
 	Path        []string          `json:"path"`
+	Use         string            `json:"use,omitempty"`
 	Aliases     []string          `json:"aliases,omitempty"`
 	Hidden      bool              `json:"hidden,omitempty"`
 	Runnable    bool              `json:"runnable"`
@@ -34,7 +35,7 @@ type node struct {
 func walk(c *cobra.Command, path []string, out *[]node) {
 	for _, sub := range c.Commands() {
 		p := append(append([]string{}, path...), sub.Name())
-		n := node{Path: p, Aliases: sub.Aliases, Hidden: sub.Hidden, Runnable: sub.Runnable(), Annotations: sub.Annotations}
+		n := node{Path: p, Use: sub.Use, Aliases: sub.Aliases, Hidden: sub.Hidden, Runnable: sub.Runnable(), Annotations: sub.Annotations}
 		// InheritedFlags merges every ancestor's persistent flags into
 		// Flags(), the set Cobra parses for this command.
 		_ = sub.InheritedFlags()

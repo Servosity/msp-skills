@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:10:04.595258Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "liongard",
+  "display_name": "Liongard",
+  "cli_name": "liongard-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:369e071df713d1be383ab5b568b5bdc16b420fd8a82c395c329d97c6ef91fdfc",
+  "run_id": "20260606-171711",
+  "category": "monitoring",
+  "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
+  "mcp_binary": "liongard-pp-mcp",
+  "mcp_tool_count": 60,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "api_key",
+  "auth_preference": "ApiKeyAuth",
+  "auth_env_vars": [
+    "LIONGARD_API_KEY"
+  ],
+  "endpoint_template_vars": [
+    "instance"
+  ],
+  "endpoint_template_var_defaults": {
+    "instance": "example"
+  },
+  "novel_features": [
+    {
+      "name": "Cross-estate drift window",
+      "command": "drift",
+      "description": "Every change detected across all your client environments within a time window, joined to the owning environment and system."
+    },
+    {
+      "name": "Environment 360",
+      "command": "environments overview",
+      "description": "One client's complete picture in a single command: its systems, each system's launchpoints, agent, latest inspection, open detections, and key metrics."
+    },
+    {
+      "name": "Stale launchpoints sweep",
+      "command": "launchpoints stale",
+      "description": "Every launchpoint whose newest inspection is older than a threshold, with the owning environment and system named."
+    },
+    {
+      "name": "Agent-offline sweep",
+      "command": "agents offline",
+      "description": "Every offline agent across the estate, joined to the environment it serves."
+    },
+    {
+      "name": "Coverage reconcile",
+      "command": "coverage",
+      "description": "Monitoring gaps: systems with no launchpoint bound, and environments with no systems at all."
+    },
+    {
+      "name": "Metric pivot",
+      "command": "metrics pivot",
+      "description": "One RoarPath metric pulled across every system as a system-by-value table, CSV-ready for reports."
+    },
+    {
+      "name": "Metric threshold scan",
+      "command": "metrics breach",
+      "description": "Every system whose RoarPath metric value crosses a numeric threshold."
+    },
+    {
+      "name": "Bulk inspection kick",
+      "command": "launchpoints run-stale",
+      "description": "Find stale launchpoints and trigger an inspection run on each, in one guarded command."
+    },
+    {
+      "name": "System change history",
+      "command": "systems history",
+      "description": "The full chronological change history of one system: every detection and inspection entry in time order."
+    },
+    {
+      "name": "Inspection-failure sweep",
+      "command": "detections failures",
+      "description": "Every inspection that ran but failed or errored across the estate, joined to the owning environment."
+    },
+    {
+      "name": "Inspector adoption gap",
+      "command": "inspectors coverage",
+      "description": "Which environments are missing a given inspector type - the estate-wide rollout-gap view."
+    },
+    {
+      "name": "Estate health rollup",
+      "command": "health",
+      "description": "One estate-wide health scorecard: stale launchpoints, offline agents, failed inspections, and coverage gaps as a single summary with a typed exit code."
+    }
+  ]
+}

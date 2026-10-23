@@ -915,7 +915,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.8",
+      "version": "0.6.9",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -960,7 +960,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "psa",
       "tags": [
         "superops",

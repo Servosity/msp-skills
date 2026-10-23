@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:33:16.026282Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "domotz",
+  "display_name": "Domotz",
+  "cli_name": "domotz-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:6bbcaba22fb2626ba9617c70ad2b2ec53fc4a5294b5fde76761086617b35eec8",
+  "run_id": "20260606-115053",
+  "category": "monitoring",
+  "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
+  "mcp_binary": "domotz-pp-mcp",
+  "mcp_tool_count": 145,
+  "mcp_ready": "full",
+  "api_version": "1",
+  "auth_type": "api_key",
+  "auth_preference": "api_key",
+  "auth_env_vars": [
+    "DOMOTZ_API_KEY"
+  ],
+  "endpoint_template_vars": [
+    "region"
+  ],
+  "endpoint_template_var_defaults": {
+    "region": "us-east-1-cell-1"
+  },
+  "auth_key_url": "https://portal.domotz.com/portal/settings/services?selected_menu=api_keys",
+  "novel_features": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One status board across every Domotz Collector: online/offline agents, degraded sites, and down-device counts per site."
+    },
+    {
+      "name": "Cross-site offline devices",
+      "command": "fleet offline",
+      "description": "Every unreachable or offline device across all sites in one prioritized list, with site and importance."
+    },
+    {
+      "name": "New / rogue device detection",
+      "command": "fleet new",
+      "description": "Devices first-seen anywhere in the fleet within a time window — a rogue-device security signal."
+    },
+    {
+      "name": "Unified fleet inventory export",
+      "command": "fleet inventory",
+      "description": "One asset table — vendor, model, type, OS, serial, site — for every device across every agent."
+    },
+    {
+      "name": "Active alerts \u0026 sensor rollup",
+      "command": "fleet alerts",
+      "description": "Alert profiles (alerting rules) and their device bindings, aggregated across the fleet."
+    },
+    {
+      "name": "Fleet IP-conflict sweep",
+      "command": "fleet ip-conflicts",
+      "description": "IP address conflicts across all sites in one prioritized list."
+    },
+    {
+      "name": "Device-type \u0026 vendor breakdown",
+      "command": "fleet breakdown",
+      "description": "Counts of devices by type, vendor, and OS across the fleet for capacity and security posture."
+    },
+    {
+      "name": "WAN speed-test trends",
+      "command": "fleet speedtest",
+      "description": "Per-site WAN speed-test history aggregated into fleet min/avg/max and a worst-site ranking."
+    },
+    {
+      "name": "Offline network topology",
+      "command": "topology",
+      "description": "Cached network topology for a site, summarized (node/edge counts, gateways) and queryable offline."
+    },
+    {
+      "name": "Config / inventory drift",
+      "command": "drift",
+      "description": "Diffs two local snapshots for a site to surface configuration and inventory changes over time."
+    },
+    {
+      "name": "Fleet degraded-agent sweep",
+      "command": "fleet agents",
+      "description": "Only the sites (Collectors) that are offline or degraded right now, with location, organization, and version, in one prioritized list."
+    },
+    {
+      "name": "Stale-agent / sync-freshness check",
+      "command": "fleet stale",
+      "description": "Collectors whose local snapshot has gone quiet — last-synced or last-seen older than a threshold, a silent monitoring blind spot."
+    },
+    {
+      "name": "Fleet down-sensor sweep",
+      "command": "fleet triggers",
+      "description": "TCP service sensors (eyes) currently DOWN across every device on every agent, in one fleet-wide list."
+    },
+    {
+      "name": "Monitoring-coverage audit",
+      "command": "fleet unmonitored",
+      "description": "Devices Domotz can't fully monitor — failed or missing authentication and SNMP status — surfaced fleet-wide as a coverage-gap audit."
+    },
+    {
+      "name": "Fleet event timeline",
+      "command": "fleet events",
+      "description": "Per-agent activity-log and network-event history merged into one chronological fleet-wide timeline."
+    }
+  ]
+}

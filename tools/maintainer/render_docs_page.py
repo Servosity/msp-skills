@@ -42,6 +42,32 @@ OWNER_TITLE = OWNER[:1].upper() + OWNER[1:]
 RECEIPT_FORM_URL = "https://msp-skills.compoundingteams.com/verified/#receipt"
 
 
+def verified_code(entry: dict) -> tuple[str | None, str | None]:
+    """(state, version) of a live-verified badge against the shipped code:
+    'current' when the code it verified (live_verified.verified_cli_hash) is
+    the code of the newest cut (cli_hash_at_release), 'changed' when the
+    release carries different code, 'unknown' when no version was recorded.
+    (None, None) for a skill that is not live-verified. Registry-only, so the
+    catalog drift gate reproduces it on any checkout."""
+    lv = entry.get("live_verified") or {}
+    if not isinstance(lv, dict) or lv.get("status") != "live-verified":
+        return None, None
+    version, h = lv.get("verified_version"), lv.get("verified_cli_hash")
+    if not (version and h):
+        return "unknown", None
+    return ("current" if h == entry.get("cli_hash_at_release") else "changed"), version
+
+
+def verified_note(entry: dict) -> str:
+    """The sentence a badge carries when it does not cover the shipped code."""
+    state, version = verified_code(entry)
+    if state == "changed":
+        return f" Verified on v{version}; the current release has changed since."
+    if state == "unknown":
+        return " The version it verified was not recorded."
+    return ""
+
+
 def banner(vendor: str, owner: str, first_party: bool) -> str:
     if first_party:
         return (
@@ -160,7 +186,7 @@ def render_page(slug: str) -> Path:
                  f"tenant · {lv.get('date', '')}")
         if lv.get("issue_url"):
             badge += f" · [receipt →]({lv['issue_url']})"
-        badge += "."
+        badge += "." + verified_note(entry)
     else:
         badge = ("**Passes all 4 mechanical gates** (build · command-surface · "
                  "claims · install). Awaiting its first MSP receipt - "

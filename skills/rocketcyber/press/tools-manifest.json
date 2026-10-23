@@ -1,0 +1,522 @@
+{
+  "api_name": "rocketcyber",
+  "base_url": "https://api-us.rocketcyber.com/v3",
+  "description": "RocketCyber Managed SOC CLI - incidents, agents, events, Defender and Microsoft 365 posture, suppression rules, and CSV report export via the Customer API v3",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {ROCKETCYBER_API_TOKEN}",
+    "in": "header",
+    "env_vars": [
+      "ROCKETCYBER_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ROCKETCYBER_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_get",
+      "description": "Get account information, including child customer accounts. Optional: account-id, details. Returns the Account.",
+      "method": "GET",
+      "path": "/account",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Account ID to scope the lookup (omit for your provider account)"
+        },
+        {
+          "name": "details",
+          "type": "bool",
+          "location": "query",
+          "description": "Include extended account details"
+        }
+      ]
+    },
+    {
+      "name": "agents_list",
+      "description": "List agents (devices) with inventory and connectivity filters. Optional: account-id, id, hostname (plus 8 more). Returns array of Agent.",
+      "method": "GET",
+      "path": "/agents",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter to a single client account ID"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "Agent ID"
+        },
+        {
+          "name": "hostname",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device hostname"
+        },
+        {
+          "name": "ip",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by IPv4 address"
+        },
+        {
+          "name": "created",
+          "type": "string",
+          "location": "query",
+          "description": "Created-date range as start|end (pipe-separated ISO dates, either side optional)"
+        },
+        {
+          "name": "os",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by operating system platform (e.g. Microsoft, Apple, Linux)"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by OS version"
+        },
+        {
+          "name": "connectivity",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by agent connectivity state"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to fetch"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort as field:direction (e.g. hostname:asc)"
+        }
+      ]
+    },
+    {
+      "name": "apps_list",
+      "description": "List detection apps and their status for an account. Optional: account-id, status. Returns array of App.",
+      "method": "GET",
+      "path": "/apps",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter to a single client account ID"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by app status"
+        }
+      ]
+    },
+    {
+      "name": "defender_get",
+      "description": "Get Defender detection summary, devices at risk, and device health. Optional: account-id. Returns the DefenderReport.",
+      "method": "GET",
+      "path": "/defender",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Account ID to scope the report"
+        }
+      ]
+    },
+    {
+      "name": "events_list",
+      "description": "List detection events for an app, filtered by verdict and date window. Required: app-id. Optional: account-id, verdict, details (plus 4 more). Returns array of Event.",
+      "method": "GET",
+      "path": "/events",
+      "params": [
+        {
+          "name": "app-id",
+          "wire_name": "appId",
+          "type": "int",
+          "location": "query",
+          "description": "Detection app ID (find IDs with 'apps list')",
+          "required": true
+        },
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter to a single client account ID"
+        },
+        {
+          "name": "verdict",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by event verdict"
+        },
+        {
+          "name": "details",
+          "type": "string",
+          "location": "query",
+          "description": "Detail filter expression (matches event detail fields)"
+        },
+        {
+          "name": "dates",
+          "type": "string",
+          "location": "query",
+          "description": "Detection-date range as start|end (pipe-separated ISO dates)"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to fetch"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort as field:direction (e.g. detectionDate:desc)"
+        }
+      ]
+    },
+    {
+      "name": "events_summary",
+      "description": "Per-app event verdict counts for an account. Optional: account-id. Returns the EventSummary.",
+      "method": "GET",
+      "path": "/events/summary",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Account ID to summarize (omit for all accessible accounts)"
+        }
+      ]
+    },
+    {
+      "name": "firewalls_list",
+      "description": "List firewall log sources, optionally with ingest counters. Optional: account-id, device-id, ip-address (plus 6 more). Returns array of Firewall.",
+      "method": "GET",
+      "path": "/firewalls",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter to a single client account ID"
+        },
+        {
+          "name": "device-id",
+          "wire_name": "deviceId",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by firewall device ID"
+        },
+        {
+          "name": "ip-address",
+          "wire_name": "ipAddress",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by source IP address"
+        },
+        {
+          "name": "mac-address",
+          "wire_name": "macAddress",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by MAC address"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by firewall type (e.g. sonicwall)"
+        },
+        {
+          "name": "counters",
+          "type": "bool",
+          "location": "query",
+          "description": "Include received/parsed/filtered/reported ingest counters"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to fetch"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort as field:direction"
+        }
+      ]
+    },
+    {
+      "name": "incidents_list",
+      "description": "List SOC incidents with status, title, and date filters. Optional: account-id, id, title (plus 8 more). Returns array of Incident.",
+      "method": "GET",
+      "path": "/incidents",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter to a single client account ID"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "query",
+          "description": "Incident ID"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by incident title"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by incident description text"
+        },
+        {
+          "name": "remediation",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by remediation text"
+        },
+        {
+          "name": "resolved-at",
+          "wire_name": "resolvedAt",
+          "type": "string",
+          "location": "query",
+          "description": "Resolved-date filter as start|end (pipe-separated ISO dates)"
+        },
+        {
+          "name": "created-at",
+          "wire_name": "createdAt",
+          "type": "string",
+          "location": "query",
+          "description": "Created-date filter as start|end (pipe-separated ISO dates)"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by incident status"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to fetch"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort as field:direction (e.g. createdAt:desc)"
+        }
+      ]
+    },
+    {
+      "name": "office_get",
+      "description": "Get the Microsoft 365 secure-score daily progress series. Optional: account-id. Returns the OfficeReport.",
+      "method": "GET",
+      "path": "/office",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Account ID to scope the report"
+        }
+      ]
+    },
+    {
+      "name": "reports_export",
+      "description": "Export events or incidents as a CSV report. Optional: user-id, file-type (default: csv), item-type (plus 3 more).",
+      "method": "GET",
+      "path": "/reportApi",
+      "params": [
+        {
+          "name": "user-id",
+          "wire_name": "userId",
+          "type": "int",
+          "location": "query",
+          "description": "RocketCyber user ID the export runs as"
+        },
+        {
+          "name": "file-type",
+          "wire_name": "fileType",
+          "type": "string",
+          "location": "query",
+          "description": "Export file type (csv)"
+        },
+        {
+          "name": "item-type",
+          "wire_name": "itemType",
+          "type": "string",
+          "location": "query",
+          "description": "Item type to export (e.g. events)"
+        },
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Account ID to scope the export"
+        },
+        {
+          "name": "app-id",
+          "wire_name": "appId",
+          "type": "int",
+          "location": "query",
+          "description": "Detection app ID to scope the export"
+        },
+        {
+          "name": "dates",
+          "type": "string",
+          "location": "query",
+          "description": "Date range as start|end (pipe-separated ISO dates)"
+        }
+      ]
+    },
+    {
+      "name": "suppression_rule",
+      "description": "Get a single suppression rule by ID. Required: ruleId. Optional: account-id, user-id. Returns the SuppressionRule.",
+      "method": "GET",
+      "path": "/suppression/rule/{ruleId}",
+      "params": [
+        {
+          "name": "ruleId",
+          "type": "int",
+          "location": "path",
+          "description": "Suppression rule ID",
+          "required": true
+        },
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Account ID the rule belongs to"
+        },
+        {
+          "name": "user-id",
+          "wire_name": "userId",
+          "type": "int",
+          "location": "query",
+          "description": "User ID context for the lookup"
+        }
+      ]
+    },
+    {
+      "name": "suppression_rules",
+      "description": "List alert-suppression rules with status and ownership filters. Optional: account-id, status, rule-id (plus 3 more). Returns array of SuppressionRule.",
+      "method": "GET",
+      "path": "/suppression/rules",
+      "params": [
+        {
+          "name": "account-id",
+          "wire_name": "accountId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter to a single client account ID"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by rule status (e.g. active)"
+        },
+        {
+          "name": "rule-id",
+          "wire_name": "ruleId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by rule ID"
+        },
+        {
+          "name": "rule-name",
+          "wire_name": "ruleName",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by rule name"
+        },
+        {
+          "name": "user-id",
+          "wire_name": "userId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by the user who created or modified the rule"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort as field:direction (e.g. ruleId:desc)"
+        }
+      ]
+    }
+  ]
+}

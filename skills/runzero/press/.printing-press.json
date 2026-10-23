@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:05:34.66612Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "runzero",
+  "display_name": "runZero",
+  "cli_name": "runzero-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:d993636e94e1ef7357fa720ee70320198b9471c00d07b14b31a8af6969460107",
+  "run_id": "20260606-171458",
+  "category": "monitoring",
+  "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
+  "mcp_binary": "runzero-pp-mcp",
+  "mcp_tool_count": 181,
+  "mcp_public_tool_count": 4,
+  "mcp_ready": "full",
+  "api_version": "1.0.5",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "RUNZERO_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Attack-surface diff over time",
+      "command": "diff",
+      "description": "Show which assets, services, ports, and software appeared or disappeared between two local syncs."
+    },
+    {
+      "name": "Exposure triage (criticality x vulnerability)",
+      "command": "triage",
+      "description": "Rank assets by criticality joined to their exposed services and high-severity vulnerability findings."
+    },
+    {
+      "name": "CVE-to-fleet blast radius",
+      "command": "affected",
+      "description": "Given a CVE, list every affected asset with its services and criticality."
+    },
+    {
+      "name": "Software/version fleet rollup",
+      "command": "software rollup",
+      "description": "Group installed software by product and version with a count of assets running each."
+    },
+    {
+      "name": "Stale / EOL / unowned asset hygiene",
+      "command": "stale",
+      "description": "Bucket assets by last-seen age, end-of-life OS, and missing tag/owner — emitting IDs ready to pipe into the bulk commands."
+    },
+    {
+      "name": "Service exposure by subnet",
+      "command": "exposure-map",
+      "description": "Roll up which protocols and ports are exposed across a CIDR, asset-counted per service."
+    },
+    {
+      "name": "Scan-watch (kick + follow to completion)",
+      "command": "scan-watch",
+      "description": "Start a scan on a site and follow the task to completion in one command, with a typed exit code on the result."
+    },
+    {
+      "name": "Exposure delta since last sync",
+      "command": "exposure-delta",
+      "description": "List services and ports that became newly exposed or newly vulnerable since the last sync, ranked by asset criticality."
+    },
+    {
+      "name": "Certificate-expiry / weak-crypto watch",
+      "command": "certs-expiring",
+      "description": "List TLS certificates expiring within a window or using weak crypto, joined to the asset and service presenting them."
+    }
+  ]
+}

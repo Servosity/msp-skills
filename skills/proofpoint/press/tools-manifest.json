@@ -1,0 +1,450 @@
+{
+  "api_name": "proofpoint",
+  "base_url": "https://tap-api-v2.proofpoint.com/v2",
+  "description": "Proofpoint Targeted Attack Protection (TAP) Threat Insight API. Query SIEM click/message threat events, campaign intelligence, per-threat forensics, Very Attacked People and top clickers, threat summaries, and decode TAP-rewritten (urldefense) URLs. Authentication is HTTP Basic over TLS using a TAP service principal and secret created in the TAP Dashboard under Settings.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {PROOFPOINT_SERVICE_PRINCIPAL}:{PROOFPOINT_API_SECRET}",
+    "env_vars": [
+      "PROOFPOINT_SERVICE_PRINCIPAL",
+      "PROOFPOINT_API_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "PROOFPOINT_SERVICE_PRINCIPAL",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "inferred": true
+      },
+      {
+        "name": "PROOFPOINT_API_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "campaign_get",
+      "description": "Get campaign detail (actors, malware, techniques, members). Required: campaignId. Returns the CampaignDetail.",
+      "method": "GET",
+      "path": "/campaign/{campaignId}",
+      "params": [
+        {
+          "name": "campaignId",
+          "type": "string",
+          "location": "path",
+          "description": "Campaign identifier from the TAP Dashboard or campaign ids endpoint",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "campaign_list-ids",
+      "description": "Heavily rate limited (50 requests per rolling 24 hours). Prefer the local synced store for repeated queries. Required: interval. Optional: size (default: 100), page (default: 1). Returns array of CampaignSummary.",
+      "method": "GET",
+      "path": "/campaign/ids",
+      "params": [
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (min 30s, max 1 day), e.g. 2026-06-05T00:00:00Z/2026-06-06T00:00:00Z",
+          "required": true
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum campaign IDs per page (default 100, max 200)"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        }
+      ]
+    },
+    {
+      "name": "forensics_get",
+      "description": "Provide exactly one of threatId or campaignId. threatId queries are limited to 50 per rolling 24 hours; campaignId queries to 1800. Optional: threatId, campaignId, includeCampaignForensics (default: false). Returns array of ForensicReport.",
+      "method": "GET",
+      "path": "/forensics",
+      "params": [
+        {
+          "name": "threatId",
+          "type": "string",
+          "location": "query",
+          "description": "Threat identifier (mutually exclusive with campaignId)"
+        },
+        {
+          "name": "campaignId",
+          "type": "string",
+          "location": "query",
+          "description": "Campaign identifier (mutually exclusive with threatId)"
+        },
+        {
+          "name": "includeCampaignForensics",
+          "type": "bool",
+          "location": "query",
+          "description": "With threatId, also aggregate forensics for the associated campaign"
+        }
+      ]
+    },
+    {
+      "name": "people_list-top-clickers",
+      "description": "List users who clicked the most malicious links in a window. Optional: window (default: 30), size (default: 100), page (default: 1). Returns array of ClickerUser.",
+      "method": "GET",
+      "path": "/people/top-clickers",
+      "params": [
+        {
+          "name": "window",
+          "type": "int",
+          "location": "query",
+          "description": "Days to look back (14, 30, or 90)"
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum users per page (default 100, max 200)"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        }
+      ]
+    },
+    {
+      "name": "people_list-vap",
+      "description": "List Very Attacked People (highest attack index) for a window. Optional: window (default: 30), size (default: 1000), page (default: 1). Returns array of VapUser.",
+      "method": "GET",
+      "path": "/people/vap",
+      "params": [
+        {
+          "name": "window",
+          "type": "int",
+          "location": "query",
+          "description": "Days to look back (14, 30, or 90)"
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum users per page (default 1000)"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number"
+        }
+      ]
+    },
+    {
+      "name": "siem_list-all-events",
+      "description": "Fetch all click and message threat events in the window. Optional: sinceSeconds (default: 3600), interval, sinceTime (plus 3 more). Returns the SiemResponse.",
+      "method": "GET",
+      "path": "/siem/all",
+      "params": [
+        {
+          "name": "sinceSeconds",
+          "type": "int",
+          "location": "query",
+          "description": "Seconds before now to start the window (max 3600 per request, lookback up to 7 days)"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (30s to 1h), e.g. 2026-06-06T12:00:00Z/2026-06-06T13:00:00Z"
+        },
+        {
+          "name": "sinceTime",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 start time for the retrieval window"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Response format"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat type"
+        },
+        {
+          "name": "threatStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat status"
+        }
+      ]
+    },
+    {
+      "name": "siem_list-clicks-blocked",
+      "description": "Fetch clicks to malicious URLs that were blocked in the window. Optional: sinceSeconds (default: 3600), interval, sinceTime (plus 3 more). Returns the SiemResponse.",
+      "method": "GET",
+      "path": "/siem/clicks/blocked",
+      "params": [
+        {
+          "name": "sinceSeconds",
+          "type": "int",
+          "location": "query",
+          "description": "Seconds before now to start the window (max 3600 per request, lookback up to 7 days)"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (30s to 1h), e.g. 2026-06-06T12:00:00Z/2026-06-06T13:00:00Z"
+        },
+        {
+          "name": "sinceTime",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 start time for the retrieval window"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Response format"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat type"
+        },
+        {
+          "name": "threatStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat status"
+        }
+      ]
+    },
+    {
+      "name": "siem_list-clicks-permitted",
+      "description": "Fetch clicks to malicious URLs that were permitted in the window. Optional: sinceSeconds (default: 3600), interval, sinceTime (plus 3 more). Returns the SiemResponse.",
+      "method": "GET",
+      "path": "/siem/clicks/permitted",
+      "params": [
+        {
+          "name": "sinceSeconds",
+          "type": "int",
+          "location": "query",
+          "description": "Seconds before now to start the window (max 3600 per request, lookback up to 7 days)"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (30s to 1h), e.g. 2026-06-06T12:00:00Z/2026-06-06T13:00:00Z"
+        },
+        {
+          "name": "sinceTime",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 start time for the retrieval window"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Response format"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat type"
+        },
+        {
+          "name": "threatStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat status"
+        }
+      ]
+    },
+    {
+      "name": "siem_list-issues",
+      "description": "Events for clicks to malicious URLs permitted and messages delivered containing a known threat within the window — the subset that got through and needs response. Optional: sinceSeconds (default: 3600), interval, sinceTime (plus 3 more). Returns the SiemResponse.",
+      "method": "GET",
+      "path": "/siem/issues",
+      "params": [
+        {
+          "name": "sinceSeconds",
+          "type": "int",
+          "location": "query",
+          "description": "Seconds before now to start the window (max 3600 per request, lookback up to 7 days)"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (30s to 1h), e.g. 2026-06-06T12:00:00Z/2026-06-06T13:00:00Z"
+        },
+        {
+          "name": "sinceTime",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 start time for the retrieval window"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Response format"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat type"
+        },
+        {
+          "name": "threatStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat status"
+        }
+      ]
+    },
+    {
+      "name": "siem_list-messages-blocked",
+      "description": "Fetch blocked messages that contained a known threat. Optional: sinceSeconds (default: 3600), interval, sinceTime (plus 3 more). Returns the SiemResponse.",
+      "method": "GET",
+      "path": "/siem/messages/blocked",
+      "params": [
+        {
+          "name": "sinceSeconds",
+          "type": "int",
+          "location": "query",
+          "description": "Seconds before now to start the window (max 3600 per request, lookback up to 7 days)"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (30s to 1h), e.g. 2026-06-06T12:00:00Z/2026-06-06T13:00:00Z"
+        },
+        {
+          "name": "sinceTime",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 start time for the retrieval window"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Response format"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat type"
+        },
+        {
+          "name": "threatStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat status"
+        }
+      ]
+    },
+    {
+      "name": "siem_list-messages-delivered",
+      "description": "Fetch delivered messages that contained a known threat. Optional: sinceSeconds (default: 3600), interval, sinceTime (plus 3 more). Returns the SiemResponse.",
+      "method": "GET",
+      "path": "/siem/messages/delivered",
+      "params": [
+        {
+          "name": "sinceSeconds",
+          "type": "int",
+          "location": "query",
+          "description": "Seconds before now to start the window (max 3600 per request, lookback up to 7 days)"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 interval (30s to 1h), e.g. 2026-06-06T12:00:00Z/2026-06-06T13:00:00Z"
+        },
+        {
+          "name": "sinceTime",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 start time for the retrieval window"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Response format"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat type"
+        },
+        {
+          "name": "threatStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by threat status"
+        }
+      ]
+    },
+    {
+      "name": "threat_get-summary",
+      "description": "Get a threat summary (severity, spread, actors, malware, techniques). Required: threatId. Returns the ThreatSummary.",
+      "method": "GET",
+      "path": "/threat/summary/{threatId}",
+      "params": [
+        {
+          "name": "threatId",
+          "type": "string",
+          "location": "path",
+          "description": "Threat identifier from SIEM events or the TAP Dashboard",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "url_decode",
+      "description": "Decode TAP-rewritten (urldefense) URLs to their original targets. Required: urls. Returns array of UrlDecodeResult. (public)",
+      "method": "POST",
+      "path": "/url/decode",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "urls",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "One or more TAP-rewritten (urldefense) URLs in v1, v2, or v3 format",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

@@ -40,7 +40,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by ImmyBot, LLC..
 
-**✓ Live-verified by @geekbrownbear (MSP)** against a production tenant · 2026-08-22 · [receipt →](https://github.com/Servosity/msp-skills/pull/276).
+**✓ Live-verified by @geekbrownbear (MSP)** against a production tenant · 2026-08-22 · [receipt →](https://github.com/Servosity/msp-skills/pull/276). The version it verified was not recorded.
 
 Yes - there is an MCP server for ImmyBot. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects ImmyBot to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

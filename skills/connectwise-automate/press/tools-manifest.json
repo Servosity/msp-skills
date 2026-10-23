@@ -1,0 +1,708 @@
+{
+  "api_name": "connectwise-automate",
+  "base_url": "https://{server}/cwa/api/v1",
+  "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {CONNECTWISE_AUTOMATE_TOKEN}",
+    "in": "header",
+    "env_vars": [
+      "CONNECTWISE_AUTOMATE_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "CONNECTWISE_AUTOMATE_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://docs.connectwise.com/ConnectWise_Automate"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alerts_get",
+      "description": "Get a single alert by Id. Required: id. Returns the Alert.",
+      "method": "GET",
+      "path": "/Alerts/{alertId}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "alertId",
+          "type": "int",
+          "location": "path",
+          "description": "Alert Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_list",
+      "description": "List open alerts across all computers. Optional: page (default: 1), page-size (default: 100), condition (plus 1 more). Returns array of Alert.",
+      "method": "GET",
+      "path": "/Alerts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression, e.g. 'Priority\u003e=3'"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression"
+        }
+      ]
+    },
+    {
+      "name": "apitoken_mint",
+      "description": "Mint a bearer token from username + password (needs CONNECTWISE_AUTOMATE_SERVER + clientId header). Required: username, password. Optional: two-factor. Returns the new TokenResult. (public)",
+      "method": "POST",
+      "path": "/apitoken",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "username",
+          "wire_name": "UserName",
+          "type": "string",
+          "location": "body",
+          "description": "Automate username",
+          "required": true
+        },
+        {
+          "name": "password",
+          "wire_name": "Password",
+          "type": "string",
+          "location": "body",
+          "description": "Automate password",
+          "required": true
+        },
+        {
+          "name": "two-factor",
+          "wire_name": "TwoFactorPasscode",
+          "type": "string",
+          "location": "body",
+          "description": "2FA passcode (if enabled)"
+        }
+      ]
+    },
+    {
+      "name": "apitoken_refresh",
+      "description": "Refresh an existing (still-valid) bearer token. Required: token. Returns the new TokenResult.",
+      "method": "POST",
+      "path": "/apitoken/refresh",
+      "params": [
+        {
+          "name": "token",
+          "wire_name": "Token",
+          "type": "string",
+          "location": "body",
+          "description": "Current bearer token to refresh",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_get",
+      "description": "Get a single client by Id. Required: id. Returns the Client.",
+      "method": "GET",
+      "path": "/Clients/{clientId}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "clientId",
+          "type": "int",
+          "location": "path",
+          "description": "Client Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_list",
+      "description": "List all clients. Optional: page (default: 1), page-size (default: 100), condition (plus 1 more). Returns array of Client.",
+      "method": "GET",
+      "path": "/Clients",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression"
+        }
+      ]
+    },
+    {
+      "name": "commands_get",
+      "description": "Get a single command by Id. Required: id. Returns the Command.",
+      "method": "GET",
+      "path": "/Commands/{commandId}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "commandId",
+          "type": "int",
+          "location": "path",
+          "description": "Command Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "commands_list",
+      "description": "List all available commands. Optional: page (default: 1), page-size (default: 100), condition. Returns array of Command.",
+      "method": "GET",
+      "path": "/Commands",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        }
+      ]
+    },
+    {
+      "name": "computers_alerts",
+      "description": "Open alerts for one computer. Required: id. Returns array of Alert.",
+      "method": "GET",
+      "path": "/Computers/{computerId}/Alerts",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "computerId",
+          "type": "int",
+          "location": "path",
+          "description": "Computer Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_command-execute",
+      "description": "Execute a command on one computer (WRITE — runs a real command on the agent). Required: id, command-id. Optional: parameters. Returns the new CommandHistory.",
+      "method": "POST",
+      "path": "/Computers/{computerId}/CommandExecute",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "computerId",
+          "type": "int",
+          "location": "path",
+          "description": "Computer Id",
+          "required": true
+        },
+        {
+          "name": "command-id",
+          "wire_name": "CommandId",
+          "type": "int",
+          "location": "body",
+          "description": "Command Id (see `commands list`)",
+          "required": true
+        },
+        {
+          "name": "parameters",
+          "wire_name": "Parameters",
+          "type": "string",
+          "location": "body",
+          "description": "Command parameters string"
+        }
+      ]
+    },
+    {
+      "name": "computers_command-history",
+      "description": "Recent command execution history for one computer. Required: id. Returns array of CommandHistory.",
+      "method": "GET",
+      "path": "/Computers/{computerId}/CommandHistory",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "computerId",
+          "type": "int",
+          "location": "path",
+          "description": "Computer Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_get",
+      "description": "Get a single computer by Id. Required: id. Returns the Computer.",
+      "method": "GET",
+      "path": "/Computers/{computerId}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "computerId",
+          "type": "int",
+          "location": "path",
+          "description": "Computer Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_list",
+      "description": "List computers across the fleet (paginated, filterable). Optional: page (default: 1), page-size (default: 100), condition (plus 1 more). Returns array of Computer.",
+      "method": "GET",
+      "path": "/Computers",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression, e.g. 'Status='Online'' or 'Client.Name like '%Acme%''"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'ComputerName asc'"
+        }
+      ]
+    },
+    {
+      "name": "computers_patching-stats",
+      "description": "Patch installation statistics for one computer. Required: id. Returns the PatchingStats.",
+      "method": "GET",
+      "path": "/Computers/{computerId}/PatchingStats",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "computerId",
+          "type": "int",
+          "location": "path",
+          "description": "Computer Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_software",
+      "description": "Installed software inventory for one computer. Required: id. Returns array of Software.",
+      "method": "GET",
+      "path": "/Computers/{computerId}/Software",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "computerId",
+          "type": "int",
+          "location": "path",
+          "description": "Computer Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_list",
+      "description": "List all client contacts. Optional: page (default: 1), page-size (default: 100), condition. Returns array of Contact.",
+      "method": "GET",
+      "path": "/Contacts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a single group by Id. Required: id. Returns the Group.",
+      "method": "GET",
+      "path": "/Groups/{groupId}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "groupId",
+          "type": "int",
+          "location": "path",
+          "description": "Group Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "List all groups. Optional: page (default: 1), page-size (default: 100), condition. Returns array of Group.",
+      "method": "GET",
+      "path": "/Groups",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        }
+      ]
+    },
+    {
+      "name": "locations_get",
+      "description": "Get a single location by Id. Required: id. Returns the Location.",
+      "method": "GET",
+      "path": "/Locations/{locationId}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "locationId",
+          "type": "int",
+          "location": "path",
+          "description": "Location Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "locations_list",
+      "description": "List all locations. Optional: page (default: 1), page-size (default: 100), condition (plus 1 more). Returns array of Location.",
+      "method": "GET",
+      "path": "/Locations",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression"
+        }
+      ]
+    },
+    {
+      "name": "monitors_list",
+      "description": "List monitors with their alerting statistics. Optional: page (default: 1), page-size (default: 100), condition. Returns array of Monitor.",
+      "method": "GET",
+      "path": "/MonitorStatistics",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        }
+      ]
+    },
+    {
+      "name": "monitors_sensor-checks",
+      "description": "List sensor checks. Returns array of Monitor.",
+      "method": "GET",
+      "path": "/SensorChecks",
+      "params": []
+    },
+    {
+      "name": "network-devices_list",
+      "description": "List discovered network devices. Optional: page (default: 1), page-size (default: 100), condition. Returns array of NetworkDevice.",
+      "method": "GET",
+      "path": "/NetworkDevices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        }
+      ]
+    },
+    {
+      "name": "patching_approval-policies",
+      "description": "Patch approval policies. Returns array of PatchPolicy.",
+      "method": "GET",
+      "path": "/ApprovalPolicies",
+      "params": []
+    },
+    {
+      "name": "patching_deploy-approved",
+      "description": "Deploy all approved patches (WRITE — triggers fleet patch deployment). Optional: computer-ids. Returns the new PatchActionResult.",
+      "method": "POST",
+      "path": "/PatchActions/DeployAllApproved",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "ComputerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer Ids to target"
+        }
+      ]
+    },
+    {
+      "name": "patching_deploy-security",
+      "description": "Deploy all security patches (WRITE — triggers fleet patch deployment). Optional: computer-ids. Returns the new PatchActionResult.",
+      "method": "POST",
+      "path": "/PatchActions/DeployAllSecurity",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "ComputerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer Ids to target"
+        }
+      ]
+    },
+    {
+      "name": "patching_information",
+      "description": "Global patch information / catalog status. Returns array of PatchInformation.",
+      "method": "GET",
+      "path": "/PatchInformation",
+      "params": []
+    },
+    {
+      "name": "patching_list",
+      "description": "Fleet-wide patch installation history. Optional: page (default: 1), page-size (default: 100), condition (plus 1 more). Returns array of PatchHistory.",
+      "method": "GET",
+      "path": "/PatchHistory",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression"
+        }
+      ]
+    },
+    {
+      "name": "patching_microsoft-policies",
+      "description": "Microsoft update policies. Returns array of PatchPolicy.",
+      "method": "GET",
+      "path": "/MicrosoftUpdatePolicies",
+      "params": []
+    },
+    {
+      "name": "patching_reattempt-failed",
+      "description": "Reattempt failed patches (WRITE — retries failed patch installs). Optional: computer-ids. Returns the new PatchActionResult.",
+      "method": "POST",
+      "path": "/PatchActions/ReattemptFailed",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "ComputerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer Ids to target"
+        }
+      ]
+    },
+    {
+      "name": "patching_thirdparty-policies",
+      "description": "Third-party update policies. Returns array of PatchPolicy.",
+      "method": "GET",
+      "path": "/ThirdPartyUpdatePolicies",
+      "params": []
+    },
+    {
+      "name": "scripts_list",
+      "description": "List all scripts. Optional: page (default: 1), page-size (default: 100), condition. Returns array of Script.",
+      "method": "GET",
+      "path": "/Scripts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pagesize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (max 1000)"
+        },
+        {
+          "name": "condition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter expression"
+        }
+      ]
+    },
+    {
+      "name": "scripts_running",
+      "description": "List scripts currently running across the fleet. Returns array of RunningScript.",
+      "method": "GET",
+      "path": "/Scripting/RunningScripts",
+      "params": []
+    },
+    {
+      "name": "scripts_schedules",
+      "description": "List scheduled script runs. Returns array of ScriptSchedule.",
+      "method": "GET",
+      "path": "/Scripting/ScriptSchedules",
+      "params": []
+    },
+    {
+      "name": "server_db-time",
+      "description": "Current database server time. Returns the ServerTime.",
+      "method": "GET",
+      "path": "/DatabaseServerTime",
+      "params": []
+    },
+    {
+      "name": "server_info",
+      "description": "Server version and metadata. Returns the ServerInformation.",
+      "method": "GET",
+      "path": "/System/ServerInformation",
+      "params": []
+    }
+  ]
+}

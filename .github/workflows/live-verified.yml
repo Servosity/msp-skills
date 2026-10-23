@@ -166,12 +166,16 @@ jobs:
           SLUG: ${{ steps.parse.outputs.slug }}
           EVIDENCE: ${{ github.event.issue.html_url }}
           REPORTER: ${{ github.event.issue.user.login }}
+          REPORTED_AT: ${{ github.event.issue.created_at }}
         run: |
           set -euo pipefail
           # Credit the reporter (the MSP who confirmed it works) so the badge renders
           # honest attribution + the receipt link, not the generic maintainer default.
           # An array keeps the space in "@reporter (MSP)" correctly quoted.
-          args=(--slug "$SLUG" --source github --evidence "$EVIDENCE")
+          # --reported-at binds the badge to the newest release cut before the
+          # report (verify_live.py records its version and cli hash), so the
+          # catalog can say "verified on vX.Y.Z" once the shipped code moves on.
+          args=(--slug "$SLUG" --source github --evidence "$EVIDENCE" --reported-at "$REPORTED_AT")
           if [ -n "${REPORTER:-}" ]; then args+=(--verified-by "@${REPORTER} (MSP)"); fi
           python3 tools/maintainer/verify_live.py "${args[@]}"
 
@@ -187,6 +191,7 @@ jobs:
           ISSUE: ${{ github.event.issue.number }}
           EVIDENCE: ${{ github.event.issue.html_url }}
           REPORTER: ${{ github.event.issue.user.login }}
+          REPORTED_AT: ${{ github.event.issue.created_at }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -216,7 +221,7 @@ jobs:
             # badge flip), and set -e would kill the loop before the staged-diff
             # check below can conclude there is nothing left to push. The diff
             # check is the real gate.
-            args=(--slug "$SLUG" --source github --evidence "$EVIDENCE")
+            args=(--slug "$SLUG" --source github --evidence "$EVIDENCE" --reported-at "$REPORTED_AT")
             if [ -n "${REPORTER:-}" ]; then args+=(--verified-by "@${REPORTER} (MSP)"); fi
             python3 tools/maintainer/verify_live.py "${args[@]}" \
               || echo "verify_live returned non-zero (already verified?) - continuing to diff check"
@@ -269,6 +274,11 @@ jobs:
           # against `main`, so a shallow clone would report every connector as
           # never released.
           fetch-depth: 0
+          # main, not the event's commit: the flip job above has just pushed
+          # the badge with the version and cli hash it covers, and the event's
+          # commit predates that push (the comment would call the new badge
+          # unbound).
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5

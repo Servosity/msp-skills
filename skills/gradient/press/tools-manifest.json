@@ -1,0 +1,426 @@
+{
+  "api_name": "gradient",
+  "base_url": "https://app.usegradient.com/api",
+  "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "GRADIENT-TOKEN",
+    "in": "header",
+    "env_vars": [
+      "GRADIENT_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "GRADIENT_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_create",
+      "description": "Creates an account. Returns array of UpdateMappingPropertyResponse.",
+      "method": "POST",
+      "path": "/vendor-api/organization/accounts",
+      "params": []
+    },
+    {
+      "name": "accounts_list",
+      "description": "Get Organization Accounts. Optional: accountIds, returnUnmapped. Returns array of GetMappingPropertyResponse.",
+      "method": "GET",
+      "path": "/vendor-api/organization/accounts",
+      "params": [
+        {
+          "name": "accountIds",
+          "type": "array",
+          "location": "query",
+          "description": "Use to fetch specific accounts by id. Defaults to fetching all accounts."
+        },
+        {
+          "name": "returnUnmapped",
+          "type": "string",
+          "location": "query",
+          "description": "Use to only return mapped accounts. Defaults to true which returns all accounts."
+        }
+      ]
+    },
+    {
+      "name": "accounts_update",
+      "description": "Updates 1 or more fields per Account. Returns the updated UpdateMappingPropertyResponse.",
+      "method": "PATCH",
+      "path": "/vendor-api/organization/accounts",
+      "params": []
+    },
+    {
+      "name": "accounts_update-one",
+      "description": "Updates 1 or more fields of a single Account. Required: accountId. Optional: description, id, isActive (plus 2 more). Returns the updated UpdateMappingPropertyResponse.",
+      "method": "PATCH",
+      "path": "/vendor-api/organization/accounts/{accountId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Vendor accountId as provided in the POST request when creating the account.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "location": "body",
+          "description": "Is active"
+        },
+        {
+          "name": "isArrears",
+          "type": "bool",
+          "location": "body",
+          "description": "Is arrears"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "alerting_dispatch",
+      "description": "Adds an alert to the alerting queue. Required: accountId, alertId, description, priority (default: 1), status (default: 1), title. Optional: dueDateTime, serviceId. Returns the new AlertCreatedDto.",
+      "method": "POST",
+      "path": "/vendor-api/alerting/{accountId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Account id",
+          "required": true
+        },
+        {
+          "name": "alertId",
+          "type": "string",
+          "location": "body",
+          "description": "A unique identifier for the Alert.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "dueDateTime",
+          "type": "string",
+          "location": "body",
+          "description": "Due Date."
+        },
+        {
+          "name": "priority",
+          "type": "float",
+          "location": "body",
+          "description": "Priority which maps to Ticket. { 1: low, 2: medium, 3: high, 4: very_high }",
+          "required": true
+        },
+        {
+          "name": "serviceId",
+          "type": "string",
+          "location": "body",
+          "description": "Relevant Service associated to alert"
+        },
+        {
+          "name": "status",
+          "type": "float",
+          "location": "body",
+          "description": "Status which maps to Ticket.",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "Name of alert.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "billing_create",
+      "description": "Set route for adding new unit count for one account, and one service. Subsequent calls will debounce until calls are complete. After which billing views will update. Required: serviceId, unitCount. Optional: no_build, accountId, clientOId. Returns the new ResponseDto.",
+      "method": "POST",
+      "path": "/vendor-api/service/{serviceId}/count",
+      "params": [
+        {
+          "name": "serviceId",
+          "type": "string",
+          "location": "path",
+          "description": "Service id",
+          "required": true
+        },
+        {
+          "name": "no_build",
+          "type": "bool",
+          "location": "query",
+          "description": "Skip the billing rebuild for this call (defaults to false); use on all but the last call of a bulk push"
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "Unique Id provided by Vendor. Will be required for future versions."
+        },
+        {
+          "name": "clientOId",
+          "type": "string",
+          "location": "body",
+          "description": "DEPRECATED - Use accountId instead: Client Id provided by Gradient."
+        },
+        {
+          "name": "unitCount",
+          "type": "float",
+          "location": "body",
+          "description": "Unit count",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_list",
+      "description": "DEPRECATED - This route is used to get the Client data needed to handling mapping externally. Optional: search, previousId. Returns array of string.",
+      "method": "GET",
+      "path": "/vendor-api/organization/clients",
+      "params": [
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Search"
+        },
+        {
+          "name": "previousId",
+          "type": "string",
+          "location": "query",
+          "description": "guid of client"
+        }
+      ]
+    },
+    {
+      "name": "integration_get",
+      "description": "Preferred route for checking credentials. Returns the IntegrationData.",
+      "method": "GET",
+      "path": "/vendor-api/organization",
+      "params": []
+    },
+    {
+      "name": "integration_update-status",
+      "description": "Update the integration status for a partner. Set as pending when ready for inital mapping. Set as active when ready for sync. Required: status (default: active). Returns the updated UpdateIntegrationStatusResponse.",
+      "method": "PATCH",
+      "path": "/vendor-api/organization/status/{status}",
+      "params": [
+        {
+          "name": "status",
+          "type": "string",
+          "location": "path",
+          "description": "Status",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mappings_create",
+      "description": "Create Service for a Vendor for an Organization. Returns array of UpdateMappingPropertyResponse.",
+      "method": "POST",
+      "path": "/vendor-api/organization/services",
+      "params": []
+    },
+    {
+      "name": "mappings_update",
+      "description": "Updates 1 or more fields of a single Service. Required: serviceId. Optional: description, id, isActive (plus 2 more). Returns the updated UpdateMappingPropertyResponse.",
+      "method": "PATCH",
+      "path": "/vendor-api/organization/services/{serviceId}",
+      "params": [
+        {
+          "name": "serviceId",
+          "type": "string",
+          "location": "path",
+          "description": "Vendor serviceId as provided in the POST request when updating the service.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "location": "body",
+          "description": "Is active"
+        },
+        {
+          "name": "isArrears",
+          "type": "bool",
+          "location": "body",
+          "description": "Is arrears"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "mappings_update-bulk",
+      "description": "Updates 1 or more fields for each Service. Returns the updated UpdateMappingPropertyResponse.",
+      "method": "PATCH",
+      "path": "/vendor-api/organization/services",
+      "params": []
+    },
+    {
+      "name": "services_create",
+      "description": "Create Service for a Vendor. Required: category, description, name, subcategory. Optional: supportArticle, supportContact. Returns the new VendorData.",
+      "method": "POST",
+      "path": "/vendor-api/service",
+      "params": [
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "subcategory",
+          "type": "string",
+          "location": "body",
+          "description": "Subcategory",
+          "required": true
+        },
+        {
+          "name": "supportArticle",
+          "type": "string",
+          "location": "body",
+          "description": "Support article"
+        },
+        {
+          "name": "supportContact",
+          "type": "string",
+          "location": "body",
+          "description": "Support contact"
+        }
+      ]
+    },
+    {
+      "name": "services_get",
+      "description": "Retrieves Vendor with VendorSku[] filtered by service id. Required: serviceId. Returns the GetServiceResponse.",
+      "method": "GET",
+      "path": "/vendor-api/service/{serviceId}",
+      "params": [
+        {
+          "name": "serviceId",
+          "type": "string",
+          "location": "path",
+          "description": "Service id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ticket_events_check",
+      "description": "Checks for a ticket Event with the provided messageId to have created a ticket in the PSA. Required: messageId. Returns array of string.",
+      "method": "GET",
+      "path": "/vendor-api/alerting/debug/{messageId}",
+      "params": [
+        {
+          "name": "messageId",
+          "type": "string",
+          "location": "path",
+          "description": "Message id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vendor_get",
+      "description": "Get Vendor Details. Returns the GetVendorResponse.",
+      "method": "GET",
+      "path": "/vendor-api",
+      "params": []
+    },
+    {
+      "name": "vendor_update",
+      "description": "Update details for a vendor. Optional: description, integrationPortalUrl, name (plus 1 more). Returns the updated UpdateVendorResponse.",
+      "method": "PATCH",
+      "path": "/vendor-api",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "integrationPortalUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Integration portal url"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "vendorSupportPageUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Vendor support page url"
+        }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/abnormal/"
     },
     {
@@ -21,6 +23,8 @@
       "verified_by": "@asterisk79 (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/325",
+      "verified_version": "0.1.4",
+      "verified_code": "changed",
       "url": "/skills/acronis/"
     },
     {
@@ -32,6 +36,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/action1/"
     },
     {
@@ -43,6 +49,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/afi/"
     },
     {
@@ -54,6 +62,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/appdirect/"
     },
     {
@@ -65,6 +75,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/atera/"
     },
     {
@@ -76,6 +88,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/autotask/"
     },
     {
@@ -87,6 +101,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/auvik/"
     },
     {
@@ -98,6 +114,8 @@
       "verified_by": "@geekbrownbear (Bearium Networks, MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/pull/271",
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/avanan/"
     },
     {
@@ -109,6 +127,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/aws-billing/"
     },
     {
@@ -120,6 +140,8 @@
       "verified_by": "@Xenith-B (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
+      "verified_version": "0.2.8",
+      "verified_code": "changed",
       "url": "/skills/axcient/"
     },
     {
@@ -131,6 +153,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/backup-radar/"
     },
     {
@@ -142,6 +166,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/betterstack/"
     },
     {
@@ -153,6 +179,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/bitdefender/"
     },
     {
@@ -164,6 +192,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/blumira/"
     },
     {
@@ -175,6 +205,8 @@
       "verified_by": "Abhi Saini, Bearium Networks (MSP)",
       "source": "circle",
       "issue_url": "https://compoundingteams.com/",
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/cipp/"
     },
     {
@@ -186,6 +218,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/cisco-duo/"
     },
     {
@@ -197,6 +231,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/cisco-meraki/"
     },
     {
@@ -208,6 +244,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/connectsecure/"
     },
     {
@@ -219,6 +257,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/connectwise-automate/"
     },
     {
@@ -230,6 +270,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/connectwise-control/"
     },
     {
@@ -241,6 +283,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/connectwise-manage/"
     },
     {
@@ -252,6 +296,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/connectwise-rmm/"
     },
     {
@@ -263,6 +309,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/cork/"
     },
     {
@@ -274,6 +322,8 @@
       "verified_by": "@AvlCompCo (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/139",
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/cove/"
     },
     {
@@ -285,6 +335,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/crowdstrike/"
     },
     {
@@ -296,6 +348,8 @@
       "verified_by": null,
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/329",
+      "verified_version": "0.1.0",
+      "verified_code": "changed",
       "url": "/skills/datagate/"
     },
     {
@@ -307,6 +361,8 @@
       "verified_by": "Abhi Saini, Bearium Networks (MSP)",
       "source": "circle",
       "issue_url": "https://compoundingteams.com/",
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/datto-bcdr/"
     },
     {
@@ -318,6 +374,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/datto-rmm/"
     },
     {
@@ -329,6 +387,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/domotz/"
     },
     {
@@ -340,6 +400,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/fortinet/"
     },
     {
@@ -351,6 +413,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/google-workspace/"
     },
     {
@@ -362,6 +426,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/gradient/"
     },
     {
@@ -373,6 +439,8 @@
       "verified_by": "Servosity (maintainer)",
       "source": "self",
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/halopsa/"
     },
     {
@@ -384,6 +452,8 @@
       "verified_by": "Servosity (maintainer)",
       "source": "self",
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/hubspot/"
     },
     {
@@ -395,6 +465,8 @@
       "verified_by": "@Xenith-B (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/183",
+      "verified_version": "0.1.5",
+      "verified_code": "changed",
       "url": "/skills/hudu/"
     },
     {
@@ -406,6 +478,8 @@
       "verified_by": "@Xenith-B (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/144",
+      "verified_version": "0.1.0",
+      "verified_code": "changed",
       "url": "/skills/huntress/"
     },
     {
@@ -417,6 +491,8 @@
       "verified_by": "@geekbrownbear (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/pull/276",
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/immybot/"
     },
     {
@@ -428,6 +504,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/itglue/"
     },
     {
@@ -439,6 +517,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/jira-service-management/"
     },
     {
@@ -450,6 +530,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/kaseya-bms/"
     },
     {
@@ -461,6 +543,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/knowbe4/"
     },
     {
@@ -472,6 +556,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/levelio/"
     },
     {
@@ -483,6 +569,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/liongard/"
     },
     {
@@ -494,6 +582,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/maxio/"
     },
     {
@@ -505,6 +595,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/microsoft-graph/"
     },
     {
@@ -516,6 +608,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/mspbots/"
     },
     {
@@ -527,6 +621,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/n-central/"
     },
     {
@@ -538,6 +634,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/nerdio/"
     },
     {
@@ -549,6 +647,8 @@
       "verified_by": "@Xenith-B (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/145",
+      "verified_version": "0.1.4",
+      "verified_code": "changed",
       "url": "/skills/ninjaone/"
     },
     {
@@ -560,6 +660,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/pagerduty/"
     },
     {
@@ -571,6 +673,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/pandadoc/"
     },
     {
@@ -582,6 +686,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/pax8/"
     },
     {
@@ -593,6 +699,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/pipedrive/"
     },
     {
@@ -604,6 +712,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/proofpoint/"
     },
     {
@@ -615,6 +725,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/proxmox/"
     },
     {
@@ -626,6 +738,8 @@
       "verified_by": null,
       "source": "self",
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/quickbooks/"
     },
     {
@@ -637,6 +751,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/quotewerks/"
     },
     {
@@ -648,6 +764,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/resourceguru/"
     },
     {
@@ -659,6 +777,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/rewst/"
     },
     {
@@ -670,6 +790,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/riverside-fm/"
     },
     {
@@ -681,6 +803,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/rocketcyber/"
     },
     {
@@ -692,6 +816,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/rootly/"
     },
     {
@@ -703,6 +829,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/runzero/"
     },
     {
@@ -714,6 +842,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/saas-alerts/"
     },
     {
@@ -725,6 +855,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/salesbuildr/"
     },
     {
@@ -736,6 +868,8 @@
       "verified_by": null,
       "source": "github",
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/sentinelone/"
     },
     {
@@ -747,6 +881,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/servosity/"
     },
     {
@@ -758,6 +894,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/sherweb/"
     },
     {
@@ -769,6 +907,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/skykick/"
     },
     {
@@ -780,6 +920,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/sonicwall/"
     },
     {
@@ -791,6 +933,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/sophos-central/"
     },
     {
@@ -802,6 +946,8 @@
       "verified_by": "@AvlCompCo (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/140",
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/superops/"
     },
     {
@@ -813,6 +959,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/syncro/"
     },
     {
@@ -824,6 +972,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/tactical-rmm/"
     },
     {
@@ -835,6 +985,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/td-synnex/"
     },
     {
@@ -846,6 +998,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/threatdown/"
     },
     {
@@ -857,6 +1011,8 @@
       "verified_by": "@geekbrownbear (MSP)",
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/208",
+      "verified_version": "0.2.0",
+      "verified_code": "changed",
       "url": "/skills/threatlocker/"
     },
     {
@@ -868,6 +1024,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/unifi-network/"
     },
     {
@@ -879,6 +1037,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/veeam/"
     },
     {
@@ -890,6 +1050,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/watchguard/"
     },
     {
@@ -901,6 +1063,8 @@
       "verified_by": "Servosity (maintainer)",
       "source": "self",
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/wordpress/"
     },
     {
@@ -912,6 +1076,8 @@
       "verified_by": null,
       "source": null,
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
       "url": "/skills/xero/"
     },
     {
@@ -923,6 +1089,8 @@
       "verified_by": "Servosity (maintainer)",
       "source": "self",
       "issue_url": null,
+      "verified_version": null,
+      "verified_code": "unknown",
       "url": "/skills/zammad/"
     }
   ],

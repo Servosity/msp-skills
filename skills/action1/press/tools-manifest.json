@@ -1,0 +1,4512 @@
+{
+  "api_name": "action1",
+  "base_url": "https://app.action1.com/api/3.0",
+  "description": "This specification defines Action1 RESTful API for integrations. With this API, you can query managed endpoints, list vulnerabilities and missing updates, generate reports, create and launch automations and more. Use this API to integrate your applications with Action1. For simplified API scripting experience, we recommend using [PSAction1](https://www.action1.com/psaction1/)",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "ACTION1_OAUTH2"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ACTION1_OAUTH2",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "audit_events-get",
+      "description": "**Requires permission: `view_audit`** 'The Audit Trail contains event records associated with user actions, such as logins, remote access, changes to configuration, and API usage.'. Optional: event, timefrom, timeto (plus 5 more). Returns array of AuditEvent.",
+      "method": "GET",
+      "path": "/audit/events",
+      "params": [
+        {
+          "name": "event",
+          "type": "string",
+          "location": "query",
+          "description": "The list of comma-separated event names to include. Currently supported events: Login, Remote Connect, Remote Disconnect, Create User, Create SoftwareRepositoryPackage, View Report, Download Agent, Download Deployer, Search, Export Report, POST, GET, PATCH, and DELETE"
+        },
+        {
+          "name": "timefrom",
+          "type": "string",
+          "location": "query",
+          "description": "The start date and time in the following format: YYYY-MM-DD_HH-MM-SS"
+        },
+        {
+          "name": "timeto",
+          "type": "string",
+          "location": "query",
+          "description": "The end date and time in the following format: YYYY-MM-DD_HH-MM-SS"
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "from_id",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the sequential ID of the first record to be returned."
+        }
+      ]
+    },
+    {
+      "name": "audit_events-id-get",
+      "description": "**Requires permission: `view_audit`** Get a specific audit record by its ID. Required: id. Returns the AuditEvent.",
+      "method": "GET",
+      "path": "/audit/events/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of an event.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_export-get",
+      "description": "**Requires permission: `view_audit`** Exports audit data. Use parameters to filter out exported data. The only currently supported format is 'csv'. Optional: event, timefrom, timeto (plus 6 more).",
+      "method": "GET",
+      "path": "/audit/export",
+      "params": [
+        {
+          "name": "event",
+          "type": "string",
+          "location": "query",
+          "description": "The list of comma-separated event names to include. Currently supported events: Login, Remote Connect, Remote Disconnect, Create User, Create SoftwareRepositoryPackage, View Report, Download Agent, Download Deployer, Search, Export Report, POST, GET, PATCH, and DELETE"
+        },
+        {
+          "name": "timefrom",
+          "type": "string",
+          "location": "query",
+          "description": "The start date and time in the following format: YYYY-MM-DD_HH-MM-SS"
+        },
+        {
+          "name": "timeto",
+          "type": "string",
+          "location": "query",
+          "description": "The end date and time in the following format: YYYY-MM-DD_HH-MM-SS"
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "from_id",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the sequential ID of the first record to be returned."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the report format."
+        }
+      ]
+    },
+    {
+      "name": "automations_actions-templates-get",
+      "description": "Gets a list of existing action templates. Optional: applicable_to. Returns array of ActionTemplate.",
+      "method": "GET",
+      "path": "/automations/action-templates",
+      "params": [
+        {
+          "name": "applicable_to",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the context (URL) for an action template. For example, '/API/installed-software'."
+        }
+      ]
+    },
+    {
+      "name": "automations_actions-templates-template-id-get",
+      "description": "Gets details for an action template specified by its ID. Required: templateId. Returns array of string.",
+      "method": "GET",
+      "path": "/automations/action-templates/{templateId}",
+      "params": [
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific setting template ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-instances-org-id-get",
+      "description": "**Requires permission: `view_automations`** Gets a list of running and completed automations for the specified organization. Required: orgId. Optional: from, limit, sortby (plus 4 more). Returns array of AutomationsPoliciesInstancesOrgIdGetItem.",
+      "method": "GET",
+      "path": "/automations/instances/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the status."
+        },
+        {
+          "name": "completed",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the completion status of the automation schedule."
+        },
+        {
+          "name": "endpoint_id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the endpoint to query."
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-instances-org-id-id-get",
+      "description": "**Requires permission: `view_automations`** Gets details about a automation instance specified by its ID. Required: orgId, automationId. Returns the AutomationInstance.",
+      "method": "GET",
+      "path": "/automations/instances/{orgId}/{automationId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "automationId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific automation ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-instances-org-id-instance-id-endpoint-results-endpoint-id-details-get",
+      "description": "**Requires permission: `view_automations`** Gets details about the automation instance applied to an endpoint specified by its ID. Required: orgId, instanceId, endpointId. Returns array of AutomationInstanceEndpointDetail.",
+      "method": "GET",
+      "path": "/automations/instances/{orgId}/{instanceId}/endpoint-results/{endpointId}/details",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "instanceId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific instance ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-instances-org-id-instance-id-endpoint-results-get",
+      "description": "**Requires permission: `view_automations`** Gets a list of endpoints where the automation instance is being applied or has been executed. Required: orgId, instanceId. Optional: from, limit, sortby (plus 2 more). Returns array of AutomationInstanceEndpoint.",
+      "method": "GET",
+      "path": "/automations/instances/{orgId}/{instanceId}/endpoint-results",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "instanceId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific instance ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "last_status",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the last status of the automation instance."
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-instances-org-id-instance-id-stop-post",
+      "description": "**Requires permission: `manage_automations`** Stops applying a automation instance and aborts actions running on a remote endpoint. Required: orgId, instanceId. Returns the new Success.",
+      "method": "POST",
+      "path": "/automations/instances/{orgId}/{instanceId}/stop",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "instanceId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific instance ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-instances-org-id-post",
+      "description": "**Requires permission: `run_automations`** Immediately runs an instance of the automation on the specified endpoints in the specified organization. This call will fail if 'orgId' is set to 'all'. Required: orgId, actions, endpoints, name, retry_minutes. Returns the new AutomationInstance.",
+      "method": "POST",
+      "path": "/automations/instances/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "body",
+          "description": "One automation can contain multiple actions.",
+          "required": true
+        },
+        {
+          "name": "endpoints",
+          "type": "array",
+          "location": "body",
+          "description": "IDs of endpoints and/or groups to run this batch on.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The automation name.",
+          "required": true
+        },
+        {
+          "name": "retry_minutes",
+          "type": "string",
+          "location": "body",
+          "description": "The number of minutes to keep trying to run on disconnected/powered off endpoints.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-get",
+      "description": "**Requires permission: `view_automations`** Lists existing scheduled automations. Use parameters to filter out automations in the returned results. Required: orgId. Optional: from, limit, sortby (plus 1 more). Returns array of AutomationSchedule.",
+      "method": "GET",
+      "path": "/automations/schedules/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-id-actions-action-id-delete",
+      "description": "**Requires permission: `manage_automations`** Deletes a specified action from a scheduled automation. Required: orgId, automationId, actionId. Returns array of string. Destructive.",
+      "method": "DELETE",
+      "path": "/automations/schedules/{orgId}/{automationId}/actions/{actionId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "automationId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific automation ID.",
+          "required": true
+        },
+        {
+          "name": "actionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific action ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-id-delete",
+      "description": "**Requires permission: `manage_automations`** Deletes a scheduled automation specified by its ID. Required: orgId, automationId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/automations/schedules/{orgId}/{automationId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "automationId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific automation ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-id-deployment-statuses-get",
+      "description": "**Requires permission: `view_automations`** Gets the deployment statuses of a automation specified by its ID. Required: orgId, automationId. Returns array of AutomationsPoliciesSchedulesOrgIdIdDeploymentStatusesGetItem.",
+      "method": "GET",
+      "path": "/automations/schedules/{orgId}/{automationId}/deployment-statuses",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "automationId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific automation ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-id-get",
+      "description": "**Requires permission: `view_automations`** Gets a scheduled automation specified by its ID. Required: orgId, automationId. Returns array of AutomationsPoliciesSchedulesOrgIdIdGetItem.",
+      "method": "GET",
+      "path": "/automations/schedules/{orgId}/{automationId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "automationId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific automation ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-id-patch",
+      "description": "**Requires permission: `manage_automations`** Modifies the automation schedule settings and parameters of one of the actions included in the automation. Required: orgId, automationId, actions, name, retry_minutes, settings. Optional: endpoints, settings_timezone (default: UTC). Returns array of AutomationsPoliciesSchedulesOrgIdIdPatchItem.",
+      "method": "PATCH",
+      "path": "/automations/schedules/{orgId}/{automationId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "automationId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific automation ID.",
+          "required": true
+        },
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "body",
+          "description": "One automation can contain multiple actions.",
+          "required": true
+        },
+        {
+          "name": "endpoints",
+          "type": "array",
+          "location": "body",
+          "description": "IDs of endpoints and/or groups to run this batch on."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The automation name.",
+          "required": true
+        },
+        {
+          "name": "retry_minutes",
+          "type": "string",
+          "location": "body",
+          "description": "The number of minutes to keep trying to run on disconnected/powered off endpoints.",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "string",
+          "location": "body",
+          "description": "- ONCE – apply only once on a specified DATE and AT a specified time.",
+          "required": true
+        },
+        {
+          "name": "settings_timezone",
+          "type": "string",
+          "location": "body",
+          "description": "The time zone for automation execution: - UTC - the automation will execute at the same time in Coordinated Universal Time (UTC). - LOCALTIME - the automation will execute based on the local time of each endpoint."
+        }
+      ]
+    },
+    {
+      "name": "automations_policies-schedules-org-id-post",
+      "description": "**Requires permission: `manage_automations`** Schedules a new automation. The automation will be executed against a specified list of endpoints in the specified organization. Required: orgId, actions, name, retry_minutes, settings. Optional: endpoints, settings_timezone (default: UTC). Returns array of AutomationsPoliciesSchedulesOrgIdPostItem.",
+      "method": "POST",
+      "path": "/automations/schedules/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "body",
+          "description": "One automation can contain multiple actions.",
+          "required": true
+        },
+        {
+          "name": "endpoints",
+          "type": "array",
+          "location": "body",
+          "description": "IDs of endpoints and/or groups to run this batch on."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The automation name.",
+          "required": true
+        },
+        {
+          "name": "retry_minutes",
+          "type": "string",
+          "location": "body",
+          "description": "The number of minutes to keep trying to run on disconnected/powered off endpoints.",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "string",
+          "location": "body",
+          "description": "- ONCE – apply only once on a specified DATE and AT a specified time.",
+          "required": true
+        },
+        {
+          "name": "settings_timezone",
+          "type": "string",
+          "location": "body",
+          "description": "The time zone for automation execution: - UTC - the automation will execute at the same time in Coordinated Universal Time (UTC). - LOCALTIME - the automation will execute based on the local time of each endpoint."
+        }
+      ]
+    },
+    {
+      "name": "cve-descriptions_cve-id-get",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves detailed information about a specific vulnerability in general, not within a context of any organization. This includes the Common Vulnerabilities and Exposures (CVE) details such as the CVSS score, attack vector, severity, and other relevant attributes. This information provides a comprehensive overview of the vulnerability, aiding in understanding its nature and potential impact. Required: cveId. Returns the CveDescription.",
+      "method": "GET",
+      "path": "/CVE-descriptions/{cveId}",
+      "params": [
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "data-sources_all-post",
+      "description": "**Requires permission: `manage_data_sources`** Creates a new custom data source. At this time, all data sources are enterprise-wide. Required: columns, description, language, name, script_text, status. Returns the new DataSource.",
+      "method": "POST",
+      "path": "/data-sources/all",
+      "params": [
+        {
+          "name": "columns",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of data source output columns.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The data source description.",
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "The language for querying data.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the data source.",
+          "required": true
+        },
+        {
+          "name": "script_text",
+          "type": "string",
+          "location": "body",
+          "description": "The script text.",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "This parameter is currently deferred. Later on, it will be possible to save custom data sources as drafts.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "data-sources_org-id-get",
+      "description": "**Requires one of the following permissions: `manage_data_sources`, `manage_reports`** Gets a list of existing data sources. To filter out built-in data sources, set the 'builtin' parameter to 'yes'. For custom, set 'builtin' to 'no'. Optional: builtin. Returns array of DataSource.",
+      "method": "GET",
+      "path": "/data-sources/all",
+      "params": [
+        {
+          "name": "builtin",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is builtin (yes) or custom (no)."
+        }
+      ]
+    },
+    {
+      "name": "data-sources_org-id-id-delete",
+      "description": "**Requires permission: `manage_data_sources`** Deletes an existing custom data source. Note that you cannot remove built-in data sources. At this time, all data sources are enterprise-wide. The 'orgId' has to be set to 'all'. Required: dataSourceId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/data-sources/all/{dataSourceId}",
+      "params": [
+        {
+          "name": "dataSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific data source ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "data-sources_org-id-id-get",
+      "description": "**Requires one of the following permissions: `manage_data_sources`, `manage_reports`** Gets details about a specific data source. At this time, all data sources are enterprise-wide. The 'orgId' has to be set to 'all'. Required: dataSourceId. Returns the DataSource.",
+      "method": "GET",
+      "path": "/data-sources/all/{dataSourceId}",
+      "params": [
+        {
+          "name": "dataSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific data source ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "data-sources_org-id-id-patch",
+      "description": "**Requires permission: `manage_data_sources`** Updates a custom data source specified by its ID. At this time, all data sources are enterprise-wide. The 'orgId' has to be set to 'all'. Required: dataSourceId. Optional: columns, description, language (plus 3 more). Returns the updated DataSource.",
+      "method": "PATCH",
+      "path": "/data-sources/all/{dataSourceId}",
+      "params": [
+        {
+          "name": "dataSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific data source ID.",
+          "required": true
+        },
+        {
+          "name": "columns",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of data source output columns."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The data source description."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "The language for querying data."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the data source."
+        },
+        {
+          "name": "script_text",
+          "type": "string",
+          "location": "body",
+          "description": "The script text."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "This parameter is currently deferred. Later on, it will be possible to save custom data sources as drafts."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_agent-installation",
+      "description": "**Requires permission: `manage_endpoints`** In order to manage an endpoint, the Action1 agent needs to be installed on it first. Agent binary files are specific to each organization. Use this call to obtain a URL to download the agent installation file for a specific organization and agent type. Required: orgId, installType (default: WindowsMSI). Returns the EndpointsAgentInstallationResponse.",
+      "method": "GET",
+      "path": "/endpoints/agent-installation/{orgId}/{installType}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "installType",
+          "type": "string",
+          "location": "path",
+          "description": "The install type.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_connector-installation-org-id-windows-exe-get",
+      "description": "**Requires permission: `manage_endpoints`** Obtains an URL to download the Deployer installation file. The Action1 Deployer installation files are specific to each organization. The Deployer services currently run on Windows only. Required: orgId. Returns the EndpointsConnectorInstallationOrgIdWindowsExeGetResponse.",
+      "method": "GET",
+      "path": "/endpoints/deployer-installation/{orgId}/windowsEXE",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_connectors-org-id-deployer-id-delete",
+      "description": "**Requires permission: `manage_endpoints`** In rare cases it is impossible to uninstall the Action1 Deployer (a computer it was deployed on was removed from the organization, OS reinstalled, etc.). Use this call to delete the Deployer object without uninstalling the service. Fails if the Deployer status is not 'Pending Install' (you must try to uninstall the Deployer first via POST '/API/endpoints/deployers/{org-id}/{deployer-id}/uninstall)''. Required: orgId, deployerId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/endpoints/deployers/{orgId}/{deployerId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "deployerId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific deployer ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_connectors-org-id-deployer-id-get",
+      "description": "**Requires permission: `manage_endpoints`** Obtains the current information about the specified Action1 Deployer service. Required: orgId, deployerId. Returns the Deployer.",
+      "method": "GET",
+      "path": "/endpoints/deployers/{orgId}/{deployerId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "deployerId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific deployer ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_connectors-org-id-get",
+      "description": "**Requires permission: `manage_endpoints`** Lists all Action1 Deployer services in the specified organization. Use parameters to filter returned results. Required: orgId. Optional: status, filter, sortby (plus 4 more). Returns array of Deployer.",
+      "method": "GET",
+      "path": "/endpoints/deployers/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the status."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "os",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by operation system."
+        },
+        {
+          "name": "installed_since",
+          "type": "string",
+          "location": "query",
+          "description": "Enter the installation date."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_discovery-org-id-get",
+      "description": "**Requires permission: `manage_endpoints`** Obtains the current Agent Deployment settings in a specified organization. If 'orgId' is to 'all', the call will fail. Required: orgId. Returns the AgentDeployment.",
+      "method": "GET",
+      "path": "/endpoints/agent-deployment/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_discovery-org-id-patch",
+      "description": "**Requires permission: `manage_endpoints`** Updates the Agent Deployment configuration for a specific organization. Required: orgId. Optional: ad_domain, computer_list, domain_name (plus 5 more). Returns the updated AgentDeployment.",
+      "method": "PATCH",
+      "path": "/endpoints/agent-deployment/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "ad_domain",
+          "type": "string",
+          "location": "body",
+          "description": "1 – AD domain, 0 – computer list."
+        },
+        {
+          "name": "computer_list",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of computers."
+        },
+        {
+          "name": "domain_name",
+          "type": "string",
+          "location": "body",
+          "description": "A comma-separated list of AD domains.'"
+        },
+        {
+          "name": "exclude_DCs",
+          "type": "string",
+          "location": "body",
+          "description": "A setting to exclude domain controllers from discovery by Action1 Deployment."
+        },
+        {
+          "name": "exclude_computer_list",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Excluded machines."
+        },
+        {
+          "name": "exclude_computer_list_enabled",
+          "type": "string",
+          "location": "body",
+          "description": "A setting to exclude certain machines from discovery by Action1 Deployment."
+        },
+        {
+          "name": "exclude_servers",
+          "type": "string",
+          "location": "body",
+          "description": "A setting to exclude servers from discovery by Action1 Deployment."
+        },
+        {
+          "name": "exclude_workstations",
+          "type": "string",
+          "location": "body",
+          "description": "A setting to exclude workstations from discovery by Action1 Deployment."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups",
+      "description": "**Requires permission: `manage_endpoints`** Creates a new endpoint group within the specified organization. ('include_filter':[…] and 'exclude_filter':[…] -- can be omitted upon creation.). Required: orgId, name. Optional: description, exclude_filter, exclude_filter_logic (plus 3 more). Returns the new EndpointGroup.",
+      "method": "POST",
+      "path": "/endpoints/groups/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The group description."
+        },
+        {
+          "name": "exclude_filter",
+          "type": "array",
+          "location": "body",
+          "description": "The list of endpoint exclusion filters. By default, the filters are combined via OR unless exclude_filter_logic is specified. Filters exclude those endpoints that were added through the **include_filter**."
+        },
+        {
+          "name": "exclude_filter_logic",
+          "type": "string",
+          "location": "body",
+          "description": "Filter logic Boolean expression for group's exclusion filters using 1-based filter position mentions in the exclude_filters array."
+        },
+        {
+          "name": "include_filter",
+          "type": "array",
+          "location": "body",
+          "description": "The list of endpoint inclusion filters. By default, the filters are combined via OR unless include_filter_logic is specified."
+        },
+        {
+          "name": "include_filter_logic",
+          "type": "string",
+          "location": "body",
+          "description": "Filter logic Boolean expression for group's inclusion filters using 1-based filter position mentions in the include_filters array"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The group name.",
+          "required": true
+        },
+        {
+          "name": "uptime_alerts",
+          "type": "string",
+          "location": "body",
+          "description": "Uptime alerts"
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups-group-id",
+      "description": "**Requires permission: `view_endpoints`** Gets a specific endpoint group by its ID. Required: orgId, groupId. Returns the EndpointGroup.",
+      "method": "GET",
+      "path": "/endpoints/groups/{orgId}/{groupId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint group ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups-group-id-contents-get",
+      "description": "**Requires permission: `view_endpoints`** Lists all endpoints included in the specified group. Use parameters to filter the returned results. Required: orgId, groupId. Optional: limit, from, sortby (plus 8 more). Returns array of EndpointInGroup.",
+      "method": "GET",
+      "path": "/endpoints/groups/{orgId}/{groupId}/contents",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint group ID.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Some API requests support the optional 'fields' parameter that specifies which object (resource) fields to retrieve. This parameter was introduced for efficiency purposes. Certain API requests return less detail much faster. Certain object fields, such as summary counts, take a lot more time to calculate (sometimes 10-20x longer) and are retrieved only with explicitly specified."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by online status."
+        },
+        {
+          "name": "online_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by last seen online status."
+        },
+        {
+          "name": "update_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by update status."
+        },
+        {
+          "name": "vulnerability_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by vulnerability status."
+        },
+        {
+          "name": "reboot_required",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by reboot requirement of the endpoint."
+        },
+        {
+          "name": "os",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by operation system."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups-group-id-contents-post",
+      "description": "**Requires permission: `manage_endpoints`** Joins endpoints with specified IDs or names to the endpoint group. Removes endpoints with specific IDs. If the specified endpoint is already in the group via filters, its 'added_via' attribute will be updated to 'manual' (from 'criteria') and the call will succeed. Required: orgId, groupId. Returns the new ExtendedSuccess.",
+      "method": "POST",
+      "path": "/endpoints/groups/{orgId}/{groupId}/contents",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint group ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups-group-id-delete",
+      "description": "**Requires permission: `manage_endpoints`** Deletes an existing group in the specified organization. Required: orgId, groupId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/endpoints/groups/{orgId}/{groupId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint group ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups-group-id-patch",
+      "description": "**Requires permission: `manage_endpoints`** Changes settings for an existing endpoint group in the specified organization. If certain fields are not specified in the object you submit, they won't get changed. I.e., you can just change the group name without changing the group filters. Required: orgId, groupId. Optional: description, exclude_filter, exclude_filter_logic (plus 4 more). Returns the updated EndpointGroup.",
+      "method": "PATCH",
+      "path": "/endpoints/groups/{orgId}/{groupId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint group ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The group description."
+        },
+        {
+          "name": "exclude_filter",
+          "type": "array",
+          "location": "body",
+          "description": "The list of endpoint exclusion filters. By default, the filters are combined via OR unless exclude_filter_logic is specified. Filters exclude those endpoints that were added through the **include_filter**."
+        },
+        {
+          "name": "exclude_filter_logic",
+          "type": "string",
+          "location": "body",
+          "description": "Filter logic Boolean expression for group's exclusion filters using 1-based filter position mentions in the exclude_filters array."
+        },
+        {
+          "name": "include_filter",
+          "type": "array",
+          "location": "body",
+          "description": "The list of endpoint inclusion filters. By default, the filters are combined via OR unless include_filter_logic is specified."
+        },
+        {
+          "name": "include_filter_logic",
+          "type": "string",
+          "location": "body",
+          "description": "Filter logic Boolean expression for group's inclusion filters using 1-based filter position mentions in the include_filters array"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The group name."
+        },
+        {
+          "name": "uptime_alerts",
+          "type": "string",
+          "location": "body",
+          "description": "Uptime alerts"
+        }
+      ]
+    },
+    {
+      "name": "endpoints_groups-org-id",
+      "description": "**Requires permission: `view_endpoints`** Lists existing endpoint groups. Use filters and narrow down and sort the returned results. Required: orgId. Optional: filter, sortby, from (plus 1 more). Returns array of EndpointGroup.",
+      "method": "GET",
+      "path": "/endpoints/groups/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed",
+      "description": "**Requires permission: `view_endpoints`** Lists all endpoints within the organization. Use filters to narrow down returned results. Required: orgId. Optional: limit, from, sortby (plus 9 more). Returns array of Endpoint.",
+      "method": "GET",
+      "path": "/endpoints/managed/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Some API requests support the optional 'fields' parameter that specifies which object (resource) fields to retrieve. This parameter was introduced for efficiency purposes. Certain API requests return less detail much faster. Certain object fields, such as summary counts, take a lot more time to calculate (sometimes 10-20x longer) and are retrieved only with explicitly specified."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by online status."
+        },
+        {
+          "name": "online_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by last seen online status."
+        },
+        {
+          "name": "update_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by update status."
+        },
+        {
+          "name": "vulnerability_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by vulnerability status."
+        },
+        {
+          "name": "reboot_required",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by reboot requirement of the endpoint."
+        },
+        {
+          "name": "os",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by operation system."
+        },
+        {
+          "name": "reset_cache",
+          "type": "string",
+          "location": "query",
+          "description": "Reset current cache."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id",
+      "description": "**Requires permission: `view_endpoints`** Obtains current information about the endpoint with the specified ID. Required: orgId, endpointId. Returns the Endpoint.",
+      "method": "GET",
+      "path": "/endpoints/managed/{orgId}/{endpointId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-delete",
+      "description": "**Requires permission: `manage_endpoints`** Removes a specified endpoint and attempts to uninstall its agent. Required: orgId, endpointId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/endpoints/managed/{orgId}/{endpointId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-missing-updates",
+      "description": "**Requires permission: `view_endpoints`** Obtains a list of missing software updates for a specific endpoint. Use filters to narrow down the returned results. Required: orgId, endpointId. Optional: limit, from, sortby (plus 3 more). Returns array of EndpointsManagedIdMissingUpdatesItem.",
+      "method": "GET",
+      "path": "/endpoints/managed/{orgId}/{endpointId}/missing-updates",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "approval_status",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the update status."
+        },
+        {
+          "name": "security_severity",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the severity level, e.g., security_severity=-Critical (for all non-critical)."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-move",
+      "description": "**Requires permission: `manage_endpoints`** Moves the endpoint to another organization. Required: orgId, endpointId, target_organization_id. Returns the new Endpoint.",
+      "method": "POST",
+      "path": "/endpoints/managed/{orgId}/{endpointId}/move",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "target_organization_id",
+          "type": "string",
+          "location": "body",
+          "description": "The organization where the endpoint will be moved to.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-patch",
+      "description": "**Requires permission: `manage_endpoint_attributes`** Changes the user-defined 'comment', 'name' and custom attributes for the specified endpoint. Required: orgId, endpointId. Optional: comment, custom:{Custom Attribute Name}, name. Returns the updated Endpoint.",
+      "method": "PATCH",
+      "path": "/endpoints/managed/{orgId}/{endpointId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "New value for comment."
+        },
+        {
+          "name": "custom:{Custom Attribute Name}",
+          "type": "string",
+          "location": "body",
+          "description": "New value for custom attribute. The attribute name must be defined in the Advanced Settings."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "New value for name."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-remote-sessions-post",
+      "description": "**Requires permission: `remote_connect`** Sends a request to the endpoint to start a new remote session. After requesting to open a remote session, use 'GET /endpoints/managed/{orgId}/{endpointId}/remote_sessions/{sessionId}' again until 'connected' = 'yes'. Required: orgId, endpointId, connection_type. Optional: current_ip. Returns the new RemoteSession.",
+      "method": "POST",
+      "path": "/endpoints/managed/{orgId}/{endpointId}/remote-sessions",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "connection_type",
+          "type": "string",
+          "location": "body",
+          "description": "Connection type",
+          "required": true
+        },
+        {
+          "name": "current_ip",
+          "type": "string",
+          "location": "body",
+          "description": "Current ip"
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-remote-sessions-session-id-get",
+      "description": "**Requires permission: `remote_connect`** Gets details for an existing remote session specified by ID. Required: orgId, endpointId, sessionId. Returns the RemoteSession.",
+      "method": "GET",
+      "path": "/endpoints/managed/{orgId}/{endpointId}/remote-sessions/{sessionId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific remote session ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_managed-id-remote-sessions-session-id-patch",
+      "description": "**Requires permission: `remote_connect`** Changes the 'current_monitor' parameter for a specific remote session. Required: orgId, endpointId, sessionId, current_monitor. Returns the updated RemoteSession.",
+      "method": "PATCH",
+      "path": "/endpoints/managed/{orgId}/{endpointId}/remote-sessions/{sessionId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific remote session ID.",
+          "required": true
+        },
+        {
+          "name": "current_monitor",
+          "type": "string",
+          "location": "body",
+          "description": "Switch to monitor 2.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_status",
+      "description": "Retrieves information if any endpoints were added to an organization. Required: orgId. Returns the EndpointsStatusResponse.",
+      "method": "GET",
+      "path": "/endpoints/status/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "enterprise_get",
+      "description": "Gets settings for an enterprise. You can query data for your enterprise only. Returns the Enterprise.",
+      "method": "GET",
+      "path": "/enterprise",
+      "params": []
+    },
+    {
+      "name": "enterprise_patch",
+      "description": "**Requires permission: `manage_enterprise`** Updates settings for a current enterprise. You can only access your enterprise. Optional: description, name. Returns the updated Enterprise.",
+      "method": "PATCH",
+      "path": "/enterprise",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "enterprise_request-closure",
+      "description": "**Requires permission: `manage_enterprise`** The request is available only for a free Action1 account. If need to close an enterprise with a paid subscription, please contact your Action1 representative. The Action1 enterprise associated with your account will enter a 30 day period of pending closure. Following the 30-day period, we will attempt to uninstall any remaining agents in your Action1 enterprise, and all your data will be permanently erased from Action1 cloud servers. Required: reason. Returns the new Enterprise.",
+      "method": "POST",
+      "path": "/enterprise/request-closure",
+      "params": [
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body",
+          "description": "Reason for closing.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "enterprise_revoke-closure",
+      "description": "**Requires permission: `manage_enterprise`** The Action1 enterprise will be immediately reactivated and all your data will be retained. Required: reason. Returns the new Enterprise.",
+      "method": "POST",
+      "path": "/enterprise/revoke-closure",
+      "params": [
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body",
+          "description": "Reason for closing.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "installed-software_data_apps-org-id-endpoint-id-get",
+      "description": "**Requires one of the following permissions: `view_installed_software`, `view_endpoints`** Gets a list of installed apps on an endpoint specified by its ID. Use parameters to filter out apps in the returned results. Required: orgId, endpointId. Optional: from, limit, sortby (plus 1 more). Returns array of InstalledSoftwareEndpoints.",
+      "method": "GET",
+      "path": "/installed-software/{orgId}/data/{endpointId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "installed-software_data_apps-org-id-get",
+      "description": "**Requires permission: `view_installed_software`** Gets a list of installed apps. Use parameters to filter out apps in the returned results. Required: orgId. Optional: from, limit, sortby (plus 2 more). Returns array of InstalledSoftwareReportData.",
+      "method": "GET",
+      "path": "/installed-software/{orgId}/data",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "live_only",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to retrieve live results only."
+        }
+      ]
+    },
+    {
+      "name": "installed-software_errors_apps-org-id-get",
+      "description": "**Requires permission: `view_installed_software`** Returns apps report errors. Use parameters to filter out returned results. For example, retrieve errors starting from error number 50, filtered by a search term 'powershell', sorted by a description in ascending order. Note that to determine if any errors occurred during report generation, use ResultPage.total_errors property from the Installed Apps data ResultPage. Required: orgId. Optional: from, limit, sortby (plus 1 more).",
+      "method": "GET",
+      "path": "/installed-software/{orgId}/errors",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "installed-software_requery_apps-org-id-endpoint-id-post",
+      "description": "**Requires one of the following permissions: `view_installed_software`, `view_endpoints`** This API method initiates an asynchronous update ('requery') of the installed software inventory for the specified endpoint. Note that installed software inventory is updated automatically every 15 minutes or less if any changes to software are detected. Additionally, when software is installed or uninstalled with Action1, the inventory is updated immediately. Use this method only if you need the most current real-time data or when software was installed or uninstalled without Action1 and you don't want to wait 15 minutes. Do not call it too frequently as this will put an extra CPU load on your endpoints. When the method returns a successful status (200), it indicates that the requery request has been placed in the queue. However, this does not guarantee that the endpoints have received or processed it. Endpoint that are currently connected will begin the requery process almost immediately, typically within a few seconds. Should endpoint be disconnected or turned off when the request is made, they will process it once they are back online. To verify the current status of a data row referring to an installed application, refer to the 'response_type' attribute within the ReportRow object, which can be retrieved using '/installed-software/{orgId}/data'. The object structure is as follows: ``` { 'type': 'ReportRow', 'response_type': 'cache/live' ... } ``` A 'response_type' value of 'live' indicates that the data is current and reflects the results of the most recent requery request. Conversely, a 'response_type' of 'cache' suggests that the endpoint has yet to update its data to reflect the latest request. Required: orgId, endpointId.",
+      "method": "POST",
+      "path": "/installed-software/{orgId}/requery/{endpointId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an endpoint ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "installed-software_requery_apps-org-id-post",
+      "description": "**Requires permission: `view_installed_software`** This API method initiates an asynchronous update ('requery') of the installed software inventory across all managed endpoints. Note that installed software inventory is updated automatically every 15 minutes or less if any changes to software are detected. Additionally, when software is installed or uninstalled with Action1, the inventory is updated immediately. Use this method only if you need the most current real-time data or when software was installed or uninstalled without Action1 and you don't want to wait 15 minutes. Do not call it too frequently as this will put an extra CPU load on your endpoints. When the method returns a successful status (200), it indicates that the requery request has been placed in the queue. However, this does not guarantee that the endpoints have received or processed it. Endpoints that are currently connected will begin the requery process almost immediately, typically within a few seconds. Should any endpoints be disconnected or turned off when the request is made, they will process it once they are back online. To verify the current status of a data row referring to an installed application, refer to the 'response_type' attribute within the ReportRow object, which can be retrieved using '/installed-software/{orgId}/data'. The object structure is as follows: ``` { 'type': 'ReportRow', 'response_type': 'cache/live' ... } ``` A 'response_type' value of 'live' indicates that the data is current and reflects the results of the most recent requery request. Conversely, a 'response_type' of 'cache' suggests that the endpoint has yet to update its data to reflect the latest request. Required: orgId.",
+      "method": "POST",
+      "path": "/installed-software/{orgId}/requery",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "logs_org-id-get",
+      "description": "**Requires permission: `manage_endpoints`** Gets diagnostic logs. Use parameters to pre-filter returned results. For example, get the first 50 log records of the level 'normal' and higher, sorted by time in descending order. Required: orgId. Optional: from, limit, sortby (plus 1 more). Returns array of Log.",
+      "method": "GET",
+      "path": "/logs/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the minimum request level."
+        }
+      ]
+    },
+    {
+      "name": "me_me",
+      "description": "Gets settings for the currently authenticated user. Returns the User.",
+      "method": "GET",
+      "path": "/me",
+      "params": []
+    },
+    {
+      "name": "me_patch",
+      "description": "Updates settings for the currently authenticated user. Only 'timezone' and 'session_timeout' settings are currently updatable. Optional: timezone. Returns the updated User.",
+      "method": "PATCH",
+      "path": "/me",
+      "params": [
+        {
+          "name": "timezone",
+          "type": "string",
+          "location": "body",
+          "description": "Timezone identifier."
+        }
+      ]
+    },
+    {
+      "name": "me_subscriptions-get",
+      "description": "Gets a list of report subscriptions. Optional: from, limit. Returns array of ReportSubscription.",
+      "method": "GET",
+      "path": "/me/report-subscriptions",
+      "params": [
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        }
+      ]
+    },
+    {
+      "name": "me_subscriptions-post",
+      "description": "**Requires permission: `view_reports`** Creates a new report subscription. Required: name, report_id, schedule. Returns the new ReportSubscription.",
+      "method": "POST",
+      "path": "/me/report-subscriptions",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "URL of a user or API key assigned the role.'",
+          "required": true
+        },
+        {
+          "name": "report_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of a report.",
+          "required": true
+        },
+        {
+          "name": "schedule",
+          "type": "string",
+          "location": "body",
+          "description": "Schedule settings string in the following format - **(ENABLED|DISABLED) WEEKLY:(Sun|Mon|Tue|Wed|Thu|Fri|Sat) AT:HH-MM-SS**: * **WEEKLY:weekday1,weekday2,…** – apply AT a specified time on certain weekdays of every week (weekdays: Sun,Mon,Tue,Wed,Thu,Fri,Sat). The DATE parameter is ignored and uses the schedule's last saved date as a starting date. * **AT:HH-MM-SS** - the time to apply, must be specified unless the schedule is DISABLED.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "me_subscriptions-subscription-id-delete",
+      "description": "Removes the report subscription. Required: subscriptionId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/me/report-subscriptions/{subscriptionId}",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific subscription ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "me_subscriptions-subscription-id-patch",
+      "description": "**Requires permission: `view_reports`** Updates the report subscription. Required: subscriptionId. Optional: name, report_id, schedule. Returns the updated ReportSubscription.",
+      "method": "PATCH",
+      "path": "/me/report-subscriptions/{subscriptionId}",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific subscription ID.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "URL of a user or API key assigned the role.'"
+        },
+        {
+          "name": "report_id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of a report."
+        },
+        {
+          "name": "schedule",
+          "type": "string",
+          "location": "body",
+          "description": "Schedule settings string in the following format - **(ENABLED|DISABLED) WEEKLY:(Sun|Mon|Tue|Wed|Thu|Fri|Sat) AT:HH-MM-SS**: * **WEEKLY:weekday1,weekday2,…** – apply AT a specified time on certain weekdays of every week (weekdays: Sun,Mon,Tue,Wed,Thu,Fri,Sat). The DATE parameter is ignored and uses the schedule's last saved date as a starting date. * **AT:HH-MM-SS** - the time to apply, must be specified unless the schedule is DISABLED."
+        }
+      ]
+    },
+    {
+      "name": "oauth2_token",
+      "description": "Generates a token. Provide valid API credentials (Client ID and Client Secret) which are configured in API credentials page in Action1 console. Returns the new Oauth.",
+      "method": "POST",
+      "path": "/oauth2/token",
+      "params": []
+    },
+    {
+      "name": "organizations_get",
+      "description": "Gets a list of organizations within the current Action1 enterprise. Optional: admin. Returns array of Organization.",
+      "method": "GET",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "admin",
+          "type": "string",
+          "location": "query",
+          "description": "Specify 'yes' to get all organizations where the currently authenticated user is at least an organization admin."
+        }
+      ]
+    },
+    {
+      "name": "organizations_org-id-delete",
+      "description": "**Requires permission: `manage_organizations`** Removes an organization from the enterprise. This method will fail if a specified organization still contains endpoints or if it is the last organization in the enterprise. Required: orgId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/organizations/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_org-id-patch",
+      "description": "**Requires permission: `manage_organizations`** Updates settings for an organization specified by its ID. Required: orgId. Optional: description, name. Returns the updated Organization.",
+      "method": "PATCH",
+      "path": "/organizations/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description for My Organization"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "organizations_post",
+      "description": "**Requires permission: `manage_organizations`** Creates a new organization. When a new organization is created, all the default roles are automatically created for it. Required: description, name. Returns the new Organization.",
+      "method": "POST",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description for My Organization",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "permissions_get",
+      "description": "Gets a list of available permission templates. Optional: from, limit, sortby (plus 1 more). Returns array of PermissionTemplate.",
+      "method": "GET",
+      "path": "/permissions",
+      "params": [
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "remote_search_search",
+      "description": "**Requires permissions: `view_endpoints`, `view_software_repository`, `view_reports`** Searches for Action1 objects that contain a phrase specified in the 'query' parameter in one of their fields. The search returns up to 10 objects within the specified organization. Required: orgId, query. Optional: limit.",
+      "method": "GET",
+      "path": "/search/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a query for searching.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        }
+      ]
+    },
+    {
+      "name": "reportdata_data_reportdata-org-id-report-id-get",
+      "description": "**Requires permission: `view_reports`** Gets data organized by report rows. Use parameters to filter out returned results. Required: orgId, reportId. Optional: from, limit, sortby (plus 4 more). Returns array of DataReportdataOrgIdReportIdGetItem.",
+      "method": "GET",
+      "path": "/reportdata/{orgId}/{reportId}/data",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "live_only",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to retrieve live results only."
+        },
+        {
+          "name": "details",
+          "type": "string",
+          "location": "query",
+          "description": "Specify 'yes' to expand the details. This parameter is supported only for Summary reports."
+        },
+        {
+          "name": "endpoint_id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the endpoint to query."
+        }
+      ]
+    },
+    {
+      "name": "reportdata_data_reportdata-org-id-report-id-report-row-id-drilldown-get",
+      "description": "**Requires permission: `view_reports`** Expands report details to provide more information. Use parameters to filter out returned results. Required: orgId, reportId, reportRowId. Optional: from, limit, sortby (plus 2 more). Returns array of ReportDataSimple.",
+      "method": "GET",
+      "path": "/reportdata/{orgId}/{reportId}/data/{reportRowId}/drilldown",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "reportRowId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report row ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "live_only",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to retrieve live results only."
+        }
+      ]
+    },
+    {
+      "name": "reportdata_data_reportdata-org-id-report-id-report-row-id-export-get",
+      "description": "**Requires permission: `view_reports`** Exports reports data. Use parameters to filter out exported data. The supported formats are 'csv' and 'html'. Required: orgId, reportId, reportRowId. Optional: format (default: csv).",
+      "method": "GET",
+      "path": "/reportdata/{orgId}/{reportId}/data/{reportRowId}/export",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "reportRowId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report row ID.",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the report format."
+        }
+      ]
+    },
+    {
+      "name": "reportdata_errors_reportdata-org-id-report-id-get",
+      "description": "**Requires permission: `view_reports`** Returns report errors for the specified report. Use parameters to filter out returned results. For example, retrieve errors starting from error number 50, filtered by a search term 'powershell', sorted by a description in ascending order. Note that to determine if any errors occurred during report generation, use ResultPage.total_errors property from the Report Data ResultPage. Required: orgId, reportId. Optional: from, limit, sortby (plus 1 more).",
+      "method": "GET",
+      "path": "/reportdata/{orgId}/{reportId}/errors",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "reportdata_export_reportdata-org-id-report-id-get",
+      "description": "**Requires permission: `view_reports`** Exports data from the report. Use parameters to filter out exported data. The supported formats are 'csv' and 'html'. Required: orgId, reportId. Optional: format (default: csv), from, limit (plus 3 more).",
+      "method": "GET",
+      "path": "/reportdata/{orgId}/{reportId}/export",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the report format."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "live_only",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to retrieve live results only."
+        }
+      ]
+    },
+    {
+      "name": "reportdata_requery_reportdata-org-id-report-id-post",
+      "description": "**Requires permission: `view_reports`** This API method initiates an asynchronous update ('requery') of the report's underlying data source across all managed endpoints. When the method returns a successful status (200), it indicates that the requery request has been placed in the queue. However, this does not guarantee that the endpoints have received or processed it. Do not call it too frequently as this will put an extra CPU load on your endpoints (depending on the complexity of the report's data source). Endpoints that are currently connected will begin the requery process almost immediately, typically within a few seconds. Should any endpoints be disconnected or turned off when the request is made, they will process it once they are back online. To verify the current status of a data row, refer to the 'response_type' attribute within the ReportRow object, which can be retrieved using /reportdata . The object structure is as follows: ``` { 'type': 'ReportRow', 'response_type': 'cache/live' ... } ``` A 'response_type' value of 'live' indicates that the data is current and reflects the results of the most recent requery request. Conversely, a 'response_type' of 'cache' suggests that the endpoint has yet to update its data to reflect the latest request. Required: orgId, reportId. Optional: endpoint_id.",
+      "method": "POST",
+      "path": "/reportdata/{orgId}/{reportId}/requery",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "endpoint_id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the endpoint to query."
+        }
+      ]
+    },
+    {
+      "name": "reports_all-get",
+      "description": "Gets a list of existing reports. At this time all reports are enterprise-wide. Optional: subtree. Returns array of ReportsAllGetItem.",
+      "method": "GET",
+      "path": "/reports/all",
+      "params": [
+        {
+          "name": "subtree",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to query the entire report subtree."
+        }
+      ]
+    },
+    {
+      "name": "reports_org-id-category-id-get",
+      "description": "Gets a list of reports and categories. At this time all reports are enterprise-wide. Required: reportOrCategoryId.",
+      "method": "GET",
+      "path": "/reports/all/{reportOrCategoryId}",
+      "params": [
+        {
+          "name": "reportOrCategoryId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report id or category id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_org-id-custom-id-delete",
+      "description": "**Requires permission: `manage_reports`** Deletes a custom report specified by its ID. You cannot delete built-in reports. Required: reportId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/reports/all/custom/{reportId}",
+      "params": [
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_org-id-custom-id-patch",
+      "description": "**Requires permission: `manage_reports`** Updates a custom report. You cannot changes a custom report's category. Custom reports are enterprise-wide. Required: reportId. Optional: column_aliases, data_sources, description (plus 5 more). Returns array of ReportsOrgIdCustomIdPatchItem.",
+      "method": "PATCH",
+      "path": "/reports/all/custom/{reportId}",
+      "params": [
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific report ID.",
+          "required": true
+        },
+        {
+          "name": "column_aliases",
+          "type": "array",
+          "location": "body",
+          "description": "A list of column aliases. Aliases are used to rename columns from a data source. If a report is created based on multiple data sources, aliases should be assigned to columns with the same names in different sources to avoid conflicts."
+        },
+        {
+          "name": "data_sources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only data source ID or self is sufficient for this method. There is no need to specify any other data source attributes. Reports can be created using multiple data sources. Along with the primary data source, secondary data sources such as '/API/data-sources/all/2014' (Endpoint) and '/API/data-sources/all/2052' (Custom Attributes) can be specified, and their columns can be used in the report."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The custom report description."
+        },
+        {
+          "name": "drilldown_columns",
+          "type": "array",
+          "location": "body",
+          "description": "A list of drilldown report data output columns."
+        },
+        {
+          "name": "filter_set",
+          "type": "string",
+          "location": "body",
+          "description": "Filter set"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The report title."
+        },
+        {
+          "name": "simple_columns",
+          "type": "array",
+          "location": "body",
+          "description": "A list of simple report data output columns."
+        },
+        {
+          "name": "summary_columns",
+          "type": "array",
+          "location": "body",
+          "description": "A list of summary report data output columns."
+        }
+      ]
+    },
+    {
+      "name": "reports_org-id-custom-post",
+      "description": "**Requires permission: `manage_reports`** Creates a custom report in the predefined Custom report category. You cannot create custom reports in other categories. Custom reports are based on the data source. To learn more about data sources, see '/data-sources/*' calls. Custom reports are enterprise-wide. Required: data_sources, description, drilldown_columns, filter_set, name, simple_columns, summary_columns. Optional: column_aliases. Returns array of ReportsOrgIdCustomPostItem.",
+      "method": "POST",
+      "path": "/reports/all/custom",
+      "params": [
+        {
+          "name": "column_aliases",
+          "type": "array",
+          "location": "body",
+          "description": "A list of column aliases. Aliases are used to rename columns from a data source. If a report is created based on multiple data sources, aliases should be assigned to columns with the same names in different sources to avoid conflicts."
+        },
+        {
+          "name": "data_sources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only data source ID or self is sufficient for this method. There is no need to specify any other data source attributes. Reports can be created using multiple data sources. Along with the primary data source, secondary data sources such as '/API/data-sources/all/2014' (Endpoint) and '/API/data-sources/all/2052' (Custom Attributes) can be specified, and their columns can be used in the report.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The custom report description.",
+          "required": true
+        },
+        {
+          "name": "drilldown_columns",
+          "type": "array",
+          "location": "body",
+          "description": "A list of drilldown report data output columns.",
+          "required": true
+        },
+        {
+          "name": "filter_set",
+          "type": "string",
+          "location": "body",
+          "description": "Filter set",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The report title.",
+          "required": true
+        },
+        {
+          "name": "simple_columns",
+          "type": "array",
+          "location": "body",
+          "description": "A list of simple report data output columns.",
+          "required": true
+        },
+        {
+          "name": "summary_columns",
+          "type": "array",
+          "location": "body",
+          "description": "A list of summary report data output columns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_get",
+      "description": "**Requires permission: `manage_roles`** Gets a list of available roles. Optional: from, limit, sortby (plus 2 more). Returns array of Role.",
+      "method": "GET",
+      "path": "/roles",
+      "params": [
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Add FIELDS parameter to query extended data. Specify 'fields=*' to get all available fields."
+        }
+      ]
+    },
+    {
+      "name": "roles_id-delete",
+      "description": "**Requires permission: `manage_roles`** Deletes a role specified by its ID. Required: roleId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/roles/{roleId}",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific role ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_id-get",
+      "description": "**Requires permission: `manage_roles`** Gets details about a role specified by its ID. Required: roleId. Returns the Role.",
+      "method": "GET",
+      "path": "/roles/{roleId}",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific role ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_id-patch",
+      "description": "**Requires permission: `manage_roles`** Updates a role specified by its ID. Required: roleId. Optional: description, name, scoped_permissions. Returns the updated Role.",
+      "method": "PATCH",
+      "path": "/roles/{roleId}",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific role ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The role description."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The role name."
+        },
+        {
+          "name": "scoped_permissions",
+          "type": "array",
+          "location": "body",
+          "description": "Scoped permissions"
+        }
+      ]
+    },
+    {
+      "name": "roles_post",
+      "description": "**Requires permission: `manage_roles`** Creates a new role. Required: description, name. Optional: scoped_permissions. Returns the new Role.",
+      "method": "POST",
+      "path": "/roles",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The role description.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The role name.",
+          "required": true
+        },
+        {
+          "name": "scoped_permissions",
+          "type": "array",
+          "location": "body",
+          "description": "Scoped permissions"
+        }
+      ]
+    },
+    {
+      "name": "roles_clone_roles-post",
+      "description": "**Requires permission: `manage_roles`** Creates a copy of an existing role. Required: roleId. Returns the new Role.",
+      "method": "POST",
+      "path": "/roles/{roleId}/clone",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "roleId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_users_roles-role-id-get",
+      "description": "**Requires permissions: `view_users` and (`assign_roles` or `manage_roles`)** Gets a list of users in a role specified by its ID. Required: roleId. Optional: from, limit, sortby (plus 1 more). Returns array of User.",
+      "method": "GET",
+      "path": "/roles/{roleId}/users",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific role ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "roles_users_roles-role-id-id-delete",
+      "description": "**Requires permissions: `assign_roles`** Unassigns user from a role specified by its ID. Required: roleId, userId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/roles/{roleId}/users/{userId}",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific role ID.",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific user ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_users_roles-role-id-id-post",
+      "description": "**Requires permissions: `assign_roles`** Assigns user to a role specified by its ID. Required: roleId, userId. Returns the new Success.",
+      "method": "POST",
+      "path": "/roles/{roleId}/users/{userId}",
+      "params": [
+        {
+          "name": "roleId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific role ID.",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific user ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_org-id-get",
+      "description": "**Requires permission: `use_scripts`** Gets a list of existing scripts from the Script Library. To filter out built-in scripts, set the 'builtin' parameter to 'yes'. For custom, set 'builtin' to 'no'. At this time, all scripts are enterprise-wide. The 'orgId' has to be set to 'all'. Optional: builtin, platform. Returns array of Script.",
+      "method": "GET",
+      "path": "/scripts/all",
+      "params": [
+        {
+          "name": "builtin",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is builtin (yes) or custom (no)."
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Platform"
+        }
+      ]
+    },
+    {
+      "name": "scripts_org-id-id-delete",
+      "description": "**Requires permission: `manage_scripts`** Deletes an existing custom script specified by its ID. At this time, all scripts are enterprise-wide. Required: scriptId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/scripts/all/{scriptId}",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific script ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_org-id-id-get",
+      "description": "**Requires permission: `use_scripts`** Gets details for a script specified by its ID. At this time, all scripts are enterprise-wide. Required: scriptId. Returns the ScriptsOrgIdIdGetResponse.",
+      "method": "GET",
+      "path": "/scripts/all/{scriptId}",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific script ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_org-id-id-patch",
+      "description": "**Requires permission: `manage_scripts`** Updates details for an existing custom script specified by its ID. At this time, all scripts are enterprise-wide. The 'params' array (script parameters) included in the returned object is a read-only collection that is derived from the script text. Required: scriptId. Optional: description, language, name (plus 3 more). Returns the updated Script.",
+      "method": "PATCH",
+      "path": "/scripts/all/{scriptId}",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific script ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The script description."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "The scripting language."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The script name."
+        },
+        {
+          "name": "params",
+          "type": "array",
+          "location": "body",
+          "description": "One or more parameters can be defined in the script text. - In the PowerShell script body, reference parameters using $paramname syntax. - In the Command script body, reference parameters using %paramname% syntax. Note: currently, parameters for Bash scripts are not supported."
+        },
+        {
+          "name": "reboot_exit_codes",
+          "type": "string",
+          "location": "body",
+          "description": "The exit codes that indicate a reboot is required."
+        },
+        {
+          "name": "script_text",
+          "type": "string",
+          "location": "body",
+          "description": "The script text."
+        }
+      ]
+    },
+    {
+      "name": "scripts_org-id-post",
+      "description": "**Requires permission: `manage_scripts`** Creates a new custom script and adds it to the Script Library. At this time, all scripts are enterprise-wide, The 'orgId' shall be set to 'all'. In the future, the organization-specific scripts will be supported. The 'params' array (script parameters) included in the returned object is a read-only collection that is derived from the script text. Required: language, name, platform, script_text. Optional: description, params, reboot_exit_codes. Returns the new Script.",
+      "method": "POST",
+      "path": "/scripts/all",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The script description."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "The scripting language.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The script name.",
+          "required": true
+        },
+        {
+          "name": "params",
+          "type": "array",
+          "location": "body",
+          "description": "One or more parameters can be defined in the script text. - In the PowerShell script body, reference parameters using $paramname syntax. - In the Command script body, reference parameters using %paramname% syntax. Note: currently, parameters for Bash scripts are not supported."
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "body",
+          "description": "The script platform.",
+          "required": true
+        },
+        {
+          "name": "reboot_exit_codes",
+          "type": "string",
+          "location": "body",
+          "description": "The exit codes that indicate a reboot is required."
+        },
+        {
+          "name": "script_text",
+          "type": "string",
+          "location": "body",
+          "description": "The script text.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "setting-templates_org-id-get",
+      "description": "Gets a list of existing setting templates. Setting templates are maintained by Action1 and cannot be modified. At this time, all setting templates are enterprise-wide, even when applied to a specific organization only. Optional: filter. Returns array of SettingTemplate.",
+      "method": "GET",
+      "path": "/setting-templates/all",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "setting-templates_org-id-template-id-get",
+      "description": "Gets details about a setting template specified by its ID. Setting templates are maintained by Action1 and cannot be modified. At this time, all setting templates are enterprise-wide. Required: templateId.",
+      "method": "GET",
+      "path": "/setting-templates/all/{templateId}",
+      "params": [
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific setting template ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "settings_org-id-get",
+      "description": "**Requires permission: `manage_advanced_settings`** Lists all existing settings. At this time, all settings are enterprise-wide. Optional: filter, sortby, from (plus 2 more). Returns array of Setting.",
+      "method": "GET",
+      "path": "/settings/all",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "query",
+          "description": "The category of advanced settings."
+        }
+      ]
+    },
+    {
+      "name": "settings_org-id-id-delete",
+      "description": "**Requires permission: `manage_advanced_settings`** Deletes an existing setting specified by its ID. At this time, all settings are enterprise-wide. Required: settingId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/settings/all/{settingId}",
+      "params": [
+        {
+          "name": "settingId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific setting ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "settings_org-id-id-get",
+      "description": "**Requires permission: `manage_advanced_settings`** Gets details about the setting configuration. At this time, all settings are enterprise-wide, but the scope of application can be limited to per organization or group. Required: settingId. Returns array of SettingsOrgIdIdGetItem.",
+      "method": "GET",
+      "path": "/settings/all/{settingId}",
+      "params": [
+        {
+          "name": "settingId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific setting ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "settings_org-id-id-patch",
+      "description": "**Requires permission: `manage_advanced_settings`** Updates an existing setting specified by its ID. At this time, all settings are enterprise-wide. Required: settingId. Optional: scope, value. Returns array of SettingsOrgIdIdPatchItem.",
+      "method": "PATCH",
+      "path": "/settings/all/{settingId}",
+      "params": [
+        {
+          "name": "settingId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific setting ID.",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "array",
+          "location": "body",
+          "description": "Scope"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "The value defined for this setting."
+        }
+      ]
+    },
+    {
+      "name": "settings_org-id-post",
+      "description": "**Requires permission: `manage_advanced_settings`** Creates a new setting. At this time, all setting templates are enterprise-wide. Required: scope, template_id, value. Returns array of SettingsOrgIdPostItem.",
+      "method": "POST",
+      "path": "/settings/all",
+      "params": [
+        {
+          "name": "scope",
+          "type": "array",
+          "location": "body",
+          "description": "Scope",
+          "required": true
+        },
+        {
+          "name": "template_id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the template.",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "The value defined for this setting.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_packages-all-get",
+      "description": "**Requires permission: `view_software_repository`** Gets a list of Software Repository packages for the entire enterprise. Use parameters to filter out packages in the returned results. Required: orgId. Optional: filter, builtin, custom (plus 7 more). Returns array of SoftwareRepositoryPackage.",
+      "method": "GET",
+      "path": "/software-repository/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "builtin",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is builtin (yes) or custom (no)."
+        },
+        {
+          "name": "custom",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is custom (yes) or builtin (no)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "match_name",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the software name to search for."
+        },
+        {
+          "name": "match_version",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the software version to search for."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Add FIELDS parameter to query extended data. Specify 'fields=*' to get all available fields."
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Platform"
+        }
+      ]
+    },
+    {
+      "name": "software-repository_packages-all-package-id-delete",
+      "description": "**Requires permission: `manage_software_repository`** Deletes a custom Software Repository package specified by its ID. Built-in Software Repository packages cannot be deleted. This API will return an error if you attempt to send a DELETE request for a built-in package. Required: orgId, packageId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/software-repository/{orgId}/{packageId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_packages-all-package-id-get",
+      "description": "**Requires permission: `view_software_repository`** Gets details for a Software Repository package specified by its ID. Set the 'fields' parameter to '*' or 'versions' to include the non-default 'versions' container of children objects. Example: /software-repository/{orgId}/{Adobe_Adobe_Acrobat_Reader_DC_1570155380192_builtin}?fields=*. Required: orgId, packageId. Optional: fields. Returns array of SoftwareRepositoryPackagesAllPackageIdGetItem.",
+      "method": "GET",
+      "path": "/software-repository/{orgId}/{packageId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Add FIELDS parameter to query extended data. Specify 'fields=*' to get all available fields."
+        }
+      ]
+    },
+    {
+      "name": "software-repository_packages-all-package-id-patch",
+      "description": "**Requires permission: `manage_software_repository`** Modifies one or more properties of a custom Software Repository package, including contents of the child 'version' objects. Built-in packages cannot be modified except for 'EULA_accepted' setting. This method will return an error if you attempt to send a PATCH request for a built-in package and specify any properties except for 'EULA_accepted'. The 'version.additional_actions.name' property shall always be present if the parameters of an additional action are to be modified. To change the 'name' parameter of an additional action, the action needs to be deleted (DELETE method) and then added back with the new name (PATCH request). Required: orgId, packageId. Optional: description, internal_notes, name (plus 1 more). Returns array of SoftwareRepositoryPackagesAllPackageIdPatchItem.",
+      "method": "PATCH",
+      "path": "/software-repository/{orgId}/{packageId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The package description."
+        },
+        {
+          "name": "internal_notes",
+          "type": "string",
+          "location": "body",
+          "description": "Invisible comments."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The package name."
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "location": "body",
+          "description": "The package vendor."
+        }
+      ]
+    },
+    {
+      "name": "software-repository_packages-all-post",
+      "description": "**Requires permission: `manage_software_repository`** Create a new custom Software Repository package object (with no versions) and set its initial basic properties. To create package versions, use POST /software-repository/{orgId}/{packageId}/versions method. Required: orgId, description, name, platform, vendor. Optional: internal_notes. Returns array of SoftwareRepositoryPackagesAllPostItem.",
+      "method": "POST",
+      "path": "/software-repository/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The package description.",
+          "required": true
+        },
+        {
+          "name": "internal_notes",
+          "type": "string",
+          "location": "body",
+          "description": "Invisible comments."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The package name.",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "body",
+          "description": "The package platform.",
+          "required": true
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "location": "body",
+          "description": "The package vendor.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_clone_packages-all-package-id-post",
+      "description": "**Requires permission: `manage_software_repository`** Creates a full copy of an existing Software Repository package under a new package ID. For example, use this call if you want to modify version settings for a built-in package. Note that Action1 does not maintain cloned built-in packages. Required: orgId, packageId. Returns array of ClonePackagesAllPackageIdPostItem.",
+      "method": "POST",
+      "path": "/software-repository/{orgId}/{packageId}/clone",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_match-conflicts_packages-all-get",
+      "description": "**Requires permission: `view_software_repository`** Checks Installed Apps for conflicts before a Software Repository new package with its initial version is created (the package does not exist yet). When a new package version is created or edited, the new 'app_name_match' value of the 'version' object shall not conflict with the values of 'app_name_match' of already created packages/versions (e.g., two different versions of two different packages should not match the same installed software). Conflicts arise if the same 'app_name_match' is found for the package version in the Installed Apps. Required: orgId. Optional: app_name_match. Returns the MatchConflictsPackagesAllGetResponse.",
+      "method": "GET",
+      "path": "/software-repository/{orgId}/match-conflicts",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "app_name_match",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the REGEX expression to match the software name."
+        }
+      ]
+    },
+    {
+      "name": "software-repository_match-conflicts_packages-all-package-id-get",
+      "description": "**Requires permission: `view_software_repository`** Checks Installed Apps for conflicts when updating an existing package or its version. When a new package version is created or edited, the new 'app_name_match' value of the 'version' object shall not conflict with the values of 'app_name_match' of already created packages/versions (e.g., two different versions of two different packages should not match the same installed software). Conflicts arise if the same 'app_name_match' is found for the package version in the Installed Apps. Required: orgId, packageId. Optional: app_name_match. Returns the MatchConflictsPackagesAllPackageIdGetResponse.",
+      "method": "GET",
+      "path": "/software-repository/{orgId}/{packageId}/match-conflicts",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "app_name_match",
+          "type": "string",
+          "location": "query",
+          "description": "Provide the REGEX expression to match the software name."
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-id-additional-actions-action-id-delete",
+      "description": "**Requires permission: `manage_software_repository`** Deletes the specified additional action from the specified custom package. Additional actions configured for the versions of the built-in packages cannot be modified. This API will return an error if you attempt to send a DELETE request for a built-in package. Required: orgId, packageId, versionId, actionId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}/additional-actions/{actionId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        },
+        {
+          "name": "actionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific action ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-id-delete",
+      "description": "**Requires permission: `manage_software_repository`** Deletes the specified version of the specified custom Software Repository package. Versions of built-in packages cannot be deleted. This API will return an error if you attempt to send a DELETE request for a version of a built-in package. Required: packageId, versionId, orgId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}",
+      "params": [
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "orgId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-id-get",
+      "description": "**Requires permission: `view_software_repository`** Gets details about a package version specified by its ID. Required: orgId, packageId, versionId.",
+      "method": "GET",
+      "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-id-patch",
+      "description": "**Requires permissions:** - `accept_eula` - for '*EULA_accepted*' property - `approve_updates` - for '*approval_status*' property - `manage_software_repository` - for all other properties Modifies settings of the specified version in the specified package. Versions for built-in packages cannot be modified. This API will return an error if you attempt to send this PATCH request for a built-in package. Required: packageId, versionId, orgId. Returns array of VersionsPackagesAllPackageIdIdPatchItem.",
+      "method": "PATCH",
+      "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}",
+      "params": [
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "orgId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-id-upload-post",
+      "description": "**Requires permission: `manage_software_repository`** Initializes package file upload. The client starts by sending the initial upload request. The server returns 308 Resume Incomplete status code upon success with the Location header containing the unique upload ID, which expires within 24 hours and it has to be used in subsequent upload requests. Required: orgId, packageId, versionId, platform.",
+      "method": "POST",
+      "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}/upload",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Platform",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-id-upload-put",
+      "description": "**Requires permission: `manage_software_repository`** Uploads package file chunks. After the upload initialization request has been made, the client then issues a series of chunk upload requests. The size of each chunk must be at least 5Mb and all the chunks must have the same size **(except the last one)**. Required: packageId, versionId, platform, upload_id, orgId.",
+      "method": "PUT",
+      "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}/upload",
+      "params": [
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Platform",
+          "required": true
+        },
+        {
+          "name": "upload_id",
+          "type": "string",
+          "location": "query",
+          "description": "Upload id",
+          "required": true
+        },
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "orgId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software-repository_versions_packages-all-package-id-post",
+      "description": "**Requires permission: `manage_software_repository`** Adds a new version to the specified Software Repository package. Versions for built-in packages can be modified only if the caller has a special 'Contributor' or 'Admin' role assigned only to designated Action1 security team employees. Required: orgId, packageId.",
+      "method": "POST",
+      "path": "/software-repository/{orgId}/{packageId}/versions",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscription_license-enterprise-get",
+      "description": "**Requires permission: `manage_enterprise`** Gets details about the enterprise license. You can get only get information about your enterprise. Returns the Subscription.",
+      "method": "GET",
+      "path": "/subscription/enterprise",
+      "params": []
+    },
+    {
+      "name": "subscription_license-enterprise-quote-post",
+      "description": "**Requires permission: `manage_enterprise`** Sends a quote request to the Action1 Sales department. The actual quote request will be reviewed by someone in Sales and a quote will be sent via email. Optional: comments, endpoint_count, product. Returns the new Success.",
+      "method": "POST",
+      "path": "/subscription/enterprise/quote",
+      "params": [
+        {
+          "name": "comments",
+          "type": "string",
+          "location": "body",
+          "description": "The additional comment."
+        },
+        {
+          "name": "endpoint_count",
+          "type": "float",
+          "location": "body",
+          "description": "The number of licensed endpoints for the enterprise."
+        },
+        {
+          "name": "product",
+          "type": "string",
+          "location": "body",
+          "description": "Company name"
+        }
+      ]
+    },
+    {
+      "name": "subscription_license-enterprise-trial-post",
+      "description": "**Requires permission: `manage_enterprise`** Sends a request to start a free trial for a current user or requests a trial extension for an expired or exceeded trial. Optional: comments, endpoint_count. Returns the new Success.",
+      "method": "POST",
+      "path": "/subscription/enterprise/trial",
+      "params": [
+        {
+          "name": "comments",
+          "type": "string",
+          "location": "body",
+          "description": "The additional comment."
+        },
+        {
+          "name": "endpoint_count",
+          "type": "float",
+          "location": "body",
+          "description": "The number of licensed endpoints for the enterprise."
+        }
+      ]
+    },
+    {
+      "name": "subscription_license-usage-enterprise-get",
+      "description": "**Requires permission: `manage_enterprise`** Gets details about license usage for the entire enterprise. Returns the SubscriptionLicenseUsageEnterpriseGetResponse.",
+      "method": "GET",
+      "path": "/subscription/usage/enterprise",
+      "params": []
+    },
+    {
+      "name": "subscription_license-usage-organizations-get",
+      "description": "**Requires permission: `manage_organizations`** Gets details about license usage with statistics for each organization individually. Returns array of SubscriptionUsage.",
+      "method": "GET",
+      "path": "/subscription/usage/organizations",
+      "params": []
+    },
+    {
+      "name": "subscription_license-usage-organizations-org-id-get",
+      "description": "**Requires permission: `manage_organizations`** Gets details about license usage for an organization specified by its ID. Required: orgId. Returns the SubscriptionUsage.",
+      "method": "GET",
+      "path": "/subscription/usage/organizations/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "updates_org-id-get",
+      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of all missing updates. Use parameters to filter out updates in the returned results. Required: orgId. Optional: filter, sortby, from (plus 9 more). Returns array of UpdatesOrgIdGetItem.",
+      "method": "GET",
+      "path": "/updates/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "approval_status",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the update status."
+        },
+        {
+          "name": "custom",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is custom (yes) or builtin (no)."
+        },
+        {
+          "name": "builtin",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is builtin (yes) or custom (no)."
+        },
+        {
+          "name": "security_severity",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the severity level, e.g., security_severity=-Critical (for all non-critical)."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Add FIELDS parameter to query extended data. Specify 'fields=*' to get all available fields."
+        },
+        {
+          "name": "only_latest",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to exclude superseded updates. By default, 'yes'."
+        },
+        {
+          "name": "update_sla_start_day",
+          "type": "string",
+          "location": "query",
+          "description": "The minimum value of the remediation deadline in the SLA."
+        },
+        {
+          "name": "update_sla_end_day",
+          "type": "string",
+          "location": "query",
+          "description": "The maximum value of the remediation deadline in the SLA."
+        }
+      ]
+    },
+    {
+      "name": "updates_org-id-package-id-get",
+      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of updates available for a package specified by its ID. Use parameters to filter out updates in the returned results. Required: orgId, packageId. Optional: filter, sortby, from (plus 7 more). Returns array of UpdatesOrgIdPackageIdGetItem.",
+      "method": "GET",
+      "path": "/updates/{orgId}/{packageId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "approval_status",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the update status."
+        },
+        {
+          "name": "custom",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is custom (yes) or builtin (no)."
+        },
+        {
+          "name": "builtin",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the package is builtin (yes) or custom (no)."
+        },
+        {
+          "name": "security_severity",
+          "type": "string",
+          "location": "query",
+          "description": "Specify the severity level, e.g., security_severity=-Critical (for all non-critical)."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "Add FIELDS parameter to query extended data. Specify 'fields=*' to get all available fields."
+        },
+        {
+          "name": "only_latest",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if you want to exclude superseded updates. By default, 'yes'."
+        }
+      ]
+    },
+    {
+      "name": "updates_approvals_updates-org-id",
+      "description": "**Requires one of the following permissions: `approve_updates`** Manages approval status for multiple packages in bulk. - Accepts a list of status changes, each with a target `approval_status` and a list of affected packages. - If a package has organization scope only and `{orgId}` is `all`, the approval status will be updated only for the organization the package belongs to. Required: orgId. Returns the new ApprovalsUpdatesOrgIdResponse.",
+      "method": "POST",
+      "path": "/updates/{orgId}/approvals",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "updates_versions_updates-org-id-package-id-id-endpoints-get",
+      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of endpoints that are missing updates for a specific package and its version, both specified by their IDs. Use parameters to filter out updates in the returned results. Required: orgId, packageId, versionId. Optional: from, limit, sortby (plus 1 more). Returns array of MissingUpdateEndpoint.",
+      "method": "GET",
+      "path": "/updates/{orgId}/{packageId}/versions/{versionId}/endpoints",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific package ID.",
+          "required": true
+        },
+        {
+          "name": "versionId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific version ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "**Requires permission: `view_users`** Gets a list of users within the current Action1 enterprise. Optional: from, limit, filter (plus 1 more). Returns array of User.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "user_type",
+          "type": "string",
+          "location": "query",
+          "description": "Specify if the user type is API or Interactive."
+        }
+      ]
+    },
+    {
+      "name": "users_id-delete",
+      "description": "**Requires permission: `manage_users`** Deletes an existing user. Required: userId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/users/{userId}",
+      "params": [
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific user ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_id-get",
+      "description": "**Requires permission: `view_users`** Gets an existing user. Required: userId. Returns the User.",
+      "method": "GET",
+      "path": "/users/{userId}",
+      "params": [
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific user ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_id-patch",
+      "description": "**Requires permission: `manage_users`** Updates an existing user. Required: userId. Returns the updated User.",
+      "method": "PATCH",
+      "path": "/users/{userId}",
+      "params": [
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific user ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_post",
+      "description": "**Requires permission: `manage_users`** Creates a new user. To create an SSO user, please first review the following documentation: - EntraId: https://www.action1.com/documentation/sso-authentication-with-entra-id/ - Duo: https://www.action1.com/documentation/sso-authentication-with-duo/ - Google: https://www.action1.com/documentation/sso-authentication-with-google/ - Okta: https://www.action1.com/documentation/sso-authentication-with-google/. Returns the new User.",
+      "method": "POST",
+      "path": "/users",
+      "params": []
+    },
+    {
+      "name": "users_roles_users-user-id-get",
+      "description": "**Requires permission: `manage_users`** Retrieves all roles assigned to a user specified by ID. Required: userId. Optional: from, limit. Returns array of Role.",
+      "method": "GET",
+      "path": "/users/{userId}/roles",
+      "params": [
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide a specific user ID.",
+          "required": true
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_org-id-cve-id-get",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves detailed information about a specific vulnerability as it exists in the context of a specific organization, including the Common Vulnerabilities and Exposures (CVE) details such as the CVSS score, attack vector, severity, and other relevant attributes. This information provides a comprehensive overview of the vulnerability, aiding in understanding its nature and potential impact. Required: orgId, cveId. Returns the CveDescription.",
+      "method": "GET",
+      "path": "/vulnerabilities/{orgId}/{cveId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_org-id-get",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a comprehensive list of all vulnerable software installed on the organization's managed endpoints. This includes information about the specific vulnerabilities, affected versions, and affected endpoints. The data provides insights into potential risks, enabling targeted remediation efforts. Required: orgId. Optional: published_date_start, published_date_end, remediation_required_start_day (plus 10 more). Returns array of Vulnerability.",
+      "method": "GET",
+      "path": "/vulnerabilities/{orgId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "published_date_start",
+          "type": "string",
+          "location": "query",
+          "description": "The minimum publishing date of the Common Vulnerabilities and Exposures (CVE) entries. Example: 2023-04-18"
+        },
+        {
+          "name": "published_date_end",
+          "type": "string",
+          "location": "query",
+          "description": "The maximum publishing date of the Common Vulnerabilities and Exposures (CVE) entries. Example: 2023-06-17"
+        },
+        {
+          "name": "remediation_required_start_day",
+          "type": "string",
+          "location": "query",
+          "description": "The minimum value of the remediation deadline, in days. Example: 7"
+        },
+        {
+          "name": "remediation_required_end_day",
+          "type": "string",
+          "location": "query",
+          "description": "The maximum value of the remediation deadline, in days. Example: 30"
+        },
+        {
+          "name": "score",
+          "type": "string",
+          "location": "query",
+          "description": "The severity of the Common Vulnerabilities and Exposures (CVE) entries."
+        },
+        {
+          "name": "remediation_status",
+          "type": "string",
+          "location": "query",
+          "description": "The remediation status."
+        },
+        {
+          "name": "endpoint_id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the endpoint to query."
+        },
+        {
+          "name": "CVEIDs",
+          "type": "string",
+          "location": "query",
+          "description": "Add CVEIDs parameter to query specific vulnerabilities by their CVE IDs. Example: CVEIDs=CVE-2005-2300,CVE-2016-2806."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "reset_cache",
+          "type": "string",
+          "location": "query",
+          "description": "Reset current cache."
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_endpoints_vulnerabilities-org-id-cve-id-get",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a list of endpoints within the specified organization that are affected by a specific vulnerability. The method identifies the locations of the vulnerable software, enabling targeted analysis and action for the particular security concern. Required: orgId, cveId. Optional: product_names, from, limit (plus 2 more). Returns array of VulnerableEndpoint.",
+      "method": "GET",
+      "path": "/vulnerabilities/{orgId}/{cveId}/endpoints",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        },
+        {
+          "name": "product_names",
+          "type": "string",
+          "location": "query",
+          "description": "The names of the products to retrieve the endpoints associated with those specific products and the corresponding vulnerability."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_remediations_vulnerabilities-org-id-cve-id-get",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a list of previously applied remediation actions for a specific vulnerability in a specific organization. This includes details such as the type of action taken, the date of application, and the current status of the remediation. The method provides a historical view of the measures implemented to address the vulnerability, supporting ongoing management and compliance monitoring. Required: orgId, cveId. Optional: filter, sortby, from (plus 1 more). Returns array of Remediation.",
+      "method": "GET",
+      "path": "/vulnerabilities/{orgId}/{cveId}/remediations",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Provide a case-insensitive substring to filter and narrow down returned results (i."
+        },
+        {
+          "name": "sortby",
+          "type": "string",
+          "location": "query",
+          "description": "Define the sorting order by a certain field."
+        },
+        {
+          "name": "from",
+          "type": "int",
+          "location": "query",
+          "description": "Provide the number of the first record to be returned."
+        },
+        {
+          "name": "limit",
+          "type": "float",
+          "location": "query",
+          "description": "Set the maximum number of items to be returned (the page size)."
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_remediations_vulnerabilities-org-id-cve-id-id-delete",
+      "description": "**Requires permission: `manage_vulnerabilities`** Deletes a specific remediation record for compensating controls for a specific vulnerability. This method removes the details of an applied remediation action, including all related information about the nature of the controls, and the rationale for the choice. Required: orgId, cveId, remediationId. Returns the Success. Destructive.",
+      "method": "DELETE",
+      "path": "/vulnerabilities/{orgId}/{cveId}/remediations/{remediationId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        },
+        {
+          "name": "remediationId",
+          "type": "string",
+          "location": "path",
+          "description": "A specific remediation ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_remediations_vulnerabilities-org-id-cve-id-id-patch",
+      "description": "**Requires permission: `manage_vulnerabilities`** Updates an existing remediation record for compensating controls for a vulnerability. This method allows for modifications to reflect changes in the applied remediation actions, such as adjustments to the nature of the controls, or reasons for the changes. It ensures that the documentation remains accurate and current with the ongoing vulnerability management process. Only 'comment' field can be updated. Required: orgId, cveId, remediationId, comment. Returns the updated Remediation.",
+      "method": "PATCH",
+      "path": "/vulnerabilities/{orgId}/{cveId}/remediations/{remediationId}",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        },
+        {
+          "name": "remediationId",
+          "type": "string",
+          "location": "path",
+          "description": "A specific remediation ID.",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "A description of the remediation (compensating control) applied. Example: new firewall rule created to block all external access to this software.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_remediations_vulnerabilities-org-id-cve-id-post",
+      "description": "**Requires permission: `manage_vulnerabilities`** Adds documentation for an applied remediation action for specific vulnerability. At this time, the only type of action that can be documented is application of compensating controls. This method allows to record details of the compensatory measures taken, including the nature of the controls, the date of application, and the rationale for the choice. The information enhances transparency and accountability in the vulnerability management process. Required: orgId, cveId, comment, product_name. Returns the new Remediation.",
+      "method": "POST",
+      "path": "/vulnerabilities/{orgId}/{cveId}/remediations",
+      "params": [
+        {
+          "name": "orgId",
+          "type": "string",
+          "location": "path",
+          "description": "Provide an organization ID.",
+          "required": true
+        },
+        {
+          "name": "cveId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of a CVE (Common Vulnerabilities and Exposures), e.g. CVE-2005-2300",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "A description of the remediation (compensating control) applied. Example: new firewall rule created to block all external access to this software.",
+          "required": true
+        },
+        {
+          "name": "product_name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the vulnerable software product being remediated.",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,527 @@
+{
+  "api_name": "axcient",
+  "base_url": "https://axapi.axcient.com/x360recover",
+  "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give — offline, joined, and agent-ready.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "X-Api-Key",
+    "in": "header",
+    "env_vars": [
+      "AXCIENT_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "AXCIENT_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "appliance_get",
+      "description": "This request returns list of appliances belonging to the organization related to the user. Optional: service_id, include_devices (default: true).",
+      "method": "GET",
+      "path": "/appliance",
+      "params": [
+        {
+          "name": "service_id",
+          "type": "string",
+          "location": "query",
+          "description": "Unique serial number of the service (4 symbols)."
+        },
+        {
+          "name": "include_devices",
+          "type": "bool",
+          "location": "query",
+          "description": "Return device list for each appliances if True"
+        }
+      ]
+    },
+    {
+      "name": "appliance_get-by-id",
+      "description": "This request returns information about appliance and assigned devices. Required: appliance_id. Optional: include_devices (default: true).",
+      "method": "GET",
+      "path": "/appliance/{appliance_id}",
+      "params": [
+        {
+          "name": "appliance_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the appliance to return.",
+          "required": true
+        },
+        {
+          "name": "include_devices",
+          "type": "bool",
+          "location": "query",
+          "description": "Return device list for the appliance if True"
+        }
+      ]
+    },
+    {
+      "name": "client_appliance_get-by-client-id",
+      "description": "This request returns list of appliances belonging to the provided client. Required: client_id. Optional: include_devices (default: true).",
+      "method": "GET",
+      "path": "/client/{client_id}/appliance",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "include_devices",
+          "type": "bool",
+          "location": "query",
+          "description": "Return device list for each appliances if True"
+        }
+      ]
+    },
+    {
+      "name": "client_device_get-by-client-id",
+      "description": "This request returns information about all devices for this service or client. Required: client_id. Optional: service_id, d2c_only (default: false).",
+      "method": "GET",
+      "path": "/client/{client_id}/device",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "service_id",
+          "type": "string",
+          "location": "query",
+          "description": "Unique serial number of the service (4 symbols)."
+        },
+        {
+          "name": "d2c_only",
+          "type": "bool",
+          "location": "query",
+          "description": "Include D2C devices only."
+        }
+      ]
+    },
+    {
+      "name": "client_device_get-job-by-id-org-level",
+      "description": "This request returns information about job by its ID. Required: client_id, device_id, job_id.",
+      "method": "GET",
+      "path": "/client/{client_id}/device/{device_id}/job/{job_id}",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        },
+        {
+          "name": "job_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the job.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "client_device_get-job-history-org-level",
+      "description": "This request returns information about job history by it's job ID. Required: client_id, device_id, job_id. Optional: limit (default: 500), offset, starttime_begin (plus 1 more).",
+      "method": "GET",
+      "path": "/client/{client_id}/device/{device_id}/job/{job_id}/history",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        },
+        {
+          "name": "job_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the job.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Records limit for pagination, defaults to 500"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Records offset for pagination"
+        },
+        {
+          "name": "starttime_begin",
+          "type": "int",
+          "location": "query",
+          "description": "unix timestamp of minimum backup start time value"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Job status filter"
+        }
+      ]
+    },
+    {
+      "name": "client_device_get-jobs-by-id-org-level",
+      "description": "This request returns information about all jobs for this device. Required: client_id, device_id.",
+      "method": "GET",
+      "path": "/client/{client_id}/device/{device_id}/job",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "client_usage_get-client-by-client-id",
+      "description": "This request returns information about the client storage usage. Required: client_id.",
+      "method": "GET",
+      "path": "/client/{client_id}/usage",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the client.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "client_vault_get-d2c-agent-token-by-client-and-ids",
+      "description": "This request returns D2C Agent Token ID for specified vault belonging to the provided client. Required: client_id, vault_id.",
+      "method": "POST",
+      "path": "/client/{client_id}/vault/{vault_id}/d2c_agent",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "vault_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the vault to return.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_get",
+      "description": "This request returns information about clients and their health. Optional: include_appliances (default: false).",
+      "method": "GET",
+      "path": "/client",
+      "params": [
+        {
+          "name": "include_appliances",
+          "type": "bool",
+          "location": "query",
+          "description": "Include short appliances information to response or not"
+        }
+      ]
+    },
+    {
+      "name": "clients_get-by-id",
+      "description": "Returns the client information for organization related to the user by client ID. Required: client_id. Optional: include_appliances (default: false).",
+      "method": "GET",
+      "path": "/client/{client_id}",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "int",
+          "location": "path",
+          "description": "The unique ID of the client of the organization.",
+          "required": true
+        },
+        {
+          "name": "include_appliances",
+          "type": "bool",
+          "location": "query",
+          "description": "Include short appliances information to response or not"
+        }
+      ]
+    },
+    {
+      "name": "device_get-by-id-org-level",
+      "description": "This request returns information about device by its id. Required: device_id.",
+      "method": "GET",
+      "path": "/device/{device_id}",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_get-by-org-id-org-level",
+      "description": "This request returns information about all devices. Optional: local_ps_id, limit (default: 500), offset.",
+      "method": "GET",
+      "path": "/device",
+      "params": [
+        {
+          "name": "local_ps_id",
+          "type": "string",
+          "location": "query",
+          "description": "UUID to filter the output"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Records limit for pagination"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Records offset for pagination"
+        }
+      ]
+    },
+    {
+      "name": "device_get-vault-restore-point-by-asio-endpoint-id-org-level",
+      "description": "Returns information about device's restore points grouped by Cloud Vaults it is replicated on. Required: asio_endpoint_id. Optional: max_timestamp, limit.",
+      "method": "GET",
+      "path": "/device/asio_endpoint_id/{asio_endpoint_id}/restore_point",
+      "params": [
+        {
+          "name": "asio_endpoint_id",
+          "type": "string",
+          "location": "path",
+          "description": "The Asio endpoint ID of the device.",
+          "required": true
+        },
+        {
+          "name": "max_timestamp",
+          "type": "int",
+          "location": "query",
+          "description": "Upper bound timestamp for restore points"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of restore points"
+        }
+      ]
+    },
+    {
+      "name": "device_autoverify_get-device-results-by-id-org-level",
+      "description": "Returns information about AutoVerify for the given protected system by its id. Required: device_id.",
+      "method": "GET",
+      "path": "/device/{device_id}/autoverify",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_restore-point_get-device-vault-by-id-org-level",
+      "description": "Returns information about device's restore points grouped by Cloud Vaults it is replicated on. Required: device_id. Optional: max_timestamp, limit.",
+      "method": "GET",
+      "path": "/device/{device_id}/restore_point",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        },
+        {
+          "name": "max_timestamp",
+          "type": "int",
+          "location": "query",
+          "description": "Upper bound timestamp for restore points"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of restore points"
+        }
+      ]
+    },
+    {
+      "name": "organization_get",
+      "description": "This request returns information about organization retrieved by auth data.",
+      "method": "GET",
+      "path": "/organization",
+      "params": []
+    },
+    {
+      "name": "user_get-all-for-org",
+      "description": "This request returns brief information about all organization users. Optional: username.",
+      "method": "GET",
+      "path": "/user",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "location": "query",
+          "description": "Optional username to filter users by."
+        }
+      ]
+    },
+    {
+      "name": "user_get-single-for-org",
+      "description": "Returns information about user related to organization. Required: user_id.",
+      "method": "GET",
+      "path": "/user/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the user.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vault_get",
+      "description": "This request returns information about vaults and assigned devices. Optional: vault_type, active, with_url (plus 2 more).",
+      "method": "GET",
+      "path": "/vault",
+      "params": [
+        {
+          "name": "vault_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter only private or only cloud vaults"
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by active state"
+        },
+        {
+          "name": "with_url",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by URL presence"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max amount of vaults in response"
+        },
+        {
+          "name": "include_devices",
+          "type": "bool",
+          "location": "query",
+          "description": "Return device list for each vault if True"
+        }
+      ]
+    },
+    {
+      "name": "vault_get-by-id",
+      "description": "This request returns information about vault and assigned devices. Required: vault_id.",
+      "method": "GET",
+      "path": "/vault/{vault_id}",
+      "params": [
+        {
+          "name": "vault_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the vault to return.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vault_threshold_get-by-vault-id",
+      "description": "This request returns information about all available vault thresholds. Required: vault_id.",
+      "method": "GET",
+      "path": "/vault/{vault_id}/threshold/connectivity",
+      "params": [
+        {
+          "name": "vault_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the vault to return.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vault_threshold_set-by-vault-id",
+      "description": "This request allows to change all available vault thresholds. Required: vault_id. Optional: threshold. Returns the new VaultThresholdBody.",
+      "method": "POST",
+      "path": "/vault/{vault_id}/threshold/connectivity",
+      "params": [
+        {
+          "name": "vault_id",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the vault to return.",
+          "required": true
+        },
+        {
+          "name": "threshold",
+          "type": "int",
+          "location": "body",
+          "description": "Time in minutes the Vault will become warned if it loses connectivity"
+        }
+      ]
+    }
+  ]
+}

@@ -364,12 +364,12 @@
     {
       "file": "skills/cisco-duo/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G115",
-      "reason": "cisco-duo only (generated, printing-press 4.33.5 - same template output as the google-workspace entries). The three int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only ever compare identifiers and never size an allocation or index memory. store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+      "reason": "cisco-duo (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. Integer conversions in the darwin store-adoption guard, of two kinds. Identity comparison: the device number from this process's own unix.Fstat of its store file (Darwin dev_t is a signed int32) is converted with uint32(self.Dev), preserving its bits, to compare against the proc_info vnode st_dev (uint32). Syscall argument: a descriptor number proc_info itself returned is widened with uint64(fd) for the next proc_info query. None sizes an allocation or indexes memory, and no API, MCP or tool-call value reaches them."
     },
     {
       "file": "skills/cisco-duo/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "cisco-duo only (generated, printing-press 4.33.5 - same template output as the google-workspace entries). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "cisco-duo (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/cisco-duo/cli/internal/cli/store_adopt_linux.go",
@@ -399,12 +399,12 @@
     {
       "file": "skills/connectwise-rmm/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G115",
-      "reason": "connectwise-rmm only (generated, printing-press 4.33.5 - byte-identical template output to the cisco-duo entries in PR #361, verified by diff). The three int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only ever compare identifiers and never size an allocation or index memory. store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+      "reason": "connectwise-rmm (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. Integer conversions in the darwin store-adoption guard, of two kinds. Identity comparison: the device number from this process's own unix.Fstat of its store file (Darwin dev_t is a signed int32) is converted with uint32(self.Dev), preserving its bits, to compare against the proc_info vnode st_dev (uint32). Syscall argument: a descriptor number proc_info itself returned is widened with uint64(fd) for the next proc_info query. None sizes an allocation or indexes memory, and no API, MCP or tool-call value reaches them."
     },
     {
       "file": "skills/connectwise-rmm/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "connectwise-rmm only (generated, printing-press 4.33.5 - byte-identical template output to the cisco-duo entries in PR #361, verified by diff). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "connectwise-rmm (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/connectwise-rmm/cli/internal/cli/store_adopt_linux.go",
@@ -524,7 +524,7 @@
     {
       "file": "skills/threatdown/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "threatdown only (generated, printing-press 4.33.5 - byte-identical template output to the connectwise-rmm entries in PR #362 and cisco-duo in PR #361, verified by diff with the slug normalized). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "threatdown (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/threatdown/cli/internal/cli/store_adopt_linux.go",
@@ -564,7 +564,7 @@
     {
       "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "cisco-meraki (generated, press 4.33.5 template; the other 4.33.5 prints carry the byte-identical file, but the builtin pattern scanner matches repo-relative paths only, so each connector lists its own). claimClosedStore os.Opens only legacyStoreAdoptPaths(legacy): the CLI's own legacy data.db plus fixed sidecar suffixes (-wal, -shm, ...) under the user's data dir."
+      "reason": "cisco-meraki (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
@@ -579,7 +579,7 @@
     {
       "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G115",
-      "reason": "cisco-meraki (generated, press 4.33.5 template; byte-identical to the cisco-duo and fortinet store_adopt_darwin.go, verified by diff with the slug normalized). The int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only compare identifiers and never size an allocation or index memory."
+      "reason": "cisco-meraki (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. Integer conversions in the darwin store-adoption guard, of two kinds. Identity comparison: the device number from this process's own unix.Fstat of its store file (Darwin dev_t is a signed int32) is converted with uint32(self.Dev), preserving its bits, to compare against the proc_info vnode st_dev (uint32). Syscall argument: a descriptor number proc_info itself returned is widened with uint64(fd) for the next proc_info query. None sizes an allocation or indexes memory, and no API, MCP or tool-call value reaches them."
     },
     {
       "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_linux.go",
@@ -604,7 +604,7 @@
     {
       "file": "skills/connectsecure/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "connectsecure only (generated, printing-press 4.33.5 - byte-identical template output to the cisco-duo / connectwise-rmm entries in PRs #361 / #362, verified by diff). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "connectsecure (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/connectsecure/cli/internal/cli/helpers.go",
@@ -649,7 +649,7 @@
     {
       "file": "skills/sophos-central/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "sophos-central only (generated, printing-press 4.33.5 - byte-identical template output to the fortinet tree covered by merged #366 and the connectsecure tree in #373, verified by sha256: store_adopt_darwin.go fb4934a2cce4..., store_adopt_linux.go f1558c1ff3d0...). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "sophos-central (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/sophos-central/cli/internal/cli/store_adopt_linux.go",
@@ -684,12 +684,12 @@
     {
       "file": "skills/quotewerks/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G115",
-      "reason": "quotewerks only (generated, printing-press 4.33.5 - byte-identical to the connectwise-rmm file covered by #362: store_adopt_darwin.go sha256 fb4934a2..., store_adopt_linux.go sha256 f1558c1f..., verified by checksum). The three int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only ever compare identifiers and never size an allocation or index memory. store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+      "reason": "quotewerks (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. Integer conversions in the darwin store-adoption guard, of two kinds. Identity comparison: the device number from this process's own unix.Fstat of its store file (Darwin dev_t is a signed int32) is converted with uint32(self.Dev), preserving its bits, to compare against the proc_info vnode st_dev (uint32). Syscall argument: a descriptor number proc_info itself returned is widened with uint64(fd) for the next proc_info query. None sizes an allocation or indexes memory, and no API, MCP or tool-call value reaches them."
     },
     {
       "file": "skills/quotewerks/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "quotewerks only (generated, printing-press 4.33.5 - byte-identical to the connectwise-rmm file covered by #362: store_adopt_darwin.go sha256 fb4934a2..., store_adopt_linux.go sha256 f1558c1f..., verified by checksum). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "quotewerks (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/quotewerks/cli/internal/cli/store_adopt_linux.go",
@@ -724,12 +724,12 @@
     {
       "file": "skills/proxmox/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G115",
-      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). The three int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only ever compare identifiers and never size an allocation or index memory. store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+      "reason": "proxmox (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. Integer conversions in the darwin store-adoption guard, of two kinds. Identity comparison: the device number from this process's own unix.Fstat of its store file (Darwin dev_t is a signed int32) is converted with uint32(self.Dev), preserving its bits, to compare against the proc_info vnode st_dev (uint32). Syscall argument: a descriptor number proc_info itself returned is widened with uint64(fd) for the next proc_info query. None sizes an allocation or indexes memory, and no API, MCP or tool-call value reaches them."
     },
     {
       "file": "skills/proxmox/cli/internal/cli/store_adopt_darwin.go",
       "rule": "G304",
-      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+      "reason": "proxmox (generated press template; store_adopt_darwin.go is byte-identical in all 17 connectors that carry it, verified by checksum). Re-vetted 2026-10-23 with the first darwin gosec v2.29.0 pass. claimClosedStore os.Opens only the paths legacyStoreAdoptPaths(legacy) returns: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is a hex-truncated SHA-256 the CLI computes) plus whichever of the fixed -wal, -shm and -journal siblings exist, opened read-only to compare inode and device with other processes' descriptors. The data directory is the user's own; the operator can relocate it with --home or the CLI's data-directory environment variables (local configuration). No API, MCP, tool-call or tenant input reaches the path: no MCP tool takes a home or data-directory parameter, and a call naming home is refused (\"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/proxmox/cli/internal/cli/store_adopt_linux.go",
@@ -1182,6 +1182,11 @@
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens <db path>.snapshot-lock, a zero-byte advisory lock sidecar, 0600; nothing is read from it. --db is refused over MCP (blockedDestinationFlags; verified with the real MCP binary), so only the operator chooses the path."
     },
     {
+      "file": "skills/auvik/cli/internal/cli/auvik_snapshot_lock_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of acquireSnapshotLock: opens <db path>.snapshot-lock (O_CREATE|O_RDWR, 0600), a zero-byte advisory lock sidecar held with LockFileEx; nothing is read from it. The db path is --db or the default data directory. --db is in blockedDestinationFlags, absent from the inventory_diff tool schema, and refused over MCP (checked with the real MCP binary). Only the operator chooses the path."
+    },
+    {
       "file": "skills/backup-radar/cli/internal/cli/radar_local.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). readPathOrStdin reads the file named by push --from or coverage diff --devices; both are refused over MCP (push is mcp:hidden, --devices is in mcp:write-flags; verified with the real MCP binary), so only the operator names the file."
@@ -1190,6 +1195,11 @@
       "file": "skills/bitdefender/cli/internal/cli/gz_open_unix.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). openNoBlock opens the --devices / --agreements export for readBoundedFile, which Lstat-checks a regular file, re-verifies the opened descriptor and caps the read at 50 MiB. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/bitdefender/cli/internal/cli/gz_open_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of openNoBlock: os.Open of the path. Its only caller is readBoundedFile, for the fleet rmm-gap --devices and usage billing --agreements exports, which requires an Lstat regular file and an opened handle that is a regular file, and caps the read at 50 MiB. On Windows the os.SameFile re-check cannot see a regular file renamed over the original between the Lstat and the open (Go's Windows Lstat keeps only the path, and SameFile reads the identity by reopening it, os/types_windows.go), though it still refuses a swap to a symlink (the identity is read from the link itself, opened with FILE_FLAG_OPEN_REPARSE_POINT). The path is the operator's own: neither flag is reachable over MCP (both are mcp:write-flags, absent from the tool schema, and a call naming them is refused with \"unknown MCP parameter\"; checked with the real MCP binary)."
     },
     {
       "file": "skills/cipp/cli/internal/cli/bulk.go",
@@ -1252,6 +1262,11 @@
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). openNoFollow opens the cmdb reconcile --file export read-only with O_NOFOLLOW and O_NONBLOCK; the caller then requires a regular file. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
     },
     {
+      "file": "skills/jira-service-management/cli/internal/cli/cmdb_reconcile_open_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of openNoFollow: requires an Lstat regular file (a symlink is refused) and an opened handle that os.SameFile matches. On Windows the os.SameFile re-check cannot see a regular file renamed over the original between the Lstat and the open (Go's Windows Lstat keeps only the path, and SameFile reads the identity by reopening it, os/types_windows.go), though it still refuses a swap to a symlink (the identity is read from the link itself, opened with FILE_FLAG_OPEN_REPARSE_POINT). Reached only from openInventoryFile on the CLI path (under the MCP server openInventoryUnderMCP is used instead), and cmdb reconcile --file is an mcp:write-flag, absent from the tool schema and refused over MCP (checked with the real MCP binary). The path is the operator's own."
+    },
+    {
       "file": "skills/nerdio/cli/internal/cli/fleet_autoscale_audit.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads fleet autoscale-audit --baseline, which is refused over MCP (blockedDestinationFlags \"baseline\"; verified with the real MCP binary), so only the operator names the file."
@@ -1260,6 +1275,11 @@
       "file": "skills/proxmox/cli/internal/cli/clusters_perms_unix.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens the CLI's own clusters.toml (config dir or the PROXMOX_CLUSTERS_FILE environment variable) read-only and non-blocking; type, mode and owner are checked on the opened descriptor. No flag or tool-call input reaches the path."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/clusters_perms_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of readClustersFile: os.ReadFile of the CLI's own clusters.toml, at PROXMOX_CLUSTERS_FILE or the user config directory (clustersPath). Unlike the Unix half it checks no descriptor mode or owner; the file inherits the user profile's ACL. No flag or tool-call input reaches the path: the MCP tools take no path or environment parameter, and the server passes no tool input into the child environment."
     },
     {
       "file": "skills/servosity/cli/internal/cli/bill_reconcile.go",

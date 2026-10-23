@@ -164,6 +164,15 @@ jobs:
         #                       tools/maintainer/verify_all.sh. They run locally
         #                       before a PR; the self-tests here keep them from
         #                       rotting between uses.
+        #   check_press_metadata.py, check_registry_state.py
+        #                     - the press/ folder rules (an extra file such as a
+        #                       live dogfood transcript, a stale folder after a
+        #                       reprint, a spec that is not the one the press
+        #                       read, a personal path, a key block, an empty
+        #                       folder each fail; a consistent folder passes),
+        #                       the press floor's version order, and the badge
+        #                       binding (a hash that is not the tag's code, a
+        #                       badge with no binding, each fail).
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
@@ -176,6 +185,11 @@ jobs:
           python3 tools/maintainer/verify_scope.py --self-test
           python3 tools/maintainer/check_no_pp_leak.py --self-test
           python3 tools/maintainer/check_unix_test_asserts.py --self-test
+          # The recurring-bug-class harness: each class fires on a broken shape
+          # and is silent on a healthy one (both directions, offline, no build).
+          python3 tools/maintainer/class_harness.py --self-test
+          python3 tools/maintainer/check_press_metadata.py --self-test
+          python3 tools/maintainer/check_registry_state.py --self-test
 
       - name: Merge and release tool self-tests (#422)
         run: |
@@ -183,6 +197,17 @@ jobs:
           python3 -I tools/maintainer/merge_when_green.py --self-test
           python3 -I tools/maintainer/stamp_release.py --self-test
           bash tools/maintainer/cut_tags.sh --self-test
+
+      - name: Class baseline only shrinks (PR cannot widen its own baseline)
+        # Build-free guard, mirroring the security gate's baseline-readded check
+        # (#429): the working class_baseline.json may only REMOVE connectors vs
+        # the baseline at the PR base, never add. Adding a connector means a PR
+        # tried to baseline a class it broke instead of fixing it. The per-skill
+        # runtime class tests run in the build matrix rows; this just polices the
+        # data file against the trusted base. No base (weekly sweep / dispatch)
+        # means nothing to compare, so it is skipped there.
+        if: github.event_name == 'pull_request'
+        run: python3 tools/maintainer/class_harness.py --assert-baseline-shrinks "${{ github.event.pull_request.base.sha }}"
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -312,6 +337,22 @@ jobs:
           if [ -n "${BASE:-}" ]; then git fetch -q origin "$BASE" 2>/dev/null || true; fi
           python3 tools/maintainer/check_registry_state.py ${BASE:+--base "$BASE"}
 
+      - name: Press metadata beside each connector, and the press floor for new ones
+        # skills/<dir>/press/ holds the press's own provenance, tools manifest
+        # and spec (onboard.py vendors it beside cli/). Where one exists it
+        # must agree with manifest.json and carry nothing secret-looking; a
+        # connector without one is reported in the coverage line, not failed.
+        # With a base, a connector this change ADDS must have been printed at
+        # or above tools/maintainer/press_floor.json (upstream's own declared
+        # minimum); the floor and its exemptions are read from the base too,
+        # so a PR cannot lower its own bar. Existing connectors are untouched.
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BASE:-}" ]; then git fetch -q origin "$BASE" 2>/dev/null || true; fi
+          python3 tools/maintainer/check_press_metadata.py ${BASE:+--base "$BASE"}
+
       - name: DCO sign-off (PR commits)
         if: github.event_name == 'pull_request'
         env:
@@ -384,6 +425,9 @@ jobs:
         run: |
           go vet ./...
           go test -count=1 ./...
+
+      - name: Component-flag validators reject hostile values (one place, not 31 connectors)
+        run: python3 tools/maintainer/check_mcp_file_flags.py --check-component-validators
 
   # Its own job, deliberately. This check is RED BY DESIGN for the window
   # between a version-bump merge and the hand-cut tag that makes its pins real
@@ -636,6 +680,19 @@ jobs:
         # Needs no vendor credentials and no network: the stub binds 127.0.0.1
         # and the fixture config carries a literal auth_header.
         run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
+
+      - name: Recurring bug-class tests (this skill, black box)
+        # Build this connector's CLI + MCP and drive them against a local fake
+        # server for the recurring CLASSES (secret echo, auth on the wire, write
+        # safety). Connector-agnostic: no per-connector Go import; the surface
+        # comes from the binary's agent-context and the wiring from manifest.json.
+        # A connector listed in class_baseline.json for a class is reported, not
+        # failed (the list only shrinks; the guards job proves a PR did not widen
+        # it). A change to the harness itself is MACHINERY, so it re-runs the
+        # whole fleet. Runs even if a build step above failed, so one row reports
+        # everything. See tools/maintainer/README.md "Class tests".
+        if: ${{ !cancelled() }}
+        run: python3 tools/maintainer/class_harness.py --slug ${{ matrix.skill.name }}
 
       - name: Test (linux, native)
         # Until this step the only `go test` in CI ran on the Windows rows, so a

@@ -1,0 +1,3217 @@
+{
+  "api_name": "datto-rmm",
+  "base_url": "https://merlot-api.centrastage.net/api",
+  "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "DATTO_RMM_API_KEY",
+      "DATTO_RMM_API_SECRET_KEY",
+      "DATTO_RMM_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "DATTO_RMM_API_KEY",
+        "kind": "auth_flow_input",
+        "required": true,
+        "sensitive": true,
+        "description": "Datto RMM API key (username in the OAuth password grant). Generate in Setup \u003e Users in the Datto RMM web UI."
+      },
+      {
+        "name": "DATTO_RMM_API_SECRET_KEY",
+        "kind": "auth_flow_input",
+        "required": true,
+        "sensitive": true,
+        "description": "Datto RMM API secret key (password in the OAuth password grant)."
+      },
+      {
+        "name": "DATTO_RMM_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "description": "Optional pre-minted OAuth bearer token (skips the auto-mint)."
+      }
+    ],
+    "key_url": "https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_create-variable",
+      "description": "Creates an account variable. Optional: masked, name, value.",
+      "method": "PUT",
+      "path": "/v2/account/variable",
+      "params": [
+        {
+          "name": "masked",
+          "type": "bool",
+          "location": "body",
+          "description": "Variable masking (hiding)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Variable value"
+        }
+      ]
+    },
+    {
+      "name": "account_delete-variable",
+      "description": "Deletes the account variable identified by the given variable Id. Required: variableId. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/account/variable/{variableId}",
+      "params": [
+        {
+          "name": "variableId",
+          "type": "int",
+          "location": "path",
+          "description": "Variable id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "account_get-components",
+      "description": "Fetches the components records of the authenticated user's account. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/account/components",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "account_get-dnet-site-mappings",
+      "description": "Fetches the sites records with its mapped dnet network id for the authenticated user's account. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/account/dnet-site-mappings",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "account_get-sites",
+      "description": "Fetches the site records of the authenticated user's account. Optional: page, max, siteName.",
+      "method": "GET",
+      "path": "/v2/account/sites",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "siteName",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Filters results based on the provided value using the LIKE operator. Partial matches are allowed."
+        }
+      ]
+    },
+    {
+      "name": "account_get-user",
+      "description": "Fetches the authenticated user's account data.",
+      "method": "GET",
+      "path": "/v2/account",
+      "params": []
+    },
+    {
+      "name": "account_get-user-closed-alerts",
+      "description": "If the muted parameter is not provided, both muted and umuted alerts will be queried. Optional: page, max, muted.",
+      "method": "GET",
+      "path": "/v2/account/alerts/resolved",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "location": "query",
+          "description": "Muted"
+        }
+      ]
+    },
+    {
+      "name": "account_get-user-devices",
+      "description": "Fetches the devices of the authenticated user's account. Optional: page, max, filterId (plus 4 more).",
+      "method": "GET",
+      "path": "/v2/account/devices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "filterId",
+          "type": "int",
+          "location": "query",
+          "description": "Optional. If applied, this filter exclusively determines the results."
+        },
+        {
+          "name": "hostname",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Filters results based on the provided value using the LIKE operator. Partial matches are allowed."
+        },
+        {
+          "name": "deviceType",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Filters results based on the provided value using the LIKE operator. Partial matches are allowed."
+        },
+        {
+          "name": "operatingSystem",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Filters results based on the provided value using the LIKE operator. Partial matches are allowed."
+        },
+        {
+          "name": "siteName",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Filters results based on the provided value using the LIKE operator. Partial matches are allowed."
+        }
+      ]
+    },
+    {
+      "name": "account_get-user-open-alerts",
+      "description": "If the muted parameter is not provided, both muted and umuted alerts will be queried. Optional: page, max, muted.",
+      "method": "GET",
+      "path": "/v2/account/alerts/open",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "location": "query",
+          "description": "Muted"
+        }
+      ]
+    },
+    {
+      "name": "account_get-users",
+      "description": "Fetches the authentication users records of the authenticated user's account. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/account/users",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "account_get-variables",
+      "description": "Fetches the account variables. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/account/variables",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "account_update-variable",
+      "description": "Updates the account variable identified by the given variable Id. Required: variableId. Optional: name, value.",
+      "method": "POST",
+      "path": "/v2/account/variable/{variableId}",
+      "params": [
+        {
+          "name": "variableId",
+          "type": "int",
+          "location": "path",
+          "description": "Variable id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Variable value"
+        }
+      ]
+    },
+    {
+      "name": "activity-logs_get-activities",
+      "description": "Fetches the activity logs. Optional: size, order, searchAfter (plus 9 more). Returns array of ActivityLog.",
+      "method": "GET",
+      "path": "/v2/activity-logs",
+      "params": [
+        {
+          "name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Specifies the number of records to be returned"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Specifies the order in which records should be returned based on their creation date"
+        },
+        {
+          "name": "searchAfter",
+          "type": "array",
+          "location": "query",
+          "description": "Acts as a pointer to determine the starting point for returning records from the database. It is not advised to set this parameter manually. Instead, it is recommended to utilize the 'prevPage' and 'nextPage' URLs that are returned in the response where this parameter in already included."
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "Defines the UTC start date for fetching data. By default API returns logs from last 15 minutes. Format: yyyy-MM-ddTHH:mm:ssZ"
+        },
+        {
+          "name": "until",
+          "type": "string",
+          "location": "query",
+          "description": "Defines the UTC end date for fetching data. Format: yyyy-MM-ddTHH:mm:ssZ"
+        },
+        {
+          "name": "entities",
+          "type": "array",
+          "location": "query",
+          "description": "Filters the returned activity logs based on their type. It can take multiple values separated by comma"
+        },
+        {
+          "name": "categories",
+          "type": "array",
+          "location": "query",
+          "description": "Filters the returned activity logs based on their category. It can take multiple values separated by comma"
+        },
+        {
+          "name": "actions",
+          "type": "array",
+          "location": "query",
+          "description": "Filters the returned activity logs based on their action. It can take multiple values separated by comma"
+        },
+        {
+          "name": "siteIds",
+          "type": "array",
+          "location": "query",
+          "description": "Filters the returned activity logs based on the site they were created in. It can take multiple values separated by comma"
+        },
+        {
+          "name": "userIds",
+          "type": "array",
+          "location": "query",
+          "description": "Filters the returned activity logs based on the user they are associated with. It can take multiple values separated by comma"
+        },
+        {
+          "name": "searchQuery",
+          "type": "string",
+          "location": "query",
+          "description": "Enter queries using single words, phrases, terms containing wildcards or boolean operators, fuzzy searches, grouped searches, or special characters. See Activity Log for more details."
+        }
+      ]
+    },
+    {
+      "name": "alert_get",
+      "description": "Fetches data of the alert identified by the given alert Uid. Required: alertUid.",
+      "method": "GET",
+      "path": "/v2/alert/{alertUid}",
+      "params": [
+        {
+          "name": "alertUid",
+          "type": "string",
+          "location": "path",
+          "description": "Alert uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert_mute_alert",
+      "description": "Alerts can no longer be muted, as of the 8.9.0 release. Required: alertUid.",
+      "method": "POST",
+      "path": "/v2/alert/{alertUid}/mute",
+      "params": [
+        {
+          "name": "alertUid",
+          "type": "string",
+          "location": "path",
+          "description": "Alert uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert_resolve_alert",
+      "description": "Resolves the alert identified by the given alert Uid. Required: alertUid.",
+      "method": "POST",
+      "path": "/v2/alert/{alertUid}/resolve",
+      "params": [
+        {
+          "name": "alertUid",
+          "type": "string",
+          "location": "path",
+          "description": "Alert uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert_unmute_alert",
+      "description": "Alerts can no longer be un-muted, as of the 8.9.0 release. Required: alertUid.",
+      "method": "POST",
+      "path": "/v2/alert/{alertUid}/unmute",
+      "params": [
+        {
+          "name": "alertUid",
+          "type": "string",
+          "location": "path",
+          "description": "Alert uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_get-device",
+      "description": "Fetches audit data of the generic device identified the given device Uid. Required: deviceUid.",
+      "method": "GET",
+      "path": "/v2/audit/device/{deviceUid}",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_get-device-by-mac-address",
+      "description": "Fetches audit data of the generic device(s) identified the given MAC address in format: XXXXXXXXXXXX. Required: macAddress. Returns array of DeviceAudit.",
+      "method": "GET",
+      "path": "/v2/audit/device/macAddress/{macAddress}",
+      "params": [
+        {
+          "name": "macAddress",
+          "type": "string",
+          "location": "path",
+          "description": "Mac address",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_get-device-software",
+      "description": "Fetches audited software of the generic device identified the given device Uid. Required: deviceUid. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/audit/device/{deviceUid}/software",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "audit_get-esxi-host",
+      "description": "Fetches audit data of the ESXi host identified the given device Uid. Required: deviceUid.",
+      "method": "GET",
+      "path": "/v2/audit/esxihost/{deviceUid}",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_get-printer",
+      "description": "Fetches audit data of the printer identified the given device Uid. Required: deviceUid.",
+      "method": "GET",
+      "path": "/v2/audit/printer/{deviceUid}",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_get-by-id",
+      "description": "Fetches data of the device identified by the given device Id. Required: deviceId.",
+      "method": "GET",
+      "path": "/v2/device/id/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "int",
+          "location": "path",
+          "description": "Device id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_get-by-mac-address",
+      "description": "Fetches data of the device(s) identified by the given MAC address in format: XXXXXXXXXXXX. Required: macAddress. Returns array of Device.",
+      "method": "GET",
+      "path": "/v2/device/macAddress/{macAddress}",
+      "params": [
+        {
+          "name": "macAddress",
+          "type": "string",
+          "location": "path",
+          "description": "Mac address",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_get-by-uid",
+      "description": "Fetches data of the device identified by the given device Uid. Required: deviceUid.",
+      "method": "GET",
+      "path": "/v2/device/{deviceUid}",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_alerts_get-device-open",
+      "description": "If the muted parameter is not provided, both muted and umuted alerts will be queried. Required: deviceUid. Optional: page, max, muted.",
+      "method": "GET",
+      "path": "/v2/device/{deviceUid}/alerts/open",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "location": "query",
+          "description": "Muted"
+        }
+      ]
+    },
+    {
+      "name": "device_alerts_get-device-resolved",
+      "description": "If the muted parameter is not provided, both muted and umuted alerts will be queried. Required: deviceUid. Optional: page, max, muted.",
+      "method": "GET",
+      "path": "/v2/device/{deviceUid}/alerts/resolved",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "location": "query",
+          "description": "Muted"
+        }
+      ]
+    },
+    {
+      "name": "device_quickjob_create-quick-job",
+      "description": "Creates a quick job on the device identified by the given device Uid. Required: deviceUid, jobComponent, jobName.",
+      "method": "PUT",
+      "path": "/v2/device/{deviceUid}/quickjob",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        },
+        {
+          "name": "job-component-component-uid",
+          "wire_name": "jobComponent.componentUid",
+          "type": "string",
+          "location": "body",
+          "description": "Component UID. List of components for the account could be retrieved via account resource"
+        },
+        {
+          "name": "job-component-variables",
+          "wire_name": "jobComponent.variables",
+          "type": "array",
+          "location": "body",
+          "description": "Variables"
+        },
+        {
+          "name": "jobName",
+          "type": "string",
+          "location": "body",
+          "description": "Job name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_site_move-device",
+      "description": "Moves a device from one site to another site. Required: deviceUid, siteUid.",
+      "method": "PUT",
+      "path": "/v2/device/{deviceUid}/site/{siteUid}",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "The UID of the device to move to a different site",
+          "required": true
+        },
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "The UID of the target site",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_udf_set-fields",
+      "description": "Any user defined field supplied with an empty value will be set to null. All user defined fields not supplied will retain their current values. Required: deviceUid. Optional: udf1, udf10, udf100 (plus 297 more).",
+      "method": "POST",
+      "path": "/v2/device/{deviceUid}/udf",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        },
+        {
+          "name": "udf1",
+          "type": "string",
+          "location": "body",
+          "description": "Udf1"
+        },
+        {
+          "name": "udf10",
+          "type": "string",
+          "location": "body",
+          "description": "Udf10"
+        },
+        {
+          "name": "udf100",
+          "type": "string",
+          "location": "body",
+          "description": "Udf100"
+        },
+        {
+          "name": "udf101",
+          "type": "string",
+          "location": "body",
+          "description": "Udf101"
+        },
+        {
+          "name": "udf102",
+          "type": "string",
+          "location": "body",
+          "description": "Udf102"
+        },
+        {
+          "name": "udf103",
+          "type": "string",
+          "location": "body",
+          "description": "Udf103"
+        },
+        {
+          "name": "udf104",
+          "type": "string",
+          "location": "body",
+          "description": "Udf104"
+        },
+        {
+          "name": "udf105",
+          "type": "string",
+          "location": "body",
+          "description": "Udf105"
+        },
+        {
+          "name": "udf106",
+          "type": "string",
+          "location": "body",
+          "description": "Udf106"
+        },
+        {
+          "name": "udf107",
+          "type": "string",
+          "location": "body",
+          "description": "Udf107"
+        },
+        {
+          "name": "udf108",
+          "type": "string",
+          "location": "body",
+          "description": "Udf108"
+        },
+        {
+          "name": "udf109",
+          "type": "string",
+          "location": "body",
+          "description": "Udf109"
+        },
+        {
+          "name": "udf11",
+          "type": "string",
+          "location": "body",
+          "description": "Udf11"
+        },
+        {
+          "name": "udf110",
+          "type": "string",
+          "location": "body",
+          "description": "Udf110"
+        },
+        {
+          "name": "udf111",
+          "type": "string",
+          "location": "body",
+          "description": "Udf111"
+        },
+        {
+          "name": "udf112",
+          "type": "string",
+          "location": "body",
+          "description": "Udf112"
+        },
+        {
+          "name": "udf113",
+          "type": "string",
+          "location": "body",
+          "description": "Udf113"
+        },
+        {
+          "name": "udf114",
+          "type": "string",
+          "location": "body",
+          "description": "Udf114"
+        },
+        {
+          "name": "udf115",
+          "type": "string",
+          "location": "body",
+          "description": "Udf115"
+        },
+        {
+          "name": "udf116",
+          "type": "string",
+          "location": "body",
+          "description": "Udf116"
+        },
+        {
+          "name": "udf117",
+          "type": "string",
+          "location": "body",
+          "description": "Udf117"
+        },
+        {
+          "name": "udf118",
+          "type": "string",
+          "location": "body",
+          "description": "Udf118"
+        },
+        {
+          "name": "udf119",
+          "type": "string",
+          "location": "body",
+          "description": "Udf119"
+        },
+        {
+          "name": "udf12",
+          "type": "string",
+          "location": "body",
+          "description": "Udf12"
+        },
+        {
+          "name": "udf120",
+          "type": "string",
+          "location": "body",
+          "description": "Udf120"
+        },
+        {
+          "name": "udf121",
+          "type": "string",
+          "location": "body",
+          "description": "Udf121"
+        },
+        {
+          "name": "udf122",
+          "type": "string",
+          "location": "body",
+          "description": "Udf122"
+        },
+        {
+          "name": "udf123",
+          "type": "string",
+          "location": "body",
+          "description": "Udf123"
+        },
+        {
+          "name": "udf124",
+          "type": "string",
+          "location": "body",
+          "description": "Udf124"
+        },
+        {
+          "name": "udf125",
+          "type": "string",
+          "location": "body",
+          "description": "Udf125"
+        },
+        {
+          "name": "udf126",
+          "type": "string",
+          "location": "body",
+          "description": "Udf126"
+        },
+        {
+          "name": "udf127",
+          "type": "string",
+          "location": "body",
+          "description": "Udf127"
+        },
+        {
+          "name": "udf128",
+          "type": "string",
+          "location": "body",
+          "description": "Udf128"
+        },
+        {
+          "name": "udf129",
+          "type": "string",
+          "location": "body",
+          "description": "Udf129"
+        },
+        {
+          "name": "udf13",
+          "type": "string",
+          "location": "body",
+          "description": "Udf13"
+        },
+        {
+          "name": "udf130",
+          "type": "string",
+          "location": "body",
+          "description": "Udf130"
+        },
+        {
+          "name": "udf131",
+          "type": "string",
+          "location": "body",
+          "description": "Udf131"
+        },
+        {
+          "name": "udf132",
+          "type": "string",
+          "location": "body",
+          "description": "Udf132"
+        },
+        {
+          "name": "udf133",
+          "type": "string",
+          "location": "body",
+          "description": "Udf133"
+        },
+        {
+          "name": "udf134",
+          "type": "string",
+          "location": "body",
+          "description": "Udf134"
+        },
+        {
+          "name": "udf135",
+          "type": "string",
+          "location": "body",
+          "description": "Udf135"
+        },
+        {
+          "name": "udf136",
+          "type": "string",
+          "location": "body",
+          "description": "Udf136"
+        },
+        {
+          "name": "udf137",
+          "type": "string",
+          "location": "body",
+          "description": "Udf137"
+        },
+        {
+          "name": "udf138",
+          "type": "string",
+          "location": "body",
+          "description": "Udf138"
+        },
+        {
+          "name": "udf139",
+          "type": "string",
+          "location": "body",
+          "description": "Udf139"
+        },
+        {
+          "name": "udf14",
+          "type": "string",
+          "location": "body",
+          "description": "Udf14"
+        },
+        {
+          "name": "udf140",
+          "type": "string",
+          "location": "body",
+          "description": "Udf140"
+        },
+        {
+          "name": "udf141",
+          "type": "string",
+          "location": "body",
+          "description": "Udf141"
+        },
+        {
+          "name": "udf142",
+          "type": "string",
+          "location": "body",
+          "description": "Udf142"
+        },
+        {
+          "name": "udf143",
+          "type": "string",
+          "location": "body",
+          "description": "Udf143"
+        },
+        {
+          "name": "udf144",
+          "type": "string",
+          "location": "body",
+          "description": "Udf144"
+        },
+        {
+          "name": "udf145",
+          "type": "string",
+          "location": "body",
+          "description": "Udf145"
+        },
+        {
+          "name": "udf146",
+          "type": "string",
+          "location": "body",
+          "description": "Udf146"
+        },
+        {
+          "name": "udf147",
+          "type": "string",
+          "location": "body",
+          "description": "Udf147"
+        },
+        {
+          "name": "udf148",
+          "type": "string",
+          "location": "body",
+          "description": "Udf148"
+        },
+        {
+          "name": "udf149",
+          "type": "string",
+          "location": "body",
+          "description": "Udf149"
+        },
+        {
+          "name": "udf15",
+          "type": "string",
+          "location": "body",
+          "description": "Udf15"
+        },
+        {
+          "name": "udf150",
+          "type": "string",
+          "location": "body",
+          "description": "Udf150"
+        },
+        {
+          "name": "udf151",
+          "type": "string",
+          "location": "body",
+          "description": "Udf151"
+        },
+        {
+          "name": "udf152",
+          "type": "string",
+          "location": "body",
+          "description": "Udf152"
+        },
+        {
+          "name": "udf153",
+          "type": "string",
+          "location": "body",
+          "description": "Udf153"
+        },
+        {
+          "name": "udf154",
+          "type": "string",
+          "location": "body",
+          "description": "Udf154"
+        },
+        {
+          "name": "udf155",
+          "type": "string",
+          "location": "body",
+          "description": "Udf155"
+        },
+        {
+          "name": "udf156",
+          "type": "string",
+          "location": "body",
+          "description": "Udf156"
+        },
+        {
+          "name": "udf157",
+          "type": "string",
+          "location": "body",
+          "description": "Udf157"
+        },
+        {
+          "name": "udf158",
+          "type": "string",
+          "location": "body",
+          "description": "Udf158"
+        },
+        {
+          "name": "udf159",
+          "type": "string",
+          "location": "body",
+          "description": "Udf159"
+        },
+        {
+          "name": "udf16",
+          "type": "string",
+          "location": "body",
+          "description": "Udf16"
+        },
+        {
+          "name": "udf160",
+          "type": "string",
+          "location": "body",
+          "description": "Udf160"
+        },
+        {
+          "name": "udf161",
+          "type": "string",
+          "location": "body",
+          "description": "Udf161"
+        },
+        {
+          "name": "udf162",
+          "type": "string",
+          "location": "body",
+          "description": "Udf162"
+        },
+        {
+          "name": "udf163",
+          "type": "string",
+          "location": "body",
+          "description": "Udf163"
+        },
+        {
+          "name": "udf164",
+          "type": "string",
+          "location": "body",
+          "description": "Udf164"
+        },
+        {
+          "name": "udf165",
+          "type": "string",
+          "location": "body",
+          "description": "Udf165"
+        },
+        {
+          "name": "udf166",
+          "type": "string",
+          "location": "body",
+          "description": "Udf166"
+        },
+        {
+          "name": "udf167",
+          "type": "string",
+          "location": "body",
+          "description": "Udf167"
+        },
+        {
+          "name": "udf168",
+          "type": "string",
+          "location": "body",
+          "description": "Udf168"
+        },
+        {
+          "name": "udf169",
+          "type": "string",
+          "location": "body",
+          "description": "Udf169"
+        },
+        {
+          "name": "udf17",
+          "type": "string",
+          "location": "body",
+          "description": "Udf17"
+        },
+        {
+          "name": "udf170",
+          "type": "string",
+          "location": "body",
+          "description": "Udf170"
+        },
+        {
+          "name": "udf171",
+          "type": "string",
+          "location": "body",
+          "description": "Udf171"
+        },
+        {
+          "name": "udf172",
+          "type": "string",
+          "location": "body",
+          "description": "Udf172"
+        },
+        {
+          "name": "udf173",
+          "type": "string",
+          "location": "body",
+          "description": "Udf173"
+        },
+        {
+          "name": "udf174",
+          "type": "string",
+          "location": "body",
+          "description": "Udf174"
+        },
+        {
+          "name": "udf175",
+          "type": "string",
+          "location": "body",
+          "description": "Udf175"
+        },
+        {
+          "name": "udf176",
+          "type": "string",
+          "location": "body",
+          "description": "Udf176"
+        },
+        {
+          "name": "udf177",
+          "type": "string",
+          "location": "body",
+          "description": "Udf177"
+        },
+        {
+          "name": "udf178",
+          "type": "string",
+          "location": "body",
+          "description": "Udf178"
+        },
+        {
+          "name": "udf179",
+          "type": "string",
+          "location": "body",
+          "description": "Udf179"
+        },
+        {
+          "name": "udf18",
+          "type": "string",
+          "location": "body",
+          "description": "Udf18"
+        },
+        {
+          "name": "udf180",
+          "type": "string",
+          "location": "body",
+          "description": "Udf180"
+        },
+        {
+          "name": "udf181",
+          "type": "string",
+          "location": "body",
+          "description": "Udf181"
+        },
+        {
+          "name": "udf182",
+          "type": "string",
+          "location": "body",
+          "description": "Udf182"
+        },
+        {
+          "name": "udf183",
+          "type": "string",
+          "location": "body",
+          "description": "Udf183"
+        },
+        {
+          "name": "udf184",
+          "type": "string",
+          "location": "body",
+          "description": "Udf184"
+        },
+        {
+          "name": "udf185",
+          "type": "string",
+          "location": "body",
+          "description": "Udf185"
+        },
+        {
+          "name": "udf186",
+          "type": "string",
+          "location": "body",
+          "description": "Udf186"
+        },
+        {
+          "name": "udf187",
+          "type": "string",
+          "location": "body",
+          "description": "Udf187"
+        },
+        {
+          "name": "udf188",
+          "type": "string",
+          "location": "body",
+          "description": "Udf188"
+        },
+        {
+          "name": "udf189",
+          "type": "string",
+          "location": "body",
+          "description": "Udf189"
+        },
+        {
+          "name": "udf19",
+          "type": "string",
+          "location": "body",
+          "description": "Udf19"
+        },
+        {
+          "name": "udf190",
+          "type": "string",
+          "location": "body",
+          "description": "Udf190"
+        },
+        {
+          "name": "udf191",
+          "type": "string",
+          "location": "body",
+          "description": "Udf191"
+        },
+        {
+          "name": "udf192",
+          "type": "string",
+          "location": "body",
+          "description": "Udf192"
+        },
+        {
+          "name": "udf193",
+          "type": "string",
+          "location": "body",
+          "description": "Udf193"
+        },
+        {
+          "name": "udf194",
+          "type": "string",
+          "location": "body",
+          "description": "Udf194"
+        },
+        {
+          "name": "udf195",
+          "type": "string",
+          "location": "body",
+          "description": "Udf195"
+        },
+        {
+          "name": "udf196",
+          "type": "string",
+          "location": "body",
+          "description": "Udf196"
+        },
+        {
+          "name": "udf197",
+          "type": "string",
+          "location": "body",
+          "description": "Udf197"
+        },
+        {
+          "name": "udf198",
+          "type": "string",
+          "location": "body",
+          "description": "Udf198"
+        },
+        {
+          "name": "udf199",
+          "type": "string",
+          "location": "body",
+          "description": "Udf199"
+        },
+        {
+          "name": "udf2",
+          "type": "string",
+          "location": "body",
+          "description": "Udf2"
+        },
+        {
+          "name": "udf20",
+          "type": "string",
+          "location": "body",
+          "description": "Udf20"
+        },
+        {
+          "name": "udf200",
+          "type": "string",
+          "location": "body",
+          "description": "Udf200"
+        },
+        {
+          "name": "udf201",
+          "type": "string",
+          "location": "body",
+          "description": "Udf201"
+        },
+        {
+          "name": "udf202",
+          "type": "string",
+          "location": "body",
+          "description": "Udf202"
+        },
+        {
+          "name": "udf203",
+          "type": "string",
+          "location": "body",
+          "description": "Udf203"
+        },
+        {
+          "name": "udf204",
+          "type": "string",
+          "location": "body",
+          "description": "Udf204"
+        },
+        {
+          "name": "udf205",
+          "type": "string",
+          "location": "body",
+          "description": "Udf205"
+        },
+        {
+          "name": "udf206",
+          "type": "string",
+          "location": "body",
+          "description": "Udf206"
+        },
+        {
+          "name": "udf207",
+          "type": "string",
+          "location": "body",
+          "description": "Udf207"
+        },
+        {
+          "name": "udf208",
+          "type": "string",
+          "location": "body",
+          "description": "Udf208"
+        },
+        {
+          "name": "udf209",
+          "type": "string",
+          "location": "body",
+          "description": "Udf209"
+        },
+        {
+          "name": "udf21",
+          "type": "string",
+          "location": "body",
+          "description": "Udf21"
+        },
+        {
+          "name": "udf210",
+          "type": "string",
+          "location": "body",
+          "description": "Udf210"
+        },
+        {
+          "name": "udf211",
+          "type": "string",
+          "location": "body",
+          "description": "Udf211"
+        },
+        {
+          "name": "udf212",
+          "type": "string",
+          "location": "body",
+          "description": "Udf212"
+        },
+        {
+          "name": "udf213",
+          "type": "string",
+          "location": "body",
+          "description": "Udf213"
+        },
+        {
+          "name": "udf214",
+          "type": "string",
+          "location": "body",
+          "description": "Udf214"
+        },
+        {
+          "name": "udf215",
+          "type": "string",
+          "location": "body",
+          "description": "Udf215"
+        },
+        {
+          "name": "udf216",
+          "type": "string",
+          "location": "body",
+          "description": "Udf216"
+        },
+        {
+          "name": "udf217",
+          "type": "string",
+          "location": "body",
+          "description": "Udf217"
+        },
+        {
+          "name": "udf218",
+          "type": "string",
+          "location": "body",
+          "description": "Udf218"
+        },
+        {
+          "name": "udf219",
+          "type": "string",
+          "location": "body",
+          "description": "Udf219"
+        },
+        {
+          "name": "udf22",
+          "type": "string",
+          "location": "body",
+          "description": "Udf22"
+        },
+        {
+          "name": "udf220",
+          "type": "string",
+          "location": "body",
+          "description": "Udf220"
+        },
+        {
+          "name": "udf221",
+          "type": "string",
+          "location": "body",
+          "description": "Udf221"
+        },
+        {
+          "name": "udf222",
+          "type": "string",
+          "location": "body",
+          "description": "Udf222"
+        },
+        {
+          "name": "udf223",
+          "type": "string",
+          "location": "body",
+          "description": "Udf223"
+        },
+        {
+          "name": "udf224",
+          "type": "string",
+          "location": "body",
+          "description": "Udf224"
+        },
+        {
+          "name": "udf225",
+          "type": "string",
+          "location": "body",
+          "description": "Udf225"
+        },
+        {
+          "name": "udf226",
+          "type": "string",
+          "location": "body",
+          "description": "Udf226"
+        },
+        {
+          "name": "udf227",
+          "type": "string",
+          "location": "body",
+          "description": "Udf227"
+        },
+        {
+          "name": "udf228",
+          "type": "string",
+          "location": "body",
+          "description": "Udf228"
+        },
+        {
+          "name": "udf229",
+          "type": "string",
+          "location": "body",
+          "description": "Udf229"
+        },
+        {
+          "name": "udf23",
+          "type": "string",
+          "location": "body",
+          "description": "Udf23"
+        },
+        {
+          "name": "udf230",
+          "type": "string",
+          "location": "body",
+          "description": "Udf230"
+        },
+        {
+          "name": "udf231",
+          "type": "string",
+          "location": "body",
+          "description": "Udf231"
+        },
+        {
+          "name": "udf232",
+          "type": "string",
+          "location": "body",
+          "description": "Udf232"
+        },
+        {
+          "name": "udf233",
+          "type": "string",
+          "location": "body",
+          "description": "Udf233"
+        },
+        {
+          "name": "udf234",
+          "type": "string",
+          "location": "body",
+          "description": "Udf234"
+        },
+        {
+          "name": "udf235",
+          "type": "string",
+          "location": "body",
+          "description": "Udf235"
+        },
+        {
+          "name": "udf236",
+          "type": "string",
+          "location": "body",
+          "description": "Udf236"
+        },
+        {
+          "name": "udf237",
+          "type": "string",
+          "location": "body",
+          "description": "Udf237"
+        },
+        {
+          "name": "udf238",
+          "type": "string",
+          "location": "body",
+          "description": "Udf238"
+        },
+        {
+          "name": "udf239",
+          "type": "string",
+          "location": "body",
+          "description": "Udf239"
+        },
+        {
+          "name": "udf24",
+          "type": "string",
+          "location": "body",
+          "description": "Udf24"
+        },
+        {
+          "name": "udf240",
+          "type": "string",
+          "location": "body",
+          "description": "Udf240"
+        },
+        {
+          "name": "udf241",
+          "type": "string",
+          "location": "body",
+          "description": "Udf241"
+        },
+        {
+          "name": "udf242",
+          "type": "string",
+          "location": "body",
+          "description": "Udf242"
+        },
+        {
+          "name": "udf243",
+          "type": "string",
+          "location": "body",
+          "description": "Udf243"
+        },
+        {
+          "name": "udf244",
+          "type": "string",
+          "location": "body",
+          "description": "Udf244"
+        },
+        {
+          "name": "udf245",
+          "type": "string",
+          "location": "body",
+          "description": "Udf245"
+        },
+        {
+          "name": "udf246",
+          "type": "string",
+          "location": "body",
+          "description": "Udf246"
+        },
+        {
+          "name": "udf247",
+          "type": "string",
+          "location": "body",
+          "description": "Udf247"
+        },
+        {
+          "name": "udf248",
+          "type": "string",
+          "location": "body",
+          "description": "Udf248"
+        },
+        {
+          "name": "udf249",
+          "type": "string",
+          "location": "body",
+          "description": "Udf249"
+        },
+        {
+          "name": "udf25",
+          "type": "string",
+          "location": "body",
+          "description": "Udf25"
+        },
+        {
+          "name": "udf250",
+          "type": "string",
+          "location": "body",
+          "description": "Udf250"
+        },
+        {
+          "name": "udf251",
+          "type": "string",
+          "location": "body",
+          "description": "Udf251"
+        },
+        {
+          "name": "udf252",
+          "type": "string",
+          "location": "body",
+          "description": "Udf252"
+        },
+        {
+          "name": "udf253",
+          "type": "string",
+          "location": "body",
+          "description": "Udf253"
+        },
+        {
+          "name": "udf254",
+          "type": "string",
+          "location": "body",
+          "description": "Udf254"
+        },
+        {
+          "name": "udf255",
+          "type": "string",
+          "location": "body",
+          "description": "Udf255"
+        },
+        {
+          "name": "udf256",
+          "type": "string",
+          "location": "body",
+          "description": "Udf256"
+        },
+        {
+          "name": "udf257",
+          "type": "string",
+          "location": "body",
+          "description": "Udf257"
+        },
+        {
+          "name": "udf258",
+          "type": "string",
+          "location": "body",
+          "description": "Udf258"
+        },
+        {
+          "name": "udf259",
+          "type": "string",
+          "location": "body",
+          "description": "Udf259"
+        },
+        {
+          "name": "udf26",
+          "type": "string",
+          "location": "body",
+          "description": "Udf26"
+        },
+        {
+          "name": "udf260",
+          "type": "string",
+          "location": "body",
+          "description": "Udf260"
+        },
+        {
+          "name": "udf261",
+          "type": "string",
+          "location": "body",
+          "description": "Udf261"
+        },
+        {
+          "name": "udf262",
+          "type": "string",
+          "location": "body",
+          "description": "Udf262"
+        },
+        {
+          "name": "udf263",
+          "type": "string",
+          "location": "body",
+          "description": "Udf263"
+        },
+        {
+          "name": "udf264",
+          "type": "string",
+          "location": "body",
+          "description": "Udf264"
+        },
+        {
+          "name": "udf265",
+          "type": "string",
+          "location": "body",
+          "description": "Udf265"
+        },
+        {
+          "name": "udf266",
+          "type": "string",
+          "location": "body",
+          "description": "Udf266"
+        },
+        {
+          "name": "udf267",
+          "type": "string",
+          "location": "body",
+          "description": "Udf267"
+        },
+        {
+          "name": "udf268",
+          "type": "string",
+          "location": "body",
+          "description": "Udf268"
+        },
+        {
+          "name": "udf269",
+          "type": "string",
+          "location": "body",
+          "description": "Udf269"
+        },
+        {
+          "name": "udf27",
+          "type": "string",
+          "location": "body",
+          "description": "Udf27"
+        },
+        {
+          "name": "udf270",
+          "type": "string",
+          "location": "body",
+          "description": "Udf270"
+        },
+        {
+          "name": "udf271",
+          "type": "string",
+          "location": "body",
+          "description": "Udf271"
+        },
+        {
+          "name": "udf272",
+          "type": "string",
+          "location": "body",
+          "description": "Udf272"
+        },
+        {
+          "name": "udf273",
+          "type": "string",
+          "location": "body",
+          "description": "Udf273"
+        },
+        {
+          "name": "udf274",
+          "type": "string",
+          "location": "body",
+          "description": "Udf274"
+        },
+        {
+          "name": "udf275",
+          "type": "string",
+          "location": "body",
+          "description": "Udf275"
+        },
+        {
+          "name": "udf276",
+          "type": "string",
+          "location": "body",
+          "description": "Udf276"
+        },
+        {
+          "name": "udf277",
+          "type": "string",
+          "location": "body",
+          "description": "Udf277"
+        },
+        {
+          "name": "udf278",
+          "type": "string",
+          "location": "body",
+          "description": "Udf278"
+        },
+        {
+          "name": "udf279",
+          "type": "string",
+          "location": "body",
+          "description": "Udf279"
+        },
+        {
+          "name": "udf28",
+          "type": "string",
+          "location": "body",
+          "description": "Udf28"
+        },
+        {
+          "name": "udf280",
+          "type": "string",
+          "location": "body",
+          "description": "Udf280"
+        },
+        {
+          "name": "udf281",
+          "type": "string",
+          "location": "body",
+          "description": "Udf281"
+        },
+        {
+          "name": "udf282",
+          "type": "string",
+          "location": "body",
+          "description": "Udf282"
+        },
+        {
+          "name": "udf283",
+          "type": "string",
+          "location": "body",
+          "description": "Udf283"
+        },
+        {
+          "name": "udf284",
+          "type": "string",
+          "location": "body",
+          "description": "Udf284"
+        },
+        {
+          "name": "udf285",
+          "type": "string",
+          "location": "body",
+          "description": "Udf285"
+        },
+        {
+          "name": "udf286",
+          "type": "string",
+          "location": "body",
+          "description": "Udf286"
+        },
+        {
+          "name": "udf287",
+          "type": "string",
+          "location": "body",
+          "description": "Udf287"
+        },
+        {
+          "name": "udf288",
+          "type": "string",
+          "location": "body",
+          "description": "Udf288"
+        },
+        {
+          "name": "udf289",
+          "type": "string",
+          "location": "body",
+          "description": "Udf289"
+        },
+        {
+          "name": "udf29",
+          "type": "string",
+          "location": "body",
+          "description": "Udf29"
+        },
+        {
+          "name": "udf290",
+          "type": "string",
+          "location": "body",
+          "description": "Udf290"
+        },
+        {
+          "name": "udf291",
+          "type": "string",
+          "location": "body",
+          "description": "Udf291"
+        },
+        {
+          "name": "udf292",
+          "type": "string",
+          "location": "body",
+          "description": "Udf292"
+        },
+        {
+          "name": "udf293",
+          "type": "string",
+          "location": "body",
+          "description": "Udf293"
+        },
+        {
+          "name": "udf294",
+          "type": "string",
+          "location": "body",
+          "description": "Udf294"
+        },
+        {
+          "name": "udf295",
+          "type": "string",
+          "location": "body",
+          "description": "Udf295"
+        },
+        {
+          "name": "udf296",
+          "type": "string",
+          "location": "body",
+          "description": "Udf296"
+        },
+        {
+          "name": "udf297",
+          "type": "string",
+          "location": "body",
+          "description": "Udf297"
+        },
+        {
+          "name": "udf298",
+          "type": "string",
+          "location": "body",
+          "description": "Udf298"
+        },
+        {
+          "name": "udf299",
+          "type": "string",
+          "location": "body",
+          "description": "Udf299"
+        },
+        {
+          "name": "udf3",
+          "type": "string",
+          "location": "body",
+          "description": "Udf3"
+        },
+        {
+          "name": "udf30",
+          "type": "string",
+          "location": "body",
+          "description": "Udf30"
+        },
+        {
+          "name": "udf300",
+          "type": "string",
+          "location": "body",
+          "description": "Udf300"
+        },
+        {
+          "name": "udf31",
+          "type": "string",
+          "location": "body",
+          "description": "Udf31"
+        },
+        {
+          "name": "udf32",
+          "type": "string",
+          "location": "body",
+          "description": "Udf32"
+        },
+        {
+          "name": "udf33",
+          "type": "string",
+          "location": "body",
+          "description": "Udf33"
+        },
+        {
+          "name": "udf34",
+          "type": "string",
+          "location": "body",
+          "description": "Udf34"
+        },
+        {
+          "name": "udf35",
+          "type": "string",
+          "location": "body",
+          "description": "Udf35"
+        },
+        {
+          "name": "udf36",
+          "type": "string",
+          "location": "body",
+          "description": "Udf36"
+        },
+        {
+          "name": "udf37",
+          "type": "string",
+          "location": "body",
+          "description": "Udf37"
+        },
+        {
+          "name": "udf38",
+          "type": "string",
+          "location": "body",
+          "description": "Udf38"
+        },
+        {
+          "name": "udf39",
+          "type": "string",
+          "location": "body",
+          "description": "Udf39"
+        },
+        {
+          "name": "udf4",
+          "type": "string",
+          "location": "body",
+          "description": "Udf4"
+        },
+        {
+          "name": "udf40",
+          "type": "string",
+          "location": "body",
+          "description": "Udf40"
+        },
+        {
+          "name": "udf41",
+          "type": "string",
+          "location": "body",
+          "description": "Udf41"
+        },
+        {
+          "name": "udf42",
+          "type": "string",
+          "location": "body",
+          "description": "Udf42"
+        },
+        {
+          "name": "udf43",
+          "type": "string",
+          "location": "body",
+          "description": "Udf43"
+        },
+        {
+          "name": "udf44",
+          "type": "string",
+          "location": "body",
+          "description": "Udf44"
+        },
+        {
+          "name": "udf45",
+          "type": "string",
+          "location": "body",
+          "description": "Udf45"
+        },
+        {
+          "name": "udf46",
+          "type": "string",
+          "location": "body",
+          "description": "Udf46"
+        },
+        {
+          "name": "udf47",
+          "type": "string",
+          "location": "body",
+          "description": "Udf47"
+        },
+        {
+          "name": "udf48",
+          "type": "string",
+          "location": "body",
+          "description": "Udf48"
+        },
+        {
+          "name": "udf49",
+          "type": "string",
+          "location": "body",
+          "description": "Udf49"
+        },
+        {
+          "name": "udf5",
+          "type": "string",
+          "location": "body",
+          "description": "Udf5"
+        },
+        {
+          "name": "udf50",
+          "type": "string",
+          "location": "body",
+          "description": "Udf50"
+        },
+        {
+          "name": "udf51",
+          "type": "string",
+          "location": "body",
+          "description": "Udf51"
+        },
+        {
+          "name": "udf52",
+          "type": "string",
+          "location": "body",
+          "description": "Udf52"
+        },
+        {
+          "name": "udf53",
+          "type": "string",
+          "location": "body",
+          "description": "Udf53"
+        },
+        {
+          "name": "udf54",
+          "type": "string",
+          "location": "body",
+          "description": "Udf54"
+        },
+        {
+          "name": "udf55",
+          "type": "string",
+          "location": "body",
+          "description": "Udf55"
+        },
+        {
+          "name": "udf56",
+          "type": "string",
+          "location": "body",
+          "description": "Udf56"
+        },
+        {
+          "name": "udf57",
+          "type": "string",
+          "location": "body",
+          "description": "Udf57"
+        },
+        {
+          "name": "udf58",
+          "type": "string",
+          "location": "body",
+          "description": "Udf58"
+        },
+        {
+          "name": "udf59",
+          "type": "string",
+          "location": "body",
+          "description": "Udf59"
+        },
+        {
+          "name": "udf6",
+          "type": "string",
+          "location": "body",
+          "description": "Udf6"
+        },
+        {
+          "name": "udf60",
+          "type": "string",
+          "location": "body",
+          "description": "Udf60"
+        },
+        {
+          "name": "udf61",
+          "type": "string",
+          "location": "body",
+          "description": "Udf61"
+        },
+        {
+          "name": "udf62",
+          "type": "string",
+          "location": "body",
+          "description": "Udf62"
+        },
+        {
+          "name": "udf63",
+          "type": "string",
+          "location": "body",
+          "description": "Udf63"
+        },
+        {
+          "name": "udf64",
+          "type": "string",
+          "location": "body",
+          "description": "Udf64"
+        },
+        {
+          "name": "udf65",
+          "type": "string",
+          "location": "body",
+          "description": "Udf65"
+        },
+        {
+          "name": "udf66",
+          "type": "string",
+          "location": "body",
+          "description": "Udf66"
+        },
+        {
+          "name": "udf67",
+          "type": "string",
+          "location": "body",
+          "description": "Udf67"
+        },
+        {
+          "name": "udf68",
+          "type": "string",
+          "location": "body",
+          "description": "Udf68"
+        },
+        {
+          "name": "udf69",
+          "type": "string",
+          "location": "body",
+          "description": "Udf69"
+        },
+        {
+          "name": "udf7",
+          "type": "string",
+          "location": "body",
+          "description": "Udf7"
+        },
+        {
+          "name": "udf70",
+          "type": "string",
+          "location": "body",
+          "description": "Udf70"
+        },
+        {
+          "name": "udf71",
+          "type": "string",
+          "location": "body",
+          "description": "Udf71"
+        },
+        {
+          "name": "udf72",
+          "type": "string",
+          "location": "body",
+          "description": "Udf72"
+        },
+        {
+          "name": "udf73",
+          "type": "string",
+          "location": "body",
+          "description": "Udf73"
+        },
+        {
+          "name": "udf74",
+          "type": "string",
+          "location": "body",
+          "description": "Udf74"
+        },
+        {
+          "name": "udf75",
+          "type": "string",
+          "location": "body",
+          "description": "Udf75"
+        },
+        {
+          "name": "udf76",
+          "type": "string",
+          "location": "body",
+          "description": "Udf76"
+        },
+        {
+          "name": "udf77",
+          "type": "string",
+          "location": "body",
+          "description": "Udf77"
+        },
+        {
+          "name": "udf78",
+          "type": "string",
+          "location": "body",
+          "description": "Udf78"
+        },
+        {
+          "name": "udf79",
+          "type": "string",
+          "location": "body",
+          "description": "Udf79"
+        },
+        {
+          "name": "udf8",
+          "type": "string",
+          "location": "body",
+          "description": "Udf8"
+        },
+        {
+          "name": "udf80",
+          "type": "string",
+          "location": "body",
+          "description": "Udf80"
+        },
+        {
+          "name": "udf81",
+          "type": "string",
+          "location": "body",
+          "description": "Udf81"
+        },
+        {
+          "name": "udf82",
+          "type": "string",
+          "location": "body",
+          "description": "Udf82"
+        },
+        {
+          "name": "udf83",
+          "type": "string",
+          "location": "body",
+          "description": "Udf83"
+        },
+        {
+          "name": "udf84",
+          "type": "string",
+          "location": "body",
+          "description": "Udf84"
+        },
+        {
+          "name": "udf85",
+          "type": "string",
+          "location": "body",
+          "description": "Udf85"
+        },
+        {
+          "name": "udf86",
+          "type": "string",
+          "location": "body",
+          "description": "Udf86"
+        },
+        {
+          "name": "udf87",
+          "type": "string",
+          "location": "body",
+          "description": "Udf87"
+        },
+        {
+          "name": "udf88",
+          "type": "string",
+          "location": "body",
+          "description": "Udf88"
+        },
+        {
+          "name": "udf89",
+          "type": "string",
+          "location": "body",
+          "description": "Udf89"
+        },
+        {
+          "name": "udf9",
+          "type": "string",
+          "location": "body",
+          "description": "Udf9"
+        },
+        {
+          "name": "udf90",
+          "type": "string",
+          "location": "body",
+          "description": "Udf90"
+        },
+        {
+          "name": "udf91",
+          "type": "string",
+          "location": "body",
+          "description": "Udf91"
+        },
+        {
+          "name": "udf92",
+          "type": "string",
+          "location": "body",
+          "description": "Udf92"
+        },
+        {
+          "name": "udf93",
+          "type": "string",
+          "location": "body",
+          "description": "Udf93"
+        },
+        {
+          "name": "udf94",
+          "type": "string",
+          "location": "body",
+          "description": "Udf94"
+        },
+        {
+          "name": "udf95",
+          "type": "string",
+          "location": "body",
+          "description": "Udf95"
+        },
+        {
+          "name": "udf96",
+          "type": "string",
+          "location": "body",
+          "description": "Udf96"
+        },
+        {
+          "name": "udf97",
+          "type": "string",
+          "location": "body",
+          "description": "Udf97"
+        },
+        {
+          "name": "udf98",
+          "type": "string",
+          "location": "body",
+          "description": "Udf98"
+        },
+        {
+          "name": "udf99",
+          "type": "string",
+          "location": "body",
+          "description": "Udf99"
+        }
+      ]
+    },
+    {
+      "name": "device_warranty_set-data",
+      "description": "The warrantyDate field should be a ISO 8601 string with this format: yyyy-mm-dd. The warranty date can also be set to null. Required: deviceUid. Optional: warrantyDate.",
+      "method": "POST",
+      "path": "/v2/device/{deviceUid}/warranty",
+      "params": [
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        },
+        {
+          "name": "warrantyDate",
+          "type": "string",
+          "location": "body",
+          "description": "Warranty date"
+        }
+      ]
+    },
+    {
+      "name": "filter_get-custom",
+      "description": "Fetches the custom device filters for the user (using administrator role). Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/filter/custom-filters",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "filter_get-defaults",
+      "description": "Fetches the default device filters. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/filter/default-filters",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "job_get-1",
+      "description": "Fetches data of the job identified by the given job Uid. Required: jobUid.",
+      "method": "GET",
+      "path": "/v2/job/{jobUid}",
+      "params": [
+        {
+          "name": "jobUid",
+          "type": "string",
+          "location": "path",
+          "description": "Job uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "job_components_get-job",
+      "description": "Fetches components of the job identified by the given job Uid. Required: jobUid. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/job/{jobUid}/components",
+      "params": [
+        {
+          "name": "jobUid",
+          "type": "string",
+          "location": "path",
+          "description": "Job uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "job_results_get-job",
+      "description": "Fetches job results of the job identified by the job Uid for device identified by the device Uid. Required: jobUid, deviceUid.",
+      "method": "GET",
+      "path": "/v2/job/{jobUid}/results/{deviceUid}",
+      "params": [
+        {
+          "name": "jobUid",
+          "type": "string",
+          "location": "path",
+          "description": "Job uid",
+          "required": true
+        },
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "job_results_get-std-err",
+      "description": "Fetches data of the job's StdErr identified by the given job Uid and device Uid. Required: jobUid, deviceUid.",
+      "method": "GET",
+      "path": "/v2/job/{jobUid}/results/{deviceUid}/stderr",
+      "params": [
+        {
+          "name": "jobUid",
+          "type": "string",
+          "location": "path",
+          "description": "Job uid",
+          "required": true
+        },
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "job_results_get-std-out",
+      "description": "Fetches data of the job's StdOut identified by the given job Uid and device Uid. Required: jobUid, deviceUid.",
+      "method": "GET",
+      "path": "/v2/job/{jobUid}/results/{deviceUid}/stdout",
+      "params": [
+        {
+          "name": "jobUid",
+          "type": "string",
+          "location": "path",
+          "description": "Job uid",
+          "required": true
+        },
+        {
+          "name": "deviceUid",
+          "type": "string",
+          "location": "path",
+          "description": "Device uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_create",
+      "description": "Creates a new site in the authenticated user's account. Required: name. Optional: description, notes, onDemand (plus 2 more).",
+      "method": "PUT",
+      "path": "/v2/site",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "onDemand",
+          "type": "bool",
+          "location": "body",
+          "description": "On demand"
+        },
+        {
+          "name": "proxy-settings-host",
+          "wire_name": "proxySettings.host",
+          "type": "string",
+          "location": "body",
+          "description": "Host"
+        },
+        {
+          "name": "proxy-settings-password",
+          "wire_name": "proxySettings.password",
+          "type": "string",
+          "location": "body",
+          "description": "Password"
+        },
+        {
+          "name": "proxy-settings-port",
+          "wire_name": "proxySettings.port",
+          "type": "int",
+          "location": "body",
+          "description": "Port"
+        },
+        {
+          "name": "proxy-settings-type",
+          "wire_name": "proxySettings.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type"
+        },
+        {
+          "name": "proxy-settings-username",
+          "wire_name": "proxySettings.username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "splashtopAutoInstall",
+          "type": "bool",
+          "location": "body",
+          "description": "Splashtop auto install"
+        }
+      ]
+    },
+    {
+      "name": "site_get",
+      "description": "Fetches data of the site (including total number of devices) identified by the given site Uid. Required: siteUid.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_update",
+      "description": "Updates the site identified by the given site Uid. Required: siteUid, name. Optional: description, notes, onDemand (plus 1 more).",
+      "method": "POST",
+      "path": "/v2/site/{siteUid}",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "onDemand",
+          "type": "bool",
+          "location": "body",
+          "description": "On demand"
+        },
+        {
+          "name": "splashtopAutoInstall",
+          "type": "bool",
+          "location": "body",
+          "description": "Splashtop auto install"
+        }
+      ]
+    },
+    {
+      "name": "site_alerts_get-site-open",
+      "description": "If the muted parameter is not provided, both muted and umuted alerts will be queried. Required: siteUid. Optional: page, max, muted.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/alerts/open",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "location": "query",
+          "description": "Muted"
+        }
+      ]
+    },
+    {
+      "name": "site_alerts_get-site-resolved",
+      "description": "If the muted parameter is not provided, both muted and umuted alerts will be queried. Required: siteUid. Optional: page, max, muted.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/alerts/resolved",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "location": "query",
+          "description": "Muted"
+        }
+      ]
+    },
+    {
+      "name": "site_devices_get-site",
+      "description": "Fetches the devices records of the site identified by the given site Uid. Required: siteUid. Optional: page, max, filterId.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/devices",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        },
+        {
+          "name": "filterId",
+          "type": "int",
+          "location": "query",
+          "description": "Filter id"
+        }
+      ]
+    },
+    {
+      "name": "site_devices_get-site-with-network-interface",
+      "description": "Fetches the shortened devices records with network interface information of the site identified by the given site Uid. Required: siteUid. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/devices/network-interface",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "site_filters_get-site-device",
+      "description": "Fetches the site device filters (that the user can see with administrator role) of the site identified by the given site Uid. Required: siteUid. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/filters",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "site_settings_delete-proxy",
+      "description": "Deletes site proxy settings for the site identified by the given site Uid. Required: siteUid. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/site/{siteUid}/settings/proxy",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_settings_get-site",
+      "description": "Fetches settings of the site identified by the given site Uid. Required: siteUid.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/settings",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_settings_update-proxy",
+      "description": "Creates/updates the proxy settings for the site identified by the given site Uid. Required: siteUid. Optional: host, password, port (plus 2 more).",
+      "method": "POST",
+      "path": "/v2/site/{siteUid}/settings/proxy",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "host",
+          "type": "string",
+          "location": "body",
+          "description": "Host"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "Password"
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "location": "body",
+          "description": "Port"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        }
+      ]
+    },
+    {
+      "name": "site_variable_create-site",
+      "description": "Creates a site variable in the site identified by the given site Uid. Required: siteUid. Optional: masked, name, value.",
+      "method": "PUT",
+      "path": "/v2/site/{siteUid}/variable",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "masked",
+          "type": "bool",
+          "location": "body",
+          "description": "Variable masking (hiding)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Variable value"
+        }
+      ]
+    },
+    {
+      "name": "site_variable_delete-site",
+      "description": "Deletes the site variable identified by the given site Uid and variable Id. Required: siteUid, variableId. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/site/{siteUid}/variable/{variableId}",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "variableId",
+          "type": "int",
+          "location": "path",
+          "description": "Variable id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_variable_update-site",
+      "description": "Updates the site variable identified by the given site Uid and variable Id. Required: siteUid, variableId. Optional: name, value.",
+      "method": "POST",
+      "path": "/v2/site/{siteUid}/variable/{variableId}",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "variableId",
+          "type": "int",
+          "location": "path",
+          "description": "Variable id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Variable name"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "location": "body",
+          "description": "Variable value"
+        }
+      ]
+    },
+    {
+      "name": "site_variables_get-site",
+      "description": "Fetches the variables of the site identified by the given site Uid. Required: siteUid. Optional: page, max.",
+      "method": "GET",
+      "path": "/v2/site/{siteUid}/variables",
+      "params": [
+        {
+          "name": "siteUid",
+          "type": "string",
+          "location": "path",
+          "description": "Site uid",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Max"
+        }
+      ]
+    },
+    {
+      "name": "system_get",
+      "description": "Fetches the request rate status for the authenticated user's account.",
+      "method": "GET",
+      "path": "/v2/system/request_rate",
+      "params": []
+    },
+    {
+      "name": "system_get-pagination-configurations",
+      "description": "Fetches the pagination configurations.",
+      "method": "GET",
+      "path": "/v2/system/pagination",
+      "params": []
+    },
+    {
+      "name": "system_get-status",
+      "description": "Fetches the system status (start date, status and version). Returns the StatusResponse.",
+      "method": "GET",
+      "path": "/v2/system/status",
+      "params": []
+    },
+    {
+      "name": "user_reset-api-keys",
+      "description": "Resets the authenticated user's API access and secret keys.",
+      "method": "POST",
+      "path": "/v2/user/resetApiKeys",
+      "params": []
+    }
+  ]
+}

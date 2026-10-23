@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:40:38.265725Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "datto-rmm",
+  "display_name": "Datto RMM",
+  "cli_name": "datto-rmm-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:392cc374179c2fbdbf54b04ccc03a2c8ef58852910047c285b9592e68fc495e3",
+  "run_id": "20260605-225127",
+  "category": "monitoring",
+  "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
+  "mcp_binary": "datto-rmm-pp-mcp",
+  "mcp_tool_count": 57,
+  "mcp_ready": "full",
+  "api_version": "2.0.0 (Build 154_21c28c18a7edcb3ff23472de98983393f71530b2)",
+  "auth_type": "bearer_token",
+  "auth_preference": "dattoRmmOAuth",
+  "auth_env_vars": [
+    "DATTO_RMM_API_KEY",
+    "DATTO_RMM_API_SECRET_KEY",
+    "DATTO_RMM_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "DATTO_RMM_API_KEY",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": true,
+      "description": "Datto RMM API key (username in the OAuth password grant). Generate in Setup \u003e Users in the Datto RMM web UI."
+    },
+    {
+      "name": "DATTO_RMM_API_SECRET_KEY",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": true,
+      "description": "Datto RMM API secret key (password in the OAuth password grant)."
+    },
+    {
+      "name": "DATTO_RMM_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "Optional pre-minted OAuth bearer token (skips the auto-mint)."
+    }
+  ],
+  "auth_key_url": "https://rmm.datto.com/help/en/Content/2SETUP/APIv2.htm",
+  "auth_title": "Datto RMM OAuth 2.0",
+  "auth_description": "Datto RMM mints a bearer token via OAuth2 password grant: POST {base}/auth/oauth/token with HTTP Basic public-client:public and grant_type=password, username=\u003cAPI key\u003e, password=\u003cAPI secret key\u003e. The CLI performs this exchange automatically and refreshes on 401. Set DATTO_RMM_API_KEY and DATTO_RMM_API_SECRET_KEY, and select your region via DATTO_RMM_PLATFORM (pinotage|merlot|concord|vidal|zinfandel|syrah) or DATTO_RMM_API_URL.",
+  "novel_features": [
+    {
+      "name": "Fleet staleness sweep",
+      "command": "fleet stale",
+      "description": "Lists every device across all customer sites that hasn't checked in within a chosen window, so you catch dead agents before the customer does."
+    },
+    {
+      "name": "Alert storm ranking",
+      "command": "fleet storms",
+      "description": "Ranks the noisiest devices and sites by alert volume over a time window so the NOC can tune monitors instead of drowning in tickets."
+    },
+    {
+      "name": "Patch-compliance gaps",
+      "command": "fleet patch-gaps",
+      "description": "Ranks every device by missing-patch count across all sites so you remediate the most-exposed endpoints first."
+    },
+    {
+      "name": "AV/security posture gaps",
+      "command": "fleet av-gaps",
+      "description": "Finds every device fleet-wide where antivirus is missing, disabled, or not running, so security gaps surface before an incident does."
+    },
+    {
+      "name": "Software inventory rollup",
+      "command": "fleet sprawl",
+      "description": "Rolls up audited software across the whole fleet to show how many installs of an app exist and the spread of versions, exposing license waste and unpatched copies."
+    },
+    {
+      "name": "Warranty cliff",
+      "command": "fleet warranty",
+      "description": "Surfaces every device whose hardware warranty expires within a window, sorted by date and site, ready to drop into a QBR refresh plan."
+    },
+    {
+      "name": "QBR site scorecard",
+      "command": "fleet scorecard",
+      "description": "Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage, warranty exposure, and agent drift for QBRs."
+    },
+    {
+      "name": "Agent-version drift",
+      "command": "fleet agent-drift",
+      "description": "Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are."
+    },
+    {
+      "name": "Ghost/orphan reconciliation",
+      "command": "fleet orphans",
+      "description": "Cross-references long-stale, suspended, or deleted devices that still count against a site so you stop billing and monitoring phantom endpoints."
+    },
+    {
+      "name": "Alert-storm bulk resolve",
+      "command": "fleet resolve-storm",
+      "description": "Bulk-resolves the open alerts on the noisiest devices and sites from the storm ranking, so Monday triage ends with a clean queue instead of a worklist."
+    },
+    {
+      "name": "Quick-job result rollup",
+      "command": "fleet job-results",
+      "description": "Fetches every device's result for one quick job and rolls them into a single pass/fail table, so a 200-device push is verified in one command."
+    },
+    {
+      "name": "Fleet snapshot receipt",
+      "command": "fleet snapshot",
+      "description": "Freezes the current synced fleet state into a labeled, dated archive so any number you report can be reproduced later as a receipt."
+    },
+    {
+      "name": "Fleet snapshot diff",
+      "command": "fleet diff",
+      "description": "Diffs two fleet snapshots (or a snapshot vs the live store) to show devices added or removed and warranty, patch, AV, and agent-version movement since the baseline."
+    },
+    {
+      "name": "Device timeline",
+      "command": "fleet device-timeline",
+      "description": "Stitches one device's alerts and activity-log entries (which surface job, audit, and user actions) into a single chronological timeline from the local store."
+    },
+    {
+      "name": "Sync completeness check",
+      "command": "fleet sync-gaps",
+      "description": "Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-09-28T17:27:30.168239Z",
+  "printing_press_version": "4.32.5",
+  "api_name": "datto-bcdr",
+  "display_name": "Datto BCDR",
+  "cli_name": "datto-bcdr-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "internal",
+  "spec_source": "official",
+  "spec_checksum": "sha256:f86e0bb38d59e32c8ad4b98b92af7e0f95d197e56051d7d2879b54b4586729eb",
+  "run_id": "20260928-171207",
+  "category": "monitoring",
+  "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
+  "mcp_binary": "datto-bcdr-pp-mcp",
+  "mcp_tool_count": 9,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "api_key",
+  "auth_env_vars": [
+    "DATTO_BCDR_PUBLIC_KEY",
+    "DATTO_BCDR_SECRET_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet Screenshot Failures",
+      "command": "screenshots",
+      "description": "See every protected machine whose last backup-bootability screenshot failed, across your entire fleet, ranked by how long it's been failing and grouped by client."
+    },
+    {
+      "name": "Client Risk Roll-up",
+      "command": "client-risk",
+      "description": "Per-client risk scorecard that rolls up screenshot failures, stale backups, open alerts, storage pressure, and warranty status into one ranked list of which clients are most at risk."
+    },
+    {
+      "name": "Stale Backup Detector",
+      "command": "stale-backups",
+      "description": "Find every agent whose last local snapshot or last offsite sync is older than a threshold, across all devices and clients at once."
+    },
+    {
+      "name": "Orphaned \u0026 Paused Assets",
+      "command": "forgotten-assets",
+      "description": "List agents that are paused or archived and devices that haven't checked in recently, across the whole fleet, so silently-unprotected machines and dead appliances get caught."
+    },
+    {
+      "name": "Per-Client Recoverability Report",
+      "command": "client-report",
+      "description": "One QBR-ready health report for a single client: devices, agents, screenshot pass rate, stale backups, and open alerts in one bundled view."
+    },
+    {
+      "name": "Fleet Recoverability Scorecard",
+      "command": "recoverability",
+      "description": "One headline KPI: the percentage of fleet agents whose latest recovery point is both fresh and screenshot-verified bootable, with a breakdown of what drags it down."
+    },
+    {
+      "name": "Fleet Alert Triage",
+      "command": "alert-triage",
+      "description": "Every open alert across the whole fleet in one ranked view, grouped by client and device, instead of pulling alerts one appliance at a time."
+    },
+    {
+      "name": "Storage Runway Forecast",
+      "command": "storage-runway",
+      "description": "Rank every appliance by remaining local and offsite storage and flag the devices and clients closest to running out of capacity."
+    },
+    {
+      "name": "Outdated Agent Fleet Audit",
+      "command": "agent-versions",
+      "description": "Audit agent software versions across the entire fleet and flag every machine running an outdated agent, grouped by client and device."
+    }
+  ]
+}

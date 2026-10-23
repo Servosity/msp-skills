@@ -1,0 +1,3609 @@
+{
+  "api_name": "hudu",
+  "base_url": "https://your-domain.huducloud.com/api/v1",
+  "description": "Hudu IT-documentation CLI for MSPs — full read + write coverage of the Hudu REST API with an offline SQLite mirror, cross-entity search, and agent-native output.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "x-api-key",
+    "format": "{HUDU_API_KEY}",
+    "in": "header",
+    "env_vars": [
+      "HUDU_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "HUDU_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "activity-logs_list",
+      "description": "List activity-log entries (paginated). Optional: user-id, user-email, resource-type (plus 5 more). Returns array of ActivityLog.",
+      "method": "GET",
+      "path": "/activity_logs",
+      "params": [
+        {
+          "name": "user-id",
+          "wire_name": "user_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by acting user id"
+        },
+        {
+          "name": "user-email",
+          "wire_name": "user_email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by acting user email"
+        },
+        {
+          "name": "resource-type",
+          "wire_name": "resource_type",
+          "type": "string",
+          "location": "query",
+          "description": "Resource type; pair with resource_id"
+        },
+        {
+          "name": "resource-id",
+          "wire_name": "resource_id",
+          "type": "int",
+          "location": "query",
+          "description": "Resource id; pair with resource_type"
+        },
+        {
+          "name": "action",
+          "wire_name": "action_message",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by action message"
+        },
+        {
+          "name": "start-date",
+          "wire_name": "start_date",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 lower bound"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "api-info_get",
+      "description": "Get the Hudu instance version and API info. Returns the ApiInfo.",
+      "method": "GET",
+      "path": "/api_info",
+      "params": []
+    },
+    {
+      "name": "articles_archive",
+      "description": "Archive an article. Required: id. Returns the updated Article.",
+      "method": "PUT",
+      "path": "/articles/{id}/archive",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Article id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "articles_create",
+      "description": "Create a knowledge-base article. Required: name. Optional: content, company-id, folder-id (plus 1 more). Returns the new Article.",
+      "method": "POST",
+      "path": "/articles",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Article title",
+          "required": true
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "location": "body",
+          "description": "HTML body content"
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id (omit for a global KB article)"
+        },
+        {
+          "name": "folder-id",
+          "wire_name": "folder_id",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        },
+        {
+          "name": "enable-sharing",
+          "wire_name": "enable_sharing",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable public share link"
+        }
+      ]
+    },
+    {
+      "name": "articles_delete",
+      "description": "Delete an article. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/articles/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Article id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "articles_get",
+      "description": "Get a single article (with body content). Required: id. Returns the Article.",
+      "method": "GET",
+      "path": "/articles/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Article id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "articles_list",
+      "description": "List knowledge-base articles (paginated). Optional: company-id, name, slug (plus 4 more). Returns array of Article.",
+      "method": "GET",
+      "path": "/articles",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id (omit for global/KB articles)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by title"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "draft",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by draft state"
+        },
+        {
+          "name": "updated-at",
+          "wire_name": "updated_at",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 range 'start,end' on updated_at"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "articles_unarchive",
+      "description": "Unarchive an article. Required: id. Returns the updated Article.",
+      "method": "PUT",
+      "path": "/articles/{id}/unarchive",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Article id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "articles_update",
+      "description": "Update a knowledge-base article. Required: id. Optional: name, content, folder-id. Returns the updated Article.",
+      "method": "PUT",
+      "path": "/articles/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Article id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Article title"
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "location": "body",
+          "description": "HTML body content"
+        },
+        {
+          "name": "folder-id",
+          "wire_name": "folder_id",
+          "type": "int",
+          "location": "body",
+          "description": "Folder id"
+        }
+      ]
+    },
+    {
+      "name": "asset-layouts_create",
+      "description": "Create an asset layout. fields is a JSON array of field definitions; validate field_type (an invalid type silently bricks the layout). Required: name. Optional: icon, color, icon-color (plus 3 more). Returns the new AssetLayout.",
+      "method": "POST",
+      "path": "/asset_layouts",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Layout name",
+          "required": true
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "FontAwesome icon (e.g. fas fa-laptop)"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "Hex header color"
+        },
+        {
+          "name": "icon-color",
+          "wire_name": "icon_color",
+          "type": "string",
+          "location": "body",
+          "description": "Hex icon color"
+        },
+        {
+          "name": "include-passwords",
+          "wire_name": "include_passwords",
+          "type": "bool",
+          "location": "body",
+          "description": "Show passwords section"
+        },
+        {
+          "name": "include-comments",
+          "wire_name": "include_comments",
+          "type": "bool",
+          "location": "body",
+          "description": "Show comments section"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of field definitions {label, field_type, position, ...}"
+        }
+      ]
+    },
+    {
+      "name": "asset-layouts_get",
+      "description": "Get a single asset layout (with its field definitions). Required: id. Returns the AssetLayout.",
+      "method": "GET",
+      "path": "/asset_layouts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset layout id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "asset-layouts_list",
+      "description": "List asset layouts (paginated). Optional: name, slug, page (default: 1) (plus 1 more). Returns array of AssetLayout.",
+      "method": "GET",
+      "path": "/asset_layouts",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by name"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "asset-layouts_update",
+      "description": "Update an asset layout. Validate field_type client-side — an invalid value silently corrupts the layout and its assets (HTTP 500 on read). Required: id. Optional: name, icon, color (plus 1 more). Returns the updated AssetLayout.",
+      "method": "PUT",
+      "path": "/asset_layouts/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset layout id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Layout name"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "FontAwesome icon"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "Hex header color"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of field definitions"
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_archive",
+      "description": "Archive a password entry. Required: id. Returns the updated AssetPassword.",
+      "method": "PUT",
+      "path": "/asset_passwords/{id}/archive",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Password id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_create",
+      "description": "Create a password vault entry. Required: company-id, name. Optional: username, password, url (plus 4 more). Returns the new AssetPassword.",
+      "method": "POST",
+      "path": "/asset_passwords",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Entry name",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "Secret value"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Related URL"
+        },
+        {
+          "name": "otp-secret",
+          "wire_name": "otp_secret",
+          "type": "string",
+          "location": "body",
+          "description": "TOTP secret"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "passwordable-type",
+          "wire_name": "passwordable_type",
+          "type": "string",
+          "location": "body",
+          "description": "Parent type (e.g. Asset) to link the password"
+        },
+        {
+          "name": "passwordable-id",
+          "wire_name": "passwordable_id",
+          "type": "int",
+          "location": "body",
+          "description": "Parent id to link the password"
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_delete",
+      "description": "Delete a password vault entry. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/asset_passwords/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Password id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_get",
+      "description": "Get a single password entry. Required: id. Returns the AssetPassword.",
+      "method": "GET",
+      "path": "/asset_passwords/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Password id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_list",
+      "description": "List password vault entries (paginated). The secret is returned only on single get, never the list, per Hudu. Optional: company-id, name, slug (plus 4 more). Returns array of AssetPassword.",
+      "method": "GET",
+      "path": "/asset_passwords",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by name"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search"
+        },
+        {
+          "name": "updated-at",
+          "wire_name": "updated_at",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 range 'start,end' on updated_at"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_unarchive",
+      "description": "Unarchive a password entry. Required: id. Returns the updated AssetPassword.",
+      "method": "PUT",
+      "path": "/asset_passwords/{id}/unarchive",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Password id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "asset-passwords_update",
+      "description": "Update a password vault entry. Required: id. Optional: name, username, password (plus 2 more). Returns the updated AssetPassword.",
+      "method": "PUT",
+      "path": "/asset_passwords/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Password id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Entry name"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "Secret value"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Related URL"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "assets_archive",
+      "description": "Archive an asset. Required: company-id, id. Returns the updated Asset.",
+      "method": "PUT",
+      "path": "/companies/{company_id}/assets/{id}/archive",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_create",
+      "description": "Create an asset under a company. custom_fields is a JSON array string matching the asset layout's fields. Required: company-id, name, layout-id. Optional: serial, model, manufacturer (plus 1 more). Returns the new Asset.",
+      "method": "POST",
+      "path": "/companies/{company_id}/assets",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Asset name",
+          "required": true
+        },
+        {
+          "name": "layout-id",
+          "wire_name": "asset_layout_id",
+          "type": "int",
+          "location": "body",
+          "description": "Asset layout id (the field schema)",
+          "required": true
+        },
+        {
+          "name": "serial",
+          "wire_name": "primary_serial",
+          "type": "string",
+          "location": "body",
+          "description": "Primary serial number"
+        },
+        {
+          "name": "model",
+          "wire_name": "primary_model",
+          "type": "string",
+          "location": "body",
+          "description": "Primary model"
+        },
+        {
+          "name": "manufacturer",
+          "wire_name": "primary_manufacturer",
+          "type": "string",
+          "location": "body",
+          "description": "Primary manufacturer"
+        },
+        {
+          "name": "custom-fields",
+          "wire_name": "custom_fields",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of {label: value} objects matching the layout fields"
+        }
+      ]
+    },
+    {
+      "name": "assets_delete",
+      "description": "Delete an asset. Required: company-id, id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/companies/{company_id}/assets/{id}",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_get",
+      "description": "Get a single asset. Required: company-id, id. Returns the Asset.",
+      "method": "GET",
+      "path": "/companies/{company_id}/assets/{id}",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_list",
+      "description": "Global asset list/search (paginated). NOTE: fails on company-scoped API keys — use list-by-company instead. Optional: company-id, layout-id, name (plus 7 more). Returns array of Asset.",
+      "method": "GET",
+      "path": "/assets",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "layout-id",
+          "wire_name": "asset_layout_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by asset layout id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by asset name"
+        },
+        {
+          "name": "serial",
+          "wire_name": "primary_serial",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by primary serial"
+        },
+        {
+          "name": "archived",
+          "type": "bool",
+          "location": "query",
+          "description": "Include archived assets"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search"
+        },
+        {
+          "name": "updated-at",
+          "wire_name": "updated_at",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 range 'start,end' on updated_at"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "assets_list-by-company",
+      "description": "List assets for a single company (works with company-scoped keys). Required: company-id. Optional: layout-id, name, archived (plus 2 more). Returns array of Asset.",
+      "method": "GET",
+      "path": "/companies/{company_id}/assets",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "layout-id",
+          "wire_name": "asset_layout_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by asset layout id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by asset name"
+        },
+        {
+          "name": "archived",
+          "type": "bool",
+          "location": "query",
+          "description": "Include archived assets"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "assets_move-layout",
+      "description": "Move an asset to a different asset layout. Required: company-id, id, layout-id. Returns the updated Asset.",
+      "method": "PUT",
+      "path": "/companies/{company_id}/assets/{id}/move_layout",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset id",
+          "required": true
+        },
+        {
+          "name": "layout-id",
+          "wire_name": "asset_layout_id",
+          "type": "int",
+          "location": "body",
+          "description": "Destination asset layout id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_unarchive",
+      "description": "Unarchive an asset. Required: company-id, id. Returns the updated Asset.",
+      "method": "PUT",
+      "path": "/companies/{company_id}/assets/{id}/unarchive",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_update",
+      "description": "Update an asset. Sending a different company_id in the body MOVES the asset to that company. Required: company-id, id. Optional: name, serial, model (plus 2 more). Returns the updated Asset.",
+      "method": "PUT",
+      "path": "/companies/{company_id}/assets/{id}",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "path",
+          "description": "Owning company id (in the path)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Asset id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Asset name"
+        },
+        {
+          "name": "serial",
+          "wire_name": "primary_serial",
+          "type": "string",
+          "location": "body",
+          "description": "Primary serial number"
+        },
+        {
+          "name": "model",
+          "wire_name": "primary_model",
+          "type": "string",
+          "location": "body",
+          "description": "Primary model"
+        },
+        {
+          "name": "manufacturer",
+          "wire_name": "primary_manufacturer",
+          "type": "string",
+          "location": "body",
+          "description": "Primary manufacturer"
+        },
+        {
+          "name": "custom-fields",
+          "wire_name": "custom_fields",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of {label: value} objects matching the layout fields"
+        }
+      ]
+    },
+    {
+      "name": "cards_lookup",
+      "description": "Look up Hudu objects by an external integrator's record id. Required: integration-slug. Optional: integration-id, integration-identifier. Returns array of IntegratorCard.",
+      "method": "GET",
+      "path": "/cards/lookup",
+      "params": [
+        {
+          "name": "integration-slug",
+          "wire_name": "integration_slug",
+          "type": "string",
+          "location": "query",
+          "description": "Integration slug (e.g. cw_manage, autotask)",
+          "required": true
+        },
+        {
+          "name": "integration-id",
+          "wire_name": "integration_id",
+          "type": "string",
+          "location": "query",
+          "description": "External record id (one of integration-id / integration-identifier required)"
+        },
+        {
+          "name": "integration-identifier",
+          "wire_name": "integration_identifier",
+          "type": "string",
+          "location": "query",
+          "description": "External record identifier (alternative to integration-id)"
+        }
+      ]
+    },
+    {
+      "name": "companies_archive",
+      "description": "Archive a company. Required: id. Returns the updated Company.",
+      "method": "PUT",
+      "path": "/companies/{id}/archive",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_create",
+      "description": "Create a company. Required: name. Optional: nickname, company-type, address1 (plus 7 more). Returns the new Company.",
+      "method": "POST",
+      "path": "/companies",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Company name (must be unique)",
+          "required": true
+        },
+        {
+          "name": "nickname",
+          "type": "string",
+          "location": "body",
+          "description": "Short nickname"
+        },
+        {
+          "name": "company-type",
+          "wire_name": "company_type",
+          "type": "string",
+          "location": "body",
+          "description": "Company type label"
+        },
+        {
+          "name": "address1",
+          "wire_name": "address_line_1",
+          "type": "string",
+          "location": "body",
+          "description": "Address line 1"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "State/region"
+        },
+        {
+          "name": "zip",
+          "type": "string",
+          "location": "body",
+          "description": "Postal code"
+        },
+        {
+          "name": "phone",
+          "wire_name": "phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number"
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "Website URL"
+        },
+        {
+          "name": "id-number",
+          "wire_name": "id_number",
+          "type": "string",
+          "location": "body",
+          "description": "External id number"
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        }
+      ]
+    },
+    {
+      "name": "companies_delete",
+      "description": "Delete a company. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/companies/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_get",
+      "description": "Get a single company by id. Required: id. Returns the Company.",
+      "method": "GET",
+      "path": "/companies/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_list",
+      "description": "List/search companies (paginated). Optional: name, phone, website (plus 8 more). Returns array of Company.",
+      "method": "GET",
+      "path": "/companies",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by company name"
+        },
+        {
+          "name": "phone",
+          "wire_name": "phone_number",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by phone number"
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by website"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by city"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by state"
+        },
+        {
+          "name": "integration-id",
+          "wire_name": "id_in_integration",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by external integration id"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "updated-at",
+          "wire_name": "updated_at",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 range 'start,end' on updated_at"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "companies_unarchive",
+      "description": "Unarchive a company. Required: id. Returns the updated Company.",
+      "method": "PUT",
+      "path": "/companies/{id}/unarchive",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_update",
+      "description": "Update a company. Required: id. Optional: name, nickname, company-type (plus 7 more). Returns the updated Company.",
+      "method": "PUT",
+      "path": "/companies/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Company name"
+        },
+        {
+          "name": "nickname",
+          "type": "string",
+          "location": "body",
+          "description": "Short nickname"
+        },
+        {
+          "name": "company-type",
+          "wire_name": "company_type",
+          "type": "string",
+          "location": "body",
+          "description": "Company type label"
+        },
+        {
+          "name": "address1",
+          "wire_name": "address_line_1",
+          "type": "string",
+          "location": "body",
+          "description": "Address line 1"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "State/region"
+        },
+        {
+          "name": "zip",
+          "type": "string",
+          "location": "body",
+          "description": "Postal code"
+        },
+        {
+          "name": "phone",
+          "wire_name": "phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number"
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "Website URL"
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        }
+      ]
+    },
+    {
+      "name": "expirations_list",
+      "description": "List upcoming/expiring items across the instance (paginated). Optional: company-id, type, resource-type (plus 3 more). Returns array of Expiration.",
+      "method": "GET",
+      "path": "/expirations",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "type",
+          "wire_name": "expiration_type",
+          "type": "string",
+          "location": "query",
+          "description": "Expiration type filter (e.g. ssl, domain, warranty, asset_password)"
+        },
+        {
+          "name": "resource-type",
+          "wire_name": "resource_type",
+          "type": "string",
+          "location": "query",
+          "description": "Resource type (Asset/AssetPassword/Company/Article); pair with resource_id"
+        },
+        {
+          "name": "resource-id",
+          "wire_name": "resource_id",
+          "type": "int",
+          "location": "query",
+          "description": "Resource id; pair with resource_type"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "exports_create",
+      "description": "Start an export. Optional: format, company-id. Returns the new Export.",
+      "method": "POST",
+      "path": "/exports",
+      "params": [
+        {
+          "name": "format",
+          "type": "string",
+          "location": "body",
+          "description": "Export format (e.g. csv, json)"
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Scope to a company id"
+        }
+      ]
+    },
+    {
+      "name": "exports_create-s3",
+      "description": "Start an export targeted at S3. Optional: format, company-id. Returns the new Export.",
+      "method": "POST",
+      "path": "/s3_exports",
+      "params": [
+        {
+          "name": "format",
+          "type": "string",
+          "location": "body",
+          "description": "Export format"
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Scope to a company id"
+        }
+      ]
+    },
+    {
+      "name": "exports_get",
+      "description": "Get a single export's status. Required: id. Returns the Export.",
+      "method": "GET",
+      "path": "/exports/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Export id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "exports_list",
+      "description": "List/poll exports (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of Export.",
+      "method": "GET",
+      "path": "/exports",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "flag-types_create",
+      "description": "Create a flag type. Requires Hudu 2.4.0+. Required: name. Optional: color, icon. Returns the new FlagType.",
+      "method": "POST",
+      "path": "/flag_types",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Flag type name",
+          "required": true
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "Hex color"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "FontAwesome icon"
+        }
+      ]
+    },
+    {
+      "name": "flag-types_delete",
+      "description": "Delete a flag type. Requires Hudu 2.4.0+. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/flag_types/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Flag type id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "flag-types_list",
+      "description": "List flag types (paginated). Requires Hudu 2.4.0+. Optional: page (default: 1), page-size (default: 100). Returns array of FlagType.",
+      "method": "GET",
+      "path": "/flag_types",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "flag-types_update",
+      "description": "Update a flag type. Requires Hudu 2.4.0+. Required: id. Optional: name, color. Returns the updated FlagType.",
+      "method": "PUT",
+      "path": "/flag_types/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Flag type id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Flag type name"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "Hex color"
+        }
+      ]
+    },
+    {
+      "name": "flags_create",
+      "description": "Create a flag. Requires Hudu 2.4.0+. Required: flag-type-id, flaggable-type, flaggable-id. Optional: note. Returns the new Flag.",
+      "method": "POST",
+      "path": "/flags",
+      "params": [
+        {
+          "name": "flag-type-id",
+          "wire_name": "flag_type_id",
+          "type": "int",
+          "location": "body",
+          "description": "Flag type id",
+          "required": true
+        },
+        {
+          "name": "flaggable-type",
+          "wire_name": "flaggable_type",
+          "type": "string",
+          "location": "body",
+          "description": "Flagged entity type",
+          "required": true
+        },
+        {
+          "name": "flaggable-id",
+          "wire_name": "flaggable_id",
+          "type": "int",
+          "location": "body",
+          "description": "Flagged entity id",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Flag note"
+        }
+      ]
+    },
+    {
+      "name": "flags_delete",
+      "description": "Delete a flag. Requires Hudu 2.4.0+. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/flags/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Flag id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "flags_list",
+      "description": "List flags (paginated). Requires Hudu 2.4.0+. Optional: page (default: 1), page-size (default: 100). Returns array of Flag.",
+      "method": "GET",
+      "path": "/flags",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "flags_update",
+      "description": "Update a flag. Requires Hudu 2.4.0+. Required: id. Optional: note, resolved. Returns the updated Flag.",
+      "method": "PUT",
+      "path": "/flags/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Flag id",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Flag note"
+        },
+        {
+          "name": "resolved",
+          "type": "bool",
+          "location": "body",
+          "description": "Mark resolved"
+        }
+      ]
+    },
+    {
+      "name": "folders_create",
+      "description": "Create a folder. Required: name. Optional: icon, description, company-id (plus 1 more). Returns the new Folder.",
+      "method": "POST",
+      "path": "/folders",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Folder name",
+          "required": true
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "FontAwesome icon"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id (omit for global)"
+        },
+        {
+          "name": "parent-id",
+          "wire_name": "parent_folder_id",
+          "type": "int",
+          "location": "body",
+          "description": "Parent folder id"
+        }
+      ]
+    },
+    {
+      "name": "folders_get",
+      "description": "Get a single folder. Required: id. Returns the Folder.",
+      "method": "GET",
+      "path": "/folders/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Folder id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "folders_list",
+      "description": "List folders (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of Folder.",
+      "method": "GET",
+      "path": "/folders",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "folders_update",
+      "description": "Update a folder. Required: id. Optional: name, icon, description. Returns the updated Folder.",
+      "method": "PUT",
+      "path": "/folders/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Folder id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Folder name"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "FontAwesome icon"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a single group. Required: id. Returns the Group.",
+      "method": "GET",
+      "path": "/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Group id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "List groups (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of Group.",
+      "method": "GET",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "ip-addresses_create",
+      "description": "Create an IP address record. Required: address, company-id. Optional: status, fqdn, network-id (plus 1 more). Returns the new IPAddress.",
+      "method": "POST",
+      "path": "/ip_addresses",
+      "params": [
+        {
+          "name": "address",
+          "type": "string",
+          "location": "body",
+          "description": "IP address",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status (e.g. assigned, available)"
+        },
+        {
+          "name": "fqdn",
+          "type": "string",
+          "location": "body",
+          "description": "FQDN"
+        },
+        {
+          "name": "network-id",
+          "wire_name": "network_id",
+          "type": "int",
+          "location": "body",
+          "description": "Parent network id"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "ip-addresses_delete",
+      "description": "Delete an IP address record. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/ip_addresses/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "IP address id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ip-addresses_get",
+      "description": "Get a single IP address record. Required: id. Returns the IPAddress.",
+      "method": "GET",
+      "path": "/ip_addresses/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "IP address id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ip-addresses_list",
+      "description": "List IP address records (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of IPAddress.",
+      "method": "GET",
+      "path": "/ip_addresses",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "ip-addresses_update",
+      "description": "Update an IP address record. Required: id. Optional: status, fqdn, description. Returns the updated IPAddress.",
+      "method": "PUT",
+      "path": "/ip_addresses/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "IP address id",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status"
+        },
+        {
+          "name": "fqdn",
+          "type": "string",
+          "location": "body",
+          "description": "FQDN"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "lists_create",
+      "description": "Create a custom list. list_items is a JSON array of option objects. Required: name. Optional: items. Returns the new HuduList.",
+      "method": "POST",
+      "path": "/lists",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "List name",
+          "required": true
+        },
+        {
+          "name": "items",
+          "wire_name": "list_items",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of list option objects"
+        }
+      ]
+    },
+    {
+      "name": "lists_delete",
+      "description": "Delete a custom list. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/lists/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "List id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "lists_get",
+      "description": "Get a single list (with its options). Required: id. Returns the HuduList.",
+      "method": "GET",
+      "path": "/lists/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "List id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "lists_list",
+      "description": "List custom lists (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of HuduList.",
+      "method": "GET",
+      "path": "/lists",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "lists_update",
+      "description": "Update a custom list. Required: id. Optional: name, items. Returns the updated HuduList.",
+      "method": "PUT",
+      "path": "/lists/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "List id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "List name"
+        },
+        {
+          "name": "items",
+          "wire_name": "list_items",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of list option objects"
+        }
+      ]
+    },
+    {
+      "name": "magic-dash_delete",
+      "description": "Delete a Magic Dash tile by id. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/magic_dash/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Magic Dash id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "magic-dash_list",
+      "description": "List Magic Dash tiles (paginated). Optional: company-id, title, page (default: 1) (plus 1 more). Returns array of MagicDash.",
+      "method": "GET",
+      "path": "/magic_dash",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by title"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "magic-dash_set",
+      "description": "Create or update a Magic Dash tile (upsert keyed by company_name + title). Required: title, company-name. Optional: message, content, icon (plus 2 more). Returns the new MagicDash.",
+      "method": "POST",
+      "path": "/magic_dash",
+      "params": [
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "Tile title",
+          "required": true
+        },
+        {
+          "name": "company-name",
+          "wire_name": "company_name",
+          "type": "string",
+          "location": "body",
+          "description": "Target company name",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Headline message/value"
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "location": "body",
+          "description": "HTML body content"
+        },
+        {
+          "name": "icon",
+          "type": "string",
+          "location": "body",
+          "description": "FontAwesome icon"
+        },
+        {
+          "name": "shade",
+          "type": "string",
+          "location": "body",
+          "description": "Tile color shade"
+        },
+        {
+          "name": "content-link",
+          "wire_name": "content_link",
+          "type": "string",
+          "location": "body",
+          "description": "Click-through URL"
+        }
+      ]
+    },
+    {
+      "name": "matchers_list",
+      "description": "List integration matchers (paginated). Optional: integration-id, page (default: 1), page-size (default: 100). Returns array of Matcher.",
+      "method": "GET",
+      "path": "/matchers",
+      "params": [
+        {
+          "name": "integration-id",
+          "wire_name": "integration_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by integration id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "matchers_update",
+      "description": "Update a matcher (link/unlink an integrator record to a Hudu company). Required: id. Optional: company-id, potential-company-id. Returns the updated Matcher.",
+      "method": "PUT",
+      "path": "/matchers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Matcher id",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Hudu company id to link"
+        },
+        {
+          "name": "potential-company-id",
+          "wire_name": "potential_company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Potential company id to link"
+        }
+      ]
+    },
+    {
+      "name": "networks_create",
+      "description": "Create a network. Required: name, address, company-id. Optional: network-type, description. Returns the new Network.",
+      "method": "POST",
+      "path": "/networks",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Network name",
+          "required": true
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "location": "body",
+          "description": "Network address/CIDR",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "network-type",
+          "wire_name": "network_type",
+          "type": "int",
+          "location": "body",
+          "description": "Network type id"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "networks_delete",
+      "description": "Delete a network. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/networks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Network id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "networks_get",
+      "description": "Get a single network. Required: id. Returns the Network.",
+      "method": "GET",
+      "path": "/networks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Network id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "networks_list",
+      "description": "List networks (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of Network.",
+      "method": "GET",
+      "path": "/networks",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "networks_update",
+      "description": "Update a network. Required: id. Optional: name, address, description. Returns the updated Network.",
+      "method": "PUT",
+      "path": "/networks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Network id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Network name"
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "location": "body",
+          "description": "Network address/CIDR"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "procedure-tasks_create",
+      "description": "Create a procedure task (body shape changed at Hudu 2.4.1). Required: procedure-id, name. Optional: description, position, assigned-users. Returns the new ProcedureTask.",
+      "method": "POST",
+      "path": "/procedure_tasks",
+      "params": [
+        {
+          "name": "procedure-id",
+          "wire_name": "procedure_id",
+          "type": "int",
+          "location": "body",
+          "description": "Parent procedure id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Task name",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Task description"
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "location": "body",
+          "description": "Order position"
+        },
+        {
+          "name": "assigned-users",
+          "wire_name": "assigned_users",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of user ids"
+        }
+      ]
+    },
+    {
+      "name": "procedure-tasks_delete",
+      "description": "Delete a procedure task. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/procedure_tasks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure task id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "procedure-tasks_get",
+      "description": "Get a single procedure task. Required: id. Returns the ProcedureTask.",
+      "method": "GET",
+      "path": "/procedure_tasks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure task id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "procedure-tasks_list",
+      "description": "List procedure tasks (paginated). Optional: procedure-id, page (default: 1), page-size (default: 100). Returns array of ProcedureTask.",
+      "method": "GET",
+      "path": "/procedure_tasks",
+      "params": [
+        {
+          "name": "procedure-id",
+          "wire_name": "procedure_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by procedure id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "procedure-tasks_update",
+      "description": "Update a procedure task. Required: id. Optional: name, description, completed. Returns the updated ProcedureTask.",
+      "method": "PUT",
+      "path": "/procedure_tasks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure task id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Task name"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Task description"
+        },
+        {
+          "name": "completed",
+          "type": "bool",
+          "location": "body",
+          "description": "Mark task completed"
+        }
+      ]
+    },
+    {
+      "name": "procedures_create",
+      "description": "Create a procedure (process template). Required: name. Optional: description, company-id. Returns the new Procedure.",
+      "method": "POST",
+      "path": "/procedures",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Procedure name",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id (omit for a global template)"
+        }
+      ]
+    },
+    {
+      "name": "procedures_create-from-template",
+      "description": "Instantiate a procedure from a template into a company. Required: id, company-id. Optional: name. Returns the new Procedure.",
+      "method": "POST",
+      "path": "/procedures/{id}/create_from_template",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Template procedure id",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Target company id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name for the new procedure"
+        }
+      ]
+    },
+    {
+      "name": "procedures_delete",
+      "description": "Delete a procedure. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/procedures/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "procedures_duplicate",
+      "description": "Duplicate a procedure. Required: id. Optional: company-id. Returns the new Procedure.",
+      "method": "POST",
+      "path": "/procedures/{id}/duplicate",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure id",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Target company id for the copy"
+        }
+      ]
+    },
+    {
+      "name": "procedures_get",
+      "description": "Get a single procedure. Required: id. Returns the Procedure.",
+      "method": "GET",
+      "path": "/procedures/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "procedures_kickoff",
+      "description": "Kick off (start) a procedure run. Required: id. Optional: company-id. Returns the new Procedure.",
+      "method": "POST",
+      "path": "/procedures/{id}/kickoff",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure id",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Target company id"
+        }
+      ]
+    },
+    {
+      "name": "procedures_list",
+      "description": "List procedures (paginated). Optional: company-id, name, slug (plus 2 more). Returns array of Procedure.",
+      "method": "GET",
+      "path": "/procedures",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by name"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "procedures_update",
+      "description": "Update a procedure. Required: id. Optional: name, description. Returns the updated Procedure.",
+      "method": "PUT",
+      "path": "/procedures/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Procedure id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Procedure name"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "public-photos_list",
+      "description": "List public photos (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of PublicPhoto.",
+      "method": "GET",
+      "path": "/public_photos",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "rack-storage-items_create",
+      "description": "Mount an item in a rack. Required: rack-id, name. Optional: start-unit, end-unit, asset-id. Returns the new RackStorageItem.",
+      "method": "POST",
+      "path": "/rack_storage_items",
+      "params": [
+        {
+          "name": "rack-id",
+          "wire_name": "rack_storage_id",
+          "type": "int",
+          "location": "body",
+          "description": "Parent rack storage id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Item name",
+          "required": true
+        },
+        {
+          "name": "start-unit",
+          "wire_name": "start_unit",
+          "type": "int",
+          "location": "body",
+          "description": "Starting U position"
+        },
+        {
+          "name": "end-unit",
+          "wire_name": "end_unit",
+          "type": "int",
+          "location": "body",
+          "description": "Ending U position"
+        },
+        {
+          "name": "asset-id",
+          "wire_name": "asset_id",
+          "type": "int",
+          "location": "body",
+          "description": "Linked asset id"
+        }
+      ]
+    },
+    {
+      "name": "rack-storage-items_delete",
+      "description": "Delete a rack storage item. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/rack_storage_items/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage item id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rack-storage-items_get",
+      "description": "Get a single rack storage item. Required: id. Returns the RackStorageItem.",
+      "method": "GET",
+      "path": "/rack_storage_items/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage item id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rack-storage-items_list",
+      "description": "List rack storage items (paginated). Optional: rack-id, page (default: 1), page-size (default: 100). Returns array of RackStorageItem.",
+      "method": "GET",
+      "path": "/rack_storage_items",
+      "params": [
+        {
+          "name": "rack-id",
+          "wire_name": "rack_storage_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by rack storage id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "rack-storage-items_update",
+      "description": "Update a rack storage item. Required: id. Optional: name, start-unit, end-unit. Returns the updated RackStorageItem.",
+      "method": "PUT",
+      "path": "/rack_storage_items/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage item id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Item name"
+        },
+        {
+          "name": "start-unit",
+          "wire_name": "start_unit",
+          "type": "int",
+          "location": "body",
+          "description": "Starting U position"
+        },
+        {
+          "name": "end-unit",
+          "wire_name": "end_unit",
+          "type": "int",
+          "location": "body",
+          "description": "Ending U position"
+        }
+      ]
+    },
+    {
+      "name": "rack-storages_create",
+      "description": "Create a rack storage unit (Hudu uses a POST with id segment for this resource). Required: id, name, company-id. Optional: max-units, description. Returns the new RackStorage.",
+      "method": "POST",
+      "path": "/rack_storages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage id segment",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Rack name",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "max-units",
+          "wire_name": "max_units",
+          "type": "int",
+          "location": "body",
+          "description": "Rack height in U"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "rack-storages_delete",
+      "description": "Delete a rack storage unit. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/rack_storages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rack-storages_get",
+      "description": "Get a single rack storage unit. Required: id. Returns the RackStorage.",
+      "method": "GET",
+      "path": "/rack_storages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rack-storages_list",
+      "description": "List rack storage units (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of RackStorage.",
+      "method": "GET",
+      "path": "/rack_storages",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "rack-storages_update",
+      "description": "Update a rack storage unit. Required: id. Optional: name, max-units, description. Returns the updated RackStorage.",
+      "method": "PUT",
+      "path": "/rack_storages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Rack storage id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Rack name"
+        },
+        {
+          "name": "max-units",
+          "wire_name": "max_units",
+          "type": "int",
+          "location": "body",
+          "description": "Rack height in U"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "relations_create",
+      "description": "Create a relation between two entities. Required: from-type, from-id, to-type, to-id. Optional: description, inverse. Returns the new Relation.",
+      "method": "POST",
+      "path": "/relations",
+      "params": [
+        {
+          "name": "from-type",
+          "wire_name": "fromable_type",
+          "type": "string",
+          "location": "body",
+          "description": "Source type (Asset/Company/Article/AssetPassword/Website)",
+          "required": true
+        },
+        {
+          "name": "from-id",
+          "wire_name": "fromable_id",
+          "type": "int",
+          "location": "body",
+          "description": "Source entity id",
+          "required": true
+        },
+        {
+          "name": "to-type",
+          "wire_name": "toable_type",
+          "type": "string",
+          "location": "body",
+          "description": "Target type",
+          "required": true
+        },
+        {
+          "name": "to-id",
+          "wire_name": "toable_id",
+          "type": "int",
+          "location": "body",
+          "description": "Target entity id",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Relation description"
+        },
+        {
+          "name": "inverse",
+          "wire_name": "is_inverse",
+          "type": "bool",
+          "location": "body",
+          "description": "Create the inverse direction too"
+        }
+      ]
+    },
+    {
+      "name": "relations_delete",
+      "description": "Delete a relation. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/relations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Relation id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "relations_list",
+      "description": "List relations (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of Relation.",
+      "method": "GET",
+      "path": "/relations",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "uploads_delete",
+      "description": "Delete an upload. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/uploads/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Upload id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "uploads_get",
+      "description": "Get a single upload's metadata. Required: id. Returns the Upload.",
+      "method": "GET",
+      "path": "/uploads/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Upload id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "uploads_list",
+      "description": "List uploads (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of Upload.",
+      "method": "GET",
+      "path": "/uploads",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a single user. Required: id. Returns the User.",
+      "method": "GET",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "User id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List users (paginated). Optional: first-name, last-name, email (plus 5 more). Returns array of User.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "first-name",
+          "wire_name": "first_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by first name"
+        },
+        {
+          "name": "last-name",
+          "wire_name": "last_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by last name"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by email"
+        },
+        {
+          "name": "portal-company-id",
+          "wire_name": "portal_member_company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by portal member company id"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "archived",
+          "type": "bool",
+          "location": "query",
+          "description": "Include archived users"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "vlan-zones_create",
+      "description": "Create a VLAN zone. Required: name, company-id. Optional: ranges, description. Returns the new VLANZone.",
+      "method": "POST",
+      "path": "/vlan_zones",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Zone name",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "ranges",
+          "wire_name": "vlan_id_ranges",
+          "type": "string",
+          "location": "body",
+          "description": "VLAN id ranges (e.g. 1-100)"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "vlan-zones_delete",
+      "description": "Delete a VLAN zone. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/vlan_zones/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "VLAN zone id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vlan-zones_get",
+      "description": "Get a single VLAN zone. Required: id. Returns the VLANZone.",
+      "method": "GET",
+      "path": "/vlan_zones/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "VLAN zone id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vlan-zones_list",
+      "description": "List VLAN zones (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of VLANZone.",
+      "method": "GET",
+      "path": "/vlan_zones",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "vlan-zones_update",
+      "description": "Update a VLAN zone. Required: id. Optional: name, description. Returns the updated VLANZone.",
+      "method": "PUT",
+      "path": "/vlan_zones/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "VLAN zone id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Zone name"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "vlans_create",
+      "description": "Create a VLAN. Required: name, vlan-id, company-id. Optional: zone-id, status, description. Returns the new VLAN.",
+      "method": "POST",
+      "path": "/vlans",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "VLAN name",
+          "required": true
+        },
+        {
+          "name": "vlan-id",
+          "wire_name": "vlan_id",
+          "type": "int",
+          "location": "body",
+          "description": "VLAN tag number",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "zone-id",
+          "wire_name": "vlan_zone_id",
+          "type": "int",
+          "location": "body",
+          "description": "VLAN zone id"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "vlans_delete",
+      "description": "Delete a VLAN. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/vlans/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "VLAN id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vlans_get",
+      "description": "Get a single VLAN. Required: id. Returns the VLAN.",
+      "method": "GET",
+      "path": "/vlans/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "VLAN id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vlans_list",
+      "description": "List VLANs (paginated). Optional: company-id, zone-id, page (default: 1) (plus 1 more). Returns array of VLAN.",
+      "method": "GET",
+      "path": "/vlans",
+      "params": [
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by company id"
+        },
+        {
+          "name": "zone-id",
+          "wire_name": "vlan_zone_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by VLAN zone id"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "vlans_update",
+      "description": "Update a VLAN. Required: id. Optional: name, status, description. Returns the updated VLAN.",
+      "method": "PUT",
+      "path": "/vlans/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "VLAN id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "VLAN name"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "websites_create",
+      "description": "Add a monitored website. Required: name, company-id. Optional: notes, disable-dns, disable-ssl (plus 1 more). Returns the new Website.",
+      "method": "POST",
+      "path": "/websites",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Website URL to monitor",
+          "required": true
+        },
+        {
+          "name": "company-id",
+          "wire_name": "company_id",
+          "type": "int",
+          "location": "body",
+          "description": "Owning company id",
+          "required": true
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        },
+        {
+          "name": "disable-dns",
+          "wire_name": "disable_dns",
+          "type": "bool",
+          "location": "body",
+          "description": "Disable DNS monitoring"
+        },
+        {
+          "name": "disable-ssl",
+          "wire_name": "disable_ssl",
+          "type": "bool",
+          "location": "body",
+          "description": "Disable SSL monitoring"
+        },
+        {
+          "name": "disable-whois",
+          "wire_name": "disable_whois",
+          "type": "bool",
+          "location": "body",
+          "description": "Disable WHOIS monitoring"
+        }
+      ]
+    },
+    {
+      "name": "websites_delete",
+      "description": "Delete a monitored website. Required: id. Returns the ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/websites/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Website id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "websites_get",
+      "description": "Get a single website. Required: id. Returns the Website.",
+      "method": "GET",
+      "path": "/websites/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Website id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "websites_list",
+      "description": "List monitored websites (paginated). Optional: name, slug, search (plus 3 more). Returns array of Website.",
+      "method": "GET",
+      "path": "/websites",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by name"
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by slug"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search"
+        },
+        {
+          "name": "updated-at",
+          "wire_name": "updated_at",
+          "type": "string",
+          "location": "query",
+          "description": "ISO8601 range 'start,end' on updated_at"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "websites_update",
+      "description": "Update a monitored website. Required: id. Optional: name, notes. Returns the updated Website.",
+      "method": "PUT",
+      "path": "/websites/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Website id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Website URL"
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Notes"
+        }
+      ]
+    }
+  ]
+}

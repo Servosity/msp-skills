@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:19:25.763972Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "rocketcyber",
+  "display_name": "RocketCyber",
+  "cli_name": "rocketcyber-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "rocketcyber-spec.yaml",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:406b76914cddb89289e9b6f6034e6df8f3a3e818e37dfc370d5d2de29ff092b7",
+  "run_id": "20260606-220921",
+  "category": "monitoring",
+  "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
+  "mcp_binary": "rocketcyber-pp-mcp",
+  "mcp_tool_count": 12,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "ROCKETCYBER_API_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Morning triage board",
+      "command": "triage",
+      "description": "One ranked board of open incidents, event verdict counts, and offline agents across every client account."
+    },
+    {
+      "name": "Incident MTTR",
+      "command": "incidents mttr",
+      "description": "Mean and median time-to-resolve plus open-incident aging buckets, computed from incident created/resolved timestamps."
+    },
+    {
+      "name": "Stale agent detection",
+      "command": "agents stale",
+      "description": "Devices that stopped reporting beyond a time window, grouped by client account."
+    },
+    {
+      "name": "Defender riskiest devices",
+      "command": "defender riskiest",
+      "description": "Devices-at-risk ranked by weighted malicious and suspicious detection counts."
+    },
+    {
+      "name": "Secure-score trend",
+      "command": "office trend",
+      "description": "First/last/delta/direction computed over the Microsoft 365 secure-score daily series."
+    },
+    {
+      "name": "Suppression audit",
+      "command": "suppression audit",
+      "description": "Alert-suppression rules classified by status and age, flagging stale rules that may hide real detections."
+    }
+  ]
+}
