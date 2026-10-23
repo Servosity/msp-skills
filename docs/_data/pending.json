@@ -490,11 +490,11 @@
     "released_hash": "sha256:b9a24f61131dfb85736a7d9ddd281d400fc28223e04c310c7c6ee95da593f82e"
   },
   "servosity": {
-    "state": "up-to-date",
-    "version": "0.6.8",
+    "state": "version-pending",
+    "version": "0.6.9",
     "latest_tag": "servosity-v0.6.8",
-    "current_hash": "sha256:53a9b307c6fac6d3937fa2417432d19b63fea959e44d8955953094423335c910",
-    "released_hash": "sha256:53a9b307c6fac6d3937fa2417432d19b63fea959e44d8955953094423335c910"
+    "current_hash": "sha256:e4fc6e9f66a43af5ae81a653e37f43b8ee478db0d4862410f99c7d1d75e4a915",
+    "released_hash": "sha256:e4fc6e9f66a43af5ae81a653e37f43b8ee478db0d4862410f99c7d1d75e4a915"
   },
   "sherweb": {
     "state": "up-to-date",
@@ -525,11 +525,11 @@
     "released_hash": "sha256:ef12f6f11c457d06c199b70cb8a78241df007c3280a8c9958b1318f241a291d4"
   },
   "superops": {
-    "state": "up-to-date",
-    "version": "0.1.11",
+    "state": "version-pending",
+    "version": "0.1.12",
     "latest_tag": "superops-v0.1.11",
-    "current_hash": "sha256:e5f6836cdcfdc4de8ccb7d93b3a262830272373b445c511b7b68e393e5966953",
-    "released_hash": "sha256:e5f6836cdcfdc4de8ccb7d93b3a262830272373b445c511b7b68e393e5966953"
+    "current_hash": "sha256:3795e9e6e9ddb155ad93c1b20e07a8c61396bd92095dc2aa432713a723159ba7",
+    "released_hash": "sha256:3795e9e6e9ddb155ad93c1b20e07a8c61396bd92095dc2aa432713a723159ba7"
   },
   "syncro": {
     "state": "up-to-date",
