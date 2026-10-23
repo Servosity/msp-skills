@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Fixed
+- **Windows: two runs refreshing the FortiGate Cloud token at once no longer delete the cached token.** Saving the token cache failed with "Access is denied" while another run had it open, and the failure deleted the cache, so the next run had to log in again. The cache is now written the same way as the credentials file, with the same brief retry.
+
+### Changed
+- Internal: two tests of the learning journal's lock handling no longer depend on how fast the machine is (they failed on slow Windows CI runners). The connector itself behaves exactly as before.
+
 ## [Unreleased]
 
 ### Changed

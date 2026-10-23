@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.4] - unreleased
+
+### Security
+- **Credentials no longer follow a redirect to another server.** If the API answered with a redirect to a different host or port, or from https down to http, the connector forwarded the Basic authorization header built from your public and private keys to it. It now removes every credential header on such a redirect, and refuses to resend a request body (which can carry a secret) anywhere but the server you configured.
+
 ## [0.2.3] - 2026-10-22
 
 ### Security
