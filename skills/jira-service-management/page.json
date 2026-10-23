@@ -66,7 +66,7 @@
     },
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and jira-service-management-mcp speaks HTTP natively: set JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN to a bearer token, run `jira-service-management-mcp --transport http` (it listens on http://127.0.0.1:7777/mcp), and put that /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running jira-service-management-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
     },
     {
       "q": "Do I need to know how to code?",

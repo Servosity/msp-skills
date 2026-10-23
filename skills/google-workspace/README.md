@@ -12,9 +12,15 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/google-workspace/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding. Works with the AI you already use - **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot**, no code required - plus **ChatGPT**, **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners.
+Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding. Works with the AI you already use - **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot**, no code required - plus **ChatGPT**, **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path (paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)). Free, open source, runs on your laptop. Built for MSP owners.
 
 ## Works with your agent
+
+> **Security note (until this connector is reprinted).** Do not run HTTP mode
+> (`--transport http`), not even on localhost. This build checks a token, but it
+> predates the fix release's request size and time limits. The MCP tools can
+> also make changes with your credentials. Use the default stdio transport. If
+> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
 
 The agents MSP owners use most (self-serve, works today):
 
@@ -32,9 +38,9 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 | Agent | What it takes |
 | --- | --- |
-| **ChatGPT** (paid plans) | **Not self-serve.** Run `google-workspace-mcp --transport http` behind HTTPS through an OAuth-capable gateway that adds the server's bearer token (ChatGPT connectors cannot send it themselves), then register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
-| **Microsoft 365 Copilot / Copilot Studio** | **Not self-serve.** Host `google-workspace-mcp` over HTTPS, then wire it into Copilot Studio (**Tools > Add a tool > Model Context Protocol > Server URL**) or a declarative agent. Needs a Copilot Studio license + tenant admin. See [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote - same HTTPS path as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -195,7 +201,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Google Workspace MCP server runs locally, but it speaks HTTP natively: start it with `google-workspace-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that /mcp endpoint behind HTTPS. ChatGPT connectors sign in with OAuth (or no authentication) and cannot send the fixed bearer token the server requires, so that HTTPS endpoint has to be an OAuth-capable gateway that adds the token: a build-and-host task, not a self-serve install. Details in [mcp-install.md](./mcp-install.md).
+Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the Google Workspace MCP server in HTTP mode. In this build HTTP mode checks a token but has no request size or time limits yet, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

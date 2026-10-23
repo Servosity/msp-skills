@@ -11,7 +11,7 @@
 <!-- media:end -->
 
 Add **DataGate customer, agreement, and invoice lookups** to the AI you already use -
-**Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+), **Codex**, **Cursor**,
+**Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Codex**, **Cursor**,
 **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open
 source, runs on your laptop. A local SQLite mirror means repeated lookups don't have
 to page through the live API by hand, and don't eat into DataGate's per-account rate
@@ -20,15 +20,20 @@ required.
 
 ## Works with your agent
 
+> **Security note (until this connector is reprinted).** Do not run HTTP mode
+> (`--transport http`), not even on localhost. This build checks a token, but it
+> predates the fix release's request size and time limits. The MCP tools can
+> also make changes with your credentials. Use the default stdio transport. If
+> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
+
 | Your AI agent | How to install the DataGate skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `datagate-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Run installer, expose `datagate-mcp` over HTTPS, register as a Developer Mode connector. |
+| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
 | **Claude Code** | Paste the install prompt below. |
 | **Codex CLI** | Paste the install prompt below. |
 
-For ChatGPT, run `datagate-mcp --transport http` and expose that behind HTTPS - no
-bridge package is needed. See [mcp-install.md](./mcp-install.md).
+ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md).
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and
 > Gemini CLI - plus any MCP-speaking agent, via MCP and the pre-wired skill
