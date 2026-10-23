@@ -91,9 +91,9 @@
     "released_hash": "sha256:5133d05d4a5f298764be3b248165488b06233fb20fa69940bf14f7313f3efb7e"
   },
   "bitdefender": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "bitdefender-v0.1.2",
+    "latest_tag": "bitdefender-v0.1.3",
     "current_hash": "sha256:51e78e8b3dbc917b96186fd223f19abe97e369c9c47e4b807f70abb313a84c38",
     "released_hash": "sha256:51e78e8b3dbc917b96186fd223f19abe97e369c9c47e4b807f70abb313a84c38"
   },
