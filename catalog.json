@@ -390,6 +390,26 @@
       "tagline": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal."
     },
     {
+      "name": "cloudally",
+      "system": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2",
+      "status": "beta",
+      "skill_path": "skills/cloudally",
+      "cli_binary": "cloudally-cli",
+      "mcp_binary": "cloudally-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "CloudAlly",
+      "vendor_trademark_owner": "OpenText Corporation",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)",
+      "install_mcp_doc": "skills/cloudally/mcp-install.md",
+      "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server."
+    },
+    {
       "name": "connect-tool",
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",

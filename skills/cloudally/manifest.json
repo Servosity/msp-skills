@@ -1,0 +1,134 @@
+{
+  "manifest_version": "0.3",
+  "name": "cloudally-mcp",
+  "display_name": "CloudAlly",
+  "version": "0.1.0",
+  "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/cloudally-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/cloudally-mcp",
+      "args": [],
+      "env": {
+        "CLOUDALLY_CLIENT_ID": "${user_config.cloudally_client_id}",
+        "CLOUDALLY_CLIENT_SECRET": "${user_config.cloudally_client_secret}",
+        "CLOUDALLY_ACCESS_TOKEN": "${user_config.cloudally_access_token}",
+        "CLOUDALLY_EMAIL": "${user_config.cloudally_email}",
+        "CLOUDALLY_PASSWORD": "${user_config.cloudally_password}",
+        "CLOUDALLY_PARTNER_EMAIL": "${user_config.cloudally_partner_email}",
+        "CLOUDALLY_PARTNER_PASSWORD": "${user_config.cloudally_partner_password}",
+        "CLOUDALLY_BASE_URL": "${user_config.cloudally_base_url}",
+        "CLOUDALLY_MCP_READ_ONLY": "${user_config.cloudally_mcp_read_only}",
+        "CLOUDALLY_MCP_HTTP_TOKEN": "${user_config.cloudally_mcp_http_token}",
+        "CLOUDALLY_USER_AGENT": "${user_config.cloudally_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "cloudally_client_id": {
+      "type": "string",
+      "title": "CloudAlly API client ID",
+      "description": "The client-id of your CloudAlly API application (partner portal > Integrations > REST API), sent as the client-id header on every request.",
+      "sensitive": true,
+      "required": true
+    },
+    "cloudally_client_secret": {
+      "type": "string",
+      "title": "CloudAlly API client secret",
+      "description": "The client-secret of the same API application, sent as the client-secret header on every request.",
+      "sensitive": true,
+      "required": true
+    },
+    "cloudally_access_token": {
+      "type": "string",
+      "title": "Access token (leave blank)",
+      "description": "Optional override; leave blank. Run `cloudally-cli auth login --partner` (or `auth login` for one company) in a terminal instead, which saves and refreshes the token. A pasted token expires and keeps overriding the saved one.",
+      "sensitive": true,
+      "required": false
+    },
+    "cloudally_email": {
+      "type": "string",
+      "title": "Company account login email (optional)",
+      "description": "Optional. Company account login used by `auth login`; every command is then limited to that one company. Most operators run `auth login` once in a terminal and leave this blank.",
+      "sensitive": false,
+      "required": false
+    },
+    "cloudally_password": {
+      "type": "string",
+      "title": "Company account login password (optional)",
+      "description": "Optional. Password for the company account login above.",
+      "sensitive": true,
+      "required": false
+    },
+    "cloudally_partner_email": {
+      "type": "string",
+      "title": "Partner portal login email (optional)",
+      "description": "Optional. Partner portal login used by `auth login --partner`; it reaches every customer account and is needed for the distributor and reseller commands and `auth use-account`.",
+      "sensitive": false,
+      "required": false
+    },
+    "cloudally_partner_password": {
+      "type": "string",
+      "title": "Partner portal login password (optional)",
+      "description": "Optional. Password for the partner portal login above.",
+      "sensitive": true,
+      "required": false
+    },
+    "cloudally_base_url": {
+      "type": "string",
+      "title": "Base URL override (testing)",
+      "description": "Optional; leave blank. Sends every CloudAlly API call to this base URL instead of https://api.cloudally.com, for tests and mock servers.",
+      "sensitive": false,
+      "required": false
+    },
+    "cloudally_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to 1 to hide tools that change CloudAlly state (restores, task changes, account changes, deletes) and refuse non-GET execute calls. Tools still write local state: the response cache and learning entries.",
+      "sensitive": false,
+      "required": false
+    },
+    "cloudally_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+      "sensitive": true,
+      "required": false
+    },
+    "cloudally_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to CloudAlly. Leave blank to use the built-in one.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-15T14:10:36.6454675Z",
+    "spec_checksum": "sha256:5ec8ed227c8c405bd1055fcfde8b1c9ef3fb815600c6a7ab29c5e0f8e4769986",
+    "spec_format": "openapi3"
+  }
+}

@@ -733,6 +733,42 @@ A: Writes send immediately when called, with no confirmation prompt, so keep aut
 
 Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
 
+### CloudAlly (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/cloudally/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
+
+Ask your AI about CloudAlly SaaS backup for Microsoft 365 and Google Workspace: the latest backup status of every customer, one customer's backup tasks and their entities, running or pausing backups, users, billing and restore jobs, all through CloudAlly's Management API v2 from one CLI and MCP server.
+
+Outcomes (question -> command your AI agent runs):
+- What is the latest backup status of every mailbox and site across all my CloudAlly customers? -> cloudally-cli distributor-accounts backup-statuses --all
+- Which customer accounts do I manage? -> cloudally-cli distributor-accounts list --all
+- Switch into this customer's account. -> cloudally-cli auth use-account 5f1c2a
+- Which backup tasks does this customer have? -> cloudally-cli tasks list --type BACKUP --all
+- What state is every entity of this backup task in? -> cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status
+- How are all of this account's tasks doing? -> cloudally-cli user status --all
+- Which restore jobs are running or finished? -> cloudally-cli tasks list --type RESTORE
+- What are this month's bills across my resellers? -> cloudally-cli distributor-resellers all-bills
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and cloudally-mcp speaks HTTP natively: set CLOUDALLY_MCP_HTTP_TOKEN, run `cloudally-mcp --transport http`, and serve its /mcp endpoint (http://127.0.0.1:7777/mcp by default) over HTTPS behind an authenticating proxy that signs ChatGPT in with OAuth and adds the bearer header the server requires. ChatGPT cannot send a fixed bearer token, so a bare tunnel gets HTTP 401. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter the CloudAlly API client id and secret once and run `cloudally-cli auth login --partner`.
+Q: What credentials does it need?
+A: A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. The distributor and reseller commands and `auth use-account` need the partner login.
+Q: Can it change or delete my customers' backups?
+A: It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. Every command takes --dry-run to show the request first, and governance.md lists the destructive commands an agent should never run on its own. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools.
+Q: Is my CloudAlly data safe?
+A: Your data stays on your machine. The CLI, MCP server and local store are all local, and the MCP server runs over stdio unless you start it with --transport http. Credentials are never bundled or transmitted by MSP Skills.
+Q: Can it download mailbox archives?
+A: Not reliably. The documented export call (recovery export and its distributor and reseller variants) answers 200 with an empty body and creates no job on the live API (seen 2026-10-15). Use the CloudAlly portal for downloads.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: This connector can start restores into live customer mailboxes and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. Every command previews with --dry-run, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.
+
 ### connect-tool (Meta)
 
 Page: https://msp-skills.compoundingteams.com/skills/connect-tool/
