@@ -185,6 +185,7 @@ jobs:
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
           python3 tools/maintainer/check_handfixes.py --self-test
+          python3 tools/maintainer/replay_handfixes.py --self-test
           python3 tools/maintainer/mcpb_bundle.py --self-test
           python3 tools/maintainer/check_release_assets.py --self-test
           python3 tools/maintainer/check_release_pipeline.py --self-test

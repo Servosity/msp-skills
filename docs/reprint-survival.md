@@ -148,6 +148,36 @@ are already mostly safe - they're whole hand-authored files regen-merge keeps,
 recorded in `.printing-press.json`. A ledger entry asserting "the novel command
 still resolves" is a cheap backstop.
 
+## Fleet-wide hand-fixes: retire or replay, settled once
+
+Some hand-fixes are not connector quirks but press gaps every connector
+inherited, so the same id sits in dozens of ledgers (16 ids in 10 or more
+ledgers held 678 of 1,485 entries on 2026-10-23). Reconciling each of them by
+hand on every reprint is the expensive part of a reprint, and the answer is the
+same for every connector. `tools/maintainer/fleet_handfixes.json` settles it
+once per press release:
+
+- **retire**: the press now generates the behavior, proven by execution on
+  fresh renders (the entry's own tests, or the class checks that cover it, pass
+  on the new press and fail on the old one). From `retire_at` on,
+  `check_handfixes.py` stops demanding the entry and demands the registry's
+  `native_asserts`, which pin the press's own shape, so the behavior keeps a CI
+  guard. A connector below `retire_at` keeps every entry.
+- **replay**: the press still lacks it. `tools/maintainer/replay_handfixes.py
+  --slug <slug>` re-applies it after a reprint (onboard.py runs it), restores the
+  hand-written files the entry pins from the pre-reprint revision, pins every
+  edit it makes, and proves the result by build, vet, tests and the id's gates.
+- **delegated**: another tool owns the id (the secret-echo funnel).
+- **keep_manual**: the shared id carries a connector's own part; a person
+  reconciles that connector.
+
+The registry also lists dependency **floors**: a module a new press resolves
+below a patched version is raised on every print from `applies_from` on.
+
+When a new press release lands, re-settle the registry against it: re-run the
+proofs, move ids from replay to retire as the press takes them, and retire a
+floor once the press resolves it.
+
 ## When fixing or reprinting a connector
 
 The gate above is the *reactive* half (CI blocks a clobbered merge). The
