@@ -177,6 +177,8 @@ func RootCmd() *cobra.Command {
 func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): a command's error passes the funnel before Cobra prints it.
+	funnelCommandErrors(rootCmd)
 	defer finalizePlatformInvocation(&flags, &retErr)
 
 	executedCmd, err := rootCmd.ExecuteC()

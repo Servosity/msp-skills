@@ -7,10 +7,10 @@ package cobratree
 import (
 	"strings"
 
-	"cloudally-pp-cli/internal/cliutil"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
+	"cloudally-pp-cli/internal/cliutil"
 )
 
 // RegisterAll walks root's user-facing Cobra commands and registers shell-out

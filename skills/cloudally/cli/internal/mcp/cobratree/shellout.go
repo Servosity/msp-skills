@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"strings"
 
-	"cloudally-pp-cli/internal/cliutil"
-	"cloudally-pp-cli/internal/mcp/bound"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
+	"cloudally-pp-cli/internal/cliutil"
+	"cloudally-pp-cli/internal/mcp/bound"
 )
 
 func boundedToolResultError(message string) *mcplib.CallToolResult {
@@ -229,17 +229,27 @@ var reservedStructuredArgs = map[string]bool{
 // destinations would let a tool write or truncate anything that account can
 // reach. Unambiguous destination names are listed here; a command declares
 // any other write-sink flag with mcp:write-flags.
+//
+// Hand-fix (handfixes.json mcp-teach-local-file-flags-blocked): the map also
+// names the teach family's local-file READ sources. teach --playbook-file /
+// --playbook-notes-file and teach-playbook --playbook-file / --notes-file copy
+// any file the server account can reach into the learn store, where
+// playbook_list and recall hand it back over MCP. Listing them here drops them
+// from every tool schema and refuses them at call time; the CLI keeps them.
 var blockedDestinationFlags = map[string]bool{
-	"audit-dir":    true,
-	"db":           true,
-	"o":            true,
-	"out":          true,
-	"out-dir":      true,
-	"out-file":     true,
-	"output":       true,
-	"output-dir":   true,
-	"output-file":  true,
-	"receipt-file": true,
+	"audit-dir":           true,
+	"db":                  true,
+	"notes-file":          true,
+	"o":                   true,
+	"out":                 true,
+	"out-dir":             true,
+	"out-file":            true,
+	"output":              true,
+	"output-dir":          true,
+	"output-file":         true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
+	"receipt-file":        true,
 }
 
 // confirmationBypassYesFlag is the root flag that skips a command's own

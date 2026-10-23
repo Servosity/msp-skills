@@ -248,6 +248,242 @@
           "not_contains": "%s-pp-cli"
         }
       ]
+    },
+    {
+      "id": "secret-echo-decoded-funnel",
+      "class": "secret-echo",
+      "summary": "One decoded output funnel for every server text the client shows, applied by tools/maintainer/apply_secret_funnel.py: maskCredentialText still masks each held credential as written and URL-escaped, then withholds the WHOLE text if a held value survives in any view of it (control characters, JSON and JavaScript escapes, the identity escape, percent, HTML entities, tags, base64 and hex, searched breadth-first and capped by total work; cliutil.FunnelWithhold, shared byte-identical across the fleet). The API error body is checked whole before the display cut; the 2xx HTML summary and the token mint, refresh and auth login error bodies are funnelled when present; the client holds its credentials when built and its resolved auth header on every request; every command error before Cobra prints it, every JSON/agent error envelope, and every MCP error result pass the same funnel over everything the process holds. Success output is never funnelled.",
+      "why": "class_harness.py secret-echo drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; before press 4.34.0 the generated masks cover only the raw, QueryEscape and PathEscape forms (cli-printing-press #5145), so a fresh print fails it. Press 4.34.0 (#5169) masks encoded forms too; the funnel stays for the connector's hand-written code (token endpoints, novel commands), which the generated masks never see. Matching encoded needles one at a time never converged in review, so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 1 MiB or work past the cap is withheld). The withheld notice keeps the auth reading of an auth failure, so exit codes still classify. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved, compressed or encrypted echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts; re-run tools/maintainer/apply_secret_funnel.py --slug <slug>.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/secret_funnel.go",
+          "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_funnel_test.go",
+          "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "held = append(held, value)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return cliutil.FunnelWithhold(masked, held)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "cliutil.SanitizeErrorBody(string(body))"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "bodyText := truncateBody(respBody)"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.shownSummary(respBody, summary, authHeader)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal\\cli\\helpers.go",
+          "contains": "funnelShownError(err),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal\\cli\\helpers.go",
+          "not_contains": "\"error\": err.Error(),"
+        },
+        {
+          "file": "cli/internal\\cli\\jobs.go",
+          "contains": "funnelShownError(err),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal\\cli\\jobs.go",
+          "not_contains": "\"error\": err.Error(),"
+        },
+        {
+          "file": "cli/internal/cliutil/secret_funnel.go",
+          "contains": "var funnelSteps = []func(string) []string{",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_funnel.go",
+          "contains": "funnelTextStep(funnelIdentityUnescape),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_funnel.go",
+          "contains": "func FunnelHeld(text string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_funnel_test.go",
+          "contains": "func TestFunnelCodexRound2(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/secret_funnel_cli.go",
+          "contains": "func funnelCommandErrors(root *cobra.Command) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/secret_funnel_cli_test.go",
+          "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "funnelCommandErrors(rootCmd)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd\\cloudally-mcp/main.go",
+          "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd\\cloudally-mcp/secret_funnel_mcp.go",
+          "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd\\cloudally-mcp/secret_funnel_mcp_test.go",
+          "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.holdCredentials()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "cliutil.FunnelHold(authHeader)",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-teach-local-file-flags-blocked",
+      "class": "mcp-local-file-flags",
+      "summary": "teach --playbook-file / --playbook-notes-file and teach-playbook --playbook-file / --notes-file are listed in blockedDestinationFlags, so MCP tool schemas omit them and calls naming them are refused; the CLI keeps them",
+      "why": "Over MCP each of these flags reads any file the server account can reach: teach and teach-playbook copy the file into the local learn store, and playbook_list and recall hand it back, in read-only mode too because teach is a local-write tool. Reproduced on origin/main 6416a241b by driving the real MCP server over stdio with no credentials and a throwaway HOME: tools/call teach_playbook with notes-file pointing at a sentinel file outside HOME recorded it, and playbook_list returned the sentinel text; the other three tool/flag pairs leaked the same way. After the fix tools/list omits all four and each call answers 'unknown MCP parameter' without spawning the CLI. The same probe found 25 of the 30 connectors that ship teach already blocking these flags (by name, by mcp:write-flags or by the usage-text rule); this connector was one of the 5 that did not. Fleet precedent: google-workspace mcp-blocks-local-file-reads. CLI twin checked: teach-playbook --notes-file still reads the file for a local CLI user, which is intended. TestTeachFileFlagsNotSettableOverMCP fails 12 ways on the pre-fix shellout.go and passes after.",
+      "status": "active",
+      "spec_encode_followup": "Press-side (fleet): include the teach family's local-file read flags in the generated blockedDestinationFlags floor.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"notes-file\":          true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-file\":       true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-notes-file\": true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/teach_file_flags_test.go",
+          "contains": "func TestTeachFileFlagsNotSettableOverMCP(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-file-flags-refused",
+      "class": "mcp-file-flag",
+      "summary": "An MCP tool call can no longer name a file or directory on the MCP host: `import` declares --input in mcp:write-flags, so the MCP tool no longer forwards a JSONL path for the CLI to open",
+      "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: `import` declares --input in mcp:write-flags, so the MCP tool no longer forwards a JSONL path for the CLI to open. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:write-flags\": \"input\"},",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-execute-confirm-gate",
+      "summary": "the cloudally_execute MCP tool sends a non-GET request only when confirm=true is passed; otherwise it returns a preview of the request",
+      "why": "Press 4.33.5 emitted cloudally_execute with no confirm parameter, so every write ran on the first call and security-gate reports mcp-execute-no-confirm as a P1. The 4.33.8+ template adds a confirm parameter and a codeOrchConfirmAccepted check; this is the same shape by hand until a reprint brings it.",
+      "status": "active",
+      "spec_encode_followup": "Fixed in the press template from v4.33.8; a reprint on that engine makes this entry redundant.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "mcplib.WithBoolean(\"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if ep.Method != \"GET\" && !codeOrchConfirmAccepted(args[\"confirm\"]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_confirm_test.go",
+          "contains": "func TestCodeOrchExecuteWriteNeedsConfirm(t *testing.T) {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

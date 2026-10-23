@@ -63,6 +63,7 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 			mcplib.WithDescription("Execute one cloudally API endpoint by its endpoint_id (from cloudally_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
 			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by cloudally_search (e.g., \"users.list\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to true to send a non-GET request. Without it, a POST/PUT/PATCH/DELETE returns a preview of the request and changes nothing.")),
 		),
 		handleCodeOrchExecute,
 	)
@@ -1450,6 +1451,13 @@ func codeOrchBlockedByMCPReadOnly(method string) bool {
 	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
 }
 
+// codeOrchConfirmAccepted reports whether the caller explicitly confirmed a
+// write with confirm=true.
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
@@ -1468,6 +1476,23 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	params, _ := args["params"].(map[string]any)
 	if params == nil {
 		params = map[string]any{}
+	}
+
+	// Hand-fix (handfixes.json: mcp-execute-confirm-gate): a write runs only
+	// when the caller passes confirm=true; otherwise it returns a preview.
+	if ep.Method != "GET" && !codeOrchConfirmAccepted(args["confirm"]) {
+		preview, err := json.Marshal(map[string]any{
+			"preview":     true,
+			"endpoint_id": id,
+			"method":      ep.Method,
+			"path":        ep.Path,
+			"params":      params,
+			"next":        "call cloudally_execute again with confirm=true to send this request",
+		})
+		if err != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("encoding preview: %v", err)), nil
+		}
+		return mcplib.NewToolResultText(string(preview)), nil
 	}
 
 	c, platformSession, err := newMCPClient(ctx)
