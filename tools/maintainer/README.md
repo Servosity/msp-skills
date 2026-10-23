@@ -28,7 +28,7 @@ the statusline, you do not need anything in this folder - see the root
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
 | `skills.json` | Per-skill metadata: owner/repo, binary names, vendor, status. |
 | `release_batch.sh` | Runs a release batch in a throwaway worktree, pushes the version stamp, and prints probe-gated tag commands. Never tags. |
-| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change, and a CodeRabbit review of that exact commit (a skip or rate-limit notice is not one). See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
+| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change, and a record of whether CodeRabbit reviewed that exact commit (a skip or rate-limit notice is not a review; `--coderabbit require` makes one mandatory). See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
 | `gen_coderabbit_config.py` | Writes `.coderabbit.yaml`: CodeRabbit `path_filters` that exclude untouched press template output (Go files with the press's DO-NOT-EDIT header that `handfixes.json` does not name) and nothing else, so every hand-fixed generated file, spec and hand-written file stays in review. Every pattern is checked against every file that must stay in review before it is written. `--check` (run by `ci_guards.sh`) fails on a stale file; `--stats`; `--self-test`. |
 | `resolve_registry.py` | Finishes a conflicted rebase or merge: per-entry three-way merge of `skills.json`, `marketplace.json` and `cards.yaml`, main's copy of derived files, regenerate, re-check, print the final registry diff. Stops on any other conflict. `--self-test`. |
 | `cut_tags.sh` | Cuts release tags one per push behind the pipeline probe and the CHANGELOG check; `--receipts` proves each release sealed complete and sweeps for drafts. `--self-test`. |
@@ -143,8 +143,9 @@ conflicts to `resolve_registry.py` and stopping on anything else; regenerates th
 pushes with `--force-with-lease` pinned to the head it started from; waits for every workflow
 run, check run and commit status on that exact commit, with the branch-protection contexts
 present and SUCCESS; and merges with `--match-head-commit` only when all of it is green,
-main has not moved since the rebase, the required approvals are current, and CodeRabbit has
-reviewed that exact commit. A refused merge is re-validated from the top, never retried blindly.
+main has not moved since the rebase, and the required approvals are current. It records whether
+CodeRabbit reviewed that exact commit. A refused merge is re-validated from the top, never retried
+blindly.
 
 **CodeRabbit: a review of the exact head, not a green status.** CodeRabbit's commit status is
 `success` whether it reviewed the commit, skipped it ("Review skipped: 336 files exceed the limit
@@ -152,12 +153,16 @@ of 100") or was rate-limited ("Review rate limited"). So the final gate reads wh
 app itself wrote (login `coderabbitai[bot]`, type Bot): a review on the head commit, or its
 summary comment's record of a review covering the head. A review of an earlier head does not
 count; squashing and rebasing make a new commit, which CodeRabbit must review again. States:
-`reviewed`, `pending` (validate again), `skipped`, `rate-limited`, `failed`, `unreadable`, `none`;
-anything but `reviewed` stops the run with exit 4. `--coderabbit report` prints the state and
-merges anyway, with Codex as the only review of record. Measured on the 30 PRs merged before
-2026-10-23: 12 had a CodeRabbit review of their final head, 9 were skipped for size and 9 were
+`reviewed`, `pending`, `skipped`, `rate-limited`, `failed`, `unreadable`, `none`. By default
+(`--coderabbit report`) the state is recorded in the log, in the PR's state file (next to the
+approvals) and in the `MERGED` line, and never blocks the merge. `--coderabbit require` stops on
+anything but `reviewed` with exit 4 (`pending` and `unreadable` validate again first, bounded by
+`--max-rebases`). The default is `report` because, measured on the 30 PRs merged before
+2026-10-23, 12 had a CodeRabbit review of their final head, 9 were skipped for size and 9 were
 rate-limited (Damien-authored PRs run on CodeRabbit's open-source allowance, about one review an
-hour). `status` prints the head's state.
+hour), and a PR over 100 files can never get one. The existing rule that every commit status
+must finish still waits out CodeRabbit's "Review in progress". `status` prints the head's state
+and the states recorded at final gates.
 
 **Trust boundary: it executes the PR branch's code with your credentials.** The branch's own
 generators (`build-catalog.py`, `build-llms.py` and whatever they import) run in the private
@@ -278,8 +283,8 @@ validated base before regenerating, because build-catalog.py keeps its `generate
 prints it in the README footer.
 
 Exit codes: 0 merged; 2 refused (lock, worktree, fork, head moved, stale copy of the tool); 3 a
-conflict it will not resolve; 4 an approval is not current, or CodeRabbit has not reviewed the
-exact head; 5 a check failed; 6 timed out; 7
+conflict it will not resolve; 4 an approval is not current, or (`--coderabbit require`) CodeRabbit
+has not reviewed the exact head; 5 a check failed; 6 timed out; 7
 merged in a race, main's CI then green; 8 merged (or possibly merged), but main's CI is red or
 unverified after a race, the head's checks changed between the final gate and the merge, a call
 timed out after the merge call, or the merge call or its proof did not complete or was interrupted
