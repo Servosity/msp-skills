@@ -163,7 +163,15 @@ jobs:
         #                     - the scope, attribution and pre-PR checks behind
         #                       tools/maintainer/verify_all.sh. They run locally
         #                       before a PR; the self-tests here keep them from
-        #                       rotting between uses.
+        #                       rotting between uses. check_no_pp_leak.py also
+        #                       runs as a full audit below (the fleet went clean
+        #                       on 2026-10-23).
+        #   verify_live.py    - Beta and live-verified are mutually exclusive:
+        #                       a verified skill still saying Beta (registry,
+        #                       Status paragraph or a stray line), an
+        #                       unverified one claiming Live-verified, and an
+        #                       unreadable Status file each fail; --sync repairs
+        #                       and a flip/revoke round trip is byte-identical.
         #   check_press_metadata.py, check_registry_state.py
         #                     - the press/ folder rules (an extra file such as a
         #                       live dogfood transcript, a stale folder after a
@@ -190,6 +198,7 @@ jobs:
           python3 tools/maintainer/class_harness.py --self-test
           python3 tools/maintainer/check_press_metadata.py --self-test
           python3 tools/maintainer/check_registry_state.py --self-test
+          python3 tools/maintainer/verify_live.py --self-test
 
       - name: Merge and release tool self-tests (#422)
         run: |
@@ -301,6 +310,20 @@ jobs:
 
       - name: Vocabulary contract (banned + required terms)
         run: python3 tools/maintainer/check_vocabulary.py
+
+      - name: No connector's -pp- name on a user-facing surface (full audit)
+        # Every skill's pages, manifests, installers, cli/NOTICE and Go help
+        # strings, plus the shared catalogs. 85 leaks shipped because this ran
+        # only before a PR, with a ratchet that grandfathered old lines; the
+        # 2026-10-23 sweep removed them, so any finding now is new. Go module
+        # and import paths keep -pp- on purpose and are not findings.
+        run: python3 tools/maintainer/check_no_pp_leak.py --all
+
+      - name: Beta and live-verified agree (registry, README, pain-point)
+        # A live-verified connector never says Beta; an unverified one never
+        # claims Live-verified. verify_live.py moves all three with the badge;
+        # this catches a hand edit, a stale merge or a flip done another way.
+        run: python3 tools/maintainer/verify_live.py --check
 
       - name: AEO contract (answer-first, unique titles, connector formula)
         run: python3 tools/maintainer/check_aeo.py

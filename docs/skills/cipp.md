@@ -200,7 +200,7 @@ Run more than one Security tool, or comparing options? These connectors work the
 
 ## Status
 
-Beta. Validated against the CIPP + Microsoft 365 API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Abhi Saini, Bearium Networks (MSP) against their own production tenant ([receipt](https://compoundingteams.com/)). The version it verified was not recorded. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

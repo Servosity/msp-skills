@@ -269,7 +269,7 @@ The strongest control is the **scope of the application credential** - it is bou
 
 ## Status
 
-Beta. Built and verified offline: the full command tree builds and passes its test suite, `doctor` resolves config, region, and connectivity, the MCP stdio handshake lists the full tool surface, and every mutating command was exercised under `--dry-run` only. It has **not** yet been run against a production Avanan tenant - the `live_verified` badge stays `awaiting` until an MSP running their own tenant confirms it. Being validated with MSPs in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by @geekbrownbear (Bearium Networks, MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/pull/271)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

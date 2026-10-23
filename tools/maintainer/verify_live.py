@@ -44,6 +44,17 @@ This is a DOCS-ONLY flip. It changes skills.json (which the catalog + per-skill
 pages render from); it does NOT cut a release or push a tag. After a flip,
 regenerate the catalog and commit.
 
+Beta and live-verified are mutually exclusive. A flip also sets the registry
+"status" to "live-verified" and rewrites the first paragraph under "## Status"
+in skills/<dir>/README.md and pain-point.md; a revoke puts both back to Beta.
+An existing "Live-verified ..." paragraph is kept as written, so hand-written
+receipt detail survives a --force re-flip. --check (run in CI) fails on any
+skill where the registry, a Status paragraph or a stray "Beta" disagrees with
+the badge; --sync repairs the registry and the Status paragraphs (a stray
+"Beta" elsewhere in those two files is left for a person to edit). Before
+2026-10-23 nothing tied them together, and all 19 live-verified connectors
+still said Beta (first fixed in #354, which never merged).
+
 Usage:
     python3 tools/maintainer/verify_live.py --slug halopsa --source build-session \\
         --evidence "https://circle.so/..." [--date 2026-06-04]
@@ -54,6 +65,9 @@ Usage:
     python3 tools/maintainer/verify_live.py --bind --slug cove --verified-version 0.1.3
     python3 tools/maintainer/verify_live.py --bind --slug cove --unknown
     python3 tools/maintainer/verify_live.py --status
+    python3 tools/maintainer/verify_live.py --check       # exit 1 on Beta/verified drift
+    python3 tools/maintainer/verify_live.py --sync        # repair that drift
+    python3 tools/maintainer/verify_live.py --self-test
     python3 tools/maintainer/verify_live.py --slug halopsa --source self \\
         --evidence "redogfood" --force
 
@@ -73,6 +87,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
 import check_registry_state  # noqa: E402  (local tools/ module: the hash of a tagged tree)
 import release_state  # noqa: E402  (local tools/ module: one version order)
+from render_docs_page import attribution  # noqa: E402  (one attribution rule for page and prose)
 
 ROOT = registry.ROOT
 REGISTRY = registry.REGISTRY
@@ -174,6 +189,115 @@ def _entry_state(entry: dict) -> dict:
     if not isinstance(lv, dict):
         return dict(AWAITING)
     return lv
+
+
+# --- Beta and live-verified are mutually exclusive -------------------------
+
+RSVP = "RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)."
+# The first paragraph under "## Status": up to a blank line, a heading, a rule
+# or the end of the file.
+STATUS_PARA = re.compile(r"(^## Status[ \t]*\n\n)(.+?)(?=\n[ \t]*\n|\n#|\n---|\n*\Z)", re.M | re.S)
+BETA = re.compile(r"\bBeta\b")
+STATUS_FILES = ("README.md", "pain-point.md")
+
+
+def _verified(entry: dict) -> bool:
+    return _entry_state(entry).get("status") == "live-verified"
+
+
+def _status_para(entry: dict, readme: bool) -> str:
+    """The Status paragraph README.md (readme=True) or pain-point.md must carry."""
+    if _verified(entry):
+        lv = _entry_state(entry)
+        receipt = f" ([receipt]({lv['issue_url']}))" if lv.get("issue_url") else ""
+        para = f"Live-verified. Confirmed by {attribution(lv)} against their own production tenant{receipt}."
+        return para + (f" More MSPs run it live in our weekly Build Sessions. {RSVP}" if readme else "")
+    vendor = entry.get("vendor") or entry.get("system") or "vendor"
+    if readme:
+        return (f"Beta. Validated against the {vendor} API surface and being validated with "
+                "MSPs running it live against their own production tenant in our weekly "
+                f"Build Sessions. {RSVP}")
+    return (f"Beta. Validated against the {vendor} API surface; the closed-loop receipt (a "
+            "named MSP running it live in their production tenant at a Build Session) is "
+            "tracked separately and added here as `video.md` once it exists.")
+
+
+def _drift(slug: str, entry: dict, root: Path = ROOT) -> list[str]:
+    """Every place this skill claims Beta while verified, or verified while not.
+    A file that exists but cannot be read is drift too: unread is not checked."""
+    verified = _verified(entry)
+    out = []
+    if entry.get("markdown_only"):
+        return out
+    if (entry.get("status") == "live-verified") != verified:
+        out.append(f"skills.json status is {entry.get('status')!r} but the badge is "
+                   f"{'live-verified' if verified else 'not live-verified'}")
+    for name in STATUS_FILES:
+        p = root / "skills" / str(entry.get("source_dir", slug)) / name
+        if not p.exists():
+            continue
+        rel = p.relative_to(root)
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            out.append(f"{rel} could not be read ({e})")
+            continue
+        m = STATUS_PARA.search(text)
+        if m and m.group(2).startswith("Live-verified") != verified:
+            out.append(f"{rel} Status says {m.group(2)[:14]!r}")
+        elif verified and BETA.search(text):
+            line = text.count("\n", 0, BETA.search(text).start()) + 1
+            out.append(f"{rel}:{line} says Beta outside its Status paragraph "
+                       "(--sync cannot fix this; edit it by hand)")
+    return out
+
+
+def _sync(slug: str, entry: dict, root: Path = ROOT) -> None:
+    """Make the registry status and the Status paragraphs agree with
+    live_verified. The caller writes the registry."""
+    if entry.get("markdown_only"):
+        return
+    verified = _verified(entry)
+    entry["status"] = "live-verified" if verified else "beta"
+    for name in STATUS_FILES:
+        p = root / "skills" / str(entry.get("source_dir", slug)) / name
+        if not p.exists():
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            print(f"  could not read {p.relative_to(root)} ({e}); left for a person to fix")
+            continue
+        m = STATUS_PARA.search(text)
+        if m and m.group(2).startswith("Live-verified") != verified:
+            para = _status_para(entry, readme=name == "README.md")
+            p.write_text(text[:m.start(2)] + para + text[m.end(2):], encoding="utf-8")
+            print(f"  rewrote {p.relative_to(root)} Status")
+
+
+def cmd_check() -> int:
+    skills = _read_registry().get("skills", {})
+    bad = [f"{slug}: {d}" for slug, e in sorted(skills.items()) for d in _drift(slug, e)]
+    if bad:
+        print("verify_live --check: FAIL - Beta and live-verified are mutually exclusive:")
+        for b in bad:
+            print(f"  - {b}")
+        print("  Fix: python3 tools/maintainer/verify_live.py --sync && "
+              "python3 tools/maintainer/build-catalog.py")
+        return 1
+    n = sum(1 for e in skills.values() if _verified(e))
+    print(f"verify_live --check: OK ({len(skills)} skills, {n} live-verified, none says Beta)")
+    return 0
+
+
+def cmd_sync() -> int:
+    reg = _read_registry()
+    for slug, entry in reg.get("skills", {}).items():
+        if _drift(slug, entry):
+            print(slug)
+            _sync(slug, entry)
+    _write_registry(reg)
+    return 0
 
 
 def cmd_status() -> int:
@@ -287,6 +411,7 @@ def cmd_verify(
         "issue_url": use_issue_url,
         **bound,
     }
+    _sync(slug, entry)
     _write_registry(reg)
 
     print(f"{slug}: live-verified ({source}, {use_date})")
@@ -332,6 +457,7 @@ def cmd_revoke(slug: str) -> int:
     # flip -> revoke round-trip a true no-op on skills.json for a skill that had
     # never been verified, leaving the registry byte-for-byte as it started.
     skills[slug].pop("live_verified", None)
+    _sync(slug, skills[slug])
     _write_registry(reg)
     print(f"{slug}: reverted to awaiting")
     print()
@@ -351,6 +477,9 @@ def parse_args(argv: list[str]) -> dict:
         "issue_url": None,
         "revoke": False,
         "status": False,
+        "check": False,
+        "sync": False,
+        "self_test": False,
         "force": False,
         "bind": False,
         "unknown": False,
@@ -392,6 +521,10 @@ def parse_args(argv: list[str]) -> dict:
             opts["revoke"] = True
         elif a == "--status":
             opts["status"] = True
+        elif a in ("--check", "--sync"):
+            opts[a[2:]] = True
+        elif a == "--self-test":
+            opts["self_test"] = True
         elif a == "--force":
             opts["force"] = True
         else:
@@ -405,6 +538,12 @@ def main(argv: list[str]) -> int:
 
     if opts["status"]:
         return cmd_status()
+    if opts["self_test"]:
+        return _self_test()
+    if opts["check"]:
+        return cmd_check()
+    if opts["sync"]:
+        return cmd_sync()
 
     if opts["revoke"]:
         if not opts["slug"]:
@@ -429,6 +568,76 @@ def main(argv: list[str]) -> int:
         "verify_live: nothing to do. Use --status, --slug ... --source ... "
         "--evidence ..., or --revoke --slug ..."
     )
+
+
+def _self_test() -> int:
+    """Both directions, offline, on a throwaway skills tree: a verified skill
+    that still says Beta (registry, Status paragraph, or a stray line) fails;
+    an unverified one claiming Live-verified fails; --sync repairs what it can
+    and a flip -> revoke round trip of the Status paragraphs is byte-identical."""
+    import tempfile
+
+    failures: list[str] = []
+
+    def expect(cond: bool, label: str) -> None:
+        print(("  ok   " if cond else "  FAIL ") + label)
+        if not cond:
+            failures.append(label)
+
+    readme_beta = ("# Acme\n\n> banner\n\n## Status\n\n" + _status_para({"vendor": "Acme"}, True)
+                   + "\n\n---\n\nFooter.\n")
+    pain_beta = ("# Pain\n\n## Status\n\nBeta. Validated against the Acme API surface; wrapped\n"
+                 "over two lines.\n")
+    lv = {"status": "live-verified", "source": "github", "verified_by": "@someone (MSP)",
+          "issue_url": "https://github.com/Servosity/msp-skills/issues/1"}
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        d = root / "skills" / "acme"
+        d.mkdir(parents=True)
+
+        def reset() -> None:
+            (d / "README.md").write_text(readme_beta, encoding="utf-8")
+            (d / "pain-point.md").write_text(pain_beta, encoding="utf-8")
+
+        reset()
+        beta = {"vendor": "Acme", "status": "beta"}
+        expect(not _drift("acme", beta, root), "an unverified Beta skill is consistent")
+        verified = {"vendor": "Acme", "status": "beta", "live_verified": dict(lv)}
+        got = _drift("acme", verified, root)
+        expect(len(got) == 3, f"a verified skill saying Beta in registry, README and pain-point -> 3 findings (got {got})")
+        _sync("acme", verified, root)
+        expect(verified["status"] == "live-verified" and not _drift("acme", verified, root),
+               "--sync makes a verified skill consistent")
+        readme = (d / "README.md").read_text(encoding="utf-8")
+        expect(readme.startswith("# Acme") and "@someone (MSP)" in readme and readme.endswith("---\n\nFooter.\n"),
+               "--sync rewrites only the Status paragraph, with the attribution and receipt")
+        (d / "README.md").write_text(readme + "\nStill Beta somewhere.\n", encoding="utf-8")
+        got = _drift("acme", verified, root)
+        expect(len(got) == 1 and "edit it by hand" in got[0], "a stray Beta in a verified README fails, by hand")
+        reset()
+        _sync("acme", verified, root)
+        revoked = {"vendor": "Acme", "status": "live-verified"}
+        expect(len(_drift("acme", revoked, root)) == 3, "an unverified skill claiming Live-verified fails")
+        _sync("acme", revoked, root)
+        expect(revoked["status"] == "beta" and (d / "README.md").read_text(encoding="utf-8") == readme_beta,
+               "flip then revoke restores the README Status paragraph byte for byte")
+        no_name = {"vendor": "Acme", "status": "live-verified",
+                   "live_verified": {"status": "live-verified", "source": "self"}}
+        expect(_status_para(no_name, False).startswith("Live-verified. Confirmed by Servosity (maintainer)"),
+               "a self receipt with no name credits the maintainer, by source")
+        no_name["live_verified"]["source"] = "github"
+        expect("Servosity" not in _status_para(no_name, False),
+               "a GitHub receipt with no name is never credited to the maintainer")
+        expect(not _drift("concierge", {"markdown_only": True, "status": "beta"}, root),
+               "a markdown-only skill is out of scope")
+        (d / "pain-point.md").write_bytes(b"## Status\n\n\xff\n")
+        got = _drift("acme", verified, root)
+        expect(any("could not be read" in g for g in got), "an unreadable Status file is a finding, not a pass")
+    if failures:
+        print(f"\nFAIL: verify_live self-test - {len(failures)} case(s)")
+        return 1
+    print("\nPASS: verify_live - Beta and live-verified exclusivity fires on drift, silent when consistent")
+    return 0
 
 
 if __name__ == "__main__":

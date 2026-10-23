@@ -58,6 +58,17 @@ def verified_code(entry: dict) -> tuple[str | None, str | None]:
     return ("current" if h == entry.get("cli_hash_at_release") else "changed"), version
 
 
+def attribution(lv: dict) -> str:
+    """Who confirmed a live-verified badge: the recorded name, else the
+    wording docs/_includes/verification-badge.html derives from the receipt's
+    source, so an external MSP's receipt is never credited to the maintainer
+    and a maintainer receipt is never presented as an outside MSP's."""
+    if lv.get("verified_by"):
+        return lv["verified_by"]
+    return {"self": "Servosity (maintainer)", "github": "an MSP via GitHub report",
+            "circle": "an MSP in the Compounding Teams community"}.get(lv.get("source"), "a real MSP")
+
+
 def verified_note(entry: dict) -> str:
     """The sentence a badge carries when it does not cover the shipped code."""
     state, version = verified_code(entry)
@@ -181,7 +192,7 @@ def render_page(slug: str) -> Path:
         desc = json.loads(mf.read_text(encoding="utf-8")).get("description", "")
     lv = entry.get("live_verified") or {}
     if lv.get("status") == "live-verified":
-        verified_by = lv.get("verified_by") or "a real MSP"
+        verified_by = attribution(lv)
         badge = (f"**✓ Live-verified by {verified_by}** against a production "
                  f"tenant · {lv.get('date', '')}")
         if lv.get("issue_url"):
@@ -191,6 +202,17 @@ def render_page(slug: str) -> Path:
         badge = ("**Passes all 4 mechanical gates** (build · command-surface · "
                  "claims · install). Awaiting its first MSP receipt - "
                  f"[be the first, 60 seconds →]({RECEIPT_FORM_URL}).")
+    # Beta and live-verified are mutually exclusive (verify_live.py --check):
+    # the Status paragraph follows the badge instead of saying Beta on every page.
+    if lv.get("status") == "live-verified":
+        receipt = f" ([receipt]({lv['issue_url']}))" if lv.get("issue_url") else ""
+        status_md = (f"Live-verified. Confirmed by {attribution(lv)} against their own production "
+                     f"tenant{receipt}.{verified_note(entry)} More MSPs run it live in our weekly "
+                     "**[Build Sessions](https://compoundingteams.com/build-sessions)**.")
+    else:
+        status_md = (f"Beta. Validated against the {display} API surface and being validated with "
+                     "MSPs running it live against their own production tenants in our weekly "
+                     "**[Build Sessions](https://compoundingteams.com/build-sessions)**.")
 
     # The literal direct answer AI search engines (and skimming MSP owners)
     # reward: the page answers its own title before anything else. Rendered as
@@ -410,7 +432,7 @@ iwr -useb https://raw.githubusercontent.com/{OWNER}/{REPO}/main/skills/{slug}/in
 {siblings}
 ## Status
 
-Beta. Validated against the {display} API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+{status_md}
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

@@ -100,6 +100,14 @@ version it ran, pass `--verified-version`; for an existing badge use `--bind`.
 Never copy `cli_hash_at_release` into a badge by hand: `check_registry_state.py`
 recomputes the hash from the tag and fails a binding that is not that code.
 
+**Beta and live-verified are mutually exclusive.** A live-verified connector
+never says Beta. Flip and revoke only through `verify_live.py`, which moves the
+registry `status` and the README / pain-point Status paragraphs with the badge
+(the docs page follows from `render_docs_page.py`). `verify_live.py --check`
+runs in CI and fails on any disagreement; `--sync` repairs the registry and the
+Status paragraphs, and a stray "Beta" elsewhere in those two files is fixed by
+hand.
+
 ## What counts as released (READ THIS BEFORE YOU CUT OR TRUST A TAG)
 
 A tag is necessary and no longer sufficient. This repository has GitHub

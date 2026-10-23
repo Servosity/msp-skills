@@ -181,7 +181,7 @@ Run more than one Security tool, or comparing options? These connectors work the
 
 ## Status
 
-Beta. Validated against the Huntress API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by @Xenith-B (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/144)). Verified on v0.1.0; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

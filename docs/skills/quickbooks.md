@@ -38,7 +38,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Intuit Inc..
 
-**✓ Live-verified by a real MSP** against a production tenant · 2026-06-15. The version it verified was not recorded.
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-15. The version it verified was not recorded.
 
 Yes - there is an MCP server for QuickBooks Online. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects QuickBooks Online to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -178,7 +178,7 @@ Run more than one Billing tool, or comparing options? These connectors work the 
 
 ## Status
 
-Beta. Validated against the QuickBooks Online API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. The version it verified was not recorded. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
