@@ -504,9 +504,9 @@
     "released_hash": "sha256:2886f5c42e87902ad1642f4c571b3e11c9ca0dbe2f80855f126ee479ed52db77"
   },
   "skykick": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "skykick-v0.1.6",
+    "latest_tag": "skykick-v0.1.7",
     "current_hash": "sha256:c8c9d25ba2ccd026f3f430bafb4f6b5dfce54470cf5c6efdb80233ac71f37f61",
     "released_hash": "sha256:c8c9d25ba2ccd026f3f430bafb4f6b5dfce54470cf5c6efdb80233ac71f37f61"
   },
