@@ -86,7 +86,8 @@
           "name": "WATCHGUARD_MCP_READ_ONLY",
           "description": "Optional: set to 1 to run the MCP server read-only.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "WATCHGUARD_MCP_HTTP_TOKEN",

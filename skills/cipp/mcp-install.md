@@ -1,5 +1,24 @@
 # CIPP MCP - install for every agent that speaks MCP
 
+> **Security note (until this connector is reprinted).** Do not run HTTP mode
+> (`--transport http`), not even on localhost. This build has no password,
+> listens on every network interface, and predates the browser-rebinding guard,
+> so a web page you open can reach it. The MCP tools can also make changes with
+> your credentials. Use the default stdio transport. If you set up a tunnel for
+> a remote agent, shut it down. A fix is on the way.
+>
+> For CIPP: the `cipp_execute` tool can call any of CIPP's 299 write actions
+> with no confirmation, so until the fix ships, give the connector a CIPP API
+> client with read-only roles only.
+
+**In CIPP, a GET can change things.** 39 CIPP endpoints are called with GET but
+named as actions (`Exec...`, `Remove...`). Some of them change your tenants or
+your CIPP instance, for example `RemoveStandard`, `ExecSendOrgMessage` and
+`ExecRunBackup`. In this build they run through `cipp_execute` with no
+confirmation step, like every other call, so do not set your MCP host to
+auto-approve `cipp_execute`, and do not treat a GET as safe. The full list is in
+the [appendix](#appendix-cipp-get-endpoints-named-as-actions).
+
 This page wires the CIPP MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -7,7 +26,8 @@ it's simpler. Everyone else: pick your agent below.
 **Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
 launch `cipp-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
 Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint, so you expose `cipp-mcp` over HTTPS first.
+endpoint, so they need HTTP mode, which is paused for this connector until
+it is reprinted (see the security note above).
 
 ## Prerequisite: install the MCP binary
 
@@ -101,57 +121,20 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (expose the binary over HTTPS first)
+# Remote agents (paused until this connector is reprinted)
 
-All remote agents need `cipp-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment:
+ChatGPT, Microsoft 365 Copilot / Copilot Studio and the Gemini app only connect
+to an MCP server over HTTPS, which means running `cipp-mcp` in HTTP mode. Do not
+do that with this build (see the security note at the top of this page), and do
+not put this server behind a tunnel or reverse proxy. Use a local agent above,
+or the Claude Code / Codex Skill, until the fix release brings these steps back.
+
+The HTTP-mode launch command is kept below for reference. It is commented out on
+purpose, so pasting it does nothing:
 
 ```bash
-CIPP_API_KEY=<value> CIPP_BASE_URL=<value> cipp-mcp --transport http --addr :7777
+# CIPP_API_KEY=<value> CIPP_BASE_URL=<value> cipp-mcp --transport http
 ```
-
-Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
-URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
-internet; gate it behind SSO / Cloudflare Access for team use.
-
-## ChatGPT (Developer Mode)
-
-In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
-Settings > Apps > Advanced > **Developer mode**, then create a custom connector
-pointing at your tunnel's HTTPS URL.
-
-Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
-
-## Microsoft 365 Copilot / Copilot Studio
-
-**Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
-and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
-`cipp-mcp` you installed is not enough on its own. You also need a **Copilot Studio
-license** and a **tenant admin** to enable it. This is a build-and-host task, not a
-self-serve install.
-
-Once `cipp-mcp` is hosted over HTTPS (above), the lowest-code route:
-
-1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
-   Context Protocol**.
-2. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth
-   (OAuth 2.0 or API key). Copilot Studio builds the Power Platform connector behind
-   the scenes; generative orchestration must be **on**.
-3. Publish the agent into Microsoft 365 Copilot.
-
-Alternative (dev-ish): build a **declarative agent** with the Microsoft 365 Agents
-Toolkit in VS Code (**Add an Action > Start with an MCP Server**, point at the remote
-URL), then sideload - requires admin-enabled Custom App Upload + Copilot Access.
-
-Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
-
-## Gemini app / web (Google)
-
-Same remote pattern as ChatGPT - point Gemini's connector at your hosted HTTPS
-endpoint. For a local, no-hosting path on Google, use **Gemini CLI** (above) instead.
 
 ---
 
@@ -189,3 +172,52 @@ The endpoint search tool returns `params_schema` alongside each result. Read its
 where an input is sent; `x-wire-name`, when present, names its API parameter.
 Keep JSON body key capitalization and nested objects exactly as shown. Known enum
 values are included in the schema and can be used as search terms.
+
+## Appendix: CIPP GET endpoints named as actions
+
+The 39 GET endpoints in this build whose path starts with Exec, Remove, Add,
+Set, Reset, Run, Invoke, Send, Create, Delete, Update or Assign. Some only read
+(for example `ExecAlertsList`); treat all of them as possible changes until each
+one is checked. `endpoint_id` is the value `cipp_execute` takes.
+
+| Method | Path | endpoint_id |
+| --- | --- | --- |
+| GET | `/ExecAddSPN` | `exec-add-spn.list` |
+| GET | `/ExecAlertsList` | `exec-alerts-list.list` |
+| GET | `/ExecAPIPermissionList` | `exec-apipermission-list.list` |
+| GET | `/ExecAppApproval` | `exec-app-approval.list` |
+| GET | `/ExecAppInsightsQuery` | `exec-app-insights-query.list` |
+| GET | `/ExecAppUpload` | `exec-app-upload.list` |
+| GET | `/ExecBackendURLs` | `exec-backend-urls.list` |
+| GET | `/ExecBECCheck` | `exec-beccheck.list` |
+| GET | `/ExecBulkLicense` | `exec-bulk-license.list` |
+| GET | `/ExecCIPPDBCache` | `exec-cippdbcache.list` |
+| GET | `/ExecCPVRefresh` | `exec-cpvrefresh.list` |
+| GET | `/ExecCreateDefaultGroups` | `exec-create-default-groups.list` |
+| GET | `/ExecCSPLicense` | `exec-csplicense.list` |
+| GET | `/ExecDeviceCodeLogon` | `exec-device-code-logon.list` |
+| GET | `/ExecDurableFunctions` | `exec-durable-functions.list` |
+| GET | `/ExecExtensionMapping` | `exec-extension-mapping.list` |
+| GET | `/ExecExtensionNinjaOneQueue` | `exec-extension-ninja-one-queue.list` |
+| GET | `/ExecExtensionSync` | `exec-extension-sync.list` |
+| GET | `/ExecExtensionTest` | `exec-extension-test.list` |
+| GET | `/ExecGDAPInviteApproved` | `exec-gdapinvite-approved.list` |
+| GET | `/ExecGDAPTrace` | `exec-gdaptrace.list` |
+| GET | `/ExecIncidentsList` | `exec-incidents-list.list` |
+| GET | `/ExecListAppId` | `exec-list-app-id.list` |
+| GET | `/ExecListBackup` | `exec-list-backup.list` |
+| GET | `/ExecMailTest` | `exec-mail-test.list` |
+| GET | `/ExecMailboxMobileDevices` | `exec-mailbox-mobile-devices.list` |
+| GET | `/ExecMaintenanceScripts` | `exec-maintenance-scripts.list` |
+| GET | `/ExecMdoAlertsList` | `exec-mdo-alerts-list.list` |
+| GET | `/ExecPermissionRepair` | `exec-permission-repair.list` |
+| GET | `/ExecRunBackup` | `exec-run-backup.list` |
+| GET | `/ExecSchedulerBillingRun` | `exec-scheduler-billing-run.list` |
+| GET | `/ExecSendOrgMessage` | `exec-send-org-message.list` |
+| GET | `/ExecServicePrincipals` | `exec-service-principals.list` |
+| GET | `/ExecStandardConvert` | `exec-standard-convert.list` |
+| GET | `/ExecStandardsRun` | `exec-standards-run.list` |
+| GET | `/ExecUniversalSearch` | `exec-universal-search.list` |
+| GET | `/ExecUniversalSearchV2` | `exec-universal-search-v2.list` |
+| GET | `/RemoveStandard` | `remove-standard.list` |
+| GET | `/RemoveTenantCapabilitiesCache` | `remove-tenant-capabilities-cache.list` |

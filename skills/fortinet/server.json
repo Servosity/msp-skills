@@ -86,7 +86,8 @@
           "name": "FORTINET_MCP_READ_ONLY",
           "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "FORTINET_MCP_HTTP_TOKEN",

@@ -51,7 +51,8 @@
           "name": "SAAS_ALERTS_MCP_READ_ONLY",
           "description": "Optional: set to 1 so the MCP server only reads and previews.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "SAAS_ALERTS_MCP_HTTP_TOKEN",

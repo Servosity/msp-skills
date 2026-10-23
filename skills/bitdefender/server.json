@@ -51,7 +51,8 @@
           "name": "BITDEFENDER_MCP_READ_ONLY",
           "description": "Optional: set to 1 so the MCP server runs GravityZone read methods only.",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "BITDEFENDER_MCP_HTTP_TOKEN",

@@ -59,9 +59,10 @@
     "td_synnex_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP mode",
-      "description": "Optional. Set to 1 to remove every tool that can change StreamOne ION (orders, cancellations, cart checkout, customer and product changes, subscriptions set). Any value except blank, 0, false, no or off turns it on. It also removes sync and the learning writers; the tools it keeps still write the synced store, command journal and recall statistics.",
+      "description": "Optional. Set to 1 to remove every tool that can change StreamOne ION (orders, cancellations, cart checkout, customer and product changes, subscriptions set). Any value except blank, 0, false, no or off turns it on. It also removes sync and the learning writers; the tools it keeps still write the synced store, command journal and recall statistics. Preset to 1; clear it only when you want the agent to make changes.",
       "sensitive": false,
-      "required": false
+      "required": false,
+      "default": "1"
     },
     "td_synnex_mcp_http_token": {
       "type": "string",

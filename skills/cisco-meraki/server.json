@@ -44,7 +44,8 @@
           "name": "CISCO_MERAKI_MCP_READ_ONLY",
           "description": "Set to 1 to refuse every write from the MCP server (GET only; fleet push --apply refused).",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "CISCO_MERAKI_USER_AGENT",
