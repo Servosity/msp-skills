@@ -1508,7 +1508,8 @@ class Merger:
         `sha` (a skipped or rate-limited review is not a review, and neither
         is a review of an earlier head: squashing and rebasing make a new
         commit, which CodeRabbit must review again). False sends the run back
-        to validate (a review is still running); a missing review stops it
+        to validate (a review is still running, or the evidence could not be
+        read: bounded by --max-rebases); a missing review stops it
         with EXIT_APPROVAL, unless --coderabbit report, which prints the state
         and lets Codex stand as the review of record."""
         state, detail = coderabbit_state(self.gh.coderabbit_evidence(self.o.pr, sha), sha)
@@ -1522,6 +1523,11 @@ class Merger:
             self.say(f"==> WARN coderabbit: {state} on {sha[:12]} ({detail}); not a review of this commit, "
                      "merging anyway (--coderabbit report: Codex is the review of record)")
             return True
+        if state == "unreadable":
+            # A failed read is not a missing review (an incomplete check listing
+            # is treated the same way); --max-rebases bounds the retries.
+            self.say(f"==> coderabbit: the evidence for {sha[:12]} could not be read ({detail}); validating again")
+            return False
         raise Stop(EXIT_APPROVAL, f"green, but the coderabbit requirement is not met: {state} on {sha[:12]} "
                                   f"({detail}). A skipped or rate-limited review, or a review of an earlier "
                                   f"head, is not a review of this commit. Get one (comment `@coderabbitai review` "
@@ -3391,7 +3397,7 @@ def _self_test() -> int:
             rc, logs = merger(work, fake, require=(), **kw)
             return rc, logs, fake
 
-        for shape in ("rate-limited", "skipped", "completed-empty", "none", "forged", "unreadable"):
+        for shape in ("rate-limited", "skipped", "completed-empty", "none", "forged"):
             rc, logs, fake = cr_world(shape)
             expect(rc == EXIT_APPROVAL and fake.merge_calls == 0 and fake.merged is None
                    and any("coderabbit requirement is not met" in s for s in logs),
@@ -3414,6 +3420,17 @@ def _self_test() -> int:
         rc, logs, fake = cr_world(pending_then_reviewed)
         expect(rc == 0 and fake.merge_calls == 1 and any("still running" in s for s in logs),
                f"a review still running sends the run back to validate; reviewed, it merges (rc={rc})")
+        reads[0] = 0
+
+        def unreadable_then_reviewed(sha: str) -> dict:
+            reads[0] += 1
+            return cr_fixture("unreadable" if reads[0] == 1 else "reviewed", sha)
+        rc, logs, fake = cr_world(unreadable_then_reviewed)
+        expect(rc == 0 and fake.merge_calls == 1 and any("could not be read" in s for s in logs),
+               f"an unreadable CodeRabbit read validates again; readable and reviewed, it merges (rc={rc})")
+        rc, logs, fake = cr_world("unreadable")
+        expect(rc == EXIT_TIMEOUT and fake.merge_calls == 0 and fake.merged is None,
+               f"evidence that never reads stops after --max-rebases, never merges (rc={rc})")
 
         # Squashing and rebasing make a new head: a review of the old head is
         # not a review of the commit that would merge.
