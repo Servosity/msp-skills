@@ -102,9 +102,16 @@ SECRET_RES = (
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}")),
     ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")),
 )
-# ci_guards.sh guard 3's personal-path rule (press/ is excluded from that
-# guard's human-authored list, like cli/, so it is enforced here instead).
-PERSONAL_RE = re.compile(r"/Users/[A-Za-z]|/home/[a-z]+/")
+# A filesystem home directory with a path below it: /Users/<name>/..., /home/<name>/...
+# (any name: hyphens, digits, dots) or C:\\Users\\<name> in any slash spelling.
+# Anchored so it does not start inside a URL host or a longer path
+# (portal.example.com/home/settings) and needs the "/" after the name, so API
+# routes such as Users/me or Users/{id} (SCIM, 3CX) are not mistaken for one.
+# press/ is excluded from ci_guards.sh's human-authored list, like cli/, so the
+# personal-path rule is enforced here instead (measured on the library copies:
+# it catches every real home path there, including ones inside vendor specs).
+PERSONAL_RE = re.compile(r"(?<![\w.-])/(?:Users|home)/[A-Za-z0-9._-]+/"
+                         r"|(?<![\w.-])[A-Za-z]:(?:\\{1,4}|/)Users(?:\\{1,4}|/)[A-Za-z0-9._-]")
 
 _SEMVER = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$")
 
@@ -295,6 +302,16 @@ def _read_json(p: Path) -> dict | None:
 def check_fleet(only: str | None = None) -> tuple[list[str], dict]:
     findings: list[str] = []
     cov = {"connectors": 0, "press": 0, "tools": 0, "spec": 0, "missing": []}
+    connector_dirs = {registry.skill_path(slug).name for slug, e in registry.skills().items()
+                      if not e.get("markdown_only")}
+    if not only:
+        # Every press/ folder on disk is checked: one under a directory that is
+        # not a registered connector would otherwise escape every rule (and
+        # ci_guards.sh skips press/).
+        for p in sorted(registry.SKILLS_DIR.glob(f"*/{PRESS_DIR}")):
+            if p.parent.name not in connector_dirs:
+                findings.append(f"skills/{p.parent.name}/{PRESS_DIR}/: not under a registered connector, "
+                                "so nothing vouches for it; remove it or register the connector")
     for slug, entry in registry.skills().items():
         if entry.get("markdown_only") or (only and slug != only):
             continue
@@ -361,6 +378,13 @@ def check_floor(base: str) -> list[str]:
         raise EnvError(f"no {FLOOR_REL} here or at {base[:12]}; the floor check did not run")
     floor = max(floors, key=lambda v: parse_version(v)[0])
     findings = []
+    if base_floor.returncode == 0:
+        if not head_path.exists():
+            findings.append(f"{FLOOR_REL}: deleted, but {base[:12]} has one; the floor can be raised, "
+                            "never removed")
+        elif parse_version(floors[-1])[0] < parse_version(floors[0])[0]:
+            findings.append(f"{FLOOR_REL}: min_press_version {floors[-1]} lowers the floor "
+                            f"{floors[0]} at {base[:12]}; the floor can be raised, never lowered")
     for slug, entry in registry.skills().items():
         if entry.get("markdown_only") or slug in base_skills:
             continue
@@ -449,6 +473,15 @@ def _self_test() -> int:
         home = {**good_prov, "spec_path": "/Users/" + "someone/printing-press/.runstate/x/spec.yaml"}
         expect(not clean(build(t, {**base, PROVENANCE: json.dumps(home).encode()})),
                "a personal path in .printing-press.json fails (two library copies carry one)")
+        for path_text, bad in (("/home/" + "alice-smith/private/spec.yaml", True),
+                               ("C:" + "\\Users\\alice\\x", True),
+                               ("D:" + "\\\\Users\\\\bob", True),
+                               ("file:///" + "Users/someone/Downloads/x.wav", True),
+                               ("/Use" + "rs/me", False), ("/Users/{id}/roles", False),
+                               ("https://portal.example.com/h" + "ome/settings/x", False)):
+            case = {**good_prov, "note": path_text}
+            expect(clean(build(t, {**base, PROVENANCE: json.dumps(case).encode()})) is not bad,
+                   f"{path_text!r} {'is' if bad else 'is not'} a personal path")
         key = b"-----BEGIN " + b"PRIVATE KEY-----\nMII\n"
         expect(not clean(build(t, {**base, "spec.json": spec, TOOLS: base[TOOLS] + b"\n" + key})),
                "a private key block fails")

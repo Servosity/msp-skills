@@ -71,8 +71,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import check_registry_state  # noqa: E402  (local tools/ module: the hash of a tagged tree)
 import release_state  # noqa: E402  (local tools/ module: one version order)
-import stamp_release  # noqa: E402  (local tools/ module: the hash of a tagged tree)
 
 ROOT = registry.ROOT
 REGISTRY = registry.REGISTRY
@@ -95,10 +95,10 @@ def _tag_exists(tag: str) -> bool:
 
 
 def tag_cli_hash(slug: str, tag: str) -> str | None:
-    """cli_hash.py's hash of the connector's cli/ as it is at `tag`, from git
-    objects (stamp_release.tree_hash), or None when it cannot be computed."""
-    rel = registry.skill_path(slug).relative_to(ROOT).as_posix() + "/cli"
-    return stamp_release.tree_hash(ROOT, tag, rel)
+    """cli_hash.py's hash of the connector's cli/ at `tag`, resolved through the
+    tagged commit's own registry (check_registry_state.tag_cli_hash, the rule
+    the CI gate re-checks), or None when it cannot be computed."""
+    return check_registry_state.tag_cli_hash(slug, {}, tag[len(slug) + 2:])
 
 
 def _parse_when(value: str) -> dt.datetime:
@@ -113,6 +113,15 @@ def _parse_when(value: str) -> dt.datetime:
 
 def binding(slug: str, version: str | None = None, reported_at: str | None = None) -> dict:
     """The verified_* fields for a flip of `slug` (see the module docstring)."""
+    cutoff = _parse_when(reported_at) if reported_at else None
+
+    def after_report(tag: str) -> bool:
+        """Cut from a commit made after the report: never what the reporter ran."""
+        if cutoff is None:
+            return False
+        made = _git("log", "-1", "--format=%cI", f"{tag}^{{commit}}").stdout.strip()
+        return not made or _parse_when(made) > cutoff
+
     if version is not None:
         if not VERSION_RE.match(version):
             raise SystemExit(f"verify_live: --verified-version {version!r} is not X.Y.Z")
@@ -120,19 +129,20 @@ def binding(slug: str, version: str | None = None, reported_at: str | None = Non
         if not _tag_exists(tag):
             raise SystemExit(f"verify_live: no local tag {tag} (git fetch --tags origin), so "
                              f"the code at {version} cannot be hashed")
+        if after_report(tag):
+            raise SystemExit(f"verify_live: {tag} was cut from a commit made after the report "
+                             f"(--reported-at {reported_at}); the reporter cannot have run it")
         h = tag_cli_hash(slug, tag)
         if h is None:
-            raise SystemExit(f"verify_live: the cli/ tree at {tag} cannot be hashed reproducibly")
+            raise SystemExit(f"verify_live: {tag} does not release {slug} at {version} in its own "
+                             "registry, or its cli/ cannot be hashed reproducibly")
         return {"verified_version": version, "verified_cli_hash": h, "verified_basis": "reported"}
-    cutoff = _parse_when(reported_at) if reported_at else None
     prefix = f"{slug}-v"
     tags = [t for t in _git("tag", "--list", f"{prefix}*").stdout.split()
             if VERSION_RE.match(t[len(prefix):])]
     for tag in sorted(tags, key=lambda t: release_state._version_tuple(t[len(prefix):]), reverse=True):
-        if cutoff is not None:
-            made = _git("log", "-1", "--format=%cI", f"{tag}^{{commit}}").stdout.strip()
-            if not made or _parse_when(made) > cutoff:
-                continue  # cut from a commit made after the report: never what they ran
+        if after_report(tag):
+            continue
         h = tag_cli_hash(slug, tag)
         if h is None:
             break

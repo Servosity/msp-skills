@@ -98,15 +98,23 @@ _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+\Z")
 
 
 def tag_cli_hash(slug: str, entry: dict, version: str) -> str | None:
-    """cli_hash.py's hash of skills/<dir>/cli at tag <slug>-v<version>, from git
-    objects; None when the tag is not in this clone or cannot be hashed."""
+    """cli_hash.py's hash of the connector's cli/ at tag <slug>-v<version>, from
+    git objects. The directory comes from the TAGGED commit's own registry (never
+    today's source_dir, which a branch controls), and that commit must record
+    the same version in skills.json and manifest.json. None when the tag is not
+    in this clone, does not release this connector at that version, or cannot
+    be hashed reproducibly. `entry` is unused: kept so callers pass what they
+    have and the rule cannot drift back to it."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import stamp_release  # noqa: E402  (local tools/ module; imported lazily: git work)
     tag = f"{slug}-v{version}"
     if subprocess.run(["git", "-C", str(REPO), "rev-parse", "-q", "--verify", f"refs/tags/{tag}"],
                       capture_output=True).returncode != 0:
         return None
-    return stamp_release.tree_hash(REPO, tag, f"skills/{entry.get('source_dir', slug)}/cli")
+    facts = stamp_release._tag_entry(REPO, tag, slug)
+    if facts is None or facts[1] != version or facts[2] != version:
+        return None
+    return stamp_release.tree_hash(REPO, tag, f"skills/{facts[0]}/cli")
 
 
 def binding_violations(slug: str, entry: dict, tag_hash=tag_cli_hash) -> list[str]:
@@ -133,7 +141,8 @@ def binding_violations(slug: str, entry: dict, tag_hash=tag_cli_hash) -> list[st
     actual = tag_hash(slug, entry, version)
     if actual is None:
         return [f"{slug}: cannot check the badge binding: tag {slug}-v{version} is not in this "
-                "clone (git fetch --tags), or its cli/ cannot be hashed reproducibly"]
+                "clone (git fetch --tags), does not release this connector at that version, or "
+                "its cli/ cannot be hashed reproducibly"]
     if actual != h:
         return [f"{slug}: verified_cli_hash {h[:19]}... is not the code at {slug}-v{version} "
                 f"({actual[:19]}...): the badge would claim code nobody verified"]
