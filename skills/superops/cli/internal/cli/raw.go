@@ -55,7 +55,9 @@ from a file, or - to read from stdin.`, verb),
   superops-cli raw %s @op.graphql --vars '{"input":{"pageSize":5}}'
   echo '{ getStatusList { statusId name } }' | superops-cli raw query - --json
 `, verb, verb), "\n"),
-		Annotations: map[string]string{"mcp:read-only": readOnly},
+		// --vars takes inline JSON or @path: over MCP only the inline form is
+		// forwarded (handfixes.json: mcp-file-flags-refused).
+		Annotations: map[string]string{"mcp:read-only": readOnly, "mcp:inline-only-flags": "vars"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()

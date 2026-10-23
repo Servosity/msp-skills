@@ -1,6 +1,6 @@
 {
   "name": "connectsecure",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
   "author": {
     "name": "Servosity",

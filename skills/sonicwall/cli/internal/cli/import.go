@@ -36,6 +36,9 @@ but do not stop the import.`,
   # Import from stdin
   cat data.jsonl | sonicwall-cli import <resource> --input -`,
 		Args: cobra.ExactArgs(1),
+		// --input names a file on the machine that runs the MCP server; operators only.
+		// Hand-fix (handfixes.json: mcp-file-flags-refused).
+		Annotations: map[string]string{"mcp:write-flags": "input"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resource := args[0]
 			path, err := resourceWritePath(resource)

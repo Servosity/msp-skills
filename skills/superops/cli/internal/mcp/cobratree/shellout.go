@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.ToolHandlerFunc {
+func shellOutToCLI(cliPath func() (string, error), commandPath []string, blocked, declared, inlineOnly map[string]bool, takesArgs bool) server.ToolHandlerFunc {
 	lookupPath, lookupErr := cliPath()
 	prefixArgs := append([]string{}, commandPath...)
 	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -26,6 +26,12 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.
 			return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v\nTried sibling lookup, SUPEROPS_CLI_PATH env var, and PATH.", lookupErr)), nil
 		}
 		args := req.GetArguments()
+		// Hand-fix (handfixes.json: mcp-file-flags-refused): refuse a blocked
+		// flag, or any argument this command does not declare, by name -
+		// never drop it silently and never forward it to another command.
+		if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != "" {
+			return mcplib.NewToolResultError(msg), nil
+		}
 		finalArgs := append([]string{}, prefixArgs...)
 		finalArgs = append(finalArgs, cliArgsFromMCP(args)...)
 		if raw, _ := args["args"].(string); strings.TrimSpace(raw) != "" {

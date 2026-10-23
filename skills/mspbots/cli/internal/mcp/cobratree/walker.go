@@ -31,14 +31,18 @@ func RegisterAll(s *server.MCPServer, root *cobra.Command, cliPath func() (strin
 			return
 		}
 		options := []mcplib.ToolOption{mcplib.WithDescription(descriptionFor(cmd))}
-		options = append(options, toolOptionsForFlags(cmd)...)
+		// Hand-fix (handfixes.json: mcp-file-flags-refused): one blocked set
+		// drives both the schema (a blocked flag is left out) and the handler
+		// (a blocked flag, or any flag the schema does not list, is refused).
+		blocked := blockedFlagsForCommand(cmd)
+		options = append(options, toolOptionsForFlags(cmd, blocked)...)
 		if commandTakesArgs(cmd) {
 			options = append(options, mcplib.WithString("args", mcplib.Description("Additional positional arguments or raw CLI flags to append to the command.")))
 		}
 		if isMCPReadOnly(cmd) {
 			options = append(options, mcplib.WithReadOnlyHintAnnotation(true), mcplib.WithDestructiveHintAnnotation(false))
 		}
-		s.AddTool(mcplib.NewTool(toolName, options...), shellOutToCLI(cliPath, path))
+		s.AddTool(mcplib.NewTool(toolName, options...), shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd)))
 	})
 }
 

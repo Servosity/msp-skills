@@ -463,6 +463,34 @@
           "not_contains": "--addr :7777"
         }
       ]
+    },
+    {
+      "id": "mcp-file-flags-refused",
+      "class": "mcp-file-flag",
+      "summary": "An MCP tool call can no longer name a file or directory on the MCP host: blockedStructuredArgsForCommand (press 4.27 to 4.30.2) now blocks every destination flag and every mcp:write-flags declaration, local or inherited, so the flag is left out of the tool schema and validateMCPArgumentNames refuses a call that supplies it by name; before, local destination flags were advertised and cliArgsFromMCP dropped them silently",
+      "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: blockedStructuredArgsForCommand (press 4.27 to 4.30.2) now blocks every destination flag and every mcp:write-flags declaration, local or inherited, so the flag is left out of the tool schema and validateMCPArgumentNames refuses a call that supplies it by name; before, local destination flags were advertised and cliArgsFromMCP dropped them silently. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "blockDestination := func(flag *pflag.Flag) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "for name := range flagWriteSinkNames(cmd) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
+          "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     }
   ]
 }
