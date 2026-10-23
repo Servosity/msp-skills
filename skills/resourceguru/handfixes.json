@@ -491,6 +491,44 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "windows-credential-rename-retry",
+      "class": "windows-credential-rename",
+      "summary": "AtomicWritePrivateFile retries the rename that publishes credentials.toml when Windows answers access-denied or a sharing violation (12 attempts, 2 to 64 ms apart, about 0.45 s at most); every other error and every other OS still fails at once",
+      "why": "Printed on press 4.27.1, before the press added this retry in 4.30.2 (the other 30 connectors that publish credentials this way already carry it, byte-identical). On Windows a rename over credentials.toml fails with 'Access is denied' while another writer has the file open (reading it to merge, or replacing it), so two CLI or MCP processes saving credentials at once could lose one save. Seen in CI as TestConcurrentCredentialWritersLeaveParseableCredentials failing on windows(unifi-network) twice and windows(resourceguru) once on 2026-10-23. The atomic temp-file-then-rename design is unchanged. TestConcurrentCredentialWritersRepeatedRounds (4 writers, 25 rounds) failed on both Windows rows of PR #441 without the retry and passes with it; TestRenamePrivateFileWithRetryRetriesWindowsPermissionFailures is the press's own unit test for the retry. A reprint on press 4.30.2 or later regenerates the same code.",
+      "status": "active",
+      "spec_encode_followup": "None needed: press 4.30.2 and later generate this retry; a reprint on a current press replaces the back-port with identical code.",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "if err := renamePrivateFileWithRetry(tmpPath, path); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "func privateFileRenameRetryable(err error) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "not_contains": "if err := os.Rename(tmpPath, path); err != nil {"
+        },
+        {
+          "file": "cli/internal/cliutil/paths_test.go",
+          "contains": "func TestRenamePrivateFileWithRetryRetriesWindowsPermissionFailures(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_concurrency_test.go",
+          "contains": "func TestConcurrentCredentialWritersRepeatedRounds(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     }
   ]
 }
