@@ -61,10 +61,35 @@ BRANCH="release/batch-$(date +%Y%m%d-%H%M%S)"
 # never `git add -A`).
 RELEASE_PATHSPECS="skills/*/manifest.json skills/*/.claude-plugin/plugin.json skills/*/server.json skills/*/CHANGELOG.md .claude-plugin/marketplace.json tools/maintainer/skills.json"
 
-DRY_RUN=0
-for a in "$@"; do
-  [ "$a" = "--dry-run" ] && DRY_RUN=1
-done
+# Validate the arguments BEFORE any side effect, with release.py's own
+# parse_args (no copy of its rules to drift): release.py used to see them only
+# after this script had fetched and created its worktree, so a typo or a
+# reflexive `--help` started a real batch. parse_args only reads local state.
+usage() { sed -n '13,18p' "$0" | sed 's/^# \{0,1\}//'; }
+# release.parse_args decides everything, value boundaries included (a slug
+# value that looks like a flag stays a value): it prints the dry-run bit, or
+# "help" when it refuses a list containing -h/--help.
+if ! DRY_RUN=$(python3 -I -B -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import release
+argv = sys.argv[2:]
+try:
+    print(int(release.parse_args(argv)[2]))
+except (SystemExit, Exception) as exc:
+    if "-h" in argv or "--help" in argv:
+        print("help")
+        sys.exit(0)
+    print(f"release_batch: {exc or type(exc).__name__}", file=sys.stderr)
+    sys.exit(2)
+' "$SCRIPT_DIR" "$@"); then
+  usage >&2
+  exit 2
+fi
+if [ "$DRY_RUN" = help ]; then
+  usage
+  exit 0
+fi
 
 PIPELINE_CHECK="$SCRIPT_DIR/check_release_pipeline.py"
 
