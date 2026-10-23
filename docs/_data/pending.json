@@ -63,9 +63,9 @@
     "released_hash": "sha256:8eefe15e797f4a0896f3d6a920ce150247d67e5e7f97337e7093f4247e765aed"
   },
   "aws-billing": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "aws-billing-v0.1.7",
+    "latest_tag": "aws-billing-v0.1.8",
     "current_hash": "sha256:96279142aa0c403a70b9191730bf1a061585eaa3264c6b41331d38780e315bff",
     "released_hash": "sha256:96279142aa0c403a70b9191730bf1a061585eaa3264c6b41331d38780e315bff"
   },
@@ -77,9 +77,9 @@
     "released_hash": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba"
   },
   "backup-radar": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "backup-radar-v0.1.1",
+    "latest_tag": "backup-radar-v0.1.2",
     "current_hash": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0",
     "released_hash": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0"
   },
