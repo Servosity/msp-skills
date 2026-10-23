@@ -128,6 +128,29 @@
    },
    "why": "Not Windows-specific: the test seeds an expiry at now - 5 days with one-second resolution and the command floors days_left later, so crossing a second boundary in between yields -6. The slower Windows runner crosses it often (run 2, 2026-10-15); no other job runs go test, so it surfaced here.",
    "fix": "Seed from a fixed clock, or compute the expectation from the same now the command uses."
+  },
+  {
+   "id": "WIN-TEST-RENAME-OPEN-FILE-434",
+   "kind": "unix-only-test",
+   "slugs": [
+    "*"
+   ],
+   "tests": [
+    "TestReadOpenedConfig_ReadUsesCheckedDescriptor"
+   ],
+   "why": "Press 4.34.0 template test (internal/cliutil/credentials_perms_test.go). Its hook renames config.toml while ReadOpenedConfig holds it open, to simulate a swap between the permission check and the read. Windows refuses to rename a file another handle has open (Go's os.Open does not pass FILE_SHARE_DELETE), so the hook fails with 'being used by another process' before the code under test runs. The swap the test simulates cannot happen on Windows: creds_perms_windows.go judges and reads the same open handle. First seen on servosity, run 40059069967, 2026-10-24.",
+   "fix": "In the press template, skip the rename hook on Windows (or assert that the rename is refused while the handle is open); file upstream as a press retro."
+  },
+  {
+   "id": "WIN-TEST-FORTINET-CACHE-READ-DURING-RENAME",
+   "kind": "unix-only-test",
+   "failures": {
+    "fortinet": [
+     "TestWriteCacheConcurrentWritersAndReaders"
+    ]
+   },
+   "why": "The test's reader calls os.ReadFile on fortigate-cloud-token.json while writers rename new copies over it, and asserts every read succeeds. On Windows a read that lands during the rename fails with 'being used by another process' (rounds 12 and 9 on runs 40059888328 and its re-run, 2026-10-24). The product tolerates it: fgtcloud loadCache treats any read error as a cache miss and refreshes the token, and the writer side already retries (handfixes.json fgtcloud-token-cache-rename-retry). Already failing on main; it surfaced only because a registry change ran every Windows row.",
+   "fix": "In the test, retry a read that fails with a Windows sharing violation, or read through loadCache and accept a miss; keep the assertion that a successful read sees one complete token."
   }
  ]
 }

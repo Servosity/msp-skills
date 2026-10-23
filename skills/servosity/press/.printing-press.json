@@ -1,0 +1,200 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-23T23:16:53.683038Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "servosity-msp",
+  "display_name": "Servosity",
+  "cli_name": "servosity-msp-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:9bd7423dab4cb199066d874a6557362e6e24ffffcbcb74d58f5964e2fc27d0e7",
+  "run_id": "20261023-181218-c00003f3",
+  "category": "monitoring",
+  "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't — across your whole book of clients.",
+  "mcp_binary": "servosity-msp-pp-mcp",
+  "mcp_tool_count": 291,
+  "mcp_ready": "full",
+  "api_version": "v1",
+  "auth_type": "api_key",
+  "auth_preference": "Token",
+  "auth_env_vars": [
+    "SERVOSITY_MSP_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Morning fleet sweep",
+      "command": "attention",
+      "description": "One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare."
+    },
+    {
+      "name": "Client QBR report",
+      "command": "qbr",
+      "description": "Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, storage trend."
+    },
+    {
+      "name": "Drift since yesterday",
+      "command": "drift",
+      "description": "Diff two snapshots the CLI collected — show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric."
+    },
+    {
+      "name": "Stale-backup follow-up list",
+      "command": "stale-backups",
+      "description": "Slice the stale-backup-sets report by company, age window, and backup engine — entirely offline once cached. Use --refresh to repull from the API."
+    },
+    {
+      "name": "Batch issue triage",
+      "command": "triage",
+      "description": "List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes."
+    },
+    {
+      "name": "Restore-queue watch",
+      "command": "restore-queue watch",
+      "description": "Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick."
+    },
+    {
+      "name": "Cross-engine backup-facts",
+      "command": "backup-facts",
+      "description": "Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health — joined from three local store tables into one table."
+    },
+    {
+      "name": "Bill reconciliation",
+      "command": "bill",
+      "description": "Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift — clients under- or over-charged."
+    },
+    {
+      "name": "Unprovisioned agents",
+      "command": "unprovisioned",
+      "description": "List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings."
+    },
+    {
+      "name": "Storage trend forecast",
+      "command": "storage-trend",
+      "description": "Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement for future runs."
+    },
+    {
+      "name": "Stale follow-up email drafts",
+      "command": "email-draft",
+      "description": "Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success)."
+    },
+    {
+      "name": "Fleet health scorecard",
+      "command": "fleet-health",
+      "description": "One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas."
+    },
+    {
+      "name": "All-clients QBR batch",
+      "command": "qbr-all",
+      "description": "Generate every client's QBR backup report in one pass, one file per company."
+    },
+    {
+      "name": "Retention and guarantee audit",
+      "command": "retention-audit",
+      "description": "Every protected host across the classic, restic and DR engines whose retention tier is below a required minimum, or that is not eligible for the Servosity recovery guarantee, grouped by client. Reads the local store; no live calls."
+    },
+    {
+      "name": "Fleet failure clusters",
+      "command": "failure-clusters",
+      "description": "Pull this month's restic and DR backup-failure text for every client, normalize away IDs, paths, numbers and timestamps, and group identical root causes, ranked by how many hosts and clients each one hits."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Morning fleet sweep",
+      "command": "attention",
+      "description": "One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare."
+    },
+    {
+      "name": "Client QBR report",
+      "command": "qbr",
+      "description": "Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, storage trend."
+    },
+    {
+      "name": "Drift since yesterday",
+      "command": "drift",
+      "description": "Diff two snapshots the CLI collected — show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric."
+    },
+    {
+      "name": "Stale-backup follow-up list",
+      "command": "stale-backups",
+      "description": "Slice the stale-backup-sets report by company, age window, and backup engine — entirely offline once cached. Use --refresh to repull from the API."
+    },
+    {
+      "name": "Batch issue triage",
+      "command": "triage",
+      "description": "List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes."
+    },
+    {
+      "name": "Restore-queue watch",
+      "command": "restore-queue watch",
+      "description": "Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick."
+    },
+    {
+      "name": "Cross-engine backup-facts",
+      "command": "backup-facts",
+      "description": "Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health — joined from three local store tables into one table."
+    },
+    {
+      "name": "Bill reconciliation",
+      "command": "bill",
+      "description": "Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift — clients under- or over-charged."
+    },
+    {
+      "name": "Unprovisioned agents",
+      "command": "unprovisioned",
+      "description": "List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings."
+    },
+    {
+      "name": "Storage trend forecast",
+      "command": "storage-trend",
+      "description": "Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement for future runs."
+    },
+    {
+      "name": "Stale follow-up email drafts",
+      "command": "email-draft",
+      "description": "Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success)."
+    },
+    {
+      "name": "Fleet health scorecard",
+      "command": "fleet-health",
+      "description": "One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas."
+    },
+    {
+      "name": "All-clients QBR batch",
+      "command": "qbr-all",
+      "description": "Generate every client's QBR backup report in one pass, one file per company."
+    },
+    {
+      "name": "Retention and guarantee audit",
+      "command": "retention-audit",
+      "description": "Every protected host across the classic, restic and DR engines whose retention tier is below a required minimum, or that is not eligible for the Servosity recovery guarantee, grouped by client. Reads the local store; no live calls."
+    },
+    {
+      "name": "Fleet failure clusters",
+      "command": "failure-clusters",
+      "description": "Pull this month's restic and DR backup-failure text for every client, normalize away IDs, paths, numbers and timestamps, and group identical root causes, ranked by how many hosts and clients each one hits."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 302,
+    "total": 302,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}

@@ -4,6 +4,36 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.11] - unreleased
+
+Rebuilt on CLI Printing Press 4.34.0.
+
+### Security
+- **HTTP mode needs a token.** `servosity-mcp --transport http` serves `http://127.0.0.1:7777/mcp` by default and refuses to start until `SERVOSITY_MSP_MCP_HTTP_TOKEN` is set; every request must send `Authorization: Bearer <token>`, and any address other than loopback also needs `--tls-cert` and `--tls-key`. stdio stays the default. [mcp-install.md](./mcp-install.md) has the remote-agent setup.
+- **The MCP server previews raw API writes.** `servosity-msp_execute` returns a preview and sends nothing unless the call passes `confirm: true` (a JSON boolean). `SERVOSITY_MSP_MCP_READ_ONLY=1` drops every tool not marked read-only and makes the execute tool refuse writes. `triage` mutations started from the MCP server need `--confirm`, and `qbr-all` (which writes one file per client) is no longer offered as an MCP tool.
+- **A short MFA code is withheld when an error repeats it inside nested encodings** (for example percent-encoded twice, or base64 of base64), not only as written or in one encoding.
+- The MCP library is `github.com/mark3labs/mcp-go` v0.57.0.
+- **Credential fields stay off disk.** The local store and its search index drop credential fields (stored passwords, backup-set passwords, MFA codes, product keys, API and agent tokens) from every row, the MFA-code resources are not synced (and `sync` refuses them by name), and secret or non-JSON responses are never written to the response cache. The first open of an existing store or cache clears any such values.
+- **Secret reads need a confirm over MCP.** Encryption keys, stored credentials, MFA codes, DRaaS passwords and agent, install, upload and download tokens are read through `servosity-msp_execute` with `confirm: true`; `servosity-msp_read` refuses them and `SERVOSITY_MSP_MCP_READ_ONLY=1` blocks them. Every other MCP tool result (`servosity-msp_read`, `sql`, `search`, `tail` and the mirrored commands) shows a secret field's value as `[withheld]`.
+
+### Added
+- `retention-audit`: every protected host across the classic, restic and DR engines whose retention tier is below `--min`, or that is not eligible for the Servosity recovery guarantee, grouped by client. Reads the local store.
+- `failure-clusters`: this month's restic and DR backup-failure text for every client, grouped by root cause and ranked by hosts and clients hit.
+- `local-data purge` previews and deletes the local store, response cache and learn journal. `SERVOSITY_MSP_NO_LOCAL_DATA=1` turns off local copies; `SERVOSITY_MSP_DATA_SOURCE` sets the `--data-source` default.
+- Runnable examples on most API commands (`--help` shows a real ID shape to copy).
+
+### Fixed
+- `doctor` no longer reports the real Servosity API root as a placeholder. With only `SERVOSITY_MSP_TOKEN` set it now dials the API and checks the credential.
+- `backup-facts`, `attention`, `stale-backups`, `retention-audit`, `storage-trend` and the QBR report read DR backups from the current local store.
+- Freshness: a failed lookup keeps the last known evidence, and rows for backups no longer in the inventory are dropped. `attention` reports `freshness_unknown`. `email-draft` without `--engine` drafts for every engine again (it returned nothing).
+- QBR success rates name the backups they could assess and count the ones they could not.
+- `bill --reconcile` sums repeated invoice rows, rejects short rows, and reports `servosity_cents` and `delta_cents` as null: the partner bill carries no prices, so the reconcile is a presence check (billed but not invoiced, invoiced with no billed backups). The help and docs now say so.
+- `failure-clusters` counts hosts per client and follows every result page.
+- `triage` accepts the UUID issue IDs that `triage` itself lists (it accepted only integers, so no real issue could be changed). An ID that is neither a UUID nor an integer is refused.
+- `bill --reconcile` joins bill lines to invoice rows by the CSV's company names and, when no companies are synced, a live company list. Before, every client could appear twice.
+- The QBR backup-success figure counts a backup as succeeding only if it had a successful run in the 7 days before the quarter end (or now, while the quarter runs), and is labelled as restic/DR backup success, not a job success rate. A backup with no recorded success evidence counts as unknown instead of dropping out of the total.
+- `attention` names a client whose only problem is a stale backup.
+
 ## [0.6.10] - 2026-10-23
 
 ### Changed

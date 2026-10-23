@@ -36,7 +36,7 @@ func TestRequestContractDELETEKeepsImageIDInBody(t *testing.T) {
 	defer fixture.Close()
 	requestContractConfig(t, fixture.URL)
 	params := map[string]any{"id": "123", "image_id": "fixture-image", "X-Servosity-Mfa": "fixture-mfa"}
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "companies.draas.companies-images-delete", "params": params}))
+	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "companies.draas.companies-images-delete", "params": params, "confirm": true}))
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("DELETE execute: %#v %v", result, err)
 	}

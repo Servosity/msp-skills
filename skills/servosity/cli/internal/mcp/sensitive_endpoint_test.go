@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"servosity-msp-pp-cli/internal/store"
 )
 
@@ -48,7 +49,9 @@ func TestSensitiveTokenEndpointIsAbsentFromCodeOrchestration(t *testing.T) {
 }
 
 func TestMCPContextOmitsSensitiveTokenEndpoint(t *testing.T) {
-	result, err := handleContext(context.Background(), mcplib.CallToolRequest{})
+	s := server.NewMCPServer("servosity-msp", "test")
+	RegisterTools(s)
+	result, err := handleContext(s)(context.Background(), mcplib.CallToolRequest{})
 	if err != nil {
 		t.Fatalf("handleContext transport error: %v", err)
 	}
@@ -106,7 +109,7 @@ func TestMCPReadOnlyStoreRefusesPrePurgeSchema(t *testing.T) {
 		t.Fatalf("close raw store: %v", err)
 	}
 
-	db, toolErr := openMCPReadOnlyStore(context.Background(), dbPath)
+	db, toolErr := openMCPReadOnlyStore(dbPath)
 	if db != nil {
 		db.Close()
 		t.Fatal("MCP opened a pre-purge store")

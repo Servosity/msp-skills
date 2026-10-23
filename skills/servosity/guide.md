@@ -4,7 +4,104 @@
 
 No competitor in the MSP backup space ships a fleet-wide CLI. Reach for servosity-cli when you need to triage attention across every client at once, generate the backup section of a QBR in 30 seconds, watch every restore queue during DR from one terminal, or reconcile your Servosity bill against what you're invoicing clients. Every response is agent-native: --json, --select, --csv, --dry-run, typed exit codes.
 
-For the short install path see [README.md](./README.md). This file is the command reference.
+## Install
+
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `servosity-cli` and `servosity-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
+
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+   ```
+3. Verify: `servosity-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=servosity). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+From the Hermes CLI:
+
+```bash
+hermes skills install Servosity/msp-skills/skills/servosity --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install Servosity/msp-skills/skills/servosity --force
+```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `servosity-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+
+Tell your OpenClaw agent (copy this):
+
+> Install the servosity skill from https://github.com/Servosity/msp-skills/tree/main/skills/servosity. The skill defines how its required CLI (`servosity-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=servosity).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `SERVOSITY_MSP_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex            # Windows
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "servosity": {
+      "command": "servosity-mcp",
+      "env": {
+        "SERVOSITY_MSP_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+### Remote MCP over HTTP
+
+`servosity-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SERVOSITY_MSP_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export SERVOSITY_MSP_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+servosity-mcp --transport http
+```
+
+Set `SERVOSITY_MSP_MCP_READ_ONLY=1` (exactly `1`) to drop every tool not marked read-only and make the raw execute tool refuse state-changing calls. The local-write learn-loop tools (`recall`, `teach` and the rest) are dropped too.
 
 ## Authentication
 
@@ -65,7 +162,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Client-facing reporting
-- **`qbr`**  -  Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Job success rate, restore tests run this quarter, coverage map across all three engines, open issues, storage trend.
+- **`qbr`**  -  Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Backup success (restic/DR backups with a successful run in the 7 days before quarter end), restore tests run this quarter, coverage map across all three engines, open issues, storage trend.
 
   _Use this 1-2 weeks before a client QBR. Saves 30-60 min of manual deck-building per client._
 
@@ -79,7 +176,7 @@ These capabilities aren't available in any other tool for this API.
   _Use when the issue queue is bursty or during a planned-outage window where many alerts cluster around one client._
 
   ```bash
-  servosity-cli triage --company 4421 --ignore 18,22,29 --comment 'scheduled outage' --dry-run
+  servosity-cli triage --company 4421 --ignore 550e8400-e29b-41d4-a716-446655440000 --comment 'scheduled outage' --dry-run
   ```
 
 ### Disaster recovery
@@ -92,9 +189,9 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Business operations
-- **`bill --reconcile`**  -  Pull the MSP's monthly Servosity bill and compare line-by-line against a CSV of what the MSP is invoicing their clients. Surfaces drift  -  clients under- or over-charged.
+- **`bill --reconcile`**  -  Pull the MSP's monthly Servosity bill and reconcile it against a CSV of what the MSP invoices their clients. Flags clients Servosity bills you for that you have not invoiced, and clients you invoice that have no Servosity backups.
 
-  _Run this every month-end before invoicing clients. Catches missed line items and pricing mismatches._
+  _Run this every month-end before invoicing clients. Catches clients you forgot to invoice. The partner bill carries no prices, so this is a presence check, not a dollar delta._
 
   ```bash
   servosity-cli bill --reconcile invoiced-2026-05.csv --month 2026-05 --json
@@ -124,7 +221,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Cross-tenant intelligence
-- **`fleet-health`**  -  One fleet-wide scorecard: 24h job success rate, companies with stale backups, and open issues, with week-over-week deltas.
+- **`fleet-health`**  -  One fleet-wide scorecard: share of backups with a success in the last 24h, companies with stale backups, and open issues, with week-over-week deltas.
 
   _Reach for this when you need the owner-glance fleet number set, not the per-company list._
 
@@ -141,8 +238,25 @@ These capabilities aren't available in any other tool for this API.
   servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/
   ```
 
-## Recipes
+### Fleet hygiene
+- **`retention-audit`**  -  Every protected host across the classic, restic and DR engines whose retention tier is below a required minimum, or that is not eligible for the Servosity recovery guarantee, grouped by client. Reads the local store; no live calls.
 
+  _Reach for this before a compliance review or when onboarding a regulated client, to prove every host meets the contracted retention and is covered by the guarantee._
+
+  ```bash
+  servosity-cli retention-audit --min 7YEAR --company 4421
+  ```
+
+### Morning triage
+- **`failure-clusters`**  -  Pull this month's restic and DR backup-failure text for every client, normalize away IDs, paths, numbers and timestamps, and group identical root causes, ranked by how many hosts and clients each one hits.
+
+  _Reach for this when the failure count jumps, to find the one root cause worth fixing first across the whole book._
+
+  ```bash
+  servosity-cli failure-clusters --month 2026-10 --top 10
+  ```
+
+## Recipes
 
 ### Morning attention sweep with field projection
 
@@ -166,7 +280,7 @@ CSV output for paste-into-spreadsheet workflows when you're compiling the list o
 servosity-cli qbr 4421 --quarter 2026-Q1 --format pdf --out acme-q1-backup.pdf
 ```
 
-Generates a self-contained PDF with cover page, job success rate, restore tests, coverage table, open issues, and storage trend table. Hand it to the account lead 1-2 weeks before the QBR.
+Generates a self-contained PDF with cover page, backup success, restore tests, coverage table, open issues, and storage trend table. Hand it to the account lead 1-2 weeks before the QBR.
 
 ### Bill reconciliation against invoicing CSV
 
@@ -174,7 +288,7 @@ Generates a self-contained PDF with cover page, job success rate, restore tests,
 servosity-cli bill --reconcile invoiced-2026-05.csv --month 2026-05 --json
 ```
 
-CSV columns: company_id, company_name, invoiced_amount. Output shows delta vs Servosity's bill, sorted by absolute delta  -  catches under-billing before month-end close.
+CSV columns: company_id, company_name, invoiced_amount. The partner bill carries billed backups per company but no prices, so this is a presence check: it flags clients Servosity bills you for that are not invoiced, and invoiced clients with no billed backups. It does not compare dollar amounts. Rows sort by billed backups.
 
 ### Restore-queue watch during DR event
 
@@ -187,6 +301,81 @@ Emits NDJSON, one tick per line. Pipe to `tee dr-event.log` to capture the timel
 ## Usage
 
 Run `servosity-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `SERVOSITY_MSP_CONFIG_DIR`, `SERVOSITY_MSP_DATA_DIR`, `SERVOSITY_MSP_STATE_DIR`, or `SERVOSITY_MSP_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `SERVOSITY_MSP_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export SERVOSITY_MSP_HOME=/srv/servosity
+servosity-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:SERVOSITY_MSP_HOME = "C:\ProgramData\servosity"
+servosity-cli doctor
+```
+
+Under `SERVOSITY_MSP_HOME=/srv/servosity`, the four dirs resolve to `/srv/servosity/config`, `/srv/servosity/data`, `/srv/servosity/state`, and `/srv/servosity/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SERVOSITY_MSP_HOME = "C:\srv\servosity"
+servosity-cli doctor
+```
+
+Under `$env:SERVOSITY_MSP_HOME = "C:\srv\servosity"`, the four dirs resolve to `C:\srv\servosity\config`, `C:\srv\servosity\data`, `C:\srv\servosity\state`, and `C:\srv\servosity\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "servosity": {
+      "command": "servosity-mcp",
+      "env": {
+        "SERVOSITY_MSP_HOME": "/srv/servosity"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `SERVOSITY_MSP_DATA_DIR` overrides an explicit `--home` for that kind. Use `SERVOSITY_MSP_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `SERVOSITY_MSP_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `servosity-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `servosity-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `servosity-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SERVOSITY_MSP_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SERVOSITY_MSP_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -341,7 +530,6 @@ Manage companies
 - **`servosity-cli companies create`** - Create a company.
 - **`servosity-cli companies delete`** - Delete a company, also deleting all backup accounts and backup data.
 - **`servosity-cli companies fully-managed`** - List fully-managed companies.
-- **`servosity-cli companies fully-managed-ng`** - List fully-managed companies.
 - **`servosity-cli companies list`** - List companies.
 - **`servosity-cli companies partial-update`** - Partial update
 - **`servosity-cli companies read`** - View a company.
@@ -435,13 +623,7 @@ Manage dr backups
 - **`servosity-cli dr-backups read`** - Read
 - **`servosity-cli dr-backups update`** - Update a DR backup account.
 
-### export
-
-Manage export
-
-- **`servosity-cli export <resource>`** - Export paginated API data to a local file (JSONL or JSON).
-
-### fully-managed-companies
+### fully_managed_companies
 
 Manage fully managed companies
 
@@ -528,39 +710,115 @@ Manage users
 
 Pass `token` and `password` to set the user's password.
 
+
+### attention
+
+
+- **`servosity-cli attention`** - One screen across your whole book of clients. Merges open issues, stale backups into a per-company ranked view, then persists the result so tomorrow's drift command can compare.
+
+
+### backup-facts
+
+
+- **`servosity-cli backup-facts`** - Unified view across Servosity's three backup engines (classic, restic, DR) for one company or all. Engine, ID, hostname, last_successful_at, state, and freshness-derived health  -  joined from three local store tables into one table.
+
+
+### bill
+
+
+- **`servosity-cli bill`** - Pull the MSP's monthly Servosity bill and reconcile it against a CSV of what the MSP invoices their clients. Flags clients Servosity bills you for that you have not invoiced, and clients you invoice that have no Servosity backups.
+
+
+### drift
+
+
+- **`servosity-cli drift`** - Diff two snapshots the CLI collected  -  show which companies got worse, which recovered, and which are new since a past anchor. Default compares yesterday-to-now on the attention metric.
+
+
+### email-draft
+
+
+- **`servosity-cli email-draft`** - Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).
+
+
+### failure-clusters
+
+
+- **`servosity-cli failure-clusters`** - Pull this month's restic and DR backup-failure text for every client, normalize away IDs, paths, numbers and timestamps, and group identical root causes, ranked by how many hosts and clients each one hits.
+
+
+### fleet-health
+
+
+- **`servosity-cli fleet-health`** - One fleet-wide scorecard: share of backups with a success in the last 24h, companies with stale backups, and open issues, with week-over-week deltas.
+
+
+### qbr
+
+
+- **`servosity-cli qbr`** - Generate the backup section of a client's Quarterly Business Review as Markdown, HTML, or PDF. Backup success (restic/DR backups with a successful run in the 7 days before quarter end), restore tests run this quarter, coverage map across all three engines, open issues, storage trend.
+
+
+### qbr-all
+
+
+- **`servosity-cli qbr-all`** - Generate every client's QBR backup report in one pass, one file per company.
+
+
+### restore-queue
+
+
+- **`servosity-cli restore-queue watch`** - Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.
+
+
+### retention-audit
+
+
+- **`servosity-cli retention-audit`** - Every protected host across the classic, restic and DR engines whose retention tier is below a required minimum, or that is not eligible for the Servosity recovery guarantee, grouped by client. Reads the local store; no live calls.
+
+
+### stale-backups
+
+
+- **`servosity-cli stale-backups`** - Slice the stale-backup-sets report by company, age window, and backup engine  -  entirely offline once cached. Use --refresh to repull from the API.
+
+
+### storage-trend
+
+
+- **`servosity-cli storage-trend`** - Linear-regression forecast of when a specific client will hit a capacity threshold. Reads the historical storage_bytes time series from local snapshots; with --snapshot, persists a new measurement for future runs.
+
+
+### triage
+
+
+- **`servosity-cli triage`** - List open issues with filters, then batch-mutate them (ignore / archive / reactivate / comment) in one invocation with --dry-run support and typed exit codes.
+
+
+### unprovisioned
+
+
+- **`servosity-cli unprovisioned`** - List agents installed on client machines but not yet pulling backups, ranked by client. Surfaces lost revenue from incomplete onboardings.
+
+
+
+
 ### Self-learning loop
 
-The CLI keeps a local, private record of which question maps to which
-resource, so an agent that has answered a question once can skip rediscovery next
-time. Everything stays in the CLI's own SQLite store on your machine; nothing is
-uploaded. Disable it per-invocation with `--no-learn`, or for a whole session with
-`SERVOSITY_MSP_NO_LEARN=true`.
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
 
-- **`servosity-cli recall "<question>"`** - Check prior learnings for a question before running discovery. An empty match returns `{"found": false, "results": []}` with exit 0.
-- **`servosity-cli teach --query "<question>" --resource <id> --resource-type <type>`** - Record a question-to-resource mapping for future recall.
-- **`servosity-cli teach-pattern`** - Install a generalization rule so one teach covers a whole family of questions.
-- **`servosity-cli teach-lookup`** - Install a manual entity-lookup row (kind, canonical, value).
-- **`servosity-cli teach-playbook`** - Record a command playbook plus free-text notes for a question family.
-- **`servosity-cli playbook list`** / **`servosity-cli playbook amend`** - Inspect or append notes to stored playbooks.
-- **`servosity-cli learnings list`** - List recorded learnings.
-- **`servosity-cli learnings candidates`** - List auto-captured improvement candidates awaiting judgment.
-- **`servosity-cli learnings confirm`** / **`servosity-cli learnings reject`** - Accept or reject a candidate.
-- **`servosity-cli learnings forget "<question>"`** - Delete learnings matching a question.
-- **`servosity-cli learnings purge`** - Delete settled candidate rows.
-- **`servosity-cli learnings stats`** - Report loop effectiveness metrics from the local events table.
+- **`servosity-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`servosity-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`servosity-cli learnings list`** - Inspect taught rows
+- **`servosity-cli learnings forget <query>`** - Undo a teach
+- **`servosity-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`servosity-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`servosity-cli teach-pattern`** - Install a query/resource template up front
+- **`servosity-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
 
-```bash
-# Before discovery: has this question been answered before?
-servosity-cli recall "which companies have stale backups" --agent
+Pass `--no-learn` or set `SERVOSITY_MSP_NO_LEARN=true` to disable the loop for deterministic flows.
 
-# After answering: record the mapping so next time is a single lookup
-servosity-cli teach --query "which companies have stale backups" \
-  --resource reports-stale-backup-sets --resource-type report
-```
-
-> The local store's schema stamp is one-way: once a binary carrying the
-> self-learning tables opens the database, an older servosity-cli refuses it. Keep
-> the CLI and the MCP server on the same version.
+The local store's schema version stamp is one-way: once this version of `servosity-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
 
 ## Output Formats
 
@@ -570,9 +828,8 @@ servosity-cli agent-login list
 
 # JSON for scripting and agents
 servosity-cli agent-login list --json
-
-# Filter to specific fields
-servosity-cli agent-login list --json --select id,name,status
+# Filter to specific fields by name
+servosity-cli agent-login list --json --select <field>[,<field>...]
 
 # Dry run  -  show the request without sending
 servosity-cli agent-login list --dry-run
@@ -581,21 +838,23 @@ servosity-cli agent-login list --dry-run
 servosity-cli agent-login list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -607,9 +866,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/servosity-cli/config.toml`
+Run `servosity-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/servosity-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\servosity-cli\config.toml` on Windows; `--home`, `SERVOSITY_MSP_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SERVOSITY_MSP_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SERVOSITY_MSP_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

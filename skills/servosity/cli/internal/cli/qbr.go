@@ -33,9 +33,10 @@ func newNovelQbrCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "qbr <company>",
 		Short: "Generate a Quarterly Business Review backup report for one client",
-		Long: `Assemble the backup section of a client's QBR — coverage map, job success
-rate, restore tests, open issues, and storage trend — and render it as
-Markdown, HTML, or PDF.
+		Long: `Assemble the backup section of a client's QBR — coverage map, backup
+success (restic/DR backups with a successful run in the 7 days before the
+quarter end, or now while it runs), restore tests, open issues, and storage
+trend — and render it as Markdown, HTML, or PDF.
 
 The <company> argument may be a numeric company ID or a name substring.
 If a name substring matches more than one company the command fails with

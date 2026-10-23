@@ -28,7 +28,7 @@ func deriveStaleEntries(ctx context.Context, db *store.Store, now time.Time) ([]
 	rows, err := db.DB().QueryContext(ctx, `
 		SELECT engine, backup_id, COALESCE(company_id, 0),
 		       COALESCE(hostname, ''), COALESCE(last_success, '')
-		  FROM pp_last_success`)
+		  FROM `+currentFreshnessRows+` f`)
 	if err != nil {
 		return nil, fmt.Errorf("reading freshness table: %w", err)
 	}
@@ -229,7 +229,11 @@ func normalizeEngineLabel(s string) string {
 }
 
 func engineMatches(rowEngine, filter string) bool {
-	return normalizeEngineLabel(rowEngine) == filter
+	filter = strings.ToLower(strings.TrimSpace(filter))
+	if filter == "" || filter == "all" {
+		return true
+	}
+	return normalizeEngineLabel(rowEngine) == normalizeEngineLabel(filter)
 }
 
 // parseFlexTime tries RFC3339 first, then a few common report-time spellings.

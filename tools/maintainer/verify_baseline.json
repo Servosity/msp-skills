@@ -363,12 +363,6 @@
    "read-only",
    "local-data"
   ],
-  "servosity": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "sherweb": [
    "mcp-http",
    "read-only",

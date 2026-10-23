@@ -42,6 +42,24 @@
           "default": "https://api.servosity.com/api/v1"
         },
         {
+          "name": "SERVOSITY_MSP_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "SERVOSITY_MSP_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to drop every MCP tool not marked read-only and make the execute tool refuse state-changing calls. Leave blank to allow previewed writes.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SERVOSITY_MSP_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local fleet mirror.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "SERVOSITY_MSP_RESELLER_ID",
           "description": "Numeric reseller ID from the partner portal, used to scope reseller reports. Leave blank to let the CLI probe for it from your account.",
           "isRequired": false,

@@ -19,7 +19,10 @@ func TestAPIDiscoveryUsesShippedBinaryName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("api issues: %v", err)
 	}
-	if strings.Contains(stdout, "servosity-msp-cli") {
+	// "servosity-msp" (not the full -cli name): the publish ritual renames the
+	// exact token servosity-msp-cli to servosity-cli, which would turn this
+	// negative check into a check against the shipped name.
+	if strings.Contains(stdout, "servosity-msp") {
 		t.Fatalf("api discovery leaked internal mint name: %q", stdout)
 	}
 	if !strings.Contains(stdout, "Use 'servosity-cli issues <method> --help'") {
@@ -105,7 +108,7 @@ func TestCLIReadOnlyStoreRefusesPrePurgeSchema(t *testing.T) {
 	withTempLearnHome(t)
 	t.Setenv("SERVOSITY_MSP_TOKEN", "fixture-scope-token")
 	configureDefaultDBScope("")
-	t.Cleanup(func() { setDefaultDBScopeCredential("") })
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
 	dbPath := defaultDBPath("servosity-cli")
 	writable, err := store.Open(dbPath)
 	if err != nil {
