@@ -68,6 +68,14 @@ DUMP_PKG = "internal/zz_check_mcp_file_flags_dump"
 # never a flag.
 POSITIONAL_FIELD = "args"
 
+# Connectors this check deliberately does not drive, each with the reason.
+# Discovery is fail-closed: an unknown slug, a connector without a cli/ tree or
+# an MCP command directory, a companion CLI name that cannot be read, or an MCP
+# server that mirrors no command at all FAILS unless the slug is listed here.
+# A markdown-only skill (registry `markdown_only`) has no CLI and is reported
+# as not-a-connector rather than failed.
+EXEMPT: dict[str, str] = {}
+
 # Ordinary-flag probe preferences: flags whose forwarding is harmless with the
 # recording stand-in and that nearly every mirrored command carries.
 PREFERRED_ORDINARY = ("select", "limit", "max-pages", "since", "status", "type", "name")
@@ -358,11 +366,29 @@ def check_slug(slug: str, analyzer: Path, timeout: int, verbose: bool) -> dict:
                       "audit-dir", "receipt-file", "notes-file", "playbook-file",
                       "playbook-notes-file", "from-csv", "client-profile", "legacy-config",
                       "legacy-db", "base-url", "token", "profile", "client", "yes", "insecure"}
-    mcp_dir = mcp_cmd_dir(cli_dir) if cli_dir.is_dir() else None
-    cli_name = companion_cli_name(cli_dir) if cli_dir.is_dir() else None
-    if mcp_dir is None or cli_name is None:
-        rep["status"] = "skip"
+    def discovery_failure(why: str) -> dict:
+        if slug in EXEMPT:
+            rep["status"] = "exempt"
+            rep["notes"].append(f"exempt: {EXEMPT[slug]} ({why})")
+        else:
+            rep["status"] = "fail"
+            rep["failures"].append(f"{why}; fix the connector layout or add it to EXEMPT with a reason")
         return rep
+
+    if not (SKILLS / slug).is_dir():
+        return discovery_failure(f"unknown skill `{slug}`: no skills/{slug} directory")
+    if is_markdown_only(slug):
+        rep["status"] = "not-a-connector"
+        rep["notes"].append("markdown-only skill (registry markdown_only): no CLI or MCP server to check")
+        return rep
+    if not (cli_dir / "go.mod").is_file():
+        return discovery_failure(f"no skills/{slug}/cli/go.mod")
+    mcp_dir = mcp_cmd_dir(cli_dir)
+    if mcp_dir is None:
+        return discovery_failure(f"no cmd/*-mcp directory under skills/{slug}/cli")
+    cli_name = companion_cli_name(cli_dir)
+    if cli_name is None:
+        return discovery_failure("the companion CLI name cannot be read from internal/mcp/cobratree/cli_path.go")
     tmp = Path(tempfile.mkdtemp(prefix="mcp-file-flags-"))
     server = None
     try:
@@ -387,6 +413,7 @@ def check_slug(slug: str, analyzer: Path, timeout: int, verbose: bool) -> dict:
         # gate's contract is flags; see the PR for the follow-up).
         rep["positional_paths"] = sorted({f.get("use") or f.get("func") or "?"
                                           for f in analysis.get("positional") or [] if f.get("sinks")})
+        has_positional_file = any(f.get("sinks") for f in analysis.get("positional") or [])
         # Values that only ever become a component inside a directory the CLI
         # chose (a client-profile name under the clients directory, a slug
         # inside a guarded join) do not choose the file's location; they are
@@ -401,6 +428,10 @@ def check_slug(slug: str, analyzer: Path, timeout: int, verbose: bool) -> dict:
         tree = dump_tree(cli_dir, tmp, timeout)
         by_path = {" ".join(n["path"]): n for n in tree}
         by_tool = mirrored_nodes(tree, framework_commands(cli_dir))
+        by_use = {}
+        for n in tree:
+            if n.get("use"):
+                by_use.setdefault(n["use"], []).append(n)
 
         # A finding whose usage or default changed after registration matches
         # no live flag; fall back to its name so it is never dropped.
@@ -593,11 +624,81 @@ def check_slug(slug: str, analyzer: Path, timeout: int, verbose: bool) -> dict:
                             f"{tool['name']} (`{' '.join(node['path'])}`): the undeclared path flag --{nm} was forwarded to the CLI "
                             f"(argv {argv.splitlines()[:8]}); a key the tool does not declare must be refused, not forwarded to a command that reads it")
         rep["cross_command_assertions"] = cross_checked
+        # A positional argument that reads a local file (superops `raw query
+        # <@file>`): over MCP it arrives through the tool's `args` field. For
+        # every mirrored tool whose command the analyzer flagged, an @path (and
+        # a plain path) positional must be refused, not forwarded. A command the
+        # analyzer flags but that is NOT mirrored (wordpress `media upload`, an
+        # endpoint whose upload is not exposed over MCP) is unreachable and not
+        # probed - recorded as such.
+        # The analyzer flags a command whose POSITIONAL argument reads a local
+        # file. Such a positional arrives over MCP through the tool's `args`
+        # field (or a structured positional). A command is one of these when its
+        # Use string shows a file positional (<file>, @file, @path, <path>);
+        # superops `raw query <graphql|@file|->` is the reachable case. For a
+        # mirrored one, an @path and a plain path positional must be refused;
+        # one that is not mirrored (wordpress `media upload <file>`, an endpoint
+        # whose upload is not exposed over MCP) is unreachable and recorded.
+        pos_checked = 0
+        if has_positional_file:
+            file_pos_re = re.compile(r"<[^>]*(file|path)[^>]*>|@(file|path)", re.I)
+            for node in tree:
+                if not node.get("use") or not file_pos_re.search(node["use"]):
+                    continue
+                tool = next((t for t in tools
+                             if mirror_node(t, meta_paths, gate_marked, by_path, by_tool) is node), None)
+                if tool is None:
+                    rep["notes"].append(f"positional file argument on `{node['use']}` "
+                                        f"(`{' '.join(node['path'])}`) is not reachable over MCP (command not mirrored); not gated")
+                    continue
+                # An @path positional is the file-read convention (superops
+                # resolveDocArg reads `@file`). A bare positional is the inline
+                # document, not a file, so only the @path form is asserted.
+                n += 1
+                val = "@" + str(canaries / f"pos-{n}")
+                if log.exists():
+                    log.unlink()
+                server.rpc("tools/call", {"name": tool["name"], "arguments": {POSITIONAL_FIELD: val}})
+                argv = log.read_text(encoding="utf-8") if log.exists() else ""
+                if str(canaries) in argv:
+                    rep["failures"].append(
+                        f"{tool['name']} (`{' '.join(node['path'])}`): an @path positional naming a local file "
+                        f"was forwarded to the CLI (argv {argv.splitlines()[:6]}); it must be refused over MCP")
+                pos_checked += 1
+            # The twin proof: the refusal must be specific. A mirrored command
+            # whose positional is NOT a file still forwards an @-leading value
+            # (superops `client-360 @Acme` is a client name).
+            for tool in tools:
+                node = mirror_node(tool, meta_paths, gate_marked, by_path, by_tool)
+                schema = tool.get("inputSchema") or {}
+                if (node is None or POSITIONAL_FIELD not in (schema.get("properties") or {})
+                        or file_pos_re.search(node.get("use") or "")):
+                    continue
+                n += 1
+                val = f"@ordinary-name-{n}"
+                if log.exists():
+                    log.unlink()
+                call_args = required_placeholders(schema, set())
+                call_args[POSITIONAL_FIELD] = val
+                server.rpc("tools/call", {"name": tool["name"], "arguments": call_args})
+                argv = log.read_text(encoding="utf-8") if log.exists() else ""
+                if val not in argv:
+                    rep["failures"].append(
+                        f"{tool['name']} (`{' '.join(node['path'])}`): an ordinary @-leading positional was not forwarded; "
+                        f"the @path refusal must apply only to commands that read @file")
+                pos_checked += 1
+                break
+        rep["positional_assertions"] = pos_checked
         rep["path_flags_on_mcp_tools"] = sorted(exposed)
         if mirrored and not ordinary_ok:
             rep["failures"].append("no mirrored tool proved an ordinary flag still reaches the CLI")
         if mirrored == 0:
-            rep["notes"].append("no MCP tool mirrors a CLI command")
+            if slug in EXEMPT:
+                rep["status"] = "exempt"
+                rep["notes"].append(f"exempt: {EXEMPT[slug]} (no MCP tool mirrors a CLI command)")
+            else:
+                rep["failures"].append("no MCP tool could be mapped to a CLI command, so nothing was checked; "
+                                       "fix the mapping or add the connector to EXEMPT with a reason")
     except (RuntimeError, OSError, subprocess.TimeoutExpired, ValueError, json.JSONDecodeError) as exc:
         rep["failures"].append(f"check could not run: {exc}")
     finally:
@@ -609,21 +710,131 @@ def check_slug(slug: str, analyzer: Path, timeout: int, verbose: bool) -> dict:
     return rep
 
 
+def is_markdown_only(slug: str) -> bool:
+    sys.path.insert(0, str(HERE))
+    try:
+        import registry  # noqa: E402  (local tools/ module)
+        return slug in registry.skills() and registry.is_markdown_only(slug)
+    except SystemExit:
+        return False
+
+
 def connector_slugs() -> list[str]:
-    return sorted(p.parent.parent.name for p in SKILLS.glob("*/cli/go.mod"))
+    """Every registered non-markdown connector plus every on-disk cli/go.mod, so
+    a registered connector whose cli/ tree is missing still reaches the
+    fail-closed discovery checks instead of silently dropping out of --all."""
+    sys.path.insert(0, str(HERE))
+    import registry  # noqa: E402  (local tools/ module)
+    reg = {registry.source_dir(s) for s in registry.skills() if not registry.is_markdown_only(s)}
+    disk = {p.parent.parent.name for p in SKILLS.glob("*/cli/go.mod")}
+    return sorted(reg | disk)
+
+
+# Component-only flags (client-profile, and td-synnex's param / global-param /
+# path-context, which all resolve a tenant profile) never choose a whole path:
+# their value becomes one component under a directory the CLI picked. The gate
+# does not refuse them, so this one check proves the connector-side name
+# validation is real and uniform, instead of editing 31 connectors. The
+# canonical validator is ValidateProfileName; every connector that defines it
+# must define it byte-for-byte identically, and its pattern must reject a path
+# separator, a parent-dir hop, an absolute path and a NUL while accepting an
+# ordinary name.
+import re as _re
+
+# The known-correct implementation. Uniformity alone is not proof (31 identical
+# `return nil` bodies would be uniform), so every connector's body and pattern
+# must equal these exactly; the hostile-value test below then exercises the
+# pinned pattern + '..' guard this body is known to apply.
+EXPECTED_PROFILE_VALIDATOR = (
+    "func ValidateProfileName(name string) error {\n"
+    "\tif !profileNamePattern.MatchString(name) || strings.Contains(name, \"..\") {\n"
+    "\t\treturn fmt.Errorf(\"invalid client profile name %q\", name)\n"
+    "\t}\n"
+    "\treturn nil\n"
+    "}"
+)
+EXPECTED_PROFILE_PATTERN = "^[a-z0-9][a-z0-9._-]{0,62}$"
+
+HOSTILE_COMPONENTS = ["a/b", "a\\b", "..", "../x", "/abs", "x\x00y", "a b", ""]
+BENIGN_COMPONENT = "acme-corp.1"
+
+
+def _profile_validator_pattern(text: str) -> str | None:
+    m = _re.search(r'profileNamePattern\s*=\s*regexp\.MustCompile\(`([^`]*)`\)', text)
+    return m.group(1) if m else None
+
+
+def check_component_validators() -> int:
+    """Prove the shared profile-name validator rejects hostile component values,
+    in one place, for every connector that uses it."""
+    defs = {}
+    for prof in sorted(SKILLS.glob("*/cli/internal/platform/profile.go")):
+        slug = prof.parents[3].name  # skills/<slug>/cli/internal/platform/profile.go
+        text = prof.read_text(encoding="utf-8")
+        if "func ValidateProfileName(" not in text:
+            continue
+        body = text[text.index("func ValidateProfileName("):]
+        end = body.find("\n}\n")
+        if end < 0:
+            print(f"FAIL: cannot bound ValidateProfileName in {slug}")
+            return 1
+        defs[slug] = (body[:end + 2], _profile_validator_pattern(text))
+    if not defs:
+        print("FAIL: no connector defines ValidateProfileName; the component-flag safety claim is unproven.")
+        return 1
+    bodies = {b for b, _ in defs.values()}
+    patterns = {p for _, p in defs.values()}
+    failures = []
+    for slug, (b, pp) in sorted(defs.items()):
+        if b.rstrip() != EXPECTED_PROFILE_VALIDATOR:
+            failures.append(f"{slug}: ValidateProfileName differs from the known-correct implementation")
+        if pp != EXPECTED_PROFILE_PATTERN:
+            failures.append(f"{slug}: profileNamePattern is {pp!r}, want {EXPECTED_PROFILE_PATTERN!r}")
+    if len(bodies) != 1:
+        failures.append(f"ValidateProfileName is not uniform across {len(defs)} connectors: {len(bodies)} distinct definitions")
+    if len(patterns) != 1:
+        byp = {}
+        for slug, (_, pp) in defs.items():
+            byp.setdefault(pp, []).append(slug)
+        failures.append("profileNamePattern is not uniform: " + "; ".join(f"{pp!r} in {len(v)}" for pp, v in byp.items()))
+    pat = next(iter(defs.values()))[1]
+    if not pat:
+        failures.append("could not read profileNamePattern from the validator")
+    elif len(patterns) == 1:
+        rx = _re.compile(pat)
+        # The validator is the pattern AND a parent-dir ('..') check; model both.
+        def rejected(v: str) -> bool:
+            return (rx.fullmatch(v) is None) or (".." in v)
+        for v in HOSTILE_COMPONENTS:
+            if not rejected(v):
+                failures.append(f"validator accepts hostile component value {v!r}")
+        if rejected(BENIGN_COMPONENT):
+            failures.append(f"validator rejects the benign name {BENIGN_COMPONENT!r} (too strict)")
+    if failures:
+        print("FAIL: component-flag validation:")
+        for f in failures:
+            print("  - " + f)
+        return 1
+    print(f"PASS: {len(defs)} connectors share one ValidateProfileName; pattern {pat!r} + '..' check "
+          f"rejects {len(HOSTILE_COMPONENTS)} hostile component values and accepts a normal name.")
+    return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--slug", action="append", help="check one connector (repeatable)")
     parser.add_argument("--all", action="store_true", help="check every connector")
+    parser.add_argument("--check-component-validators", action="store_true",
+                        help="prove the shared profile-name validator rejects hostile component values")
     parser.add_argument("--timeout", type=int, default=900, help="per-step timeout in seconds")
     parser.add_argument("--json", help="write the per-connector report here")
     parser.add_argument("--jobs", type=int, default=1, help="connectors checked in parallel (local fleet runs)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
+    if getattr(args, "check_component_validators", False):
+        return check_component_validators()
     if not args.slug and not args.all:
-        parser.error("pass --slug <slug> or --all")
+        parser.error("pass --slug <slug>, --all, or --check-component-validators")
     if shutil.which("go") is None:
         print("FAIL: go is not on PATH; the check cannot build anything.")
         return 1
@@ -643,8 +854,6 @@ def main() -> int:
                         f"{len(r.get('path_flags_on_mcp_tools', []))} flag names, "
                         f"{r.get('ordinary_flag_proofs', 0)} ordinary-flag proofs")
                 print(line, flush=True)
-                for use in r.get("positional_paths") or []:
-                    print(f"    warning (not gated): a positional argument of `{use}` can start a filesystem path")
                 for f in r["failures"][:40]:
                     print("    - " + f)
                 if len(r["failures"]) > 40:
@@ -657,11 +866,19 @@ def main() -> int:
     if args.json:
         Path(args.json).write_text(json.dumps(reports, indent=1) + "\n", encoding="utf-8")
     failed = [r["slug"] for r in reports if r["status"] == "fail"]
-    checked = sum(1 for r in reports if r["status"] != "skip")
+    checked = sum(1 for r in reports if r["status"] in ("pass", "fail"))
+    exempt = [r["slug"] for r in reports if r["status"] == "exempt"]
+    not_connectors = [r["slug"] for r in reports if r["status"] == "not-a-connector"]
+    counts = f"{checked} checked, {len(exempt)} exempt, {len(not_connectors)} not a connector"
     if failed:
-        print(f"\nFAIL: {len(failed)} of {checked} connector(s) let an MCP tool call name a local path: {' '.join(failed)}")
+        print(f"\nFAIL: {len(failed)} connector(s) failed ({counts}): {' '.join(failed)}")
         return 1
-    print(f"\nPASS: {checked} connector(s); no MCP tool call can name a local file or directory.")
+    if checked == 0:
+        print(f"\nFAIL: nothing was checked ({counts}).")
+        return 1
+    print(f"\nPASS: no MCP tool call can name a local file or directory ({counts}).")
+    if exempt:
+        print("  exempt: " + ", ".join(f"{s} ({EXEMPT.get(s, '?')})" for s in exempt))
     return 0
 
 

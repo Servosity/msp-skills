@@ -17,7 +17,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -107,18 +109,19 @@ type Report struct {
 // ParseQuarter turns "2026-Q1" into the [from, to) UTC window. The window
 // is half-open so a job at 23:59:59 on the last day counts; a job at
 // 00:00:00 on the next quarter's first day does not.
+// quarterPattern pins the quarter to exactly YYYY-QN. fmt.Sscanf("%d") used to
+// read a leading integer and ignore the rest, so "2026<sep>..<sep>x-Q1" parsed
+// as year 2026 and reached the qbr-all report filename, escaping the --out
+// directory. An exact-match regex is the whole validation.
+var quarterPattern = regexp.MustCompile(`^(\d{4})-Q([1-4])$`)
+
 func ParseQuarter(q string) (from, to time.Time, err error) {
-	parts := strings.Split(q, "-Q")
-	if len(parts) != 2 {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid quarter %q (want YYYY-QN)", q)
+	m := quarterPattern.FindStringSubmatch(q)
+	if m == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid quarter %q (want YYYY-QN, N in 1-4)", q)
 	}
-	var year, qn int
-	if _, err := fmt.Sscanf(parts[0], "%d", &year); err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid year in %q: %w", q, err)
-	}
-	if _, err := fmt.Sscanf(parts[1], "%d", &qn); err != nil || qn < 1 || qn > 4 {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid quarter number in %q (want 1-4)", q)
-	}
+	year, _ := strconv.Atoi(m[1])
+	qn, _ := strconv.Atoi(m[2])
 	startMonth := time.Month(((qn - 1) * 3) + 1)
 	from = time.Date(year, startMonth, 1, 0, 0, 0, 0, time.UTC)
 	to = from.AddDate(0, 3, 0)
