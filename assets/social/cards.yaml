@@ -95,6 +95,10 @@ cisco-umbrella:
   vendor: "Cisco Umbrella"
   example_command: "Which clients have roaming computers offline?"
 
+cloudally:
+  vendor: "CloudAlly"
+  example_command: "Which customers have a failing backup?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
