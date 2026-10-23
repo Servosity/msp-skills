@@ -12,7 +12,8 @@ Always-on deterministic checks (no external tools needed):
     (anti-typosquat / anti-backdoor / anti-fork-swap). go.sum changes are surfaced.
   * Dangerous Go patterns - disabled TLS verify; shelling out / exec of a variable or
     shell; syscall.Exec/os.StartProcess/plugin.Open; cgo; //go:generate; //go:linkname;
-    import "unsafe". (cobratree MCP→CLI bridge excluded; browser-open literal allowed.)
+    import "unsafe"; line directives (//line, /*line), which rewrite the positions gosec
+    reports. (cobratree MCP→CLI bridge excluded; browser-open literal allowed.)
   * Install-script patterns - pipe-to-shell, eval, base64-decode-then-exec, direct shell
     invocation (cmd /c, & pwsh -Command, mshta/wscript...), non-GitHub download host in
     skills/<slug>/install.sh|.ps1 (the artifact MSPs run via curl|sh). NOTE: an installer
@@ -43,11 +44,31 @@ does not exist, unfixable by any contributor - while the Python that actually sh
 completely unread. That was false-RED and false-GREEN in the same verdict.
 
 Suppressions are BASE-OWNED, not self-grantable: a finding is suppressed only if its
-(file, rule) is listed in tools/maintainer/security_suppressions.json. The builtin rules
-ignore inline `// #nosec`. KNOWN GAP: gosec itself still honors inline `#nosec` and
-`//gosec:disable` (it runs without -nosec), so a finding annotated that way never
-reaches this gate. The fleet carries about 1,200 such annotations, so closing it needs
-a vetted suppression wave and is tracked as its own change.
+(file, rule) is listed in tools/maintainer/security_suppressions.json, read from the
+trusted base. No inline annotation suppresses anything by itself. The builtin rules
+ignore `// #nosec`, and gosec runs with -show-ignored, so it reports every finding an
+inline `#nosec` or `//gosec:disable` would have hidden (the same finding set as -nosec,
+measured on all 84 connectors) and marks those findings, which is how this gate tells
+them apart. An annotation-hidden finding is then accepted only by:
+  * a base-owned suppression entry, like any other finding, or
+  * FLEET PRECEDENT: the annotation sits on the finding's own lines or in the comment
+    block directly above them, and the whole top-level declaration holding the finding
+    (doc comment included, as Go's own parser delimits it: DECL_SPAN_GO, a stdlib-only
+    helper embedded in this file) is byte-identical at the same path
+    under cli/ in at least PRECEDENT_MIN other connectors, read from the same trusted
+    base as the suppressions, each holding at least as many copies of it in that file
+    as this connector does. This keeps today's behavior for unchanged press-template
+    output (eleven annotated template lines, in 17-31 connectors each, inside functions
+    that are identical across the fleet), so a new connector costs no suppression entry
+    for them.
+What this closes: an annotation added or edited in hand-written or hand-edited code,
+a template line pasted or moved somewhere new, and an edit anywhere inside the
+declaration that holds a precedented line, no longer hide a finding. If the helper
+cannot run (no Go toolchain), there is no precedent at all (fail closed).
+What it does not re-prove (the residual): a precedented declaration is trusted as text,
+so what its callers pass into it, and the package-level names and imports it uses, are
+not re-proven by this rule; the dangerous-pattern, dependency and reachability checks
+still apply to that code.
 
 Folded in when installed (CI installs them): gosec, govulncheck, osv-scanner, semgrep.
   * govulncheck = the REACHABILITY gate. Run in DEFAULT text/symbol mode: exit 3 = a
@@ -78,6 +99,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import atexit
 import contextlib
 import io
 import json
@@ -123,6 +145,12 @@ GO_RULES = [
     ("go-generate", "P1", re.compile(r'//go:generate\b'), None),
     ("go-linkname", "P1", re.compile(r'//go:linkname\b'), None),
     ("unsafe-import", "P1", re.compile(r'(?m)^\s*(?:import\s+)?"unsafe"\s*$'), None),
+    # A line directive (`//line f.go:N` at column 1, or `/*line f.go:N*/`) rewrites the
+    # file and line every Go tool reports, gosec included. It would let new code borrow
+    # the position of a suppressed file or of a precedented template line, so neither
+    # suppressions nor fleet precedent could be trusted. The fleet has none, so the rule
+    # refuses the text in any column, wider than Go's own column-1 rule (fail closed).
+    ("line-directive", "P1", re.compile(r'//line\s|/\*line\s'), None),
     ("plaintext-http", "P2",
      re.compile(r'"http://(?!localhost|127\.0\.0\.1|0\.0\.0\.1|example\.)'), None),
 ]
@@ -616,8 +644,296 @@ def _longest_module_prefix(name: str, mods: set[str]) -> str | None:
     return max(cands, key=len) if cands else None
 
 
+# --- fleet precedent for annotation-hidden gosec findings ---------------------------
+# A gosec finding that an inline annotation would have hidden is accepted without a
+# suppression entry only when the same annotated lines already ship, unchanged, in at
+# least this many OTHER connectors on the trusted base (see the module docstring).
+PRECEDENT_MIN = 3
+ANNOTATION_RE = re.compile(r"#nosec|//gosec:disable")
+
+
+def _line_range(line) -> tuple[int, int] | None:
+    """gosec reports a line as "12" or "12-14"."""
+    lo, _, hi = str(line).partition("-")
+    try:
+        a, b = int(lo), int(hi or lo)
+    except ValueError:
+        return None
+    return (a, b) if 0 < a <= b else None
+
+
+def annotated_start(lines: list[str], lo: int, hi: int) -> int | None:
+    """First line of the block that carries a finding and its annotation: the finding's
+    own first line when the annotation sits on its lines, else the top of the contiguous
+    `//` comment block directly above when the annotation sits there. None when neither
+    holds one (gosec tied the annotation to an enclosing node): no precedent then."""
+    if hi > len(lines):
+        return None
+    if any(ANNOTATION_RE.search(x) for x in lines[lo - 1:hi]):
+        return lo
+    first = lo
+    while first > 1 and lines[first - 2].lstrip().startswith("//"):
+        first -= 1
+    if first < lo and any(ANNOTATION_RE.search(x) for x in lines[first - 1:lo - 1]):
+        return first
+    return None
+
+
+# The compared region comes from Go's own parser, never from text heuristics: an
+# indented `func`, or a `}` at column 0 inside a raw string, misleads any column-0 rule
+# (Codex round 3). This stdlib-only program (go/parser, go/token; no module) reads JSON
+# lines {"file": F, "line": N} and answers {"file": F, "line": N, "start": S, "end": E}:
+# the first and last line of the top-level declaration that contains line N, its doc
+# comment included, in raw positions (a //line directive cannot move them). 0, 0 when
+# the file does not parse, or when not exactly one declaration contains the line. It lives in this file so
+# the gate's self-edit guard covers it.
+DECL_SPAN_GO = """package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+)
+
+type req struct {
+	File string `json:"file"`
+	Line int    `json:"line"`
+}
+
+type resp struct {
+	File  string `json:"file"`
+	Line  int    `json:"line"`
+	Start int    `json:"start"`
+	End   int    `json:"end"`
+}
+
+func main() {
+	files := map[string]*ast.File{}
+	fsets := map[string]*token.FileSet{}
+	in := bufio.NewScanner(os.Stdin)
+	in.Buffer(make([]byte, 1<<20), 1<<20)
+	out := json.NewEncoder(os.Stdout)
+	for in.Scan() {
+		var r req
+		if json.Unmarshal(in.Bytes(), &r) != nil {
+			continue
+		}
+		f, seen := files[r.File]
+		if !seen {
+			fs := token.NewFileSet()
+			parsed, err := parser.ParseFile(fs, r.File, nil, parser.ParseComments|parser.SkipObjectResolution)
+			if err != nil {
+				parsed = nil
+			}
+			files[r.File], fsets[r.File], f = parsed, fs, parsed
+		}
+		a := resp{File: r.File, Line: r.Line}
+		if f != nil {
+			hits := 0
+			fs := fsets[r.File]
+			line := func(p token.Pos) int { return fs.PositionFor(p, false).Line }
+			for _, d := range f.Decls {
+				start, end := line(d.Pos()), line(d.End())
+				var doc *ast.CommentGroup
+				switch x := d.(type) {
+				case *ast.FuncDecl:
+					doc = x.Doc
+				case *ast.GenDecl:
+					doc = x.Doc
+				}
+				if doc != nil {
+					start = line(doc.Pos())
+				}
+				if start <= r.Line && r.Line <= end {
+					a.Start, a.End = start, end
+					hits++
+				}
+			}
+			// Two declarations on one line: the line alone cannot say which holds
+			// the finding, so neither is compared (no precedent).
+			if hits != 1 {
+				a.Start, a.End = 0, 0
+			}
+		}
+		_ = out.Encode(a)
+	}
+}
+"""
+_DECL_SPAN = {"bin": None, "failed": False}
+
+
+def decl_spans(requests: list[tuple[str, int]]) -> dict[tuple[str, int], tuple[int, int]]:
+    """Ask DECL_SPAN_GO for the declaration span of each (absolute file, line). The helper
+    is built once per run with the toolchain already on the machine (GOTOOLCHAIN=local: no
+    toolchain download) outside any module, and any failure returns no spans, which gives
+    no precedent (fail closed)."""
+    if not requests or _DECL_SPAN["failed"]:
+        return {}
+    if _DECL_SPAN["bin"] is None:
+        tmp = Path(tempfile.mkdtemp(prefix="gate-declspan-"))
+        atexit.register(shutil.rmtree, tmp, True)
+        (tmp / "main.go").write_text(DECL_SPAN_GO, encoding="utf-8")
+        # Built for the machine it runs on: a GOOS/GOARCH set for the scan (GOOS=linux on
+        # a Mac, say) would otherwise produce a helper this machine cannot execute. An
+        # empty value means "the host" to the go command.
+        # GOENV=off: flags persisted in the user's go env file (GOFLAGS=-toolexec=...)
+        # must not reach this build either.
+        env = {"GOTOOLCHAIN": "local", "GOWORK": "off", "GOENV": "off", "GOFLAGS": "", "GO111MODULE": "on",
+               "CGO_ENABLED": "0", "GOOS": "", "GOARCH": "", "GOARM": "", "GOAMD64": "",
+               "GOARM64": "", "GO386": ""}
+        code, _, err = run(["go", "build", "-o", str(tmp / "declspan"), "main.go"],
+                           cwd=str(tmp), timeout=300, env=env)
+        if code != 0:
+            print(f"WARNING: fleet precedent disabled, the declaration-span helper did not build: "
+                  f"{(err or '').strip()[:200]}", file=sys.stderr)
+            _DECL_SPAN["failed"] = True
+            return {}
+        _DECL_SPAN["bin"] = str(tmp / "declspan")
+    data = "".join(json.dumps({"file": f, "line": n}) + "\n" for f, n in requests)
+    try:
+        p = subprocess.run([_DECL_SPAN["bin"]], input=data, capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"WARNING: fleet precedent disabled, the declaration-span helper did not run: {e}",
+              file=sys.stderr)
+        _DECL_SPAN["failed"] = True
+        return {}
+    spans = {}
+    for row in p.stdout.splitlines():
+        try:
+            r = json.loads(row)
+        except json.JSONDecodeError:
+            continue
+        if r.get("start", 0) > 0:
+            spans[(r["file"], r["line"])] = (r["start"], r["end"])
+    return spans
+
+
+def precedent_block(lines: list[str], lo: int, hi: int,
+                    span: tuple[int, int] | None) -> list[str] | None:
+    """What fleet precedent compares: the whole top-level declaration that holds the
+    finding, doc comment included, as Go's parser delimits it (span). The annotation must
+    sit on the finding's lines or in the comment block directly above them, inside that
+    declaration. An edit anywhere in the declaration, or the line moved into another one,
+    therefore loses the precedent."""
+    first = annotated_start(lines, lo, hi)
+    if first is None or span is None:
+        return None
+    start, end = span
+    if not (start <= first <= lo <= hi <= end <= len(lines)):
+        return None
+    return lines[start - 1:end]
+
+
+def count_block(lines: list[str], block: list[str]) -> int:
+    n = len(block)
+    return sum(1 for i in range(len(lines) - n + 1) if lines[i:i + n] == block) if n else 0
+
+
+class FleetPrecedent:
+    """Reads other connectors' copies of a file from the trusted base: the git ref the
+    suppressions come from (--policy-base), or the working tree when none is given (a
+    release or --all run, whose tree is the reviewed commit). One instance serves every
+    connector of a run, so each base file is read once."""
+
+    def __init__(self, ref: str | None, repo: Path | None = None):
+        self.ref, self.repo = ref, repo or REPO
+        self._paths: set[str] | None = None
+        self._by_rel: dict[str, list[tuple[str, str]]] | None = None
+        self._text: dict[str, str | None] = {}
+        self._spans: dict[tuple[str, int], tuple[int, int] | None] = {}
+
+    def prime(self, requests: list[tuple[str, int]]) -> None:
+        """Parse every (file, line) this connector needs in one helper run."""
+        todo = sorted({r for r in requests if r not in self._spans})
+        got = decl_spans(todo)
+        for r in todo:
+            self._spans[r] = got.get(r)
+
+    def span(self, path: str, line: int) -> tuple[int, int] | None:
+        if (path, line) not in self._spans:
+            self.prime([(path, line)])
+        return self._spans[(path, line)]
+
+    def _all_paths(self) -> set[str]:
+        if self._paths is None:
+            if self.ref:
+                try:
+                    p = subprocess.run(["git", "-C", str(self.repo), "ls-tree", "-r", "-z",
+                                        "--name-only", self.ref, "--", "skills"],
+                                       capture_output=True, timeout=120)
+                    ok = p.returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    ok = False
+                # An unreadable base gives no precedent at all: fail closed.
+                self._paths = ({os.fsdecode(x) for x in p.stdout.split(b"\0") if x}
+                               if ok else set())
+            else:
+                root = self.repo / "skills"
+                self._paths = {str(f.relative_to(self.repo)) for f in root.glob("*/cli/**/*")
+                               if f.is_file()} if root.is_dir() else set()
+        return self._paths
+
+    def _read(self, path: str) -> str | None:
+        if path not in self._text:
+            if self.ref:
+                try:
+                    p = subprocess.run(["git", "-C", str(self.repo), "show", f"{self.ref}:{path}"],
+                                       capture_output=True, timeout=60)
+                    self._text[path] = (p.stdout.decode("utf-8", "surrogateescape")
+                                        if p.returncode == 0 else None)
+                except (OSError, subprocess.TimeoutExpired):
+                    self._text[path] = None
+            else:
+                try:
+                    self._text[path] = (self.repo / path).read_bytes().decode("utf-8", "surrogateescape")
+                except OSError:
+                    self._text[path] = None
+        return self._text[path]
+
+    def others_with(self, slug: str, cli_rel: str, block: list[str], need: int) -> int:
+        """How many OTHER connectors hold at least `need` copies of `block` in their own
+        skills/<other>/cli/<cli_rel>."""
+        if self._by_rel is None:
+            self._by_rel = {}
+            for path in sorted(self._all_paths()):
+                parts = path.split("/", 3)
+                if len(parts) == 4 and parts[0] == "skills" and parts[2] == "cli":
+                    self._by_rel.setdefault(parts[3], []).append((parts[1], path))
+        n = 0
+        for other, path in self._by_rel.get(cli_rel, []):
+            if other == slug:
+                continue
+            text = self._read(path)
+            if text is not None and count_block(text.split("\n"), block) >= need:
+                n += 1
+        return n
+
+
+def precedent_for(slug: str, repo_rel: str, line, precedent: FleetPrecedent | None) -> int:
+    """Number of other connectors that carry this annotation-hidden finding's annotated
+    lines unchanged (0 when there is no usable block). Accepted when >= PRECEDENT_MIN."""
+    prefix = f"skills/{slug}/cli/"
+    rng = _line_range(line)
+    if precedent is None or rng is None or not repo_rel.startswith(prefix):
+        return 0
+    path = precedent.repo / repo_rel
+    try:
+        lines = path.read_bytes().decode("utf-8", "surrogateescape").split("\n")
+    except OSError:
+        return 0
+    block = precedent_block(lines, *rng, precedent.span(str(path), rng[0]))
+    if not block:
+        return 0
+    return precedent.others_with(slug, repo_rel[len(prefix):], block, count_block(lines, block))
+
+
 def scan_external(slug: str, suppress: set[tuple[str, str]],
-                  base: str | None = None, require: bool = False) -> list[dict]:
+                  base: str | None = None, require: bool = False,
+                  precedent: FleetPrecedent | None = None,
+                  accepted: list[dict] | None = None) -> list[dict]:
     findings = []
     mod = REPO / "skills" / slug / "cli"
 
@@ -658,7 +974,13 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # CI runner exceeds 300s and fail-closes as a scanner-error (exit 124) - an infra
         # flake, not a finding. The go-vet pre-warm step covers the cold path; this headroom
         # is the backstop so a slow runner can't false-RED a healthy connector.
-        code, out, err = run(["gosec", "-quiet", "-fmt", "json", "./..."], cwd=str(mod), timeout=600)
+        #
+        # -show-ignored: inline `#nosec` / `//gosec:disable` annotations hide nothing. gosec
+        # reports every finding (the same set as -nosec) and marks the ones an annotation
+        # would have hidden with "nosec": true; such a finding is accepted only by a
+        # base-owned suppression (in add) or by fleet precedent (below).
+        code, out, err = run(["gosec", "-quiet", "-fmt", "json", "-show-ignored", "./..."],
+                             cwd=str(mod), timeout=600)
         gj = None
         try:
             gj = json.loads(out or "{}")
@@ -668,10 +990,31 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
             detail = "timeout" if code == 124 else "not-installed" if code == 127 else "unparseable output"
             add("gosec", "scanner-error", "P1", f"skills/{slug}/cli/go.mod", 0,
                 f"gosec did not complete ({detail}, exit {code}) (fail-closed).")
+        if precedent is not None:
+            wanted = []
+            for iss in (gj or {}).get("Issues", []):
+                rng = _line_range(iss.get("line", 0))
+                repo_rel, _ = _external_rel(iss.get("file", ""), slug)
+                if iss.get("nosec") is True and rng and repo_rel.startswith(f"skills/{slug}/cli/"):
+                    wanted.append((str(precedent.repo / repo_rel), rng[0]))
+            precedent.prime(wanted)
         for iss in (gj or {}).get("Issues", []):
             sev = "P1" if iss.get("severity", "").upper() in ("HIGH", "MEDIUM") else "P2"
+            details = iss.get("details", "")[:120]
+            if iss.get("nosec") is True:
+                repo_rel, slug_rel = _external_rel(iss.get("file", ""), slug)
+                rule = iss.get("rule_id")
+                if (repo_rel, rule) not in suppress and (slug_rel, rule) not in suppress:
+                    others = precedent_for(slug, repo_rel, iss.get("line", 0), precedent)
+                    if others >= PRECEDENT_MIN:
+                        if accepted is not None:
+                            accepted.append({"tool": "gosec", "rule": rule, "file": repo_rel,
+                                             "line": iss.get("line", 0), "others": others})
+                        continue
+                details = ("an inline annotation hid this; it needs a base-owned suppression "
+                           "or fleet precedent: " + details)[:160]
             add("gosec", iss.get("rule_id"), sev, iss.get("file", ""),
-                iss.get("line", 0), iss.get("details", "")[:120])
+                iss.get("line", 0), details)
     if have("govulncheck"):
         # REACHABILITY gate. Run DEFAULT text/symbol mode and use its exit code:
         # 0 = no called vuln, 3 = a vulnerable symbol is CALLED from this module.
@@ -2169,16 +2512,141 @@ def _self_test_mcp_surface() -> int:
     return failed
 
 
+def _self_test_precedent() -> int:
+    """Fleet precedent, both directions: an annotation-hidden finding is accepted only when
+    its annotated lines already ship unchanged in >= PRECEDENT_MIN OTHER connectors on the
+    trusted base, and an edited, copied, new or base-absent annotation is not."""
+    failed = 0
+    line = "\tdata, err := os.ReadFile(p) // #nosec G304 -- caller-owned path"
+    edited = "\tdata, err := os.ReadFile(p) // #nosec G304 -- trust me"
+    above = ["\t// #nosec G304 -- caller-owned path", "\tdata, err := os.ReadFile(p)"]
+    above_edit = ["\t// #nosec G304 -- anything goes", "\tdata, err := os.ReadFile(p)"]
+
+    def src(*body):
+        return "\n".join(["package x", "", "func f(p string) {", *body, "}", ""])
+
+    same, other = src(line), src("\tdata, err := os.ReadFile(q)")
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+           "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
+
+    def case(name, base, work, finding_line, use_ref, want):
+        nonlocal failed
+        tmp = Path(tempfile.mkdtemp(prefix="gate-precedent-"))
+        try:
+            def put(files):
+                for slug, text in files.items():
+                    f = tmp / "skills" / slug / "cli" / "internal" / "x" / "x.go"
+                    f.parent.mkdir(parents=True, exist_ok=True)
+                    f.write_text(text, encoding="utf-8")
+            put(base)
+            subprocess.run(git + ["init", "-q", str(tmp)], check=True, capture_output=True)
+            subprocess.run(git + ["-C", str(tmp), "add", "-A"], check=True, capture_output=True)
+            subprocess.run(git + ["-C", str(tmp), "commit", "-q", "-m", "base"], check=True, capture_output=True)
+            put(work)
+            ref = {"head": "HEAD", "bogus": "no-such-ref"}.get(use_ref)
+            fp = FleetPrecedent(ref, repo=tmp)
+            others = precedent_for("a", "skills/a/cli/internal/x/x.go", finding_line, fp)
+            got = others >= PRECEDENT_MIN
+            print(f"  [{'PASS' if got == want else 'FAIL'}] precedent: {name} -> "
+                  f"{'accepted' if got else 'not accepted'} ({others} other connector(s))")
+            failed += got != want
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    four = {"a": same, "b": same, "c": same, "d": same}
+    case("template line in 3 other connectors on the base", four, {}, 4, "head", True)
+    case("the same, read from the working tree (release / --all)", four, {}, 4, None, True)
+    case("only 2 other connectors carry it", {**four, "d": other}, {}, 4, "head", False)
+    case("the connector itself does not count toward the 3", {**four, "d": other, "e": other},
+         {}, 4, "head", False)
+    case("annotation edited in this connector", four, {"a": src(edited)}, 4, "head", False)
+    case("annotated line pasted a second time into the file", four, {"a": src(line, line)}, 4, "head", False)
+    case("a copy only the PR adds elsewhere does not count (base read)", {**four, "d": other},
+         {"d": same}, 4, "head", False)
+    case("annotation on the comment line above, identical", {s: src(*above) for s in "abcd"},
+         {}, 5, "head", True)
+    case("annotation on the comment line above, edited here", {s: src(*above) for s in "abcd"},
+         {"a": src(*above_edit)}, 5, "head", False)
+    case("annotation not on or directly above the finding",
+         {s: src("\t// #nosec G304 -- far away", "\tx := 1", "\tdata, err := os.ReadFile(p)") for s in "abcd"},
+         {}, 6, "head", False)
+    case("a plain comment directly above, annotation further away",
+         {s: src("\t// #nosec G304 -- far away", "\tx := 1", "\t// read the file", "\tdata, err := os.ReadFile(p)")
+          for s in "abcd"}, {}, 7, "head", False)
+    case("template line moved into a new function in the same file",
+         four, {"a": "\n".join(["package x", "", "func f(p string) {", "}", "",
+                                  "func g(p string) {", line, "}", ""])}, 7, "head", False)
+    case("a statement added inside the function that holds the line",
+         four, {"a": src("\tp = \"/etc/shadow\"", line)}, 5, "head", False)
+    case("a package-level annotated declaration, identical (no enclosing function)",
+         {s: "package x\n\nconst u = \"https://example.invalid/token\" // #nosec G101 -- URL\n" for s in "abcd"},
+         {}, 3, "head", True)
+    tick = src("\t// trim the `", line)
+    case("template function with a backtick in a comment, identical", {s: tick for s in "abcd"},
+         {}, 5, "head", True)
+    case("template text swallowed into a raw string opened above it",
+         {s: tick for s in "abcd"},
+         {"a": "\n".join(["package x", "", "func evil(p string) {", "\t_ = `", "func f(p string) {",
+                           "\t// trim the `", line, "}", ""])}, 7, "head", False)
+    glob = src("\t// globs like a/*/", line)
+    case("template text swallowed into a /* */ comment opened above it",
+         {s: glob for s in "abcd"},
+         {"a": "\n".join(["package x", "", "func evil(p string) {", "\t/*", "func f(p string) {",
+                           "\t// globs like a/*/", line, "}", ""])}, 7, "head", False)
+    r3_base = 'package x\nimport "os"\nfunc f(p string) {\n\t_, _ = os.Open(p) // #nosec G304\n}\n'
+    case("an indented top-level func with an edit above the line (Codex round 3)",
+         {s: r3_base for s in "abcd"},
+         {"a": 'package x\nimport "os"\n func evil(p string) {\n\tp += "/../../etc/shadow"\n'
+               '\t_, _ = os.Open(p) // #nosec G304\n}\n'}, 5, "head", False)
+    raw_tail = ('package x\n\nimport "os"\n\nfunc f(p string) {\n\tfor i := 0; i < 2; i++ {\n'
+                '\t\t_, _ = os.Open(p) // #nosec G304\n\t\t_ = `\n}\n`\n%s\t}\n}\n')
+    case("a column-0 } inside a raw string, edit after it (Codex round 3)",
+         {s: raw_tail % "" for s in "abcd"},
+         {"a": raw_tail % '\t\tp += "/../../etc/shadow"\n'}, 7, "head", False)
+    case("the same file unchanged is still accepted", {s: raw_tail % "" for s in "abcd"},
+         {}, 7, "head", True)
+    two = 'package x\nimport "os"\nfunc f() {}; func g(p string) { for i:=0; i<2; i++ { _, _ = os.Open(p) // #nosec G304\n%s}\n}\n'
+    case("two declarations on the finding's line, edit later in the second (Codex round 4)",
+         {s: two % "" for s in "abcd"}, {"a": two % ' p += "/../../etc/shadow"\n'}, 3, "head", False)
+    saved = dict(_DECL_SPAN)
+    _DECL_SPAN.update(bin=None, failed=True)
+    try:
+        case("no Go toolchain for the parser helper fails closed", four, {}, 4, "head", False)
+    finally:
+        _DECL_SPAN.update(saved)
+    case("unreadable base ref fails closed", four, {}, 4, "bogus", False)
+    case("line range past the end of the file", four, {}, 99, "head", False)
+    return failed
+
+
+def _self_test_line_directive() -> int:
+    """A line directive anywhere in a connector's Go is a P1, because it can move a
+    finding onto a suppressed or precedented position; an ordinary comment is not."""
+    failed = 0
+    rx = next(r for name, _, r, _ in GO_RULES if name == "line-directive")
+    for name, text, want in [
+        ("//line at column 1", "package x\n//line filelock.go:67\nfunc f() {}\n", True),
+        ("/*line*/ inline", "package x\nfunc f() { /*line a.go:3*/ g() }\n", True),
+        ("//line after a tab (Go ignores it; refused anyway)", "package x\n\t//line a.go:3\n", True),
+        ("a comment that mentions a line", "package x\n// line 3 is fine\n//lines\n", False),
+    ]:
+        got = bool(rx.search(text))
+        print(f"  [{'PASS' if got == want else 'FAIL'}] line directive: {name} -> {'P1' if got else 'clean'}")
+        failed += got != want
+    return failed
+
+
 def self_test() -> int:
     failed = (_self_test_summary() + _self_test_workflows() + _self_test_changed_files()
-              + _self_test_mcp_surface())
+              + _self_test_mcp_surface() + _self_test_precedent() + _self_test_line_directive())
     if failed:
         print(f"\nSELF-TEST FAIL: {failed} case(s) behaved wrong.")
         return 1
     print("\nSELF-TEST PASS: the summary fails on every missing or non-passing row, both gates pin "
           "the same scanners with no cache, the diff scope sees quoted names and renames, each "
-          "MCP-surface rule fires on its class and not on the healthy shape, and the baseline "
-          "only shrinks.")
+          "MCP-surface rule fires on its class and not on the healthy shape, the baseline "
+          "only shrinks, and fleet precedent accepts only annotated lines that ship unchanged "
+          "on the trusted base.")
     return 0
 
 
@@ -2201,7 +2669,7 @@ def has_go_module(slug: str) -> bool:
 
 def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[str, str]],
               require: bool = False, baseline: dict[str, set[str]] | None = None,
-              policy: list[dict] | None = None) -> dict:
+              policy: list[dict] | None = None, precedent: FleetPrecedent | None = None) -> dict:
     only = changed_files(base, slug) if base else None
     findings = []
     findings += scan_go_patterns(go_files(slug, only), suppress)
@@ -2216,9 +2684,10 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
     # against that non-existent path made them fail-close: 4 permanent P1s on a file
     # that does not exist, unfixable by any contributor, while the Python that
     # actually ships went unread. False-RED and false-GREEN in the same verdict.
+    accepted: list[dict] = []
     if has_go_module(slug):
         findings += scan_dependencies(slug, allow, only)
-        findings += scan_external(slug, suppress, base, require)
+        findings += scan_external(slug, suppress, base, require, precedent, accepted)
 
     # MCP-surface rules judge the whole connector, in diff mode too (STATE rules).
     mcp, burned = scan_mcp_surface(slug, suppress, baseline or {})
@@ -2227,7 +2696,7 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
     p1 = [f for f in findings if f["severity"] == "P1"]
     return {"slug": slug, "base": base, "scope": "diff" if only is not None else "full",
             "lane": "go" if has_go_module(slug) else "scripts",
-            "findings": findings, "p1_count": len(p1),
+            "findings": findings, "p1_count": len(p1), "precedented": accepted,
             "verdict": "block" if p1 else "pass", "burned_down": burned,
             "tools": {t: have(t) for t in ("gosec", "govulncheck", "osv-scanner", "semgrep")}}
 
@@ -2330,9 +2799,10 @@ def main() -> int:
     if not slugs:
         ap.error("one of --slug, --all, or --rebuild-allowlist is required")
 
+    precedent = FleetPrecedent(args.policy_base)
     # A baseline problem is a policy failure, not a connector's: one row carries it.
     results = [gate_slug(s, args.base, allow, suppress, args.require_scanners, baseline,
-                         policy if i == 0 else None) for i, s in enumerate(slugs)]
+                         policy if i == 0 else None, precedent) for i, s in enumerate(slugs)]
     blocked = [r for r in results if r["verdict"] == "block"]
 
     if args.json:
@@ -2347,6 +2817,9 @@ def main() -> int:
             for rule in r.get("burned_down", []):
                 print(f"    BURNED DOWN mcp-surface:{rule} - {r['slug']} no longer fails it; "
                       "--update-baseline retires the entry")
+            if r.get("precedented"):
+                print(f"    info: {len(r['precedented'])} annotation-hidden gosec finding(s) accepted by "
+                      f"fleet precedent (the same annotated lines in >= {PRECEDENT_MIN} other connectors)")
         missing = [t for t, ok in results[0]["tools"].items() if not ok] if results else []
         if missing:
             print(f"\nNOTE: external scanners not installed locally: {', '.join(missing)} "
