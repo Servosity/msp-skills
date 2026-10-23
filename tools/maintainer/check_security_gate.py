@@ -71,6 +71,10 @@ not re-proven by this rule; the dangerous-pattern, dependency and reachability c
 still apply to that code.
 
 Folded in when installed (CI installs them): gosec, govulncheck, osv-scanner, semgrep.
+  * gosec runs once per build target in GOSEC_TARGETS: the runner's own OS (Linux in CI
+    and release) and GOOS=windows. go/packages loads only the files one target builds,
+    so before the Windows pass no workflow ever scanned a `*_windows.go` file. Each pass
+    fails closed on its own; a finding only an extra pass reports says which target.
   * govulncheck = the REACHABILITY gate. Run in DEFAULT text/symbol mode: exit 3 = a
     vulnerable symbol is CALLED from this module (P1); 0 = none called. (-format json
     ALWAYS exits 0 regardless of findings, which silently neutered the prior gate.)
@@ -930,6 +934,50 @@ def precedent_for(slug: str, repo_rel: str, line, precedent: FleetPrecedent | No
     return precedent.others_with(slug, repo_rel[len(prefix):], block, count_block(lines, block))
 
 
+# gosec build targets. None is the runner's own GOOS/GOARCH (Linux in CI and release,
+# where this gate runs); every other entry is an extra pass with that GOOS/GOARCH and
+# cgo off, as the release builds. Windows was added 2026-10-23: no workflow had ever
+# scanned *_windows.go, and the first pass over the fleet found four MEDIUM G304s
+# there. darwin is not here yet: its first pass finds 110 findings (59 HIGH/MEDIUM)
+# in store_adopt_darwin.go across 18 connectors, which need a vetted wave first.
+GOSEC_TARGETS: tuple[tuple[str, str] | None, ...] = (None, ("windows", "amd64"))
+
+
+def gosec_passes(mod: Path, slug: str, require: bool, add) -> list[dict]:
+    """Every gosec issue across GOSEC_TARGETS, each once. An issue only an extra
+    target reports carries `_target` ("GOOS=windows"). A pass that does not
+    complete is a scanner-error P1 under --require-scanners, named by target."""
+    issues: list[dict] = []
+    seen: set[tuple] = set()
+    for target in GOSEC_TARGETS:
+        env = None if target is None else {"GOOS": target[0], "GOARCH": target[1], "CGO_ENABLED": "0"}
+        label = "" if target is None else f"GOOS={target[0]}"
+        code, out, _err = run(["gosec", "-quiet", "-fmt", "json", "-show-ignored", "./..."],
+                              cwd=str(mod), timeout=600, env=env)
+        try:
+            gj = json.loads(out or "{}")
+        except json.JSONDecodeError:
+            gj = None
+        if not isinstance(gj, dict) or not isinstance(gj.get("Issues", []), list):
+            gj = None
+        if (gj is None or code in (124, 127)) and require:
+            detail = "timeout" if code == 124 else "not-installed" if code == 127 else "unparseable output"
+            add("gosec", "scanner-error", "P1", f"skills/{slug}/cli/go.mod", 0,
+                f"gosec{' (' + label + ')' if label else ''} did not complete ({detail}, exit {code}) "
+                "(fail-closed).")
+        for iss in (gj or {}).get("Issues", []):
+            if not isinstance(iss, dict):
+                continue
+            key = (iss.get("rule_id"), _external_rel(str(iss.get("file", "")), slug)[0],
+                   str(iss.get("line")), str(iss.get("column")))
+            if key in seen:
+                continue
+            seen.add(key)
+            # The runner's own pass goes first, so a tag means only that target sees it.
+            issues.append({**iss, "_target": label} if label else iss)
+    return issues
+
+
 def scan_external(slug: str, suppress: set[tuple[str, str]],
                   base: str | None = None, require: bool = False,
                   precedent: FleetPrecedent | None = None,
@@ -979,28 +1027,26 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # reports every finding (the same set as -nosec) and marks the ones an annotation
         # would have hidden with "nosec": true; such a finding is accepted only by a
         # base-owned suppression (in add) or by fleet precedent (below).
-        code, out, err = run(["gosec", "-quiet", "-fmt", "json", "-show-ignored", "./..."],
-                             cwd=str(mod), timeout=600)
-        gj = None
-        try:
-            gj = json.loads(out or "{}")
-        except json.JSONDecodeError:
-            gj = None
-        if (gj is None or code in (124, 127)) and require:
-            detail = "timeout" if code == 124 else "not-installed" if code == 127 else "unparseable output"
-            add("gosec", "scanner-error", "P1", f"skills/{slug}/cli/go.mod", 0,
-                f"gosec did not complete ({detail}, exit {code}) (fail-closed).")
+        #
+        # One pass per build target (GOSEC_TARGETS): go/packages loads the files ONE
+        # GOOS builds, so a pass on the runner's own OS never reads a file built only
+        # for another shipped OS (`*_windows.go`, `//go:build windows`). Every pass
+        # must complete (fail-closed per pass); findings are unioned, a finding the
+        # passes share counted once.
+        issues = gosec_passes(mod, slug, require, add)
         if precedent is not None:
             wanted = []
-            for iss in (gj or {}).get("Issues", []):
+            for iss in issues:
                 rng = _line_range(iss.get("line", 0))
                 repo_rel, _ = _external_rel(iss.get("file", ""), slug)
                 if iss.get("nosec") is True and rng and repo_rel.startswith(f"skills/{slug}/cli/"):
                     wanted.append((str(precedent.repo / repo_rel), rng[0]))
             precedent.prime(wanted)
-        for iss in (gj or {}).get("Issues", []):
+        for iss in issues:
             sev = "P1" if iss.get("severity", "").upper() in ("HIGH", "MEDIUM") else "P2"
             details = iss.get("details", "")[:120]
+            if iss.get("_target"):
+                details = f"[{iss['_target']} only] " + details
             if iss.get("nosec") is True:
                 repo_rel, slug_rel = _external_rel(iss.get("file", ""), slug)
                 rule = iss.get("rule_id")
@@ -2636,17 +2682,125 @@ def _self_test_line_directive() -> int:
     return failed
 
 
+FAKE_GOSEC = r"""#!/usr/bin/env python3
+# A stand-in gosec for the self-test: answers --version, logs the GOOS of every scan,
+# and reports what the case script in FAKE_GOSEC_CASE says for that GOOS.
+import json, os, sys
+if "--version" in sys.argv:
+    print("Version: fake"); sys.exit(0)
+goos = os.environ.get("GOOS", "")
+with open(os.environ["FAKE_GOSEC_LOG"], "a") as fh:
+    fh.write((goos or "native") + " " + os.environ.get("CGO_ENABLED", "") + "\n")
+case = json.loads(os.environ["FAKE_GOSEC_CASE"]).get(goos or "native", {})
+if case.get("exit") is not None and "issues" not in case:
+    print(case.get("out", "")); sys.exit(case["exit"])
+mod = os.getcwd()
+print(json.dumps({"Issues": [{"rule_id": r, "severity": sev, "file": os.path.join(mod, f), "line": str(ln),
+                              "column": "2", "details": d, "nosec": ns}
+                             for r, sev, f, ln, d, ns in case.get("issues", [])], "Golang errors": {}}))
+sys.exit(1 if case.get("issues") else 0)
+"""
+
+
+def _self_test_gosec_targets() -> int:
+    """The per-target gosec passes, with a stand-in gosec on PATH: a finding only the
+    Windows pass reports blocks; with that pass removed it would not; a finding both
+    passes report counts once; each pass fails closed on its own; a base-owned entry
+    or the annotation rule treats a Windows-only finding like any other."""
+    global REPO
+    failed = 0
+    saved_repo, saved_env = REPO, {k: os.environ.get(k) for k in ("PATH", "FAKE_GOSEC_CASE", "FAKE_GOSEC_LOG")}
+    tmp = Path(tempfile.mkdtemp(prefix="gate-gosec-targets-")).resolve()  # REPO is resolved too
+    try:
+        REPO = tmp
+        mod = tmp / "skills" / "acme" / "cli"
+        mod.mkdir(parents=True)
+        (mod / "go.mod").write_text("module acme\n\ngo 1.26\n")
+        bindir = tmp / "bin"
+        bindir.mkdir()
+        (bindir / "gosec").write_text(FAKE_GOSEC)
+        (bindir / "gosec").chmod(0o755)
+        log = tmp / "gosec.log"
+        os.environ["FAKE_GOSEC_LOG"] = str(log)
+        # Only the stand-in and the system tools: no real scanner can be picked up.
+        os.environ["PATH"] = f"{bindir}{os.pathsep}/usr/bin{os.pathsep}/bin"
+        shared = ("G104", "LOW", "shared.go", 7, "errors unhandled", False)
+        win = ("G304", "MEDIUM", "open_windows.go", 13, "Potential file inclusion via variable", False)
+
+        def gate(case: dict, require: bool = True, suppress: set | None = None) -> list[dict]:
+            os.environ["FAKE_GOSEC_CASE"] = json.dumps(case)
+            log.write_text("")
+            got = scan_external("acme", suppress or set(), None, require)
+            return [f for f in got if f["tool"] == "gosec"]
+
+        def p1(found: list[dict]) -> list[dict]:
+            return [f for f in found if f["severity"] == "P1"]
+
+        cases = []
+        found = gate({"native": {"issues": [shared]}, "windows": {"issues": [shared, win]}})
+        cases.append(("a finding only GOOS=windows reports is a P1, labelled with its target",
+                      len(p1(found)) == 1 and p1(found)[0]["file"] == "skills/acme/cli/open_windows.go"
+                      and "[GOOS=windows only]" in p1(found)[0]["evidence"]))
+        cases.append(("a finding both passes report is counted once", sum(f["rule"] == "G104" for f in found) == 1))
+        cases.append(("the Windows pass runs with GOOS=windows and cgo off, after the runner's own pass",
+                      [ln.split()[:1] for ln in log.read_text().splitlines()] == [["native"], ["windows"]]
+                      and log.read_text().splitlines()[1] == "windows 0"))
+        cases.append(("the same tree with the finding gone from the Windows pass is clean",
+                      not p1(gate({"native": {"issues": [shared]}, "windows": {"issues": [shared]}}))))
+        saved_targets = GOSEC_TARGETS
+        try:
+            globals()["GOSEC_TARGETS"] = (None,)
+            cases.append(("(control) without the Windows pass that finding is never seen: the old blind spot",
+                          not p1(gate({"native": {"issues": [shared]}, "windows": {"issues": [shared, win]}}))))
+        finally:
+            globals()["GOSEC_TARGETS"] = saved_targets
+        timeout = p1(gate({"native": {"issues": []}, "windows": {"exit": 124}}))
+        cases.append(("a Windows pass that times out fails closed, named by its target",
+                      len(timeout) == 1 and timeout[0]["rule"] == "scanner-error"
+                      and "GOOS=windows" in timeout[0]["evidence"]))
+        garbage = p1(gate({"native": {"issues": []}, "windows": {"exit": 1, "out": "not json"}}))
+        cases.append(("a Windows pass with unparseable output fails closed", len(garbage) == 1
+                      and garbage[0]["rule"] == "scanner-error"))
+        wrong_shape = p1(gate({"native": {"issues": []}, "windows": {"exit": 0, "out": "[]"}}))
+        cases.append(("a Windows pass whose JSON is not gosec's shape fails closed", len(wrong_shape) == 1
+                      and wrong_shape[0]["rule"] == "scanner-error"))
+        cases.append(("a failed native pass still fails closed with the Windows pass clean",
+                      [f["rule"] for f in p1(gate({"native": {"exit": 124}, "windows": {"issues": []}}))]
+                      == ["scanner-error"]))
+        cases.append(("outside --require-scanners a failed pass is not a P1 (local runs)",
+                      not p1(gate({"native": {"issues": []}, "windows": {"exit": 124}}, require=False))))
+        cases.append(("a base-owned (file, rule) entry accepts a Windows-only finding",
+                      not p1(gate({"native": {"issues": []}, "windows": {"issues": [win]}},
+                                  suppress={("skills/acme/cli/open_windows.go", "G304")}))))
+        hidden = p1(gate({"native": {"issues": []}, "windows": {"issues": [win[:5] + (True,)]}}))
+        cases.append(("an annotation-hidden Windows-only finding with no entry or precedent is a P1",
+                      len(hidden) == 1 and "inline annotation hid this" in hidden[0]["evidence"]))
+        for name, ok in cases:
+            print(f"  [{'PASS' if ok else 'FAIL'}] gosec targets: {name}")
+            failed += not ok
+    finally:
+        REPO = saved_repo
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    return failed
+
+
 def self_test() -> int:
     failed = (_self_test_summary() + _self_test_workflows() + _self_test_changed_files()
-              + _self_test_mcp_surface() + _self_test_precedent() + _self_test_line_directive())
+              + _self_test_mcp_surface() + _self_test_precedent() + _self_test_line_directive()
+              + _self_test_gosec_targets())
     if failed:
         print(f"\nSELF-TEST FAIL: {failed} case(s) behaved wrong.")
         return 1
     print("\nSELF-TEST PASS: the summary fails on every missing or non-passing row, both gates pin "
           "the same scanners with no cache, the diff scope sees quoted names and renames, each "
           "MCP-surface rule fires on its class and not on the healthy shape, the baseline "
-          "only shrinks, and fleet precedent accepts only annotated lines that ship unchanged "
-          "on the trusted base.")
+          "only shrinks, fleet precedent accepts only annotated lines that ship unchanged "
+          "on the trusted base, and gosec scans every build target in GOSEC_TARGETS.")
     return 0
 
 
