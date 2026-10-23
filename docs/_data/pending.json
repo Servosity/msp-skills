@@ -399,9 +399,9 @@
     "released_hash": "sha256:6d88489f6b063672b15a835ef77ade4fc79286bdad09f0d193f340ffe2882437"
   },
   "proofpoint": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "proofpoint-v0.1.5",
+    "latest_tag": "proofpoint-v0.1.6",
     "current_hash": "sha256:2e198dc1039cb9cc0fff59a7e3402db3dc411a42872c8a357d3c05178e105022",
     "released_hash": "sha256:2e198dc1039cb9cc0fff59a7e3402db3dc411a42872c8a357d3c05178e105022"
   },
