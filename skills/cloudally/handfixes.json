@@ -318,23 +318,23 @@
           "code_only": true
         },
         {
-          "file": "cli/internal\\cli\\helpers.go",
+          "file": "cli/internal/cli/helpers.go",
           "contains": "funnelShownError(err),",
           "min_count": 1,
           "code_only": true
         },
         {
-          "file": "cli/internal\\cli\\helpers.go",
+          "file": "cli/internal/cli/helpers.go",
           "not_contains": "\"error\": err.Error(),"
         },
         {
-          "file": "cli/internal\\cli\\jobs.go",
+          "file": "cli/internal/cli/jobs.go",
           "contains": "funnelShownError(err),",
           "min_count": 1,
           "code_only": true
         },
         {
-          "file": "cli/internal\\cli\\jobs.go",
+          "file": "cli/internal/cli/jobs.go",
           "not_contains": "\"error\": err.Error(),"
         },
         {
@@ -380,19 +380,19 @@
           "code_only": true
         },
         {
-          "file": "cli/cmd\\cloudally-mcp/main.go",
+          "file": "cli/cmd/cloudally-mcp/main.go",
           "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
           "min_count": 1,
           "code_only": true
         },
         {
-          "file": "cli/cmd\\cloudally-mcp/secret_funnel_mcp.go",
+          "file": "cli/cmd/cloudally-mcp/secret_funnel_mcp.go",
           "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
           "min_count": 1,
           "code_only": true
         },
         {
-          "file": "cli/cmd\\cloudally-mcp/secret_funnel_mcp_test.go",
+          "file": "cli/cmd/cloudally-mcp/secret_funnel_mcp_test.go",
           "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
           "min_count": 1,
           "code_only": true
