@@ -28,9 +28,9 @@
     "released_hash": "sha256:d465c55326b7fbdbe9233d1cab8f2e2ba0f90b04467e885b963daeba4d56696b"
   },
   "appdirect": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "appdirect-v0.1.7",
+    "latest_tag": "appdirect-v0.1.8",
     "current_hash": "sha256:66b8205a77b321290aba1611e68ce7341d46100884805b638c52f2a32f8011b2",
     "released_hash": "sha256:66b8205a77b321290aba1611e68ce7341d46100884805b638c52f2a32f8011b2"
   },
@@ -42,9 +42,9 @@
     "released_hash": "sha256:14eddd3ff4fad937b98b4a1eed287534d419fcda48519771657c1cc981875e2d"
   },
   "autotask": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "autotask-v0.1.7",
+    "latest_tag": "autotask-v0.1.8",
     "current_hash": "sha256:c0a402b00925ee287c1efbf1c1e53cb76df0dc5e66e9488945048d12af620eec",
     "released_hash": "sha256:c0a402b00925ee287c1efbf1c1e53cb76df0dc5e66e9488945048d12af620eec"
   },
