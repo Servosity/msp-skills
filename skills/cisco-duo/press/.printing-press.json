@@ -1,0 +1,175 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-13T23:09:23.507728Z",
+  "printing_press_version": "4.33.5",
+  "api_name": "cisco-duo",
+  "display_name": "Cisco Duo",
+  "cli_name": "cisco-duo-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:accd39a3ca10be4b961e4b5b16198e8ff62afdf89898302a39f1423afef0daef",
+  "run_id": "20261013-163939-8f69bbf5",
+  "category": "auth",
+  "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
+  "mcp_binary": "cisco-duo-pp-mcp",
+  "mcp_tool_count": 104,
+  "mcp_ready": "full",
+  "api_version": "2026-10-13",
+  "auth_type": "api_key",
+  "auth_preference": "duoHmac",
+  "auth_env_vars": [
+    "CISCO_DUO_IKEY",
+    "CISCO_DUO_SKEY"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "CISCO_DUO_IKEY",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "Admin API integration key (ikey), e.g. DIWJ8X6AEYOR5OMC6TQ1."
+    },
+    {
+      "name": "CISCO_DUO_SKEY",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Admin API secret key (skey). Used only to sign requests."
+    }
+  ],
+  "endpoint_template_vars": [
+    "api_host"
+  ],
+  "endpoint_template_env_overrides": {
+    "api_host": "CISCO_DUO_API_HOST"
+  },
+  "auth_key_url": "https://duo.com/docs/adminapi#first-steps",
+  "auth_title": "Duo Admin API integration key + secret key",
+  "novel_features": [
+    {
+      "name": "Lockout triage",
+      "command": "lockout triage",
+      "description": "See why one user cannot complete Duo MFA: status, lockout reason, the group status that overrides it, phones, outstanding bypass codes, last 24h failures, and the exact next command to run."
+    },
+    {
+      "name": "Lockout fix",
+      "command": "lockout fix",
+      "description": "Unlock a locked-out user, and with --bypass issue a single-use one-hour bypass code or with --reactivate-phone re-send Duo Mobile activation; a preview by default, --apply makes the changes and prints a before/after receipt."
+    },
+    {
+      "name": "Phone swap",
+      "command": "phone-swap",
+      "description": "Move a user to a new phone number: reuse or create the phone, attach it and text the activation link; a preview by default, --apply makes the changes. Old phones are retired on a second run once the new phone is activated, and a phone shared with another user is never deleted."
+    },
+    {
+      "name": "Fleet summary",
+      "command": "fleet summary",
+      "description": "One row per customer subaccount: edition, users against user limit, telephony credits, admin and integration counts. Needs an Admin API app in the MSP parent account; covers every subaccount and ignores --account-id."
+    },
+    {
+      "name": "Fleet risk",
+      "command": "fleet risk",
+      "description": "Per-customer counts of users in bypass, locked out, disabled, pending deletion or unenrolled, members of Bypass or Disabled groups, and standing bypass codes. Needs an MSP parent Admin API app; ignores --account-id."
+    },
+    {
+      "name": "Fleet find-user",
+      "command": "fleet find-user",
+      "description": "Find which customer tenants (and the MSP parent) contain a username, alias or email, with status and last login for each hit. Needs an MSP parent Admin API app; ignores --account-id."
+    },
+    {
+      "name": "Bypass exposure",
+      "command": "audit bypass",
+      "description": "List every synced user who can skip MFA: bypass status, a Bypass group, or a bypass code that never expires or has unlimited reuse, with the admin who issued it. Needs 'sync --resources users,bypass_codes' first; JSON reports complete=false when data is missing."
+    },
+    {
+      "name": "Stale audit",
+      "command": "audit stale",
+      "description": "Find unenrolled users heading for a lockout, inactive and pending-deletion users, expired, inactive or never-logged-in admins, and phones not seen recently. Needs 'sync --resources users,admins,phones' first; JSON reports complete=false when data is missing."
+    },
+    {
+      "name": "Enrollment chase",
+      "command": "enrollment chase",
+      "description": "List users still unenrolled after a given age (by default) and, with --apply, re-send their Duo enrollment emails, oldest first, up to --limit."
+    },
+    {
+      "name": "Failure rollup",
+      "command": "failures",
+      "description": "Roll up failed and fraud authentications per user, reason, factor and application over a window, with first and last seen and source IPs."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Lockout triage",
+      "command": "lockout triage",
+      "description": "See why one user cannot complete Duo MFA: status, lockout reason, the group status that overrides it, phones, outstanding bypass codes, last 24h failures, and the exact next command to run."
+    },
+    {
+      "name": "Lockout fix",
+      "command": "lockout fix",
+      "description": "Unlock a locked-out user, and with --bypass issue a single-use one-hour bypass code or with --reactivate-phone re-send Duo Mobile activation; a preview by default, --apply makes the changes and prints a before/after receipt."
+    },
+    {
+      "name": "Phone swap",
+      "command": "phone-swap",
+      "description": "Move a user to a new phone number: reuse or create the phone, attach it and text the activation link; a preview by default, --apply makes the changes. Old phones are retired on a second run once the new phone is activated, and a phone shared with another user is never deleted."
+    },
+    {
+      "name": "Fleet summary",
+      "command": "fleet summary",
+      "description": "One row per customer subaccount: edition, users against user limit, telephony credits, admin and integration counts. Needs an Admin API app in the MSP parent account; covers every subaccount and ignores --account-id."
+    },
+    {
+      "name": "Fleet risk",
+      "command": "fleet risk",
+      "description": "Per-customer counts of users in bypass, locked out, disabled, pending deletion or unenrolled, members of Bypass or Disabled groups, and standing bypass codes. Needs an MSP parent Admin API app; ignores --account-id."
+    },
+    {
+      "name": "Fleet find-user",
+      "command": "fleet find-user",
+      "description": "Find which customer tenants (and the MSP parent) contain a username, alias or email, with status and last login for each hit. Needs an MSP parent Admin API app; ignores --account-id."
+    },
+    {
+      "name": "Bypass exposure",
+      "command": "audit bypass",
+      "description": "List every synced user who can skip MFA: bypass status, a Bypass group, or a bypass code that never expires or has unlimited reuse, with the admin who issued it. Needs 'sync --resources users,bypass_codes' first; JSON reports complete=false when data is missing."
+    },
+    {
+      "name": "Stale audit",
+      "command": "audit stale",
+      "description": "Find unenrolled users heading for a lockout, inactive and pending-deletion users, expired, inactive or never-logged-in admins, and phones not seen recently. Needs 'sync --resources users,admins,phones' first; JSON reports complete=false when data is missing."
+    },
+    {
+      "name": "Enrollment chase",
+      "command": "enrollment chase",
+      "description": "List users still unenrolled after a given age (by default) and, with --apply, re-send their Duo enrollment emails, oldest first, up to --limit."
+    },
+    {
+      "name": "Failure rollup",
+      "command": "failures",
+      "description": "Roll up failed and fraud authentications per user, reason, factor and application over a window, with first and last seen and source IPs."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 119,
+    "total": 119,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}

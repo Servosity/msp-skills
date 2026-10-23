@@ -1,0 +1,651 @@
+{
+  "api_name": "microsoft-graph",
+  "base_url": "https://graph.microsoft.com/v1.0",
+  "description": "Microsoft Graph CLI for MSPs — the maintained single-binary successor to the retiring mgc, scoped to the M365/Entra directory, security, licensing, and device surface, with an offline SQLite store.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {MICROSOFT_GRAPH_TOKEN}",
+    "env_vars": [
+      "MICROSOFT_GRAPH_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "MICROSOFT_GRAPH_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "devices_get",
+      "description": "Get an Entra device by object id. Required: id. Optional: properties. Returns the Device.",
+      "method": "GET",
+      "path": "/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Device object id",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "List Entra-registered devices. Optional: filter, top, skip (plus 2 more). Returns array of Device.",
+      "method": "GET",
+      "path": "/devices",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter, e.g. 'operatingSystem eq 'Windows''"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max devices per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'displayName'"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "directory-roles_get",
+      "description": "Get a directory role by object id. Required: id. Optional: properties. Returns the DirectoryRole.",
+      "method": "GET",
+      "path": "/directoryRoles/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Directory role object id",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "directory-roles_list",
+      "description": "List activated directory roles in the tenant. Optional: properties. Returns array of DirectoryRole.",
+      "method": "GET",
+      "path": "/directoryRoles",
+      "params": [
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "directory-roles_members",
+      "description": "List the members assigned to a directory role. Required: id. Optional: top, properties. Returns array of DirectoryObject.",
+      "method": "GET",
+      "path": "/directoryRoles/{id}/members",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Directory role object id",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max members per page (OData $top)"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a group by object id. Required: id. Optional: properties. Returns the Group.",
+      "method": "GET",
+      "path": "/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Group object id",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "List groups in the tenant. Optional: filter, top, skip (plus 2 more). Returns array of Group.",
+      "method": "GET",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter, e.g. 'securityEnabled eq true'"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max groups per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'displayName'"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "groups_members",
+      "description": "List a group's members. Required: id. Optional: top, skip, properties. Returns array of DirectoryObject.",
+      "method": "GET",
+      "path": "/groups/{id}/members",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Group object id",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max members per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "groups_owners",
+      "description": "List a group's owners. Required: id. Optional: top, properties. Returns array of DirectoryObject.",
+      "method": "GET",
+      "path": "/groups/{id}/owners",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Group object id",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max owners per page (OData $top)"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "licenses_sku",
+      "description": "Get a single subscribed SKU by id. Required: id. Optional: properties. Returns the SubscribedSku.",
+      "method": "GET",
+      "path": "/subscribedSkus/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "SubscribedSku id (tenantId_skuId form)",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "licenses_skus",
+      "description": "List the commercial subscriptions (SKUs) the tenant owns. Optional: properties. Returns array of SubscribedSku.",
+      "method": "GET",
+      "path": "/subscribedSkus",
+      "params": [
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select; subscribedSkus supports only $select)"
+        }
+      ]
+    },
+    {
+      "name": "managed-devices_get",
+      "description": "Get an Intune-managed device by id. Required: id. Optional: properties. Returns the ManagedDevice.",
+      "method": "GET",
+      "path": "/deviceManagement/managedDevices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Managed device id",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "managed-devices_list",
+      "description": "List Intune-managed devices (requires an Intune license). Optional: filter, top, skip (plus 2 more). Returns array of ManagedDevice.",
+      "method": "GET",
+      "path": "/deviceManagement/managedDevices",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter, e.g. 'complianceState eq 'noncompliant''"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max devices per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'lastSyncDateTime desc'"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "security_alert",
+      "description": "Get a security alert by id. Required: id. Optional: properties. Returns the Alert.",
+      "method": "GET",
+      "path": "/security/alerts_v2/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Alert id",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "security_alerts",
+      "description": "List security alerts (alerts_v2). Optional: filter, top, skip (plus 1 more). Returns array of Alert.",
+      "method": "GET",
+      "path": "/security/alerts_v2",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter on severity, status, serviceSource, createdDateTime, etc."
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max alerts per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "security_incident",
+      "description": "Get a security incident by id. Required: id. Optional: properties. Returns the Incident.",
+      "method": "GET",
+      "path": "/security/incidents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Incident id",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "security_incidents",
+      "description": "List security incidents. Optional: filter, top, skip (plus 1 more). Returns array of Incident.",
+      "method": "GET",
+      "path": "/security/incidents",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter on severity, status, createdDateTime, etc."
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max incidents per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a user by object id or userPrincipalName. Required: id. Optional: properties. Returns the User.",
+      "method": "GET",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "User object id or userPrincipalName",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "users_licenses",
+      "description": "List the SKUs/licenses assigned to a user. Required: id. Returns array of LicenseDetail.",
+      "method": "GET",
+      "path": "/users/{id}/licenseDetails",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "User object id or userPrincipalName",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List users in the tenant. Optional: filter, top, skip (plus 2 more). Returns array of User.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter, e.g. 'accountEnabled eq true' or 'userType eq 'Guest''"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max users per page (OData $top, max 999)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'displayName'"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request over the wire (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "users_me",
+      "description": "Get the signed-in user (delegated tokens only; app-only tokens have no /me). Optional: properties. Returns the User.",
+      "method": "GET",
+      "path": "/me",
+      "params": [
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "users_messages",
+      "description": "List a user's mail messages. Required: id. Optional: filter, top, skip (plus 2 more). Returns array of Message.",
+      "method": "GET",
+      "path": "/users/{id}/messages",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "User object id or userPrincipalName",
+          "required": true
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter, e.g. 'isRead eq false'"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max messages per page (OData $top)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N results (OData $skip)"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'receivedDateTime desc'"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Graph properties to request (OData $select)"
+        }
+      ]
+    }
+  ]
+}

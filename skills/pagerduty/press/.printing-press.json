@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:25:50.923538Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "pagerduty",
+  "cli_name": "pagerduty-pp-cli",
+  "spec_path": "pagerduty-rest-openapiv3.json",
+  "run_id": "20260606-085517",
+  "novel_features": [
+    {
+      "name": "Live triage pulse",
+      "command": "pulse",
+      "description": "One offline call shows what's hot right now: open incidents bucketed by service, urgency and status with how long each has gone unacknowledged, sorted by SLA risk."
+    },
+    {
+      "name": "On-call now + next + handoff",
+      "command": "oncall who",
+      "description": "Resolves who is on call right now for a service or team, who is on next, and the exact handoff timestamp."
+    },
+    {
+      "name": "Escalation coverage audit",
+      "command": "audit coverage",
+      "description": "Flags services whose escalation chain is broken: empty tiers, single point of failure, expired or empty schedules, or no escalation policy at all."
+    },
+    {
+      "name": "MTTA / MTTR analytics",
+      "command": "insights mttr",
+      "description": "Mean time to acknowledge and resolve, computed from synced log-entry timestamps and grouped by service, team or priority."
+    },
+    {
+      "name": "On-call hours report",
+      "command": "oncall hours",
+      "description": "On-call hours per user over a time window, derived from synced schedule layers and overrides."
+    },
+    {
+      "name": "Responder workload + off-hours",
+      "command": "insights responders",
+      "description": "Per-responder page, ack and resolve counts plus the share of pages that landed off-hours (nights and weekends)."
+    },
+    {
+      "name": "Noisy-service ranking",
+      "command": "insights noisy",
+      "description": "Ranks services by incident volume, auto-resolve rate and re-trigger/flapping rate over a window."
+    },
+    {
+      "name": "Incident timeline",
+      "command": "incidents timeline",
+      "description": "Reconstructs one incident's full chronology \u2014 trigger, every ack, note, reassignment, escalation and resolve \u2014 with elapsed deltas between events."
+    },
+    {
+      "name": "Change-event correlation",
+      "command": "incidents changes",
+      "description": "For an incident, see the change events that shipped on the same service in the window right before it triggered, ranked by proximity."
+    },
+    {
+      "name": "Schedule gap audit",
+      "command": "audit schedule-gaps",
+      "description": "Find future time windows where a schedule has nobody on call, before an incident finds the hole for you."
+    },
+    {
+      "name": "Stale incident sweep",
+      "command": "insights stale",
+      "description": "Open incidents with no log activity past a threshold, grouped by responder and service \u2014 the ones quietly rotting."
+    }
+  ],
+  "spec_checksum": "sha256:81e1fec1de631f462f771cc1ba58fc4a74a701d5cbb0dd555847f728ac499126",
+  "spec_format": "openapi3",
+  "auth_type": "api_key",
+  "category": "monitoring"
+}

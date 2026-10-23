@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:02:20.463734Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "syncro",
+  "display_name": "Syncro",
+  "cli_name": "syncro-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:35aa562c743a366ca5682fe4b76bba3d0d14f6f0372f7a8f41833a4273b63400",
+  "run_id": "20260613-035911",
+  "category": "project-management",
+  "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
+  "mcp_binary": "syncro-pp-mcp",
+  "mcp_tool_count": 179,
+  "mcp_ready": "full",
+  "api_version": "v1",
+  "auth_type": "api_key",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "SYNCRO_API_KEY"
+  ],
+  "endpoint_template_vars": [
+    "subdomain"
+  ],
+  "endpoint_template_var_defaults": {
+    "subdomain": "your-subdomain"
+  },
+  "auth_key_url": "https://syncromsp.com",
+  "novel_features": [
+    {
+      "name": "Uninvoiced time",
+      "command": "billing uninvoiced",
+      "description": "Find logged-but-unbilled labor across every customer so no billable time slips."
+    },
+    {
+      "name": "Invoice drift audit",
+      "command": "billing drift",
+      "description": "Surface tickets closed long ago that have logged time but were never invoiced."
+    },
+    {
+      "name": "AR aging report",
+      "command": "billing ar-aging",
+      "description": "Bucket unpaid invoices into 0-30/30-60/60-90/90+ day aging tiers."
+    },
+    {
+      "name": "Customer profitability",
+      "command": "customers margin",
+      "description": "Compare logged labor against invoiced revenue per customer over a window."
+    },
+    {
+      "name": "SLA aging triage",
+      "command": "tickets aging",
+      "description": "List open tickets past SLA with no comment in the last N hours."
+    },
+    {
+      "name": "Patch gap sweep",
+      "command": "assets patch-gaps",
+      "description": "Rank assets missing critical patches across every customer."
+    },
+    {
+      "name": "Alert noise ranking",
+      "command": "alerts noise",
+      "description": "Rank customers by RMM alert volume over a time window."
+    },
+    {
+      "name": "Alert to ticket orphans",
+      "command": "alerts orphans",
+      "description": "Surface RMM alerts that never became a ticket within a window."
+    },
+    {
+      "name": "Snapshot diff",
+      "command": "snapshot diff",
+      "description": "Diff two retained local sync snapshots across all entities."
+    },
+    {
+      "name": "Customer 360",
+      "command": "customers profile",
+      "description": "One-shot cross-entity customer snapshot: open tickets, assets, AR balance, contracts, and latest RMM alerts in a single card."
+    }
+  ],
+  "scorecard": {
+    "api_name": "syncro",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 8,
+      "mcp_description_quality": 0,
+      "mcp_token_efficiency": 0,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 10,
+      "mcp_surface_strategy": 10,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 10,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 9,
+      "data_pipeline_integrity": 10,
+      "sync_correctness": 10,
+      "type_fidelity": 4,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 95,
+      "percentage": 95
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 179 tools (0 public, 179 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_description_quality",
+      "mcp_token_efficiency",
+      "live_api_verification"
+    ]
+  }
+}

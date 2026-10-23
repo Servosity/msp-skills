@@ -1,0 +1,521 @@
+{
+  "api_name": "knowbe4",
+  "base_url": "https://{region}.api.knowbe4.com/v1",
+  "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {KNOWBE4_API_KEY}",
+    "in": "header",
+    "env_vars": [
+      "KNOWBE4_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "KNOWBE4_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://developer.knowbe4.com/"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_info",
+      "description": "Get account and subscription data (name, subscription level, seats, admins, current risk score). Returns the Account.",
+      "method": "GET",
+      "path": "/account",
+      "params": []
+    },
+    {
+      "name": "account_risk-score-history",
+      "description": "Get the org-level risk-score history time series. Optional: full. Returns array of RiskScorePoint.",
+      "method": "GET",
+      "path": "/account/risk_score_history",
+      "params": [
+        {
+          "name": "full",
+          "type": "string",
+          "location": "query",
+          "description": "Set 'true' to return the full history (default returns the most recent points)"
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a single group by id. Required: id. Returns the Group.",
+      "method": "GET",
+      "path": "/groups/{group_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "group_id",
+          "type": "int",
+          "location": "path",
+          "description": "Group id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "List all groups with member counts and risk scores. Optional: page (default: 1), per-page (default: 100), status. Returns array of Group.",
+      "method": "GET",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (default 100, max 500)"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status: active or archived"
+        }
+      ]
+    },
+    {
+      "name": "groups_members",
+      "description": "List the users in a group. Required: id. Optional: page (default: 1), per-page (default: 100). Returns array of User.",
+      "method": "GET",
+      "path": "/groups/{group_id}/members",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "group_id",
+          "type": "int",
+          "location": "path",
+          "description": "Group id",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "groups_risk-score-history",
+      "description": "Get a group's risk-score history time series. Required: id. Optional: full. Returns array of RiskScorePoint.",
+      "method": "GET",
+      "path": "/groups/{group_id}/risk_score_history",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "group_id",
+          "type": "int",
+          "location": "path",
+          "description": "Group id",
+          "required": true
+        },
+        {
+          "name": "full",
+          "type": "string",
+          "location": "query",
+          "description": "Set 'true' to return the full history"
+        }
+      ]
+    },
+    {
+      "name": "phishing-campaigns_get",
+      "description": "Get a single phishing campaign by id. Required: id. Returns the PhishingCampaign.",
+      "method": "GET",
+      "path": "/phishing/campaigns/{campaign_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "campaign_id",
+          "type": "int",
+          "location": "path",
+          "description": "Phishing campaign id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phishing-campaigns_list",
+      "description": "List all phishing campaigns. Optional: page (default: 1), per-page (default: 100). Returns array of PhishingCampaign.",
+      "method": "GET",
+      "path": "/phishing/campaigns",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "phishing-campaigns_security-tests",
+      "description": "List the phishing security tests (PSTs) run by a campaign. Required: id. Returns array of PhishingSecurityTest.",
+      "method": "GET",
+      "path": "/phishing/campaigns/{campaign_id}/security_tests",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "campaign_id",
+          "type": "int",
+          "location": "path",
+          "description": "Phishing campaign id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phishing-tests_get",
+      "description": "Get a single phishing security test by id. Required: id. Returns the PhishingSecurityTest.",
+      "method": "GET",
+      "path": "/phishing/security_tests/{pst_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "pst_id",
+          "type": "int",
+          "location": "path",
+          "description": "Phishing security test (PST) id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phishing-tests_list",
+      "description": "List all phishing security tests (PSTs) across every campaign. Optional: page (default: 1), per-page (default: 100). Returns array of PhishingSecurityTest.",
+      "method": "GET",
+      "path": "/phishing/security_tests",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "phishing-tests_recipient",
+      "description": "Get a single recipient's result within a PST. Required: pst-id, recipient-id. Returns the PstRecipient.",
+      "method": "GET",
+      "path": "/phishing/security_tests/{pst_id}/recipients/{recipient_id}",
+      "params": [
+        {
+          "name": "pst-id",
+          "wire_name": "pst_id",
+          "type": "int",
+          "location": "path",
+          "description": "Phishing security test (PST) id",
+          "required": true
+        },
+        {
+          "name": "recipient-id",
+          "wire_name": "recipient_id",
+          "type": "int",
+          "location": "path",
+          "description": "Recipient id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phishing-tests_recipients",
+      "description": "List per-user results for a PST (who opened, clicked, reported, entered data). Required: id. Optional: page (default: 1), per-page (default: 100). Returns array of PstRecipient.",
+      "method": "GET",
+      "path": "/phishing/security_tests/{pst_id}/recipients",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "pst_id",
+          "type": "int",
+          "location": "path",
+          "description": "Phishing security test (PST) id",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "policies_get",
+      "description": "Get a single policy by id. Required: id. Returns the Policy.",
+      "method": "GET",
+      "path": "/policies/{policy_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "policy_id",
+          "type": "int",
+          "location": "path",
+          "description": "Policy id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "List all uploaded policies. Optional: page (default: 1), per-page (default: 100). Returns array of Policy.",
+      "method": "GET",
+      "path": "/policies",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "store-purchases_get",
+      "description": "Get a single store purchase by id. Required: id. Returns the StorePurchase.",
+      "method": "GET",
+      "path": "/training/store_purchases/{store_purchase_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "store_purchase_id",
+          "type": "int",
+          "location": "path",
+          "description": "Store purchase id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "store-purchases_list",
+      "description": "List all training store purchases (licensed content/modules). Optional: page (default: 1), per-page (default: 100). Returns array of StorePurchase.",
+      "method": "GET",
+      "path": "/training/store_purchases",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "training-campaigns_get",
+      "description": "Get a single training campaign by id. Required: id. Returns the TrainingCampaign.",
+      "method": "GET",
+      "path": "/training/campaigns/{campaign_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "campaign_id",
+          "type": "int",
+          "location": "path",
+          "description": "Training campaign id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "training-campaigns_list",
+      "description": "List all training campaigns. Optional: page (default: 1), per-page (default: 100). Returns array of TrainingCampaign.",
+      "method": "GET",
+      "path": "/training/campaigns",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        }
+      ]
+    },
+    {
+      "name": "training-enrollments_get",
+      "description": "Get a single training enrollment by id. Required: id. Returns the TrainingEnrollment.",
+      "method": "GET",
+      "path": "/training/enrollments/{enrollment_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "enrollment_id",
+          "type": "int",
+          "location": "path",
+          "description": "Enrollment id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "training-enrollments_list",
+      "description": "List all training enrollments with completion status and time spent. Optional: page (default: 1), per-page (default: 100), campaign-id (plus 1 more). Returns array of TrainingEnrollment.",
+      "method": "GET",
+      "path": "/training/enrollments",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page"
+        },
+        {
+          "name": "campaign-id",
+          "wire_name": "campaign_id",
+          "type": "int",
+          "location": "query",
+          "description": "Only enrollments in this training campaign"
+        },
+        {
+          "name": "store-purchase-id",
+          "wire_name": "store_purchase_id",
+          "type": "int",
+          "location": "query",
+          "description": "Only enrollments for this store purchase / module"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a single user by id. Required: id. Returns the User.",
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "user_id",
+          "type": "int",
+          "location": "path",
+          "description": "User id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List all users with risk score and phish-prone percentage. Optional: page (default: 1), per-page (default: 100), status (plus 1 more). Returns array of User.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "per-page",
+          "wire_name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (default 100, max 500)"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status: active or archived"
+        },
+        {
+          "name": "group-id",
+          "wire_name": "group_id",
+          "type": "int",
+          "location": "query",
+          "description": "Only users in this group id"
+        }
+      ]
+    },
+    {
+      "name": "users_risk-score-history",
+      "description": "Get a user's risk-score history time series. Required: id. Optional: full. Returns array of RiskScorePoint.",
+      "method": "GET",
+      "path": "/users/{user_id}/risk_score_history",
+      "params": [
+        {
+          "name": "id",
+          "wire_name": "user_id",
+          "type": "int",
+          "location": "path",
+          "description": "User id",
+          "required": true
+        },
+        {
+          "name": "full",
+          "type": "string",
+          "location": "query",
+          "description": "Set 'true' to return the full history"
+        }
+      ]
+    }
+  ]
+}

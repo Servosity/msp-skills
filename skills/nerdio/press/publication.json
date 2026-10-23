@@ -1,0 +1,6 @@
+{
+ "schema": 1,
+ "withheld": {
+  "spec.yaml": "spec source not public: the provenance records no http(s) spec URL and the spec is not in the repository's history"
+ }
+}

@@ -1,0 +1,1420 @@
+{
+  "api_name": "liongard",
+  "base_url": "https://{instance}.app.liongard.com/api/v1",
+  "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "X-ROAR-API-KEY",
+    "in": "header",
+    "env_vars": [
+      "LIONGARD_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "LIONGARD_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "access-keys_create",
+      "description": "Create an Access Token with the permission of user or with only 'Add Agent' permission. Optional: daysUntilExpiration, isAgentInstallKey. Returns array of AccessKeysCreateItem.",
+      "method": "POST",
+      "path": "/access-keys",
+      "params": [
+        {
+          "name": "daysUntilExpiration",
+          "type": "string",
+          "location": "body",
+          "description": "Days until expiration"
+        },
+        {
+          "name": "isAgentInstallKey",
+          "type": "bool",
+          "location": "body",
+          "description": "Is agent install key"
+        }
+      ]
+    },
+    {
+      "name": "access-keys_delete",
+      "description": "Delete Access Token created by user. Required: AccessKeyID. Destructive.",
+      "method": "DELETE",
+      "path": "/access-keys/{AccessKeyID}",
+      "params": [
+        {
+          "name": "AccessKeyID",
+          "type": "string",
+          "location": "path",
+          "description": "ID of Access Key",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "access-keys_get",
+      "description": "Returns a List of Access Tokens created by user.",
+      "method": "GET",
+      "path": "/access-keys",
+      "params": []
+    },
+    {
+      "name": "access-keys_get-count",
+      "description": "Return a count of all Access Tokens created by user.",
+      "method": "GET",
+      "path": "/access-keys/count",
+      "params": []
+    },
+    {
+      "name": "agents_delete",
+      "description": "Remove an agent. Required: AgentID. Destructive.",
+      "method": "DELETE",
+      "path": "/agents/{AgentID}",
+      "params": [
+        {
+          "name": "AgentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Agent",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_get",
+      "description": "List all agents. Optional: fields[]. Returns array of Agents.",
+      "method": "GET",
+      "path": "/agents",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "agents_get-agentid",
+      "description": "Get a specific Agent. Required: AgentID. Optional: fields[]. Returns array of Agents.",
+      "method": "GET",
+      "path": "/agents/{AgentID}",
+      "params": [
+        {
+          "name": "AgentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Agent",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "agents_get-count",
+      "description": "Returns a count of all the agents in your service provider.",
+      "method": "GET",
+      "path": "/agents/count",
+      "params": []
+    },
+    {
+      "name": "agents_update",
+      "description": "Edits a deployed liongard agent, cannot update On-Demand agents. Required: AgentID, Name. Optional: Description, Environment. Returns array of Agents.",
+      "method": "PUT",
+      "path": "/agents/{AgentID}",
+      "params": [
+        {
+          "name": "AgentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Agent",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "environment-id",
+          "wire_name": "Environment.ID",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_flush_job-queue",
+      "description": "Empty an agent's job queue. Required: AgentID.",
+      "method": "POST",
+      "path": "/agents/{AgentID}/flush",
+      "params": [
+        {
+          "name": "AgentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Agent",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "authentication_log-in",
+      "description": "Returns a session token as well as additional information about logged-in user. Optional: Password, Username. (public)",
+      "method": "POST",
+      "path": "/authentication/login",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "Password",
+          "type": "string",
+          "location": "body",
+          "description": "Password"
+        },
+        {
+          "name": "Username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        }
+      ]
+    },
+    {
+      "name": "authentication_verify-token",
+      "description": "Verify token with MFA authentication code. Optional: Token. Returns the new Login.",
+      "method": "POST",
+      "path": "/authentication/verify-token",
+      "params": [
+        {
+          "name": "Token",
+          "type": "string",
+          "location": "body",
+          "description": "Token"
+        }
+      ]
+    },
+    {
+      "name": "detections_detections",
+      "description": "Returns a list of all detection events. Optional: fields[], conditions[].",
+      "method": "GET",
+      "path": "/detections",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "detections_detectionsby-id",
+      "description": "Gets a specific detection. Required: DetectionID. Optional: fields[]. Returns array of Detection.",
+      "method": "GET",
+      "path": "/detections/{DetectionID}",
+      "params": [
+        {
+          "name": "DetectionID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Detection",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "detections_get-count1234",
+      "description": "Returns count of all detection events.",
+      "method": "GET",
+      "path": "/detections/count",
+      "params": []
+    },
+    {
+      "name": "environments_count",
+      "description": "Returns a count of all environments in your Service Provider.",
+      "method": "GET",
+      "path": "/environments/count",
+      "params": []
+    },
+    {
+      "name": "environments_create",
+      "description": "Creates a single Liongard Environment. If you want to create a child environment, set the Parent Environment, if not set to null. Required: Description, Name, Parent. Optional: Tier. Returns the new Environments.",
+      "method": "POST",
+      "path": "/environments",
+      "params": [
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "Parent",
+          "type": "string",
+          "location": "body",
+          "description": "Parent",
+          "required": true
+        },
+        {
+          "name": "Tier",
+          "type": "string",
+          "location": "body",
+          "description": "Defaults to Core, if not used"
+        }
+      ]
+    },
+    {
+      "name": "environments_create-bulk",
+      "description": "Create many environments at once. If you want to create a child environment, set the Parent Environment, if not set to null. Returns array of Environments.",
+      "method": "POST",
+      "path": "/environments/bulk",
+      "params": []
+    },
+    {
+      "name": "environments_delete",
+      "description": "Delete an environment. Required: EnvironmentID. Destructive.",
+      "method": "DELETE",
+      "path": "/environments/{EnvironmentID}",
+      "params": [
+        {
+          "name": "EnvironmentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Environment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "environments_get",
+      "description": "Fetch all environments in your Service Provider. Optional: fields[], conditions[]. Returns array of Environments.",
+      "method": "GET",
+      "path": "/environments",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "environments_get-environmentid",
+      "description": "Get a single environment. Required: EnvironmentID. Optional: fields[]. Returns the Environments.",
+      "method": "GET",
+      "path": "/environments/{EnvironmentID}",
+      "params": [
+        {
+          "name": "EnvironmentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Environment",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "environments_update",
+      "description": "Update a single environment, If you want to update a child environment, set the Parent Environment, if not set to null. Required: EnvironmentID, Description, Name, Parent, Status. Optional: Tier. Returns the updated Environments.",
+      "method": "PUT",
+      "path": "/environments/{EnvironmentID}",
+      "params": [
+        {
+          "name": "EnvironmentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Environment",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "Parent",
+          "type": "string",
+          "location": "body",
+          "description": "Parent",
+          "required": true
+        },
+        {
+          "name": "Status",
+          "type": "int",
+          "location": "body",
+          "description": "Status",
+          "required": true
+        },
+        {
+          "name": "Tier",
+          "type": "string",
+          "location": "body",
+          "description": "Tier"
+        }
+      ]
+    },
+    {
+      "name": "environments_related-entities_get",
+      "description": "Fetch all the related entities for a specific environment, including Launchpoints, Agents, and Child Environments. Required: EnvironmentID. Returns the EnvironmentRelatedEntities.",
+      "method": "GET",
+      "path": "/environments/{EnvironmentID}/relatedEntities",
+      "params": [
+        {
+          "name": "EnvironmentID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Environment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Returns a List of available Assignable Roles for a user. Optional: fields[], conditions[].",
+      "method": "GET",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "inspector_templates_get-inspectors",
+      "description": "Get Inspector Config and SecureConfig Fields. Each Inspector has a set of variables used for configuring the launchpoint of an inspector. The Name key under variables is what is needed for completing the launchpoint configuration, the Secure and Required keys are used to determine if the configuration fields are SecureConfig or Config and if they are required. Required: InspectorId. Optional: fields[]. Returns array of InspectorTemplate.",
+      "method": "GET",
+      "path": "/inspector/{InspectorId}/templates",
+      "params": [
+        {
+          "name": "InspectorId",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Inspector",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "inspector_versions_get-inspector",
+      "description": "Returns a List of Inspector Versions, This ID is required for creating a metric and determining the latest version of the inspector to run against. The Latest version of the inspector can be determined by the Lastest ID in the List (Highest ID) or you can use the 'CreatedOn' field to determine the latest ID. We recommend sorting by 'desc' to return the latest ID at the top of the list. Required: InspectorId. Optional: fields[], orderBy[].",
+      "method": "GET",
+      "path": "/inspector/{InspectorId}/versions",
+      "params": [
+        {
+          "name": "InspectorId",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Inspector",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "orderBy[]",
+          "type": "string",
+          "location": "query",
+          "description": "Sort response key by Ascending or Descending order"
+        }
+      ]
+    },
+    {
+      "name": "inspectors_get",
+      "description": "Lists all avaialble Inspectors in Liongard. Optional: fields[]. Returns the Inspector.",
+      "method": "GET",
+      "path": "/inspectors",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_bulk-delete",
+      "description": "Remove all launchpoints. Optional: LaunchPoints. Returns the LaunchpointsBulkDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/launchpoints",
+      "params": [
+        {
+          "name": "LaunchPoints",
+          "type": "array",
+          "location": "body",
+          "description": "Launch points"
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_bulk-run",
+      "description": "Kick off many inspections. Required: LaunchPoints. Returns the new LaunchpointsBulkRunResponse.",
+      "method": "POST",
+      "path": "/launchpoints/run",
+      "params": [
+        {
+          "name": "LaunchPoints",
+          "type": "array",
+          "location": "body",
+          "description": "Launch points",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_delete",
+      "description": "Remove a single launchpoint. Required: LaunchpointID. Destructive.",
+      "method": "DELETE",
+      "path": "/launchpoints/{LaunchpointID}",
+      "params": [
+        {
+          "name": "LaunchpointID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Launchpoint",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_get",
+      "description": "Lists all launchpoints. Optional: fields[], conditions[]. Returns array of Launchpoints.",
+      "method": "GET",
+      "path": "/launchpoints",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_get-count",
+      "description": "Returns a count of all launchpoints.",
+      "method": "GET",
+      "path": "/launchpoints/count",
+      "params": []
+    },
+    {
+      "name": "launchpoints_launchpoint",
+      "description": "Create a launchpoint. You will need to reference the inspector templates for building out the config and secure config objects for this launchpoint. Each Inspector has a different template that contains the necessary configuration fields. Required: ActiveEnd, ActiveStart, Agent, Alias, Config, Enabled, Environment, FreqInterval, FreqType, Inspector, Version, Visible. Optional: ParentID, SecureConfig. Returns array of LaunchpointsLaunchpointItem.",
+      "method": "POST",
+      "path": "/launchpoints",
+      "params": [
+        {
+          "name": "ActiveEnd",
+          "type": "string",
+          "location": "body",
+          "description": "Active end",
+          "required": true
+        },
+        {
+          "name": "ActiveStart",
+          "type": "string",
+          "location": "body",
+          "description": "Active start",
+          "required": true
+        },
+        {
+          "name": "agent-id",
+          "wire_name": "Agent.ID",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "Alias",
+          "type": "string",
+          "location": "body",
+          "description": "The friendly name of the launchpoint.",
+          "required": true
+        },
+        {
+          "name": "Config",
+          "type": "object",
+          "location": "body",
+          "description": "The inspectors non Secure Configuration details, this is usually URLs or Configuration details, See Inspector Template Endpoint to build variables",
+          "required": true
+        },
+        {
+          "name": "Enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enabled",
+          "required": true
+        },
+        {
+          "name": "environment-id",
+          "wire_name": "Environment.ID",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "FreqInterval",
+          "type": "int",
+          "location": "body",
+          "description": "Freq interval",
+          "required": true
+        },
+        {
+          "name": "FreqType",
+          "type": "string",
+          "location": "body",
+          "description": "Allowed values include 'day', 'hour'",
+          "required": true
+        },
+        {
+          "name": "inspector-id",
+          "wire_name": "Inspector.ID",
+          "type": "string",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "ParentID",
+          "type": "int",
+          "location": "body",
+          "description": "Parent id"
+        },
+        {
+          "name": "SecureConfig",
+          "type": "object",
+          "location": "body",
+          "description": "The inspectors Secure Configuration details, this is usually passwords or Secret Tokens, See Inspector Template Endpoint to build variables"
+        },
+        {
+          "name": "Version",
+          "type": "string",
+          "location": "body",
+          "description": "Version",
+          "required": true
+        },
+        {
+          "name": "Visible",
+          "type": "bool",
+          "location": "body",
+          "description": "Visible",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_launchpointsby-id",
+      "description": "Return a specific launchpoint by ID. Required: LaunchpointID. Optional: fields[]. Returns array of Launchpoints.",
+      "method": "GET",
+      "path": "/launchpoints/{LaunchpointID}",
+      "params": [
+        {
+          "name": "LaunchpointID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Launchpoint",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_update",
+      "description": "Edit a single inspector launchpoint. You will need to reference the inspector templates for building out the config and secure config objects for this launchpoint. Each Inspector has a different template that contains the necessary configuration fields. Required: LaunchpointID. Optional: ActiveEnd, Agent, Alias (plus 8 more). Returns array of Launchpoints.",
+      "method": "PUT",
+      "path": "/launchpoints/{LaunchpointID}",
+      "params": [
+        {
+          "name": "LaunchpointID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Launchpoint",
+          "required": true
+        },
+        {
+          "name": "ActiveEnd",
+          "type": "string",
+          "location": "body",
+          "description": "Active end"
+        },
+        {
+          "name": "agent-id",
+          "wire_name": "Agent.ID",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "Alias",
+          "type": "string",
+          "location": "body",
+          "description": "Alias"
+        },
+        {
+          "name": "Config",
+          "type": "object",
+          "location": "body",
+          "description": "Config"
+        },
+        {
+          "name": "environment-id",
+          "wire_name": "Environment.ID",
+          "type": "int",
+          "location": "body",
+          "description": "Id"
+        },
+        {
+          "name": "FreqInterval",
+          "type": "int",
+          "location": "body",
+          "description": "Freq interval"
+        },
+        {
+          "name": "FreqType",
+          "type": "string",
+          "location": "body",
+          "description": "Freq type"
+        },
+        {
+          "name": "NextScheduledFor",
+          "type": "string",
+          "location": "body",
+          "description": "Next scheduled for"
+        },
+        {
+          "name": "ParentID",
+          "type": "int",
+          "location": "body",
+          "description": "Parent id"
+        },
+        {
+          "name": "SecureConfig",
+          "type": "object",
+          "location": "body",
+          "description": "Secure config"
+        },
+        {
+          "name": "Version",
+          "type": "string",
+          "location": "body",
+          "description": "Version"
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_update-bulk",
+      "description": "Update many launchpoints to run on the same schedule. Required: ActiveEnd, BulkInterval, BulkIntervalNumber, BulkIntervalType, FreqInterval, FreqType, LaunchPoints, NextScheduledFor. Returns the updated LaunchpointsUpdateBulkResponse.",
+      "method": "PUT",
+      "path": "/launchpoints",
+      "params": [
+        {
+          "name": "ActiveEnd",
+          "type": "string",
+          "location": "body",
+          "description": "Active end",
+          "required": true
+        },
+        {
+          "name": "BulkInterval",
+          "type": "bool",
+          "location": "body",
+          "description": "Bulk interval",
+          "required": true
+        },
+        {
+          "name": "BulkIntervalNumber",
+          "type": "int",
+          "location": "body",
+          "description": "Bulk interval number",
+          "required": true
+        },
+        {
+          "name": "BulkIntervalType",
+          "type": "string",
+          "location": "body",
+          "description": "Bulk interval type",
+          "required": true
+        },
+        {
+          "name": "FreqInterval",
+          "type": "int",
+          "location": "body",
+          "description": "Freq interval",
+          "required": true
+        },
+        {
+          "name": "FreqType",
+          "type": "string",
+          "location": "body",
+          "description": "Freq type",
+          "required": true
+        },
+        {
+          "name": "LaunchPoints",
+          "type": "array",
+          "location": "body",
+          "description": "Launch points",
+          "required": true
+        },
+        {
+          "name": "NextScheduledFor",
+          "type": "string",
+          "location": "body",
+          "description": "Next scheduled for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "launchpoints_run_run",
+      "description": "Set a Launchpoint to run an inspection. Required: LaunchpointID.",
+      "method": "GET",
+      "path": "/launchpoints/{LaunchpointID}/run",
+      "params": [
+        {
+          "name": "LaunchpointID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Launchpoint",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "logs_launchpoint",
+      "description": "Return the logs for a specific inspection. Required: launchpoint, timeline.",
+      "method": "GET",
+      "path": "/logs",
+      "params": [
+        {
+          "name": "launchpoint",
+          "type": "int",
+          "location": "query",
+          "description": "Launchpoint ID",
+          "required": true
+        },
+        {
+          "name": "timeline",
+          "type": "int",
+          "location": "query",
+          "description": "Timeline ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "metrics_create",
+      "description": "Creates a Single Metrics for a system requires valid JMESPath in the Query field. Required: InspectorID, Name, Queries. Optional: ChangesEnabled, MetricDisplay. Returns the new Metrics.",
+      "method": "POST",
+      "path": "/metrics",
+      "params": [
+        {
+          "name": "ChangesEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Changes enabled"
+        },
+        {
+          "name": "InspectorID",
+          "type": "int",
+          "location": "body",
+          "description": "Inspector id",
+          "required": true
+        },
+        {
+          "name": "MetricDisplay",
+          "type": "bool",
+          "location": "body",
+          "description": "Metric display"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "Queries",
+          "type": "array",
+          "location": "body",
+          "description": "Queries",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "metrics_delete",
+      "description": "Deletes only Custom Created Metrics, Liongard Created Metrics can not be deleted. Required: MetricID. Destructive.",
+      "method": "DELETE",
+      "path": "/metrics/{MetricID}",
+      "params": [
+        {
+          "name": "MetricID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of the Metric",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "metrics_evaluation",
+      "description": "For each system ID passed, evaluates each metric ID/UUID passed for that system for the latest inspection data and returns the results. You can use this to build your own reports. You must pass a list of system IDs and metric IDs/UUIDs in the URL parameters. You can request values for up to 10 systems at a time. Setting includeNonVisible true allows you to get metric values without requiring you to toggle metrics to display within the Liongard UI. Required: systems, uuids. Optional: metrics, includeNonVisible.",
+      "method": "GET",
+      "path": "/metrics/bulk",
+      "params": [
+        {
+          "name": "systems",
+          "type": "array",
+          "location": "query",
+          "description": "List of system IDs",
+          "required": true
+        },
+        {
+          "name": "metrics",
+          "type": "array",
+          "location": "query",
+          "description": "List of metric IDs"
+        },
+        {
+          "name": "uuids",
+          "type": "array",
+          "location": "query",
+          "description": "List of metric UUIDs",
+          "required": true
+        },
+        {
+          "name": "includeNonVisible",
+          "type": "bool",
+          "location": "query",
+          "description": "If you want to include non-enabled metrics to be evaluated"
+        }
+      ]
+    },
+    {
+      "name": "metrics_evaluation-post",
+      "description": "For each system ID passed, evaluates each metric ID/UUID passed for that system for the latest inspection data and returns the results. Instead of the latest inspection data, you can specify a date from which to retrieve metric values. Setting includeNonVisible true allows you to get metric values without requiring you to toggle metrics to display within the Liongard UI. Optional: includeNonVisible, date, metricUUIDs (plus 2 more).",
+      "method": "POST",
+      "path": "/metrics/bulk",
+      "params": [
+        {
+          "name": "includeNonVisible",
+          "type": "bool",
+          "location": "query",
+          "description": "If you want to include non-enabled metrics to be evaluated. Default is false."
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "body",
+          "description": "Inspection date from which to retrieve metric values. If not specified, metric values from the latest inspection will be retrieved."
+        },
+        {
+          "name": "metricUUIDs",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of metric UUIDs"
+        },
+        {
+          "name": "metrics",
+          "type": "array",
+          "location": "body",
+          "description": "List of metric IDs"
+        },
+        {
+          "name": "systems",
+          "type": "array",
+          "location": "body",
+          "description": "List of system IDs"
+        }
+      ]
+    },
+    {
+      "name": "metrics_metrics",
+      "description": "Returns a list of metrics that have been created. Optional: conditions[].",
+      "method": "GET",
+      "path": "/metrics",
+      "params": [
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "metrics_update",
+      "description": "Updates a Metric requires valid JMESPath in the Query field. Required: MetricID, InspectorID, Name, Queries. Optional: ChangesEnabled, MetricDisplay. Returns the updated Metrics.",
+      "method": "PUT",
+      "path": "/metrics/{MetricID}",
+      "params": [
+        {
+          "name": "MetricID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of the Metric",
+          "required": true
+        },
+        {
+          "name": "ChangesEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Changes enabled"
+        },
+        {
+          "name": "InspectorID",
+          "type": "int",
+          "location": "body",
+          "description": "Inspector id",
+          "required": true
+        },
+        {
+          "name": "MetricDisplay",
+          "type": "bool",
+          "location": "body",
+          "description": "Metric display"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "Queries",
+          "type": "array",
+          "location": "body",
+          "description": "Queries",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "systems_get-count",
+      "description": "Count of all systems in your service provider.",
+      "method": "GET",
+      "path": "/systems/count",
+      "params": []
+    },
+    {
+      "name": "systems_systems",
+      "description": "List all systems. Optional: fields[], conditions[]. Returns array of Systems.",
+      "method": "GET",
+      "path": "/systems",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "systems_view_system-detail",
+      "description": "Returns the Raw data from the latest inspection for a system. Required: SystemID.",
+      "method": "POST",
+      "path": "/systems/{SystemID}/view",
+      "params": [
+        {
+          "name": "SystemID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of System",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_get-alert",
+      "description": "Returns a single alert that has been raised. Required: TaskID. Optional: fields[].",
+      "method": "GET",
+      "path": "/tasks/{TaskID}",
+      "params": [
+        {
+          "name": "TaskID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Alert",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "tasks_get-count12345",
+      "description": "Returns a count of all alerts.",
+      "method": "GET",
+      "path": "/tasks/count",
+      "params": []
+    },
+    {
+      "name": "tasks_list-alerts",
+      "description": "Returns a list of alerts that have been raised. Optional: fields[].",
+      "method": "GET",
+      "path": "/tasks",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "timeline_get-count123",
+      "description": "Return count of all timeline entries.",
+      "method": "GET",
+      "path": "/timeline/count",
+      "params": []
+    },
+    {
+      "name": "timeline_timeline",
+      "description": "Fetch all timeline entries. Optional: fields[], conditions[]. Returns array of Timeline.",
+      "method": "GET",
+      "path": "/timeline",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "timeline_timelineby-id",
+      "description": "Fetch a specific timeline. Required: TimelineID. Optional: fields[]. Returns array of Timeline.",
+      "method": "GET",
+      "path": "/timeline/{TimelineID}",
+      "params": [
+        {
+          "name": "TimelineID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Timeline",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "timeline_detail_timeline",
+      "description": "Fetch the Raw timeline entry (including the entire dataprint). Required: TimelineID. Returns array of TimelineDetail.",
+      "method": "GET",
+      "path": "/timeline/{TimelineID}/detail",
+      "params": [
+        {
+          "name": "TimelineID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of Timeline",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_count",
+      "description": "Returns a count of total users.",
+      "method": "GET",
+      "path": "/users/count",
+      "params": []
+    },
+    {
+      "name": "users_create",
+      "description": "When creating and using the Manger or Reader Roles it is required to use either the Environment/EnvironmentID or EnvironmentGroupID/EnvironmentGroup to select environments associated to each role. If selecting Admin, System Integrator or User admin keep these fields null. Optional: Department, Email, FirstName (plus 5 more). Returns array of Users.",
+      "method": "POST",
+      "path": "/users",
+      "params": [
+        {
+          "name": "Department",
+          "type": "string",
+          "location": "body",
+          "description": "Department"
+        },
+        {
+          "name": "Email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "FirstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "Groups",
+          "type": "array",
+          "location": "body",
+          "description": "Groups"
+        },
+        {
+          "name": "LastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "MfaFactorAuth",
+          "type": "bool",
+          "location": "body",
+          "description": "Mfa factor auth"
+        },
+        {
+          "name": "ReceiveTechUpdates",
+          "type": "bool",
+          "location": "body",
+          "description": "Receive tech updates"
+        },
+        {
+          "name": "Username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        }
+      ]
+    },
+    {
+      "name": "users_delete",
+      "description": "Remove a single User. Required: UserID. Destructive.",
+      "method": "DELETE",
+      "path": "/users/{UserID}",
+      "params": [
+        {
+          "name": "UserID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of User",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Returns a list of users in your Liongard Instance. Optional: fields[], conditions[].",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        },
+        {
+          "name": "conditions[]",
+          "type": "string",
+          "location": "query",
+          "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
+        }
+      ]
+    },
+    {
+      "name": "users_get-single",
+      "description": "Returns a Single User. Required: UserID. Optional: fields[].",
+      "method": "GET",
+      "path": "/users/{UserID}",
+      "params": [
+        {
+          "name": "UserID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of User",
+          "required": true
+        },
+        {
+          "name": "fields[]",
+          "type": "array",
+          "location": "query",
+          "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
+        }
+      ]
+    },
+    {
+      "name": "users_update",
+      "description": "Updates a single User. Required: UserID. Optional: Department, Email, FirstName (plus 5 more). Returns array of Users.",
+      "method": "PUT",
+      "path": "/users/{UserID}",
+      "params": [
+        {
+          "name": "UserID",
+          "type": "int",
+          "location": "path",
+          "description": "ID of User",
+          "required": true
+        },
+        {
+          "name": "Department",
+          "type": "string",
+          "location": "body",
+          "description": "Department"
+        },
+        {
+          "name": "Email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "FirstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "Groups",
+          "type": "array",
+          "location": "body",
+          "description": "Groups"
+        },
+        {
+          "name": "LastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "MfaFactorAuth",
+          "type": "bool",
+          "location": "body",
+          "description": "Mfa factor auth"
+        },
+        {
+          "name": "ReceiveTechUpdates",
+          "type": "bool",
+          "location": "body",
+          "description": "Receive tech updates"
+        },
+        {
+          "name": "Username",
+          "type": "string",
+          "location": "body",
+          "description": "Username"
+        }
+      ]
+    }
+  ]
+}

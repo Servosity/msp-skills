@@ -1,0 +1,3955 @@
+{
+  "api_name": "salesbuildr",
+  "base_url": "https://{tenant}.salesbuildr.com/public-api",
+  "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "api-key",
+    "in": "header",
+    "env_vars": [
+      "SALESBUILDR_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "SALESBUILDR_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "category_public-get-all-categories",
+      "description": "Get all categories. Returns array of CategoryResponseDto.",
+      "method": "GET",
+      "path": "/category",
+      "params": []
+    },
+    {
+      "name": "category_public-get-all-categories-as-tree",
+      "description": "Get all categories as tree. Optional: includeEmpty. Returns array of RootCategoryResponseDto.",
+      "method": "GET",
+      "path": "/category/tree",
+      "params": [
+        {
+          "name": "includeEmpty",
+          "type": "bool",
+          "location": "query",
+          "description": "Include empty"
+        }
+      ]
+    },
+    {
+      "name": "company_public-create",
+      "description": "Create. Required: name, number, type. Optional: aboutUs, accountManagerExtId, accountManagerId (plus 18 more). Returns the new CompanyResponseDto.",
+      "method": "POST",
+      "path": "/company",
+      "params": [
+        {
+          "name": "aboutUs",
+          "type": "string",
+          "location": "body",
+          "description": "About us"
+        },
+        {
+          "name": "accountManagerExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Account manager ext id"
+        },
+        {
+          "name": "accountManagerId",
+          "type": "string",
+          "location": "body",
+          "description": "Account manager id"
+        },
+        {
+          "name": "address-apartment",
+          "wire_name": "address.apartment",
+          "type": "string",
+          "location": "body",
+          "description": "Apartment",
+          "required": true
+        },
+        {
+          "name": "address-city",
+          "wire_name": "address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City",
+          "required": true
+        },
+        {
+          "name": "address-company-name",
+          "wire_name": "address.companyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name",
+          "required": true
+        },
+        {
+          "name": "address-contact-name",
+          "wire_name": "address.contactName",
+          "type": "string",
+          "location": "body",
+          "description": "Contact name",
+          "required": true
+        },
+        {
+          "name": "address-country",
+          "wire_name": "address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Country",
+          "required": true
+        },
+        {
+          "name": "address-state",
+          "wire_name": "address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State",
+          "required": true
+        },
+        {
+          "name": "address-street",
+          "wire_name": "address.street",
+          "type": "string",
+          "location": "body",
+          "description": "Street",
+          "required": true
+        },
+        {
+          "name": "address-zip",
+          "wire_name": "address.zip",
+          "type": "string",
+          "location": "body",
+          "description": "Zip",
+          "required": true
+        },
+        {
+          "name": "avoidWebsiteLogo",
+          "type": "bool",
+          "location": "body",
+          "description": "Avoid website logo"
+        },
+        {
+          "name": "blockQuote",
+          "type": "bool",
+          "location": "body",
+          "description": "Block quote"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "defaultDeliveryAddressExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Default delivery address ext id"
+        },
+        {
+          "name": "defaultDeliveryAddressId",
+          "type": "string",
+          "location": "body",
+          "description": "Default delivery address id"
+        },
+        {
+          "name": "deliveryAddresses",
+          "type": "array",
+          "location": "body",
+          "description": "Delivery addresses"
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier"
+        },
+        {
+          "name": "labels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Labels"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "body",
+          "description": "Number",
+          "required": true
+        },
+        {
+          "name": "parentCompanyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Parent company ext id"
+        },
+        {
+          "name": "parentCompanyId",
+          "type": "string",
+          "location": "body",
+          "description": "Parent company id"
+        },
+        {
+          "name": "quotePaymentTermExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Quote payment term ext id"
+        },
+        {
+          "name": "quotePaymentTermId",
+          "type": "string",
+          "location": "body",
+          "description": "Quote payment term id"
+        },
+        {
+          "name": "stickyNote",
+          "type": "string",
+          "location": "body",
+          "description": "Sticky note"
+        },
+        {
+          "name": "taxId",
+          "type": "string",
+          "location": "body",
+          "description": "Tax id"
+        },
+        {
+          "name": "telephone",
+          "type": "string",
+          "location": "body",
+          "description": "Telephone"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "Website"
+        }
+      ]
+    },
+    {
+      "name": "company_public-delete",
+      "description": "Delete. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/company/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "company_public-delete-by-external-identifier",
+      "description": "Delete by ext ID. Required: externalIdentifier. Destructive.",
+      "method": "DELETE",
+      "path": "/company/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "company_public-get",
+      "description": "Get. Required: id. Returns the CompanyResponseDto.",
+      "method": "GET",
+      "path": "/company/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "company_public-get-by-external-identifier",
+      "description": "Get by ext ID. Required: externalIdentifier. Returns the CompanyResponseDto.",
+      "method": "GET",
+      "path": "/company/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "company_public-get-list",
+      "description": "Search. Optional: sort, filters, query (plus 2 more). Returns the CompanyResponseDto.",
+      "method": "GET",
+      "path": "/company",
+      "params": [
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort criteria (format: -field1,+field2 where - is desc and + is asc)"
+        },
+        {
+          "name": "filters",
+          "type": "string",
+          "location": "query",
+          "description": "Filter criteria (format: filter1:value1|value2,filter2:value1|value2)"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query string"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Number of results per page"
+        },
+        {
+          "name": "from",
+          "type": "float",
+          "location": "query",
+          "description": "Pagination offset (starting index)"
+        }
+      ]
+    },
+    {
+      "name": "company_public-update",
+      "description": "Update. Required: id, name, number, type. Optional: aboutUs, accountManagerExtId, accountManagerId (plus 18 more). Returns the updated CompanyResponseDto.",
+      "method": "PUT",
+      "path": "/company/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "aboutUs",
+          "type": "string",
+          "location": "body",
+          "description": "About us"
+        },
+        {
+          "name": "accountManagerExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Account manager ext id"
+        },
+        {
+          "name": "accountManagerId",
+          "type": "string",
+          "location": "body",
+          "description": "Account manager id"
+        },
+        {
+          "name": "address-apartment",
+          "wire_name": "address.apartment",
+          "type": "string",
+          "location": "body",
+          "description": "Apartment",
+          "required": true
+        },
+        {
+          "name": "address-city",
+          "wire_name": "address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City",
+          "required": true
+        },
+        {
+          "name": "address-company-name",
+          "wire_name": "address.companyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name",
+          "required": true
+        },
+        {
+          "name": "address-contact-name",
+          "wire_name": "address.contactName",
+          "type": "string",
+          "location": "body",
+          "description": "Contact name",
+          "required": true
+        },
+        {
+          "name": "address-country",
+          "wire_name": "address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Country",
+          "required": true
+        },
+        {
+          "name": "address-state",
+          "wire_name": "address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State",
+          "required": true
+        },
+        {
+          "name": "address-street",
+          "wire_name": "address.street",
+          "type": "string",
+          "location": "body",
+          "description": "Street",
+          "required": true
+        },
+        {
+          "name": "address-zip",
+          "wire_name": "address.zip",
+          "type": "string",
+          "location": "body",
+          "description": "Zip",
+          "required": true
+        },
+        {
+          "name": "avoidWebsiteLogo",
+          "type": "bool",
+          "location": "body",
+          "description": "Avoid website logo"
+        },
+        {
+          "name": "blockQuote",
+          "type": "bool",
+          "location": "body",
+          "description": "Block quote"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "defaultDeliveryAddressExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Default delivery address ext id"
+        },
+        {
+          "name": "defaultDeliveryAddressId",
+          "type": "string",
+          "location": "body",
+          "description": "Default delivery address id"
+        },
+        {
+          "name": "deliveryAddresses",
+          "type": "array",
+          "location": "body",
+          "description": "Delivery addresses"
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier"
+        },
+        {
+          "name": "labels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Labels"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "body",
+          "description": "Number",
+          "required": true
+        },
+        {
+          "name": "parentCompanyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Parent company ext id"
+        },
+        {
+          "name": "parentCompanyId",
+          "type": "string",
+          "location": "body",
+          "description": "Parent company id"
+        },
+        {
+          "name": "quotePaymentTermExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Quote payment term ext id"
+        },
+        {
+          "name": "quotePaymentTermId",
+          "type": "string",
+          "location": "body",
+          "description": "Quote payment term id"
+        },
+        {
+          "name": "stickyNote",
+          "type": "string",
+          "location": "body",
+          "description": "Sticky note"
+        },
+        {
+          "name": "taxId",
+          "type": "string",
+          "location": "body",
+          "description": "Tax id"
+        },
+        {
+          "name": "telephone",
+          "type": "string",
+          "location": "body",
+          "description": "Telephone"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "Website"
+        }
+      ]
+    },
+    {
+      "name": "company_public-upsert",
+      "description": "Create or update a company using the ext ID as key. Required: externalIdentifier, name, number, type. Optional: aboutUs, accountManagerExtId, accountManagerId (plus 18 more). Returns the updated CompanyResponseDto.",
+      "method": "PUT",
+      "path": "/company/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "aboutUs",
+          "type": "string",
+          "location": "body",
+          "description": "About us"
+        },
+        {
+          "name": "accountManagerExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Account manager ext id"
+        },
+        {
+          "name": "accountManagerId",
+          "type": "string",
+          "location": "body",
+          "description": "Account manager id"
+        },
+        {
+          "name": "address-apartment",
+          "wire_name": "address.apartment",
+          "type": "string",
+          "location": "body",
+          "description": "Apartment",
+          "required": true
+        },
+        {
+          "name": "address-city",
+          "wire_name": "address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City",
+          "required": true
+        },
+        {
+          "name": "address-company-name",
+          "wire_name": "address.companyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name",
+          "required": true
+        },
+        {
+          "name": "address-contact-name",
+          "wire_name": "address.contactName",
+          "type": "string",
+          "location": "body",
+          "description": "Contact name",
+          "required": true
+        },
+        {
+          "name": "address-country",
+          "wire_name": "address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Country",
+          "required": true
+        },
+        {
+          "name": "address-state",
+          "wire_name": "address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State",
+          "required": true
+        },
+        {
+          "name": "address-street",
+          "wire_name": "address.street",
+          "type": "string",
+          "location": "body",
+          "description": "Street",
+          "required": true
+        },
+        {
+          "name": "address-zip",
+          "wire_name": "address.zip",
+          "type": "string",
+          "location": "body",
+          "description": "Zip",
+          "required": true
+        },
+        {
+          "name": "avoidWebsiteLogo",
+          "type": "bool",
+          "location": "body",
+          "description": "Avoid website logo"
+        },
+        {
+          "name": "blockQuote",
+          "type": "bool",
+          "location": "body",
+          "description": "Block quote"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "defaultDeliveryAddressExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Default delivery address ext id"
+        },
+        {
+          "name": "defaultDeliveryAddressId",
+          "type": "string",
+          "location": "body",
+          "description": "Default delivery address id"
+        },
+        {
+          "name": "deliveryAddresses",
+          "type": "array",
+          "location": "body",
+          "description": "Delivery addresses"
+        },
+        {
+          "name": "externalIdentifier-2",
+          "wire_name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier"
+        },
+        {
+          "name": "labels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Labels"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "location": "body",
+          "description": "Number",
+          "required": true
+        },
+        {
+          "name": "parentCompanyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Parent company ext id"
+        },
+        {
+          "name": "parentCompanyId",
+          "type": "string",
+          "location": "body",
+          "description": "Parent company id"
+        },
+        {
+          "name": "quotePaymentTermExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Quote payment term ext id"
+        },
+        {
+          "name": "quotePaymentTermId",
+          "type": "string",
+          "location": "body",
+          "description": "Quote payment term id"
+        },
+        {
+          "name": "stickyNote",
+          "type": "string",
+          "location": "body",
+          "description": "Sticky note"
+        },
+        {
+          "name": "taxId",
+          "type": "string",
+          "location": "body",
+          "description": "Tax id"
+        },
+        {
+          "name": "telephone",
+          "type": "string",
+          "location": "body",
+          "description": "Telephone"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "Website"
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-create",
+      "description": "Create. Required: companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "method": "POST",
+      "path": "/contact",
+      "params": [
+        {
+          "name": "companyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Company ext id",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "Providing the magic string 'primary' will link the user to the primary company.",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name",
+          "required": true
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "location": "body",
+          "description": "Is active",
+          "required": true
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name",
+          "required": true
+        },
+        {
+          "name": "middleName",
+          "type": "string",
+          "location": "body",
+          "description": "Middle name",
+          "required": true
+        },
+        {
+          "name": "mobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-delete",
+      "description": "Delete by ext ID. Required: externalIdentifier. Destructive.",
+      "method": "DELETE",
+      "path": "/contact/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-delete-by-id",
+      "description": "Delete by ID. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/contact/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-get",
+      "description": "Get. Required: id.",
+      "method": "GET",
+      "path": "/contact/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-get-by-external-identifier",
+      "description": "Get by ext ID. Required: externalIdentifier.",
+      "method": "GET",
+      "path": "/contact/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-get-list",
+      "description": "Search contacts. Optional: sort, filters, query (plus 2 more). Returns array of ContactResponseDto.",
+      "method": "GET",
+      "path": "/contact",
+      "params": [
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort criteria (format: -field1,+field2 where - is desc and + is asc)"
+        },
+        {
+          "name": "filters",
+          "type": "string",
+          "location": "query",
+          "description": "Filter criteria (format: filter1:value1|value2,filter2:value1|value2)"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query string"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Number of results per page"
+        },
+        {
+          "name": "from",
+          "type": "float",
+          "location": "query",
+          "description": "Pagination offset (starting index)"
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-undelete-by-ext-id",
+      "description": "Undelete by ext ID. Required: externalIdentifier.",
+      "method": "PUT",
+      "path": "/contact/ext/{externalIdentifier}/undelete",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-update",
+      "description": "Update. Required: id, companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "method": "PUT",
+      "path": "/contact/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "companyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Company ext id",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "Providing the magic string 'primary' will link the user to the primary company.",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name",
+          "required": true
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "location": "body",
+          "description": "Is active",
+          "required": true
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name",
+          "required": true
+        },
+        {
+          "name": "middleName",
+          "type": "string",
+          "location": "body",
+          "description": "Middle name",
+          "required": true
+        },
+        {
+          "name": "mobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-upsert",
+      "description": "Upsert by ext ID. Required: externalIdentifier, companyExtId, companyId, email, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "method": "PUT",
+      "path": "/contact/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "companyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Company ext id",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "Providing the magic string 'primary' will link the user to the primary company.",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name",
+          "required": true
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "location": "body",
+          "description": "Is active",
+          "required": true
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name",
+          "required": true
+        },
+        {
+          "name": "middleName",
+          "type": "string",
+          "location": "body",
+          "description": "Middle name",
+          "required": true
+        },
+        {
+          "name": "mobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_company-public-upsert-by-email",
+      "description": "Upsert by email address. Required: companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "method": "PUT",
+      "path": "/contact/by-email",
+      "params": [
+        {
+          "name": "companyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "Company ext id",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "Providing the magic string 'primary' will link the user to the primary company.",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name",
+          "required": true
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "location": "body",
+          "description": "Is active",
+          "required": true
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name",
+          "required": true
+        },
+        {
+          "name": "middleName",
+          "type": "string",
+          "location": "body",
+          "description": "Middle name",
+          "required": true
+        },
+        {
+          "name": "mobilePhone",
+          "type": "string",
+          "location": "body",
+          "description": "Mobile phone",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_undelete_company-contact-public-contact-by-id",
+      "description": "Undelete by ID. Required: id.",
+      "method": "PUT",
+      "path": "/contact/{id}/undelete",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contract_public-get-items",
+      "description": "⚠️ **Beta API** - This endpoint is in beta and may change without notice. Use with caution in production environments. Optional: query.",
+      "method": "GET",
+      "path": "/contract/items",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query"
+        }
+      ]
+    },
+    {
+      "name": "field_public-get-values",
+      "description": "Get the list of values from a field. Required: field. Returns array of FieldValueResponseDto.",
+      "method": "GET",
+      "path": "/field/{field}",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "path",
+          "description": "Field",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "field_public-update-values",
+      "description": "Replace existing field values with new list. Required: field, values.",
+      "method": "PUT",
+      "path": "/field/{field}",
+      "params": [
+        {
+          "name": "field",
+          "type": "string",
+          "location": "path",
+          "description": "Field",
+          "required": true
+        },
+        {
+          "name": "values",
+          "type": "array",
+          "location": "body",
+          "description": "Values",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "opportunity_public-get-by-id",
+      "description": "Get by ID. Required: id. Returns the OpportunityResponseDto.",
+      "method": "GET",
+      "path": "/opportunity/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "opportunity_public-get-opportunities",
+      "description": "Search. Optional: sort, filters, query (plus 2 more). Returns array of OpportunityResponseDto.",
+      "method": "GET",
+      "path": "/opportunity",
+      "params": [
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort criteria (format: -field1,+field2 where - is desc and + is asc)"
+        },
+        {
+          "name": "filters",
+          "type": "string",
+          "location": "query",
+          "description": "Filter criteria (format: filter1:value1|value2,filter2:value1|value2)"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query string"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Number of results per page"
+        },
+        {
+          "name": "from",
+          "type": "float",
+          "location": "query",
+          "description": "Pagination offset (starting index)"
+        }
+      ]
+    },
+    {
+      "name": "opportunity_public-lose",
+      "description": "Lose by ext ID. Required: externalIdentifier.",
+      "method": "POST",
+      "path": "/opportunity/ext/{externalIdentifier}/lose",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "opportunity_public-upsert",
+      "description": "Create or update a opportunity using the ext ID as key. Required: externalIdentifier, name. Optional: categoryExtId, categoryId, companyExtId (plus 18 more). Returns the updated OpportunityResponseDto.",
+      "method": "PUT",
+      "path": "/opportunity/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "categoryExtId",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier of the category"
+        },
+        {
+          "name": "categoryId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal ID of the category"
+        },
+        {
+          "name": "companyExtId",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier of the company"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal ID of the company"
+        },
+        {
+          "name": "contactExtId",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier of the contact person"
+        },
+        {
+          "name": "contactId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal ID of the contact person"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the opportunity"
+        },
+        {
+          "name": "expectedCloseDate",
+          "type": "string",
+          "location": "body",
+          "description": "Expected close date (ISO date format: YYYY-MM-DD)"
+        },
+        {
+          "name": "monthlyChurn",
+          "type": "float",
+          "location": "body",
+          "description": "Expected monthly churn"
+        },
+        {
+          "name": "monthlyRevenue",
+          "type": "float",
+          "location": "body",
+          "description": "Monthly revenue"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Opportunity name",
+          "required": true
+        },
+        {
+          "name": "onetimeRevenue",
+          "type": "float",
+          "location": "body",
+          "description": "One-time revenue"
+        },
+        {
+          "name": "ownerExtId",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier of the owner (must be a primary company user)"
+        },
+        {
+          "name": "ownerId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal ID of the owner (must be a primary company user)"
+        },
+        {
+          "name": "pipelineStageExtId",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier of the pipeline stage"
+        },
+        {
+          "name": "pipelineStageId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal ID of the pipeline stage"
+        },
+        {
+          "name": "probability",
+          "type": "float",
+          "location": "body",
+          "description": "Probability (0-1)"
+        },
+        {
+          "name": "sourceExtId",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier of the source"
+        },
+        {
+          "name": "sourceId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal ID of the source"
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date (ISO date format: YYYY-MM-DD)"
+        },
+        {
+          "name": "valueMonths",
+          "type": "float",
+          "location": "body",
+          "description": "Contract duration in months"
+        }
+      ]
+    },
+    {
+      "name": "opportunity_public-win",
+      "description": "Win by ext ID. Required: externalIdentifier.",
+      "method": "POST",
+      "path": "/opportunity/ext/{externalIdentifier}/win",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pricing-book_public-create",
+      "description": "Create a new pricing book. Required: classificationIds, companyIds, description, name, products, specialBidNumber. Returns the new PricingBookResponseDto.",
+      "method": "POST",
+      "path": "/pricing-book",
+      "params": [
+        {
+          "name": "classificationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Classification ids",
+          "required": true
+        },
+        {
+          "name": "companyIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Company ids",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "products",
+          "type": "array",
+          "location": "body",
+          "description": "Products",
+          "required": true
+        },
+        {
+          "name": "specialBidNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Special bid number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pricing-book_public-get",
+      "description": "Get pricing book by ID. Required: id. Returns the PricingBookResponseDto.",
+      "method": "GET",
+      "path": "/pricing-book/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pricing-book_public-get-all",
+      "description": "Get pricing books. Returns array of PricingBookResponseDto.",
+      "method": "GET",
+      "path": "/pricing-book",
+      "params": []
+    },
+    {
+      "name": "pricing-book_public-update",
+      "description": "Update an existing pricing book. Required: id, classificationIds, companyIds, description, name, products, specialBidNumber. Returns the updated PricingBookResponseDto.",
+      "method": "PUT",
+      "path": "/pricing-book/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "classificationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Classification ids",
+          "required": true
+        },
+        {
+          "name": "companyIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Company ids",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "products",
+          "type": "array",
+          "location": "body",
+          "description": "Products",
+          "required": true
+        },
+        {
+          "name": "specialBidNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Special bid number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "product_public-create",
+      "description": "Create product. Required: categoryId, name. Optional: enrich, cost, customFields (plus 18 more). Returns the new ProductResponseDto.",
+      "method": "POST",
+      "path": "/product",
+      "params": [
+        {
+          "name": "enrich",
+          "type": "bool",
+          "location": "query",
+          "description": "Enrich product data"
+        },
+        {
+          "name": "categoryId",
+          "type": "string",
+          "location": "body",
+          "description": "Category id",
+          "required": true
+        },
+        {
+          "name": "cost",
+          "type": "float",
+          "location": "body",
+          "description": "Cost"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "doesNotRequireProcurement",
+          "type": "bool",
+          "location": "body",
+          "description": "Does not require procurement"
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier"
+        },
+        {
+          "name": "internalProductId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal product id"
+        },
+        {
+          "name": "isEligibleForRma",
+          "type": "bool",
+          "location": "body",
+          "description": "Is eligible for rma"
+        },
+        {
+          "name": "isSerialized",
+          "type": "bool",
+          "location": "body",
+          "description": "Is serialized"
+        },
+        {
+          "name": "listed",
+          "type": "bool",
+          "location": "body",
+          "description": "Listed"
+        },
+        {
+          "name": "logo",
+          "type": "string",
+          "location": "body",
+          "description": "Logo"
+        },
+        {
+          "name": "margin",
+          "type": "float",
+          "location": "body",
+          "description": "Margin"
+        },
+        {
+          "name": "markup",
+          "type": "float",
+          "location": "body",
+          "description": "Markup"
+        },
+        {
+          "name": "mpn",
+          "type": "string",
+          "location": "body",
+          "description": "Mpn"
+        },
+        {
+          "name": "msrp",
+          "type": "float",
+          "location": "body",
+          "description": "Msrp"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "location": "body",
+          "description": "Price"
+        },
+        {
+          "name": "productType",
+          "type": "string",
+          "location": "body",
+          "description": "Product type"
+        },
+        {
+          "name": "shortDescription",
+          "type": "string",
+          "location": "body",
+          "description": "Short description"
+        },
+        {
+          "name": "term",
+          "type": "string",
+          "location": "body",
+          "description": "Term"
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "location": "body",
+          "description": "Unit"
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "location": "body",
+          "description": "Vendor"
+        }
+      ]
+    },
+    {
+      "name": "product_public-create-batch",
+      "description": "Create products in batch. Maximum 100 products. Required: products. Optional: enrich. Returns array of BatchProductResponseDto.",
+      "method": "POST",
+      "path": "/product/batch",
+      "params": [
+        {
+          "name": "enrich",
+          "type": "bool",
+          "location": "query",
+          "description": "Enrich product data"
+        },
+        {
+          "name": "products",
+          "type": "array",
+          "location": "body",
+          "description": "Products",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "product_public-delete",
+      "description": "Delete product. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/product/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "product_public-delete-by-external-identifier",
+      "description": "Delete product by external identifier. Required: externalIdentifier. Destructive.",
+      "method": "DELETE",
+      "path": "/product/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "product_public-get",
+      "description": "Search. Optional: includeBundles, sort, filters (plus 3 more). Returns array of ProductResponseDto.",
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        {
+          "name": "includeBundles",
+          "type": "string",
+          "location": "query",
+          "description": "Include bundle product information (may impact performance)"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort criteria (format: -field1,+field2 where - is desc and + is asc)"
+        },
+        {
+          "name": "filters",
+          "type": "string",
+          "location": "query",
+          "description": "Filter criteria (format: filter1:value1|value2,filter2:value1|value2)"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query string"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Number of results per page"
+        },
+        {
+          "name": "from",
+          "type": "float",
+          "location": "query",
+          "description": "Pagination offset (starting index)"
+        }
+      ]
+    },
+    {
+      "name": "product_public-get-by-external-identifier",
+      "description": "Get product by external identifier. Required: externalIdentifier. Returns the ProductResponseDto.",
+      "method": "GET",
+      "path": "/product/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "product_public-get-id",
+      "description": "Get product by ID. Required: id. Returns the ProductResponseDto.",
+      "method": "GET",
+      "path": "/product/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "product_public-update",
+      "description": "Update product. Required: id. Optional: enrich, categoryId, cost (plus 20 more). Returns the updated ProductResponseDto.",
+      "method": "PUT",
+      "path": "/product/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "enrich",
+          "type": "bool",
+          "location": "query",
+          "description": "Enrich product data"
+        },
+        {
+          "name": "categoryId",
+          "type": "string",
+          "location": "body",
+          "description": "Category id"
+        },
+        {
+          "name": "cost",
+          "type": "float",
+          "location": "body",
+          "description": "Cost"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "doesNotRequireProcurement",
+          "type": "bool",
+          "location": "body",
+          "description": "Does not require procurement"
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier"
+        },
+        {
+          "name": "internalProductId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal product id"
+        },
+        {
+          "name": "isEligibleForRma",
+          "type": "bool",
+          "location": "body",
+          "description": "Is eligible for rma"
+        },
+        {
+          "name": "isSerialized",
+          "type": "bool",
+          "location": "body",
+          "description": "Is serialized"
+        },
+        {
+          "name": "listed",
+          "type": "bool",
+          "location": "body",
+          "description": "Listed"
+        },
+        {
+          "name": "logo",
+          "type": "string",
+          "location": "body",
+          "description": "Logo"
+        },
+        {
+          "name": "margin",
+          "type": "float",
+          "location": "body",
+          "description": "Margin"
+        },
+        {
+          "name": "markup",
+          "type": "float",
+          "location": "body",
+          "description": "Markup"
+        },
+        {
+          "name": "mpn",
+          "type": "string",
+          "location": "body",
+          "description": "Mpn"
+        },
+        {
+          "name": "msrp",
+          "type": "float",
+          "location": "body",
+          "description": "Msrp"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "location": "body",
+          "description": "Price"
+        },
+        {
+          "name": "productType",
+          "type": "string",
+          "location": "body",
+          "description": "Product type"
+        },
+        {
+          "name": "shortDescription",
+          "type": "string",
+          "location": "body",
+          "description": "Short description"
+        },
+        {
+          "name": "term",
+          "type": "string",
+          "location": "body",
+          "description": "Term"
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "location": "body",
+          "description": "Unit"
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "location": "body",
+          "description": "Vendor"
+        }
+      ]
+    },
+    {
+      "name": "product_public-upsert-by-external-identifier",
+      "description": "Upsert product by external identifier. Required: externalIdentifier. Optional: categoryId, cost, customFields (plus 19 more). Returns the updated ProductResponseDto.",
+      "method": "PUT",
+      "path": "/product/ext/{externalIdentifier}",
+      "params": [
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "path",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "categoryId",
+          "type": "string",
+          "location": "body",
+          "description": "Category id"
+        },
+        {
+          "name": "cost",
+          "type": "float",
+          "location": "body",
+          "description": "Cost"
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "Custom field values. Only provided fields will be updated; missing fields are ignored."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "doesNotRequireProcurement",
+          "type": "bool",
+          "location": "body",
+          "description": "Does not require procurement"
+        },
+        {
+          "name": "externalIdentifier-2",
+          "wire_name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier"
+        },
+        {
+          "name": "internalProductId",
+          "type": "string",
+          "location": "body",
+          "description": "Internal product id"
+        },
+        {
+          "name": "isEligibleForRma",
+          "type": "bool",
+          "location": "body",
+          "description": "Is eligible for rma"
+        },
+        {
+          "name": "isSerialized",
+          "type": "bool",
+          "location": "body",
+          "description": "Is serialized"
+        },
+        {
+          "name": "listed",
+          "type": "bool",
+          "location": "body",
+          "description": "Listed"
+        },
+        {
+          "name": "logo",
+          "type": "string",
+          "location": "body",
+          "description": "Logo"
+        },
+        {
+          "name": "margin",
+          "type": "float",
+          "location": "body",
+          "description": "Margin"
+        },
+        {
+          "name": "markup",
+          "type": "float",
+          "location": "body",
+          "description": "Markup"
+        },
+        {
+          "name": "mpn",
+          "type": "string",
+          "location": "body",
+          "description": "Mpn"
+        },
+        {
+          "name": "msrp",
+          "type": "float",
+          "location": "body",
+          "description": "Msrp"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "location": "body",
+          "description": "Price"
+        },
+        {
+          "name": "productType",
+          "type": "string",
+          "location": "body",
+          "description": "Product type"
+        },
+        {
+          "name": "shortDescription",
+          "type": "string",
+          "location": "body",
+          "description": "Short description"
+        },
+        {
+          "name": "term",
+          "type": "string",
+          "location": "body",
+          "description": "Term"
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "location": "body",
+          "description": "Unit"
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "location": "body",
+          "description": "Vendor"
+        }
+      ]
+    },
+    {
+      "name": "product_inventory_product-public-put-inventories",
+      "description": "Replace a product's inventories. Required: id, inventories.",
+      "method": "PUT",
+      "path": "/product/{id}/inventory",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "inventories",
+          "type": "array",
+          "location": "body",
+          "description": "Inventories",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote_public-create-approved",
+      "description": "Create approved quote. Required: opportunityId, title. Optional: products, templateId. Returns the new QuoteResponseDto.",
+      "method": "POST",
+      "path": "/quote/approved",
+      "params": [
+        {
+          "name": "opportunityId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the opportunity to create the quote for",
+          "required": true
+        },
+        {
+          "name": "products",
+          "type": "array",
+          "location": "body",
+          "description": "Products to add to the quote"
+        },
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the quote template to use"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "The title of the quote",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote_public-create-draft",
+      "description": "Create draft quote. Required: opportunityId, title. Optional: products, templateId. Returns the new QuoteResponseDto.",
+      "method": "POST",
+      "path": "/quote",
+      "params": [
+        {
+          "name": "opportunityId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the opportunity to create the quote for",
+          "required": true
+        },
+        {
+          "name": "products",
+          "type": "array",
+          "location": "body",
+          "description": "Products to add to the quote"
+        },
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the quote template to use"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "The title of the quote",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote_public-get",
+      "description": "Search. Optional: sort, filters, query (plus 2 more). Returns array of QuoteResponseDto.",
+      "method": "GET",
+      "path": "/quote",
+      "params": [
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort criteria (format: -field1,+field2 where - is desc and + is asc)"
+        },
+        {
+          "name": "filters",
+          "type": "string",
+          "location": "query",
+          "description": "Filter criteria (format: filter1:value1|value2,filter2:value1|value2)"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query string"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Number of results per page"
+        },
+        {
+          "name": "from",
+          "type": "float",
+          "location": "query",
+          "description": "Pagination offset (starting index)"
+        }
+      ]
+    },
+    {
+      "name": "quote_public-get-approved",
+      "description": "Search approved. Returns array of QuoteResponseDto.",
+      "method": "GET",
+      "path": "/quote/approved",
+      "params": []
+    },
+    {
+      "name": "quote_public-get-id",
+      "description": "Get. Required: id. Returns the QuoteResponseDto.",
+      "method": "GET",
+      "path": "/quote/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote_attachment_quote-public-get-quote",
+      "description": "Download quote attachment. Required: id, title.",
+      "method": "GET",
+      "path": "/quote/{id}/attachment/{title}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "path",
+          "description": "Title",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote_pdf_quote-public-get-quote",
+      "description": "Get quote PDF. Required: id.",
+      "method": "GET",
+      "path": "/quote/{id}/pdf",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-discount-group_discount-group-public-create",
+      "description": "Create new. Required: classificationIds, companyIds, discounts, name. Returns the new DiscountGroupResponseDto.",
+      "method": "POST",
+      "path": "/quote-discount-group",
+      "params": [
+        {
+          "name": "classificationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Classification ids",
+          "required": true
+        },
+        {
+          "name": "companyIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Company ids",
+          "required": true
+        },
+        {
+          "name": "discounts",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Discounts",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-discount-group_discount-group-public-get-all",
+      "description": "Get all. Returns array of QuoteDiscountGroupDiscountGroupPublicGetAllItem.",
+      "method": "GET",
+      "path": "/quote-discount-group",
+      "params": []
+    },
+    {
+      "name": "quote-discount-group_discount-group-public-get-by-id",
+      "description": "Get by id. Required: id. Returns the DiscountGroupResponseDto.",
+      "method": "GET",
+      "path": "/quote-discount-group/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-discount-group_discount-group-public-update",
+      "description": "Update by id. Required: id, classificationIds, companyIds, discounts, name. Returns the updated DiscountGroupResponseDto.",
+      "method": "PUT",
+      "path": "/quote-discount-group/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "classificationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Classification ids",
+          "required": true
+        },
+        {
+          "name": "companyIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Company ids",
+          "required": true
+        },
+        {
+          "name": "discounts",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Discounts",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-discount-group_companies_discount-group-public-update-company-discount-group",
+      "description": "Set discount group to companies. Required: id, companyIds. Returns the updated UpdateCompaniesDiscountGroupResponseDto.",
+      "method": "PUT",
+      "path": "/quote-discount-group/{id}/companies",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "companyIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Company ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-template_public-create",
+      "description": "Creates a new quote template. All product references should use internal Sfindr product IDs. Required: name. Optional: allowAnonymousApproval, allowRecipientManageDescription, allowRecipientManageLines (plus 30 more). Returns the new QuoteTemplateResponseDto.",
+      "method": "POST",
+      "path": "/quote-template",
+      "params": [
+        {
+          "name": "allowAnonymousApproval",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow anonymous approval"
+        },
+        {
+          "name": "allowRecipientManageDescription",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow recipient manage description"
+        },
+        {
+          "name": "allowRecipientManageLines",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow recipient manage lines"
+        },
+        {
+          "name": "approvalEmailTemplate",
+          "type": "string",
+          "location": "body",
+          "description": "Approval email template"
+        },
+        {
+          "name": "attachPdf",
+          "type": "bool",
+          "location": "body",
+          "description": "Attach PDF"
+        },
+        {
+          "name": "attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Template attachments"
+        },
+        {
+          "name": "contract-duration-amount",
+          "wire_name": "contractDuration.amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount",
+          "required": true
+        },
+        {
+          "name": "contract-duration-unit",
+          "wire_name": "contractDuration.unit",
+          "type": "string",
+          "location": "body",
+          "description": "Time unit",
+          "required": true
+        },
+        {
+          "name": "coverTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Cover template ID"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "displayTableOfContents",
+          "type": "bool",
+          "location": "body",
+          "description": "Display table of contents"
+        },
+        {
+          "name": "entityLabels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity labels for categorization"
+        },
+        {
+          "name": "insertWidgetsBeforeIndex",
+          "type": "float",
+          "location": "body",
+          "description": "Index where item widgets should be inserted"
+        },
+        {
+          "name": "leasing-down-payment",
+          "wire_name": "leasing.downPayment",
+          "type": "float",
+          "location": "body",
+          "description": "Down payment amount"
+        },
+        {
+          "name": "leasing-final-payment",
+          "wire_name": "leasing.finalPayment",
+          "type": "float",
+          "location": "body",
+          "description": "Final payment amount"
+        },
+        {
+          "name": "leasing-term",
+          "wire_name": "leasing.term",
+          "type": "string",
+          "location": "body",
+          "description": "Leasing term"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Template name",
+          "required": true
+        },
+        {
+          "name": "notify",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify"
+        },
+        {
+          "name": "notifyOnlyFirst",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify only first"
+        },
+        {
+          "name": "paymentTermId",
+          "type": "string",
+          "location": "body",
+          "description": "Payment term ID"
+        },
+        {
+          "name": "paymentTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type ID"
+        },
+        {
+          "name": "showAvailability",
+          "type": "bool",
+          "location": "body",
+          "description": "Show availability"
+        },
+        {
+          "name": "showBundleProducts",
+          "type": "string",
+          "location": "body",
+          "description": "Show bundle products"
+        },
+        {
+          "name": "showContractItems",
+          "type": "bool",
+          "location": "body",
+          "description": "Show contract items"
+        },
+        {
+          "name": "showContractTermTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show contract term total"
+        },
+        {
+          "name": "showGrandTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show grand total"
+        },
+        {
+          "name": "showProductImage",
+          "type": "bool",
+          "location": "body",
+          "description": "Show product image"
+        },
+        {
+          "name": "showSignInForAnonymous",
+          "type": "bool",
+          "location": "body",
+          "description": "Show sign in for anonymous"
+        },
+        {
+          "name": "showSubtotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show subtotal"
+        },
+        {
+          "name": "showTax",
+          "type": "bool",
+          "location": "body",
+          "description": "Show tax information"
+        },
+        {
+          "name": "showTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show total"
+        },
+        {
+          "name": "showTotalDetails",
+          "type": "bool",
+          "location": "body",
+          "description": "Show total details"
+        },
+        {
+          "name": "showWidgetSubtotals",
+          "type": "bool",
+          "location": "body",
+          "description": "Show widget subtotals"
+        },
+        {
+          "name": "styling-align",
+          "wire_name": "styling.align",
+          "type": "object",
+          "location": "body",
+          "description": "Alignment settings"
+        },
+        {
+          "name": "styling-color-heading",
+          "wire_name": "styling.color.heading",
+          "type": "string",
+          "location": "body",
+          "description": "Heading color"
+        },
+        {
+          "name": "styling-color-text",
+          "wire_name": "styling.color.text",
+          "type": "string",
+          "location": "body",
+          "description": "Text color"
+        },
+        {
+          "name": "styling-font-size-heading1",
+          "wire_name": "styling.fontSize.heading1",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 1 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading2",
+          "wire_name": "styling.fontSize.heading2",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 2 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading3",
+          "wire_name": "styling.fontSize.heading3",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 3 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading4",
+          "wire_name": "styling.fontSize.heading4",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 4 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading5",
+          "wire_name": "styling.fontSize.heading5",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 5 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading6",
+          "wire_name": "styling.fontSize.heading6",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 6 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading-template",
+          "wire_name": "styling.fontSize.headingTemplate",
+          "type": "float",
+          "location": "body",
+          "description": "Heading template font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-text",
+          "wire_name": "styling.fontSize.text",
+          "type": "float",
+          "location": "body",
+          "description": "Text font size",
+          "required": true
+        },
+        {
+          "name": "styling-footer-image",
+          "wire_name": "styling.footerImage",
+          "type": "string",
+          "location": "body",
+          "description": "Footer image"
+        },
+        {
+          "name": "styling-header-image",
+          "wire_name": "styling.headerImage",
+          "type": "string",
+          "location": "body",
+          "description": "Header image"
+        },
+        {
+          "name": "styling-line-height-heading",
+          "wire_name": "styling.lineHeight.heading",
+          "type": "float",
+          "location": "body",
+          "description": "Heading line height",
+          "required": true
+        },
+        {
+          "name": "styling-line-height-text",
+          "wire_name": "styling.lineHeight.text",
+          "type": "float",
+          "location": "body",
+          "description": "Text line height",
+          "required": true
+        },
+        {
+          "name": "styling-margin-bottom",
+          "wire_name": "styling.margin.bottom",
+          "type": "float",
+          "location": "body",
+          "description": "Bottom margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-left",
+          "wire_name": "styling.margin.left",
+          "type": "float",
+          "location": "body",
+          "description": "Left margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-right",
+          "wire_name": "styling.margin.right",
+          "type": "float",
+          "location": "body",
+          "description": "Right margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-top",
+          "wire_name": "styling.margin.top",
+          "type": "float",
+          "location": "body",
+          "description": "Top margin",
+          "required": true
+        },
+        {
+          "name": "styling-spacing-heading",
+          "wire_name": "styling.spacing.heading",
+          "type": "float",
+          "location": "body",
+          "description": "Heading spacing",
+          "required": true
+        },
+        {
+          "name": "styling-spacing-paragraph",
+          "wire_name": "styling.spacing.paragraph",
+          "type": "float",
+          "location": "body",
+          "description": "Paragraph spacing",
+          "required": true
+        },
+        {
+          "name": "thankYouPage",
+          "type": "string",
+          "location": "body",
+          "description": "Thank you page"
+        },
+        {
+          "name": "useSignatureImage",
+          "type": "bool",
+          "location": "body",
+          "description": "Use signature image"
+        },
+        {
+          "name": "widgets",
+          "type": "array",
+          "location": "body",
+          "description": "Array of widgets to include in the template."
+        }
+      ]
+    },
+    {
+      "name": "quote-template_public-get-by-id",
+      "description": "Returns a single quote template with all its contents. The response can be used directly in PUT requests. Required: id.",
+      "method": "GET",
+      "path": "/quote-template/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-template_public-list",
+      "description": "Returns a list of all quote templates ordered by their display order.",
+      "method": "GET",
+      "path": "/quote-template",
+      "params": []
+    },
+    {
+      "name": "quote-template_public-update",
+      "description": "Updates an existing quote template. All product references should use internal Sfindr product IDs. Only provided fields will be updated. Required: id. Optional: allowAnonymousApproval, allowRecipientManageDescription, allowRecipientManageLines (plus 33 more). Returns the updated QuoteTemplateResponseDto.",
+      "method": "PUT",
+      "path": "/quote-template/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "allowAnonymousApproval",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow anonymous approval"
+        },
+        {
+          "name": "allowRecipientManageDescription",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow recipient manage description"
+        },
+        {
+          "name": "allowRecipientManageLines",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow recipient manage lines"
+        },
+        {
+          "name": "approvalEmailTemplate",
+          "type": "string",
+          "location": "body",
+          "description": "Approval email template"
+        },
+        {
+          "name": "attachPdf",
+          "type": "bool",
+          "location": "body",
+          "description": "Attach PDF"
+        },
+        {
+          "name": "attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Template attachments"
+        },
+        {
+          "name": "contract-duration-amount",
+          "wire_name": "contractDuration.amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount",
+          "required": true
+        },
+        {
+          "name": "contract-duration-unit",
+          "wire_name": "contractDuration.unit",
+          "type": "string",
+          "location": "body",
+          "description": "Time unit",
+          "required": true
+        },
+        {
+          "name": "coverTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Cover template ID"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "displayTableOfContents",
+          "type": "bool",
+          "location": "body",
+          "description": "Display table of contents"
+        },
+        {
+          "name": "entityLabels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity labels for categorization"
+        },
+        {
+          "name": "insertWidgetsBeforeIndex",
+          "type": "float",
+          "location": "body",
+          "description": "Index where item widgets should be inserted"
+        },
+        {
+          "name": "leasing-down-payment",
+          "wire_name": "leasing.downPayment",
+          "type": "float",
+          "location": "body",
+          "description": "Down payment amount"
+        },
+        {
+          "name": "leasing-final-payment",
+          "wire_name": "leasing.finalPayment",
+          "type": "float",
+          "location": "body",
+          "description": "Final payment amount"
+        },
+        {
+          "name": "leasing-term",
+          "wire_name": "leasing.term",
+          "type": "string",
+          "location": "body",
+          "description": "Leasing term"
+        },
+        {
+          "name": "localizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Localization ID for multi-language support"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Template name"
+        },
+        {
+          "name": "notify",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify"
+        },
+        {
+          "name": "notifyOnlyFirst",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify only first"
+        },
+        {
+          "name": "order",
+          "type": "float",
+          "location": "body",
+          "description": "Template display order"
+        },
+        {
+          "name": "paymentTermId",
+          "type": "string",
+          "location": "body",
+          "description": "Payment term ID"
+        },
+        {
+          "name": "paymentTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type ID"
+        },
+        {
+          "name": "showAvailability",
+          "type": "bool",
+          "location": "body",
+          "description": "Show availability"
+        },
+        {
+          "name": "showBundleProducts",
+          "type": "string",
+          "location": "body",
+          "description": "Show bundle products"
+        },
+        {
+          "name": "showContractItems",
+          "type": "bool",
+          "location": "body",
+          "description": "Show contract items"
+        },
+        {
+          "name": "showContractTermTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show contract term total"
+        },
+        {
+          "name": "showGrandTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show grand total"
+        },
+        {
+          "name": "showProductImage",
+          "type": "bool",
+          "location": "body",
+          "description": "Show product image"
+        },
+        {
+          "name": "showSignInForAnonymous",
+          "type": "bool",
+          "location": "body",
+          "description": "Show sign in for anonymous"
+        },
+        {
+          "name": "showSubtotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show subtotal"
+        },
+        {
+          "name": "showTax",
+          "type": "bool",
+          "location": "body",
+          "description": "Show tax information"
+        },
+        {
+          "name": "showTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show total"
+        },
+        {
+          "name": "showTotalDetails",
+          "type": "bool",
+          "location": "body",
+          "description": "Show total details"
+        },
+        {
+          "name": "showWidgetSubtotals",
+          "type": "bool",
+          "location": "body",
+          "description": "Show widget subtotals"
+        },
+        {
+          "name": "styling-align",
+          "wire_name": "styling.align",
+          "type": "object",
+          "location": "body",
+          "description": "Alignment settings"
+        },
+        {
+          "name": "styling-color-heading",
+          "wire_name": "styling.color.heading",
+          "type": "string",
+          "location": "body",
+          "description": "Heading color"
+        },
+        {
+          "name": "styling-color-text",
+          "wire_name": "styling.color.text",
+          "type": "string",
+          "location": "body",
+          "description": "Text color"
+        },
+        {
+          "name": "styling-font-size-heading1",
+          "wire_name": "styling.fontSize.heading1",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 1 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading2",
+          "wire_name": "styling.fontSize.heading2",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 2 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading3",
+          "wire_name": "styling.fontSize.heading3",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 3 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading4",
+          "wire_name": "styling.fontSize.heading4",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 4 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading5",
+          "wire_name": "styling.fontSize.heading5",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 5 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading6",
+          "wire_name": "styling.fontSize.heading6",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 6 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading-template",
+          "wire_name": "styling.fontSize.headingTemplate",
+          "type": "float",
+          "location": "body",
+          "description": "Heading template font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-text",
+          "wire_name": "styling.fontSize.text",
+          "type": "float",
+          "location": "body",
+          "description": "Text font size",
+          "required": true
+        },
+        {
+          "name": "styling-footer-image",
+          "wire_name": "styling.footerImage",
+          "type": "string",
+          "location": "body",
+          "description": "Footer image"
+        },
+        {
+          "name": "styling-header-image",
+          "wire_name": "styling.headerImage",
+          "type": "string",
+          "location": "body",
+          "description": "Header image"
+        },
+        {
+          "name": "styling-line-height-heading",
+          "wire_name": "styling.lineHeight.heading",
+          "type": "float",
+          "location": "body",
+          "description": "Heading line height",
+          "required": true
+        },
+        {
+          "name": "styling-line-height-text",
+          "wire_name": "styling.lineHeight.text",
+          "type": "float",
+          "location": "body",
+          "description": "Text line height",
+          "required": true
+        },
+        {
+          "name": "styling-margin-bottom",
+          "wire_name": "styling.margin.bottom",
+          "type": "float",
+          "location": "body",
+          "description": "Bottom margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-left",
+          "wire_name": "styling.margin.left",
+          "type": "float",
+          "location": "body",
+          "description": "Left margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-right",
+          "wire_name": "styling.margin.right",
+          "type": "float",
+          "location": "body",
+          "description": "Right margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-top",
+          "wire_name": "styling.margin.top",
+          "type": "float",
+          "location": "body",
+          "description": "Top margin",
+          "required": true
+        },
+        {
+          "name": "styling-spacing-heading",
+          "wire_name": "styling.spacing.heading",
+          "type": "float",
+          "location": "body",
+          "description": "Heading spacing",
+          "required": true
+        },
+        {
+          "name": "styling-spacing-paragraph",
+          "wire_name": "styling.spacing.paragraph",
+          "type": "float",
+          "location": "body",
+          "description": "Paragraph spacing",
+          "required": true
+        },
+        {
+          "name": "thankYouPage",
+          "type": "string",
+          "location": "body",
+          "description": "Thank you page"
+        },
+        {
+          "name": "useSignatureImage",
+          "type": "bool",
+          "location": "body",
+          "description": "Use signature image"
+        },
+        {
+          "name": "widgets",
+          "type": "array",
+          "location": "body",
+          "description": "Array of widgets to include in the template."
+        }
+      ]
+    },
+    {
+      "name": "quote-template_public-validate-template",
+      "description": "Validates template data including product references and attachments. Returns the validated/filtered data that would be used in create/update operations. Required: name. Optional: allowAnonymousApproval, allowRecipientManageDescription, allowRecipientManageLines (plus 30 more).",
+      "method": "POST",
+      "path": "/quote-template/validate",
+      "params": [
+        {
+          "name": "allowAnonymousApproval",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow anonymous approval"
+        },
+        {
+          "name": "allowRecipientManageDescription",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow recipient manage description"
+        },
+        {
+          "name": "allowRecipientManageLines",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow recipient manage lines"
+        },
+        {
+          "name": "approvalEmailTemplate",
+          "type": "string",
+          "location": "body",
+          "description": "Approval email template"
+        },
+        {
+          "name": "attachPdf",
+          "type": "bool",
+          "location": "body",
+          "description": "Attach PDF"
+        },
+        {
+          "name": "attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Template attachments"
+        },
+        {
+          "name": "contract-duration-amount",
+          "wire_name": "contractDuration.amount",
+          "type": "float",
+          "location": "body",
+          "description": "Amount",
+          "required": true
+        },
+        {
+          "name": "contract-duration-unit",
+          "wire_name": "contractDuration.unit",
+          "type": "string",
+          "location": "body",
+          "description": "Time unit",
+          "required": true
+        },
+        {
+          "name": "coverTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Cover template ID"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "displayTableOfContents",
+          "type": "bool",
+          "location": "body",
+          "description": "Display table of contents"
+        },
+        {
+          "name": "entityLabels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity labels for categorization"
+        },
+        {
+          "name": "insertWidgetsBeforeIndex",
+          "type": "float",
+          "location": "body",
+          "description": "Index where item widgets should be inserted"
+        },
+        {
+          "name": "leasing-down-payment",
+          "wire_name": "leasing.downPayment",
+          "type": "float",
+          "location": "body",
+          "description": "Down payment amount"
+        },
+        {
+          "name": "leasing-final-payment",
+          "wire_name": "leasing.finalPayment",
+          "type": "float",
+          "location": "body",
+          "description": "Final payment amount"
+        },
+        {
+          "name": "leasing-term",
+          "wire_name": "leasing.term",
+          "type": "string",
+          "location": "body",
+          "description": "Leasing term"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Template name",
+          "required": true
+        },
+        {
+          "name": "notify",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify"
+        },
+        {
+          "name": "notifyOnlyFirst",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify only first"
+        },
+        {
+          "name": "paymentTermId",
+          "type": "string",
+          "location": "body",
+          "description": "Payment term ID"
+        },
+        {
+          "name": "paymentTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type ID"
+        },
+        {
+          "name": "showAvailability",
+          "type": "bool",
+          "location": "body",
+          "description": "Show availability"
+        },
+        {
+          "name": "showBundleProducts",
+          "type": "string",
+          "location": "body",
+          "description": "Show bundle products"
+        },
+        {
+          "name": "showContractItems",
+          "type": "bool",
+          "location": "body",
+          "description": "Show contract items"
+        },
+        {
+          "name": "showContractTermTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show contract term total"
+        },
+        {
+          "name": "showGrandTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show grand total"
+        },
+        {
+          "name": "showProductImage",
+          "type": "bool",
+          "location": "body",
+          "description": "Show product image"
+        },
+        {
+          "name": "showSignInForAnonymous",
+          "type": "bool",
+          "location": "body",
+          "description": "Show sign in for anonymous"
+        },
+        {
+          "name": "showSubtotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show subtotal"
+        },
+        {
+          "name": "showTax",
+          "type": "bool",
+          "location": "body",
+          "description": "Show tax information"
+        },
+        {
+          "name": "showTotal",
+          "type": "bool",
+          "location": "body",
+          "description": "Show total"
+        },
+        {
+          "name": "showTotalDetails",
+          "type": "bool",
+          "location": "body",
+          "description": "Show total details"
+        },
+        {
+          "name": "showWidgetSubtotals",
+          "type": "bool",
+          "location": "body",
+          "description": "Show widget subtotals"
+        },
+        {
+          "name": "styling-align",
+          "wire_name": "styling.align",
+          "type": "object",
+          "location": "body",
+          "description": "Alignment settings"
+        },
+        {
+          "name": "styling-color-heading",
+          "wire_name": "styling.color.heading",
+          "type": "string",
+          "location": "body",
+          "description": "Heading color"
+        },
+        {
+          "name": "styling-color-text",
+          "wire_name": "styling.color.text",
+          "type": "string",
+          "location": "body",
+          "description": "Text color"
+        },
+        {
+          "name": "styling-font-size-heading1",
+          "wire_name": "styling.fontSize.heading1",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 1 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading2",
+          "wire_name": "styling.fontSize.heading2",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 2 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading3",
+          "wire_name": "styling.fontSize.heading3",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 3 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading4",
+          "wire_name": "styling.fontSize.heading4",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 4 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading5",
+          "wire_name": "styling.fontSize.heading5",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 5 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading6",
+          "wire_name": "styling.fontSize.heading6",
+          "type": "float",
+          "location": "body",
+          "description": "Heading 6 font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-heading-template",
+          "wire_name": "styling.fontSize.headingTemplate",
+          "type": "float",
+          "location": "body",
+          "description": "Heading template font size",
+          "required": true
+        },
+        {
+          "name": "styling-font-size-text",
+          "wire_name": "styling.fontSize.text",
+          "type": "float",
+          "location": "body",
+          "description": "Text font size",
+          "required": true
+        },
+        {
+          "name": "styling-footer-image",
+          "wire_name": "styling.footerImage",
+          "type": "string",
+          "location": "body",
+          "description": "Footer image"
+        },
+        {
+          "name": "styling-header-image",
+          "wire_name": "styling.headerImage",
+          "type": "string",
+          "location": "body",
+          "description": "Header image"
+        },
+        {
+          "name": "styling-line-height-heading",
+          "wire_name": "styling.lineHeight.heading",
+          "type": "float",
+          "location": "body",
+          "description": "Heading line height",
+          "required": true
+        },
+        {
+          "name": "styling-line-height-text",
+          "wire_name": "styling.lineHeight.text",
+          "type": "float",
+          "location": "body",
+          "description": "Text line height",
+          "required": true
+        },
+        {
+          "name": "styling-margin-bottom",
+          "wire_name": "styling.margin.bottom",
+          "type": "float",
+          "location": "body",
+          "description": "Bottom margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-left",
+          "wire_name": "styling.margin.left",
+          "type": "float",
+          "location": "body",
+          "description": "Left margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-right",
+          "wire_name": "styling.margin.right",
+          "type": "float",
+          "location": "body",
+          "description": "Right margin",
+          "required": true
+        },
+        {
+          "name": "styling-margin-top",
+          "wire_name": "styling.margin.top",
+          "type": "float",
+          "location": "body",
+          "description": "Top margin",
+          "required": true
+        },
+        {
+          "name": "styling-spacing-heading",
+          "wire_name": "styling.spacing.heading",
+          "type": "float",
+          "location": "body",
+          "description": "Heading spacing",
+          "required": true
+        },
+        {
+          "name": "styling-spacing-paragraph",
+          "wire_name": "styling.spacing.paragraph",
+          "type": "float",
+          "location": "body",
+          "description": "Paragraph spacing",
+          "required": true
+        },
+        {
+          "name": "thankYouPage",
+          "type": "string",
+          "location": "body",
+          "description": "Thank you page"
+        },
+        {
+          "name": "useSignatureImage",
+          "type": "bool",
+          "location": "body",
+          "description": "Use signature image"
+        },
+        {
+          "name": "widgets",
+          "type": "array",
+          "location": "body",
+          "description": "Array of widgets to include in the template."
+        }
+      ]
+    },
+    {
+      "name": "quote-widget-template_public-create",
+      "description": "Creates a new widget template. The widget configuration should match the structure used in copy/paste operations. All product references should use internal Sfindr product IDs. Required: name, widget. Optional: entityLabels, order. Returns the new QuoteWidgetTemplateResponseDto.",
+      "method": "POST",
+      "path": "/quote-widget-template",
+      "params": [
+        {
+          "name": "entityLabels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity labels for categorization"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Widget template name",
+          "required": true
+        },
+        {
+          "name": "order",
+          "type": "float",
+          "location": "body",
+          "description": "Display order for the widget template"
+        },
+        {
+          "name": "widget",
+          "type": "string",
+          "location": "body",
+          "description": "Widget configuration object.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-widget-template_public-get-by-id",
+      "description": "Returns a single widget template with all its contents. The response can be used directly in PUT requests. Required: id.",
+      "method": "GET",
+      "path": "/quote-widget-template/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quote-widget-template_public-list",
+      "description": "Returns a list of all widget templates ordered by their display order.",
+      "method": "GET",
+      "path": "/quote-widget-template",
+      "params": []
+    },
+    {
+      "name": "quote-widget-template_public-update",
+      "description": "Updates an existing widget template. Only provided fields will be updated. All product references should use internal Sfindr product IDs. Required: id. Optional: entityLabels, localizationId, localizationIds (plus 3 more). Returns the updated QuoteWidgetTemplateResponseDto.",
+      "method": "PUT",
+      "path": "/quote-widget-template/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "entityLabels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity labels for categorization"
+        },
+        {
+          "name": "localizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Localization ID for multi-language support"
+        },
+        {
+          "name": "localizationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Additional localization IDs"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Widget template name"
+        },
+        {
+          "name": "order",
+          "type": "float",
+          "location": "body",
+          "description": "Display order for the widget template"
+        },
+        {
+          "name": "widget",
+          "type": "string",
+          "location": "body",
+          "description": "Widget configuration object."
+        }
+      ]
+    },
+    {
+      "name": "quote-widget-template_public-validate-widget",
+      "description": "Validates widget template data including product references. Returns the validated data that would be used in create/update operations. Required: name, widget. Optional: entityLabels, order.",
+      "method": "POST",
+      "path": "/quote-widget-template/validate",
+      "params": [
+        {
+          "name": "entityLabels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity labels for categorization"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Widget template name",
+          "required": true
+        },
+        {
+          "name": "order",
+          "type": "float",
+          "location": "body",
+          "description": "Display order for the widget template"
+        },
+        {
+          "name": "widget",
+          "type": "string",
+          "location": "body",
+          "description": "Widget configuration object.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sync-state_sync-public-put",
+      "description": "This endpoint is exempt from rate limiting. Required: entityType (default: quote), id, error, externalIdentifier, state.",
+      "method": "PUT",
+      "path": "/sync-state/{entityType}/{id}",
+      "params": [
+        {
+          "name": "entityType",
+          "type": "string",
+          "location": "path",
+          "description": "Entity type",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "location": "body",
+          "description": "Only if state is `error`",
+          "required": true
+        },
+        {
+          "name": "externalIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "External identifier",
+          "required": true
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "State",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

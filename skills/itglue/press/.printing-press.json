@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:47:46.666489Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "itglue",
+  "display_name": "IT Glue / MyGlue",
+  "cli_name": "itglue-pp-cli",
+  "run_id": "20260606-081826",
+  "catalog_entry": "itglue",
+  "category": "productivity",
+  "description": "IT Glue JSON:API surface for organizations, contacts, passwords, configurations, and documents, including the write endpoints needed for MSP automation",
+  "novel_features": [
+    {
+      "name": "Fleet-wide cross-resource search",
+      "command": "search",
+      "description": "Search every synced organization, contact, password (metadata), configuration, and document at once, with the owning client shown for each hit."
+    },
+    {
+      "name": "Per-org documentation coverage scorecard",
+      "command": "coverage",
+      "description": "Rank organizations by documentation completeness — counts of configurations, contacts, passwords, and documents per client, thinnest first."
+    },
+    {
+      "name": "Password rotation / staleness audit",
+      "command": "passwords stale",
+      "description": "List credentials whose last update is older than a threshold, grouped by client and sorted oldest-first — metadata only, the secret value is never read."
+    },
+    {
+      "name": "Duplicate-contact detection",
+      "command": "contacts dupes",
+      "description": "Find contacts that share a normalized name or email within (or across) an organization — the duplicates that overlapping PSA syncs leave behind."
+    },
+    {
+      "name": "Org consolidated brief",
+      "command": "org show",
+      "description": "Assemble everything known about one client — contacts, configurations, password metadata, and documents — in a single offline read."
+    },
+    {
+      "name": "Cross-resource change feed",
+      "command": "changes",
+      "description": "Show every record updated since a timestamp across all five resources, newest first, optionally narrowed to one resource type."
+    },
+    {
+      "name": "Orphaned-record detector",
+      "command": "orphans",
+      "description": "Find configurations, contacts, passwords, and documents whose organization-id no longer resolves to a synced organization."
+    }
+  ]
+}

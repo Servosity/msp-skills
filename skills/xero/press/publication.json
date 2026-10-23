@@ -1,0 +1,6 @@
+{
+ "schema": 1,
+ "withheld": {
+  "spec.yaml": "gitleaks flags it (aws-access-token)"
+ }
+}

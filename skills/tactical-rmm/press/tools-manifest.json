@@ -1,0 +1,2563 @@
+{
+  "api_name": "tactical-rmm",
+  "base_url": "https://api.example.com",
+  "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "X-API-KEY",
+    "in": "header",
+    "env_vars": [
+      "TRMM_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "TRMM_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Tactical RMM API key (Settings \u003e Global Settings \u003e API Keys). Bypasses 2FA."
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_accounts",
+      "description": "GET /accounts/apikeys/. Returns array of AccountsAccountsItem.",
+      "method": "GET",
+      "path": "/accounts/apikeys/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-apikeys",
+      "description": "POST /accounts/apikeys/. Returns the new AccountsAccountsApikeysResponse.",
+      "method": "POST",
+      "path": "/accounts/apikeys/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-apikeys-2",
+      "description": "DELETE /accounts/apikeys/{pk}/. Required: pk. Returns the AccountsAccountsApikeys2Response. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/apikeys/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-apikeys-3",
+      "description": "PUT /accounts/apikeys/{pk}/. Required: pk. Returns the updated AccountsAccountsApikeys3Response.",
+      "method": "PUT",
+      "path": "/accounts/apikeys/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-reset2fa",
+      "description": "PUT /accounts/reset2fa/. Returns the updated AccountsAccountsReset2faResponse.",
+      "method": "PUT",
+      "path": "/accounts/reset2fa/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-resetpw",
+      "description": "PUT /accounts/resetpw/. Returns the updated AccountsAccountsResetpwResponse.",
+      "method": "PUT",
+      "path": "/accounts/resetpw/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-roles",
+      "description": "GET /accounts/roles/. Returns array of AccountsAccountsRolesItem.",
+      "method": "GET",
+      "path": "/accounts/roles/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-roles-2",
+      "description": "POST /accounts/roles/. Returns the new AccountsAccountsRoles2Response.",
+      "method": "POST",
+      "path": "/accounts/roles/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-roles-3",
+      "description": "DELETE /accounts/roles/{pk}/. Required: pk. Returns the AccountsAccountsRoles3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/roles/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-roles-4",
+      "description": "GET /accounts/roles/{pk}/. Required: pk. Returns the AccountsAccountsRoles4Response.",
+      "method": "GET",
+      "path": "/accounts/roles/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-roles-5",
+      "description": "PUT /accounts/roles/{pk}/. Required: pk. Returns the updated AccountsAccountsRoles5Response.",
+      "method": "PUT",
+      "path": "/accounts/roles/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-sessions",
+      "description": "DELETE /accounts/sessions/{pk}/. Required: pk. Returns the AccountsAccountsSessionsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/sessions/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "string",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-users",
+      "description": "GET /accounts/users/. Returns array of AccountsAccountsUsersItem.",
+      "method": "GET",
+      "path": "/accounts/users/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-10",
+      "description": "GET /accounts/users/{pk}/sessions/. Required: pk. Returns the AccountsAccountsUsers10Response.",
+      "method": "GET",
+      "path": "/accounts/users/{pk}/sessions/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_accounts-users-2",
+      "description": "POST /accounts/users/. Returns the new AccountsAccountsUsers2Response.",
+      "method": "POST",
+      "path": "/accounts/users/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-3",
+      "description": "POST /accounts/users/reset/. Returns the new AccountsAccountsUsers3Response.",
+      "method": "POST",
+      "path": "/accounts/users/reset/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-4",
+      "description": "PUT /accounts/users/reset/. Returns the updated AccountsAccountsUsers4Response.",
+      "method": "PUT",
+      "path": "/accounts/users/reset/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-5",
+      "description": "POST /accounts/users/reset_totp/. Returns the new AccountsAccountsUsers5Response.",
+      "method": "POST",
+      "path": "/accounts/users/reset_totp/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-6",
+      "description": "PUT /accounts/users/reset_totp/. Returns the updated AccountsAccountsUsers6Response.",
+      "method": "PUT",
+      "path": "/accounts/users/reset_totp/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-7",
+      "description": "POST /accounts/users/setup_totp/. Returns the new AccountsAccountsUsers7Response.",
+      "method": "POST",
+      "path": "/accounts/users/setup_totp/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-8",
+      "description": "PATCH /accounts/users/ui/. Returns the updated AccountsAccountsUsers8Response.",
+      "method": "PATCH",
+      "path": "/accounts/users/ui/",
+      "params": []
+    },
+    {
+      "name": "accounts_accounts-users-9",
+      "description": "DELETE /accounts/users/{pk}/sessions/. Required: pk. Returns the AccountsAccountsUsers9Response. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/users/{pk}/sessions/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_users_accounts",
+      "description": "DELETE /accounts/{pk}/users/. Required: pk. Returns the UsersAccountsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/{pk}/users/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_users_accounts-accounts",
+      "description": "GET /accounts/{pk}/users/. Required: pk. Returns the UsersAccountsAccountsResponse.",
+      "method": "GET",
+      "path": "/accounts/{pk}/users/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_users_accounts-accounts-2",
+      "description": "PUT /accounts/{pk}/users/. Required: pk. Returns the updated UsersAccountsAccounts2Response.",
+      "method": "PUT",
+      "path": "/accounts/{pk}/users/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents",
+      "description": "GET /agents/. Returns array of AgentsAgentsItem.",
+      "method": "GET",
+      "path": "/agents/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-actions",
+      "description": "GET /agents/actions/bulk/. Returns array of AgentsAgentsActionsItem.",
+      "method": "GET",
+      "path": "/agents/actions/bulk/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-agentid",
+      "description": "DELETE /agents/{agent_id}/. Required: agent_id. Returns the AgentsAgentsAgentidResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/agents/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents-agentid-2",
+      "description": "GET /agents/{agent_id}/. Required: agent_id. Returns the AgentsAgentsAgentid2Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents-agentid-3",
+      "description": "PUT /agents/{agent_id}/. Required: agent_id. Returns the updated AgentsAgentsAgentid3Response.",
+      "method": "PUT",
+      "path": "/agents/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents-bulkrecovery",
+      "description": "GET /agents/bulkrecovery/. Returns array of AgentsAgentsBulkrecoveryItem.",
+      "method": "GET",
+      "path": "/agents/bulkrecovery/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-history",
+      "description": "GET /agents/history/. Returns array of AgentsAgentsHistoryItem.",
+      "method": "GET",
+      "path": "/agents/history/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-installer",
+      "description": "GET /agents/installer/. Returns array of AgentsAgentsInstallerItem.",
+      "method": "GET",
+      "path": "/agents/installer/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-maintenance",
+      "description": "GET /agents/maintenance/bulk/. Returns array of AgentsAgentsMaintenanceItem.",
+      "method": "GET",
+      "path": "/agents/maintenance/bulk/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-notes",
+      "description": "GET /agents/notes/. Returns array of AgentsAgentsNotesItem.",
+      "method": "GET",
+      "path": "/agents/notes/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-notes-2",
+      "description": "POST /agents/notes/. Returns the new AgentsAgentsNotes2Response.",
+      "method": "POST",
+      "path": "/agents/notes/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-notes-3",
+      "description": "DELETE /agents/notes/{pk}/. Required: pk. Returns the AgentsAgentsNotes3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/agents/notes/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents-notes-4",
+      "description": "GET /agents/notes/{pk}/. Required: pk. Returns the AgentsAgentsNotes4Response.",
+      "method": "GET",
+      "path": "/agents/notes/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents-notes-5",
+      "description": "PUT /agents/notes/{pk}/. Required: pk. Returns the updated AgentsAgentsNotes5Response.",
+      "method": "PUT",
+      "path": "/agents/notes/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_agents-scripthistory",
+      "description": "GET /agents/scripthistory/. Returns array of AgentsAgentsScripthistoryItem.",
+      "method": "GET",
+      "path": "/agents/scripthistory/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-update",
+      "description": "GET /agents/update/. Returns array of AgentsAgentsUpdateItem.",
+      "method": "GET",
+      "path": "/agents/update/",
+      "params": []
+    },
+    {
+      "name": "agents_agents-versions",
+      "description": "GET /agents/versions/. Returns array of AgentsAgentsVersionsItem.",
+      "method": "GET",
+      "path": "/agents/versions/",
+      "params": []
+    },
+    {
+      "name": "agents_checks_agents",
+      "description": "GET /agents/{agent_id}/checks/. Required: agent_id. Returns the ChecksAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/checks/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_cmd_agents",
+      "description": "GET /agents/{agent_id}/cmd/. Required: agent_id. Returns the CmdAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/cmd/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_eventlog_agents",
+      "description": "GET /agents/{agent_id}/eventlog/{logtype}/{days}/. Required: agent_id, logtype, days. Returns the EventlogAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/eventlog/{logtype}/{days}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "logtype",
+          "type": "string",
+          "location": "path",
+          "description": "Logtype",
+          "required": true
+        },
+        {
+          "name": "days",
+          "type": "int",
+          "location": "path",
+          "description": "Days",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_history_agents",
+      "description": "GET /agents/{agent_id}/history/. Required: agent_id. Returns the HistoryAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/history/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_meshcentral_agents",
+      "description": "GET /agents/{agent_id}/meshcentral/. Required: agent_id. Returns the MeshcentralAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/meshcentral/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_meshcentral_agents-agents",
+      "description": "POST /agents/{agent_id}/meshcentral/. Required: agent_id. Returns the new MeshcentralAgentsAgentsResponse.",
+      "method": "POST",
+      "path": "/agents/{agent_id}/meshcentral/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_meshcentral_agents-agents-2",
+      "description": "GET /agents/{agent_id}/meshcentral/recover/. Required: agent_id. Returns the MeshcentralAgentsAgents2Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/meshcentral/recover/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_meshcentral_agents-agents-3",
+      "description": "POST /agents/{agent_id}/meshcentral/recover/. Required: agent_id. Returns the new MeshcentralAgentsAgents3Response.",
+      "method": "POST",
+      "path": "/agents/{agent_id}/meshcentral/recover/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_notes_agents",
+      "description": "GET /agents/{agent_id}/notes/. Required: agent_id. Returns the NotesAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/notes/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_notes_agents-agents",
+      "description": "POST /agents/{agent_id}/notes/. Required: agent_id. Returns the new NotesAgentsAgentsResponse.",
+      "method": "POST",
+      "path": "/agents/{agent_id}/notes/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_pendingactions_agents",
+      "description": "GET /agents/{agent_id}/pendingactions/. Required: agent_id. Returns the PendingactionsAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/pendingactions/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_ping_agents",
+      "description": "GET /agents/{agent_id}/ping/. Required: agent_id. Returns the PingAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/ping/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_processes_agents",
+      "description": "DELETE /agents/{agent_id}/processes/. Required: agent_id. Returns the ProcessesAgentsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/agents/{agent_id}/processes/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_processes_agents-agents",
+      "description": "GET /agents/{agent_id}/processes/. Required: agent_id. Returns the ProcessesAgentsAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/processes/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_processes_agents-agents-2",
+      "description": "DELETE /agents/{agent_id}/processes/{pid}/. Required: agent_id, pid. Returns the ProcessesAgentsAgents2Response. Destructive.",
+      "method": "DELETE",
+      "path": "/agents/{agent_id}/processes/{pid}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "pid",
+          "type": "int",
+          "location": "path",
+          "description": "Pid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_processes_agents-agents-3",
+      "description": "GET /agents/{agent_id}/processes/{pid}/. Required: agent_id, pid. Returns the ProcessesAgentsAgents3Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/processes/{pid}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "pid",
+          "type": "int",
+          "location": "path",
+          "description": "Pid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_reboot_agents",
+      "description": "PATCH /agents/{agent_id}/reboot/. Required: agent_id. Returns the updated RebootAgentsResponse.",
+      "method": "PATCH",
+      "path": "/agents/{agent_id}/reboot/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_reboot_agents-agents",
+      "description": "POST /agents/{agent_id}/reboot/. Required: agent_id. Returns the new RebootAgentsAgentsResponse.",
+      "method": "POST",
+      "path": "/agents/{agent_id}/reboot/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_recover_agents",
+      "description": "GET /agents/{agent_id}/recover/. Required: agent_id. Returns the RecoverAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/recover/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents",
+      "description": "GET /agents/{agent_id}/registry/. Required: agent_id. Returns the RegistryAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents",
+      "description": "GET /agents/{agent_id}/registry/create-key/. Required: agent_id. Returns the RegistryAgentsAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/create-key/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents-2",
+      "description": "GET /agents/{agent_id}/registry/create-value/. Required: agent_id. Returns the RegistryAgentsAgents2Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/create-value/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents-3",
+      "description": "GET /agents/{agent_id}/registry/delete-key/. Required: agent_id. Returns the RegistryAgentsAgents3Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/delete-key/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents-4",
+      "description": "GET /agents/{agent_id}/registry/delete-value/. Required: agent_id. Returns the RegistryAgentsAgents4Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/delete-value/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents-5",
+      "description": "GET /agents/{agent_id}/registry/modify-value/. Required: agent_id. Returns the RegistryAgentsAgents5Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/modify-value/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents-6",
+      "description": "GET /agents/{agent_id}/registry/rename-key/. Required: agent_id. Returns the RegistryAgentsAgents6Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/rename-key/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_registry_agents-agents-7",
+      "description": "GET /agents/{agent_id}/registry/rename-value/. Required: agent_id. Returns the RegistryAgentsAgents7Response.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/registry/rename-value/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_runscript_agents",
+      "description": "GET /agents/{agent_id}/runscript/. Required: agent_id. Returns the RunscriptAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/runscript/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_shutdown_agents",
+      "description": "POST /agents/{agent_id}/shutdown/. Required: agent_id. Returns the new ShutdownAgentsResponse.",
+      "method": "POST",
+      "path": "/agents/{agent_id}/shutdown/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_tasks_agents",
+      "description": "GET /agents/{agent_id}/tasks/. Required: agent_id. Returns the TasksAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/tasks/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_webvnc_agents",
+      "description": "GET /agents/{agent_id}/{port}/webvnc/. Required: agent_id, port. Returns the WebvncAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/{port}/webvnc/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "port",
+          "type": "string",
+          "location": "path",
+          "description": "Port",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_wmi_agents",
+      "description": "POST /agents/{agent_id}/wmi/. Required: agent_id. Returns the new WmiAgentsResponse.",
+      "method": "POST",
+      "path": "/agents/{agent_id}/wmi/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agents_wol_agents",
+      "description": "GET /agents/{agent_id}/wol/. Required: agent_id. Returns the WolAgentsResponse.",
+      "method": "GET",
+      "path": "/agents/{agent_id}/wol/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts",
+      "description": "PATCH /alerts/. Returns the updated AlertsAlertsResponse.",
+      "method": "PATCH",
+      "path": "/alerts/",
+      "params": []
+    },
+    {
+      "name": "alerts_alerts-bulk",
+      "description": "POST /alerts/bulk/. Returns the new AlertsAlertsBulkResponse.",
+      "method": "POST",
+      "path": "/alerts/bulk/",
+      "params": []
+    },
+    {
+      "name": "alerts_alerts-endpoint",
+      "description": "POST /alerts/. Returns the new AlertsAlertsEndpointResponse.",
+      "method": "POST",
+      "path": "/alerts/",
+      "params": []
+    },
+    {
+      "name": "alerts_alerts-pk",
+      "description": "DELETE /alerts/{pk}/. Required: pk. Returns the AlertsAlertsPkResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/alerts/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts-pk-2",
+      "description": "GET /alerts/{pk}/. Required: pk. Returns the AlertsAlertsPk2Response.",
+      "method": "GET",
+      "path": "/alerts/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts-pk-3",
+      "description": "PUT /alerts/{pk}/. Required: pk. Returns the updated AlertsAlertsPk3Response.",
+      "method": "PUT",
+      "path": "/alerts/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts-templates",
+      "description": "GET /alerts/templates/. Returns array of AlertsAlertsTemplatesItem.",
+      "method": "GET",
+      "path": "/alerts/templates/",
+      "params": []
+    },
+    {
+      "name": "alerts_alerts-templates-2",
+      "description": "POST /alerts/templates/. Returns the new AlertsAlertsTemplates2Response.",
+      "method": "POST",
+      "path": "/alerts/templates/",
+      "params": []
+    },
+    {
+      "name": "alerts_alerts-templates-3",
+      "description": "DELETE /alerts/templates/{pk}/. Required: pk. Returns the AlertsAlertsTemplates3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/alerts/templates/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts-templates-4",
+      "description": "GET /alerts/templates/{pk}/. Required: pk. Returns the AlertsAlertsTemplates4Response.",
+      "method": "GET",
+      "path": "/alerts/templates/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts-templates-5",
+      "description": "PUT /alerts/templates/{pk}/. Required: pk. Returns the updated AlertsAlertsTemplates5Response.",
+      "method": "PUT",
+      "path": "/alerts/templates/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_alerts-templates-6",
+      "description": "GET /alerts/templates/{pk}/related/. Required: pk. Returns the AlertsAlertsTemplates6Response.",
+      "method": "GET",
+      "path": "/alerts/templates/{pk}/related/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation",
+      "description": "DELETE /automation/patchpolicy/. Returns the AutomationAutomationResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/automation/patchpolicy/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-checks",
+      "description": "GET /automation/checks/{check}/status/. Required: check. Returns the AutomationAutomationChecksResponse.",
+      "method": "GET",
+      "path": "/automation/checks/{check}/status/",
+      "params": [
+        {
+          "name": "check",
+          "type": "int",
+          "location": "path",
+          "description": "Check",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-patchpolicy",
+      "description": "POST /automation/patchpolicy/. Returns the new AutomationAutomationPatchpolicyResponse.",
+      "method": "POST",
+      "path": "/automation/patchpolicy/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-patchpolicy-2",
+      "description": "PUT /automation/patchpolicy/. Returns the updated AutomationAutomationPatchpolicy2Response.",
+      "method": "PUT",
+      "path": "/automation/patchpolicy/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-patchpolicy-3",
+      "description": "POST /automation/patchpolicy/reset/. Returns the new AutomationAutomationPatchpolicy3Response.",
+      "method": "POST",
+      "path": "/automation/patchpolicy/reset/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-patchpolicy-4",
+      "description": "DELETE /automation/patchpolicy/{pk}/. Required: pk. Returns the AutomationAutomationPatchpolicy4Response. Destructive.",
+      "method": "DELETE",
+      "path": "/automation/patchpolicy/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-patchpolicy-5",
+      "description": "POST /automation/patchpolicy/{pk}/. Required: pk. Returns the new AutomationAutomationPatchpolicy5Response.",
+      "method": "POST",
+      "path": "/automation/patchpolicy/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-patchpolicy-6",
+      "description": "PUT /automation/patchpolicy/{pk}/. Required: pk. Returns the updated AutomationAutomationPatchpolicy6Response.",
+      "method": "PUT",
+      "path": "/automation/patchpolicy/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-policies",
+      "description": "GET /automation/policies/. Returns array of AutomationAutomationPoliciesItem.",
+      "method": "GET",
+      "path": "/automation/policies/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-policies-2",
+      "description": "POST /automation/policies/. Returns the new AutomationAutomationPolicies2Response.",
+      "method": "POST",
+      "path": "/automation/policies/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-policies-3",
+      "description": "GET /automation/policies/overview/. Returns array of AutomationAutomationPolicies3Item.",
+      "method": "GET",
+      "path": "/automation/policies/overview/",
+      "params": []
+    },
+    {
+      "name": "automation_automation-policies-4",
+      "description": "DELETE /automation/policies/{pk}/. Required: pk. Returns the AutomationAutomationPolicies4Response. Destructive.",
+      "method": "DELETE",
+      "path": "/automation/policies/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-policies-5",
+      "description": "GET /automation/policies/{pk}/. Required: pk. Returns the AutomationAutomationPolicies5Response.",
+      "method": "GET",
+      "path": "/automation/policies/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-policies-6",
+      "description": "PUT /automation/policies/{pk}/. Required: pk. Returns the updated AutomationAutomationPolicies6Response.",
+      "method": "PUT",
+      "path": "/automation/policies/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-policies-7",
+      "description": "GET /automation/policies/{pk}/related/. Required: pk. Returns the AutomationAutomationPolicies7Response.",
+      "method": "GET",
+      "path": "/automation/policies/{pk}/related/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-policies-8",
+      "description": "GET /automation/policies/{policy}/checks/. Required: policy. Returns the AutomationAutomationPolicies8Response.",
+      "method": "GET",
+      "path": "/automation/policies/{policy}/checks/",
+      "params": [
+        {
+          "name": "policy",
+          "type": "int",
+          "location": "path",
+          "description": "Policy",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-policies-9",
+      "description": "GET /automation/policies/{policy}/tasks/. Required: policy. Returns the AutomationAutomationPolicies9Response.",
+      "method": "GET",
+      "path": "/automation/policies/{policy}/tasks/",
+      "params": [
+        {
+          "name": "policy",
+          "type": "int",
+          "location": "path",
+          "description": "Policy",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-tasks",
+      "description": "GET /automation/tasks/{task}/run/. Required: task. Returns the AutomationAutomationTasksResponse.",
+      "method": "GET",
+      "path": "/automation/tasks/{task}/run/",
+      "params": [
+        {
+          "name": "task",
+          "type": "int",
+          "location": "path",
+          "description": "Task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-tasks-2",
+      "description": "POST /automation/tasks/{task}/run/. Required: task. Returns the new AutomationAutomationTasks2Response.",
+      "method": "POST",
+      "path": "/automation/tasks/{task}/run/",
+      "params": [
+        {
+          "name": "task",
+          "type": "int",
+          "location": "path",
+          "description": "Task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-tasks-3",
+      "description": "GET /automation/tasks/{task}/status/. Required: task. Returns the AutomationAutomationTasks3Response.",
+      "method": "GET",
+      "path": "/automation/tasks/{task}/status/",
+      "params": [
+        {
+          "name": "task",
+          "type": "int",
+          "location": "path",
+          "description": "Task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "automation_automation-tasks-4",
+      "description": "POST /automation/tasks/{task}/status/. Required: task. Returns the new AutomationAutomationTasks4Response.",
+      "method": "POST",
+      "path": "/automation/tasks/{task}/status/",
+      "params": [
+        {
+          "name": "task",
+          "type": "int",
+          "location": "path",
+          "description": "Task",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autotasks_autotasks",
+      "description": "GET /autotasks/. Returns array of AutotasksAutotasksItem.",
+      "method": "GET",
+      "path": "/autotasks/",
+      "params": []
+    },
+    {
+      "name": "autotasks_autotasks-endpoint",
+      "description": "POST /autotasks/. Returns the new AutotasksAutotasksEndpointResponse.",
+      "method": "POST",
+      "path": "/autotasks/",
+      "params": []
+    },
+    {
+      "name": "autotasks_autotasks-pk",
+      "description": "DELETE /autotasks/{pk}/. Required: pk. Returns the AutotasksAutotasksPkResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/autotasks/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autotasks_autotasks-pk-2",
+      "description": "GET /autotasks/{pk}/. Required: pk. Returns the AutotasksAutotasksPk2Response.",
+      "method": "GET",
+      "path": "/autotasks/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autotasks_autotasks-pk-3",
+      "description": "PUT /autotasks/{pk}/. Required: pk. Returns the updated AutotasksAutotasksPk3Response.",
+      "method": "PUT",
+      "path": "/autotasks/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autotasks_run_autotasks",
+      "description": "POST /autotasks/{pk}/run/. Required: pk. Returns the new RunAutotasksResponse.",
+      "method": "POST",
+      "path": "/autotasks/{pk}/run/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_checks",
+      "description": "GET /checks/. Returns array of ChecksChecksItem.",
+      "method": "GET",
+      "path": "/checks/",
+      "params": []
+    },
+    {
+      "name": "checks_checks-endpoint",
+      "description": "POST /checks/. Returns the new ChecksChecksEndpointResponse.",
+      "method": "POST",
+      "path": "/checks/",
+      "params": []
+    },
+    {
+      "name": "checks_checks-pk",
+      "description": "DELETE /checks/{pk}/. Required: pk. Returns the ChecksChecksPkResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/checks/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_checks-pk-2",
+      "description": "GET /checks/{pk}/. Required: pk. Returns the ChecksChecksPk2Response.",
+      "method": "GET",
+      "path": "/checks/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_checks-pk-3",
+      "description": "PUT /checks/{pk}/. Required: pk. Returns the updated ChecksChecksPk3Response.",
+      "method": "PUT",
+      "path": "/checks/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_csbulkrun_checks",
+      "description": "GET /checks/{target}/{pk}/csbulkrun/. Required: target, pk. Returns the CsbulkrunChecksResponse.",
+      "method": "GET",
+      "path": "/checks/{target}/{pk}/csbulkrun/",
+      "params": [
+        {
+          "name": "target",
+          "type": "string",
+          "location": "path",
+          "description": "Target",
+          "required": true
+        },
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_history_checks",
+      "description": "PATCH /checks/{pk}/history/. Required: pk. Returns the updated HistoryChecksResponse.",
+      "method": "PATCH",
+      "path": "/checks/{pk}/history/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_reset_checks",
+      "description": "POST /checks/{pk}/reset/. Required: pk. Returns the new ResetChecksResponse.",
+      "method": "POST",
+      "path": "/checks/{pk}/reset/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_resetall_checks",
+      "description": "POST /checks/{agent_id}/resetall/. Required: agent_id. Returns the new ResetallChecksResponse.",
+      "method": "POST",
+      "path": "/checks/{agent_id}/resetall/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "checks_run_checks",
+      "description": "GET /checks/{agent_id}/run/. Required: agent_id. Returns the RunChecksResponse.",
+      "method": "GET",
+      "path": "/checks/{agent_id}/run/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients",
+      "description": "GET /clients/. Returns array of ClientsClientsItem.",
+      "method": "GET",
+      "path": "/clients/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-deployments",
+      "description": "DELETE /clients/deployments/. Returns the ClientsClientsDeploymentsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/clients/deployments/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-deployments-2",
+      "description": "GET /clients/deployments/. Returns array of ClientsClientsDeployments2Item.",
+      "method": "GET",
+      "path": "/clients/deployments/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-deployments-3",
+      "description": "POST /clients/deployments/. Returns the new ClientsClientsDeployments3Response.",
+      "method": "POST",
+      "path": "/clients/deployments/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-deployments-4",
+      "description": "DELETE /clients/deployments/{pk}/. Required: pk. Returns the ClientsClientsDeployments4Response. Destructive.",
+      "method": "DELETE",
+      "path": "/clients/deployments/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-deployments-5",
+      "description": "GET /clients/deployments/{pk}/. Required: pk. Returns the ClientsClientsDeployments5Response.",
+      "method": "GET",
+      "path": "/clients/deployments/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-deployments-6",
+      "description": "POST /clients/deployments/{pk}/. Required: pk. Returns the new ClientsClientsDeployments6Response.",
+      "method": "POST",
+      "path": "/clients/deployments/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-endpoint",
+      "description": "POST /clients/. Returns the new ClientsClientsEndpointResponse.",
+      "method": "POST",
+      "path": "/clients/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-pk",
+      "description": "DELETE /clients/{pk}/. Required: pk. Returns the ClientsClientsPkResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/clients/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-pk-2",
+      "description": "GET /clients/{pk}/. Required: pk. Returns the ClientsClientsPk2Response.",
+      "method": "GET",
+      "path": "/clients/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-pk-3",
+      "description": "PUT /clients/{pk}/. Required: pk. Returns the updated ClientsClientsPk3Response.",
+      "method": "PUT",
+      "path": "/clients/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-sites",
+      "description": "GET /clients/sites/. Returns array of ClientsClientsSitesItem.",
+      "method": "GET",
+      "path": "/clients/sites/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-sites-2",
+      "description": "POST /clients/sites/. Returns the new ClientsClientsSites2Response.",
+      "method": "POST",
+      "path": "/clients/sites/",
+      "params": []
+    },
+    {
+      "name": "clients_clients-sites-3",
+      "description": "DELETE /clients/sites/{pk}/. Required: pk. Returns the ClientsClientsSites3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/clients/sites/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-sites-4",
+      "description": "GET /clients/sites/{pk}/. Required: pk. Returns the ClientsClientsSites4Response.",
+      "method": "GET",
+      "path": "/clients/sites/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_clients-sites-5",
+      "description": "PUT /clients/sites/{pk}/. Required: pk. Returns the updated ClientsClientsSites5Response.",
+      "method": "PUT",
+      "path": "/clients/sites/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_deploy_clients",
+      "description": "GET /clients/{uid}/deploy/. Required: uid. Returns the DeployClientsResponse.",
+      "method": "GET",
+      "path": "/clients/{uid}/deploy/",
+      "params": [
+        {
+          "name": "uid",
+          "type": "string",
+          "location": "path",
+          "description": "Uid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core",
+      "description": "GET /core/clearcache/. Returns array of CoreCoreItem.",
+      "method": "GET",
+      "path": "/core/clearcache/",
+      "params": []
+    },
+    {
+      "name": "core_core-codesign",
+      "description": "DELETE /core/codesign/. Returns the CoreCoreCodesignResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/core/codesign/",
+      "params": []
+    },
+    {
+      "name": "core_core-codesign-2",
+      "description": "GET /core/codesign/. Returns array of CoreCoreCodesign2Item.",
+      "method": "GET",
+      "path": "/core/codesign/",
+      "params": []
+    },
+    {
+      "name": "core_core-codesign-3",
+      "description": "PATCH /core/codesign/. Returns the updated CoreCoreCodesign3Response.",
+      "method": "PATCH",
+      "path": "/core/codesign/",
+      "params": []
+    },
+    {
+      "name": "core_core-codesign-4",
+      "description": "POST /core/codesign/. Returns the new CoreCoreCodesign4Response.",
+      "method": "POST",
+      "path": "/core/codesign/",
+      "params": []
+    },
+    {
+      "name": "core_core-customfields",
+      "description": "GET /core/customfields/. Returns array of CoreCoreCustomfieldsItem.",
+      "method": "GET",
+      "path": "/core/customfields/",
+      "params": []
+    },
+    {
+      "name": "core_core-customfields-2",
+      "description": "PATCH /core/customfields/. Returns the updated CoreCoreCustomfields2Response.",
+      "method": "PATCH",
+      "path": "/core/customfields/",
+      "params": []
+    },
+    {
+      "name": "core_core-customfields-3",
+      "description": "POST /core/customfields/. Returns the new CoreCoreCustomfields3Response.",
+      "method": "POST",
+      "path": "/core/customfields/",
+      "params": []
+    },
+    {
+      "name": "core_core-customfields-4",
+      "description": "DELETE /core/customfields/{pk}/. Required: pk. Returns the CoreCoreCustomfields4Response. Destructive.",
+      "method": "DELETE",
+      "path": "/core/customfields/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-customfields-5",
+      "description": "GET /core/customfields/{pk}/. Required: pk. Returns the CoreCoreCustomfields5Response.",
+      "method": "GET",
+      "path": "/core/customfields/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-customfields-6",
+      "description": "PUT /core/customfields/{pk}/. Required: pk. Returns the updated CoreCoreCustomfields6Response.",
+      "method": "PUT",
+      "path": "/core/customfields/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-dashinfo",
+      "description": "GET /core/dashinfo/. Returns array of CoreCoreDashinfoItem.",
+      "method": "GET",
+      "path": "/core/dashinfo/",
+      "params": []
+    },
+    {
+      "name": "core_core-emailtest",
+      "description": "GET /core/emailtest/. Returns array of CoreCoreEmailtestItem.",
+      "method": "GET",
+      "path": "/core/emailtest/",
+      "params": []
+    },
+    {
+      "name": "core_core-keystore",
+      "description": "GET /core/keystore/. Returns array of CoreCoreKeystoreItem.",
+      "method": "GET",
+      "path": "/core/keystore/",
+      "params": []
+    },
+    {
+      "name": "core_core-keystore-2",
+      "description": "POST /core/keystore/. Returns the new CoreCoreKeystore2Response.",
+      "method": "POST",
+      "path": "/core/keystore/",
+      "params": []
+    },
+    {
+      "name": "core_core-keystore-3",
+      "description": "DELETE /core/keystore/{pk}/. Required: pk. Returns the CoreCoreKeystore3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/core/keystore/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-keystore-4",
+      "description": "PUT /core/keystore/{pk}/. Required: pk. Returns the updated CoreCoreKeystore4Response.",
+      "method": "PUT",
+      "path": "/core/keystore/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-openai",
+      "description": "POST /core/openai/generate/. Returns the new CoreCoreOpenaiResponse.",
+      "method": "POST",
+      "path": "/core/openai/generate/",
+      "params": []
+    },
+    {
+      "name": "core_core-schedules",
+      "description": "GET /core/schedules/. Returns array of CoreCoreSchedulesItem.",
+      "method": "GET",
+      "path": "/core/schedules/",
+      "params": []
+    },
+    {
+      "name": "core_core-schedules-2",
+      "description": "POST /core/schedules/. Returns the new CoreCoreSchedules2Response.",
+      "method": "POST",
+      "path": "/core/schedules/",
+      "params": []
+    },
+    {
+      "name": "core_core-schedules-3",
+      "description": "DELETE /core/schedules/{pk}/. Required: pk. Returns the CoreCoreSchedules3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/core/schedules/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-schedules-4",
+      "description": "PUT /core/schedules/{pk}/. Required: pk. Returns the updated CoreCoreSchedules4Response.",
+      "method": "PUT",
+      "path": "/core/schedules/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-servermaintenance",
+      "description": "GET /core/servermaintenance/. Returns array of CoreCoreServermaintenanceItem.",
+      "method": "GET",
+      "path": "/core/servermaintenance/",
+      "params": []
+    },
+    {
+      "name": "core_core-settings",
+      "description": "GET /core/settings/. Returns array of CoreCoreSettingsItem.",
+      "method": "GET",
+      "path": "/core/settings/",
+      "params": []
+    },
+    {
+      "name": "core_core-settings-2",
+      "description": "PUT /core/settings/. Returns the updated CoreCoreSettings2Response.",
+      "method": "PUT",
+      "path": "/core/settings/",
+      "params": []
+    },
+    {
+      "name": "core_core-smstest",
+      "description": "POST /core/smstest/. Returns the new CoreCoreSmstestResponse.",
+      "method": "POST",
+      "path": "/core/smstest/",
+      "params": []
+    },
+    {
+      "name": "core_core-status",
+      "description": "GET /core/status/. Returns array of CoreCoreStatusItem.",
+      "method": "GET",
+      "path": "/core/status/",
+      "params": []
+    },
+    {
+      "name": "core_core-urlaction",
+      "description": "GET /core/urlaction/. Returns array of CoreCoreUrlactionItem.",
+      "method": "GET",
+      "path": "/core/urlaction/",
+      "params": []
+    },
+    {
+      "name": "core_core-urlaction-2",
+      "description": "POST /core/urlaction/. Returns the new CoreCoreUrlaction2Response.",
+      "method": "POST",
+      "path": "/core/urlaction/",
+      "params": []
+    },
+    {
+      "name": "core_core-urlaction-3",
+      "description": "PATCH /core/urlaction/run/. Returns the updated CoreCoreUrlaction3Response.",
+      "method": "PATCH",
+      "path": "/core/urlaction/run/",
+      "params": []
+    },
+    {
+      "name": "core_core-urlaction-4",
+      "description": "DELETE /core/urlaction/{pk}/. Required: pk. Returns the CoreCoreUrlaction4Response. Destructive.",
+      "method": "DELETE",
+      "path": "/core/urlaction/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-urlaction-5",
+      "description": "PUT /core/urlaction/{pk}/. Required: pk. Returns the updated CoreCoreUrlaction5Response.",
+      "method": "PUT",
+      "path": "/core/urlaction/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "core_core-urlaction-6",
+      "description": "POST /core/urlaction/run/test/. Returns the new CoreCoreUrlaction6Response.",
+      "method": "POST",
+      "path": "/core/urlaction/run/test/",
+      "params": []
+    },
+    {
+      "name": "core_core-v2",
+      "description": "GET /core/v2/status/. Returns array of CoreCoreV2Item.",
+      "method": "GET",
+      "path": "/core/v2/status/",
+      "params": []
+    },
+    {
+      "name": "core_core-version",
+      "description": "GET /core/version/. Returns array of CoreCoreVersionItem.",
+      "method": "GET",
+      "path": "/core/version/",
+      "params": []
+    },
+    {
+      "name": "core_core-webtermperms",
+      "description": "GET /core/webtermperms/. Returns array of CoreCoreWebtermpermsItem.",
+      "method": "GET",
+      "path": "/core/webtermperms/",
+      "params": []
+    },
+    {
+      "name": "logs_logs",
+      "description": "PATCH /logs/audit/. Returns the updated LogsLogsResponse.",
+      "method": "PATCH",
+      "path": "/logs/audit/",
+      "params": []
+    },
+    {
+      "name": "logs_logs-debug",
+      "description": "PATCH /logs/debug/. Returns the updated LogsLogsDebugResponse.",
+      "method": "PATCH",
+      "path": "/logs/debug/",
+      "params": []
+    },
+    {
+      "name": "logs_logs-pendingactions",
+      "description": "DELETE /logs/pendingactions/. Returns the LogsLogsPendingactionsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/logs/pendingactions/",
+      "params": []
+    },
+    {
+      "name": "logs_logs-pendingactions-2",
+      "description": "GET /logs/pendingactions/. Returns array of LogsLogsPendingactions2Item.",
+      "method": "GET",
+      "path": "/logs/pendingactions/",
+      "params": []
+    },
+    {
+      "name": "logs_logs-pendingactions-3",
+      "description": "DELETE /logs/pendingactions/{pk}/. Required: pk. Returns the LogsLogsPendingactions3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/logs/pendingactions/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "logs_logs-pendingactions-4",
+      "description": "GET /logs/pendingactions/{pk}/. Required: pk. Returns the LogsLogsPendingactions4Response.",
+      "method": "GET",
+      "path": "/logs/pendingactions/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_scripts",
+      "description": "GET /scripts/. Returns array of ScriptsScriptsItem.",
+      "method": "GET",
+      "path": "/scripts/",
+      "params": []
+    },
+    {
+      "name": "scripts_scripts-endpoint",
+      "description": "POST /scripts/. Returns the new ScriptsScriptsEndpointResponse.",
+      "method": "POST",
+      "path": "/scripts/",
+      "params": []
+    },
+    {
+      "name": "scripts_scripts-pk",
+      "description": "DELETE /scripts/{pk}/. Required: pk. Returns the ScriptsScriptsPkResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/scripts/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_scripts-pk-2",
+      "description": "GET /scripts/{pk}/. Required: pk. Returns the ScriptsScriptsPk2Response.",
+      "method": "GET",
+      "path": "/scripts/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_scripts-pk-3",
+      "description": "PUT /scripts/{pk}/. Required: pk. Returns the updated ScriptsScriptsPk3Response.",
+      "method": "PUT",
+      "path": "/scripts/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_scripts-snippets",
+      "description": "GET /scripts/snippets/. Returns array of ScriptsScriptsSnippetsItem.",
+      "method": "GET",
+      "path": "/scripts/snippets/",
+      "params": []
+    },
+    {
+      "name": "scripts_scripts-snippets-2",
+      "description": "POST /scripts/snippets/. Returns the new ScriptsScriptsSnippets2Response.",
+      "method": "POST",
+      "path": "/scripts/snippets/",
+      "params": []
+    },
+    {
+      "name": "scripts_scripts-snippets-3",
+      "description": "DELETE /scripts/snippets/{pk}/. Required: pk. Returns the ScriptsScriptsSnippets3Response. Destructive.",
+      "method": "DELETE",
+      "path": "/scripts/snippets/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_scripts-snippets-4",
+      "description": "GET /scripts/snippets/{pk}/. Required: pk. Returns the ScriptsScriptsSnippets4Response.",
+      "method": "GET",
+      "path": "/scripts/snippets/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_scripts-snippets-5",
+      "description": "PUT /scripts/snippets/{pk}/. Required: pk. Returns the updated ScriptsScriptsSnippets5Response.",
+      "method": "PUT",
+      "path": "/scripts/snippets/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_download_scripts",
+      "description": "GET /scripts/{pk}/download/. Required: pk. Returns the DownloadScriptsResponse.",
+      "method": "GET",
+      "path": "/scripts/{pk}/download/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_test_scripts",
+      "description": "POST /scripts/{agent_id}/test/. Required: agent_id. Returns the new TestScriptsResponse.",
+      "method": "POST",
+      "path": "/scripts/{agent_id}/test/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "services_services",
+      "description": "GET /services/{agent_id}/. Required: agent_id. Returns the ServicesServicesResponse.",
+      "method": "GET",
+      "path": "/services/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "services_services-agentid",
+      "description": "GET /services/{agent_id}/{svcname}/. Required: agent_id, svcname. Returns the ServicesServicesAgentidResponse.",
+      "method": "GET",
+      "path": "/services/{agent_id}/{svcname}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "svcname",
+          "type": "string",
+          "location": "path",
+          "description": "Svcname",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "services_services-agentid-2",
+      "description": "POST /services/{agent_id}/{svcname}/. Required: agent_id, svcname. Returns the new ServicesServicesAgentid2Response.",
+      "method": "POST",
+      "path": "/services/{agent_id}/{svcname}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "svcname",
+          "type": "string",
+          "location": "path",
+          "description": "Svcname",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "services_services-agentid-3",
+      "description": "PUT /services/{agent_id}/{svcname}/. Required: agent_id, svcname. Returns the updated ServicesServicesAgentid3Response.",
+      "method": "PUT",
+      "path": "/services/{agent_id}/{svcname}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        },
+        {
+          "name": "svcname",
+          "type": "string",
+          "location": "path",
+          "description": "Svcname",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software_software",
+      "description": "GET /software/. Returns array of SoftwareSoftwareItem.",
+      "method": "GET",
+      "path": "/software/",
+      "params": []
+    },
+    {
+      "name": "software_software-agentid",
+      "description": "GET /software/{agent_id}/. Required: agent_id. Returns the SoftwareSoftwareAgentidResponse.",
+      "method": "GET",
+      "path": "/software/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software_software-agentid-2",
+      "description": "POST /software/{agent_id}/. Required: agent_id. Returns the new SoftwareSoftwareAgentid2Response.",
+      "method": "POST",
+      "path": "/software/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software_software-agentid-3",
+      "description": "PUT /software/{agent_id}/. Required: agent_id. Returns the updated SoftwareSoftwareAgentid3Response.",
+      "method": "PUT",
+      "path": "/software/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software_software-chocos",
+      "description": "GET /software/chocos/. Returns array of SoftwareSoftwareChocosItem.",
+      "method": "GET",
+      "path": "/software/chocos/",
+      "params": []
+    },
+    {
+      "name": "software_software-endpoint",
+      "description": "POST /software/. Returns the new SoftwareSoftwareEndpointResponse.",
+      "method": "POST",
+      "path": "/software/",
+      "params": []
+    },
+    {
+      "name": "software_software-endpoint-2",
+      "description": "PUT /software/. Returns the updated SoftwareSoftwareEndpoint2Response.",
+      "method": "PUT",
+      "path": "/software/",
+      "params": []
+    },
+    {
+      "name": "software_uninstall_software",
+      "description": "POST /software/{agent_id}/uninstall/. Required: agent_id. Returns the new UninstallSoftwareResponse.",
+      "method": "POST",
+      "path": "/software/{agent_id}/uninstall/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "winupdate_winupdate",
+      "description": "GET /winupdate/{agent_id}/. Required: agent_id. Returns the WinupdateWinupdateResponse.",
+      "method": "GET",
+      "path": "/winupdate/{agent_id}/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "winupdate_winupdate-pk",
+      "description": "PUT /winupdate/{pk}/. Required: pk. Returns the updated WinupdateWinupdatePkResponse.",
+      "method": "PUT",
+      "path": "/winupdate/{pk}/",
+      "params": [
+        {
+          "name": "pk",
+          "type": "int",
+          "location": "path",
+          "description": "Pk",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "winupdate_install_winupdate",
+      "description": "POST /winupdate/{agent_id}/install/. Required: agent_id. Returns the new InstallWinupdateResponse.",
+      "method": "POST",
+      "path": "/winupdate/{agent_id}/install/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "winupdate_scan_winupdate",
+      "description": "POST /winupdate/{agent_id}/scan/. Required: agent_id. Returns the new ScanWinupdateResponse.",
+      "method": "POST",
+      "path": "/winupdate/{agent_id}/scan/",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent id",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

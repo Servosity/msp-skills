@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:26:10.503559Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "gradient",
+  "display_name": "Gradient MSP",
+  "cli_name": "gradient-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:28e232440e648e5601ff5b25e974ae181744bee8f13ef22c27ccd18db86a9500",
+  "run_id": "20260606-231724",
+  "category": "payments",
+  "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
+  "mcp_binary": "gradient-pp-mcp",
+  "mcp_tool_count": 17,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "api_key",
+  "auth_preference": "Gradient-Token",
+  "auth_env_vars": [
+    "GRADIENT_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Debounce-aware usage push",
+      "command": "usage push",
+      "description": "Push a whole file of unit counts (CSV or JSON) in one shot and trigger exactly one billing rebuild instead of one per call."
+    },
+    {
+      "name": "Push-ledger drift report",
+      "command": "usage drift",
+      "description": "See exactly which accounts' usage changed between your last two pushes, with old-to-new deltas."
+    },
+    {
+      "name": "Alert dispatch with poll-to-ticket",
+      "command": "alert send",
+      "description": "Dispatch an alert and wait until the PSA ticket actually exists, instead of fire-and-forget."
+    },
+    {
+      "name": "Mapping-hygiene work queue",
+      "command": "hygiene unmapped",
+      "description": "One rollup of every unmapped account and every service without a vendor SKU, shaped as an actionable work queue."
+    },
+    {
+      "name": "Integration go/no-go readiness",
+      "command": "status ready",
+      "description": "A single go/no-go verdict on whether the integration is ready to flip to active: live status, last sync age, and outstanding mapping gaps."
+    },
+    {
+      "name": "Alert trace ledger",
+      "command": "alert trace",
+      "description": "Review every alert you have dispatched - messageId, account, time, last-known ticket state - and filter to ones that never became tickets."
+    }
+  ]
+}

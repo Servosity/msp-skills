@@ -1,0 +1,1502 @@
+{
+  "api_name": "crowdstrike",
+  "base_url": "https://api.crowdstrike.com",
+  "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once — something no other Falcon tool (including the official MCP server) does.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "FALCON_CLIENT_ID",
+      "FALCON_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "FALCON_CLIENT_ID",
+        "kind": "auth_flow_input",
+        "required": true,
+        "sensitive": false,
+        "description": "CrowdStrike API client ID (Falcon console \u003e API Clients \u0026 Keys)."
+      },
+      {
+        "name": "FALCON_CLIENT_SECRET",
+        "kind": "auth_flow_input",
+        "required": true,
+        "sensitive": true,
+        "description": "CrowdStrike API client secret. Shown once at client creation."
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alerts_get-queries-v2",
+      "description": "Retrieves all Alerts ids that match a given query. Optional: include_hidden (default: true), offset, limit (plus 3 more).",
+      "method": "GET",
+      "path": "/alerts/queries/alerts/v2",
+      "params": [
+        {
+          "name": "include_hidden",
+          "type": "bool",
+          "location": "query",
+          "description": "allows previously hidden alerts to be retrieved"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The first detection to return, where 0 is the latest detection. Use with the offset parameter to manage pagination of results."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of detections to return in this response (default: 100; max: 10000). Use this parameter together with the offset parameter to manage pagination of the results."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort parameter takes the form \u003cfield|direction\u003e. Direction can be either asc (ascending) or desc (descending) order. For example: status|asc or status|desc. The sorting fields can be any keyword field that is part of #domain.Alert except for the text based fields. Most commonly used fields are status, cid, aggregate_id, timestamp, created_timestamp, updated_timestamp, assigned_to_name, assigned_to_uid, assigned_to_uuid, show_in_ui, tactic_id, tactic, technique, technique_id, pattern_id, product, comment, tags If the fields are missing from the Alerts, the service will fallback to its default o"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Filter Alerts using a query in Falcon Query Language (FQL).Filter fields can be any keyword field that is part of #domain.Alert An asterisk wildcard * includes all results. Empty value means to not filter on anything. Most commonly used filter fields that supports exact match: cid, id, aggregate_id, product, type, pattern_id, platform ... Most commonly used filter fields that supports wildcard (*): assigned_to_name, assigned_to_uuid, tactic_id, technique ... Most commonly filter fields that supports range comparisons (\u003e, \u003c, \u003e=, \u003c=): severity, created_timestamp, timestamp, updated_timestamp..."
+        },
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Search all alert metadata for the provided string"
+        }
+      ]
+    },
+    {
+      "name": "alerts_patch-entities-v3",
+      "description": "Perform actions on Alerts identified by composite ID(s) in request. Each action has a name and a description which describes what the action does. If a request adds and removes tag in a single request, the order of processing would be to remove tags before adding new ones in. Optional: include_hidden (default: true). Partial update.",
+      "method": "PATCH",
+      "path": "/alerts/entities/alerts/v3",
+      "params": [
+        {
+          "name": "include_hidden",
+          "type": "bool",
+          "location": "query",
+          "description": "allows previously hidden alerts to be retrieved"
+        }
+      ]
+    },
+    {
+      "name": "alerts_post-aggregates-v2",
+      "description": "Retrieves aggregate values for Alerts across all CIDs. Optional: include_hidden (default: true).",
+      "method": "POST",
+      "path": "/alerts/aggregates/alerts/v2",
+      "params": [
+        {
+          "name": "include_hidden",
+          "type": "bool",
+          "location": "query",
+          "description": "allows previously hidden alerts to be retrieved"
+        }
+      ]
+    },
+    {
+      "name": "alerts_post-combined-v1",
+      "description": "Retrieves all Alerts that match a particular FQL filter. This API is intended for retrieval of large amounts of Alerts(\u003e10k) using a pagination based on a `after` token. If you need to use `offset` pagination, consider using GET /alerts/queries/alerts/* and POST /alerts/entities/alerts/* APIs.",
+      "method": "POST",
+      "path": "/alerts/combined/alerts/v1",
+      "params": []
+    },
+    {
+      "name": "alerts_post-entities-v2",
+      "description": "Retrieves all Alerts given their composite ids. Optional: include_hidden (default: true).",
+      "method": "POST",
+      "path": "/alerts/entities/alerts/v2",
+      "params": [
+        {
+          "name": "include_hidden",
+          "type": "bool",
+          "location": "query",
+          "description": "allows previously hidden alerts to be retrieved"
+        }
+      ]
+    },
+    {
+      "name": "devices_combined-by-filter",
+      "description": "Search for hosts in your environment by platform, hostname, IP, and other criteria. Returns full device records. Optional: offset, limit (default: 100), sort (plus 2 more).",
+      "method": "GET",
+      "path": "/devices/combined/devices/v1",
+      "params": [
+        {
+          "name": "offset",
+          "type": "string",
+          "location": "query",
+          "description": "The offset to page from, provided from the previous call as the 'next' value, for the next result set. For the first call, do not supply an offset."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-10000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by (e.g. status.desc or hostname.asc). If not specified, the default sort will be device_id.asc. This should be supplied for each consecutive call."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results. This should be supplied for each consecutive call."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "The fields to return, comma delimited if specifying more than one field. For example: fields=hostname,device_id would return device records only containing the hostname and device_id"
+        }
+      ]
+    },
+    {
+      "name": "devices_combined-hidden-by-filter",
+      "description": "Search for hidden hosts in your environment by platform, hostname, IP, and other criteria. Returns full device records. Optional: offset, limit (default: 100), sort (plus 2 more).",
+      "method": "GET",
+      "path": "/devices/combined/devices-hidden/v1",
+      "params": [
+        {
+          "name": "offset",
+          "type": "string",
+          "location": "query",
+          "description": "The offset to page from, provided from the previous call as the 'next' value, for the next result set. For the first call, do not supply an offset."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-10000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by (e.g. status.desc or hostname.asc). If not specified, the default sort will be device_id.asc. This should be supplied for each consecutive call."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results. This should be supplied for each consecutive call."
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "location": "query",
+          "description": "The fields to return, comma delimited if specifying more than one field. For example: fields=hostname,device_id would return device records only containing the hostname and device_id"
+        }
+      ]
+    },
+    {
+      "name": "devices_create-host-groups",
+      "description": "Create Host Groups by specifying details about the group to create.",
+      "method": "POST",
+      "path": "/devices/entities/host-groups/v1",
+      "params": []
+    },
+    {
+      "name": "devices_delete-host-groups",
+      "description": "Delete a set of Host Groups by specifying their IDs. Required: ids. Destructive.",
+      "method": "DELETE",
+      "path": "/devices/entities/host-groups/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The IDs of the Host Groups to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_entities-perform-action",
+      "description": "Performs the specified action on the provided group IDs. Required: ids, action_name. Optional: disable_hostname_check (default: false).",
+      "method": "POST",
+      "path": "/devices/entities/group-actions/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The group ids to act on",
+          "required": true
+        },
+        {
+          "name": "action_name",
+          "type": "string",
+          "location": "query",
+          "description": "The action to perform.",
+          "required": true
+        },
+        {
+          "name": "disable_hostname_check",
+          "type": "bool",
+          "location": "query",
+          "description": "Bool to disable hostname check on add-member"
+        }
+      ]
+    },
+    {
+      "name": "devices_get-details-v2",
+      "description": "Get details on one or more hosts by providing host IDs as a query parameter. Supports up to a maximum 100 IDs. Required: ids.",
+      "method": "GET",
+      "path": "/devices/entities/devices/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The host agentIDs used to get details on",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-host-groups",
+      "description": "Retrieve a set of Host Groups by specifying their IDs. Required: ids.",
+      "method": "GET",
+      "path": "/devices/entities/host-groups/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The IDs of the Host Groups to return",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-online-state-v1",
+      "description": "Get the online status for one or more hosts by specifying each host’s unique ID. Successful requests return an HTTP 200 response and the status for each host identified by a `state` of `online`, `offline`, or `unknown` for each host, identified by host `id`. QueryDevicesByFilter to get a list of host IDs. Required: ids.",
+      "method": "GET",
+      "path": "/devices/entities/online-state/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The unique ID of the host to get the online status of.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_perform-action-v2",
+      "description": "Take various actions on the hosts in your environment. Contain or lift containment on a host. Delete or restore a host. Required: action_name.",
+      "method": "POST",
+      "path": "/devices/entities/devices-actions/v2",
+      "params": [
+        {
+          "name": "action_name",
+          "type": "string",
+          "location": "query",
+          "description": "Specify one of these actions: contain - This action contains the host, which stops any network communications to locations other than the CrowdStrike cloud and IPs specified in your [containment policy](https://falcon.crowdstrike.com/support/documentation/11/getting-started-guide#containmentpolicy) lift_containment: This action lifts containment on the host, which returns its network communications to normal hide_host: This action will delete a host. After the host is deleted, no new detections for that host will be reported via UI or APIs unhide_host: This action will restore a host. Detectio",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_perform-group-action",
+      "description": "Perform the specified action on the Host Groups specified in the request. Required: action_name. Optional: disable_hostname_check (default: false).",
+      "method": "POST",
+      "path": "/devices/entities/host-group-actions/v1",
+      "params": [
+        {
+          "name": "action_name",
+          "type": "string",
+          "location": "query",
+          "description": "The action to perform",
+          "required": true
+        },
+        {
+          "name": "disable_hostname_check",
+          "type": "bool",
+          "location": "query",
+          "description": "Bool to disable hostname check on add-member"
+        }
+      ]
+    },
+    {
+      "name": "devices_post-details-v2",
+      "description": "Get details on one or more hosts by providing host IDs in a POST body. Supports up to a maximum 5000 IDs.",
+      "method": "POST",
+      "path": "/devices/entities/devices/v2",
+      "params": []
+    },
+    {
+      "name": "devices_query-by-filter",
+      "description": "Search for hosts in your environment by platform, hostname, IP, and other criteria. Optional: offset, limit, sort (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/queries/devices/v1",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by (e.g. status.desc or hostname.asc)"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-by-filter-scroll",
+      "description": "Search for hosts in your environment by platform, hostname, IP, and other criteria with continuous pagination capability (based on offset pointer which expires after 2 minutes with no maximum limit). Optional: offset, limit, sort (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/queries/devices-scroll/v1",
+      "params": [
+        {
+          "name": "offset",
+          "type": "string",
+          "location": "query",
+          "description": "The offset to page from, provided from the previous scroll call, for the next result set. For the first call, do not supply an offset."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-10000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by (e.g. status.desc or hostname.asc)"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-combined-group-members",
+      "description": "Search for members of a Host Group in your environment by providing an FQL filter and paging details. Returns a set of host details which match the filter criteria. Optional: id, filter, offset (plus 2 more).",
+      "method": "GET",
+      "path": "/devices/combined/host-group-members/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the Host Group to search for members of"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-combined-host-groups",
+      "description": "Search for Host Groups in your environment by providing an FQL filter and paging details. Returns a set of Host Groups which match the filter criteria. Optional: filter, offset, limit (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/combined/host-groups/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-get-network-address-history-v1",
+      "description": "Retrieve history of IP and MAC addresses of devices.",
+      "method": "POST",
+      "path": "/devices/combined/devices/network-address-history/v1",
+      "params": []
+    },
+    {
+      "name": "devices_query-group-members",
+      "description": "Search for members of a Host Group in your environment by providing an FQL filter and paging details. Returns a set of Agent IDs which match the filter criteria. Optional: id, filter, offset (plus 2 more).",
+      "method": "GET",
+      "path": "/devices/queries/host-group-members/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the Host Group to search for members of"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-hidden",
+      "description": "Retrieve hidden hosts that match the provided filter criteria. Optional: offset, limit, sort (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/queries/devices-hidden/v1",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by (e.g. status.desc or hostname.asc)"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-host-groups",
+      "description": "Search for Host Groups in your environment by providing an FQL filter and paging details. Returns a set of Host Group IDs which match the filter criteria. Optional: filter, offset, limit (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/queries/host-groups/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "devices_query-login-history-v2",
+      "description": "Retrieve details about recent interactive login sessions for a set of devices powered by the Host Timeline. A max of 10 device ids can be specified. Optional: limit (default: 10), from (default: now-7d), to (default: now).",
+      "method": "POST",
+      "path": "/devices/combined/devices/login-history/v2",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of results to return [1-100]."
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The inclusive beginning of the time window to search."
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The inclusive end of the time window to search."
+        }
+      ]
+    },
+    {
+      "name": "devices_update-host-groups",
+      "description": "Update Host Groups by specifying the ID of the group and details to update. Partial update.",
+      "method": "PATCH",
+      "path": "/devices/entities/host-groups/v1",
+      "params": []
+    },
+    {
+      "name": "devices_update-tags",
+      "description": "Append or remove one or more Falcon Grouping Tags on one or more hosts. Tags must be of the form FalconGroupingTags/. Partial update.",
+      "method": "PATCH",
+      "path": "/devices/entities/devices/tags/v1",
+      "params": []
+    },
+    {
+      "name": "incidents_crowd-score",
+      "description": "DEPRECATED: the incidentapi will be removed in March 2026. Query environment wide CrowdScore and return the entity data. Optional: filter, offset, limit (plus 1 more).",
+      "method": "GET",
+      "path": "/incidents/combined/crowdscores/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Optional filter and sort criteria in the form of an FQL query."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-2500]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort on, followed by a dot (."
+        }
+      ]
+    },
+    {
+      "name": "incidents_get",
+      "description": "DEPRECATED: the incidentapi will be removed in March 2026. Get details on incidents by providing incident IDs.",
+      "method": "POST",
+      "path": "/incidents/entities/incidents/GET/v1",
+      "params": []
+    },
+    {
+      "name": "incidents_get-behaviors",
+      "description": "DEPRECATED: the incidentapi will be removed in March 2026. Get details on behaviors by providing behavior IDs.",
+      "method": "POST",
+      "path": "/incidents/entities/behaviors/GET/v1",
+      "params": []
+    },
+    {
+      "name": "incidents_perform-action",
+      "description": "DEPRECATED: the incidentapi will be removed in March 2026. Perform a set of actions on one or more incidents, such as adding tags or comments or updating the incident name or description. Optional: update_detects (default: false), overwrite_detects (default: false).",
+      "method": "POST",
+      "path": "/incidents/entities/incident-actions/v1",
+      "params": [
+        {
+          "name": "update_detects",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, update assigned-to-uuid and or status of detections associated with the incident(s). Defaults to false"
+        },
+        {
+          "name": "overwrite_detects",
+          "type": "bool",
+          "location": "query",
+          "description": "If true and update-detects is true, the assigned-to-uuid or status for ALL detections associated with the incident(s) will be overwritten. If false, only detects that have default values for assigned-to-uuid and/or status will be updated. Defaults to false. Ignored if 'update-detects' is missing or false."
+        }
+      ]
+    },
+    {
+      "name": "incidents_query",
+      "description": "DEPRECATED: the incidentapi will be removed in March 2026. Search for incidents by providing an FQL filter, sorting, and paging details. Optional: sort, filter, offset (plus 1 more).",
+      "method": "GET",
+      "path": "/incidents/queries/incidents/v1",
+      "params": [
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort on, followed by a dot (."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Optional filter and sort criteria in the form of an FQL query."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-500]"
+        }
+      ]
+    },
+    {
+      "name": "incidents_query-behaviors",
+      "description": "DEPRECATED: the incidentapi will be removed in March 2026. Search for behaviors by providing an FQL filter, sorting, and paging details. Optional: filter, offset, limit (plus 1 more).",
+      "method": "GET",
+      "path": "/incidents/queries/behaviors/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Optional filter and sort criteria in the form of an FQL query."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-500]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort on, followed by a dot (."
+        }
+      ]
+    },
+    {
+      "name": "mssp_add-cidgroup-members",
+      "description": "Add new CID group member.",
+      "method": "POST",
+      "path": "/mssp/entities/cid-group-members/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_add-role",
+      "description": "Create a link between user group and CID group, with zero or more additional roles. The call does not replace any existing link between them. User group ID and CID group ID have to be specified in request.",
+      "method": "POST",
+      "path": "/mssp/entities/mssp-roles/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_add-user-group-members",
+      "description": "Add new user group member. Maximum 500 members allowed per user group.",
+      "method": "POST",
+      "path": "/mssp/entities/user-group-members/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_create-cidgroups",
+      "description": "Create new CID groups. Name is a required field but description is an optional field. Maximum 500 CID groups allowed.",
+      "method": "POST",
+      "path": "/mssp/entities/cid-groups/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_create-user-groups",
+      "description": "Create new user groups. Name is a required field but description is an optional field. Maximum 500 user groups allowed per customer.",
+      "method": "POST",
+      "path": "/mssp/entities/user-groups/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_delete-cidgroup-members-v2",
+      "description": "Delete CID group members. Prevents removal of a cid group a cid group if it is only part of one cid group. Destructive.",
+      "method": "DELETE",
+      "path": "/mssp/entities/cid-group-members/v2",
+      "params": []
+    },
+    {
+      "name": "mssp_delete-cidgroups",
+      "description": "Delete CID groups by ID. Required: cid_group_ids. Destructive.",
+      "method": "DELETE",
+      "path": "/mssp/entities/cid-groups/v1",
+      "params": [
+        {
+          "name": "cid_group_ids",
+          "type": "array",
+          "location": "query",
+          "description": "CID group ids to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_delete-user-group-members",
+      "description": "Delete user group members entry. Destructive.",
+      "method": "DELETE",
+      "path": "/mssp/entities/user-group-members/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_delete-user-groups",
+      "description": "Delete user groups by ID. Required: user_group_ids. Destructive.",
+      "method": "DELETE",
+      "path": "/mssp/entities/user-groups/v1",
+      "params": [
+        {
+          "name": "user_group_ids",
+          "type": "array",
+          "location": "query",
+          "description": "User group IDs to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_deleted-roles",
+      "description": "Delete links or additional roles between user groups and CID groups. User group ID and CID group ID have to be specified in request. Only specified roles are removed if specified in request payload, else association between User Group and CID group is dissolved completely (if no roles specified). Destructive.",
+      "method": "DELETE",
+      "path": "/mssp/entities/mssp-roles/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_get-children",
+      "description": "Get link to child customer by child CID(s). Required: ids.",
+      "method": "GET",
+      "path": "/mssp/entities/children/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "CID of a child customer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_get-children-v2",
+      "description": "Get link to child customer by child CID(s).",
+      "method": "POST",
+      "path": "/mssp/entities/children/GET/v2",
+      "params": []
+    },
+    {
+      "name": "mssp_get-cidgroup-by-id-v2",
+      "description": "Get CID Groups by ID. Required: ids.",
+      "method": "GET",
+      "path": "/mssp/entities/cid-groups/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "CID group IDs to search for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_get-cidgroup-members-by-v2",
+      "description": "Get CID group members by CID Group ID. Required: ids.",
+      "method": "GET",
+      "path": "/mssp/entities/cid-group-members/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "CID group IDs search for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_get-roles-by-id",
+      "description": "Get link between user group and CID group by ID. Link ID is a string consisting of multiple components, but should be treated as opaque. Required: ids.",
+      "method": "GET",
+      "path": "/mssp/entities/mssp-roles/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "Link ID is a string consisting of multiple components, but should be treated as opaque.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_get-user-group-members-by-idv2",
+      "description": "Get user group members by user group ID. Required: ids.",
+      "method": "GET",
+      "path": "/mssp/entities/user-group-members/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "User group IDs to search for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_get-user-groups-by-idv2",
+      "description": "Get user groups by ID. Required: ids.",
+      "method": "GET",
+      "path": "/mssp/entities/user-groups/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "User group IDs to search for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mssp_query-children",
+      "description": "Query for customers linked as children. Optional: filter, sort (default: last_modified_timestamp|desc), offset (default: 0) (plus 1 more).",
+      "method": "GET",
+      "path": "/mssp/queries/children/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Filter using a query in Falcon Query Language (FQL). Supported filters: cid"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The sort expression used to sort the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of ids to return"
+        }
+      ]
+    },
+    {
+      "name": "mssp_query-cidgroup-members",
+      "description": "Query a CID groups members by associated CID. Required: cid. Optional: sort (default: last_modified_timestamp|desc), offset (default: 0), limit (default: 10).",
+      "method": "GET",
+      "path": "/mssp/queries/cid-group-members/v1",
+      "params": [
+        {
+          "name": "cid",
+          "type": "string",
+          "location": "query",
+          "description": "CID to lookup associated CID group ID",
+          "required": true
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The sort expression used to sort the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return id"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results to return"
+        }
+      ]
+    },
+    {
+      "name": "mssp_query-cidgroups",
+      "description": "Query CID groups. Optional: name, sort (default: name|asc), offset (default: 0) (plus 1 more).",
+      "method": "GET",
+      "path": "/mssp/queries/cid-groups/v1",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Name to lookup groups for"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The sort expression used to sort the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results to return"
+        }
+      ]
+    },
+    {
+      "name": "mssp_query-roles",
+      "description": "Query links between user groups and CID groups. At least one of CID group ID or user group ID should also be provided. Role ID is optional. Optional: user_group_id, cid_group_id, role_id (plus 3 more).",
+      "method": "GET",
+      "path": "/mssp/queries/mssp-roles/v1",
+      "params": [
+        {
+          "name": "user_group_id",
+          "type": "string",
+          "location": "query",
+          "description": "User group ID to fetch MSSP role for"
+        },
+        {
+          "name": "cid_group_id",
+          "type": "string",
+          "location": "query",
+          "description": "CID group ID to fetch MSSP role for"
+        },
+        {
+          "name": "role_id",
+          "type": "string",
+          "location": "query",
+          "description": "Role ID to fetch MSSP role for"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The sort expression used to sort the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results to return"
+        }
+      ]
+    },
+    {
+      "name": "mssp_query-user-group-members",
+      "description": "Query user group member by user UUID. Required: user_uuid. Optional: sort (default: last_modified_timestamp|desc), offset (default: 0), limit (default: 10).",
+      "method": "GET",
+      "path": "/mssp/queries/user-group-members/v1",
+      "params": [
+        {
+          "name": "user_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "User UUID to lookup associated user group ID",
+          "required": true
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The sort expression used to sort the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of ids to return"
+        }
+      ]
+    },
+    {
+      "name": "mssp_query-user-groups",
+      "description": "Query user groups. Optional: name, sort (default: name|asc), offset (default: 0) (plus 1 more).",
+      "method": "GET",
+      "path": "/mssp/queries/user-groups/v1",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Name to lookup groups for"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The sort expression used to sort the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Starting index of overall result set from which to return ids"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results to return"
+        }
+      ]
+    },
+    {
+      "name": "mssp_update-cidgroups",
+      "description": "Update existing CID groups. CID group ID is expected for each CID group definition provided in request body. Name is a required field but description is an optional field. Empty description will override existing value. CID group member(s) remain unaffected. Partial update.",
+      "method": "PATCH",
+      "path": "/mssp/entities/cid-groups/v1",
+      "params": []
+    },
+    {
+      "name": "mssp_update-user-groups",
+      "description": "Update existing user group(s). User group ID is expected for each user group definition provided in request body. Name is a required field but description is an optional field. Empty description will override existing value. User group member(s) remain unaffected. Partial update.",
+      "method": "PATCH",
+      "path": "/mssp/entities/user-groups/v1",
+      "params": []
+    },
+    {
+      "name": "policy_create-prevention-policies",
+      "description": "Create Prevention Policies by specifying details about the policy to create.",
+      "method": "POST",
+      "path": "/policy/entities/prevention/v1",
+      "params": []
+    },
+    {
+      "name": "policy_delete-prevention-policies",
+      "description": "Delete a set of Prevention Policies by specifying their IDs. Required: ids. Destructive.",
+      "method": "DELETE",
+      "path": "/policy/entities/prevention/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The IDs of the Prevention Policies to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policy_get-prevention-policies",
+      "description": "Retrieve a set of Prevention Policies by specifying their IDs. Required: ids.",
+      "method": "GET",
+      "path": "/policy/entities/prevention/v1",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "The IDs of the Prevention Policies to return",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policy_perform-prevention-policies-action",
+      "description": "Perform the specified action on the Prevention Policies specified in the request. Required: action_name.",
+      "method": "POST",
+      "path": "/policy/entities/prevention-actions/v1",
+      "params": [
+        {
+          "name": "action_name",
+          "type": "string",
+          "location": "query",
+          "description": "The action to perform",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policy_query-combined-prevention-members",
+      "description": "Search for members of a Prevention Policy in your environment by providing an FQL filter and paging details. Returns a set of host details which match the filter criteria. Optional: id, filter, offset (plus 2 more).",
+      "method": "GET",
+      "path": "/policy/combined/prevention-members/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the Prevention Policy to search for members of"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "policy_query-combined-prevention-policies",
+      "description": "Search for Prevention Policies in your environment by providing an FQL filter and paging details. Returns a set of Prevention Policies which match the filter criteria. Optional: filter, offset, limit (plus 1 more).",
+      "method": "GET",
+      "path": "/policy/combined/prevention/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "policy_query-prevention-members",
+      "description": "Search for members of a Prevention Policy in your environment by providing an FQL filter and paging details. Returns a set of Agent IDs which match the filter criteria. Optional: id, filter, offset (plus 2 more).",
+      "method": "GET",
+      "path": "/policy/queries/prevention-members/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "The ID of the Prevention Policy to search for members of"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "policy_query-prevention-policies",
+      "description": "Search for Prevention Policies in your environment by providing an FQL filter and paging details. Returns a set of Prevention Policy IDs which match the filter criteria. Optional: filter, offset, limit (plus 1 more).",
+      "method": "GET",
+      "path": "/policy/queries/prevention/v1",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter expression that should be used to limit the results"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "The offset to start retrieving records from"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum records to return. [1-5000]"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "The property to sort by"
+        }
+      ]
+    },
+    {
+      "name": "policy_set-prevention-policies-precedence",
+      "description": "Sets the precedence of Prevention Policies based on the order of IDs specified in the request. The first ID specified will have the highest precedence and the last ID specified will have the lowest. You must specify all non-Default Policies for a platform when updating precedence.",
+      "method": "POST",
+      "path": "/policy/entities/prevention-precedence/v1",
+      "params": []
+    },
+    {
+      "name": "policy_update-prevention-policies",
+      "description": "Update Prevention Policies by specifying the ID of the policy and details to update. Partial update.",
+      "method": "PATCH",
+      "path": "/policy/entities/prevention/v1",
+      "params": []
+    },
+    {
+      "name": "spotlight_combined-query-installed-patches",
+      "description": "Gets installed patches information for hosts. Required: filter. Optional: after, limit, sort.",
+      "method": "GET",
+      "path": "/spotlight/combined/installed-patches/v1",
+      "params": [
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "A pagination token used with the limit parameter to manage pagination of results."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of entities to return."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort installed patches by their properties."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Filter items using a query in Falcon Query Language (FQL).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "spotlight_combined-query-vulnerabilities",
+      "description": "Search for Vulnerabilities in your environment by providing an FQL filter and paging details. Returns a set of Vulnerability entities which match the filter criteria. Required: filter. Optional: after, limit, sort (plus 1 more).",
+      "method": "GET",
+      "path": "/spotlight/combined/vulnerabilities/v1",
+      "params": [
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "A pagination token used with the limit parameter to manage pagination of results."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of items to return in this response (default: 100, max: 5000). Use with the after parameter to manage pagination of results."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort vulnerabilities by their properties. Common sort options include: updated_timestamp|asc closed_timestamp|asc"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Filter items using a query in Falcon Query Language (FQL). Wildcards * and empty filter values are unsupported. Available filter fields that supports match (~): N/A Available filter fields that supports exact match: aid, cid, last_seen_within, status, cve.id, cve.is_cisa_kev, cve.remediation_level, cve.cps_rating, cve.exprt_rating, cve.exploit_status_to_include, cve.severity, cve.base_score, cve.types, host_info.asset_criticality, host_info.asset_roles, host_info.internet_exposure, host_info.tags, host_info.groups, host_info.product_type_desc, host_info.platform_name, suppression_info.is_suppr",
+          "required": true
+        },
+        {
+          "name": "facet",
+          "type": "array",
+          "location": "query",
+          "description": "Select various details blocks to be returned for each vulnerability entity. Supported values: host_info remediation cve evaluation_logic"
+        }
+      ]
+    },
+    {
+      "name": "spotlight_get-remediations",
+      "description": "Get details on remediations by providing one or more IDs. Required: ids.",
+      "method": "GET",
+      "path": "/spotlight/entities/remediations/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "One or more remediation IDs (max: 400).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "spotlight_get-vulnerabilities",
+      "description": "Get details on vulnerabilities by providing one or more IDs. Required: ids.",
+      "method": "GET",
+      "path": "/spotlight/entities/vulnerabilities/v2",
+      "params": [
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "query",
+          "description": "One or more vulnerability IDs (max: 400). Find vulnerability IDs with GET /spotlight/queries/vulnerabilities/v1",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "spotlight_query-vulnerabilities",
+      "description": "Search for Vulnerabilities in your environment by providing an FQL filter and paging details. Returns a set of Vulnerability IDs which match the filter criteria. Required: filter. Optional: after, limit, sort.",
+      "method": "GET",
+      "path": "/spotlight/queries/vulnerabilities/v1",
+      "params": [
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "A pagination token used with the limit parameter to manage pagination of results."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of items to return in this response (default: 100, max: 400). Use with the after parameter to manage pagination of results."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort vulnerabilities by their properties. Available sort options: updated_t imestamp|asc/desc closed_timestamp|asc updated_timestamp|asc/desc . Can be used in a format \u003cfield\u003e|asc for ascending order or \u003cfield\u003e|desc for descending order."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Filter items using a query in Falcon Query Language (FQL). Wildcards * and empty filter values are unsupported. Available filter fields that supports match (~): N/A Available filter fields that supports exact match: aid, cid, last_seen_within, status, cve.id, cve.is_cisa_kev, cve.remediation_level, cve.cps_rating, cve.exprt_rating, cve.exploit_status_to_include, cve.severity, cve.base_score, cve.types, host_info.asset_criticality, host_info.asset_roles, host_info.internet_exposure, host_info.tags, host_info.groups, host_info.product_type_desc, host_info.platform_name, suppression_info.is_suppr",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

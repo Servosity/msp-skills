@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T05:56:54.482294Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "axcient",
+  "display_name": "Axcient x360Recover",
+  "cli_name": "axcient-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:b0e1856ebd6b1a056d006778a3d8f2b1b9631472a0257e50ea1f7eb719e4798d",
+  "run_id": "20260613-055433",
+  "category": "monitoring",
+  "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
+  "mcp_binary": "axcient-pp-mcp",
+  "mcp_tool_count": 23,
+  "mcp_ready": "full",
+  "api_version": "0.3.1",
+  "auth_type": "api_key",
+  "auth_preference": "api_key",
+  "auth_env_vars": [
+    "AXCIENT_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet backup-health sweep",
+      "command": "health",
+      "description": "See every device fleet-wide whose latest backup job failed or went stale, grouped by client, in one command."
+    },
+    {
+      "name": "Client backup-status rollup",
+      "command": "client-rollup",
+      "description": "One row per client: devices total, failing, stale, RPO-breach, and AutoVerify-fail counts \u2014 the dashboard view MSPs build by hand today."
+    },
+    {
+      "name": "Compliance evidence export",
+      "command": "compliance",
+      "description": "Per-device compliance rows pairing newest restore-point age with AutoVerify boot-proof results and an RPO pass/fail verdict, exportable as CSV or JSON."
+    },
+    {
+      "name": "RPO breach report",
+      "command": "rpo",
+      "description": "Flag devices whose newest restore point is older than a recovery-point objective threshold, grouped by client."
+    },
+    {
+      "name": "Per-client usage reconciliation",
+      "command": "billing",
+      "description": "Roll up protected-system counts and storage usage for every client into one exportable table for invoice reconciliation."
+    },
+    {
+      "name": "Appliance-device assignment map",
+      "command": "appliance-map",
+      "description": "Show which devices each appliance protects alongside each device's latest backup-job state."
+    }
+  ],
+  "scorecard": {
+    "api_name": "axcient",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 10,
+      "mcp_description_quality": 10,
+      "mcp_token_efficiency": 7,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 7,
+      "mcp_surface_strategy": 0,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 10,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 10,
+      "data_pipeline_integrity": 7,
+      "sync_correctness": 10,
+      "type_fidelity": 5,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 93,
+      "percentage": 93
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 23 tools (0 public, 23 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_surface_strategy",
+      "live_api_verification"
+    ]
+  }
+}

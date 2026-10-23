@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:25:54.347117Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "skykick",
+  "display_name": "SkyKick",
+  "cli_name": "skykick-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:4b2e70b84285b3213624ea4a43a6d9c9a022384d71db4da39b3d6dd0c1815b1d",
+  "run_id": "20260606-230256",
+  "category": "monitoring",
+  "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
+  "mcp_binary": "skykick-pp-mcp",
+  "mcp_tool_count": 20,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "oauth2",
+  "auth_env_vars": [
+    "SKYKICK_CLIENT_ID",
+    "SKYKICK_CLIENT_SECRET"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "One command pulls every subscription plus per-tenant settings, retention, autodiscover, snapshot stats, mailboxes, sites, and alerts into the local SQLite fleet store."
+    },
+    {
+      "name": "Fleet health posture",
+      "command": "fleet-health",
+      "description": "One cross-tenant protection posture table - every subscription's Exchange/SharePoint enablement, retention, autodiscover, and last-backup age with gap flags."
+    },
+    {
+      "name": "Stale snapshots",
+      "command": "stale-snapshots",
+      "description": "Every mailbox not snapshotted within N hours, fleet-wide."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "coverage-gaps",
+      "description": "Discovered-but-unprotected mailboxes and SharePoint sites per tenant."
+    },
+    {
+      "name": "Fleet alert sweep",
+      "command": "alert-sweep",
+      "description": "One ranked list of open alerts across the whole fleet, with optional bulk mark-complete."
+    },
+    {
+      "name": "Retention compliance audit",
+      "command": "retention-audit",
+      "description": "Grades each tenant's retention period against a compliance floor you set."
+    },
+    {
+      "name": "Autodiscover audit",
+      "command": "autodiscover-audit",
+      "description": "Fleet table of autodiscover on/off state per tenant."
+    },
+    {
+      "name": "Watch async operation",
+      "command": "watch-operation",
+      "description": "Polls an async operation to a terminal state with backoff in one command."
+    },
+    {
+      "name": "Protection drift",
+      "command": "drift",
+      "description": "Diffs two sync snapshots and reports protection-state changes since last sync."
+    },
+    {
+      "name": "Partner roll-up",
+      "command": "partner-rollup",
+      "description": "Protection posture aggregated by partner for distributor oversight."
+    }
+  ],
+  "scorecard": {
+    "api_name": "skykick",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 10,
+      "mcp_description_quality": 10,
+      "mcp_token_efficiency": 7,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 0,
+      "mcp_surface_strategy": 0,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 9,
+      "vision": 9,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 9,
+      "path_validity": 10,
+      "auth_protocol": 10,
+      "data_pipeline_integrity": 7,
+      "sync_correctness": 10,
+      "type_fidelity": 4,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 92,
+      "percentage": 92
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 20 tools (0 public, 20 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_tool_design",
+      "mcp_surface_strategy",
+      "live_api_verification"
+    ]
+  }
+}

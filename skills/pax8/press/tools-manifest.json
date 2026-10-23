@@ -1,0 +1,1123 @@
+{
+  "api_name": "pax8",
+  "base_url": "https://api.pax8.com/v1",
+  "description": "",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "PAX8_CLIENT_ID",
+      "PAX8_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "PAX8_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "PAX8_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "companies_create-company",
+      "description": "Creates a new company. You can optionally include contacts in the request body to create the company with contacts in a single request. If no contacts are provided, the company will be placed in an 'inactive' status until the [company has primary contacts added](#tag/Contacts). Once contacts are added, the company will move to 'Active'. Required: address, billOnBehalfOfEnabled, name, orderApprovalRequired, phone, selfServiceAllowed, website. Optional: contacts, externalId, id (plus 2 more). Returns array of Contact.",
+      "method": "POST",
+      "path": "/companies",
+      "params": [
+        {
+          "name": "address-city",
+          "wire_name": "address.city",
+          "type": "string",
+          "location": "body",
+          "description": "The city"
+        },
+        {
+          "name": "address-country",
+          "wire_name": "address.country",
+          "type": "string",
+          "location": "body",
+          "description": "The ISO 3166-1 alpha-2 code for the country"
+        },
+        {
+          "name": "address-postal-code",
+          "wire_name": "address.postalCode",
+          "type": "string",
+          "location": "body",
+          "description": "The postal code"
+        },
+        {
+          "name": "address-state-or-province",
+          "wire_name": "address.stateOrProvince",
+          "type": "string",
+          "location": "body",
+          "description": "The state or province"
+        },
+        {
+          "name": "address-street",
+          "wire_name": "address.street",
+          "type": "string",
+          "location": "body",
+          "description": "The primary street information"
+        },
+        {
+          "name": "address-street2",
+          "wire_name": "address.street2",
+          "type": "string",
+          "location": "body",
+          "description": "The secondary street information"
+        },
+        {
+          "name": "billOnBehalfOfEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Value is ```true``` if Pax8 handles billing transactions, value is ```false``` if partner handles billing transactions",
+          "required": true
+        },
+        {
+          "name": "contacts",
+          "type": "array",
+          "location": "body",
+          "description": "Optional array of contacts to create with the company. Including contacts during company creation will set the company status to 'Active' immediately."
+        },
+        {
+          "name": "externalId",
+          "type": "string",
+          "location": "body",
+          "description": "An external ID that can be assigned to the company for reference"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The unique id of the company"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The company name",
+          "required": true
+        },
+        {
+          "name": "orderApprovalRequired",
+          "type": "bool",
+          "location": "body",
+          "description": "Value is ```true``` if the company's self-service orders require approval, otherwise value is ```false```",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "The primary phone number of the company",
+          "required": true
+        },
+        {
+          "name": "selfServiceAllowed",
+          "type": "bool",
+          "location": "body",
+          "description": "Value is ```true``` if self-service privileges are available to the company, otherwise value is ```false```",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Company Status: * `Active` - The company is active * `Inactive` - The company is inactive due to missing contacts * `Deleted` - The company has been deleted"
+        },
+        {
+          "name": "updatedDate",
+          "type": "string",
+          "location": "body",
+          "description": "The date and time the company was last updated"
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "The full URL of the company website",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_find",
+      "description": "Returns a paginated list of all your companies filtered by optional parameters. Optional: page (default: 0), size (default: 10), sort (plus 8 more).",
+      "method": "GET",
+      "path": "/companies",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request for in the companies list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Return this number of company records per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Return companies sorted by this field and direction. Formatted as fieldName,direction - ex. sort=name,desc"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "query",
+          "description": "Return only companies matching this ```city``` value"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "location": "query",
+          "description": "Return only companies matching this ```country``` value"
+        },
+        {
+          "name": "stateOrProvince",
+          "type": "string",
+          "location": "query",
+          "description": "Return only companies matching this ```stateOrProvince``` value"
+        },
+        {
+          "name": "postalCode",
+          "type": "string",
+          "location": "query",
+          "description": "Return only companies matching this ```postalCode``` value"
+        },
+        {
+          "name": "selfServiceAllowed",
+          "type": "bool",
+          "location": "query",
+          "description": "Return only companies matching this ```selfServiceAllowed``` value"
+        },
+        {
+          "name": "billOnBehalfOfEnabled",
+          "type": "bool",
+          "location": "query",
+          "description": "Return only companies matching this ```billOnBehalfOfEnabled``` value"
+        },
+        {
+          "name": "orderApprovalRequired",
+          "type": "bool",
+          "location": "query",
+          "description": "Return only companies matching this ```orderApprovalRequired``` value"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Return only companies matching this ```status``` value"
+        }
+      ]
+    },
+    {
+      "name": "companies_get",
+      "description": "Returns a single company record matching the ```companyId``` you specify. Required: companyId.",
+      "method": "GET",
+      "path": "/companies/{companyId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_update-company",
+      "description": "Updates an existing Company. ATTENTION - at least one parameter has to be modified. Required: companyId. Optional: address, billOnBehalfOfEnabled, externalId (plus 7 more). Returns array of Contact.",
+      "method": "PATCH",
+      "path": "/companies/{companyId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "address-city",
+          "wire_name": "address.city",
+          "type": "string",
+          "location": "body",
+          "description": "The city"
+        },
+        {
+          "name": "address-country",
+          "wire_name": "address.country",
+          "type": "string",
+          "location": "body",
+          "description": "The ISO 3166-1 alpha-2 code for the country"
+        },
+        {
+          "name": "address-postal-code",
+          "wire_name": "address.postalCode",
+          "type": "string",
+          "location": "body",
+          "description": "The postal code"
+        },
+        {
+          "name": "address-state-or-province",
+          "wire_name": "address.stateOrProvince",
+          "type": "string",
+          "location": "body",
+          "description": "The state or province"
+        },
+        {
+          "name": "address-street",
+          "wire_name": "address.street",
+          "type": "string",
+          "location": "body",
+          "description": "The primary street information"
+        },
+        {
+          "name": "address-street2",
+          "wire_name": "address.street2",
+          "type": "string",
+          "location": "body",
+          "description": "The secondary street information"
+        },
+        {
+          "name": "billOnBehalfOfEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Value is ```true``` if Pax8 handles billing transactions, value is ```false``` if partner handles billing transactions"
+        },
+        {
+          "name": "externalId",
+          "type": "string",
+          "location": "body",
+          "description": "An external ID that can be assigned to the company for reference"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The unique id of the company"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The company name"
+        },
+        {
+          "name": "orderApprovalRequired",
+          "type": "bool",
+          "location": "body",
+          "description": "Value is ```true``` if the company's self-service orders require approval, otherwise value is ```false```"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "The primary phone number of the company"
+        },
+        {
+          "name": "selfServiceAllowed",
+          "type": "bool",
+          "location": "body",
+          "description": "Value is ```true``` if self-service privileges are available to the company, otherwise value is ```false```"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Company Status: * `Active` - The company is active * `Inactive` - The company is inactive due to missing contacts * `Deleted` - The company has been deleted"
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "location": "body",
+          "description": "The full URL of the company website"
+        }
+      ]
+    },
+    {
+      "name": "companies_contacts_create",
+      "description": "Creates a new Contact. Required: companyId, email, firstName, lastName, phone. Optional: createdDate, id, types. Returns array of ContactType.",
+      "method": "POST",
+      "path": "/companies/{companyId}/contacts",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "createdDate",
+          "type": "string",
+          "location": "body",
+          "description": "The created date"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email",
+          "required": true
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "location": "body",
+          "description": "The first name",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The id"
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "location": "body",
+          "description": "The last name",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "The phone number",
+          "required": true
+        },
+        {
+          "name": "types",
+          "type": "array",
+          "location": "body",
+          "description": "Types"
+        }
+      ]
+    },
+    {
+      "name": "companies_contacts_delete",
+      "description": "Deletes a contact. Required: companyId, contactId. Destructive.",
+      "method": "DELETE",
+      "path": "/companies/{companyId}/contacts/{contactId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "contactId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_contacts_get",
+      "description": "Returns a paginated list of contacts ordered by ```createDate``` descending. Required: companyId. Optional: page (default: 0), size (default: 10).",
+      "method": "GET",
+      "path": "/companies/{companyId}/contacts",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request for in the contacts list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Return this number of company records per page"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_contacts_get-companies",
+      "description": "Returns a contact. Required: companyId, contactId.",
+      "method": "GET",
+      "path": "/companies/{companyId}/contacts/{contactId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "contactId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_contacts_update",
+      "description": "Update a contacts information. Required: companyId, contactId, email, firstName, lastName, phone. Optional: createdDate, id, types. Returns array of ContactType.",
+      "method": "PUT",
+      "path": "/companies/{companyId}/contacts/{contactId}",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "path",
+          "description": "Company id",
+          "required": true
+        },
+        {
+          "name": "contactId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact id",
+          "required": true
+        },
+        {
+          "name": "createdDate",
+          "type": "string",
+          "location": "body",
+          "description": "The created date"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email",
+          "required": true
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "location": "body",
+          "description": "The first name",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The id"
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "location": "body",
+          "description": "The last name",
+          "required": true
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "The phone number",
+          "required": true
+        },
+        {
+          "name": "types",
+          "type": "array",
+          "location": "body",
+          "description": "Types"
+        }
+      ]
+    },
+    {
+      "name": "invoices_find-partner",
+      "description": "Fetch a paginated list of invoices. Default page is 0 and default size is 10. The maximum page size is 200. Optional: page (default: 0), size (default: 10), sort (plus 9 more). Returns array of Invoice.",
+      "method": "GET",
+      "path": "/invoices",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request in the invoices list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Returns _this_ number of invoices per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Return invoices sorted by this field and direction Formatted as fieldName,direction - ex. sort=invoiceDate,desc"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Return only invoices matching this ```status``` value"
+        },
+        {
+          "name": "invoiceDate",
+          "type": "string",
+          "location": "query",
+          "description": "Return only invoices matching this ```invoiceDate``` value"
+        },
+        {
+          "name": "invoiceDateRangeStart",
+          "type": "string",
+          "location": "query",
+          "description": "Return only invoices with an ```invoiceDate``` greater than or equal to this date"
+        },
+        {
+          "name": "invoiceDateRangeEnd",
+          "type": "string",
+          "location": "query",
+          "description": "Return only invoices with an ```invoiceDate``` less than or equal to this date"
+        },
+        {
+          "name": "dueDate",
+          "type": "string",
+          "location": "query",
+          "description": "Return only invoices matching this ```dueDate``` value"
+        },
+        {
+          "name": "total",
+          "type": "float",
+          "location": "query",
+          "description": "Return only invoices matching this ```total``` value"
+        },
+        {
+          "name": "balance",
+          "type": "float",
+          "location": "query",
+          "description": "Return only invoices matching this ```balance``` value"
+        },
+        {
+          "name": "carriedBalance",
+          "type": "float",
+          "location": "query",
+          "description": "Return only invoices matching this ```carriedBalance``` value"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "Return only invoices matching this ```companyId``` value"
+        }
+      ]
+    },
+    {
+      "name": "invoices_find-partner-draft-items",
+      "description": "Fetch a paginated list of draft invoice items before they are finalized into invoices. Default page is 0 and default size is 10. The maximum page size is 200. DISCLAIMER: For future-dated items, the data represents a snapshot of charges that will be applied to a future invoice as of the request date. This is not an actual invoice. Clients should be aware that the final invoice generated on the 5th of the month may differ. This endpoint does not include charges for usage-based products billed in arrears. Tax calculations are based on current account taxability status and current month tax rates, both of which are subject to change for future invoices. Optional: page (default: 0), size (default: 10), monthOffset (default: 1) (plus 1 more). Returns array of InvoiceItem.",
+      "method": "GET",
+      "path": "/invoices/draftItems",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request in the draft invoice items list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Returns _this_ number of draft invoice items per page"
+        },
+        {
+          "name": "monthOffset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of months from current to return draft items for. 0 = current month, 1 = next month. Only values 0 and 1 are currently supported. If omitted, defaults to 1 (next month)."
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "Filter draft items to a specific company."
+        }
+      ]
+    },
+    {
+      "name": "invoices_get-partner",
+      "description": "Fetch a paginated list of invoices. Default page is 0 and default size is 10. The maximum page size is 200. Required: invoiceId. Returns the Invoice.",
+      "method": "GET",
+      "path": "/invoices/{invoiceId}",
+      "params": [
+        {
+          "name": "invoiceId",
+          "type": "string",
+          "location": "path",
+          "description": "The invoice id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_items_find-partner-invoice",
+      "description": "Fetch a paginated list of invoice items. Default page is 0 and default size is 10. The maximum page size is 200. Required: invoiceId. Optional: page (default: 0), size (default: 10). Returns array of InvoiceItem.",
+      "method": "GET",
+      "path": "/invoices/{invoiceId}/items",
+      "params": [
+        {
+          "name": "invoiceId",
+          "type": "string",
+          "location": "path",
+          "description": "The invoice id",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request in the invoices items list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Returns _this_ number of invoices items per page"
+        }
+      ]
+    },
+    {
+      "name": "orders_create",
+      "description": "Create a new order. Currently NOT supported for scheduled orders(orders with a future date). Required: companyId, lineItems. Optional: isMock, createdDate, id (plus 4 more). Returns array of LineItem.",
+      "method": "POST",
+      "path": "/orders",
+      "params": [
+        {
+          "name": "isMock",
+          "type": "bool",
+          "location": "query",
+          "description": "Perform validations only. Skip any interactions with the database."
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "unique id of the purchasing company ie. end-user",
+          "required": true
+        },
+        {
+          "name": "createdDate",
+          "type": "string",
+          "location": "body",
+          "description": "the date the order was created"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "unique id of the order"
+        },
+        {
+          "name": "isScheduled",
+          "type": "bool",
+          "location": "body",
+          "description": "is ```true``` if order is future dated"
+        },
+        {
+          "name": "lineItems",
+          "type": "array",
+          "location": "body",
+          "description": "Line items",
+          "required": true
+        },
+        {
+          "name": "orderedBy",
+          "type": "string",
+          "location": "body",
+          "description": "the type of user who created the order"
+        },
+        {
+          "name": "orderedByUserEmail",
+          "type": "string",
+          "location": "body",
+          "description": "the email address of the user who created this order"
+        },
+        {
+          "name": "orderedByUserId",
+          "type": "string",
+          "location": "body",
+          "description": "unique id of the user who created this order"
+        }
+      ]
+    },
+    {
+      "name": "orders_find",
+      "description": "Returns a paginated list of orders. Currently NOT supported for scheduled orders(orders with a future date). Optional: page (default: 0), size (default: 10), companyId.",
+      "method": "GET",
+      "path": "/orders",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request for in the orders list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Size"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "The company id to filter on"
+        }
+      ]
+    },
+    {
+      "name": "orders_find-by-id",
+      "description": "Returns the Order record specified by OrderId. Currently NOT supported for scheduled orders. Required: orderId.",
+      "method": "GET",
+      "path": "/orders/{orderId}",
+      "params": [
+        {
+          "name": "orderId",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for an order record",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_find-all",
+      "description": "Returns a paginated list of Pax8 products filtered by optional query parameters. Optional: page (default: 0), size (default: 10), sort (plus 2 more).",
+      "method": "GET",
+      "path": "/products",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request for in the products list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Return this number of products per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Return products sorted by the field and direction specified. Formatted as fieldName, direction - ex. sort=name,desc"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Search on fields like name, vendor, SKU and ID."
+        },
+        {
+          "name": "vendorName",
+          "type": "string",
+          "location": "query",
+          "description": "Return only products matching the specified vendor name"
+        }
+      ]
+    },
+    {
+      "name": "products_find-by-id",
+      "description": "Returns only the product record for the productId you specify. Required: productId.",
+      "method": "GET",
+      "path": "/products/{productId}",
+      "params": [
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_dependencies_find-product-by-product-id",
+      "description": "Returns associated dependencies for the specified ```productId```. A products dependencies are dynamic data. Required: productId.",
+      "method": "GET",
+      "path": "/products/{productId}/dependencies",
+      "params": [
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_pricing_find-by-product-id",
+      "description": "Returns recommended pricing and partner cost for the specified productId. A products pricing is dynamic data. Required: productId. Optional: companyId.",
+      "method": "GET",
+      "path": "/products/{productId}/pricing",
+      "params": [
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "The product id",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "Use the companyId in the query to see company-specific pricing"
+        }
+      ]
+    },
+    {
+      "name": "products_provision-details_find-by-product-id",
+      "description": "Returns provisioning details for the specified productId. Provisioning details for a product are dynamic data. Required: productId.",
+      "method": "GET",
+      "path": "/products/{productId}/provision-details",
+      "params": [
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_delete",
+      "description": "Cancels the Subscription specified by subscriptionId. Required: subscriptionId. Optional: cancelDate. Destructive.",
+      "method": "DELETE",
+      "path": "/subscriptions/{subscriptionId}",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "subscription to be updated",
+          "required": true
+        },
+        {
+          "name": "cancelDate",
+          "type": "string",
+          "location": "query",
+          "description": "The date to cancel the subscription on"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_find",
+      "description": "Fetch a paginated list of subscriptions. Default page is 0 and default size is 10. The maximum page size is 200. Optional: page (default: 0), size (default: 10), sort (plus 4 more). Returns array of Subscription.",
+      "method": "GET",
+      "path": "/subscriptions",
+      "params": [
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request in the subscriptions list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Returns _this_ number of subscriptions per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Return subscriptions sorted by this field and direction Formatted as fieldName,direction - ex. sort=createdDate,desc"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Return only subscriptions matching this ```status``` value"
+        },
+        {
+          "name": "billingTerm",
+          "type": "string",
+          "location": "query",
+          "description": "Return only subscriptions matching this ```billingTerm``` value"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "Return only subscriptions matching this ```companyId``` value"
+        },
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "query",
+          "description": "Return only subscriptions matching this ```productId``` value"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_find-by-id",
+      "description": "Returns the Subscription record specified by the subscriptionId. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/subscriptions/{subscriptionId}",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Subscription id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_update",
+      "description": "Updates a subscription. Currently NOT supported for subscriptions with a future date. At least one of the following fields are required: Price, BillingTerm, Quantity, StartDate.",
+      "method": "PUT",
+      "path": "/subscriptions/{subscriptionId}",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "subscription to be updated",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_history_find-subscription-by-subscription-id",
+      "description": "Returns a list of changes for a subscription. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/subscriptions/{subscriptionId}/history",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Subscription id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_usage-summaries_find-subscription",
+      "description": "Fetch a paginated list of usage summaries. Default page is 0 and default size is 10. The maximum page size is 200. Required: subscriptionId. Optional: page (default: 0), size (default: 10), sort (plus 2 more). Returns array of UsageSummary.",
+      "method": "GET",
+      "path": "/subscriptions/{subscriptionId}/usage-summaries",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Subscription id",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "float",
+          "location": "query",
+          "description": "The page number to request in the usage summaries list"
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "location": "query",
+          "description": "Returns _this_ number of usage summaries per page"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Return usage summaries sorted by this field and direction Formatted as fieldName,direction - ex. sort=resourceGroup,desc"
+        },
+        {
+          "name": "resourceGroup",
+          "type": "string",
+          "location": "query",
+          "description": "Return only usage summaries matching this ```resourceGroup``` value"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "query",
+          "description": "Return only usage summaries with this ```companyId``` value"
+        }
+      ]
+    },
+    {
+      "name": "usage-summaries_find-subscription-usage-summary",
+      "description": "Fetch a paginated list of usage summaries. Default page is 0 and default size is 10. The maximum page size is 200. Required: usageSummaryId. Returns the UsageSummary.",
+      "method": "GET",
+      "path": "/usage-summaries/{usageSummaryId}",
+      "params": [
+        {
+          "name": "usageSummaryId",
+          "type": "string",
+          "location": "path",
+          "description": "The usage summary id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "usage-summaries_usage-lines_find",
+      "description": "Fetch a paginated list of usage lines. Default page is 0 and default size is 10. The maximum page size is 200. Required: usageSummaryId, usageDate. Optional: productId. Returns array of UsageLine.",
+      "method": "GET",
+      "path": "/usage-summaries/{usageSummaryId}/usage-lines",
+      "params": [
+        {
+          "name": "usageSummaryId",
+          "type": "string",
+          "location": "path",
+          "description": "The usage summary id",
+          "required": true
+        },
+        {
+          "name": "usageDate",
+          "type": "string",
+          "location": "query",
+          "description": "The date usage was recorded",
+          "required": true
+        },
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "query",
+          "description": "Return only usage summaries with this ```productId``` value"
+        }
+      ]
+    }
+  ]
+}

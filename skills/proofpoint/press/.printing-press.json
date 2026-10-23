@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:11:38.270047Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "proofpoint",
+  "display_name": "Proofpoint TAP",
+  "cli_name": "proofpoint-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:db11de897bf8002ec8702a396f2c6d7bd8afce510f7e0f8ad08e9f924e4576b4",
+  "run_id": "20260606-220939",
+  "category": "monitoring",
+  "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
+  "mcp_binary": "proofpoint-pp-mcp",
+  "mcp_tool_count": 13,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "2.0",
+  "auth_type": "api_key",
+  "auth_preference": "basicAuth",
+  "auth_env_vars": [
+    "PROOFPOINT_SERVICE_PRINCIPAL",
+    "PROOFPOINT_API_SECRET"
+  ],
+  "novel_features": [
+    {
+      "name": "SIEM window-loop backfill",
+      "command": "backfill",
+      "description": "Reconstruct up to 7 days of SIEM threat events in one command \u2014 the CLI auto-loops the API's mandatory 1-hour windows and persists every page locally."
+    },
+    {
+      "name": "Incident brief composer",
+      "command": "incident",
+      "description": "Turn a threatId into a single incident brief: severity, actors, malware, techniques, forensic evidence, and every local event that touched it."
+    },
+    {
+      "name": "Flat IOC extractor",
+      "command": "iocs",
+      "description": "Flatten TAP's nested forensic evidence tree into a paste-ready indicator table: hashes, URLs, domains, IPs, files, registry keys, processes."
+    },
+    {
+      "name": "VAP and top-clicker overlap",
+      "command": "risk-overlap",
+      "description": "List the people who are both Very Attacked AND top clickers \u2014 attack index beside click count \u2014 your highest-risk humans."
+    },
+    {
+      "name": "Per-user activity timeline",
+      "command": "user",
+      "description": "Everything the local store knows about one person: clicks, threat messages, VAP status, and clicker status in one view."
+    },
+    {
+      "name": "Campaign threats expansion",
+      "command": "campaign-threats",
+      "description": "Expand one campaign into the threats inside it, enriched with severity and family from the local threat store."
+    }
+  ]
+}

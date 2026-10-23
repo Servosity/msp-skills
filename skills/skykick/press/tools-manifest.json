@@ -1,0 +1,317 @@
+{
+  "api_name": "skykick",
+  "base_url": "https://apis.cloudservices.connectwise.com",
+  "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "oauth2",
+    "header": "Authorization",
+    "format": "Bearer {SKYKICK_CLIENT_ID}",
+    "env_vars": [
+      "SKYKICK_CLIENT_ID",
+      "SKYKICK_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "SKYKICK_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "SKYKICK_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alerts_complete",
+      "description": "Mark a specific alert as complete. Required: alertId.",
+      "method": "POST",
+      "path": "/Alerts/{alertId}",
+      "params": [
+        {
+          "name": "alertId",
+          "type": "string",
+          "location": "path",
+          "description": "Alert GUID to mark complete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alerts_list",
+      "description": "List alerts for a backup service or email migration order (max 500; the API does not support skip paging). Required: serviceId. Optional: top (default: 25).",
+      "method": "GET",
+      "path": "/Alerts/{serviceId}",
+      "params": [
+        {
+          "name": "serviceId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup Service GUID or Email Migration Order GUID",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum alerts to return (default 25, max 500)"
+        }
+      ]
+    },
+    {
+      "name": "backup_autodiscover",
+      "description": "Auto-discover state (enabled/disabled) for Exchange and SharePoint. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/autodiscover",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_by-partner",
+      "description": "List backup subscription orders for a specific partner. Required: partnerId. Returns array of Subscription.",
+      "method": "GET",
+      "path": "/Backup/{partnerId}",
+      "params": [
+        {
+          "name": "partnerId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner GUID to list subscriptions for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_datacenters",
+      "description": "List the Azure data centers available for backup storage. Returns array of Datacenter.",
+      "method": "GET",
+      "path": "/Backup/datacenters",
+      "params": []
+    },
+    {
+      "name": "backup_discover-mailboxes",
+      "description": "Trigger Exchange mailbox discovery (async; poll the returned operation with watch-operation). Required: subscriptionId.",
+      "method": "POST",
+      "path": "/Backup/{subscriptionId}/discovermailboxes",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_discover-sites",
+      "description": "Trigger SharePoint site discovery (async; poll the returned operation with watch-operation). Required: subscriptionId.",
+      "method": "POST",
+      "path": "/Backup/{subscriptionId}/discoversites",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs",
+      "description": "Active backup jobs for the subscription (known upstream defect: may return Unknown error, community-reported since 2024). Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/jobs",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_last-snapshot-stats",
+      "description": "Last snapshot statistics for all mailboxes in the subscription. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/lastsnapshotstats",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_list",
+      "description": "List all placed backup subscription orders across your customers. Returns array of Subscription.",
+      "method": "GET",
+      "path": "/Backup",
+      "params": []
+    },
+    {
+      "name": "backup_mailbox",
+      "description": "Details of a specific Exchange mailbox in the subscription. Required: subscriptionId, mailboxId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/mailboxes/{mailboxId}",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        },
+        {
+          "name": "mailboxId",
+          "type": "string",
+          "location": "path",
+          "description": "Mailbox identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_mailboxes",
+      "description": "Exchange mailboxes and their backup enabled/disabled status (IndividualMailboxes array). Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/mailboxes",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_retention-period",
+      "description": "Data retention periods for Exchange and SharePoint (response field ExchangeRentionPeriodInDays is the upstream spelling). Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/retentionperiod",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_sites",
+      "description": "SharePoint site URLs and their backup enabled/disabled status. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/sites",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_sku",
+      "description": "SKU and promotional details for a backup subscription. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/sku",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_storage-settings",
+      "description": "Storage settings for a backup subscription. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/storagesettings",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_subscription-settings",
+      "description": "Subscription settings: Exchange/SharePoint backup state, enabled counts, customer info. Required: subscriptionId.",
+      "method": "GET",
+      "path": "/Backup/{subscriptionId}/subscriptionsettings",
+      "params": [
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Backup subscription (service) GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "identity_whoami",
+      "description": "Show the identity and context of the authenticated API user.",
+      "method": "GET",
+      "path": "/whoami",
+      "params": []
+    },
+    {
+      "name": "operations_status",
+      "description": "Poll the status of an async operation (e.g. a discovery run). Required: operationId.",
+      "method": "GET",
+      "path": "/operation/{operationId}",
+      "params": [
+        {
+          "name": "operationId",
+          "type": "string",
+          "location": "path",
+          "description": "Operation GUID returned by an async action",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "operations_workqueue",
+      "description": "Retrieve the work queue for the authenticated account.",
+      "method": "GET",
+      "path": "/workqueue",
+      "params": []
+    }
+  ]
+}

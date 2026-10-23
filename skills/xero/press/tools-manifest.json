@@ -1,0 +1,3923 @@
+{
+  "api_name": "xero",
+  "base_url": "https://api.xero.com/api.xro/2.0",
+  "description": "Every Xero Accounting read plus a local SQLite ledger — aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "XERO_OAUTH2"
+    ],
+    "env_var_specs": [
+      {
+        "name": "XERO_OAUTH2",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [
+    {
+      "name": "xero-tenant-id",
+      "value": ""
+    }
+  ],
+  "tools": [
+    {
+      "name": "accounts_create",
+      "description": "Creates a new chart of accounts. Optional: AccountID, AddToWatchlist, BankAccountNumber (plus 17 more). Returns array of Account.",
+      "method": "PUT",
+      "path": "/Accounts",
+      "params": [
+        {
+          "name": "AccountID",
+          "type": "string",
+          "location": "body",
+          "description": "The Xero identifier for an account – specified as a string following the endpoint name e.g. /297c2dc5-cc47-4afd-8ec8-74990b8761e9"
+        },
+        {
+          "name": "AddToWatchlist",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether the account is shown in the watchlist widget on the dashboard"
+        },
+        {
+          "name": "BankAccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "For bank accounts only (Account Type BANK)"
+        },
+        {
+          "name": "BankAccountType",
+          "type": "string",
+          "location": "body",
+          "description": "For bank accounts only. See Bank Account types"
+        },
+        {
+          "name": "Class",
+          "type": "string",
+          "location": "body",
+          "description": "See Account Class Types"
+        },
+        {
+          "name": "Code",
+          "type": "string",
+          "location": "body",
+          "description": "Customer defined alpha numeric account code e.g 200 or SALES (max length = 10)"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the Account. Valid for all types of accounts except bank accounts (max length = 4000)"
+        },
+        {
+          "name": "EnablePaymentsToAccount",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether account can have payments applied to it"
+        },
+        {
+          "name": "HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if an account has an attachment (read only)"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of account (max length = 150)"
+        },
+        {
+          "name": "ReportingCode",
+          "type": "string",
+          "location": "body",
+          "description": "Shown if set"
+        },
+        {
+          "name": "ReportingCodeName",
+          "type": "string",
+          "location": "body",
+          "description": "Shown if set"
+        },
+        {
+          "name": "ShowInExpenseClaims",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether account code is available for use with expense claims"
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "location": "body",
+          "description": "Accounts with a status of ACTIVE can be updated to ARCHIVED. See Account Status Codes"
+        },
+        {
+          "name": "SystemAccount",
+          "type": "string",
+          "location": "body",
+          "description": "If this is a system account then this element is returned. See System Account types. Note that non-system accounts may have this element set as either “” or null."
+        },
+        {
+          "name": "TaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from taxRates"
+        },
+        {
+          "name": "Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Account Types"
+        },
+        {
+          "name": "UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "Last modified date UTC format"
+        },
+        {
+          "name": "ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        }
+      ]
+    },
+    {
+      "name": "accounts_delete",
+      "description": "Deletes a chart of accounts. Required: AccountID. Returns array of Account. Destructive.",
+      "method": "DELETE",
+      "path": "/Accounts/{AccountID}",
+      "params": [
+        {
+          "name": "AccountID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for Account object",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_get",
+      "description": "Retrieves the full chart of accounts. Optional: where, order. Returns array of Account.",
+      "method": "GET",
+      "path": "/Accounts",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an any element"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Order by an any element"
+        }
+      ]
+    },
+    {
+      "name": "accounts_get-accountid",
+      "description": "Retrieves a single chart of accounts by using a unique account Id. Required: AccountID. Returns array of Account.",
+      "method": "GET",
+      "path": "/Accounts/{AccountID}",
+      "params": [
+        {
+          "name": "AccountID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for Account object",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_update",
+      "description": "Updates a chart of accounts. Required: AccountID. Optional: Accounts. Returns array of Account.",
+      "method": "POST",
+      "path": "/Accounts/{AccountID}",
+      "params": [
+        {
+          "name": "AccountID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for Account object",
+          "required": true
+        },
+        {
+          "name": "Accounts",
+          "type": "array",
+          "location": "body",
+          "description": "Accounts"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_create",
+      "description": "Creates one or more spent or received money transaction. Optional: summarizeErrors (default: false), unitdp, BankTransactions (plus 2 more). Returns the updated BankTransactions.",
+      "method": "PUT",
+      "path": "/BankTransactions",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "BankTransactions",
+          "type": "array",
+          "location": "body",
+          "description": "Bank transactions"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_get",
+      "description": "Retrieves any spent or received money transactions. Optional: where, order, page (plus 2 more). Returns the BankTransactions.",
+      "method": "GET",
+      "path": "/BankTransactions",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an any element"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Order by an any element"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Up to 100 bank transactions will be returned in a single API call with line items details"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records to retrieve per page"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_get-banktransactions",
+      "description": "Retrieves a single spent or received money transaction by using a unique bank transaction Id. Required: BankTransactionID. Optional: unitdp. Returns the BankTransactions.",
+      "method": "GET",
+      "path": "/BankTransactions/{BankTransactionID}",
+      "params": [
+        {
+          "name": "BankTransactionID",
+          "type": "string",
+          "location": "path",
+          "description": "Xero generated unique identifier for a bank transaction",
+          "required": true
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_update",
+      "description": "Updates a single spent or received money transaction. Required: BankTransactionID. Optional: unitdp, BankTransactions, Warnings (plus 1 more). Returns the new BankTransactions.",
+      "method": "POST",
+      "path": "/BankTransactions/{BankTransactionID}",
+      "params": [
+        {
+          "name": "BankTransactionID",
+          "type": "string",
+          "location": "path",
+          "description": "Xero generated unique identifier for a bank transaction",
+          "required": true
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "BankTransactions",
+          "type": "array",
+          "location": "body",
+          "description": "Bank transactions"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_update-or-create",
+      "description": "Updates or creates one or more spent or received money transaction. Optional: summarizeErrors (default: false), unitdp, BankTransactions (plus 2 more). Returns the new BankTransactions.",
+      "method": "POST",
+      "path": "/BankTransactions",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "BankTransactions",
+          "type": "array",
+          "location": "body",
+          "description": "Bank transactions"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_history_create-bank-transaction-record",
+      "description": "Creates a history record for a specific bank transactions. Required: BankTransactionID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "method": "PUT",
+      "path": "/BankTransactions/{BankTransactionID}/History",
+      "params": [
+        {
+          "name": "BankTransactionID",
+          "type": "string",
+          "location": "path",
+          "description": "Xero generated unique identifier for a bank transaction",
+          "required": true
+        },
+        {
+          "name": "HistoryRecords",
+          "type": "array",
+          "location": "body",
+          "description": "History records"
+        }
+      ]
+    },
+    {
+      "name": "bank-transactions_history_get-bank-transactions",
+      "description": "Retrieves history from a specific bank transaction using a unique bank transaction Id. Required: BankTransactionID. Returns array of HistoryRecord.",
+      "method": "GET",
+      "path": "/BankTransactions/{BankTransactionID}/History",
+      "params": [
+        {
+          "name": "BankTransactionID",
+          "type": "string",
+          "location": "path",
+          "description": "Xero generated unique identifier for a bank transaction",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_create",
+      "description": "Creates multiple contacts (bulk) in a Xero organisation. Optional: summarizeErrors (default: false), Contacts, Warnings (plus 1 more). Returns the updated Contacts.",
+      "method": "PUT",
+      "path": "/Contacts",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "Contacts",
+          "type": "array",
+          "location": "body",
+          "description": "Contacts"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "contacts_get",
+      "description": "Retrieves all contacts in a Xero organisation. Optional: where, order, IDs (plus 5 more). Returns the Contacts.",
+      "method": "GET",
+      "path": "/Contacts",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an any element"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Order by an any element"
+        },
+        {
+          "name": "IDs",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by a comma separated list of ContactIDs. Allows you to retrieve a specific set of contacts in a single call."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. page=1 - Up to 100 contacts will be returned in a single API call."
+        },
+        {
+          "name": "includeArchived",
+          "type": "bool",
+          "location": "query",
+          "description": "e.g. includeArchived=true - Contacts with a status of ARCHIVED will be included in the response"
+        },
+        {
+          "name": "summaryOnly",
+          "type": "bool",
+          "location": "query",
+          "description": "Use summaryOnly=true in GET Contacts and Invoices endpoint to retrieve a smaller version of the response object. This returns only lightweight fields, excluding computation-heavy fields from the response, making the API calls quick and efficient."
+        },
+        {
+          "name": "searchTerm",
+          "type": "string",
+          "location": "query",
+          "description": "Search parameter that performs a case-insensitive text search across the Name, FirstName, LastName, ContactNumber and EmailAddress fields."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records to retrieve per page"
+        }
+      ]
+    },
+    {
+      "name": "contacts_get-by-number",
+      "description": "Retrieves a specific contact by contact number in a Xero organisation. Required: ContactNumber. Returns the Contacts.",
+      "method": "GET",
+      "path": "/Contacts/{ContactNumber}",
+      "params": [
+        {
+          "name": "ContactNumber",
+          "type": "string",
+          "location": "path",
+          "description": "This field is read only on the Xero contact screen, used to identify contacts in external systems (max length = 50).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_get-contactid",
+      "description": "Retrieves a specific contacts in a Xero organisation using a unique contact Id. Required: ContactID. Returns the Contacts.",
+      "method": "GET",
+      "path": "/Contacts/{ContactID}",
+      "params": [
+        {
+          "name": "ContactID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Contact",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contacts_update",
+      "description": "Updates a specific contact in a Xero organisation. Required: ContactID. Optional: Contacts, Warnings, pagination. Returns the new Contacts.",
+      "method": "POST",
+      "path": "/Contacts/{ContactID}",
+      "params": [
+        {
+          "name": "ContactID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Contact",
+          "required": true
+        },
+        {
+          "name": "Contacts",
+          "type": "array",
+          "location": "body",
+          "description": "Contacts"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "contacts_update-or-create",
+      "description": "Updates or creates one or more contacts in a Xero organisation. Optional: summarizeErrors (default: false), Contacts, Warnings (plus 1 more). Returns the new Contacts.",
+      "method": "POST",
+      "path": "/Contacts",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "Contacts",
+          "type": "array",
+          "location": "body",
+          "description": "Contacts"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "contacts_history_create-contact",
+      "description": "Creates a new history record for a specific contact. Required: ContactID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "method": "PUT",
+      "path": "/Contacts/{ContactID}/History",
+      "params": [
+        {
+          "name": "ContactID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Contact",
+          "required": true
+        },
+        {
+          "name": "HistoryRecords",
+          "type": "array",
+          "location": "body",
+          "description": "History records"
+        }
+      ]
+    },
+    {
+      "name": "contacts_history_get-contact",
+      "description": "Retrieves history records for a specific contact. Required: ContactID. Returns array of HistoryRecord.",
+      "method": "GET",
+      "path": "/Contacts/{ContactID}/History",
+      "params": [
+        {
+          "name": "ContactID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Contact",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_create",
+      "description": "Creates one or more sales invoices or purchase bills. Optional: summarizeErrors (default: false), unitdp, Invoices (plus 2 more). Returns the updated Invoices.",
+      "method": "PUT",
+      "path": "/Invoices",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Invoices",
+          "type": "array",
+          "location": "body",
+          "description": "Invoices"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "invoices_get",
+      "description": "Retrieves sales invoices or purchase bills. Optional: where, order, IDs (plus 10 more). Returns the Invoices.",
+      "method": "GET",
+      "path": "/Invoices",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an any element"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Order by an any element"
+        },
+        {
+          "name": "IDs",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by a comma-separated list of InvoicesIDs."
+        },
+        {
+          "name": "InvoiceNumbers",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by a comma-separated list of InvoiceNumbers."
+        },
+        {
+          "name": "ContactIDs",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by a comma-separated list of ContactIDs."
+        },
+        {
+          "name": "Statuses",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by a comma-separated list Statuses. For faster response times we recommend using these explicit parameters instead of passing OR conditions into the Where filter."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. page=1 – Up to 100 invoices will be returned in a single API call with line items shown for each invoice"
+        },
+        {
+          "name": "includeArchived",
+          "type": "bool",
+          "location": "query",
+          "description": "e.g. includeArchived=true - Invoices with a status of ARCHIVED will be included in the response"
+        },
+        {
+          "name": "createdByMyApp",
+          "type": "bool",
+          "location": "query",
+          "description": "When set to true you'll only retrieve Invoices created by your app"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "summaryOnly",
+          "type": "bool",
+          "location": "query",
+          "description": "Use summaryOnly=true in GET Contacts and Invoices endpoint to retrieve a smaller version of the response object. This returns only lightweight fields, excluding computation-heavy fields from the response, making the API calls quick and efficient."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records to retrieve per page"
+        },
+        {
+          "name": "searchTerm",
+          "type": "string",
+          "location": "query",
+          "description": "Search parameter that performs a case-insensitive text search across the fields e.g. InvoiceNumber, Reference."
+        }
+      ]
+    },
+    {
+      "name": "invoices_get-invoiceid",
+      "description": "Retrieves a specific sales invoice or purchase bill using a unique invoice Id. Required: InvoiceID. Optional: unitdp. Returns the Invoices.",
+      "method": "GET",
+      "path": "/Invoices/{InvoiceID}",
+      "params": [
+        {
+          "name": "InvoiceID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Invoice",
+          "required": true
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        }
+      ]
+    },
+    {
+      "name": "invoices_update",
+      "description": "Updates a specific sales invoices or purchase bills. Required: InvoiceID. Optional: unitdp, Invoices, Warnings (plus 1 more). Returns the new Invoices.",
+      "method": "POST",
+      "path": "/Invoices/{InvoiceID}",
+      "params": [
+        {
+          "name": "InvoiceID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Invoice",
+          "required": true
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Invoices",
+          "type": "array",
+          "location": "body",
+          "description": "Invoices"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "invoices_update-or-create",
+      "description": "Updates or creates one or more sales invoices or purchase bills. Optional: summarizeErrors (default: false), unitdp, Invoices (plus 2 more). Returns the new Invoices.",
+      "method": "POST",
+      "path": "/Invoices",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Invoices",
+          "type": "array",
+          "location": "body",
+          "description": "Invoices"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "invoices_history_create-invoice",
+      "description": "Creates a history record for a specific invoice. Required: InvoiceID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "method": "PUT",
+      "path": "/Invoices/{InvoiceID}/History",
+      "params": [
+        {
+          "name": "InvoiceID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Invoice",
+          "required": true
+        },
+        {
+          "name": "HistoryRecords",
+          "type": "array",
+          "location": "body",
+          "description": "History records"
+        }
+      ]
+    },
+    {
+      "name": "invoices_history_get-invoice",
+      "description": "Retrieves history records for a specific invoice. Required: InvoiceID. Returns array of HistoryRecord.",
+      "method": "GET",
+      "path": "/Invoices/{InvoiceID}/History",
+      "params": [
+        {
+          "name": "InvoiceID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Invoice",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "items_create",
+      "description": "Creates one or more items. Optional: summarizeErrors (default: false), unitdp, Items. Returns array of Item.",
+      "method": "PUT",
+      "path": "/Items",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Items",
+          "type": "array",
+          "location": "body",
+          "description": "Items"
+        }
+      ]
+    },
+    {
+      "name": "items_delete",
+      "description": "Deletes a specific item. Required: ItemID. Destructive.",
+      "method": "DELETE",
+      "path": "/Items/{ItemID}",
+      "params": [
+        {
+          "name": "ItemID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Item",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "items_get",
+      "description": "Retrieves items. Optional: where, order, unitdp. Returns array of Item.",
+      "method": "GET",
+      "path": "/Items",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an any element"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Order by an any element"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        }
+      ]
+    },
+    {
+      "name": "items_get-itemid",
+      "description": "Retrieves a specific item using a unique item Id. Required: ItemID. Optional: unitdp. Returns array of Item.",
+      "method": "GET",
+      "path": "/Items/{ItemID}",
+      "params": [
+        {
+          "name": "ItemID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Item",
+          "required": true
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        }
+      ]
+    },
+    {
+      "name": "items_update",
+      "description": "Updates a specific item. Required: ItemID. Optional: unitdp, Items. Returns array of Item.",
+      "method": "POST",
+      "path": "/Items/{ItemID}",
+      "params": [
+        {
+          "name": "ItemID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Item",
+          "required": true
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Items",
+          "type": "array",
+          "location": "body",
+          "description": "Items"
+        }
+      ]
+    },
+    {
+      "name": "items_update-or-create",
+      "description": "Updates or creates one or more items. Optional: summarizeErrors (default: false), unitdp, Items. Returns array of Item.",
+      "method": "POST",
+      "path": "/Items",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "unitdp",
+          "type": "int",
+          "location": "query",
+          "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Items",
+          "type": "array",
+          "location": "body",
+          "description": "Items"
+        }
+      ]
+    },
+    {
+      "name": "items_history_create-item",
+      "description": "Creates a history record for a specific item. Required: ItemID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "method": "PUT",
+      "path": "/Items/{ItemID}/History",
+      "params": [
+        {
+          "name": "ItemID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Item",
+          "required": true
+        },
+        {
+          "name": "HistoryRecords",
+          "type": "array",
+          "location": "body",
+          "description": "History records"
+        }
+      ]
+    },
+    {
+      "name": "items_history_get-item",
+      "description": "Retrieves history for a specific item. Required: ItemID. Returns array of HistoryRecord.",
+      "method": "GET",
+      "path": "/Items/{ItemID}/History",
+      "params": [
+        {
+          "name": "ItemID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for an Item",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "journals_get",
+      "description": "Retrieves journals. Optional: offset, paymentsOnly. Returns the Journals.",
+      "method": "GET",
+      "path": "/Journals",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset by a specified journal number. e.g. journals with a JournalNumber greater than the offset will be returned"
+        },
+        {
+          "name": "paymentsOnly",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter to retrieve journals on a cash basis. Journals are returned on an accrual basis by default."
+        }
+      ]
+    },
+    {
+      "name": "journals_get-by-number",
+      "description": "Retrieves a specific journal using a unique journal number. Required: JournalNumber. Returns the Journals.",
+      "method": "GET",
+      "path": "/Journals/{JournalNumber}",
+      "params": [
+        {
+          "name": "JournalNumber",
+          "type": "int",
+          "location": "path",
+          "description": "Number of a Journal",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "journals_get-journalid",
+      "description": "Retrieves a specific journal using a unique journal Id. Required: JournalID. Returns the Journals.",
+      "method": "GET",
+      "path": "/Journals/{JournalID}",
+      "params": [
+        {
+          "name": "JournalID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Journal",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "payments_create",
+      "description": "Creates a single payment for invoice or credit notes. Optional: Account, Amount, BankAccountNumber (plus 25 more). Returns the new Payments.",
+      "method": "POST",
+      "path": "/Payments",
+      "params": [
+        {
+          "name": "account-account-id",
+          "wire_name": "Account.AccountID",
+          "type": "string",
+          "location": "body",
+          "description": "The Xero identifier for an account – specified as a string following the endpoint name e.g. /297c2dc5-cc47-4afd-8ec8-74990b8761e9"
+        },
+        {
+          "name": "account-add-to-watchlist",
+          "wire_name": "Account.AddToWatchlist",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether the account is shown in the watchlist widget on the dashboard"
+        },
+        {
+          "name": "account-bank-account-number",
+          "wire_name": "Account.BankAccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "For bank accounts only (Account Type BANK)"
+        },
+        {
+          "name": "account-bank-account-type",
+          "wire_name": "Account.BankAccountType",
+          "type": "string",
+          "location": "body",
+          "description": "For bank accounts only. See Bank Account types"
+        },
+        {
+          "name": "account-class",
+          "wire_name": "Account.Class",
+          "type": "string",
+          "location": "body",
+          "description": "See Account Class Types"
+        },
+        {
+          "name": "account-code",
+          "wire_name": "Account.Code",
+          "type": "string",
+          "location": "body",
+          "description": "Customer defined alpha numeric account code e.g 200 or SALES (max length = 10)"
+        },
+        {
+          "name": "account-currency-code",
+          "wire_name": "Account.CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "account-description",
+          "wire_name": "Account.Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the Account. Valid for all types of accounts except bank accounts (max length = 4000)"
+        },
+        {
+          "name": "account-enable-payments-to-account",
+          "wire_name": "Account.EnablePaymentsToAccount",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether account can have payments applied to it"
+        },
+        {
+          "name": "account-has-attachments",
+          "wire_name": "Account.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if an account has an attachment (read only)"
+        },
+        {
+          "name": "account-name",
+          "wire_name": "Account.Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of account (max length = 150)"
+        },
+        {
+          "name": "account-reporting-code",
+          "wire_name": "Account.ReportingCode",
+          "type": "string",
+          "location": "body",
+          "description": "Shown if set"
+        },
+        {
+          "name": "account-reporting-code-name",
+          "wire_name": "Account.ReportingCodeName",
+          "type": "string",
+          "location": "body",
+          "description": "Shown if set"
+        },
+        {
+          "name": "account-show-in-expense-claims",
+          "wire_name": "Account.ShowInExpenseClaims",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether account code is available for use with expense claims"
+        },
+        {
+          "name": "account-status",
+          "wire_name": "Account.Status",
+          "type": "string",
+          "location": "body",
+          "description": "Accounts with a status of ACTIVE can be updated to ARCHIVED. See Account Status Codes"
+        },
+        {
+          "name": "account-system-account",
+          "wire_name": "Account.SystemAccount",
+          "type": "string",
+          "location": "body",
+          "description": "If this is a system account then this element is returned. See System Account types. Note that non-system accounts may have this element set as either “” or null."
+        },
+        {
+          "name": "account-tax-type",
+          "wire_name": "Account.TaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from taxRates"
+        },
+        {
+          "name": "account-type",
+          "wire_name": "Account.Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Account Types"
+        },
+        {
+          "name": "account-updated-date-utc",
+          "wire_name": "Account.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "Last modified date UTC format"
+        },
+        {
+          "name": "account-validation-errors",
+          "wire_name": "Account.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        },
+        {
+          "name": "Amount",
+          "type": "float",
+          "location": "body",
+          "description": "The amount of the payment. Must be less than or equal to the outstanding amount owing on the invoice e.g. 200.00"
+        },
+        {
+          "name": "BankAccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "The suppliers bank account number the payment is being made to"
+        },
+        {
+          "name": "BankAmount",
+          "type": "float",
+          "location": "body",
+          "description": "The amount of the payment in the currency of the bank account."
+        },
+        {
+          "name": "batch-payment-account-account-id",
+          "wire_name": "BatchPayment.Account.AccountID",
+          "type": "string",
+          "location": "body",
+          "description": "The Xero identifier for an account – specified as a string following the endpoint name e.g. /297c2dc5-cc47-4afd-8ec8-74990b8761e9"
+        },
+        {
+          "name": "batch-payment-account-add-to-watchlist",
+          "wire_name": "BatchPayment.Account.AddToWatchlist",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether the account is shown in the watchlist widget on the dashboard"
+        },
+        {
+          "name": "batch-payment-account-bank-account-number",
+          "wire_name": "BatchPayment.Account.BankAccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "For bank accounts only (Account Type BANK)"
+        },
+        {
+          "name": "batch-payment-account-bank-account-type",
+          "wire_name": "BatchPayment.Account.BankAccountType",
+          "type": "string",
+          "location": "body",
+          "description": "For bank accounts only. See Bank Account types"
+        },
+        {
+          "name": "batch-payment-account-class",
+          "wire_name": "BatchPayment.Account.Class",
+          "type": "string",
+          "location": "body",
+          "description": "See Account Class Types"
+        },
+        {
+          "name": "batch-payment-account-code",
+          "wire_name": "BatchPayment.Account.Code",
+          "type": "string",
+          "location": "body",
+          "description": "Customer defined alpha numeric account code e.g 200 or SALES (max length = 10)"
+        },
+        {
+          "name": "batch-payment-account-currency-code",
+          "wire_name": "BatchPayment.Account.CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "batch-payment-account-description",
+          "wire_name": "BatchPayment.Account.Description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the Account. Valid for all types of accounts except bank accounts (max length = 4000)"
+        },
+        {
+          "name": "batch-payment-account-enable-payments-to-account",
+          "wire_name": "BatchPayment.Account.EnablePaymentsToAccount",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether account can have payments applied to it"
+        },
+        {
+          "name": "batch-payment-account-has-attachments",
+          "wire_name": "BatchPayment.Account.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if an account has an attachment (read only)"
+        },
+        {
+          "name": "batch-payment-account-name",
+          "wire_name": "BatchPayment.Account.Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of account (max length = 150)"
+        },
+        {
+          "name": "batch-payment-account-reporting-code",
+          "wire_name": "BatchPayment.Account.ReportingCode",
+          "type": "string",
+          "location": "body",
+          "description": "Shown if set"
+        },
+        {
+          "name": "batch-payment-account-reporting-code-name",
+          "wire_name": "BatchPayment.Account.ReportingCodeName",
+          "type": "string",
+          "location": "body",
+          "description": "Shown if set"
+        },
+        {
+          "name": "batch-payment-account-show-in-expense-claims",
+          "wire_name": "BatchPayment.Account.ShowInExpenseClaims",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean – describes whether account code is available for use with expense claims"
+        },
+        {
+          "name": "batch-payment-account-status",
+          "wire_name": "BatchPayment.Account.Status",
+          "type": "string",
+          "location": "body",
+          "description": "Accounts with a status of ACTIVE can be updated to ARCHIVED. See Account Status Codes"
+        },
+        {
+          "name": "batch-payment-account-system-account",
+          "wire_name": "BatchPayment.Account.SystemAccount",
+          "type": "string",
+          "location": "body",
+          "description": "If this is a system account then this element is returned. See System Account types. Note that non-system accounts may have this element set as either “” or null."
+        },
+        {
+          "name": "batch-payment-account-tax-type",
+          "wire_name": "BatchPayment.Account.TaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from taxRates"
+        },
+        {
+          "name": "batch-payment-account-type",
+          "wire_name": "BatchPayment.Account.Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Account Types"
+        },
+        {
+          "name": "batch-payment-account-updated-date-utc",
+          "wire_name": "BatchPayment.Account.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "Last modified date UTC format"
+        },
+        {
+          "name": "batch-payment-account-validation-errors",
+          "wire_name": "BatchPayment.Account.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        },
+        {
+          "name": "batch-payment-amount",
+          "wire_name": "BatchPayment.Amount",
+          "type": "float",
+          "location": "body",
+          "description": "The amount of the payment. Must be less than or equal to the outstanding amount owing on the invoice e.g. 200.00"
+        },
+        {
+          "name": "batch-payment-batch-payment-id",
+          "wire_name": "BatchPayment.BatchPaymentID",
+          "type": "string",
+          "location": "body",
+          "description": "The Xero generated unique identifier for the bank transaction (read-only)"
+        },
+        {
+          "name": "batch-payment-code",
+          "wire_name": "BatchPayment.Code",
+          "type": "string",
+          "location": "body",
+          "description": "(NZ Only) Optional references for the batch payment transaction. It will also show with the batch payment transaction in the bank reconciliation Find \u0026 Match screen. Depending on your individual bank, the detail may also show on the bank statement you import into Xero."
+        },
+        {
+          "name": "batch-payment-date",
+          "wire_name": "BatchPayment.Date",
+          "type": "string",
+          "location": "body",
+          "description": "Date the payment is being made (YYYY-MM-DD) e.g. 2009-09-06"
+        },
+        {
+          "name": "batch-payment-date-string",
+          "wire_name": "BatchPayment.DateString",
+          "type": "string",
+          "location": "body",
+          "description": "Date the payment is being made (YYYY-MM-DD) e.g. 2009-09-06"
+        },
+        {
+          "name": "batch-payment-details",
+          "wire_name": "BatchPayment.Details",
+          "type": "string",
+          "location": "body",
+          "description": "(Non-NZ Only) These details are sent to the org’s bank as a reference for the batch payment transaction. They will also show with the batch payment transaction in the bank reconciliation Find \u0026 Match screen. Depending on your individual bank, the detail may also show on the bank statement imported into Xero. Maximum field length = 18"
+        },
+        {
+          "name": "batch-payment-is-reconciled",
+          "wire_name": "BatchPayment.IsReconciled",
+          "type": "bool",
+          "location": "body",
+          "description": "Booelan that tells you if the batch payment has been reconciled (read-only)"
+        },
+        {
+          "name": "batch-payment-narrative",
+          "wire_name": "BatchPayment.Narrative",
+          "type": "string",
+          "location": "body",
+          "description": "(UK Only) Only shows on the statement line in Xero. Max length =18"
+        },
+        {
+          "name": "batch-payment-particulars",
+          "wire_name": "BatchPayment.Particulars",
+          "type": "string",
+          "location": "body",
+          "description": "(NZ Only) Optional references for the batch payment transaction. It will also show with the batch payment transaction in the bank reconciliation Find \u0026 Match screen. Depending on your individual bank, the detail may also show on the bank statement you import into Xero."
+        },
+        {
+          "name": "batch-payment-payments",
+          "wire_name": "BatchPayment.Payments",
+          "type": "array",
+          "location": "body",
+          "description": "An array of payments"
+        },
+        {
+          "name": "batch-payment-reference",
+          "wire_name": "BatchPayment.Reference",
+          "type": "string",
+          "location": "body",
+          "description": "(NZ Only) Optional references for the batch payment transaction. It will also show with the batch payment transaction in the bank reconciliation Find \u0026 Match screen. Depending on your individual bank, the detail may also show on the bank statement you import into Xero."
+        },
+        {
+          "name": "batch-payment-status",
+          "wire_name": "BatchPayment.Status",
+          "type": "string",
+          "location": "body",
+          "description": "AUTHORISED or DELETED (read-only). New batch payments will have a status of AUTHORISED. It is not possible to delete batch payments via the API."
+        },
+        {
+          "name": "batch-payment-total-amount",
+          "wire_name": "BatchPayment.TotalAmount",
+          "type": "float",
+          "location": "body",
+          "description": "The total of the payments that make up the batch (read-only)"
+        },
+        {
+          "name": "batch-payment-type",
+          "wire_name": "BatchPayment.Type",
+          "type": "string",
+          "location": "body",
+          "description": "PAYBATCH for bill payments or RECBATCH for sales invoice payments (read-only)"
+        },
+        {
+          "name": "batch-payment-updated-date-utc",
+          "wire_name": "BatchPayment.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to the payment"
+        },
+        {
+          "name": "batch-payment-validation-errors",
+          "wire_name": "BatchPayment.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        },
+        {
+          "name": "BatchPaymentID",
+          "type": "string",
+          "location": "body",
+          "description": "Present if the payment was created as part of a batch."
+        },
+        {
+          "name": "Code",
+          "type": "string",
+          "location": "body",
+          "description": "Code of account you are using to make the payment e.g. 001 (note- not all accounts have a code value)"
+        },
+        {
+          "name": "credit-note-allocations",
+          "wire_name": "CreditNote.Allocations",
+          "type": "array",
+          "location": "body",
+          "description": "See Allocations"
+        },
+        {
+          "name": "credit-note-applied-amount",
+          "wire_name": "CreditNote.AppliedAmount",
+          "type": "float",
+          "location": "body",
+          "description": "The amount of applied to an invoice"
+        },
+        {
+          "name": "credit-note-branding-theme-id",
+          "wire_name": "CreditNote.BrandingThemeID",
+          "type": "string",
+          "location": "body",
+          "description": "See BrandingThemes"
+        },
+        {
+          "name": "credit-note-cis-deduction",
+          "wire_name": "CreditNote.CISDeduction",
+          "type": "float",
+          "location": "body",
+          "description": "CIS deduction for UK contractors"
+        },
+        {
+          "name": "credit-note-cis-rate",
+          "wire_name": "CreditNote.CISRate",
+          "type": "float",
+          "location": "body",
+          "description": "CIS Deduction rate for the organisation"
+        },
+        {
+          "name": "credit-note-contact-account-number",
+          "wire_name": "CreditNote.Contact.AccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "A user defined account number. This can be updated via the API and the Xero UI (max length = 50)"
+        },
+        {
+          "name": "credit-note-contact-accounts-payable-tax-type",
+          "wire_name": "CreditNote.Contact.AccountsPayableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "credit-note-contact-accounts-receivable-tax-type",
+          "wire_name": "CreditNote.Contact.AccountsReceivableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "credit-note-contact-addresses",
+          "wire_name": "CreditNote.Contact.Addresses",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain address types for a contact – see address types"
+        },
+        {
+          "name": "credit-note-contact-attachments",
+          "wire_name": "CreditNote.Contact.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of attachments from the API"
+        },
+        {
+          "name": "credit-note-contact-bank-account-details",
+          "wire_name": "CreditNote.Contact.BankAccountDetails",
+          "type": "string",
+          "location": "body",
+          "description": "Bank account number of contact"
+        },
+        {
+          "name": "credit-note-contact-batch-payments",
+          "wire_name": "CreditNote.Contact.BatchPayments",
+          "type": "string",
+          "location": "body",
+          "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "credit-note-contact-company-number",
+          "wire_name": "CreditNote.Contact.CompanyNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Company registration number (max length = 50)"
+        },
+        {
+          "name": "credit-note-contact-contact-groups",
+          "wire_name": "CreditNote.Contact.ContactGroups",
+          "type": "array",
+          "location": "body",
+          "description": "Displays which contact groups a contact is included in"
+        },
+        {
+          "name": "credit-note-contact-contact-id",
+          "wire_name": "CreditNote.Contact.ContactID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero identifier"
+        },
+        {
+          "name": "credit-note-contact-contact-number",
+          "wire_name": "CreditNote.Contact.ContactNumber",
+          "type": "string",
+          "location": "body",
+          "description": "This can be updated via the API only i.e. This field is read only on the Xero contact screen, used to identify contacts in external systems (max length = 50). If the Contact Number is used, this is displayed as Contact Code in the Contacts UI in Xero."
+        },
+        {
+          "name": "credit-note-contact-contact-persons",
+          "wire_name": "CreditNote.Contact.ContactPersons",
+          "type": "array",
+          "location": "body",
+          "description": "See contact persons"
+        },
+        {
+          "name": "credit-note-contact-contact-status",
+          "wire_name": "CreditNote.Contact.ContactStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Current status of a contact – see contact status types"
+        },
+        {
+          "name": "credit-note-contact-default-currency",
+          "wire_name": "CreditNote.Contact.DefaultCurrency",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "credit-note-contact-discount",
+          "wire_name": "CreditNote.Contact.Discount",
+          "type": "float",
+          "location": "body",
+          "description": "The default discount rate for the contact (read only)"
+        },
+        {
+          "name": "credit-note-contact-email-address",
+          "wire_name": "CreditNote.Contact.EmailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of contact person (umlauts not supported) (max length = 255)"
+        },
+        {
+          "name": "credit-note-contact-first-name",
+          "wire_name": "CreditNote.Contact.FirstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name of contact person (max length = 255)"
+        },
+        {
+          "name": "credit-note-contact-has-attachments",
+          "wire_name": "CreditNote.Contact.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an attachment"
+        },
+        {
+          "name": "credit-note-contact-has-validation-errors",
+          "wire_name": "CreditNote.Contact.HasValidationErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an validation errors"
+        },
+        {
+          "name": "credit-note-contact-is-customer",
+          "wire_name": "CreditNote.Contact.IsCustomer",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact has any AR invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts receivable invoice is generated against this contact."
+        },
+        {
+          "name": "credit-note-contact-is-supplier",
+          "wire_name": "CreditNote.Contact.IsSupplier",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact that has any AP invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts payable invoice is generated against this contact."
+        },
+        {
+          "name": "credit-note-contact-last-name",
+          "wire_name": "CreditNote.Contact.LastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name of contact person (max length = 255)"
+        },
+        {
+          "name": "credit-note-contact-merged-to-contact-id",
+          "wire_name": "CreditNote.Contact.MergedToContactID",
+          "type": "string",
+          "location": "body",
+          "description": "ID for the destination of a merged contact. Only returned when using paging or when fetching a contact by ContactId or ContactNumber."
+        },
+        {
+          "name": "credit-note-contact-name",
+          "wire_name": "CreditNote.Contact.Name",
+          "type": "string",
+          "location": "body",
+          "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "credit-note-contact-phones",
+          "wire_name": "CreditNote.Contact.Phones",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain phone types for a contact – see phone types"
+        },
+        {
+          "name": "credit-note-contact-purchases-default-account-code",
+          "wire_name": "CreditNote.Contact.PurchasesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases account code for contacts"
+        },
+        {
+          "name": "credit-note-contact-purchases-default-line-amount-type",
+          "wire_name": "CreditNote.Contact.PurchasesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases line amount type for a contact Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "credit-note-contact-purchases-tracking-categories",
+          "wire_name": "CreditNote.Contact.PurchasesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default purchases tracking categories for contacts"
+        },
+        {
+          "name": "credit-note-contact-sales-default-account-code",
+          "wire_name": "CreditNote.Contact.SalesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales account code for contacts"
+        },
+        {
+          "name": "credit-note-contact-sales-default-line-amount-type",
+          "wire_name": "CreditNote.Contact.SalesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales line amount type for a contact. Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "credit-note-contact-sales-tracking-categories",
+          "wire_name": "CreditNote.Contact.SalesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default sales tracking categories for contacts"
+        },
+        {
+          "name": "credit-note-contact-status-attribute-string",
+          "wire_name": "CreditNote.Contact.StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "Status of object"
+        },
+        {
+          "name": "credit-note-contact-tax-number",
+          "wire_name": "CreditNote.Contact.TaxNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Tax number of contact – this is also known as the ABN (Australia), GST Number (New Zealand), VAT Number (UK) or Tax ID Number (US and global) in the Xero UI depending on which regionalized version of Xero you are using (max length = 50)"
+        },
+        {
+          "name": "credit-note-contact-tax-number-type",
+          "wire_name": "CreditNote.Contact.TaxNumberType",
+          "type": "string",
+          "location": "body",
+          "description": "Identifier of the regional type of tax number, such as US, UK, or other regional tax identifiers"
+        },
+        {
+          "name": "credit-note-contact-tracking-category-name",
+          "wire_name": "CreditNote.Contact.TrackingCategoryName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Category assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "credit-note-contact-tracking-category-option",
+          "wire_name": "CreditNote.Contact.TrackingCategoryOption",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "credit-note-contact-updated-date-utc",
+          "wire_name": "CreditNote.Contact.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to contact"
+        },
+        {
+          "name": "credit-note-contact-validation-errors",
+          "wire_name": "CreditNote.Contact.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays validation errors returned from the API"
+        },
+        {
+          "name": "credit-note-contact-website",
+          "wire_name": "CreditNote.Contact.Website",
+          "type": "string",
+          "location": "body",
+          "description": "Website address for contact (read only)"
+        },
+        {
+          "name": "credit-note-contact-xero-network-key",
+          "wire_name": "CreditNote.Contact.XeroNetworkKey",
+          "type": "string",
+          "location": "body",
+          "description": "Store XeroNetworkKey for contacts."
+        },
+        {
+          "name": "credit-note-credit-note-id",
+          "wire_name": "CreditNote.CreditNoteID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero generated unique identifier"
+        },
+        {
+          "name": "credit-note-credit-note-number",
+          "wire_name": "CreditNote.CreditNoteNumber",
+          "type": "string",
+          "location": "body",
+          "description": "ACCRECCREDIT – Unique alpha numeric code identifying credit note (when missing will auto-generate from your Organisation Invoice Settings)"
+        },
+        {
+          "name": "credit-note-currency-code",
+          "wire_name": "CreditNote.CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "credit-note-currency-rate",
+          "wire_name": "CreditNote.CurrencyRate",
+          "type": "float",
+          "location": "body",
+          "description": "The currency rate for a multicurrency invoice. If no rate is specified, the XE.com day rate is used"
+        },
+        {
+          "name": "credit-note-date",
+          "wire_name": "CreditNote.Date",
+          "type": "string",
+          "location": "body",
+          "description": "The date the credit note is issued YYYY-MM-DD. If the Date element is not specified then it will default to the current date based on the timezone setting of the organisation"
+        },
+        {
+          "name": "credit-note-due-date",
+          "wire_name": "CreditNote.DueDate",
+          "type": "string",
+          "location": "body",
+          "description": "Date invoice is due – YYYY-MM-DD"
+        },
+        {
+          "name": "credit-note-fully-paid-on-date",
+          "wire_name": "CreditNote.FullyPaidOnDate",
+          "type": "string",
+          "location": "body",
+          "description": "Date when credit note was fully paid(UTC format)"
+        },
+        {
+          "name": "credit-note-has-attachments",
+          "wire_name": "CreditNote.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if a credit note has an attachment"
+        },
+        {
+          "name": "credit-note-has-errors",
+          "wire_name": "CreditNote.HasErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a credit note has an validation errors"
+        },
+        {
+          "name": "credit-note-invoice-addresses",
+          "wire_name": "CreditNote.InvoiceAddresses",
+          "type": "array",
+          "location": "body",
+          "description": "An array of addresses used to auto calculate sales tax"
+        },
+        {
+          "name": "credit-note-line-amount-types",
+          "wire_name": "CreditNote.LineAmountTypes",
+          "type": "string",
+          "location": "body",
+          "description": "Line amounts are exclusive of tax by default if you don’t specify this element. See Line Amount Types"
+        },
+        {
+          "name": "credit-note-line-items",
+          "wire_name": "CreditNote.LineItems",
+          "type": "array",
+          "location": "body",
+          "description": "See Invoice Line Items"
+        },
+        {
+          "name": "credit-note-payments",
+          "wire_name": "CreditNote.Payments",
+          "type": "array",
+          "location": "body",
+          "description": "See Payments"
+        },
+        {
+          "name": "credit-note-reference",
+          "wire_name": "CreditNote.Reference",
+          "type": "string",
+          "location": "body",
+          "description": "ACCRECCREDIT only – additional reference number"
+        },
+        {
+          "name": "credit-note-remaining-credit",
+          "wire_name": "CreditNote.RemainingCredit",
+          "type": "float",
+          "location": "body",
+          "description": "The remaining credit balance on the Credit Note"
+        },
+        {
+          "name": "credit-note-sent-to-contact",
+          "wire_name": "CreditNote.SentToContact",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean to set whether the credit note in the Xero app should be marked as “sent”. This can be set only on credit notes that have been approved"
+        },
+        {
+          "name": "credit-note-status",
+          "wire_name": "CreditNote.Status",
+          "type": "string",
+          "location": "body",
+          "description": "See Credit Note Status Codes"
+        },
+        {
+          "name": "credit-note-status-attribute-string",
+          "wire_name": "CreditNote.StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "A string to indicate if a invoice status"
+        },
+        {
+          "name": "credit-note-sub-total",
+          "wire_name": "CreditNote.SubTotal",
+          "type": "float",
+          "location": "body",
+          "description": "The subtotal of the credit note excluding taxes"
+        },
+        {
+          "name": "credit-note-total",
+          "wire_name": "CreditNote.Total",
+          "type": "float",
+          "location": "body",
+          "description": "The total of the Credit Note(subtotal + total tax)"
+        },
+        {
+          "name": "credit-note-total-tax",
+          "wire_name": "CreditNote.TotalTax",
+          "type": "float",
+          "location": "body",
+          "description": "The total tax on the credit note"
+        },
+        {
+          "name": "credit-note-type",
+          "wire_name": "CreditNote.Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Credit Note Types"
+        },
+        {
+          "name": "credit-note-updated-date-utc",
+          "wire_name": "CreditNote.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to the credit note"
+        },
+        {
+          "name": "credit-note-validation-errors",
+          "wire_name": "CreditNote.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        },
+        {
+          "name": "credit-note-warnings",
+          "wire_name": "CreditNote.Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "CreditNoteNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Number of invoice or credit note you are applying payment to e.g. INV-4003"
+        },
+        {
+          "name": "CurrencyRate",
+          "type": "float",
+          "location": "body",
+          "description": "Exchange rate when payment is received. Only used for non base currency invoices and credit notes e.g. 0.7500"
+        },
+        {
+          "name": "Date",
+          "type": "string",
+          "location": "body",
+          "description": "Date the payment is being made (YYYY-MM-DD) e.g. 2009-09-06"
+        },
+        {
+          "name": "Details",
+          "type": "string",
+          "location": "body",
+          "description": "The information to appear on the supplier's bank account"
+        },
+        {
+          "name": "HasAccount",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an validation errors"
+        },
+        {
+          "name": "HasValidationErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an validation errors"
+        },
+        {
+          "name": "invoice-amount-credited",
+          "wire_name": "Invoice.AmountCredited",
+          "type": "float",
+          "location": "body",
+          "description": "Sum of all credit notes, over-payments and pre-payments applied to invoice"
+        },
+        {
+          "name": "invoice-amount-due",
+          "wire_name": "Invoice.AmountDue",
+          "type": "float",
+          "location": "body",
+          "description": "Amount remaining to be paid on invoice"
+        },
+        {
+          "name": "invoice-amount-paid",
+          "wire_name": "Invoice.AmountPaid",
+          "type": "float",
+          "location": "body",
+          "description": "Sum of payments received for invoice"
+        },
+        {
+          "name": "invoice-attachments",
+          "wire_name": "Invoice.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of attachments from the API"
+        },
+        {
+          "name": "invoice-branding-theme-id",
+          "wire_name": "Invoice.BrandingThemeID",
+          "type": "string",
+          "location": "body",
+          "description": "See BrandingThemes"
+        },
+        {
+          "name": "invoice-cis-deduction",
+          "wire_name": "Invoice.CISDeduction",
+          "type": "float",
+          "location": "body",
+          "description": "CIS deduction for UK contractors"
+        },
+        {
+          "name": "invoice-cis-rate",
+          "wire_name": "Invoice.CISRate",
+          "type": "float",
+          "location": "body",
+          "description": "CIS Deduction rate for the organisation"
+        },
+        {
+          "name": "invoice-contact-account-number",
+          "wire_name": "Invoice.Contact.AccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "A user defined account number. This can be updated via the API and the Xero UI (max length = 50)"
+        },
+        {
+          "name": "invoice-contact-accounts-payable-tax-type",
+          "wire_name": "Invoice.Contact.AccountsPayableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "invoice-contact-accounts-receivable-tax-type",
+          "wire_name": "Invoice.Contact.AccountsReceivableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "invoice-contact-addresses",
+          "wire_name": "Invoice.Contact.Addresses",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain address types for a contact – see address types"
+        },
+        {
+          "name": "invoice-contact-attachments",
+          "wire_name": "Invoice.Contact.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of attachments from the API"
+        },
+        {
+          "name": "invoice-contact-bank-account-details",
+          "wire_name": "Invoice.Contact.BankAccountDetails",
+          "type": "string",
+          "location": "body",
+          "description": "Bank account number of contact"
+        },
+        {
+          "name": "invoice-contact-batch-payments",
+          "wire_name": "Invoice.Contact.BatchPayments",
+          "type": "string",
+          "location": "body",
+          "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "invoice-contact-company-number",
+          "wire_name": "Invoice.Contact.CompanyNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Company registration number (max length = 50)"
+        },
+        {
+          "name": "invoice-contact-contact-groups",
+          "wire_name": "Invoice.Contact.ContactGroups",
+          "type": "array",
+          "location": "body",
+          "description": "Displays which contact groups a contact is included in"
+        },
+        {
+          "name": "invoice-contact-contact-id",
+          "wire_name": "Invoice.Contact.ContactID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero identifier"
+        },
+        {
+          "name": "invoice-contact-contact-number",
+          "wire_name": "Invoice.Contact.ContactNumber",
+          "type": "string",
+          "location": "body",
+          "description": "This can be updated via the API only i.e. This field is read only on the Xero contact screen, used to identify contacts in external systems (max length = 50). If the Contact Number is used, this is displayed as Contact Code in the Contacts UI in Xero."
+        },
+        {
+          "name": "invoice-contact-contact-persons",
+          "wire_name": "Invoice.Contact.ContactPersons",
+          "type": "array",
+          "location": "body",
+          "description": "See contact persons"
+        },
+        {
+          "name": "invoice-contact-contact-status",
+          "wire_name": "Invoice.Contact.ContactStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Current status of a contact – see contact status types"
+        },
+        {
+          "name": "invoice-contact-default-currency",
+          "wire_name": "Invoice.Contact.DefaultCurrency",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "invoice-contact-discount",
+          "wire_name": "Invoice.Contact.Discount",
+          "type": "float",
+          "location": "body",
+          "description": "The default discount rate for the contact (read only)"
+        },
+        {
+          "name": "invoice-contact-email-address",
+          "wire_name": "Invoice.Contact.EmailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of contact person (umlauts not supported) (max length = 255)"
+        },
+        {
+          "name": "invoice-contact-first-name",
+          "wire_name": "Invoice.Contact.FirstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name of contact person (max length = 255)"
+        },
+        {
+          "name": "invoice-contact-has-attachments",
+          "wire_name": "Invoice.Contact.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an attachment"
+        },
+        {
+          "name": "invoice-contact-has-validation-errors",
+          "wire_name": "Invoice.Contact.HasValidationErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an validation errors"
+        },
+        {
+          "name": "invoice-contact-is-customer",
+          "wire_name": "Invoice.Contact.IsCustomer",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact has any AR invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts receivable invoice is generated against this contact."
+        },
+        {
+          "name": "invoice-contact-is-supplier",
+          "wire_name": "Invoice.Contact.IsSupplier",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact that has any AP invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts payable invoice is generated against this contact."
+        },
+        {
+          "name": "invoice-contact-last-name",
+          "wire_name": "Invoice.Contact.LastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name of contact person (max length = 255)"
+        },
+        {
+          "name": "invoice-contact-merged-to-contact-id",
+          "wire_name": "Invoice.Contact.MergedToContactID",
+          "type": "string",
+          "location": "body",
+          "description": "ID for the destination of a merged contact. Only returned when using paging or when fetching a contact by ContactId or ContactNumber."
+        },
+        {
+          "name": "invoice-contact-name",
+          "wire_name": "Invoice.Contact.Name",
+          "type": "string",
+          "location": "body",
+          "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "invoice-contact-phones",
+          "wire_name": "Invoice.Contact.Phones",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain phone types for a contact – see phone types"
+        },
+        {
+          "name": "invoice-contact-purchases-default-account-code",
+          "wire_name": "Invoice.Contact.PurchasesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases account code for contacts"
+        },
+        {
+          "name": "invoice-contact-purchases-default-line-amount-type",
+          "wire_name": "Invoice.Contact.PurchasesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases line amount type for a contact Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "invoice-contact-purchases-tracking-categories",
+          "wire_name": "Invoice.Contact.PurchasesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default purchases tracking categories for contacts"
+        },
+        {
+          "name": "invoice-contact-sales-default-account-code",
+          "wire_name": "Invoice.Contact.SalesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales account code for contacts"
+        },
+        {
+          "name": "invoice-contact-sales-default-line-amount-type",
+          "wire_name": "Invoice.Contact.SalesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales line amount type for a contact. Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "invoice-contact-sales-tracking-categories",
+          "wire_name": "Invoice.Contact.SalesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default sales tracking categories for contacts"
+        },
+        {
+          "name": "invoice-contact-status-attribute-string",
+          "wire_name": "Invoice.Contact.StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "Status of object"
+        },
+        {
+          "name": "invoice-contact-tax-number",
+          "wire_name": "Invoice.Contact.TaxNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Tax number of contact – this is also known as the ABN (Australia), GST Number (New Zealand), VAT Number (UK) or Tax ID Number (US and global) in the Xero UI depending on which regionalized version of Xero you are using (max length = 50)"
+        },
+        {
+          "name": "invoice-contact-tax-number-type",
+          "wire_name": "Invoice.Contact.TaxNumberType",
+          "type": "string",
+          "location": "body",
+          "description": "Identifier of the regional type of tax number, such as US, UK, or other regional tax identifiers"
+        },
+        {
+          "name": "invoice-contact-tracking-category-name",
+          "wire_name": "Invoice.Contact.TrackingCategoryName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Category assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "invoice-contact-tracking-category-option",
+          "wire_name": "Invoice.Contact.TrackingCategoryOption",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "invoice-contact-updated-date-utc",
+          "wire_name": "Invoice.Contact.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to contact"
+        },
+        {
+          "name": "invoice-contact-validation-errors",
+          "wire_name": "Invoice.Contact.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays validation errors returned from the API"
+        },
+        {
+          "name": "invoice-contact-website",
+          "wire_name": "Invoice.Contact.Website",
+          "type": "string",
+          "location": "body",
+          "description": "Website address for contact (read only)"
+        },
+        {
+          "name": "invoice-contact-xero-network-key",
+          "wire_name": "Invoice.Contact.XeroNetworkKey",
+          "type": "string",
+          "location": "body",
+          "description": "Store XeroNetworkKey for contacts."
+        },
+        {
+          "name": "invoice-credit-notes",
+          "wire_name": "Invoice.CreditNotes",
+          "type": "array",
+          "location": "body",
+          "description": "Details of credit notes that have been applied to an invoice"
+        },
+        {
+          "name": "invoice-currency-code",
+          "wire_name": "Invoice.CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "invoice-currency-rate",
+          "wire_name": "Invoice.CurrencyRate",
+          "type": "float",
+          "location": "body",
+          "description": "The currency rate for a multicurrency invoice. If no rate is specified, the XE.com day rate is used. (max length = [18].[6])"
+        },
+        {
+          "name": "invoice-date",
+          "wire_name": "Invoice.Date",
+          "type": "string",
+          "location": "body",
+          "description": "Date invoice was issued – YYYY-MM-DD. If the Date element is not specified it will default to the current date based on the timezone setting of the organisation"
+        },
+        {
+          "name": "invoice-due-date",
+          "wire_name": "Invoice.DueDate",
+          "type": "string",
+          "location": "body",
+          "description": "Date invoice is due – YYYY-MM-DD"
+        },
+        {
+          "name": "invoice-expected-payment-date",
+          "wire_name": "Invoice.ExpectedPaymentDate",
+          "type": "string",
+          "location": "body",
+          "description": "Shown on sales invoices (Accounts Receivable) when this has been set"
+        },
+        {
+          "name": "invoice-fully-paid-on-date",
+          "wire_name": "Invoice.FullyPaidOnDate",
+          "type": "string",
+          "location": "body",
+          "description": "The date the invoice was fully paid. Only returned on fully paid invoices"
+        },
+        {
+          "name": "invoice-has-attachments",
+          "wire_name": "Invoice.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if an invoice has an attachment"
+        },
+        {
+          "name": "invoice-has-errors",
+          "wire_name": "Invoice.HasErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a invoice has an validation errors"
+        },
+        {
+          "name": "invoice-invoice-addresses",
+          "wire_name": "Invoice.InvoiceAddresses",
+          "type": "array",
+          "location": "body",
+          "description": "An array of addresses used to auto calculate sales tax"
+        },
+        {
+          "name": "invoice-invoice-id",
+          "wire_name": "Invoice.InvoiceID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero generated unique identifier for invoice"
+        },
+        {
+          "name": "invoice-invoice-number",
+          "wire_name": "Invoice.InvoiceNumber",
+          "type": "string",
+          "location": "body",
+          "description": "ACCREC – Unique alpha numeric code identifying invoice (when missing will auto-generate from your Organisation Invoice Settings) (max length = 255)"
+        },
+        {
+          "name": "invoice-is-discounted",
+          "wire_name": "Invoice.IsDiscounted",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if an invoice has a discount"
+        },
+        {
+          "name": "invoice-line-amount-types",
+          "wire_name": "Invoice.LineAmountTypes",
+          "type": "string",
+          "location": "body",
+          "description": "Line amounts are exclusive of tax by default if you don’t specify this element. See Line Amount Types"
+        },
+        {
+          "name": "invoice-line-items",
+          "wire_name": "Invoice.LineItems",
+          "type": "array",
+          "location": "body",
+          "description": "See LineItems"
+        },
+        {
+          "name": "invoice-overpayments",
+          "wire_name": "Invoice.Overpayments",
+          "type": "array",
+          "location": "body",
+          "description": "See Overpayments"
+        },
+        {
+          "name": "invoice-payments",
+          "wire_name": "Invoice.Payments",
+          "type": "array",
+          "location": "body",
+          "description": "See Payments"
+        },
+        {
+          "name": "invoice-planned-payment-date",
+          "wire_name": "Invoice.PlannedPaymentDate",
+          "type": "string",
+          "location": "body",
+          "description": "Shown on bills (Accounts Payable) when this has been set"
+        },
+        {
+          "name": "invoice-prepayments",
+          "wire_name": "Invoice.Prepayments",
+          "type": "array",
+          "location": "body",
+          "description": "See Prepayments"
+        },
+        {
+          "name": "invoice-reference",
+          "wire_name": "Invoice.Reference",
+          "type": "string",
+          "location": "body",
+          "description": "ACCREC only – additional reference number"
+        },
+        {
+          "name": "invoice-repeating-invoice-id",
+          "wire_name": "Invoice.RepeatingInvoiceID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero generated unique identifier for repeating invoices"
+        },
+        {
+          "name": "invoice-sent-to-contact",
+          "wire_name": "Invoice.SentToContact",
+          "type": "bool",
+          "location": "body",
+          "description": "Boolean to set whether the invoice in the Xero app should be marked as “sent”. This can be set only on invoices that have been approved"
+        },
+        {
+          "name": "invoice-status",
+          "wire_name": "Invoice.Status",
+          "type": "string",
+          "location": "body",
+          "description": "See Invoice Status Codes"
+        },
+        {
+          "name": "invoice-status-attribute-string",
+          "wire_name": "Invoice.StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "A string to indicate if a invoice status"
+        },
+        {
+          "name": "invoice-sub-total",
+          "wire_name": "Invoice.SubTotal",
+          "type": "float",
+          "location": "body",
+          "description": "Total of invoice excluding taxes"
+        },
+        {
+          "name": "invoice-total",
+          "wire_name": "Invoice.Total",
+          "type": "float",
+          "location": "body",
+          "description": "Total of Invoice tax inclusive (i.e. SubTotal + TotalTax). This will be ignored if it doesn’t equal the sum of the LineAmounts"
+        },
+        {
+          "name": "invoice-total-discount",
+          "wire_name": "Invoice.TotalDiscount",
+          "type": "float",
+          "location": "body",
+          "description": "Total of discounts applied on the invoice line items"
+        },
+        {
+          "name": "invoice-total-tax",
+          "wire_name": "Invoice.TotalTax",
+          "type": "float",
+          "location": "body",
+          "description": "Total tax on invoice"
+        },
+        {
+          "name": "invoice-type",
+          "wire_name": "Invoice.Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Invoice Types"
+        },
+        {
+          "name": "invoice-updated-date-utc",
+          "wire_name": "Invoice.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "Last modified date UTC format"
+        },
+        {
+          "name": "invoice-url",
+          "wire_name": "Invoice.Url",
+          "type": "string",
+          "location": "body",
+          "description": "URL link to a source document – shown as “Go to [appName]” in the Xero app"
+        },
+        {
+          "name": "invoice-validation-errors",
+          "wire_name": "Invoice.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        },
+        {
+          "name": "invoice-warnings",
+          "wire_name": "Invoice.Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "InvoiceNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Number of invoice or credit note you are applying payment to e.g.INV-4003"
+        },
+        {
+          "name": "IsReconciled",
+          "type": "bool",
+          "location": "body",
+          "description": "An optional parameter for the payment. A boolean indicating whether you would like the payment to be created as reconciled when using PUT, or whether a payment has been reconciled when using GET"
+        },
+        {
+          "name": "overpayment-allocations",
+          "wire_name": "Overpayment.Allocations",
+          "type": "array",
+          "location": "body",
+          "description": "See Allocations"
+        },
+        {
+          "name": "overpayment-applied-amount",
+          "wire_name": "Overpayment.AppliedAmount",
+          "type": "float",
+          "location": "body",
+          "description": "The amount of applied to an invoice"
+        },
+        {
+          "name": "overpayment-attachments",
+          "wire_name": "Overpayment.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "See Attachments"
+        },
+        {
+          "name": "overpayment-contact-account-number",
+          "wire_name": "Overpayment.Contact.AccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "A user defined account number. This can be updated via the API and the Xero UI (max length = 50)"
+        },
+        {
+          "name": "overpayment-contact-accounts-payable-tax-type",
+          "wire_name": "Overpayment.Contact.AccountsPayableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "overpayment-contact-accounts-receivable-tax-type",
+          "wire_name": "Overpayment.Contact.AccountsReceivableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "overpayment-contact-addresses",
+          "wire_name": "Overpayment.Contact.Addresses",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain address types for a contact – see address types"
+        },
+        {
+          "name": "overpayment-contact-attachments",
+          "wire_name": "Overpayment.Contact.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of attachments from the API"
+        },
+        {
+          "name": "overpayment-contact-bank-account-details",
+          "wire_name": "Overpayment.Contact.BankAccountDetails",
+          "type": "string",
+          "location": "body",
+          "description": "Bank account number of contact"
+        },
+        {
+          "name": "overpayment-contact-batch-payments",
+          "wire_name": "Overpayment.Contact.BatchPayments",
+          "type": "string",
+          "location": "body",
+          "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "overpayment-contact-company-number",
+          "wire_name": "Overpayment.Contact.CompanyNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Company registration number (max length = 50)"
+        },
+        {
+          "name": "overpayment-contact-contact-groups",
+          "wire_name": "Overpayment.Contact.ContactGroups",
+          "type": "array",
+          "location": "body",
+          "description": "Displays which contact groups a contact is included in"
+        },
+        {
+          "name": "overpayment-contact-contact-id",
+          "wire_name": "Overpayment.Contact.ContactID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero identifier"
+        },
+        {
+          "name": "overpayment-contact-contact-number",
+          "wire_name": "Overpayment.Contact.ContactNumber",
+          "type": "string",
+          "location": "body",
+          "description": "This can be updated via the API only i.e. This field is read only on the Xero contact screen, used to identify contacts in external systems (max length = 50). If the Contact Number is used, this is displayed as Contact Code in the Contacts UI in Xero."
+        },
+        {
+          "name": "overpayment-contact-contact-persons",
+          "wire_name": "Overpayment.Contact.ContactPersons",
+          "type": "array",
+          "location": "body",
+          "description": "See contact persons"
+        },
+        {
+          "name": "overpayment-contact-contact-status",
+          "wire_name": "Overpayment.Contact.ContactStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Current status of a contact – see contact status types"
+        },
+        {
+          "name": "overpayment-contact-default-currency",
+          "wire_name": "Overpayment.Contact.DefaultCurrency",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "overpayment-contact-discount",
+          "wire_name": "Overpayment.Contact.Discount",
+          "type": "float",
+          "location": "body",
+          "description": "The default discount rate for the contact (read only)"
+        },
+        {
+          "name": "overpayment-contact-email-address",
+          "wire_name": "Overpayment.Contact.EmailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of contact person (umlauts not supported) (max length = 255)"
+        },
+        {
+          "name": "overpayment-contact-first-name",
+          "wire_name": "Overpayment.Contact.FirstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name of contact person (max length = 255)"
+        },
+        {
+          "name": "overpayment-contact-has-attachments",
+          "wire_name": "Overpayment.Contact.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an attachment"
+        },
+        {
+          "name": "overpayment-contact-has-validation-errors",
+          "wire_name": "Overpayment.Contact.HasValidationErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an validation errors"
+        },
+        {
+          "name": "overpayment-contact-is-customer",
+          "wire_name": "Overpayment.Contact.IsCustomer",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact has any AR invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts receivable invoice is generated against this contact."
+        },
+        {
+          "name": "overpayment-contact-is-supplier",
+          "wire_name": "Overpayment.Contact.IsSupplier",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact that has any AP invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts payable invoice is generated against this contact."
+        },
+        {
+          "name": "overpayment-contact-last-name",
+          "wire_name": "Overpayment.Contact.LastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name of contact person (max length = 255)"
+        },
+        {
+          "name": "overpayment-contact-merged-to-contact-id",
+          "wire_name": "Overpayment.Contact.MergedToContactID",
+          "type": "string",
+          "location": "body",
+          "description": "ID for the destination of a merged contact. Only returned when using paging or when fetching a contact by ContactId or ContactNumber."
+        },
+        {
+          "name": "overpayment-contact-name",
+          "wire_name": "Overpayment.Contact.Name",
+          "type": "string",
+          "location": "body",
+          "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "overpayment-contact-phones",
+          "wire_name": "Overpayment.Contact.Phones",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain phone types for a contact – see phone types"
+        },
+        {
+          "name": "overpayment-contact-purchases-default-account-code",
+          "wire_name": "Overpayment.Contact.PurchasesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases account code for contacts"
+        },
+        {
+          "name": "overpayment-contact-purchases-default-line-amount-type",
+          "wire_name": "Overpayment.Contact.PurchasesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases line amount type for a contact Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "overpayment-contact-purchases-tracking-categories",
+          "wire_name": "Overpayment.Contact.PurchasesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default purchases tracking categories for contacts"
+        },
+        {
+          "name": "overpayment-contact-sales-default-account-code",
+          "wire_name": "Overpayment.Contact.SalesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales account code for contacts"
+        },
+        {
+          "name": "overpayment-contact-sales-default-line-amount-type",
+          "wire_name": "Overpayment.Contact.SalesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales line amount type for a contact. Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "overpayment-contact-sales-tracking-categories",
+          "wire_name": "Overpayment.Contact.SalesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default sales tracking categories for contacts"
+        },
+        {
+          "name": "overpayment-contact-status-attribute-string",
+          "wire_name": "Overpayment.Contact.StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "Status of object"
+        },
+        {
+          "name": "overpayment-contact-tax-number",
+          "wire_name": "Overpayment.Contact.TaxNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Tax number of contact – this is also known as the ABN (Australia), GST Number (New Zealand), VAT Number (UK) or Tax ID Number (US and global) in the Xero UI depending on which regionalized version of Xero you are using (max length = 50)"
+        },
+        {
+          "name": "overpayment-contact-tax-number-type",
+          "wire_name": "Overpayment.Contact.TaxNumberType",
+          "type": "string",
+          "location": "body",
+          "description": "Identifier of the regional type of tax number, such as US, UK, or other regional tax identifiers"
+        },
+        {
+          "name": "overpayment-contact-tracking-category-name",
+          "wire_name": "Overpayment.Contact.TrackingCategoryName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Category assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "overpayment-contact-tracking-category-option",
+          "wire_name": "Overpayment.Contact.TrackingCategoryOption",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "overpayment-contact-updated-date-utc",
+          "wire_name": "Overpayment.Contact.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to contact"
+        },
+        {
+          "name": "overpayment-contact-validation-errors",
+          "wire_name": "Overpayment.Contact.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays validation errors returned from the API"
+        },
+        {
+          "name": "overpayment-contact-website",
+          "wire_name": "Overpayment.Contact.Website",
+          "type": "string",
+          "location": "body",
+          "description": "Website address for contact (read only)"
+        },
+        {
+          "name": "overpayment-contact-xero-network-key",
+          "wire_name": "Overpayment.Contact.XeroNetworkKey",
+          "type": "string",
+          "location": "body",
+          "description": "Store XeroNetworkKey for contacts."
+        },
+        {
+          "name": "overpayment-currency-code",
+          "wire_name": "Overpayment.CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "overpayment-currency-rate",
+          "wire_name": "Overpayment.CurrencyRate",
+          "type": "float",
+          "location": "body",
+          "description": "The currency rate for a multicurrency overpayment. If no rate is specified, the XE.com day rate is used"
+        },
+        {
+          "name": "overpayment-date",
+          "wire_name": "Overpayment.Date",
+          "type": "string",
+          "location": "body",
+          "description": "The date the overpayment is created YYYY-MM-DD"
+        },
+        {
+          "name": "overpayment-has-attachments",
+          "wire_name": "Overpayment.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if a overpayment has an attachment"
+        },
+        {
+          "name": "overpayment-line-amount-types",
+          "wire_name": "Overpayment.LineAmountTypes",
+          "type": "string",
+          "location": "body",
+          "description": "Line amounts are exclusive of tax by default if you don’t specify this element. See Line Amount Types"
+        },
+        {
+          "name": "overpayment-line-items",
+          "wire_name": "Overpayment.LineItems",
+          "type": "array",
+          "location": "body",
+          "description": "See Overpayment Line Items"
+        },
+        {
+          "name": "overpayment-overpayment-id",
+          "wire_name": "Overpayment.OverpaymentID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero generated unique identifier"
+        },
+        {
+          "name": "overpayment-payments",
+          "wire_name": "Overpayment.Payments",
+          "type": "array",
+          "location": "body",
+          "description": "See Payments"
+        },
+        {
+          "name": "overpayment-reference",
+          "wire_name": "Overpayment.Reference",
+          "type": "string",
+          "location": "body",
+          "description": "An optional description for Overpayment"
+        },
+        {
+          "name": "overpayment-remaining-credit",
+          "wire_name": "Overpayment.RemainingCredit",
+          "type": "float",
+          "location": "body",
+          "description": "The remaining credit balance on the overpayment"
+        },
+        {
+          "name": "overpayment-status",
+          "wire_name": "Overpayment.Status",
+          "type": "string",
+          "location": "body",
+          "description": "See Overpayment Status Codes"
+        },
+        {
+          "name": "overpayment-sub-total",
+          "wire_name": "Overpayment.SubTotal",
+          "type": "float",
+          "location": "body",
+          "description": "The subtotal of the overpayment excluding taxes"
+        },
+        {
+          "name": "overpayment-total",
+          "wire_name": "Overpayment.Total",
+          "type": "float",
+          "location": "body",
+          "description": "The total of the overpayment (subtotal + total tax)"
+        },
+        {
+          "name": "overpayment-total-tax",
+          "wire_name": "Overpayment.TotalTax",
+          "type": "float",
+          "location": "body",
+          "description": "The total tax on the overpayment"
+        },
+        {
+          "name": "overpayment-type",
+          "wire_name": "Overpayment.Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Overpayment Types"
+        },
+        {
+          "name": "overpayment-updated-date-utc",
+          "wire_name": "Overpayment.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to the overpayment"
+        },
+        {
+          "name": "Particulars",
+          "type": "string",
+          "location": "body",
+          "description": "The suppliers bank account number the payment is being made to"
+        },
+        {
+          "name": "PaymentID",
+          "type": "string",
+          "location": "body",
+          "description": "The Xero identifier for an Payment e.g. 297c2dc5-cc47-4afd-8ec8-74990b8761e9"
+        },
+        {
+          "name": "PaymentType",
+          "type": "string",
+          "location": "body",
+          "description": "See Payment Types."
+        },
+        {
+          "name": "prepayment-allocations",
+          "wire_name": "Prepayment.Allocations",
+          "type": "array",
+          "location": "body",
+          "description": "See Allocations"
+        },
+        {
+          "name": "prepayment-applied-amount",
+          "wire_name": "Prepayment.AppliedAmount",
+          "type": "float",
+          "location": "body",
+          "description": "The amount of applied to an invoice"
+        },
+        {
+          "name": "prepayment-attachments",
+          "wire_name": "Prepayment.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "See Attachments"
+        },
+        {
+          "name": "prepayment-branding-theme-id",
+          "wire_name": "Prepayment.BrandingThemeID",
+          "type": "string",
+          "location": "body",
+          "description": "The unique identifier of the branding template applied to a receive prepayment"
+        },
+        {
+          "name": "prepayment-contact-account-number",
+          "wire_name": "Prepayment.Contact.AccountNumber",
+          "type": "string",
+          "location": "body",
+          "description": "A user defined account number. This can be updated via the API and the Xero UI (max length = 50)"
+        },
+        {
+          "name": "prepayment-contact-accounts-payable-tax-type",
+          "wire_name": "Prepayment.Contact.AccountsPayableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "prepayment-contact-accounts-receivable-tax-type",
+          "wire_name": "Prepayment.Contact.AccountsReceivableTaxType",
+          "type": "string",
+          "location": "body",
+          "description": "The tax type from TaxRates"
+        },
+        {
+          "name": "prepayment-contact-addresses",
+          "wire_name": "Prepayment.Contact.Addresses",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain address types for a contact – see address types"
+        },
+        {
+          "name": "prepayment-contact-attachments",
+          "wire_name": "Prepayment.Contact.Attachments",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of attachments from the API"
+        },
+        {
+          "name": "prepayment-contact-bank-account-details",
+          "wire_name": "Prepayment.Contact.BankAccountDetails",
+          "type": "string",
+          "location": "body",
+          "description": "Bank account number of contact"
+        },
+        {
+          "name": "prepayment-contact-batch-payments",
+          "wire_name": "Prepayment.Contact.BatchPayments",
+          "type": "string",
+          "location": "body",
+          "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "prepayment-contact-company-number",
+          "wire_name": "Prepayment.Contact.CompanyNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Company registration number (max length = 50)"
+        },
+        {
+          "name": "prepayment-contact-contact-groups",
+          "wire_name": "Prepayment.Contact.ContactGroups",
+          "type": "array",
+          "location": "body",
+          "description": "Displays which contact groups a contact is included in"
+        },
+        {
+          "name": "prepayment-contact-contact-id",
+          "wire_name": "Prepayment.Contact.ContactID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero identifier"
+        },
+        {
+          "name": "prepayment-contact-contact-number",
+          "wire_name": "Prepayment.Contact.ContactNumber",
+          "type": "string",
+          "location": "body",
+          "description": "This can be updated via the API only i.e. This field is read only on the Xero contact screen, used to identify contacts in external systems (max length = 50). If the Contact Number is used, this is displayed as Contact Code in the Contacts UI in Xero."
+        },
+        {
+          "name": "prepayment-contact-contact-persons",
+          "wire_name": "Prepayment.Contact.ContactPersons",
+          "type": "array",
+          "location": "body",
+          "description": "See contact persons"
+        },
+        {
+          "name": "prepayment-contact-contact-status",
+          "wire_name": "Prepayment.Contact.ContactStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Current status of a contact – see contact status types"
+        },
+        {
+          "name": "prepayment-contact-default-currency",
+          "wire_name": "Prepayment.Contact.DefaultCurrency",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "prepayment-contact-discount",
+          "wire_name": "Prepayment.Contact.Discount",
+          "type": "float",
+          "location": "body",
+          "description": "The default discount rate for the contact (read only)"
+        },
+        {
+          "name": "prepayment-contact-email-address",
+          "wire_name": "Prepayment.Contact.EmailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of contact person (umlauts not supported) (max length = 255)"
+        },
+        {
+          "name": "prepayment-contact-first-name",
+          "wire_name": "Prepayment.Contact.FirstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name of contact person (max length = 255)"
+        },
+        {
+          "name": "prepayment-contact-has-attachments",
+          "wire_name": "Prepayment.Contact.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an attachment"
+        },
+        {
+          "name": "prepayment-contact-has-validation-errors",
+          "wire_name": "Prepayment.Contact.HasValidationErrors",
+          "type": "bool",
+          "location": "body",
+          "description": "A boolean to indicate if a contact has an validation errors"
+        },
+        {
+          "name": "prepayment-contact-is-customer",
+          "wire_name": "Prepayment.Contact.IsCustomer",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact has any AR invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts receivable invoice is generated against this contact."
+        },
+        {
+          "name": "prepayment-contact-is-supplier",
+          "wire_name": "Prepayment.Contact.IsSupplier",
+          "type": "bool",
+          "location": "body",
+          "description": "true or false – Boolean that describes if a contact that has any AP invoices entered against them. Cannot be set via PUT or POST – it is automatically set when an accounts payable invoice is generated against this contact."
+        },
+        {
+          "name": "prepayment-contact-last-name",
+          "wire_name": "Prepayment.Contact.LastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name of contact person (max length = 255)"
+        },
+        {
+          "name": "prepayment-contact-merged-to-contact-id",
+          "wire_name": "Prepayment.Contact.MergedToContactID",
+          "type": "string",
+          "location": "body",
+          "description": "ID for the destination of a merged contact. Only returned when using paging or when fetching a contact by ContactId or ContactNumber."
+        },
+        {
+          "name": "prepayment-contact-name",
+          "wire_name": "Prepayment.Contact.Name",
+          "type": "string",
+          "location": "body",
+          "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "prepayment-contact-phones",
+          "wire_name": "Prepayment.Contact.Phones",
+          "type": "array",
+          "location": "body",
+          "description": "Store certain phone types for a contact – see phone types"
+        },
+        {
+          "name": "prepayment-contact-purchases-default-account-code",
+          "wire_name": "Prepayment.Contact.PurchasesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases account code for contacts"
+        },
+        {
+          "name": "prepayment-contact-purchases-default-line-amount-type",
+          "wire_name": "Prepayment.Contact.PurchasesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default purchases line amount type for a contact Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "prepayment-contact-purchases-tracking-categories",
+          "wire_name": "Prepayment.Contact.PurchasesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default purchases tracking categories for contacts"
+        },
+        {
+          "name": "prepayment-contact-sales-default-account-code",
+          "wire_name": "Prepayment.Contact.SalesDefaultAccountCode",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales account code for contacts"
+        },
+        {
+          "name": "prepayment-contact-sales-default-line-amount-type",
+          "wire_name": "Prepayment.Contact.SalesDefaultLineAmountType",
+          "type": "string",
+          "location": "body",
+          "description": "The default sales line amount type for a contact. Only available when summaryOnly parameter or paging is used, or when fetch by ContactId or ContactNumber."
+        },
+        {
+          "name": "prepayment-contact-sales-tracking-categories",
+          "wire_name": "Prepayment.Contact.SalesTrackingCategories",
+          "type": "array",
+          "location": "body",
+          "description": "The default sales tracking categories for contacts"
+        },
+        {
+          "name": "prepayment-contact-status-attribute-string",
+          "wire_name": "Prepayment.Contact.StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "Status of object"
+        },
+        {
+          "name": "prepayment-contact-tax-number",
+          "wire_name": "Prepayment.Contact.TaxNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Tax number of contact – this is also known as the ABN (Australia), GST Number (New Zealand), VAT Number (UK) or Tax ID Number (US and global) in the Xero UI depending on which regionalized version of Xero you are using (max length = 50)"
+        },
+        {
+          "name": "prepayment-contact-tax-number-type",
+          "wire_name": "Prepayment.Contact.TaxNumberType",
+          "type": "string",
+          "location": "body",
+          "description": "Identifier of the regional type of tax number, such as US, UK, or other regional tax identifiers"
+        },
+        {
+          "name": "prepayment-contact-tracking-category-name",
+          "wire_name": "Prepayment.Contact.TrackingCategoryName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Category assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "prepayment-contact-tracking-category-option",
+          "wire_name": "Prepayment.Contact.TrackingCategoryOption",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
+        },
+        {
+          "name": "prepayment-contact-updated-date-utc",
+          "wire_name": "Prepayment.Contact.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to contact"
+        },
+        {
+          "name": "prepayment-contact-validation-errors",
+          "wire_name": "Prepayment.Contact.ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays validation errors returned from the API"
+        },
+        {
+          "name": "prepayment-contact-website",
+          "wire_name": "Prepayment.Contact.Website",
+          "type": "string",
+          "location": "body",
+          "description": "Website address for contact (read only)"
+        },
+        {
+          "name": "prepayment-contact-xero-network-key",
+          "wire_name": "Prepayment.Contact.XeroNetworkKey",
+          "type": "string",
+          "location": "body",
+          "description": "Store XeroNetworkKey for contacts."
+        },
+        {
+          "name": "prepayment-currency-code",
+          "wire_name": "Prepayment.CurrencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "3 letter alpha code for the currency – see list of currency codes"
+        },
+        {
+          "name": "prepayment-currency-rate",
+          "wire_name": "Prepayment.CurrencyRate",
+          "type": "float",
+          "location": "body",
+          "description": "The currency rate for a multicurrency prepayment. If no rate is specified, the XE.com day rate is used"
+        },
+        {
+          "name": "prepayment-date",
+          "wire_name": "Prepayment.Date",
+          "type": "string",
+          "location": "body",
+          "description": "The date the prepayment is created YYYY-MM-DD"
+        },
+        {
+          "name": "prepayment-has-attachments",
+          "wire_name": "Prepayment.HasAttachments",
+          "type": "bool",
+          "location": "body",
+          "description": "boolean to indicate if a prepayment has an attachment"
+        },
+        {
+          "name": "prepayment-invoice-number",
+          "wire_name": "Prepayment.InvoiceNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Returns Invoice number for prepayment receive document only."
+        },
+        {
+          "name": "prepayment-line-amount-types",
+          "wire_name": "Prepayment.LineAmountTypes",
+          "type": "string",
+          "location": "body",
+          "description": "Line amounts are exclusive of tax by default if you don’t specify this element. See Line Amount Types"
+        },
+        {
+          "name": "prepayment-line-items",
+          "wire_name": "Prepayment.LineItems",
+          "type": "array",
+          "location": "body",
+          "description": "See Prepayment Line Items"
+        },
+        {
+          "name": "prepayment-payments",
+          "wire_name": "Prepayment.Payments",
+          "type": "array",
+          "location": "body",
+          "description": "See Payments"
+        },
+        {
+          "name": "prepayment-prepayment-id",
+          "wire_name": "Prepayment.PrepaymentID",
+          "type": "string",
+          "location": "body",
+          "description": "Xero generated unique identifier"
+        },
+        {
+          "name": "prepayment-reference",
+          "wire_name": "Prepayment.Reference",
+          "type": "string",
+          "location": "body",
+          "description": "Returns Invoice number field. Reference field isn't available."
+        },
+        {
+          "name": "prepayment-remaining-credit",
+          "wire_name": "Prepayment.RemainingCredit",
+          "type": "float",
+          "location": "body",
+          "description": "The remaining credit balance on the prepayment"
+        },
+        {
+          "name": "prepayment-status",
+          "wire_name": "Prepayment.Status",
+          "type": "string",
+          "location": "body",
+          "description": "See Prepayment Status Codes"
+        },
+        {
+          "name": "prepayment-sub-total",
+          "wire_name": "Prepayment.SubTotal",
+          "type": "float",
+          "location": "body",
+          "description": "The subtotal of the prepayment excluding taxes"
+        },
+        {
+          "name": "prepayment-total",
+          "wire_name": "Prepayment.Total",
+          "type": "float",
+          "location": "body",
+          "description": "The total of the prepayment(subtotal + total tax)"
+        },
+        {
+          "name": "prepayment-total-tax",
+          "wire_name": "Prepayment.TotalTax",
+          "type": "float",
+          "location": "body",
+          "description": "The total tax on the prepayment"
+        },
+        {
+          "name": "prepayment-type",
+          "wire_name": "Prepayment.Type",
+          "type": "string",
+          "location": "body",
+          "description": "See Prepayment Types"
+        },
+        {
+          "name": "prepayment-updated-date-utc",
+          "wire_name": "Prepayment.UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to the prepayment"
+        },
+        {
+          "name": "Reference",
+          "type": "string",
+          "location": "body",
+          "description": "An optional description for the payment e.g. Direct Debit"
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "location": "body",
+          "description": "The status of the payment."
+        },
+        {
+          "name": "StatusAttributeString",
+          "type": "string",
+          "location": "body",
+          "description": "A string to indicate if a invoice status"
+        },
+        {
+          "name": "UpdatedDateUTC",
+          "type": "string",
+          "location": "body",
+          "description": "UTC timestamp of last update to the payment"
+        },
+        {
+          "name": "ValidationErrors",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of validation error messages from the API"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        }
+      ]
+    },
+    {
+      "name": "payments_create-endpoint",
+      "description": "Creates multiple payments for invoices or credit notes. Optional: summarizeErrors (default: false), Payments, Warnings (plus 1 more). Returns the updated Payments.",
+      "method": "PUT",
+      "path": "/Payments",
+      "params": [
+        {
+          "name": "summarizeErrors",
+          "type": "bool",
+          "location": "query",
+          "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "Payments",
+          "type": "array",
+          "location": "body",
+          "description": "Payments"
+        },
+        {
+          "name": "Warnings",
+          "type": "array",
+          "location": "body",
+          "description": "Displays array of warning messages from the API"
+        },
+        {
+          "name": "pagination-item-count",
+          "wire_name": "pagination.itemCount",
+          "type": "int",
+          "location": "body",
+          "description": "Item count"
+        },
+        {
+          "name": "pagination-page",
+          "wire_name": "pagination.page",
+          "type": "int",
+          "location": "body",
+          "description": "Page"
+        },
+        {
+          "name": "pagination-page-count",
+          "wire_name": "pagination.pageCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page count"
+        },
+        {
+          "name": "pagination-page-size",
+          "wire_name": "pagination.pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "payments_delete",
+      "description": "Updates a specific payment for invoices and credit notes. Required: PaymentID, Status (default: DELETED). Returns the new Payments.",
+      "method": "POST",
+      "path": "/Payments/{PaymentID}",
+      "params": [
+        {
+          "name": "PaymentID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Payment",
+          "required": true
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "location": "body",
+          "description": "The status of the payment.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "payments_get",
+      "description": "Retrieves payments for invoices and credit notes. Optional: where, order, page (plus 1 more). Returns the Payments.",
+      "method": "GET",
+      "path": "/Payments",
+      "params": [
+        {
+          "name": "where",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an any element"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Order by an any element"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Up to 100 payments will be returned in a single API call"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records to retrieve per page"
+        }
+      ]
+    },
+    {
+      "name": "payments_get-paymentid",
+      "description": "Retrieves a specific payment for invoices and credit notes using a unique payment Id. Required: PaymentID. Returns the Payments.",
+      "method": "GET",
+      "path": "/Payments/{PaymentID}",
+      "params": [
+        {
+          "name": "PaymentID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Payment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "payments_history_create-payment",
+      "description": "Creates a history record for a specific payment. Required: PaymentID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "method": "PUT",
+      "path": "/Payments/{PaymentID}/History",
+      "params": [
+        {
+          "name": "PaymentID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Payment",
+          "required": true
+        },
+        {
+          "name": "HistoryRecords",
+          "type": "array",
+          "location": "body",
+          "description": "History records"
+        }
+      ]
+    },
+    {
+      "name": "payments_history_get-payment",
+      "description": "Retrieves history records of a specific payment. Required: PaymentID. Returns array of HistoryRecord.",
+      "method": "GET",
+      "path": "/Payments/{PaymentID}/History",
+      "params": [
+        {
+          "name": "PaymentID",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for a Payment",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

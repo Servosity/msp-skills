@@ -1,0 +1,940 @@
+{
+  "api_name": "zammad",
+  "base_url": "https://your-instance.zammad.com/api/v1",
+  "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI — plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Token token={ZAMMAD_API_TOKEN}",
+    "env_vars": [
+      "ZAMMAD_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ZAMMAD_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "articles_by-ticket",
+      "description": "List all articles for a ticket. Required: ticket_id. Returns array of Article.",
+      "method": "GET",
+      "path": "/ticket_articles/by_ticket/{ticket_id}",
+      "params": [
+        {
+          "name": "ticket_id",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "articles_create",
+      "description": "Add an article (note or email) to a ticket. Required: ticket_id, body. Optional: type (default: note), internal (default: true), subject (plus 2 more). Returns the new Article.",
+      "method": "POST",
+      "path": "/ticket_articles",
+      "params": [
+        {
+          "name": "ticket_id",
+          "type": "int",
+          "location": "body",
+          "description": "Ticket id",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "location": "body",
+          "description": "Article body",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Article type: note or email"
+        },
+        {
+          "name": "internal",
+          "type": "bool",
+          "location": "body",
+          "description": "true = internal note, false = customer-visible"
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "location": "body",
+          "description": "Article subject"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient email (for type=email)"
+        },
+        {
+          "name": "content_type",
+          "type": "string",
+          "location": "body",
+          "description": "text/html or text/plain"
+        }
+      ]
+    },
+    {
+      "name": "articles_get",
+      "description": "Get a single article by id. Required: id. Returns the Article.",
+      "method": "GET",
+      "path": "/ticket_articles/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Article id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Get a group by id. Required: id. Returns the Group.",
+      "method": "GET",
+      "path": "/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Group id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "List all groups. Returns array of Group.",
+      "method": "GET",
+      "path": "/groups",
+      "params": []
+    },
+    {
+      "name": "kb_answer-create",
+      "description": "Create a KB answer. Pass translations_attributes as JSON, then publish or mark internal. Required: kb_id, category_id. Optional: promoted (default: false), translations_attributes.",
+      "method": "POST",
+      "path": "/knowledge_bases/{kb_id}/answers",
+      "params": [
+        {
+          "name": "kb_id",
+          "type": "int",
+          "location": "path",
+          "description": "Knowledge base id (usually 1)",
+          "required": true
+        },
+        {
+          "name": "category_id",
+          "type": "int",
+          "location": "body",
+          "description": "Category id the answer belongs to",
+          "required": true
+        },
+        {
+          "name": "promoted",
+          "type": "bool",
+          "location": "body",
+          "description": "Promote on the KB landing page"
+        },
+        {
+          "name": "translations_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array, e.g. [{'kb_locale_id':1,'title':'How to restore','content_attributes':{'body':' ... '}}]"
+        }
+      ]
+    },
+    {
+      "name": "kb_answer-delete",
+      "description": "Delete a KB answer (requires KB editor permission). Required: kb_id, id. Destructive.",
+      "method": "DELETE",
+      "path": "/knowledge_bases/{kb_id}/answers/{id}",
+      "params": [
+        {
+          "name": "kb_id",
+          "type": "int",
+          "location": "path",
+          "description": "Knowledge base id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Answer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "kb_answer-internal",
+      "description": "Mark a KB answer internal (agent-only). Required: kb_id, id.",
+      "method": "POST",
+      "path": "/knowledge_bases/{kb_id}/answers/{id}/internal",
+      "params": [
+        {
+          "name": "kb_id",
+          "type": "int",
+          "location": "path",
+          "description": "Knowledge base id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Answer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "kb_answer-publish",
+      "description": "Publish a KB answer (make it public). Required: kb_id, id.",
+      "method": "POST",
+      "path": "/knowledge_bases/{kb_id}/answers/{id}/publish",
+      "params": [
+        {
+          "name": "kb_id",
+          "type": "int",
+          "location": "path",
+          "description": "Knowledge base id",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Answer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "kb_category-create",
+      "description": "Create a KB category. Pass translations_attributes as JSON. Required: kb_id. Optional: parent_id, category_icon (default: f115), translations_attributes.",
+      "method": "POST",
+      "path": "/knowledge_bases/{kb_id}/categories",
+      "params": [
+        {
+          "name": "kb_id",
+          "type": "int",
+          "location": "path",
+          "description": "Knowledge base id (usually 1)",
+          "required": true
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent category id, or empty for top-level"
+        },
+        {
+          "name": "category_icon",
+          "type": "string",
+          "location": "body",
+          "description": "Icon code"
+        },
+        {
+          "name": "translations_attributes",
+          "type": "string",
+          "location": "body",
+          "description": "JSON array of translations, e.g. [{'kb_locale_id':1,'title':'FAQ','content_attributes':{'body':''}}]"
+        }
+      ]
+    },
+    {
+      "name": "kb_init",
+      "description": "Fetch the full Knowledge Base bundle (categories, answers, translations). Used by 'kb browse/search/get'.",
+      "method": "POST",
+      "path": "/knowledge_bases/init",
+      "params": []
+    },
+    {
+      "name": "organizations_create",
+      "description": "Create an organization. Required: name. Optional: domain, shared (default: true), active (default: true) (plus 1 more). Returns the new Organization.",
+      "method": "POST",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Organization name",
+          "required": true
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "body",
+          "description": "Primary domain for email matching"
+        },
+        {
+          "name": "shared",
+          "type": "bool",
+          "location": "body",
+          "description": "Shared organization"
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active"
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Internal note"
+        }
+      ]
+    },
+    {
+      "name": "organizations_get",
+      "description": "Get an organization by id. Required: id. Returns the Organization.",
+      "method": "GET",
+      "path": "/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_list",
+      "description": "List organizations (paginated). Optional: page (default: 1), per_page (default: 100). Returns array of Organization.",
+      "method": "GET",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "organizations_search",
+      "description": "Search organizations by name or custom field. Required: query. Optional: limit (default: 100). Returns array of Organization.",
+      "method": "GET",
+      "path": "/organizations/search",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query, e.g. Acme or a custom-field query",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max results"
+        }
+      ]
+    },
+    {
+      "name": "organizations_update",
+      "description": "Update an organization. Required: id. Optional: name, domain, active (plus 1 more). Returns the updated Organization.",
+      "method": "PUT",
+      "path": "/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization id",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Organization name"
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "body",
+          "description": "Primary domain"
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "location": "body",
+          "description": "Active"
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Internal note"
+        }
+      ]
+    },
+    {
+      "name": "overviews_get",
+      "description": "Get an overview (and its tickets) by id. Required: id.",
+      "method": "GET",
+      "path": "/overviews/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Overview id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "overviews_list",
+      "description": "List all overviews.",
+      "method": "GET",
+      "path": "/overviews",
+      "params": []
+    },
+    {
+      "name": "priorities_list",
+      "description": "List ticket priorities. Returns array of TicketPriority.",
+      "method": "GET",
+      "path": "/ticket_priorities",
+      "params": []
+    },
+    {
+      "name": "states_list",
+      "description": "List ticket states. Returns array of TicketState.",
+      "method": "GET",
+      "path": "/ticket_states",
+      "params": []
+    },
+    {
+      "name": "tags_add",
+      "description": "Add a tag to an object. Required: o_id, item. Optional: object (default: Ticket).",
+      "method": "POST",
+      "path": "/tags/add",
+      "params": [
+        {
+          "name": "object",
+          "type": "string",
+          "location": "body",
+          "description": "Object type"
+        },
+        {
+          "name": "o_id",
+          "type": "int",
+          "location": "body",
+          "description": "Object id",
+          "required": true
+        },
+        {
+          "name": "item",
+          "type": "string",
+          "location": "body",
+          "description": "Tag to add",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_all",
+      "description": "List every tag defined in the instance (vocabulary).",
+      "method": "GET",
+      "path": "/tag_list",
+      "params": []
+    },
+    {
+      "name": "tags_list",
+      "description": "List tags on an object (defaults to a ticket). Required: o_id. Optional: object (default: Ticket).",
+      "method": "GET",
+      "path": "/tags",
+      "params": [
+        {
+          "name": "object",
+          "type": "string",
+          "location": "query",
+          "description": "Object type (e.g. Ticket)"
+        },
+        {
+          "name": "o_id",
+          "type": "int",
+          "location": "query",
+          "description": "Object id (e.g. ticket id)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tags_remove",
+      "description": "Remove a tag from an object. Required: o_id, item. Optional: object (default: Ticket).",
+      "method": "POST",
+      "path": "/tags/remove",
+      "params": [
+        {
+          "name": "object",
+          "type": "string",
+          "location": "body",
+          "description": "Object type"
+        },
+        {
+          "name": "o_id",
+          "type": "int",
+          "location": "body",
+          "description": "Object id",
+          "required": true
+        },
+        {
+          "name": "item",
+          "type": "string",
+          "location": "body",
+          "description": "Tag to remove",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_create",
+      "description": "Create a ticket. Provide title, group, a customer, and an initial article. Required: title. Optional: group, customer_id, state_id (plus 4 more). Returns the new Ticket.",
+      "method": "POST",
+      "path": "/tickets",
+      "params": [
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "Ticket title / subject",
+          "required": true
+        },
+        {
+          "name": "group",
+          "type": "string",
+          "location": "body",
+          "description": "Group name (e.g. Users, Support)"
+        },
+        {
+          "name": "customer_id",
+          "type": "string",
+          "location": "body",
+          "description": "Customer user id or email address"
+        },
+        {
+          "name": "state_id",
+          "type": "int",
+          "location": "body",
+          "description": "State id (1=new, 2=open, 3=pending, 4=closed, 6=resolved)"
+        },
+        {
+          "name": "priority_id",
+          "type": "int",
+          "location": "body",
+          "description": "Priority id (1=low, 2=normal, 3=high)"
+        },
+        {
+          "name": "owner_id",
+          "type": "int",
+          "location": "body",
+          "description": "Assigned agent user id"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        },
+        {
+          "name": "article-subject",
+          "wire_name": "article.subject",
+          "type": "string",
+          "location": "body",
+          "description": "Article subject"
+        },
+        {
+          "name": "article-body",
+          "wire_name": "article.body",
+          "type": "string",
+          "location": "body",
+          "description": "Article body"
+        },
+        {
+          "name": "article-type",
+          "wire_name": "article.type",
+          "type": "string",
+          "location": "body",
+          "description": "Article type: note or email"
+        },
+        {
+          "name": "article-internal",
+          "wire_name": "article.internal",
+          "type": "bool",
+          "location": "body",
+          "description": "true = internal note, false = customer-visible"
+        },
+        {
+          "name": "article-content-type",
+          "wire_name": "article.content_type",
+          "type": "string",
+          "location": "body",
+          "description": "text/html or text/plain"
+        }
+      ]
+    },
+    {
+      "name": "tickets_delete",
+      "description": "Delete a ticket permanently (requires admin / delete permission). Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/tickets/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tickets_get",
+      "description": "Get a ticket by id. Required: id. Optional: expand (default: true). Returns the Ticket.",
+      "method": "GET",
+      "path": "/tickets/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        },
+        {
+          "name": "expand",
+          "type": "bool",
+          "location": "query",
+          "description": "Expand referenced ids into names"
+        }
+      ]
+    },
+    {
+      "name": "tickets_list",
+      "description": "List tickets (paginated). Optional: page (default: 1), per_page (default: 100), expand (default: true). Returns array of Ticket.",
+      "method": "GET",
+      "path": "/tickets",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page (max 100)"
+        },
+        {
+          "name": "expand",
+          "type": "bool",
+          "location": "query",
+          "description": "Expand referenced ids (state, priority, owner) into names"
+        }
+      ]
+    },
+    {
+      "name": "tickets_search",
+      "description": "Search tickets with Zammad query syntax (e.g. 'state:open owner_id:3'). Optional: query, limit (default: 100), expand (default: true). Returns array of Ticket.",
+      "method": "GET",
+      "path": "/tickets/search",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Zammad Elasticsearch query, e.g. state:open, category:billing, organization_id:5"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max tickets to return"
+        },
+        {
+          "name": "expand",
+          "type": "bool",
+          "location": "query",
+          "description": "Return full ticket objects instead of ids+assets"
+        }
+      ]
+    },
+    {
+      "name": "tickets_update",
+      "description": "Update a ticket (state, priority, owner, title, organization). Required: id. Optional: title, state_id, priority_id (plus 3 more). Returns the updated Ticket.",
+      "method": "PUT",
+      "path": "/tickets/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Ticket id",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "New title"
+        },
+        {
+          "name": "state_id",
+          "type": "int",
+          "location": "body",
+          "description": "State id (1=new, 2=open, 3=pending, 4=closed, 6=resolved)"
+        },
+        {
+          "name": "priority_id",
+          "type": "int",
+          "location": "body",
+          "description": "Priority id (1=low, 2=normal, 3=high)"
+        },
+        {
+          "name": "owner_id",
+          "type": "int",
+          "location": "body",
+          "description": "Assigned agent user id"
+        },
+        {
+          "name": "group_id",
+          "type": "int",
+          "location": "body",
+          "description": "Group id"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        }
+      ]
+    },
+    {
+      "name": "users_create",
+      "description": "Create a user. Required: email. Optional: firstname, lastname, organization_id. Returns the new User.",
+      "method": "POST",
+      "path": "/users",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email address",
+          "required": true
+        },
+        {
+          "name": "firstname",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get a user by id. Required: id. Returns the User.",
+      "method": "GET",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "User id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List users (paginated). Optional: page (default: 1), per_page (default: 100). Returns array of User.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number (1-based)"
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "users_me",
+      "description": "Get the authenticated user (auth self-check). Returns the User.",
+      "method": "GET",
+      "path": "/users/me",
+      "params": []
+    },
+    {
+      "name": "users_search",
+      "description": "Search users by email, name, or query (e.g. organization_id:5). Required: query. Optional: limit (default: 100). Returns array of User.",
+      "method": "GET",
+      "path": "/users/search",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max results"
+        }
+      ]
+    },
+    {
+      "name": "users_update",
+      "description": "Update a user. Required: id. Optional: firstname, lastname, organization_id. Returns the updated User.",
+      "method": "PUT",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "User id",
+          "required": true
+        },
+        {
+          "name": "firstname",
+          "type": "string",
+          "location": "body",
+          "description": "First name"
+        },
+        {
+          "name": "lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Last name"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Organization id"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Ticket volume by agent",
+      "command": "agent-load",
+      "description": "See each agent's current ticket load broken out by state (open/pending/backlog) so you can balance work before it piles up."
+    },
+    {
+      "name": "Agent open/closed trend",
+      "command": "agent-trend",
+      "description": "Show whether each agent's queue is growing or shrinking across the last N weeks, with opened-vs-closed deltas."
+    },
+    {
+      "name": "Customer health indicators",
+      "command": "customer-health",
+      "description": "Rank organizations by a health signal built from open count, oldest-open age, reopen rate, velocity, and last activity."
+    },
+    {
+      "name": "Tickets open too long",
+      "command": "overdue",
+      "description": "Find aging tickets still in new/open/pending past a threshold, weighted by priority so the worst rise to the top."
+    },
+    {
+      "name": "Escalation sentiment triage",
+      "command": "escalate",
+      "description": "Surface active tickets whose recent customer messages read as upset (heuristic negative-signal scan), ranked by hits, age, and priority — with the matched snippets shown."
+    },
+    {
+      "name": "Proactive churn risk",
+      "command": "churn-risk",
+      "description": "Score each organization's churn risk from open backlog, overdue tickets, unanswered pending, and negative-sentiment customer messages, listing the contributing factors."
+    },
+    {
+      "name": "Feedback mining",
+      "command": "feedback-scan",
+      "description": "Bucket ticket and article text into feature-request, pricing, compliance, and bug themes with the source ticket refs and snippets."
+    },
+    {
+      "name": "Knowledge Base browse",
+      "command": "kb browse",
+      "description": "Print the Knowledge Base as a category/answer tree parsed from the init bundle."
+    },
+    {
+      "name": "Knowledge Base search",
+      "command": "kb search",
+      "description": "Offline text search over KB answer titles and bodies from the init bundle."
+    },
+    {
+      "name": "Knowledge Base get answer",
+      "command": "kb get",
+      "description": "Resolve a KB answer id from the init bundle to its full translated body."
+    },
+    {
+      "name": "Add ticket note",
+      "command": "ticket note",
+      "description": "Add an internal or partner-visible note to a ticket in one line, with correct content-type defaults."
+    }
+  ]
+}

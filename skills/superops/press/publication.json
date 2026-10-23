@@ -1,0 +1,6 @@
+{
+ "schema": 1,
+ "withheld": {
+  "spec.yaml": "sha256 does not match .printing-press.json spec_checksum (not the spec the press read)"
+ }
+}

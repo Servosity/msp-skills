@@ -1,0 +1,370 @@
+{
+  "api_name": "sherweb",
+  "base_url": "https://api.sherweb.com",
+  "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "SHERWEB_CLIENT_ID",
+      "SHERWEB_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "SHERWEB_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "SHERWEB_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "distributor_get-payable-charges",
+      "description": "Returns the charges you are billed by Sherweb for a billing period: products, quantities, list/net pricing, fees, taxes, and deductions. Optional: date.",
+      "method": "GET",
+      "path": "/distributor/v1/billing/payable-charges",
+      "params": [
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "description": "A date within the desired billing period (yyyy-MM-dd, UTC). Default: today."
+        }
+      ]
+    },
+    {
+      "name": "service-provider_amend-subscriptions",
+      "description": "Submit one or more subscription quantity changes. Returns a tracking id. Required: customerId, subscriptionAmendmentParameters.",
+      "method": "POST",
+      "path": "/service-provider/v1/billing/subscriptions/amendments",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "subscriptionAmendmentParameters",
+          "type": "array",
+          "location": "body",
+          "description": "Subscription amendment parameters",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_cancel-subscriptions",
+      "description": "Cancel one or more of a customer's subscriptions. Required: customerId, subscriptionIds. Returns the new TrackingRef.",
+      "method": "POST",
+      "path": "/service-provider/v1/billing/subscriptions/cancellations",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "subscriptionIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Subscription ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-customer-catalog",
+      "description": "Get the product catalog available to a specific customer. Required: customerId. Returns the CustomerCatalog.",
+      "method": "GET",
+      "path": "/service-provider/v1/customer-catalogs/{customerId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer UUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-customer-catalog-items-pricing",
+      "description": "Get pricing for specific catalog items for a customer. Required: customerId, skus. Returns the new ServiceProviderGetCustomerCatalogItemsPricingResponse.",
+      "method": "POST",
+      "path": "/service-provider/v1/customer-catalogs/{customerId}/catalog-items-pricing",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "skus",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Skus",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-customer-platform-details",
+      "description": "Get details for one provisioned platform of a customer. Required: customerId, platformId. Returns the ServiceProviderGetCustomerPlatformDetailsResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/customers/{customerId}/platforms/{platformId}/details",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "platformId",
+          "type": "string",
+          "location": "path",
+          "description": "Platform identifier.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-customer-platform-meter-usages",
+      "description": "Get metered usage for a customer's platform. Required: customerId, platformId. Returns the ServiceProviderGetCustomerPlatformMeterUsagesResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/customers/{customerId}/platforms/{platformId}/meter-usages",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "platformId",
+          "type": "string",
+          "location": "path",
+          "description": "Platform id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-customer-platforms-configurations",
+      "description": "Get the platform configurations provisioned for a customer. Required: customerId. Returns the ServiceProviderGetCustomerPlatformsConfigurationsResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/customers/{customerId}/platforms-configurations",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-platform-required-parameters",
+      "description": "Get the required provisioning parameters for given SKUs/platform. Required: skus. Returns the new ServiceProviderGetPlatformRequiredParametersResponse.",
+      "method": "POST",
+      "path": "/service-provider/v1/platforms/required-parameters",
+      "params": [
+        {
+          "name": "skus",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Skus",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-platforms-for-skus",
+      "description": "Resolve which platforms can fulfill given SKUs. Required: skus. Returns the new ServiceProviderGetPlatformsForSkusResponse.",
+      "method": "POST",
+      "path": "/service-provider/v1/platforms/platforms-for-skus",
+      "params": [
+        {
+          "name": "skus",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Skus",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-receivable-charges",
+      "description": "Get receivable charges (what a customer owes you) for a date. Required: customerId. Optional: date. Returns the ServiceProviderGetReceivableChargesResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/billing/receivable-charges",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "description": "Date within the billing period (yyyy-MM-dd, UTC). Default: today."
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-subscription-meters",
+      "description": "Get metered subscriptions for a customer. Required: customerId. Returns the ServiceProviderGetSubscriptionMetersResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/billing/subscriptions/meters",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-subscriptions-pricing",
+      "description": "Get pricing information for a customer's subscriptions. Required: customerId. Returns the ServiceProviderGetSubscriptionsPricingResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/billing/subscriptions/pricing-information",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_get-tracking-status",
+      "description": "Get the status of an order or amendment by tracking id. Required: trackingId. Returns the ServiceProviderGetTrackingStatusResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/tracking/{trackingId}",
+      "params": [
+        {
+          "name": "trackingId",
+          "type": "string",
+          "location": "path",
+          "description": "Tracking id returned by an order/amendment/cancellation.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_list-customers",
+      "description": "List the customers under your reseller account. Optional: page, pageSize. Returns array of Customer.",
+      "method": "GET",
+      "path": "/service-provider/v1/customers",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number (default 1)."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page (default 50)."
+        }
+      ]
+    },
+    {
+      "name": "service-provider_list-platforms",
+      "description": "List the provisioning platforms available to you. Returns the ServiceProviderListPlatformsResponse.",
+      "method": "GET",
+      "path": "/service-provider/v1/platforms",
+      "params": []
+    },
+    {
+      "name": "service-provider_list-subscriptions",
+      "description": "List a customer's subscriptions with details. Required: customerId. Returns array of Subscription.",
+      "method": "GET",
+      "path": "/service-provider/v1/billing/subscriptions/details",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer UUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_place-order",
+      "description": "Place a marketplace order for a customer. Required: customerId, cartItems. Returns the new TrackingRef.",
+      "method": "POST",
+      "path": "/service-provider/v1/orders",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "cartItems",
+          "type": "array",
+          "location": "body",
+          "description": "Cart items",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "service-provider_validate-order",
+      "description": "Validate an order cart for a customer before placing it. Required: customerId, cartItems. Returns the new ServiceProviderValidateOrderResponse.",
+      "method": "POST",
+      "path": "/service-provider/v1/orders/validate",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer id",
+          "required": true
+        },
+        {
+          "name": "cartItems",
+          "type": "array",
+          "location": "body",
+          "description": "Cart items",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

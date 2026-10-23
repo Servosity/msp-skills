@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T03:52:09.874146Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "kaseya-bms",
+  "display_name": "Kaseya BMS",
+  "cli_name": "kaseya-bms-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:b153b32a4e51022ddae68d4c550f523cc7bab1d3762548986ecae43511e3449c",
+  "run_id": "20260613-034916",
+  "category": "project-management",
+  "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
+  "mcp_binary": "kaseya-bms-pp-mcp",
+  "mcp_tool_count": 433,
+  "mcp_ready": "full",
+  "api_version": "2.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "KASEYA_BMS_BEARER_AUTH"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "KASEYA_BMS_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "KASEYA_BMS_BEARER_AUTH",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Queue health snapshot",
+      "command": "queue-health",
+      "description": "See open ticket volume by queue, priority, and status in one shot, with stale counts flagged before the morning standup."
+    },
+    {
+      "name": "Stale and aging tickets",
+      "command": "stale-tickets",
+      "description": "List open tickets that have not been touched in N days, oldest first, with account and assignee so nothing rots in the queue."
+    },
+    {
+      "name": "Tech workload balance",
+      "command": "workload",
+      "description": "Open and in-progress ticket load per assignee, flagging who is overloaded and who has slack before you dispatch the next ticket."
+    },
+    {
+      "name": "Contract burn-down",
+      "command": "contract-burn",
+      "description": "Per-contract burn picture: hours consumed, open tickets, and how much of the contract period has elapsed - at-risk agreements surface first."
+    },
+    {
+      "name": "Unbilled revenue review",
+      "command": "unbilled",
+      "description": "Billable, approved, not-yet-billed time grouped by account, in hours - the month-end ready-to-bill review without the Excel export."
+    },
+    {
+      "name": "Pipeline review",
+      "command": "pipeline",
+      "description": "Open opportunities grouped by stage with counts, total and weighted value, and slipped-close flags for the Monday sales call."
+    }
+  ],
+  "scorecard": {
+    "api_name": "kaseya-bms",
+    "steinberger": {
+      "output_modes": 10,
+      "auth": 10,
+      "error_handling": 10,
+      "terminal_ux": 10,
+      "readme": 10,
+      "doctor": 10,
+      "agent_native": 10,
+      "mcp_quality": 8,
+      "mcp_description_quality": 0,
+      "mcp_token_efficiency": 0,
+      "mcp_remote_transport": 10,
+      "mcp_tool_design": 10,
+      "mcp_surface_strategy": 10,
+      "local_cache": 10,
+      "cache_freshness": 5,
+      "breadth": 8,
+      "vision": 10,
+      "workflows": 10,
+      "insight": 10,
+      "agent_workflow_readiness": 10,
+      "path_validity": 10,
+      "auth_protocol": 10,
+      "data_pipeline_integrity": 10,
+      "sync_correctness": 10,
+      "type_fidelity": 3,
+      "dead_code": 5,
+      "live_api_verification": 0,
+      "total": 95,
+      "percentage": 95
+    },
+    "competitor_scores": null,
+    "overall_grade": "A",
+    "gap_report": [
+      "MCP: 433 tools (0 public, 433 auth-required) \u2014 readiness: full"
+    ],
+    "unscored_dimensions": [
+      "mcp_description_quality",
+      "mcp_token_efficiency",
+      "live_api_verification"
+    ]
+  }
+}

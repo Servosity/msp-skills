@@ -1,0 +1,2344 @@
+{
+  "api_name": "blumira",
+  "base_url": "https://api.blumira.com/public-api/v1",
+  "description": "Blumira cloud SIEM + XDR: query security findings, evidence, detection rules, agent devices, and users across a direct org or every MSP sub-account, then resolve/assign/comment on findings.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "BLUMIRA_API_TOKEN",
+      "BLUMIRA_CLIENT_ID",
+      "BLUMIRA_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "BLUMIRA_API_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "description": "Blumira JWT bearer token. Minted+cached by `auth login`, or set directly. Set this OR BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET."
+      },
+      {
+        "name": "BLUMIRA_CLIENT_ID",
+        "kind": "auth_flow_input",
+        "required": false,
+        "sensitive": false,
+        "description": "Blumira API Client ID (Settings \u003e Organization \u003e Generate API Credentials). Used with BLUMIRA_CLIENT_SECRET by `auth login` to mint a JWT."
+      },
+      {
+        "name": "BLUMIRA_CLIENT_SECRET",
+        "kind": "auth_flow_input",
+        "required": false,
+        "sensitive": true,
+        "description": "Blumira API Client Secret. Used with BLUMIRA_CLIENT_ID by `auth login` to mint a JWT (client_credentials, audience=public-api)."
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "health_search",
+      "description": "Get API health. Returns the ResponseHealth.",
+      "method": "GET",
+      "path": "/health",
+      "params": []
+    },
+    {
+      "name": "msp_add-account-finding-comment",
+      "description": "Add a comment to a finding for your MSP sub-account. Required: account_id, finding_id, body, sender. Returns the new FindingsCommentsRecord.",
+      "method": "POST",
+      "path": "/msp/accounts/{account_id}/findings/{finding_id}/comments",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "location": "body",
+          "description": "Comment body (required, non-empty). May contain HTML.",
+          "required": true
+        },
+        {
+          "name": "sender",
+          "type": "string",
+          "location": "body",
+          "description": "UUID of the person creating the comment. Use GET /org/users or GET /msp/accounts/{account_id}/users to obtain user IDs.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get",
+      "description": "Get a specific MSP sub-account by ID. Required: account_id. Returns the ResponseMspSubaccountRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-account-agents-devices",
+      "description": "Get or search agents devices for your MSP sub-account. Required: account_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of MspGetAccountAgentsDevicesItem.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/agents/devices",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-account-agents-keys",
+      "description": "Get or search agents keys for your MSP sub-account. Required: account_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of MspGetAccountAgentsKeysItem.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/agents/keys",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-account-finding",
+      "description": "Get a specific finding by ID for your MSP sub-account. Required: account_id, finding_id. Returns the FindingDetailRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/findings/{finding_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-account-finding-comments",
+      "description": "Get comments for a specific finding for your MSP sub-account. Required: account_id, finding_id. Returns array of FindingsCommentsRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/findings/{finding_id}/comments",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-account-finding-evidence",
+      "description": "Returns evidence keys and a paginated first page of evidence rows for the finding in one call. Same contract as GET /org/findings/{finding_id}/evidence; finding must belong to the sub-account (account_id). Required: account_id, finding_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more).",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/findings/{finding_id}/evidence",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-account-findings",
+      "description": "Get or search findings for your MSP sub-account. Required: account_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 71 more). Returns array of FindingDetailRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/findings",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        },
+        {
+          "name": "blocked",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter findings with blocked either True of False"
+        },
+        {
+          "name": "blocked.eq",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter findings with blocked either True of False"
+        },
+        {
+          "name": "blocked-eq-2",
+          "wire_name": "blocked.!eq",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter out findings with blocked either True of False"
+        },
+        {
+          "name": "category",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding"
+        },
+        {
+          "name": "category.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding"
+        },
+        {
+          "name": "category-eq-2",
+          "wire_name": "category.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding to filter out"
+        },
+        {
+          "name": "category.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of category IDs of findings to include"
+        },
+        {
+          "name": "category-in-2",
+          "wire_name": "category.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of category IDs of findings to filter out"
+        },
+        {
+          "name": "created",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was created"
+        },
+        {
+          "name": "created_after",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC)"
+        },
+        {
+          "name": "created_before",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC)"
+        },
+        {
+          "name": "created.eq",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was created"
+        },
+        {
+          "name": "created-eq-2",
+          "wire_name": "created.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings with the given exact time of creation"
+        },
+        {
+          "name": "created.lt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "created-lt-2",
+          "wire_name": "created.!lt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "created.gt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "created-gt-2",
+          "wire_name": "created.!gt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, limit search to findings created_by person with given UUID"
+        },
+        {
+          "name": "modified",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was modified"
+        },
+        {
+          "name": "modified_after",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC)"
+        },
+        {
+          "name": "modified_before",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC)"
+        },
+        {
+          "name": "modified.eq",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was modified"
+        },
+        {
+          "name": "modified-eq-2",
+          "wire_name": "modified.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings with the given exact time of modification"
+        },
+        {
+          "name": "modified.lt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "modified-lt-2",
+          "wire_name": "modified.!lt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "modified.gt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "modified-gt-2",
+          "wire_name": "modified.!gt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "modified_by",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding"
+        },
+        {
+          "name": "modified_by.eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding"
+        },
+        {
+          "name": "modified-by-eq-2",
+          "wire_name": "modified_by.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings where person who last modified it has the given UUID"
+        },
+        {
+          "name": "modified_by.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding"
+        },
+        {
+          "name": "modified-by-in-2",
+          "wire_name": "modified_by.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings where person who last modified it in the given comma-separated list of UUIDs"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name"
+        },
+        {
+          "name": "name.eq",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name"
+        },
+        {
+          "name": "name-eq-2",
+          "wire_name": "name.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with given name"
+        },
+        {
+          "name": "name.in",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with one of the given comma-separated list of names"
+        },
+        {
+          "name": "name-in-2",
+          "wire_name": "name.!in",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with any of the given comma-separated list of names"
+        },
+        {
+          "name": "name.contains",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name substring"
+        },
+        {
+          "name": "name-contains-2",
+          "wire_name": "name.!contains",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with given name substring"
+        },
+        {
+          "name": "name.regex",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with name partially matching given regular expression"
+        },
+        {
+          "name": "name-regex-2",
+          "wire_name": "name.!regex",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with name partially matching given regular expression"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding"
+        },
+        {
+          "name": "priority.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding"
+        },
+        {
+          "name": "priority-eq-2",
+          "wire_name": "priority.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding to filter out"
+        },
+        {
+          "name": "priority.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of priority numbers of findings to include"
+        },
+        {
+          "name": "priority-in-2",
+          "wire_name": "priority.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of priority numbers of findings to filter out"
+        },
+        {
+          "name": "priority.lt",
+          "type": "int",
+          "location": "query",
+          "description": "Minimum priority number of finding to exclude"
+        },
+        {
+          "name": "priority-lt-2",
+          "wire_name": "priority.!lt",
+          "type": "int",
+          "location": "query",
+          "description": "Minimum priority number of finding to include"
+        },
+        {
+          "name": "priority.gt",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum priority number of finding to exclude"
+        },
+        {
+          "name": "priority-gt-2",
+          "wire_name": "priority.!gt",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum priority number of finding to include"
+        },
+        {
+          "name": "resolution",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding"
+        },
+        {
+          "name": "resolution.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding"
+        },
+        {
+          "name": "resolution-eq-2",
+          "wire_name": "resolution.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding to filter out"
+        },
+        {
+          "name": "resolution.in",
+          "type": "int",
+          "location": "query",
+          "description": "Comma-separated list of Resolution IDs of findings to include"
+        },
+        {
+          "name": "resolution-in-2",
+          "wire_name": "resolution.!in",
+          "type": "int",
+          "location": "query",
+          "description": "Comma-separated list of resolution IDs of findings to filter out"
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding"
+        },
+        {
+          "name": "status.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding"
+        },
+        {
+          "name": "status-eq-2",
+          "wire_name": "status.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding to filter out"
+        },
+        {
+          "name": "status.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of status IDs of findings to include"
+        },
+        {
+          "name": "status-in-2",
+          "wire_name": "status.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of status IDs of findings to filter out"
+        },
+        {
+          "name": "status_modified_by",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status_modified_by.eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status-modified-by-eq-2",
+          "wire_name": "status_modified_by.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status_modified_by.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding status"
+        },
+        {
+          "name": "status-modified-by-in-2",
+          "wire_name": "status_modified_by.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding status to be filtered out"
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id"
+        },
+        {
+          "name": "type.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id"
+        },
+        {
+          "name": "type-eq-2",
+          "wire_name": "type.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id to filter out"
+        },
+        {
+          "name": "type.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of integer type IDs to include"
+        },
+        {
+          "name": "type-in-2",
+          "wire_name": "type.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of integer type IDs to filter out"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-accounts",
+      "description": "Get or search sub-accounts for your MSP. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of MspGetAccountsItem.",
+      "method": "GET",
+      "path": "/msp/accounts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-accounts-findings",
+      "description": "Get or search findings for all your MSP sub-accounts. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 71 more). Returns array of FindingDetailRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/findings",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        },
+        {
+          "name": "blocked",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter findings with blocked either True of False"
+        },
+        {
+          "name": "blocked.eq",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter findings with blocked either True of False"
+        },
+        {
+          "name": "blocked-eq-2",
+          "wire_name": "blocked.!eq",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter out findings with blocked either True of False"
+        },
+        {
+          "name": "category",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding"
+        },
+        {
+          "name": "category.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding"
+        },
+        {
+          "name": "category-eq-2",
+          "wire_name": "category.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding to filter out"
+        },
+        {
+          "name": "category.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of category IDs of findings to include"
+        },
+        {
+          "name": "category-in-2",
+          "wire_name": "category.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of category IDs of findings to filter out"
+        },
+        {
+          "name": "created",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was created"
+        },
+        {
+          "name": "created_after",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC)"
+        },
+        {
+          "name": "created_before",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC)"
+        },
+        {
+          "name": "created.eq",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was created"
+        },
+        {
+          "name": "created-eq-2",
+          "wire_name": "created.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings with the given exact time of creation"
+        },
+        {
+          "name": "created.lt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "created-lt-2",
+          "wire_name": "created.!lt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "created.gt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "created-gt-2",
+          "wire_name": "created.!gt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, limit search to findings created_by person with given UUID"
+        },
+        {
+          "name": "modified",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was modified"
+        },
+        {
+          "name": "modified_after",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC)"
+        },
+        {
+          "name": "modified_before",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC)"
+        },
+        {
+          "name": "modified.eq",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was modified"
+        },
+        {
+          "name": "modified-eq-2",
+          "wire_name": "modified.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings with the given exact time of modification"
+        },
+        {
+          "name": "modified.lt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "modified-lt-2",
+          "wire_name": "modified.!lt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "modified.gt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "modified-gt-2",
+          "wire_name": "modified.!gt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "modified_by",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding"
+        },
+        {
+          "name": "modified_by.eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding"
+        },
+        {
+          "name": "modified-by-eq-2",
+          "wire_name": "modified_by.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings where person who last modified it has the given UUID"
+        },
+        {
+          "name": "modified_by.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding"
+        },
+        {
+          "name": "modified-by-in-2",
+          "wire_name": "modified_by.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings where person who last modified it in the given comma-separated list of UUIDs"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name"
+        },
+        {
+          "name": "name.eq",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name"
+        },
+        {
+          "name": "name-eq-2",
+          "wire_name": "name.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with given name"
+        },
+        {
+          "name": "name.in",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with one of the given comma-separated list of names"
+        },
+        {
+          "name": "name-in-2",
+          "wire_name": "name.!in",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with any of the given comma-separated list of names"
+        },
+        {
+          "name": "name.contains",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name substring"
+        },
+        {
+          "name": "name-contains-2",
+          "wire_name": "name.!contains",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with given name substring"
+        },
+        {
+          "name": "name.regex",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with name partially matching given regular expression"
+        },
+        {
+          "name": "name-regex-2",
+          "wire_name": "name.!regex",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with name partially matching given regular expression"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding"
+        },
+        {
+          "name": "priority.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding"
+        },
+        {
+          "name": "priority-eq-2",
+          "wire_name": "priority.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding to filter out"
+        },
+        {
+          "name": "priority.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of priority numbers of findings to include"
+        },
+        {
+          "name": "priority-in-2",
+          "wire_name": "priority.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of priority numbers of findings to filter out"
+        },
+        {
+          "name": "priority.lt",
+          "type": "int",
+          "location": "query",
+          "description": "Minimum priority number of finding to exclude"
+        },
+        {
+          "name": "priority-lt-2",
+          "wire_name": "priority.!lt",
+          "type": "int",
+          "location": "query",
+          "description": "Minimum priority number of finding to include"
+        },
+        {
+          "name": "priority.gt",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum priority number of finding to exclude"
+        },
+        {
+          "name": "priority-gt-2",
+          "wire_name": "priority.!gt",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum priority number of finding to include"
+        },
+        {
+          "name": "resolution",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding"
+        },
+        {
+          "name": "resolution.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding"
+        },
+        {
+          "name": "resolution-eq-2",
+          "wire_name": "resolution.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding to filter out"
+        },
+        {
+          "name": "resolution.in",
+          "type": "int",
+          "location": "query",
+          "description": "Comma-separated list of Resolution IDs of findings to include"
+        },
+        {
+          "name": "resolution-in-2",
+          "wire_name": "resolution.!in",
+          "type": "int",
+          "location": "query",
+          "description": "Comma-separated list of resolution IDs of findings to filter out"
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding"
+        },
+        {
+          "name": "status.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding"
+        },
+        {
+          "name": "status-eq-2",
+          "wire_name": "status.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding to filter out"
+        },
+        {
+          "name": "status.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of status IDs of findings to include"
+        },
+        {
+          "name": "status-in-2",
+          "wire_name": "status.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of status IDs of findings to filter out"
+        },
+        {
+          "name": "status_modified_by",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status_modified_by.eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status-modified-by-eq-2",
+          "wire_name": "status_modified_by.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status_modified_by.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding status"
+        },
+        {
+          "name": "status-modified-by-in-2",
+          "wire_name": "status_modified_by.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding status to be filtered out"
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id"
+        },
+        {
+          "name": "type.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id"
+        },
+        {
+          "name": "type-eq-2",
+          "wire_name": "type.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id to filter out"
+        },
+        {
+          "name": "type.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of integer type IDs to include"
+        },
+        {
+          "name": "type-in-2",
+          "wire_name": "type.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of integer type IDs to filter out"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-agents-device",
+      "description": "Get a specific agents device by ID for your MSP sub-account. Required: account_id, device_id. Returns the ResponseAgentsDeviceDetailRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/agents/devices/{device_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Device ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-agents-key",
+      "description": "Get a specific agents key by ID for your MSP sub-account. Required: account_id, key_id. Returns the ResponseAgentsKeyDetailRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/agents/keys/{key_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "Key ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-detection-rule-by-account",
+      "description": "Get a detection rule by ID for your MSP sub-account. Required: account_id, rule_id. Returns the ResponseDetectionRuleDetail.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/detection-rules/{rule_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "rule_id",
+          "type": "string",
+          "location": "path",
+          "description": "Detection rule ID, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-detection-rules-by-account",
+      "description": "List detection rules for your MSP sub-account. Required: account_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of DetectionRuleRecord.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/detection-rules",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "msp_get-msp-detection-rule",
+      "description": "Get a basis detection rule by ID (for MSP bulk detail). Required: rule_id. Returns the ResponseDetectionRuleDetail.",
+      "method": "GET",
+      "path": "/msp/basis-detection-rules/{rule_id}",
+      "params": [
+        {
+          "name": "rule_id",
+          "type": "string",
+          "location": "path",
+          "description": "Detection rule ID, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_get-msp-detection-rules",
+      "description": "List basis detection rules (catalog) for MSP bulk. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of DetectionRuleRecord.",
+      "method": "GET",
+      "path": "/msp/basis-detection-rules",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-users",
+      "description": "Get or search users for your MSP sub-account. Required: account_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200). Returns array of MspListUsersItem.",
+      "method": "GET",
+      "path": "/msp/accounts/{account_id}/users",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        }
+      ]
+    },
+    {
+      "name": "msp_resolve-finding",
+      "description": "Resolve a finding for your MSP sub-account. Required: account_id, finding_id, resolution. Optional: resolution_notes. Returns the new FindingDetailRecord.",
+      "method": "POST",
+      "path": "/msp/accounts/{account_id}/findings/{finding_id}/resolve",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "resolution",
+          "type": "int",
+          "location": "body",
+          "description": "Resolution ID (e.g., 10=Valid, 20=False Positive, 30=No Action Needed, 40=Risk Accepted)",
+          "required": true
+        },
+        {
+          "name": "resolution_notes",
+          "type": "string",
+          "location": "body",
+          "description": "Optional notes related to the resolution"
+        }
+      ]
+    },
+    {
+      "name": "msp_set-finding-owners",
+      "description": "Assign owners to a finding for your MSP sub-account. Required: account_id, finding_id, owner_type, owners. Returns the new FindingDetailRecord.",
+      "method": "POST",
+      "path": "/msp/accounts/{account_id}/findings/{finding_id}/assign",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "location": "path",
+          "description": "Account ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "owner_type",
+          "type": "string",
+          "location": "body",
+          "description": "Type of owners to assign. Case-sensitive, must be lowercase.",
+          "required": true
+        },
+        {
+          "name": "owners",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Array of person IDs (UUIDs) to assign as owners. Empty array clears all owners for the specified owner_type.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-add-comment",
+      "description": "Add a comment to a finding in the org. Required: finding_id, body, sender. Returns the new FindingsCommentsRecord.",
+      "method": "POST",
+      "path": "/org/findings/{finding_id}/comments",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "location": "body",
+          "description": "Comment body (required, non-empty). May contain HTML.",
+          "required": true
+        },
+        {
+          "name": "sender",
+          "type": "string",
+          "location": "body",
+          "description": "UUID of the person creating the comment. Use GET /org/users or GET /msp/accounts/{account_id}/users to obtain user IDs.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get",
+      "description": "Get a specific finding by ID. Required: finding_id. Returns the ResponseFindingsRecord.",
+      "method": "GET",
+      "path": "/org/findings/{finding_id}",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-agents-device",
+      "description": "Get a specific agents device by ID. Required: device_id. Returns the ResponseAgentsDeviceDetailRecord.",
+      "method": "GET",
+      "path": "/org/agents/devices/{device_id}",
+      "params": [
+        {
+          "name": "device_id",
+          "type": "string",
+          "location": "path",
+          "description": "Device ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-agents-devices",
+      "description": "Get or search agents devices. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of OrgControllerDirectGetAgentsDevicesItem.",
+      "method": "GET",
+      "path": "/org/agents/devices",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-agents-key",
+      "description": "Get a specific agents key by ID. Required: key_id. Returns the ResponseAgentsKeyDetailRecord.",
+      "method": "GET",
+      "path": "/org/agents/keys/{key_id}",
+      "params": [
+        {
+          "name": "key_id",
+          "type": "string",
+          "location": "path",
+          "description": "Key ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-agents-keys",
+      "description": "Get or search agents keys. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of OrgControllerDirectGetAgentsKeysItem.",
+      "method": "GET",
+      "path": "/org/agents/keys",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-by",
+      "description": "Get or search findings for your organization. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 71 more). Returns array of OrgControllerDirectGetByItem.",
+      "method": "GET",
+      "path": "/org/findings",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        },
+        {
+          "name": "blocked",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter findings with blocked either True of False"
+        },
+        {
+          "name": "blocked.eq",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter findings with blocked either True of False"
+        },
+        {
+          "name": "blocked-eq-2",
+          "wire_name": "blocked.!eq",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filter out findings with blocked either True of False"
+        },
+        {
+          "name": "category",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding"
+        },
+        {
+          "name": "category.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding"
+        },
+        {
+          "name": "category-eq-2",
+          "wire_name": "category.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Category ID of finding to filter out"
+        },
+        {
+          "name": "category.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of category IDs of findings to include"
+        },
+        {
+          "name": "category-in-2",
+          "wire_name": "category.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of category IDs of findings to filter out"
+        },
+        {
+          "name": "created",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was created"
+        },
+        {
+          "name": "created_after",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC)"
+        },
+        {
+          "name": "created_before",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC)"
+        },
+        {
+          "name": "created.eq",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was created"
+        },
+        {
+          "name": "created-eq-2",
+          "wire_name": "created.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings with the given exact time of creation"
+        },
+        {
+          "name": "created.lt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "created-lt-2",
+          "wire_name": "created.!lt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "created.gt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "created-gt-2",
+          "wire_name": "created.!gt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, limit search to findings created_by person with given UUID"
+        },
+        {
+          "name": "modified",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was modified"
+        },
+        {
+          "name": "modified_after",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC)"
+        },
+        {
+          "name": "modified_before",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC)"
+        },
+        {
+          "name": "modified.eq",
+          "type": "string",
+          "location": "query",
+          "description": "Exact time object was modified"
+        },
+        {
+          "name": "modified-eq-2",
+          "wire_name": "modified.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings with the given exact time of modification"
+        },
+        {
+          "name": "modified.lt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "modified-lt-2",
+          "wire_name": "modified.!lt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "modified.gt",
+          "type": "string",
+          "location": "query",
+          "description": "Start time of window for search (implied UTC) (exclusive)"
+        },
+        {
+          "name": "modified-gt-2",
+          "wire_name": "modified.!gt",
+          "type": "string",
+          "location": "query",
+          "description": "End time of window for search (implied UTC) (inclusive)"
+        },
+        {
+          "name": "modified_by",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding"
+        },
+        {
+          "name": "modified_by.eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding"
+        },
+        {
+          "name": "modified-by-eq-2",
+          "wire_name": "modified_by.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings where person who last modified it has the given UUID"
+        },
+        {
+          "name": "modified_by.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding"
+        },
+        {
+          "name": "modified-by-in-2",
+          "wire_name": "modified_by.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Filter out findings where person who last modified it in the given comma-separated list of UUIDs"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name"
+        },
+        {
+          "name": "name.eq",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name"
+        },
+        {
+          "name": "name-eq-2",
+          "wire_name": "name.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with given name"
+        },
+        {
+          "name": "name.in",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with one of the given comma-separated list of names"
+        },
+        {
+          "name": "name-in-2",
+          "wire_name": "name.!in",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with any of the given comma-separated list of names"
+        },
+        {
+          "name": "name.contains",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with given name substring"
+        },
+        {
+          "name": "name-contains-2",
+          "wire_name": "name.!contains",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with given name substring"
+        },
+        {
+          "name": "name.regex",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will limit search to findings with name partially matching given regular expression"
+        },
+        {
+          "name": "name-regex-2",
+          "wire_name": "name.!regex",
+          "type": "string",
+          "location": "query",
+          "description": "If specified, will filter out findings with name partially matching given regular expression"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding"
+        },
+        {
+          "name": "priority.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding"
+        },
+        {
+          "name": "priority-eq-2",
+          "wire_name": "priority.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Priority number of finding to filter out"
+        },
+        {
+          "name": "priority.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of priority numbers of findings to include"
+        },
+        {
+          "name": "priority-in-2",
+          "wire_name": "priority.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of priority numbers of findings to filter out"
+        },
+        {
+          "name": "priority.lt",
+          "type": "int",
+          "location": "query",
+          "description": "Minimum priority number of finding to exclude"
+        },
+        {
+          "name": "priority-lt-2",
+          "wire_name": "priority.!lt",
+          "type": "int",
+          "location": "query",
+          "description": "Minimum priority number of finding to include"
+        },
+        {
+          "name": "priority.gt",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum priority number of finding to exclude"
+        },
+        {
+          "name": "priority-gt-2",
+          "wire_name": "priority.!gt",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum priority number of finding to include"
+        },
+        {
+          "name": "resolution",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding"
+        },
+        {
+          "name": "resolution.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding"
+        },
+        {
+          "name": "resolution-eq-2",
+          "wire_name": "resolution.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Resolution ID of finding to filter out"
+        },
+        {
+          "name": "resolution.in",
+          "type": "int",
+          "location": "query",
+          "description": "Comma-separated list of Resolution IDs of findings to include"
+        },
+        {
+          "name": "resolution-in-2",
+          "wire_name": "resolution.!in",
+          "type": "int",
+          "location": "query",
+          "description": "Comma-separated list of resolution IDs of findings to filter out"
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding"
+        },
+        {
+          "name": "status.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding"
+        },
+        {
+          "name": "status-eq-2",
+          "wire_name": "status.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Status ID of finding to filter out"
+        },
+        {
+          "name": "status.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of status IDs of findings to include"
+        },
+        {
+          "name": "status-in-2",
+          "wire_name": "status.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of status IDs of findings to filter out"
+        },
+        {
+          "name": "status_modified_by",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status_modified_by.eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status-modified-by-eq-2",
+          "wire_name": "status_modified_by.!eq",
+          "type": "string",
+          "location": "query",
+          "description": "UUID of person who last modified finding status"
+        },
+        {
+          "name": "status_modified_by.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding status"
+        },
+        {
+          "name": "status-modified-by-in-2",
+          "wire_name": "status_modified_by.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of UUIDs of persons who last modified finding status to be filtered out"
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id"
+        },
+        {
+          "name": "type.eq",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id"
+        },
+        {
+          "name": "type-eq-2",
+          "wire_name": "type.!eq",
+          "type": "int",
+          "location": "query",
+          "description": "Integer type id to filter out"
+        },
+        {
+          "name": "type.in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of integer type IDs to include"
+        },
+        {
+          "name": "type-in-2",
+          "wire_name": "type.!in",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of integer type IDs to filter out"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-comments",
+      "description": "Get comments for a specific finding. Required: finding_id. Returns array of FindingsCommentsRecord.",
+      "method": "GET",
+      "path": "/org/findings/{finding_id}/comments",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-details",
+      "description": "Get details for a specific finding. Required: finding_id. Returns the FindingDetailRecord.",
+      "method": "GET",
+      "path": "/org/findings/{finding_id}/details",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-detection-rule",
+      "description": "Get a detection rule by ID. Required: rule_id. Returns the ResponseDetectionRuleDetail.",
+      "method": "GET",
+      "path": "/org/detection-rules/{rule_id}",
+      "params": [
+        {
+          "name": "rule_id",
+          "type": "string",
+          "location": "path",
+          "description": "Detection rule ID, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-detection-rules-by",
+      "description": "List detection rules for your organization. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more). Returns array of DetectionRuleRecord.",
+      "method": "GET",
+      "path": "/org/detection-rules",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-get-evidence",
+      "description": "Returns evidence keys (schema) and a paginated first page of evidence rows for the finding in one call. Resolves the finding to its match and orchestrates evidence_key + evidence from bdf-matches. Use query params for pagination (e.g. page=2 for subsequent pages). Required: finding_id. Optional: page (default: 1), page_size (default: 50), limit (default: 200) (plus 1 more).",
+      "method": "GET",
+      "path": "/org/findings/{finding_id}/evidence",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Order records by field, e.g., 'created', 'created;asc', 'created;desc', 'name;desc,created;desc'"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-list-users",
+      "description": "Get or search users for your organization. Optional: page (default: 1), page_size (default: 50), limit (default: 200). Returns array of OrgControllerDirectListUsersItem.",
+      "method": "GET",
+      "path": "/org/users",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page to return, e.g., '2'"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of records per page to return, e.g., '3'"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of records to return, e.g., '200'"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-resolve-finding",
+      "description": "Resolve a finding. Required: finding_id, resolution. Optional: resolution_notes. Returns the new FindingDetailRecord.",
+      "method": "POST",
+      "path": "/org/findings/{finding_id}/resolve",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "resolution",
+          "type": "int",
+          "location": "body",
+          "description": "Resolution ID (e.g., 10=Valid, 20=False Positive, 30=No Action Needed, 40=Risk Accepted)",
+          "required": true
+        },
+        {
+          "name": "resolution_notes",
+          "type": "string",
+          "location": "body",
+          "description": "Optional notes related to the resolution"
+        }
+      ]
+    },
+    {
+      "name": "org_controller-direct-set-owners",
+      "description": "Assign owners to a finding. Required: finding_id, owner_type, owners. Returns the new FindingDetailRecord.",
+      "method": "POST",
+      "path": "/org/findings/{finding_id}/assign",
+      "params": [
+        {
+          "name": "finding_id",
+          "type": "string",
+          "location": "path",
+          "description": "Finding ID of the object, e.g., '00110011-0000-0000-0000-000000000000'",
+          "required": true
+        },
+        {
+          "name": "owner_type",
+          "type": "string",
+          "location": "body",
+          "description": "Type of owners to assign. Case-sensitive, must be lowercase.",
+          "required": true
+        },
+        {
+          "name": "owners",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Array of person IDs (UUIDs) to assign as owners. Empty array clears all owners for the specified owner_type.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resolutions_get-resolutions",
+      "description": "Get resolution options for findings. Returns array of ResolutionRecord.",
+      "method": "GET",
+      "path": "/resolutions",
+      "params": []
+    }
+  ]
+}

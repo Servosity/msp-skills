@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-13T04:07:57.408203Z",
+  "printing_press_version": "4.24.0",
+  "api_name": "betterstack",
+  "display_name": "Better Stack",
+  "cli_name": "betterstack-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:d7184736b4d89bebca34eaeeddead81125b612bdf498e99cf2abae97c41d2853",
+  "run_id": "20260606-175505",
+  "category": "monitoring",
+  "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics — what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift — that the API alone can't answer.",
+  "mcp_binary": "betterstack-pp-mcp",
+  "mcp_tool_count": 40,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "BETTERSTACK_API_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet health board",
+      "command": "fleet",
+      "description": "One-screen health of the whole Better Stack account: monitors up/down/paused, heartbeats, open incidents, and who's on call now."
+    },
+    {
+      "name": "Alerting coverage gaps",
+      "command": "coverage",
+      "description": "Find monitors with no escalation policy or no alert channel — the ones that will go down silently and page no one."
+    },
+    {
+      "name": "Incident MTTA / MTTR",
+      "command": "mttr",
+      "description": "Mean time to acknowledge and resolve, computed across incidents over a window and broken down by monitor."
+    },
+    {
+      "name": "Flapping / noisy monitors",
+      "command": "flapping",
+      "description": "Rank monitors by how many incidents they generated in a window to surface the noisy, flapping, or misconfigured ones."
+    },
+    {
+      "name": "On-call coverage gaps",
+      "command": "oncall-gaps",
+      "description": "Detect on-call calendars with nobody currently on call."
+    },
+    {
+      "name": "Heartbeat risk audit",
+      "command": "heartbeat-risk",
+      "description": "Rank heartbeats by risk: tight period+grace windows, paused-but-expected, and non-up status."
+    },
+    {
+      "name": "What's-down triage board",
+      "command": "down",
+      "description": "Focused triage list of monitors currently down or degraded, joined to their open incidents and whether anyone is actually paged for each."
+    },
+    {
+      "name": "Unacked-incident triage",
+      "command": "triage",
+      "description": "Open incidents ranked by age and acknowledgement state — never-acknowledged first — joined to the affected monitor."
+    },
+    {
+      "name": "Status-page drift audit",
+      "command": "statuspage-audit",
+      "description": "Flags status pages showing operational while a backing monitor has an open incident, and status-page resources pointing at missing or paused monitors."
+    },
+    {
+      "name": "Group rollup health",
+      "command": "group-health",
+      "description": "Per-group health rollup: monitor and heartbeat up/down counts plus open incidents for every monitor group and heartbeat group."
+    }
+  ]
+}
