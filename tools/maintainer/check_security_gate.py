@@ -70,6 +70,18 @@ so what its callers pass into it, and the package-level names and imports it use
 not re-proven by this rule; the dangerous-pattern, dependency and reachability checks
 still apply to that code.
 
+CONTENT-BOUND entries (the "bound" list in the same base-owned file, 2026-10-23) accept
+a vetted press-template finding in every connector that ships the template unchanged,
+and nowhere else. Each names one .go file (slug-relative, `{slug}` allowed for the
+connector's own directory name), one rule, a reason, and the sha256 of the reviewed
+bytes: the whole file ("bind": "file") or the top-level declaration holding the finding
+("bind": "decl", delimited by DECL_SPAN_GO). An edit to those bytes, the same rule
+anywhere else, a malformed entry, or a missing parser helper accepts nothing. Builtin
+rules (first match per file only) honor file bindings only. They are checked after
+"suppress" and fleet precedent, so nothing those already accept changes. The decl
+residual is fleet precedent's: callers are not re-proven. `--bound-hash` prints the
+digests for an entry.
+
 Folded in when installed (CI installs them): gosec, govulncheck, osv-scanner, semgrep.
   * gosec runs once per build target in GOSEC_TARGETS: the runner's own OS (Linux in CI
     and release), GOOS=windows and GOOS=darwin. go/packages loads only the files one
@@ -106,6 +118,7 @@ import argparse
 import ast
 import atexit
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -287,6 +300,173 @@ def load_suppressions(ref: str | None = None) -> set[tuple[str, str]]:
         return set()
 
 
+# --- content-bound suppressions (the "bound" list) ---------------------------------
+# A "suppress" entry accepts every finding of its rule in its file, whatever the file
+# holds later. A "bound" entry accepts a finding only while the reviewed code is still
+# there, byte for byte:
+#   bind "file": the whole file's sha256 is listed. Any edit to the file, anywhere,
+#                and every finding of that rule in it is reported again.
+#   bind "decl": the sha256 of the top-level declaration holding the finding (doc
+#                comment included, delimited by Go's parser, DECL_SPAN_GO) is listed.
+#                An edit inside that declaration, or the same finding anywhere else in
+#                the file, is reported again.
+# This is what lets one reviewed press-template finding be accepted in every connector
+# that ships the template unchanged, without accepting a hand edit to it. The entries
+# live under their own key, so an older copy of this script, which knows only
+# "suppress", never reads them as whole-file suppressions.
+# Only .go files, never a control rule. A "file" may name {slug}, which becomes the
+# connector's own directory name (cmd/{slug}-mcp/main.go). "slug_neutral": true hashes
+# the text with that connector's slug and its upper-case form (CONNECTWISE_RMM) put back
+# to fixed markers, so the template text that differs between connectors only by the
+# connector's own name has one digest. The slug is the directory name, never anything a
+# PR writes into a file. A malformed entry is dropped and accepts nothing; it never
+# falls back to whole-file semantics. The residual is the one fleet precedent already
+# carries: a "decl" binding trusts that declaration as text, not what its callers pass
+# into it; the rest of the file and every other file are still scanned.
+BOUND_KINDS = ("file", "decl")
+SHA256_RE = re.compile(r"sha256:[0-9a-f]{64}")
+BOUND_FILE_RE = re.compile(r"(?:skills/[a-z0-9][a-z0-9-]*/)?cli/(?:[A-Za-z0-9_.{}-]+/)*[A-Za-z0-9_.{}-]+\.go")
+SLUG_ENV_MARK, SLUG_MARK = "\0SLUG_ENV\0", "\0SLUG\0"
+
+
+def bound_text(data: bytes, slug: str, neutral: bool) -> bytes:
+    """The bytes a "bound" digest is taken over: the text itself, or with the
+    connector's own name put back to fixed markers ("slug_neutral"). NUL never
+    occurs in Go source, so a marker cannot collide with real text."""
+    if not neutral:
+        return data
+    text = data.decode("utf-8", "surrogateescape")
+    text = text.replace(slug.upper().replace("-", "_"), SLUG_ENV_MARK).replace(slug, SLUG_MARK)
+    return text.encode("utf-8", "surrogateescape")
+
+
+def bound_digest(data: bytes, slug: str = "", neutral: bool = False) -> str:
+    return "sha256:" + hashlib.sha256(bound_text(data, slug, neutral)).hexdigest()
+
+
+class BoundSuppressions:
+    """The "bound" entries of security_suppressions.json, read from the trusted base."""
+
+    def __init__(self, raw, repo: Path | None = None):
+        self.repo = repo or REPO
+        # (file pattern, rule) -> list of (bind, slug_neutral, digests)
+        self.entries: dict[tuple[str, str], list[tuple[str, bool, frozenset[str]]]] = {}
+        self.rejected: list[str] = []
+        self._spans: dict[tuple[str, int], tuple[int, int] | None] = {}
+        for i, e in enumerate(raw if isinstance(raw, list) else []):
+            why = self._invalid(e)
+            if why:
+                self.rejected.append(f"bound[{i}]: {why}")
+                continue
+            key = (e["file"], e["rule"])
+            self.entries.setdefault(key, []).append(
+                (e["bind"], e.get("slug_neutral") is True, frozenset(e["sha256"])))
+
+    @staticmethod
+    def _invalid(e) -> str | None:
+        if not isinstance(e, dict):
+            return "not an object"
+        f, rule, hashes = e.get("file"), e.get("rule"), e.get("sha256")
+        if not isinstance(f, str) or not BOUND_FILE_RE.fullmatch(f) or "/../" in f"/{f}/" or "/./" in f"/{f}/":
+            return f"file {f!r} is not a .go path under cli/"
+        if "{" in f.replace("{slug}", ""):
+            return f"file {f!r} has a placeholder other than {{slug}}"
+        if not isinstance(rule, str) or not rule or rule in CONTROL_RULES:
+            return f"rule {rule!r} is missing or a control rule"
+        if e.get("bind") not in BOUND_KINDS:
+            return f"bind {e.get('bind')!r} is not one of {BOUND_KINDS}"
+        if (not isinstance(hashes, list) or not hashes
+                or not all(isinstance(h, str) and SHA256_RE.fullmatch(h) for h in hashes)):
+            return "sha256 must be a non-empty list of sha256:<64 hex>"
+        if "slug_neutral" in e and not isinstance(e["slug_neutral"], bool):
+            return "slug_neutral must be true or false"
+        if not isinstance(e.get("reason"), str) or not e["reason"].strip():
+            return "reason is missing"
+        return None
+
+    def _candidates(self, repo_rel: str, rule: str):
+        """(slug, entries) for a finding in skills/<slug>/cli/..., else (None, [])."""
+        parts = repo_rel.split("/")
+        if len(parts) < 4 or parts[0] != "skills" or parts[2] != "cli" or not SLUG_RE.fullmatch(parts[1]):
+            return None, []
+        slug = parts[1]
+        slug_rel = "/".join(parts[2:])
+        got = []
+        for (pattern, r), items in self.entries.items():
+            if r != rule:
+                continue
+            name = pattern.replace("{slug}", slug)
+            if name == repo_rel or name == slug_rel:
+                got += items
+        return slug, got
+
+    def wants(self, repo_rel: str, rule: str) -> bool:
+        return bool(self._candidates(repo_rel, rule)[1])
+
+    def prime(self, requests: list[tuple[str, int]]) -> None:
+        todo = sorted({r for r in requests if r not in self._spans})
+        got = decl_spans(todo)
+        for r in todo:
+            self._spans[r] = got.get(r)
+
+    def accepts(self, repo_rel: str, rule: str, line, kinds: tuple[str, ...] = BOUND_KINDS) -> str | None:
+        """The bind kind that accepts this finding, or None. Fails closed: an
+        unreadable or symlinked file, a line outside one declaration, or no parser
+        helper accepts nothing."""
+        if rule in CONTROL_RULES:
+            return None
+        slug, items = self._candidates(repo_rel, rule)
+        items = [x for x in items if x[0] in kinds]
+        if not items:
+            return None
+        path = self.repo / repo_rel
+        try:
+            if path.is_symlink() or not path.is_file():
+                return None
+            data = path.read_bytes()
+        except OSError:
+            return None
+        # A NUL byte is never valid Go source, and it is what the slug-neutral markers
+        # are made of: refuse such a file outright rather than reason about it.
+        if b"\0" in data:
+            return None
+        for bind, neutral, digests in items:
+            if bind == "file" and bound_digest(data, slug, neutral) in digests:
+                return "file"
+        rng = _line_range(line)
+        if rng is None or not any(b == "decl" for b, _, _ in items):
+            return None
+        key = (str(path), rng[0])
+        if key not in self._spans:
+            self.prime([key])
+        span = self._spans.get(key)
+        if not span:
+            return None
+        start, end = span
+        lines = data.decode("utf-8", "surrogateescape").split("\n")
+        if not (start <= rng[0] <= rng[1] <= end <= len(lines)):
+            return None
+        decl = "\n".join(lines[start - 1:end]).encode("utf-8", "surrogateescape")
+        for bind, neutral, digests in items:
+            if bind == "decl" and bound_digest(decl, slug, neutral) in digests:
+                return "decl"
+        return None
+
+
+def load_bound(ref: str | None = None, repo: Path | None = None) -> BoundSuppressions:
+    """The "bound" list from the trusted base (or the working tree without a ref).
+    Unreadable policy means no entries (fail closed)."""
+    txt = _policy_text(SUPPRESSIONS, ref)
+    try:
+        raw = json.loads(txt).get("bound", []) if txt else []
+    except (json.JSONDecodeError, AttributeError):
+        raw = []
+    bound = BoundSuppressions(raw, repo)
+    if not isinstance(raw, list):
+        bound.rejected.append("\"bound\" is not a list")
+    return bound
+
+
 def changed_files(base: str, slug: str) -> list[Path] | None:
     # -z and bytes: raw names, split only on NUL. Without -z git quotes unusual names
     # ("skills/x/\303\251.py"), and decoding as text would turn a carriage return
@@ -310,7 +490,9 @@ def changed_files(base: str, slug: str) -> list[Path] | None:
     return [REPO / f for f in names if f.startswith(prefix)]
 
 
-def scan_go_patterns(files: list[Path], suppress: set[tuple[str, str]]) -> list[dict]:
+def scan_go_patterns(files: list[Path], suppress: set[tuple[str, str]],
+                     bound: BoundSuppressions | None = None,
+                     bound_accepted: list[dict] | None = None) -> list[dict]:
     findings = []
     for f in files:
         if f.suffix != ".go" or f.name.endswith("_test.go") or not f.is_file():
@@ -328,6 +510,13 @@ def scan_go_patterns(files: list[Path], suppress: set[tuple[str, str]]) -> list[
             m = rx.search(text)
             if m:
                 lineno = text[:m.start()].count("\n") + 1
+                # A builtin rule reports only its FIRST match in a file, so only a whole-file
+                # binding may accept it: a "decl" binding would hide every later match.
+                if bound is not None and bound.accepts(rel, rule, lineno, kinds=("file",)):
+                    if bound_accepted is not None:
+                        bound_accepted.append({"tool": "builtin", "rule": rule, "file": rel,
+                                               "line": lineno, "bind": "file"})
+                    continue
                 findings.append({"tool": "builtin", "rule": rule, "severity": sev,
                                  "file": rel, "line": lineno,
                                  "evidence": text[m.start():m.start() + 80].replace("\n", "\\n")})
@@ -1003,7 +1192,9 @@ def gosec_passes(mod: Path, slug: str, require: bool, add) -> list[dict]:
 def scan_external(slug: str, suppress: set[tuple[str, str]],
                   base: str | None = None, require: bool = False,
                   precedent: FleetPrecedent | None = None,
-                  accepted: list[dict] | None = None) -> list[dict]:
+                  accepted: list[dict] | None = None,
+                  bound: BoundSuppressions | None = None,
+                  bound_accepted: list[dict] | None = None) -> list[dict]:
     findings = []
     mod = REPO / "skills" / slug / "cli"
 
@@ -1016,6 +1207,16 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # Control-plane rules ("the gate could not run") are never suppressible.
         if rule not in CONTROL_RULES and ((repo_rel, rule) in suppress or (slug_rel, rule) in suppress):
             return
+        # Content-bound entries come last, after "suppress" and fleet precedent, so a
+        # finding either of those already accepts is reported exactly as before.
+        # gosec and semgrep report every instance with its line; nothing else is bound.
+        if bound is not None and tool in ("gosec", "semgrep") and rule not in CONTROL_RULES:
+            kind = bound.accepts(repo_rel, rule, line)
+            if kind:
+                if bound_accepted is not None:
+                    bound_accepted.append({"tool": tool, "rule": rule, "file": repo_rel,
+                                           "line": line, "bind": kind})
+                return
         findings.append({"tool": tool, "rule": rule, "severity": sev,
                          "file": repo_rel or file_path, "line": line, "evidence": evidence})
 
@@ -1064,6 +1265,14 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
                 if iss.get("nosec") is True and rng and repo_rel.startswith(f"skills/{slug}/cli/"):
                     wanted.append((str(precedent.repo / repo_rel), rng[0]))
             precedent.prime(wanted)
+        if bound is not None:
+            wanted = []
+            for iss in issues:
+                rng = _line_range(iss.get("line", 0))
+                repo_rel, _ = _external_rel(iss.get("file", ""), slug)
+                if rng and bound.wants(repo_rel, str(iss.get("rule_id"))):
+                    wanted.append((str(bound.repo / repo_rel), rng[0]))
+            bound.prime(wanted)
         for iss in issues:
             sev = "P1" if iss.get("severity", "").upper() in ("HIGH", "MEDIUM") else "P2"
             details = iss.get("details", "")[:120]
@@ -2843,10 +3052,193 @@ def _self_test_gosec_targets() -> int:
     return failed
 
 
+def _self_test_bound() -> int:
+    """Content-bound entries, both directions, through the real gosec and builtin paths
+    (a stand-in gosec on PATH): the reviewed bytes are accepted; an edit inside them, the
+    same rule elsewhere in the file, a copy at another path, a malformed or control-rule
+    entry, a missing parser helper, and an entry only the PR's own copy lists are not."""
+    global REPO
+    failed = 0
+    saved_repo, saved_env = REPO, {k: os.environ.get(k) for k in ("PATH", "FAKE_GOSEC_CASE", "FAKE_GOSEC_LOG")}
+    tmp = Path(tempfile.mkdtemp(prefix="gate-bound-")).resolve()
+    src = ('package x\n\nimport "os"\n\n// f reads p.\nfunc f(p string) ([]byte, error) {\n'
+           '\treturn os.ReadFile(p)\n}\n\nfunc g(q string) ([]byte, error) {\n\treturn os.ReadFile(q)\n}\n')
+    f_line, g_line = 7, 11
+    usrc = 'package u\n\nimport (\n\t"unsafe"\n)\n\nvar n = unsafe.Sizeof(0)\n'
+    main_src = 'package main\n\nconst (\n\taddr = "127.0.0.1:7777"\n\ttok  = "%s_MCP_HTTP_TOKEN"\n)\n\nfunc main() {}\n'
+    try:
+        REPO = tmp
+        bindir = tmp / "bin"
+        bindir.mkdir()
+        (bindir / "gosec").write_text(FAKE_GOSEC)
+        (bindir / "gosec").chmod(0o755)
+        os.environ["FAKE_GOSEC_LOG"] = str(tmp / "gosec.log")
+        # Build the parser helper while the real Go is on PATH, then leave only the
+        # stand-in gosec and the system tools, so no real scanner can be picked up.
+        (tmp / "warm.go").write_text("package w\n")
+        decl_spans([(str(tmp / "warm.go"), 1)])
+        os.environ["PATH"] = f"{bindir}{os.pathsep}/usr/bin{os.pathsep}/bin"
+
+        def put(slug: str, rel: str, text: str) -> Path:
+            p = tmp / "skills" / slug / "cli" / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, encoding="utf-8")
+            (tmp / "skills" / slug / "cli" / "go.mod").write_text(f"module {slug}\n\ngo 1.26\n")
+            return p
+
+        def digest(text: str, lo: int | None = None, hi: int | None = None, slug: str = "", neutral=False) -> str:
+            data = text.encode()
+            if lo is not None:
+                data = "\n".join(text.split("\n")[lo - 1:hi]).encode()
+            return bound_digest(data, slug, neutral)
+
+        f_decl = digest(src, 5, 8)
+        file_sha = digest(src)
+
+        def entry(file, rule, bind, hashes, **kw):
+            return {"file": file, "rule": rule, "bind": bind, "sha256": hashes, "reason": "self-test", **kw}
+
+        def gosec(slug: str, entries: list, issues: list) -> tuple[list[dict], list[dict]]:
+            os.environ["FAKE_GOSEC_CASE"] = json.dumps({"native": {"issues": issues}})
+            acc: list[dict] = []
+            got = scan_external(slug, set(), None, False, None, None, BoundSuppressions(entries, tmp), acc)
+            return [x for x in got if x["tool"] == "gosec" and x["severity"] == "P1"], acc
+
+        def g304(line, rel="internal/x/x.go", nosec=False):
+            return ("G304", "MEDIUM", rel, line, "Potential file inclusion via variable", nosec)
+
+        cases = []
+        put("acme", "internal/x/x.go", src)
+        decl_e = [entry("cli/internal/x/x.go", "G304", "decl", [f_decl])]
+        p1, acc = gosec("acme", decl_e, [g304(f_line)])
+        cases.append(("decl binding: the reviewed declaration unchanged is accepted",
+                      not p1 and [a["bind"] for a in acc] == ["decl"]))
+        p1, _ = gosec("acme", decl_e, [g304(f_line, nosec=True)])
+        cases.append(("decl binding accepts an annotation-hidden finding too (no precedent needed)", not p1))
+        p1, _ = gosec("acme", decl_e, [g304(g_line)])
+        cases.append(("decl binding: the same rule in another declaration of the file is a P1", len(p1) == 1))
+        put("acme", "internal/x/x.go", src.replace("\treturn os.ReadFile(p)", '\tp = "/etc/shadow"\n\treturn os.ReadFile(p)'))
+        p1, _ = gosec("acme", decl_e, [g304(f_line + 1)])
+        cases.append(("decl binding: an edit inside the declaration is a P1", len(p1) == 1))
+        put("acme", "internal/x/x.go", src.replace("os.ReadFile(q)", "os.ReadFile(q + \"x\")"))
+        p1, _ = gosec("acme", decl_e, [g304(f_line)])
+        cases.append(("decl binding: an edit elsewhere in the file leaves the bound declaration accepted", not p1))
+        p1, _ = gosec("acme", decl_e, [("G304", "MEDIUM", "internal/x/x.go", f"{f_line}-{g_line}", "x", False)])
+        cases.append(("decl binding: a finding range past the declaration is a P1", len(p1) == 1))
+        put("acme", "internal/x/x.go", src)
+        file_e = [entry("cli/internal/x/x.go", "G304", "file", [file_sha])]
+        p1, acc = gosec("acme", file_e, [g304(f_line), g304(g_line)])
+        cases.append(("file binding: every finding of the rule in the unchanged file is accepted",
+                      not p1 and len(acc) == 2))
+        put("acme", "internal/x/x.go", src + "\n// a hand edit\n")
+        p1, _ = gosec("acme", file_e, [g304(f_line)])
+        cases.append(("file binding: any edit to the file is a P1", len(p1) == 1))
+        put("acme", "internal/x/x.go", src)
+        put("acme", "internal/y/x.go", src)
+        p1, _ = gosec("acme", decl_e + file_e, [g304(f_line, "internal/y/x.go")])
+        cases.append(("the same bytes at another path are a P1", len(p1) == 1))
+        p1, _ = gosec("acme", [entry("cli/internal/x/x.go", "G115", "decl", [f_decl])], [g304(f_line)])
+        cases.append(("an entry for another rule does not apply", len(p1) == 1))
+        p1, _ = gosec("acme", [entry("skills/other/cli/internal/x/x.go", "G304", "decl", [f_decl])], [g304(f_line)])
+        cases.append(("a repo-relative entry for another connector does not apply", len(p1) == 1))
+        for name, bad in (("bind misspelled", entry("cli/internal/x/x.go", "G304", "fle", [file_sha])),
+                          ("digest not sha256:<hex>", entry("cli/internal/x/x.go", "G304", "file", [file_sha[7:]])),
+                          ("empty digest list", entry("cli/internal/x/x.go", "G304", "file", [])),
+                          ("no reason", {**entry("cli/internal/x/x.go", "G304", "file", [file_sha]), "reason": " "}),
+                          ("path escapes cli/", entry("cli/../cli/internal/x/x.go", "G304", "file", [file_sha])),
+                          ("not a .go file", entry("cli/go.mod", "G304", "file", [file_sha])),
+                          ("an unknown placeholder", entry("cli/internal/{x}/x.go", "G304", "file", [file_sha]))):
+            b = BoundSuppressions([bad], tmp)
+            p1, _ = gosec("acme", [bad], [g304(f_line)])
+            cases.append((f"a malformed entry ({name}) is rejected and accepts nothing",
+                          len(p1) == 1 and len(b.rejected) == 1 and not b.entries))
+        ctl = BoundSuppressions([entry("cli/internal/x/x.go", "scanner-error", "file", [file_sha])], tmp)
+        cases.append(("an entry for a control rule is rejected", len(ctl.rejected) == 1
+                      and ctl.accepts("skills/acme/cli/internal/x/x.go", "scanner-error", 0) is None))
+        saved = dict(_DECL_SPAN)
+        _DECL_SPAN.update(bin=None, failed=True)
+        try:
+            p1, _ = gosec("acme", decl_e, [g304(f_line)])
+            cases.append(("no Go toolchain for the parser helper: a decl binding accepts nothing", len(p1) == 1))
+            p1, _ = gosec("acme", file_e, [g304(f_line)])
+            cases.append(("no Go toolchain: a file binding still works (it needs no parser)", not p1))
+        finally:
+            _DECL_SPAN.update(saved)
+        link = tmp / "skills" / "acme" / "cli" / "internal" / "z" / "x.go"
+        link.parent.mkdir(parents=True)
+        link.symlink_to(tmp / "skills" / "acme" / "cli" / "internal" / "x" / "x.go")
+        p1, _ = gosec("acme", [entry("cli/internal/z/x.go", "G304", "file", [file_sha])], [g304(f_line, "internal/z/x.go")])
+        cases.append(("a symlinked file is never accepted", len(p1) == 1))
+        put("acme", "internal/n/x.go", src + "\0")
+        p1, _ = gosec("acme", [entry("cli/internal/n/x.go", "G304", "file", [digest(src + "\0")])],
+                      [g304(f_line, "internal/n/x.go")])
+        cases.append(("a file holding a NUL byte (the marker alphabet) is never accepted, even listed", len(p1) == 1))
+
+        # The builtin rules report only a file's first match, so only a file binding counts.
+        upath = put("acme", "internal/u/u.go", usrc)
+
+        def builtin(entries) -> list[dict]:
+            return [x for x in scan_go_patterns([upath], set(), BoundSuppressions(entries, tmp), [])
+                    if x["rule"] == "unsafe-import"]
+        ufile = [entry("cli/internal/u/u.go", "unsafe-import", "file", [digest(usrc)])]
+        cases.append(("builtin unsafe-import: a file binding of the unchanged file is accepted", not builtin(ufile)))
+        cases.append(("builtin unsafe-import: a decl binding is never honored for a builtin rule",
+                      len(builtin([entry("cli/internal/u/u.go", "unsafe-import", "decl", [digest(usrc, 3, 5)])])) == 1))
+        put("acme", "internal/u/u.go", usrc + "\nvar p = unsafe.Pointer(nil)\n")
+        cases.append(("builtin unsafe-import: an edit to the file is a P1", len(builtin(ufile)) == 1))
+
+        # {slug} paths and slug-neutral digests: one entry for text that differs only by name.
+        neutral = digest(main_src % "ACME", 3, 6, "acme", True)
+        mcp_e = [entry("cli/cmd/{slug}-mcp/main.go", "G101", "decl", [neutral], slug_neutral=True)]
+        for slug, env, want in (("acme", "ACME", True), ("connectwise-rmm", "CONNECTWISE_RMM", True),
+                                ("acme", "EVIL", False), ("acme", "ACME_X", False)):
+            put(slug, f"cmd/{slug}-mcp/main.go", main_src % env)
+            p1, _ = gosec(slug, mcp_e, [("G101", "HIGH", f"cmd/{slug}-mcp/main.go", 5, "creds", False)])
+            cases.append((f"slug-neutral {{slug}} entry: {slug} with {env}_MCP_HTTP_TOKEN -> "
+                          f"{'accepted' if want else 'P1'}", (not p1) == want))
+        p1, _ = gosec("acme", [entry("cli/cmd/acme-mcp/main.go", "G101", "decl", [neutral])],
+                      [("G101", "HIGH", "cmd/acme-mcp/main.go", 5, "creds", False)])
+        cases.append(("a slug-neutral digest does not match without slug_neutral", len(p1) == 1))
+
+        # Read from the trusted base: an entry only the PR's own copy lists counts for nothing,
+        # and the "suppress" reader never sees a bound entry.
+        put("acme", "internal/x/x.go", src)
+        pol = tmp / "tools" / "maintainer" / "security_suppressions.json"
+        pol.parent.mkdir(parents=True)
+        pol.write_text(json.dumps({"suppress": [], "bound": []}))
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+               "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", "-C", str(tmp)]
+        subprocess.run(git[:-2] + ["init", "-q", str(tmp)], check=True, capture_output=True)
+        subprocess.run(git + ["add", "-A"], check=True, capture_output=True)
+        subprocess.run(git + ["commit", "-q", "-m", "base"], check=True, capture_output=True)
+        pol.write_text(json.dumps({"suppress": [], "bound": decl_e}))
+        saved_sup = globals()["SUPPRESSIONS"]
+        try:
+            globals()["SUPPRESSIONS"] = pol
+            cases.append(("an entry only the PR's working copy lists is not read from the base",
+                          not load_bound("HEAD", tmp).entries and bool(load_bound(None, tmp).entries)))
+            cases.append(("the whole-file \"suppress\" reader never reads a bound entry",
+                          load_suppressions(None) == set()))
+        finally:
+            globals()["SUPPRESSIONS"] = saved_sup
+        for name, ok in cases:
+            print(f"  [{'PASS' if ok else 'FAIL'}] bound: {name}")
+            failed += not ok
+    finally:
+        REPO = saved_repo
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    return failed
+
+
 def self_test() -> int:
     failed = (_self_test_summary() + _self_test_workflows() + _self_test_changed_files()
               + _self_test_mcp_surface() + _self_test_precedent() + _self_test_line_directive()
-              + _self_test_gosec_targets())
+              + _self_test_gosec_targets() + _self_test_bound())
     if failed:
         print(f"\nSELF-TEST FAIL: {failed} case(s) behaved wrong.")
         return 1
@@ -2877,10 +3269,12 @@ def has_go_module(slug: str) -> bool:
 
 def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[str, str]],
               require: bool = False, baseline: dict[str, set[str]] | None = None,
-              policy: list[dict] | None = None, precedent: FleetPrecedent | None = None) -> dict:
+              policy: list[dict] | None = None, precedent: FleetPrecedent | None = None,
+              bound: BoundSuppressions | None = None) -> dict:
     only = changed_files(base, slug) if base else None
     findings = []
-    findings += scan_go_patterns(go_files(slug, only), suppress)
+    bound_accepted: list[dict] = []
+    findings += scan_go_patterns(go_files(slug, only), suppress, bound, bound_accepted)
     findings += scan_install_scripts(slug, only, suppress)
     # Always scan shipped scripts: a connector ships them too (bootstrap helpers),
     # and this is the ONLY coverage a markdown-only skill's code gets.
@@ -2895,7 +3289,8 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
     accepted: list[dict] = []
     if has_go_module(slug):
         findings += scan_dependencies(slug, allow, only)
-        findings += scan_external(slug, suppress, base, require, precedent, accepted)
+        findings += scan_external(slug, suppress, base, require, precedent, accepted,
+                                  bound, bound_accepted)
 
     # MCP-surface rules judge the whole connector, in diff mode too (STATE rules).
     mcp, burned = scan_mcp_surface(slug, suppress, baseline or {})
@@ -2905,6 +3300,7 @@ def gate_slug(slug: str, base: str | None, allow: set[str], suppress: set[tuple[
     return {"slug": slug, "base": base, "scope": "diff" if only is not None else "full",
             "lane": "go" if has_go_module(slug) else "scripts",
             "findings": findings, "p1_count": len(p1), "precedented": accepted,
+            "bound_accepted": bound_accepted,
             "verdict": "block" if p1 else "pass", "burned_down": burned,
             "tools": {t: have(t) for t in ("gosec", "govulncheck", "osv-scanner", "semgrep")}}
 
@@ -2938,6 +3334,31 @@ def mcp_surface_main(args, suppress: set[tuple[str, str]], baseline: dict[str, s
     return 1 if blocked else 0
 
 
+def bound_hash_main(spec: str) -> int:
+    """--bound-hash: the digests to put in a "bound" entry, so nobody hand-computes one."""
+    rel, _, line = spec.rpartition(":") if re.search(r":\d+$", spec) else (spec, "", "")
+    parts = rel.split("/")
+    path = REPO / rel
+    if (len(parts) < 4 or parts[0] != "skills" or parts[2] != "cli" or ".." in parts
+            or not SLUG_RE.fullmatch(parts[1]) or not path.is_file()):
+        print(f"usage: --bound-hash skills/<slug>/cli/<file>.go[:LINE] (got {spec!r})", file=sys.stderr)
+        return 2
+    slug, data = parts[1], path.read_bytes()
+    out = {"file": "/".join(parts[2:]), "file_sha256": bound_digest(data),
+           "file_sha256_slug_neutral": bound_digest(data, slug, True)}
+    if line:
+        span = decl_spans([(str(path), int(line))]).get((str(path), int(line)))
+        if not span:
+            print(f"line {line} is not inside exactly one top-level declaration", file=sys.stderr)
+            return 1
+        lines = data.decode("utf-8", "surrogateescape").split("\n")
+        decl = "\n".join(lines[span[0] - 1:span[1]]).encode("utf-8", "surrogateescape")
+        out.update({"decl_lines": f"{span[0]}-{span[1]}", "decl_sha256": bound_digest(decl),
+                    "decl_sha256_slug_neutral": bound_digest(decl, slug, True)})
+    print(json.dumps(out, indent=1))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Deterministic release-blocking security gate.")
     ap.add_argument("--slug")
@@ -2965,6 +3386,9 @@ def main() -> int:
                          "existing entries are untouched")
     ap.add_argument("--self-test", action="store_true",
                     help="prove the workflow summary, the workflow pins and the diff scope both directions")
+    ap.add_argument("--bound-hash", metavar="skills/SLUG/cli/FILE.go[:LINE]",
+                    help="print the digests a content-bound entry lists for this file (and for the "
+                         "declaration holding LINE), plain and slug-neutral")
     ap.add_argument("--summarize", action="store_true",
                     help="security-gate summary job: read toJSON(needs) from $GATE_NEEDS and the "
                          "connector verdict files from --verdicts; fail unless every expected row passed")
@@ -2975,6 +3399,8 @@ def main() -> int:
 
     if args.rebuild_allowlist:
         return rebuild_allowlist()
+    if args.bound_hash:
+        return bound_hash_main(args.bound_hash)
     if args.self_test:
         return self_test()
     if args.summarize:
@@ -3008,9 +3434,12 @@ def main() -> int:
         ap.error("one of --slug, --all, or --rebuild-allowlist is required")
 
     precedent = FleetPrecedent(args.policy_base)
+    bound = load_bound(args.policy_base)
+    for why in bound.rejected:
+        print(f"WARNING: security_suppressions.json {why}; that entry accepts nothing.", file=sys.stderr)
     # A baseline problem is a policy failure, not a connector's: one row carries it.
     results = [gate_slug(s, args.base, allow, suppress, args.require_scanners, baseline,
-                         policy if i == 0 else None, precedent) for i, s in enumerate(slugs)]
+                         policy if i == 0 else None, precedent, bound) for i, s in enumerate(slugs)]
     blocked = [r for r in results if r["verdict"] == "block"]
 
     if args.json:
@@ -3028,6 +3457,10 @@ def main() -> int:
             if r.get("precedented"):
                 print(f"    info: {len(r['precedented'])} annotation-hidden gosec finding(s) accepted by "
                       f"fleet precedent (the same annotated lines in >= {PRECEDENT_MIN} other connectors)")
+            if r.get("bound_accepted"):
+                kinds = sorted({b["bind"] for b in r["bound_accepted"]})
+                print(f"    info: {len(r['bound_accepted'])} finding(s) accepted by content-bound entries "
+                      f"(reviewed code unchanged: bind {', '.join(kinds)})")
         missing = [t for t, ok in results[0]["tools"].items() if not ok] if results else []
         if missing:
             print(f"\nNOTE: external scanners not installed locally: {', '.join(missing)} "
