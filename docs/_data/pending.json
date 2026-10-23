@@ -476,9 +476,9 @@
     "released_hash": "sha256:9625f2f5d1ec7945f0b268b4cf986fde29ad200bad00529fe202f7e3c9c2f9b7"
   },
   "salesbuildr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "salesbuildr-v0.1.6",
+    "latest_tag": "salesbuildr-v0.1.7",
     "current_hash": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7",
     "released_hash": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7"
   },
