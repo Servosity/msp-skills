@@ -15,6 +15,12 @@ Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per
 
 ## Works with your agent
 
+> **Security note (until this connector is reprinted).** Do not run HTTP mode
+> (`--transport http`), not even on localhost. This build has no password, so
+> any program on this computer can use it. The MCP tools can also make changes
+> with your credentials. Use the default stdio transport. If you set up a tunnel
+> for a remote agent, shut it down. A fix is on the way.
+
 The five agents MSP owners actually use:
 
 | Your AI agent | How to install the Servosity skill |

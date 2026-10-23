@@ -12,13 +12,13 @@ faqs:
   - q: "Is the Auvik MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AUVIK_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `AUVIK_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but auvik-mcp speaks HTTP natively: run `auvik-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running auvik-mcp in HTTP mode, and in this build HTTP mode asks for no password and listens on every network interface. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Auvik user email and API key once."
   - q: "Why does it need both a username and an API key?"
     a: "Auvik authenticates with HTTP Basic: your Auvik user email is the username and the API key is the password. There is no single-token form. You also need the right regional host - AUVIK_BASE_URL selects us1, us2, eu1 and so on, and pointing at the wrong region returns a 401 that looks exactly like a bad key."
   - q: "Is my Auvik data safe?"
-    a: "Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`--transport http`, or `PP_MCP_TRANSPORT=http`), which the remote-agent path for ChatGPT and Copilot asks you to do - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`--transport http`, or `PP_MCP_TRANSPORT=http`), and you should not do that with this build: its HTTP mode asks for no password and listens on every network interface, so it is paused until the connector is reprinted (see the security note at the top of the install guide). The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "Will this hit my Auvik API rate limits?"
     a: "Mostly no, and that is the point of the mirror. sync does the reading; the cross-client commands then answer from local SQLite and touch no API at all. Re-running the same question costs nothing upstream."
   - q: "What does it cost?"
@@ -143,7 +143,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but auvik-mcp speaks HTTP natively: run `auvik-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running auvik-mcp in HTTP mode, and in this build HTTP mode asks for no password and listens on every network interface. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
 
 ### Do I need to know how to code?
 
@@ -155,7 +155,7 @@ Auvik authenticates with HTTP Basic: your Auvik user email is the username and t
 
 ### Is my Auvik data safe?
 
-Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`--transport http`, or `PP_MCP_TRANSPORT=http`), which the remote-agent path for ChatGPT and Copilot asks you to do - that opens a listener, so tunnel it behind SSO and treat the URL as a secret. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine by default. The CLI, MCP server, and the local mirror are all local, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`--transport http`, or `PP_MCP_TRANSPORT=http`), and you should not do that with this build: its HTTP mode asks for no password and listens on every network interface, so it is paused until the connector is reprinted (see the security note at the top of the install guide). The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 
 ### Will this hit my Auvik API rate limits?
 
