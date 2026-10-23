@@ -12,6 +12,7 @@
    "auvik",
    "aws-billing",
    "axcient",
+   "backup-radar",
    "betterstack",
    "bitdefender",
    "cipp",
@@ -28,6 +29,7 @@
    "datto-rmm",
    "domotz",
    "fortinet",
+   "google-workspace",
    "gradient",
    "halopsa",
    "hudu",
@@ -70,7 +72,8 @@
    "unifi-network",
    "veeam",
    "wordpress",
-   "xero"
+   "xero",
+   "zammad"
   ],
   "auth-wire": [
    "connectwise-automate",
@@ -88,6 +91,7 @@
    "ninjaone",
    "pax8",
    "sherweb",
+   "skykick",
    "threatdown"
   ]
  }

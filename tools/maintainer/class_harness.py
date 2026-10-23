@@ -89,11 +89,14 @@ RUN_TIMEOUT = 60
 def sentinel(var: str) -> str:
     """A unique, searchable marker for one credential variable.
 
-    Long enough that a last-4-chars mask (maskToken) never equals the whole
-    value, and with no character a transport would strip, so finding the whole
-    value in output is an unambiguous leak."""
+    Carries transport-sensitive characters (`.+/=`) so its raw, URL, double-URL,
+    HTML and JSON-escaped forms are all DIFFERENT - an alphanumeric-only value
+    would make those encodings identical to the raw value and the per-encoding
+    probes would be no-ops. Avoids `<`/`>`/space, which a connector's
+    placeholder-credential guard would reject as a `<...>` placeholder. Long
+    enough that a last-4-chars mask never equals the whole value."""
     short = "".join(ch for ch in var.lower() if ch.isalnum())[:16]
-    return f"clsSENT{short}0a1b2c3d4e5f6071"
+    return f"clsSENT{short}.0a1+2b3/4c5=6d7e8f"
 
 
 def encodings(value: str) -> dict[str, str]:
@@ -128,7 +131,9 @@ def leaks(text: str, value: str) -> list[str]:
         if enc and enc in text:
             hits.append(name)
     # Decoded sweeps: undo one layer of each transport encoding and look for the
-    # raw value, so a form this function did not pre-compute is still caught.
+    # raw value, so a form this function did not pre-compute (an offset base64,
+    # a `\u`-escaped fragment) is still caught. URL, HTML, JSON-unicode and a
+    # best-effort base64 pass.
     decoded_views = [text]
     try:
         decoded_views.append(urllib.parse.unquote(text))
@@ -139,11 +144,45 @@ def leaks(text: str, value: str) -> list[str]:
         decoded_views.append(html.unescape(text))
     except Exception:  # noqa: BLE001
         pass
+    try:
+        decoded_views.append(_json_unescape(text))
+    except Exception:  # noqa: BLE001
+        pass
+    decoded_views.extend(_base64_decodings(text))
+    precomputed = {"raw", "url", "url2", "html", "json_u", "base64", "base64url"}
     for view in decoded_views:
-        if value in view and "raw" not in hits and "url" not in hits and "html" not in hits:
+        if value in view and not (precomputed & set(hits)):
             hits.append("decoded")
             break
     return hits
+
+
+_JSON_U = __import__("re").compile(r"\\u([0-9a-fA-F]{4})")
+
+
+def _json_unescape(text: str) -> str:
+    """Decode \\uXXXX escapes wherever they appear (not only in valid JSON), so a
+    credential rendered with JSON unicode escapes is reconstructed."""
+    return _JSON_U.sub(lambda m: chr(int(m.group(1), 16)), text)
+
+
+def _base64_decodings(text: str) -> list[str]:
+    """Best-effort: decode every base64/base64url-looking run in `text` and
+    return the decoded strings, so a credential embedded in a base64 blob (even
+    with a prefix/suffix, e.g. base64 of "x"+secret) is reconstructed for the
+    search. Bounded to a handful of the longest runs to stay cheap."""
+    runs = __import__("re").findall(r"[A-Za-z0-9+/_=-]{12,}", text)
+    out = []
+    for run in sorted(set(runs), key=len, reverse=True)[:12]:
+        std = run.replace("-", "+").replace("_", "/")
+        for cand in (std, std + "=" * (-len(std) % 4)):
+            try:
+                dec = base64.b64decode(cand, validate=False).decode("latin-1", "replace")
+                if dec:
+                    out.append(dec)
+            except Exception:  # noqa: BLE001
+                pass
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -158,7 +197,7 @@ class Capture:
 
 
 def _make_handler(capture: Capture, mode: str, status: int, sentinels: list[str],
-                  redirect_to: str | None):
+                  redirect_to: str | None, body_echo: bool = True):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -201,6 +240,12 @@ def _make_handler(capture: Capture, mode: str, status: int, sentinels: list[str]
             # A body that reflects every credential sentinel in every encoding,
             # plus a truncated form, so a connector that fails to withhold any
             # one of them surfaces it. Shaped as JSON an API error would return.
+            # With body_echo False (the success probe) the body is credential
+            # FREE, so printing legitimate 200 data is never a false positive;
+            # the credential is reflected only in headers, which a healthy
+            # connector does not print on success.
+            if not body_echo:
+                return b'{"data":[],"items":[],"results":[],"status":"ok"}'
             parts = []
             for s in sentinels:
                 for name, enc in encodings(s).items():
@@ -259,11 +304,13 @@ class Server:
 
 
 def start_server(mode: str = "echo", status: int = 200, sentinels: list[str] | None = None,
-                 redirect_to: str | None = None) -> Server:
+                 redirect_to: str | None = None, body_echo: bool = True) -> Server:
     """Start a fake server. mode: 'echo' (reflect sentinels), 'redirect' (one
-    cross-host 307 then echo). status: the HTTP status the echo answers with."""
+    cross-host 307 then echo). status: the HTTP status the echo answers with.
+    body_echo False reflects the sentinels in HEADERS only (credential-free
+    body), for the success-path probe."""
     cap = Capture()
-    handler = _make_handler(cap, mode, status, sentinels or [], redirect_to)
+    handler = _make_handler(cap, mode, status, sentinels or [], redirect_to, body_echo)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return Server(srv, cap, f"http://127.0.0.1:{srv.server_address[1]}")
@@ -380,6 +427,8 @@ class Leaf:
     method: str          # GET / POST / ... / "" (novel)
     read_only: bool
     flags: list[dict]
+    endpoint: str = ""   # pp:endpoint id (what an MCP _execute tool takes)
+    api_path: str = ""   # pp:path template, e.g. /v2/alert/{uid}
 
 
 def agent_context(cli_bin: Path, home: str, timeout: int = RUN_TIMEOUT) -> dict | None:
@@ -417,6 +466,8 @@ def leaves(ctx: dict) -> list[Leaf]:
                 method=(ann.get("pp:method") or "").upper(),
                 read_only=(ann.get("mcp:read-only") == "true"),
                 flags=c.get("flags") or [],
+                endpoint=ann.get("pp:endpoint") or "",
+                api_path=ann.get("pp:path") or "",
             ))
     walk(ctx.get("commands"), ())
     return found
@@ -446,16 +497,24 @@ _HANDSHAKE = [
 ]
 
 
-def mcp_drive(mcp_bin: Path, messages: list[dict], env: dict[str, str],
-              timeout: int = RUN_TIMEOUT) -> list[dict]:
+def mcp_session(mcp_bin: Path, messages: list[dict], env: dict[str, str],
+                timeout: int = RUN_TIMEOUT) -> tuple[list[dict], str, str]:
+    """Run one stdio session. Returns (parsed responses, raw stdout, raw stderr).
+    The raw streams are returned so a secret scan can see EVERYTHING the server
+    emitted - a structuredContent block, a field this parser does not model, or
+    anything written to stderr - not only result.content[].text."""
     payload = "".join(json.dumps(m) + "\n" for m in messages)
     try:
         p = subprocess.run([str(mcp_bin)], input=payload, capture_output=True,
                            text=True, env=env, timeout=timeout)
+        stdout, stderr = p.stdout, p.stderr
+    except subprocess.TimeoutExpired as e:
+        stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
     except (OSError, subprocess.SubprocessError):
-        return []
+        return [], "", ""
     out = []
-    for line in p.stdout.splitlines():
+    for line in stdout.splitlines():
         line = line.strip()
         if not line:
             continue
@@ -463,7 +522,12 @@ def mcp_drive(mcp_bin: Path, messages: list[dict], env: dict[str, str],
             out.append(json.loads(line))
         except json.JSONDecodeError:
             continue
-    return out
+    return out, stdout, stderr
+
+
+def mcp_drive(mcp_bin: Path, messages: list[dict], env: dict[str, str],
+              timeout: int = RUN_TIMEOUT) -> list[dict]:
+    return mcp_session(mcp_bin, messages, env, timeout)[0]
 
 
 def mcp_list_tools(mcp_bin: Path, env: dict[str, str]) -> list[dict]:
@@ -475,16 +539,19 @@ def mcp_list_tools(mcp_bin: Path, env: dict[str, str]) -> list[dict]:
 
 
 def mcp_result_text(message: dict) -> str:
+    """All text a tool answer carries. Reads result.content[].text AND the whole
+    result and error serialized, so a credential in structuredContent or any
+    other field is still in the scanned text (not only the content blocks)."""
     parts = []
     result = message.get("result") or {}
     for block in result.get("content") or []:
         if isinstance(block, dict) and "text" in block:
             parts.append(str(block["text"]))
+    if result:
+        parts.append(json.dumps(result, default=str))
     err = message.get("error")
     if isinstance(err, dict):
-        for key in ("message", "data"):
-            if err.get(key):
-                parts.append(str(err[key]))
+        parts.append(json.dumps(err, default=str))
     return "\n".join(parts)
 
 
@@ -510,7 +577,10 @@ class Ctx:
 
 
 def build(slug: str, tmp: str) -> tuple[Path | None, Path | None, str | None]:
-    """Build the CLI and MCP binaries into tmp. Returns (cli, mcp, error)."""
+    """Build the CLI and MCP binaries into one dir, named by their REAL registry
+    binary names, so the MCP server finds the CLI as a same-dir sibling (its
+    SiblingCLIPath looks for `<cli_binary>` next to the mcp executable). Returns
+    (cli, mcp, error)."""
     cli_dir = registry.skill_path(slug) / "cli"
     if not cli_dir.is_dir():
         return None, None, None
@@ -518,14 +588,23 @@ def build(slug: str, tmp: str) -> tuple[Path | None, Path | None, str | None]:
         cli_cmd, mcp_cmd = registry.cmd_dirs(slug)
     except SystemExit as e:
         return None, None, str(e)
-    cli_bin = Path(tmp) / "cli"
-    mcp_bin = Path(tmp) / "mcp"
+    meta = registry.skills().get(slug, {})
+    bindir = Path(tmp) / "bin"
+    bindir.mkdir(parents=True, exist_ok=True)
+    cli_bin = bindir / (meta.get("cli_binary") or "cli")
+    mcp_bin = bindir / (meta.get("mcp_binary") or "mcp")
     for out, cmd in ((cli_bin, cli_cmd), (mcp_bin, mcp_cmd)):
         r = subprocess.run(["go", "build", "-o", str(out), cmd], cwd=cli_dir,
                            capture_output=True, text=True, timeout=BUILD_TIMEOUT)
         if r.returncode != 0:
             return None, None, f"go build {cmd}: {r.stderr.strip()[:300]}"
     return cli_bin, mcp_bin, None
+
+
+def cli_path_env(slug: str) -> str:
+    """The `<SLUG>_CLI_PATH` env var name a connector's MCP server reads as a
+    fallback to locate its companion CLI."""
+    return slug.upper().replace("-", "_") + "_CLI_PATH"
 
 
 def make_ctx(slug: str, tmp: str) -> tuple[Ctx | None, str | None]:
@@ -621,6 +700,17 @@ def assert_baseline_shrinks(base_ref: str) -> int:
     unreadable."""
     try:
         head = load_baseline()
+    except SystemExit as e:
+        print(f"FAIL: {e}")
+        return 1
+    rel = str(BASELINE.relative_to(ROOT))
+    if _git_show(base_ref, rel) is None:
+        # The baseline does not exist at the base (this is the PR that introduces
+        # it). There is nothing to shrink against, and a brand-new baseline is
+        # reviewed on its own merits, so this is a pass, not a fail-closed error.
+        print(f"PASS: class_baseline.json is new at {base_ref}; nothing to shrink against.")
+        return 0
+    try:
         base = load_baseline(base_ref)
     except SystemExit as e:
         print(f"FAIL: {e}")

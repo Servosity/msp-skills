@@ -93,10 +93,14 @@ def run(ctx: ch.Ctx) -> list[str]:
     if not secrets:
         return []
     findings: list[str] = []
-    base_env = {"PATH": os.environ.get("PATH", "")}
+    base_env = {"PATH": os.environ.get("PATH", ""), ch.cli_path_env(ctx.slug): str(ctx.cli_bin)}
     for var in ctx.wiring.env:
         if var.endswith("_NO_CONFIG_WRITE"):
             base_env[var] = "1"
+    # A credential that reaches the second host is a leak whether it is a
+    # configured secret OR the token the fake server minted (a connector that
+    # forwards the minted bearer as a custom header off-host leaks it too).
+    off_host_values = secrets + ["cls-fake-access-token", "cls-fake-refresh"]
 
     # (A) credential-on-wire: a sentinel must reach the configured host.
     primary = ch.start_server(mode="echo", status=200, sentinels=secrets)
@@ -124,7 +128,7 @@ def run(ctx: ch.Ctx) -> list[str]:
     env2 = {**base_env, "HOME": ch.fresh_home(ctx, "auth-b"), **ch.apply_urls(ctx.wiring, redirecting.url)}
     try:
         _make_request(ctx, env2)
-        off_host_creds = _requests_carrying(secondary.capture.requests, secrets)
+        off_host_creds = _requests_carrying(secondary.capture.requests, off_host_values)
         off_host_auth = _auth_header_present(secondary.capture.requests)
     finally:
         redirecting.stop()

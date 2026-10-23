@@ -31,6 +31,10 @@ import class_harness as ch
 # How many read leaves to exercise per connector; the error path is identical
 # across leaves (one client, one masking funnel), so a few samples prove it.
 MAX_LEAVES = 4
+# How many MCP read tools to probe before giving up on reaching the API (a
+# mirror tool shells to the CLI, so an unbounded loop is slow on mirror-heavy
+# connectors). Enough to reach a non-mirror API tool when one exists.
+MAX_MCP_PROBES = 8
 
 
 def _combined(proc_out: str, proc_err: str) -> str:
@@ -53,73 +57,107 @@ def run(ctx: ch.Ctx) -> list[str]:
         return []  # no credential to leak (e.g. a browser-cookie connector)
     findings: list[str] = []
 
-    # An authenticated error that an API returns, reflecting the credentials.
-    server = ch.start_server(mode="echo", status=403, sentinels=secrets)
-    env = ch.apply_urls(ctx.wiring, server.url)
-    env["PATH"] = __import__("os").environ.get("PATH", "")
-    env["HOME"] = ch.fresh_home(ctx, "secret-echo")
-    for var in list(env):
+    base_env = ch.apply_urls(ctx.wiring, "http://placeholder")  # urls overwritten per server
+    import os as _os
+    base_env["PATH"] = _os.environ.get("PATH", "")
+    base_env[ch.cli_path_env(ctx.slug)] = str(ctx.cli_bin)
+    for var in list(base_env):
         if var.endswith("_NO_CONFIG_WRITE"):
-            env[var] = "1"
+            base_env[var] = "1"
+
+    def env_for(server: ch.Server) -> dict:
+        e = {**base_env, **ch.apply_urls(ctx.wiring, server.url), "HOME": ch.fresh_home(ctx, "secret-echo")}
+        return e
+
     reached_server = 0
+    read_leaves = [lf for lf in ch.leaves(ctx.surface) if ch.runnable_read(lf)][:MAX_LEAVES]
+
+    def scan(where: str, text: str) -> bool:
+        for secret in secrets:
+            hits = ch.leaks(text, secret)
+            if hits:
+                findings.append(f"[{ctx.slug}] {where}: a credential value reached output, "
+                                f"encoded as {sorted(set(hits))}")
+                return True
+        return False
+
+    # An authenticated error that an API returns, reflecting the credentials in
+    # body AND headers, in every encoding.
+    server = ch.start_server(mode="echo", status=403, sentinels=secrets)
     try:
+        env = env_for(server)
         # (A) Error-path CLI output in the two agent-facing modes.
-        read_leaves = [lf for lf in ch.leaves(ctx.surface) if ch.runnable_read(lf)][:MAX_LEAVES]
         for lf in read_leaves:
             for mode in ("--json", "--agent"):
                 out = _run_cli(ctx, list(lf.path) + [mode, "--no-input"], env)
-                for secret in secrets:
-                    hits = ch.leaks(out, secret)
-                    if hits:
-                        findings.append(
-                            f"[{ctx.slug}] `{' '.join(lf.path)} {mode}`: a credential value "
-                            f"reached output, encoded as {sorted(set(hits))}")
-                        break  # one finding per leaf is enough to flag the class
+                scan(f"`{' '.join(lf.path)} {mode}`", out)
 
-        # (B) MCP read-only tool error path.
+        # (B) MCP read tools on the error path. Scan the WHOLE raw stdout+stderr
+        # of the server (so a secret in structuredContent or on stderr is seen),
+        # and keep trying read tools until one actually reaches the API (a
+        # local-only tool tests nothing), rather than stopping at the first.
         tools = ch.mcp_list_tools(ctx.mcp_bin, env)
-        for t in tools:
-            ann = t.get("annotations") or {}
-            if not ann.get("readOnlyHint") or ann.get("destructiveHint"):
-                continue
-            schema = t.get("inputSchema") or {}
-            if schema.get("required"):
-                continue  # keep the probe argument-free
-            msgs = ch._HANDSHAKE + [{
-                "jsonrpc": "2.0", "id": 10, "method": "tools/call",
-                "params": {"name": t["name"], "arguments": {}}}]
-            answered = [m for m in ch.mcp_drive(ctx.mcp_bin, msgs, env) if m.get("id") == 10]
-            if not answered:
-                continue
-            text = ch.mcp_result_text(answered[0])
-            for secret in secrets:
-                if ch.leaks(text, secret):
-                    findings.append(
-                        f"[{ctx.slug}] MCP tool `{t['name']}`: a credential value reached "
-                        f"the tool result, encoded as {sorted(set(ch.leaks(text, secret)))}")
-                    break
-            break  # one read tool proves the funnel
+        # API GET command paths, so a mirror of a real API read is tried before
+        # a mirror of a local-only command (learnings, sql, recall) that never
+        # reaches the fake API and would use up the probe cap.
+        api_reads = {" ".join(lf.path) for lf in ch.leaves(ctx.surface)
+                     if lf.method == "GET" and lf.api_path}
 
-        # (C) dry-run must mask the Authorization value it previews.
+        def probe_order(t: dict) -> int:
+            mirrored = (t.get("_meta") or {}).get("pp:cli-command")
+            if not mirrored or mirrored in api_reads:
+                return 0
+            return 1
+
+        read_tools = sorted((t for t in tools
+                             if (t.get("annotations") or {}).get("readOnlyHint")
+                             and not (t.get("annotations") or {}).get("destructiveHint")
+                             and not (t.get("inputSchema") or {}).get("required")),
+                            key=probe_order)
+        mcp_hit_server = False
+        for t in read_tools[:MAX_MCP_PROBES]:
+            before = len(server.capture.requests)
+            msgs = ch._HANDSHAKE + [{"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+                                     "params": {"name": t["name"], "arguments": {}}}]
+            resps, out, err = ch.mcp_session(ctx.mcp_bin, msgs, env)
+            answered = [m for m in resps if m.get("id") == 10]
+            blob = out + "\n" + err + "\n" + "\n".join(ch.mcp_result_text(m) for m in answered)
+            scan(f"MCP tool `{t['name']}`", blob)
+            if len(server.capture.requests) > before:
+                mcp_hit_server = True
+                break  # a tool that reached the API proves the error-path funnel
+
+        reached_server = len(server.capture.requests)
+    finally:
+        server.stop()
+
+    # (C) dry-run must mask the Authorization value it previews.
+    dry_server = ch.start_server(mode="echo", status=200, sentinels=secrets)
+    try:
+        env = env_for(dry_server)
         mutate = [lf for lf in ch.leaves(ctx.surface)
                   if lf.method in ("POST", "PUT", "PATCH", "DELETE")
                   and "<" not in lf.use and not _required_flags(lf)]
         if mutate:
             lf = mutate[0]
-            out = _run_cli(ctx, list(lf.path) + ["--dry-run", "--no-input"]
-                           + _fill_flags(lf), env)
-            for secret in secrets:
-                if ch.leaks(out, secret):
-                    findings.append(
-                        f"[{ctx.slug}] `{' '.join(lf.path)} --dry-run`: the request preview "
-                        f"shows a credential value instead of a mask")
-                    break
-        # A probe truly exercised the class only if it reached the fake server,
-        # where the reflected credential lives. An MCP tool that answered from
-        # local data, or a read that hit no endpoint, tested nothing.
-        reached_server = len(server.capture.requests)
+            out = _run_cli(ctx, list(lf.path) + ["--dry-run", "--no-input"] + _fill_flags(lf), env)
+            scan(f"`{' '.join(lf.path)} --dry-run`", out)
     finally:
-        server.stop()
+        dry_server.stop()
+
+    # (D) Success path: a 200 whose CREDENTIAL rides only in response headers
+    # (the body is credential-free, so printing legitimate data is not a false
+    # positive). A connector that echoes response headers on success leaks here.
+    ok_server = ch.start_server(mode="echo", status=200, sentinels=secrets, body_echo=False)
+    try:
+        env = env_for(ok_server)
+        for lf in read_leaves[:2]:
+            for mode in ("--json", "--agent"):
+                out = _run_cli(ctx, list(lf.path) + [mode, "--no-input"], env)
+                scan(f"`{' '.join(lf.path)} {mode}` (success headers)", out)
+        reached_server += len(ok_server.capture.requests)
+    finally:
+        ok_server.stop()
     if reached_server == 0 and not findings:
         # Honest coverage: no probe reached the client error path, so this
         # connector's redaction funnel was not tested. Report it; do not count
