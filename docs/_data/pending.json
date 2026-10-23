@@ -1,15 +1,15 @@
 {
   "abnormal": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "abnormal-v0.1.5",
+    "latest_tag": "abnormal-v0.1.6",
     "current_hash": "sha256:3f2d22eb5ae6391351fcd62d08f5d9f1bd103c65a251ee1d5d4d4f1a8d5068a2",
     "released_hash": "sha256:3f2d22eb5ae6391351fcd62d08f5d9f1bd103c65a251ee1d5d4d4f1a8d5068a2"
   },
   "acronis": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "acronis-v0.1.7",
+    "latest_tag": "acronis-v0.1.8",
     "current_hash": "sha256:48e500a6f17d1fb00fa341b7d7e6ac9c451d1c2022b39ce68d13f35f03902c79",
     "released_hash": "sha256:48e500a6f17d1fb00fa341b7d7e6ac9c451d1c2022b39ce68d13f35f03902c79"
   },
