@@ -210,9 +210,9 @@
     "released_hash": "sha256:53d2f40baab7189046a8ae1ee8537254a985c2555c3e8d0c97aa0349377327a6"
   },
   "domotz": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "domotz-v0.1.5",
+    "latest_tag": "domotz-v0.1.6",
     "current_hash": "sha256:d736883b5c47b327c22e814eadd5fd8fa0e9b5d0da18b62acd4c6f6e0dd95c50",
     "released_hash": "sha256:d736883b5c47b327c22e814eadd5fd8fa0e9b5d0da18b62acd4c6f6e0dd95c50"
   },
@@ -238,9 +238,9 @@
     "released_hash": null
   },
   "gradient": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "gradient-v0.1.6",
+    "latest_tag": "gradient-v0.1.7",
     "current_hash": "sha256:d89540a0b7b0d17013468b1c14e60e96f0410362480f525892e3f9d5fd5c8871",
     "released_hash": "sha256:d89540a0b7b0d17013468b1c14e60e96f0410362480f525892e3f9d5fd5c8871"
   },
