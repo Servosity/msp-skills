@@ -280,9 +280,9 @@
     "released_hash": "sha256:b23628987368481e206d9cae39b3d0e2319ca17c9c526472826057bb67e9a6b4"
   },
   "itglue": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "itglue-v0.1.5",
+    "latest_tag": "itglue-v0.1.6",
     "current_hash": "sha256:d14998c343c2978f1abb24db3aef2ff6fbc8ff1abdbd069f497939baef0c9e7f",
     "released_hash": "sha256:d14998c343c2978f1abb24db3aef2ff6fbc8ff1abdbd069f497939baef0c9e7f"
   },
