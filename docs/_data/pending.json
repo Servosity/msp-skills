@@ -112,9 +112,9 @@
     "released_hash": "sha256:719f9eac960e9e4f8d3d5baed1e979a42f2d9eb98b138ae4b730615a334cef12"
   },
   "cisco-duo": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "cisco-duo-v0.1.2",
+    "latest_tag": "cisco-duo-v0.1.3",
     "current_hash": "sha256:c0d36c0ffcb0bac663491a4a0c31c9830a0969591015a771d02dc4eab8584e5e",
     "released_hash": "sha256:c0d36c0ffcb0bac663491a4a0c31c9830a0969591015a771d02dc4eab8584e5e"
   },
