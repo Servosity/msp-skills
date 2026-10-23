@@ -966,11 +966,12 @@ def gosec_report(code: int, out: str) -> dict | None:
 
 
 def gosec_passes(mod: Path, slug: str, require: bool, add) -> list[dict]:
-    """Every gosec issue across GOSEC_TARGETS, each once. An issue only an extra
-    target reports carries `_target` ("GOOS=windows"). A pass that does not
+    """Every gosec issue across GOSEC_TARGETS, each once. An issue the runner's own
+    pass does not report carries `_target`, every extra target that reported it
+    ("GOOS=windows" or "GOOS=windows, GOOS=darwin"). A pass that does not
     complete is a scanner-error P1 under --require-scanners, named by target."""
     issues: list[dict] = []
-    seen: set[tuple] = set()
+    seen: dict[tuple, int] = {}
     for target in GOSEC_TARGETS:
         env = None if target is None else {"GOOS": target[0], "GOARCH": target[1], "CGO_ENABLED": "0"}
         label = "" if target is None else f"GOOS={target[0]}"
@@ -989,9 +990,12 @@ def gosec_passes(mod: Path, slug: str, require: bool, add) -> list[dict]:
             key = (iss.get("rule_id"), _external_rel(str(iss.get("file", "")), slug)[0],
                    str(iss.get("line")), str(iss.get("column")))
             if key in seen:
+                first = issues[seen[key]]
+                if label and first.get("_target") and label not in first["_target"].split(", "):
+                    first["_target"] += ", " + label
                 continue
-            seen.add(key)
-            # The runner's own pass goes first, so a tag means only that target sees it.
+            seen[key] = len(issues)
+            # The runner's own pass goes first, so a tag means its pass did not see it.
             issues.append({**iss, "_target": label} if label else iss)
     return issues
 
@@ -2771,6 +2775,9 @@ def _self_test_gosec_targets() -> int:
                       len(p1(found)) == 1 and p1(found)[0]["file"] == "skills/acme/cli/adopt_darwin.go"
                       and "[GOOS=darwin only]" in p1(found)[0]["evidence"]
                       and sum(f["rule"] == "G104" for f in found) == 1))
+        both = p1(gate({"native": {"issues": []}, "windows": {"issues": [win]}, "darwin": {"issues": [win]}}))
+        cases.append(("a finding both extra passes report (and the runner's does not) names both targets",
+                      len(both) == 1 and "[GOOS=windows, GOOS=darwin only]" in both[0]["evidence"]))
         cases.append(("a base-owned (file, rule) entry accepts a darwin-only finding",
                       not p1(gate({"native": {"issues": []}, "windows": {"issues": []}, "darwin": {"issues": [mac]}},
                                   suppress={("skills/acme/cli/adopt_darwin.go", "G115")}))))
