@@ -5,6 +5,7 @@ package client
 import (
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 )
@@ -23,12 +24,13 @@ import (
 var redirectCredentialHeaders = []string{"Authorization", "Proxy-Authorization", "Cookie", "Cookie2", "clientId"}
 
 // redirectLeavesOrigin reports whether the next hop is on a different host or
-// port than the first request, or downgrades from https to http. Hostnames
-// compare case-insensitively and an explicit default port equals none, so
-// https://API.example.com and https://api.example.com:443 stay on the origin.
+// port than the first request, or downgrades from https to http. Hosts compare
+// the way the network resolves them (sameHost) and an explicit default port
+// equals none, so https://API.example.com and https://api.example.com:443 stay
+// on the origin.
 func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
 	first := via[0].URL
-	if !strings.EqualFold(next.Hostname(), first.Hostname()) || explicitPort(next) != explicitPort(first) {
+	if !sameHost(next.Hostname(), first.Hostname()) || explicitPort(next) != explicitPort(first) {
 		return true
 	}
 	if strings.EqualFold(next.Scheme, "https") {
@@ -40,6 +42,33 @@ func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
 		}
 	}
 	return false
+}
+
+// sameHost reports whether two URL hostnames name the same host. An IP literal
+// must be the same address, IPv6 zone included and compared exactly (interface
+// names are case-sensitive on Linux, so fe80::1%lan0 and fe80::1%LAN0 can be
+// different peers). A DNS name matches case-insensitively in ASCII only; a
+// name with any non-ASCII byte must match exactly, since Unicode case folding
+// is not how a resolver compares names.
+func sameHost(a, b string) bool {
+	ipA, errA := netip.ParseAddr(a)
+	ipB, errB := netip.ParseAddr(b)
+	if errA == nil || errB == nil {
+		return errA == nil && errB == nil && ipA == ipB
+	}
+	if !isASCII(a) || !isASCII(b) {
+		return a == b
+	}
+	return strings.EqualFold(a, b)
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }
 
 // explicitPort is the URL's port, with the scheme's default port treated as

@@ -462,7 +462,7 @@
    "id": "redirect-strips-every-credential",
    "class": "auth-wire",
    "summary": "A redirect that leaves the origin (another host:port, or https down to http) carries no credential: every credential header and every config-file header is stripped, and a hop that would replay a request body (307/308 of a non-GET) is refused",
-   "why": "tools/maintainer/class_harness.py auth-wire found n-central sending the User-API JWT, through the ncauth handshake client (no CheckRedirect at all) to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code. The origin compares like a URL: hostnames case-insensitively and an explicit default port as none (Codex review round 1: an upper-case base URL refused a healthy same-origin redirect).",
+   "why": "tools/maintainer/class_harness.py auth-wire found n-central sending the User-API JWT, through the ncauth handshake client (no CheckRedirect at all) to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code. The origin compares like a URL: hostnames case-insensitively and an explicit default port as none (Codex review round 1: an upper-case base URL refused a healthy same-origin redirect). Hosts compare the way the network resolves them: an IP literal by address with its IPv6 zone exact, a DNS name ASCII case-insensitively, a non-ASCII name exactly (Codex review round 2: case-folding the zone let fe80::1%LAN0 pass for fe80::1%lan0).",
    "status": "active",
    "spec_encode_followup": "Press-side: client.go.tmpl CheckRedirect should strip every credential header (the primary, composed siblings and config-file headers) on any hop that leaves the origin, compare host:port and scheme, and refuse to replay a body off the origin; a hand-written auth client should get the same CheckRedirect.",
    "asserts": [
@@ -527,6 +527,30 @@
     {
      "file": "cli/internal/ncauth/redirect.go",
      "contains": "func explicitPort(u *url.URL) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials.go",
+     "contains": "func sameHost(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_origin_test.go",
+     "contains": "func TestRedirectLeavesOriginComparesHostsLikeTheNetwork(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/ncauth/redirect.go",
+     "contains": "func sameHost(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/ncauth/redirect_origin_test.go",
+     "contains": "func TestRedirectLeavesOriginComparesHostsLikeTheNetwork(",
      "min_count": 1,
      "code_only": true
     }
