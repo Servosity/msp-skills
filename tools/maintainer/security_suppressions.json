@@ -1182,6 +1182,11 @@
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens <db path>.snapshot-lock, a zero-byte advisory lock sidecar, 0600; nothing is read from it. --db is refused over MCP (blockedDestinationFlags; verified with the real MCP binary), so only the operator chooses the path."
     },
     {
+      "file": "skills/auvik/cli/internal/cli/auvik_snapshot_lock_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of acquireSnapshotLock: opens <db path>.snapshot-lock (O_CREATE|O_RDWR, 0600), a zero-byte advisory lock sidecar held with LockFileEx; nothing is read from it. The db path is --db or the default data directory. --db is in blockedDestinationFlags, absent from the inventory_diff tool schema, and refused over MCP (checked with the real MCP binary). Only the operator chooses the path."
+    },
+    {
       "file": "skills/backup-radar/cli/internal/cli/radar_local.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). readPathOrStdin reads the file named by push --from or coverage diff --devices; both are refused over MCP (push is mcp:hidden, --devices is in mcp:write-flags; verified with the real MCP binary), so only the operator names the file."
@@ -1190,6 +1195,11 @@
       "file": "skills/bitdefender/cli/internal/cli/gz_open_unix.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). openNoBlock opens the --devices / --agreements export for readBoundedFile, which Lstat-checks a regular file, re-verifies the opened descriptor and caps the read at 50 MiB. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
+    },
+    {
+      "file": "skills/bitdefender/cli/internal/cli/gz_open_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of openNoBlock: os.Open of the path. Its only caller is readBoundedFile, for the fleet rmm-gap --devices and usage billing --agreements exports, which Lstat-checks a regular file, re-checks that the opened descriptor is that same file, and caps the read at 50 MiB. Neither flag is reachable over MCP: both are mcp:write-flags, absent from the tool schema, and a call naming them is refused (\"unknown MCP parameter\"; checked with the real MCP binary). Only the operator names the file."
     },
     {
       "file": "skills/cipp/cli/internal/cli/bulk.go",
@@ -1252,6 +1262,11 @@
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). openNoFollow opens the cmdb reconcile --file export read-only with O_NOFOLLOW and O_NONBLOCK; the caller then requires a regular file. MCP tool calls cannot set the flag (refused over MCP by PR #423); only the operator names the file."
     },
     {
+      "file": "skills/jira-service-management/cli/internal/cli/cmdb_reconcile_open_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of openNoFollow: requires an Lstat regular file, then refuses the opened handle unless it is that same file (os.SameFile), so a swap between check and open is refused. Reached only from openInventoryFile on the CLI path (under the MCP server openInventoryUnderMCP is used instead), and cmdb reconcile --file is an mcp:write-flag, absent from the tool schema and refused over MCP (checked with the real MCP binary). Only the operator names the export."
+    },
+    {
       "file": "skills/nerdio/cli/internal/cli/fleet_autoscale_audit.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Reads fleet autoscale-audit --baseline, which is refused over MCP (blockedDestinationFlags \"baseline\"; verified with the real MCP binary), so only the operator names the file."
@@ -1260,6 +1275,11 @@
       "file": "skills/proxmox/cli/internal/cli/clusters_perms_unix.go",
       "rule": "G304",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). Opens the CLI's own clusters.toml (config dir or the PROXMOX_CLUSTERS_FILE environment variable) read-only and non-blocking; type, mode and owner are checked on the opened descriptor. No flag or tool-call input reaches the path."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/clusters_perms_windows.go",
+      "rule": "G304",
+      "reason": "Windows-only finding, vetted 2026-10-23 from the first GOOS=windows gosec v2.29.0 pass (no workflow scanned *_windows.go before). Windows half of readClustersFile: os.ReadFile of the CLI's own clusters.toml, at PROXMOX_CLUSTERS_FILE or the user config directory (clustersPath). Unlike the Unix half it checks no descriptor mode or owner; the file inherits the user profile's ACL. No flag or tool-call input reaches the path: the MCP tools take no path or environment parameter, and the server passes no tool input into the child environment."
     },
     {
       "file": "skills/servosity/cli/internal/cli/bill_reconcile.go",
