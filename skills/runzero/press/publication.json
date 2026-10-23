@@ -1,6 +1,6 @@
 {
  "schema": 1,
  "withheld": {
-  "spec.yaml": "gitleaks flags it (private-key)"
+  "spec.yaml": "flagged by gitleaks"
  }
 }

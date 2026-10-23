@@ -1,6 +1,6 @@
 {
  "schema": 1,
  "withheld": {
-  "spec.graphql": "secret-looking or personal content: line 4057: a personal filesystem path"
+  "spec.graphql": "secret-looking or personal content"
  }
 }
