@@ -392,9 +392,9 @@
     "released_hash": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df"
   },
   "pipedrive": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "pipedrive-v0.1.6",
+    "latest_tag": "pipedrive-v0.1.7",
     "current_hash": "sha256:6dfd2ad5341bd88b47dc2568523ccb2d0c9499bc96dfb3238eb53ca7ad55f36b",
     "released_hash": "sha256:6dfd2ad5341bd88b47dc2568523ccb2d0c9499bc96dfb3238eb53ca7ad55f36b"
   },
