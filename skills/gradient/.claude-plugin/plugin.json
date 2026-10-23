@@ -1,6 +1,6 @@
 {
   "name": "gradient",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
   "author": {
     "name": "Servosity",

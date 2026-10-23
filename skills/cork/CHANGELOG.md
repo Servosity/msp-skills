@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.7] - 2026-10-22
+
+### Security
+- The MCP server drops the flags whose values name a file or directory on the machine that runs it (for example --db, --output) from its tool schemas and refuses them by name, instead of advertising them and ignoring them silently. The command line keeps every flag.
+
 ## [0.1.6] - 2026-10-21
 
 ### Fixed
