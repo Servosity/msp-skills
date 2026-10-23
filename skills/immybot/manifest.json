@@ -94,12 +94,5 @@
       "linux",
       "win32"
     ]
-  },
-  "printing_press_version": null,
-  "press_provenance": {
-    "printing_press_version": null,
-    "generated_at": null,
-    "spec_checksum": null,
-    "spec_format": null
   }
 }

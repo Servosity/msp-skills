@@ -117,6 +117,12 @@ if [ "${1:-}" = "--self-test" ]; then
     "printf '## acme - $ppl\n' >> skills/acme/guide.md"
   st_case "the press title line + a missing file" fail \
     "printf '# Acme - $ppc\n' > skills/acme/SKILL.md; rm skills/acme/guide.md"
+  st_case "a manifest with a null press version (immybot's old shape)" fail \
+    "printf '{\n  \"name\": \"acme-mcp\",\n  \"printing_press_version\": null\n}\n' > skills/acme/manifest.json"
+  st_case "a null press version nested in press_provenance + a missing file" fail \
+    "printf '{\"press_provenance\": {\"printing_press_version\":null}}\n' > skills/acme/manifest.json; rm skills/acme/guide.md"
+  st_case "a manifest with a recorded press version, or none at all" pass \
+    "printf '{\"printing_press_version\": \"4.24.0\"}\n' > skills/acme/manifest.json; mkdir -p skills/other; printf '{\"name\": \"other-mcp\"}\n' > skills/other/manifest.json"
   st_case "the phrase in prose, a shell comment and generated cli/ is not a title line" pass \
     "printf 'Built with the $ppc toolchain.\n' >> skills/acme/README.md; printf '#!/bin/sh\n# $ppc\n' > skills/acme/x.sh; printf '# Acme - $ppc\n' > skills/acme/cli/README.md"
   # Root (or a disk without permissions) reads a chmod 000 path anyway, so
@@ -318,6 +324,19 @@ press_title="Printing Press"" CLI"
 all_files '*.md' '*.markdown' '*.mdx' ':(exclude)skills/*/cli/**' > "$lists/md"
 if scan md -i -E -e "^#{1,6}[[:space:]].*${press_title}"; then
   note "a skill page is titled after the press; title it '<Vendor> - Claude Code Skill' (the press stays credited in cli/NOTICE)"
+  fail=1
+fi
+
+echo "==> 8. No manifest records a null press version"
+# An earlier onboard.py wrote "printing_press_version": null (and a
+# press_provenance block of nulls) whenever the source had no
+# .printing-press.json, and on every --docs-only run; immybot shipped that
+# shape until 2026-10-23. A null reads as provenance while recording none.
+# Unknown is written by leaving both keys out, which is what the hardened
+# onboard.py does; a known version is a string. Never guess one to pass this.
+all_files 'skills/*/manifest.json' > "$lists/manifests"
+if scan manifests -E -e '"printing_press_version"[[:space:]]*:[[:space:]]*(null|""|"[[:space:]]+")'; then
+  note "drop a null printing_press_version (and a null-filled press_provenance) instead of guessing; a reprint or onboard records the real one"
   fail=1
 fi
 
