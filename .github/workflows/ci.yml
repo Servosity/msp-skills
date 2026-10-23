@@ -357,6 +357,34 @@ jobs:
             claude plugin validate "skills/$(basename "$d")" --strict
           done
 
+  # The analyzer behind "No MCP tool call can name a local path" proved both
+  # directions on a fixture module: every flag named want-* in
+  # tools/maintainer/mcp_file_flags/testdata/fixture reaches a filesystem path
+  # through a different data-flow shape and must be reported; every comp-*
+  # flag is only a component inside a directory the program chose and must be
+  # reported as such; every not-* flag (printed, hashed, parsed as a number,
+  # sent to an API, used only to select a fixed path) must not be. One job,
+  # not one per matrix row: the fixture does not change with the connector.
+  mcp-file-flags-analyzer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/mcp_file_flags/go.mod
+          cache-dependency-path: |
+            tools/maintainer/mcp_file_flags/go.sum
+            tools/maintainer/mcp_file_flags/testdata/fixture/go.sum
+
+      - name: Analyzer self-test (fires on every want- flag, silent on every not- flag)
+        working-directory: tools/maintainer/mcp_file_flags
+        run: |
+          go vet ./...
+          go test -count=1 ./...
+
   # Its own job, deliberately. This check is RED BY DESIGN for the window
   # between a version-bump merge and the hand-cut tag that makes its pins real
   # (and for the whole life of a release that was never cut). While it was a
@@ -565,6 +593,29 @@ jobs:
         # were all green - only tools/call could see it. Needs no credentials
         # and runs in about a second on a warm build cache.
         run: python3 tools/maintainer/check_mcp_gate.py --slug ${{ matrix.skill.name }}
+
+      - name: No MCP tool call can name a local path (this skill)
+        # Hard gate. The MCP server runs this skill's CLI as the account that
+        # hosts it: the operator at the command line is trusted, an MCP caller
+        # (possibly an agent following injected instructions) is not. So a flag
+        # whose value names a file or directory the CLI reads or writes must be
+        # refused over MCP while the CLI keeps it.
+        #
+        # That rule was enforced flag by flag, from usage text: PR #416 (teach
+        # file flags in 5 connectors), PR #423 (7 flags in 5 more), and a probe
+        # that then found `import --input` in 5 more, riverside-fm --db/--out
+        # and superops --vars @path. This step derives the set from the CODE
+        # instead: tools/maintainer/mcp_file_flags runs a taint analysis over
+        # the connector's SSA form and lists every flag whose value can start a
+        # filesystem path (open, read, write, stat, mkdir, walk, exec, @path),
+        # then the script boots the real MCP server beside a recording stand-in
+        # for the CLI and asserts, for every mirrored tool, that each such flag
+        # is absent from the input schema AND refused by name when supplied (a
+        # silent drop fails: it answers a different question than was asked),
+        # that an ordinary flag still reaches the CLI, and that no in-process
+        # tool hands request data to a filesystem call. Needs no credentials.
+        timeout-minutes: 20
+        run: python3 tools/maintainer/check_mcp_file_flags.py --slug ${{ matrix.skill.name }}
 
       - name: Doctor reports a verdict that tracks reality (this skill)
         # Hard gate: build this skill's CLI and run `doctor --json` against a

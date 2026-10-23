@@ -1,0 +1,60 @@
+// Command-tree dump for tools/maintainer/check_mcp_file_flags.py.
+// Supplied through `go build -overlay`; never written into the connector.
+package main
+
+import (
+	"encoding/json"
+	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	cli "__IMPORT__"
+)
+
+type flagInfo struct {
+	Name      string `json:"name"`
+	Shorthand string `json:"shorthand,omitempty"`
+	Usage     string `json:"usage"`
+	Default   string `json:"default"`
+	Type      string `json:"type"`
+	Hidden    bool   `json:"hidden,omitempty"`
+	Local     bool   `json:"local"`
+}
+
+type node struct {
+	Path        []string          `json:"path"`
+	Aliases     []string          `json:"aliases,omitempty"`
+	Hidden      bool              `json:"hidden,omitempty"`
+	Runnable    bool              `json:"runnable"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Flags       []flagInfo        `json:"flags"`
+}
+
+func walk(c *cobra.Command, path []string, out *[]node) {
+	for _, sub := range c.Commands() {
+		p := append(append([]string{}, path...), sub.Name())
+		n := node{Path: p, Aliases: sub.Aliases, Hidden: sub.Hidden, Runnable: sub.Runnable(), Annotations: sub.Annotations}
+		// InheritedFlags merges every ancestor's persistent flags into
+		// Flags(), the set Cobra parses for this command.
+		_ = sub.InheritedFlags()
+		local := sub.LocalFlags()
+		sub.Flags().VisitAll(func(f *pflag.Flag) {
+			n.Flags = append(n.Flags, flagInfo{
+				Name: f.Name, Shorthand: f.Shorthand, Usage: f.Usage, Default: f.DefValue,
+				Type: f.Value.Type(), Hidden: f.Hidden, Local: local.Lookup(f.Name) != nil,
+			})
+		})
+		*out = append(*out, n)
+		walk(sub, p, out)
+	}
+}
+
+func main() {
+	root := cli.RootCmd()
+	out := []node{}
+	walk(root, nil, &out)
+	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+		os.Exit(1)
+	}
+}
