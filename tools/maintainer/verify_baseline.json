@@ -1,0 +1,472 @@
+{
+ "_comment": "Read by tools/maintainer/verify_gate.py in every CI build row. 'connectors': the .claude/skills/verify-msp-skills features each connector FAILS on main today; features 3 to 6 (mcp-http, write-gating, read-only, local-data) fail by design on connectors printed before press 4.34.0 and pass after the reprint. 'known_errors': harness ERRORs (not connector defects) the fleet had when this was seeded; reported, kept visible by verify-watch.yml, fixed in the skill. Both only SHRINK: an unlisted FAIL or ERROR fails CI (fix it, never baseline it); a listed pair that no longer happens fails CI until its entry is removed (in the PR that fixed it); the guards job's --assert-baseline-shrinks refuses any added pair; PR rows read it from the base commit via --policy-base. Seeded from Linux CI verdicts (PR #453).",
+ "connectors": {
+  "abnormal": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "acronis": [
+   "install",
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "action1": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "afi": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "appdirect": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "atera": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "autotask": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "auvik": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "avanan": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "aws-billing": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "axcient": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "backup-radar": [
+   "mcp-stdio",
+   "read-only",
+   "local-data"
+  ],
+  "betterstack": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "bitdefender": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "blumira": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "cipp": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "cisco-duo": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "cisco-meraki": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "connectsecure": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "connectwise-automate": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "connectwise-control": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "connectwise-manage": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "connectwise-rmm": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "cork": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "cove": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "crowdstrike": [
+   "mcp-stdio",
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "datagate": [
+   "read-only",
+   "local-data"
+  ],
+  "datto-bcdr": [
+   "read-only",
+   "local-data"
+  ],
+  "datto-rmm": [
+   "mcp-stdio",
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "domotz": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "fortinet": [
+   "read-only",
+   "local-data"
+  ],
+  "google-workspace": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "gradient": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "halopsa": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "hubspot": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "hudu": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "huntress": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "immybot": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "itglue": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "jira-service-management": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "kaseya-bms": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "knowbe4": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "levelio": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "liongard": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "maxio": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "microsoft-graph": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "mspbots": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "n-central": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "nerdio": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "ninjaone": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "pagerduty": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "pandadoc": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "pax8": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "pipedrive": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "proofpoint": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "proxmox": [
+   "mcp-stdio",
+   "read-only",
+   "local-data"
+  ],
+  "quickbooks": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "quotewerks": [
+   "read-only",
+   "local-data"
+  ],
+  "resourceguru": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "rewst": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "riverside-fm": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "rocketcyber": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "rootly": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "runzero": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "saas-alerts": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "salesbuildr": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "sentinelone": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "servosity": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "sherweb": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "skykick": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "sonicwall": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "sophos-central": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "superops": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "syncro": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "tactical-rmm": [
+   "mcp-stdio",
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "td-synnex": [
+   "local-data"
+  ],
+  "threatdown": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "threatlocker": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "unifi-network": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "veeam": [
+   "mcp-http",
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "watchguard": [
+   "write-gating",
+   "read-only",
+   "local-data"
+  ],
+  "wordpress": [
+   "read-only",
+   "local-data"
+  ],
+  "xero": [
+   "mcp-http",
+   "read-only",
+   "local-data"
+  ],
+  "zammad": [
+   "read-only",
+   "local-data"
+  ]
+ },
+ "known_errors": {
+  "auvik": [
+   "write-gating"
+  ],
+  "fortinet": [
+   "write-gating"
+  ],
+  "n-central": [
+   "mcp-stdio"
+  ],
+  "proxmox": [
+   "write-gating"
+  ],
+  "zammad": [
+   "write-gating"
+  ]
+ }
+}
