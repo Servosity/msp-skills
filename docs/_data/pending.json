@@ -203,9 +203,9 @@
     "released_hash": "sha256:20ba7e2e78c5aee297696afa98967989fdf9b801c3e9c50f7ca049376468d130"
   },
   "datto-rmm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "datto-rmm-v0.1.9",
+    "latest_tag": "datto-rmm-v0.1.10",
     "current_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729",
     "released_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729"
   },
