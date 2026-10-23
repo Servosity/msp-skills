@@ -176,6 +176,9 @@ jobs:
           python3 tools/maintainer/verify_scope.py --self-test
           python3 tools/maintainer/check_no_pp_leak.py --self-test
           python3 tools/maintainer/check_unix_test_asserts.py --self-test
+          # The recurring-bug-class harness: each class fires on a broken shape
+          # and is silent on a healthy one (both directions, offline, no build).
+          python3 tools/maintainer/class_harness.py --self-test
 
       - name: Merge and release tool self-tests (#422)
         run: |
@@ -183,6 +186,17 @@ jobs:
           python3 -I tools/maintainer/merge_when_green.py --self-test
           python3 -I tools/maintainer/stamp_release.py --self-test
           bash tools/maintainer/cut_tags.sh --self-test
+
+      - name: Class baseline only shrinks (PR cannot widen its own baseline)
+        # Build-free guard, mirroring the security gate's baseline-readded check
+        # (#429): the working class_baseline.json may only REMOVE connectors vs
+        # the baseline at the PR base, never add. Adding a connector means a PR
+        # tried to baseline a class it broke instead of fixing it. The per-skill
+        # runtime class tests run in the build matrix rows; this just polices the
+        # data file against the trusted base. No base (weekly sweep / dispatch)
+        # means nothing to compare, so it is skipped there.
+        if: github.event_name == 'pull_request'
+        run: python3 tools/maintainer/class_harness.py --assert-baseline-shrinks "${{ github.event.pull_request.base.sha }}"
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -639,6 +653,19 @@ jobs:
         # Needs no vendor credentials and no network: the stub binds 127.0.0.1
         # and the fixture config carries a literal auth_header.
         run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
+
+      - name: Recurring bug-class tests (this skill, black box)
+        # Build this connector's CLI + MCP and drive them against a local fake
+        # server for the recurring CLASSES (secret echo, auth on the wire, write
+        # safety). Connector-agnostic: no per-connector Go import; the surface
+        # comes from the binary's agent-context and the wiring from manifest.json.
+        # A connector listed in class_baseline.json for a class is reported, not
+        # failed (the list only shrinks; the guards job proves a PR did not widen
+        # it). A change to the harness itself is MACHINERY, so it re-runs the
+        # whole fleet. Runs even if a build step above failed, so one row reports
+        # everything. See tools/maintainer/README.md "Class tests".
+        if: ${{ !cancelled() }}
+        run: python3 tools/maintainer/class_harness.py --slug ${{ matrix.skill.name }}
 
       - name: Test (linux, native)
         # Until this step the only `go test` in CI ran on the Windows rows, so a

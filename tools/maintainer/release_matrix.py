@@ -149,6 +149,15 @@ MACHINERY = (
     "tools/maintainer/check_mcp_file_flags.py",
     "tools/maintainer/mcp_file_flags/",
     "tools/maintainer/check_doctor_truth.py",
+    # The black-box class harness and its three class tests run in each build
+    # matrix row (class_harness.py --slug). A change to any of them changes what
+    # "verified" means for every connector, so it re-tests the whole fleet. The
+    # shrink-only data file (class_baseline.json) is NOT here: retiring a
+    # baselined connector is data, guarded build-free by --assert-baseline-shrinks.
+    "tools/maintainer/class_harness.py",
+    "tools/maintainer/class_secret_echo.py",
+    "tools/maintainer/class_auth_wire.py",
+    "tools/maintainer/class_write_safety.py",
     "tools/maintainer/windows_smoke.ps1",
     "tools/maintainer/windows_known_failures.py",
     "tools/maintainer/cli_hash.py",
