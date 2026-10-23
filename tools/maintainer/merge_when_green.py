@@ -47,7 +47,11 @@ What it does, in order
     the PR names at that instant.
  9. Merges (squash, --match-head-commit) only when everything is green on that
     exact commit, main has not moved since the rebase (if it has, it goes round
-    again, bounded), and every required review approval is CURRENT. A refused
+    again, bounded), and every required review approval is CURRENT. It reads
+    whether CodeRabbit reviewed that exact commit (its status passes even when
+    it skipped or was rate-limited, so the status is never read as a review)
+    and records the state in the log, the state file and the MERGED line; with
+    --coderabbit require, anything but a review stops the merge. A refused
     merge goes round again too; there is no blind retry. GitHub's merge call
     pins the head but cannot pin the base, so it checks main once more right
     before the call and then PROVES the merge commit's parent is the validated
@@ -81,7 +85,8 @@ origin/main's copy: a stale checkout carries a stale registry and stale rules.
 
 Exit codes: 0 merged (or the dry run would merge); 1 internal error; 2 refused
 (lock held, dirty or busy worktree, fork, head moved, stale copy of this tool);
-3 conflict the tool will not resolve; 4 a required approval is not current; 5 a
+3 conflict the tool will not resolve; 4 a required approval is not current, or
+(--coderabbit require) CodeRabbit has not reviewed the exact head; 5 a
 check failed and was not shown to be a flake or a stale base; 6 timed out; 7
 merged, but main moved inside the merge call, and main's CI on the merge commit
 then passed; 8 the same race, and main's CI is red or could not be verified:
@@ -530,6 +535,92 @@ def same_versions(a: dict[str, str], b: dict[str, str], need: set[str] | frozens
 # GitHub (gh CLI)
 # --------------------------------------------------------------------------- #
 
+# --------------------------------------------------------------------------- #
+# CodeRabbit: was THIS commit reviewed?
+# --------------------------------------------------------------------------- #
+# CodeRabbit's commit status is "success" whether it reviewed the commit or
+# not: "Review completed", "Review skipped: 336 files exceed the limit of 100"
+# and "Review rate limited" all pass ("the check passes by design so it never
+# blocks merging"; its docs call the PR comment the authoritative signal). So a
+# green CodeRabbit status is never read as a review. Measured on the 30 PRs
+# merged before 2026-10-23: 12 had a review of their final head commit, 10 were
+# skipped for size, 8 were rate-limited (5 of them after reviewing an earlier
+# commit), and 4 of the 12 "Review completed" statuses had no review object on
+# the head at all (only the summary comment recorded the review).
+#
+# A review of `sha` is established only by evidence the CodeRabbit app itself
+# wrote (login coderabbitai[bot], type Bot) that names `sha` exactly:
+#   * a pull request review on commit `sha` whose body CodeRabbit generated
+#     (thread replies create empty-bodied reviews; those are not reviews), or
+#   * its summary comment's coverage record for `sha` with kind "reviewed", or
+#     its "recent review" section reviewing up to `sha`.
+# Those markers are CodeRabbit's own HTML comments, not a documented API. If
+# their format changes, nothing matches and the state reads "none": the check
+# fails closed, it never passes by accident.
+CODERABBIT_BOT = "coderabbitai[bot]"
+CODERABBIT_CONTEXT = "CodeRabbit"
+_CR_SUMMARY = "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->"
+# A generated review body carries one or both (measured: bodies before about
+# 2026-10-19 open with the second only; later ones whose comments all sit
+# outside the diff carry the first only).
+_CR_REVIEW_MARKS = ("<!-- coderabbit-ai-generated", "**Actionable comments posted:")
+_CR_COVERAGE_RE = re.compile(r"<!-- final_review_risk_coverage:(\{[^{}<>]*\}) -->")
+_CR_RECENT_RE = re.compile(r"<!-- recent_review_start -->(.*?)<!-- recent_review_end -->", re.S)
+_CR_BETWEEN_RE = re.compile(r"between ([0-9a-f]{40}) and ([0-9a-f]{40})")
+
+
+def _is_coderabbit(row: dict) -> bool:
+    return row.get("user") == CODERABBIT_BOT and row.get("type") == "Bot"
+
+
+def coderabbit_state(evidence: dict, sha: str) -> tuple[str, str]:
+    """(state, detail) for commit `sha`. State is one of: reviewed, pending
+    (a review is running), skipped (over the file limit), rate-limited,
+    failed, unreadable (the evidence could not be read), none (nothing that
+    names this commit, including a "Review completed" status with no review
+    behind it). Only "reviewed" counts as a review."""
+    if evidence.get("incomplete"):
+        return "unreadable", f"could not read CodeRabbit's evidence ({evidence['incomplete']})"
+    statuses = [s for s in evidence.get("statuses", [])
+                if s.get("context") == CODERABBIT_CONTEXT and s.get("creator") == CODERABBIT_BOT]
+    latest = max(statuses, key=lambda s: str(s.get("created_at") or ""), default=None)
+    how = ""
+    for r in evidence.get("reviews", []):
+        body = str(r.get("body") or "").strip()
+        if _is_coderabbit(r) and r.get("commit_id") == sha and any(m in body for m in _CR_REVIEW_MARKS):
+            how = "a CodeRabbit review on this commit"
+            break
+    if not how:
+        for c in evidence.get("comments", []):
+            body = str(c.get("body") or "")
+            if not _is_coderabbit(c) or _CR_SUMMARY not in body:
+                continue
+            for raw in _CR_COVERAGE_RE.findall(body):
+                try:
+                    cov = json.loads(raw)
+                except ValueError:
+                    continue
+                if isinstance(cov, dict) and cov.get("coveredCommitId") == sha and cov.get("kind") == "reviewed":
+                    how = "CodeRabbit's summary records a review covering this commit"
+            for section in _CR_RECENT_RE.findall(body):
+                if any(head == sha for _start, head in _CR_BETWEEN_RE.findall(section)):
+                    how = how or "CodeRabbit's summary reviewed up to this commit"
+    if latest is not None and latest.get("state") == "pending":
+        return "pending", str(latest.get("description") or "review in progress")
+    if how:
+        return "reviewed", how
+    if latest is None:
+        return "none", "CodeRabbit has posted no status on this commit"
+    desc = str(latest.get("description") or "")
+    if latest.get("state") in ("failure", "error"):
+        return "failed", desc or str(latest.get("state"))
+    if desc.lower().startswith("review skipped"):
+        return "skipped", desc
+    if "rate limit" in desc.lower():
+        return "rate-limited", desc
+    return "none", f"its status says {desc!r}, but nothing CodeRabbit wrote records a review of this commit"
+
+
 class GitHub:
     def __init__(self, slug: str) -> None:
         self.slug = slug
@@ -689,6 +780,33 @@ class GitHub:
         rows = self._lines("api", f"repos/{self.slug}/actions/workflows/catalog.yml/runs?per_page=10",
                            "--jq", ".workflow_runs[] | {event, status}")
         return any(r["status"] != "completed" and r["event"] != "pull_request" for r in rows)
+
+    def coderabbit_evidence(self, n: int, sha: str) -> dict:
+        """What coderabbit_state() reads: the commit's statuses, the PR's
+        comments and reviews, every page. A failed or cut-short read is
+        `incomplete` (the state is then "unreadable", never "reviewed")."""
+        reads = (("statuses", f"repos/{self.slug}/commits/{sha}/statuses?per_page=100",
+                  "{context, state, description, created_at, creator: .creator.login}"),
+                 ("comments", f"repos/{self.slug}/issues/{n}/comments?per_page=100",
+                  "{user: .user.login, type: .user.type, body}"),
+                 ("reviews", f"repos/{self.slug}/pulls/{n}/reviews?per_page=100",
+                  "{user: .user.login, type: .user.type, commit_id, body}"))
+        ev: dict = {}
+        for key, url, fields in reads:
+            try:
+                p = self._gh("api", "--paginate", url, "--jq", f".[] | {fields}", check=False)
+            except rr.CallTimeout as exc:
+                ev["incomplete"] = f"{key}: {exc}"
+                return ev
+            if p.returncode != 0:
+                ev["incomplete"] = f"{key}: gh exited {p.returncode}: {p.stderr.strip()[-200:]}"
+                return ev
+            try:
+                ev[key] = [json.loads(ln) for ln in p.stdout.splitlines() if ln.strip()]
+            except ValueError:
+                ev["incomplete"] = f"{key}: unparsable output"
+                return ev
+        return ev
 
     def merge(self, n: int, sha: str) -> tuple[bool, str]:
         p = self._gh("pr", "merge", str(n), "-R", self.slug, "--squash", "--match-head-commit", sha, check=False)
@@ -852,6 +970,12 @@ class Options:
     generators: tuple[str, ...] = rr.GENERATORS
     allow_stale_tools: bool = False
     required: tuple[str, ...] | None = None  # None: read branch protection
+    # "report" (default): record the head's CodeRabbit state (reviewed, skipped,
+    # rate-limited, none...) in the log, the state file and the MERGED line, and
+    # never block on it. "require": the head must carry a CodeRabbit review of
+    # that exact commit. Owner decision 2026-10-23: 12 of the last 30 merged PRs had
+    # one, and a PR over 100 files can never get one.
+    coderabbit: str = "report"
 
 
 class Merger:
@@ -868,6 +992,7 @@ class Merger:
         self.green: list[list[str]] | None = None  # the check verdicts of the last green wait
         self.merge_called = False  # from the merge call on, an unproven outcome is exit 8
         self.timeouts_at_merge = 0  # calls timed out before the merge call
+        self.coderabbit_seen: tuple[str, str, str] | None = None  # (head, state, detail) at the final gate
 
     def say(self, msg: str) -> None:
         self.out(_printable(msg))
@@ -1343,7 +1468,8 @@ class Merger:
         """EVERY precondition of the merge, re-read in one place, as late as
         possible: `_run` calls `_merge` straight after it. Re-reads main (and,
         through `_fetch`, this tool's freshness against that main), the PR,
-        the approvals' change fingerprint, and every check on the exact head
+        the approvals' change fingerprint, CodeRabbit's review of the exact
+        head (the "coderabbit" requirement), and every check on the exact head
         (complete and paginated; still green; verdicts unchanged since the
         wait said green). Returns those verdicts, which `_merge` compares with
         the head's checks once more after the merge, or None when anything
@@ -1362,6 +1488,8 @@ class Merger:
         if not ok:
             raise Stop(EXIT_APPROVAL, "green, but a required approval is not current: " + "; ".join(missing)
                        + f". Re-review {sha[:12]} and record it with `approve {o.pr} --head {sha}`.")
+        if not self._coderabbit_gate(sha):
+            return None
         snap = self.gh.snapshot(sha)
         pending, failed = self._evaluate(snap, required)
         now = verdicts_of(snap)
@@ -1379,6 +1507,47 @@ class Merger:
             self.say(f"==> main moved to {tip[:12]} just before the merge; validating again")
             return None
         return now
+
+    def _coderabbit_gate(self, sha: str) -> bool:
+        """The "coderabbit" check: did CodeRabbit review exactly `sha`? (A
+        skipped or rate-limited review is not a review, and neither is a review
+        of an earlier head: squashing and rebasing make a new commit.) The state
+        is always recorded: in the log, in the state file and, through
+        coderabbit_seen, in the MERGED line.
+        --coderabbit report (default): never blocks.
+        --coderabbit require: False sends the run back to validate (a review is
+        still running, or the evidence could not be read: bounded by
+        --max-rebases); any other state but "reviewed" stops it, EXIT_APPROVAL."""
+        state, detail = coderabbit_state(self.gh.coderabbit_evidence(self.o.pr, sha), sha)
+        self.coderabbit_seen = (sha, state, detail)
+        self.state.update(lambda d: d.setdefault("coderabbit", []).append(
+            {"head": sha, "state": state, "detail": detail, "mode": self.o.coderabbit, "recorded_at": _now()}))
+        if state == "reviewed":
+            self.say(f"==> coderabbit: reviewed {sha[:12]} ({detail})")
+            return True
+        if self.o.coderabbit == "report":
+            self.say(f"==> coderabbit: {state} on {sha[:12]} ({detail}); not a review of this commit; recorded, "
+                     "not required (--coderabbit report, the default)")
+            return True
+        if state == "pending":
+            self.say(f"==> coderabbit: a review of {sha[:12]} is still running ({detail}); validating again")
+            return False
+        if state == "unreadable":
+            # A failed read is not a missing review (an incomplete check listing
+            # is treated the same way); --max-rebases bounds the retries.
+            self.say(f"==> coderabbit: the evidence for {sha[:12]} could not be read ({detail}); validating again")
+            return False
+        raise Stop(EXIT_APPROVAL, f"green, but the coderabbit requirement is not met: {state} on {sha[:12]} "
+                                  f"({detail}). A skipped or rate-limited review, or a review of an earlier "
+                                  f"head, is not a review of this commit. Get one (comment `@coderabbitai review` "
+                                  "once it has capacity) and run again, or run without --coderabbit require "
+                                  "(the default records the state and merges).")
+
+    def _coderabbit_note(self, sha: str) -> str:
+        seen = self.coderabbit_seen
+        if seen is None or seen[0] != sha:
+            return "; coderabbit: not read"
+        return f"; coderabbit on {sha[:12]}: {seen[1]} ({seen[2]})"
 
     def _merge(self, sha: str, base: str, verdicts: list[list[str]], required: list[str]) -> int | str:
         """One merge attempt, never a blind retry, straight after _final_gate.
@@ -1446,7 +1615,7 @@ class Merger:
         same_tree = self.git.out("rev-parse", f"{merge}^{{tree}}") == self.git.out("rev-parse", f"{sha}^{{tree}}")
         if parent == base and same_tree:
             self.say(f"MERGED #{o.pr} as {merge[:12]}: on the validated base {base[:12]}, tree identical to "
-                     f"the green head {sha[:12]}")
+                     f"the green head {sha[:12]}" + self._coderabbit_note(sha))
             return EXIT_OK
         between = changed_paths(self.git, base, parent) if self.git.is_ancestor(base, parent) else ["(main rewritten)"]
         race = (f"RACE: merged as {merge[:12]}, but main moved inside the merge call: its parent is "
@@ -1540,12 +1709,21 @@ class Merger:
         if new != current:
             self.say(f"==> [dry run] would wait for every check on {new[:12]}, then merge it with "
                      f"--match-head-commit {new[:12]} if green, main is still {base[:12]}, and approvals are current")
+            self.say(f"==> [dry run] coderabbit: {new[:12]} would be a new commit, so CodeRabbit must review it "
+                     "after the push" + (" (required: --coderabbit require)" if self.o.coderabbit == "require"
+                                         else " (recorded, not required: the default)"))
             return EXIT_APPROVAL if missing else EXIT_OK
         pending, failed = self._evaluate(self.gh.snapshot(new), required)
         self.say(f"==> [dry run] checks on {new[:12]} now: {len(pending)} pending, {len(failed)} failed")
         for f in failed:
             self.say(f"    failed: {f.get('name')} ({f.get('conclusion')})")
+        cr_state, cr_detail = coderabbit_state(self.gh.coderabbit_evidence(self.o.pr, new), new)
+        self.say(f"==> [dry run] coderabbit on {new[:12]}: {cr_state} ({cr_detail})"
+                 + ("" if cr_state in ("reviewed", "pending") or self.o.coderabbit == "require"
+                    else "; recorded, not required (--coderabbit report, the default)"))
         if missing:
+            return EXIT_APPROVAL
+        if self.o.coderabbit == "require" and cr_state not in ("reviewed", "pending"):
             return EXIT_APPROVAL
         if failed:
             return EXIT_CHECKS
@@ -1702,6 +1880,10 @@ def show_status(git: Git, gh, pr_n: int, remote: str = "origin", out: Callable[[
             + ("CURRENT" if ok else "not current - " + "; ".join(reasons)))
     for sha, counts in data["reruns"].items():
         out(f"  re-runs on {sha[:12]}: {counts}")
+    state, detail = coderabbit_state(gh.coderabbit_evidence(pr_n, head), head)
+    out(f"  coderabbit on head {head[:12]}: {state} ({detail})")
+    for c in data.get("coderabbit", [])[-5:]:
+        out(f"  coderabbit recorded at a final gate: {str(c.get('head'))[:12]} {c.get('state')} ({c.get('mode')})")
     return EXIT_OK
 
 
@@ -1740,6 +1922,69 @@ def log_ok(go: str = "go1.26.9") -> str:
     return log_setup(go) + "2026-10-20T16:41:18.5Z PASS\n"
 
 
+def cr_fixture(shape: str, sha: str, older: str = "0" * 40) -> dict:
+    """CodeRabbit evidence in the shapes measured on real PRs (#395-#430):
+    status rows, the summary comment's markers, review objects."""
+    bot = {"user": CODERABBIT_BOT, "type": "Bot"}
+
+    def status(desc: str, state: str = "success", creator: str = CODERABBIT_BOT, at: str = "2026-10-22T18:24:41Z"):
+        return {"context": CODERABBIT_CONTEXT, "state": state, "description": desc, "created_at": at,
+                "creator": creator}
+
+    def summary(covered: str | None = None, recent: str | None = None, extra: str = "") -> dict:
+        body = "<!-- coderabbit-ai-generated:v1 -->\n" + _CR_SUMMARY + "\n"
+        if recent:
+            body += ("<!-- recent_review_start -->\nNo actionable comments were generated in the recent review.\n"
+                     f"Reviewing files that changed from the base of the PR and between {older} and {recent}.\n"
+                     "<!-- recent_review_end -->\n")
+        if covered:
+            body += ('<!-- final_review_risk_coverage:{"sourceCommitId":"' + covered + '","coveredCommitId":"'
+                     + covered + '","kind":"reviewed"} -->\n')
+        return {**bot, "body": body + extra}
+
+    rate_block = ("<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->\n> ## Review limit "
+                  f"reached\n> Reviewing files that changed from the base of the PR and between {older} and {sha}.\n")
+    in_progress = status("Review in progress", "pending", at="2026-10-22T18:21:38Z")
+    shapes = {
+        # A review with inline findings: a review object on the head.
+        "reviewed": {"statuses": [status("Review completed"), in_progress],
+                     "comments": [summary(covered=sha)],
+                     "reviews": [{**bot, "commit_id": sha, "body": "<!-- coderabbit-ai-generated:v1 -->\n\n"
+                                  "**Actionable comments posted: 2**"}]},
+        # The pre-2026-10-19 review body (#396): no generated-comment marker.
+        "reviewed-old-format": {"statuses": [status("Review completed")], "comments": [summary()],
+                                "reviews": [{**bot, "commit_id": sha, "body": "**Actionable comments posted: 2**\n"}]},
+        # No findings: only the summary comment records it (#425, #407).
+        "reviewed-quiet": {"statuses": [status("Review completed")],
+                           "comments": [summary(covered=sha, recent=sha)], "reviews": []},
+        # Reviewed an earlier head, rate-limited on this one (#422, #423).
+        "reviewed-older": {"statuses": [status("Review rate limited"), in_progress],
+                           "comments": [summary(covered=older, recent=older, extra=rate_block)],
+                           "reviews": [{**bot, "commit_id": older, "body": "<!-- coderabbit-ai-generated:v1 -->\n"
+                                        "**Actionable comments posted: 3**"},
+                                       {**bot, "commit_id": sha, "body": ""}]},  # a thread reply
+        "rate-limited": {"statuses": [status("Review rate limited")],
+                         "comments": [summary(extra=rate_block)], "reviews": []},
+        "skipped": {"statuses": [status("Review skipped: 336 files exceed the limit of 100")],
+                    "comments": [summary(extra=rate_block.replace("Review limit reached", "Review skipped"))],
+                    "reviews": []},
+        # The 2026-06-05 credits-outage shape: "Review completed", nothing behind it.
+        "completed-empty": {"statuses": [status("Review completed")], "comments": [summary()], "reviews": []},
+        "pending": {"statuses": [in_progress], "comments": [summary()], "reviews": []},
+        "none": {"statuses": [], "comments": [], "reviews": []},
+        # Evidence anyone with write access could post: a status from another
+        # account, a human comment quoting CodeRabbit's markers, a review by a
+        # user whose name only resembles the app's.
+        "forged": {"statuses": [status("Review completed", creator="someone")],
+                   "comments": [{"user": "someone", "type": "User", "body": summary(covered=sha, recent=sha)["body"]},
+                                {"user": CODERABBIT_BOT, "type": "User", "body": summary(covered=sha)["body"]}],
+                   "reviews": [{"user": "coderabbitai", "type": "User", "commit_id": sha,
+                                "body": "<!-- coderabbit-ai-generated:v1 -->\n**Actionable comments posted: 1**"}]},
+        "unreadable": {"incomplete": "comments: gh exited 1: HTTP 502"},
+    }
+    return shapes[shape]
+
+
 class FakeGitHub:
     """A scripted GitHub over a local bare 'origin': PR head = the branch ref
     there, merges update its main, checks come from `responder`."""
@@ -1776,6 +2021,10 @@ class FakeGitHub:
         self.timeouts = 0
         self.merge_stalls = False
         self._next = 1000
+        # CodeRabbit's evidence for a sha: a shape name (see coderabbit_evidence)
+        # or a callable(sha) -> evidence dict. Default: it reviewed every head.
+        self.coderabbit: str | Callable[[str], dict] = "reviewed"
+        self.coderabbit_reads = 0
 
     def _git(self, *a: str) -> str:
         return subprocess.run(["git", "--git-dir", str(self.origin), *a], capture_output=True, text=True,
@@ -1841,6 +2090,12 @@ class FakeGitHub:
             self.timeouts += 1
             snap["incomplete"] = "check runs: lookup failed (gh api --paginate did not finish within 1s (killed))"
         return snap
+
+    def coderabbit_evidence(self, n: int, sha: str) -> dict:
+        self.coderabbit_reads += 1
+        if callable(self.coderabbit):
+            return self.coderabbit(sha)
+        return cr_fixture(self.coderabbit, sha)
 
     def job_log(self, job_id: int) -> str:
         return self.logs.get(job_id, "")
@@ -3133,6 +3388,108 @@ def _self_test() -> int:
             expect(rc == want and (fake.merged is not None) == (want == 0) and not fake.reruns, f"{label} (rc={rc})")
 
         # T10: dry run pushes and merges nothing.
+        print("coderabbit (a skipped or rate-limited review is not a review):")
+        sha_a = "a" * 40
+        want = {"reviewed": "reviewed", "reviewed-old-format": "reviewed", "reviewed-quiet": "reviewed",
+                "reviewed-older": "rate-limited",
+                "rate-limited": "rate-limited", "skipped": "skipped", "completed-empty": "none", "pending": "pending",
+                "none": "none", "forged": "none", "unreadable": "unreadable"}
+        for shape, state in want.items():
+            got = coderabbit_state(cr_fixture(shape, sha_a), sha_a)
+            expect(got[0] == state, f"{shape} evidence reads as {state} (got {got[0]}: {got[1][:70]})")
+        expect(coderabbit_state(cr_fixture("reviewed", sha_a), "b" * 40)[0] != "reviewed",
+               "a review names one commit: it is not a review of any other commit")
+        failed = {"statuses": [{"context": CODERABBIT_CONTEXT, "state": "failure", "description": "Review failed",
+                                "created_at": "x", "creator": CODERABBIT_BOT}], "comments": [], "reviews": []}
+        expect(coderabbit_state(failed, sha_a)[0] == "failed", "a failed CodeRabbit status reads as failed")
+        bad_json = cr_fixture("completed-empty", sha_a)
+        bad_json["comments"][0]["body"] += "<!-- final_review_risk_coverage:{not json} -->"
+        expect(coderabbit_state(bad_json, sha_a)[0] == "none", "an unparsable coverage record proves nothing")
+
+        fake_work: list[Path] = []  # the last cr_world clone, for reading its state file
+
+        def cr_world(shape, **kw) -> tuple[int, list[str], FakeGitHub]:  # pass coderabbit="require" to block
+            origin, work, branch = world()
+            fake_work[:] = [work]
+            new_connector_pr(work, extra_commit=False)
+            fake = FakeGitHub(origin, env, 40, branch, "skill: bravo", green)
+            fake.coderabbit = shape
+            rc, logs = merger(work, fake, require=(), **kw)
+            return rc, logs, fake
+
+        for shape in ("rate-limited", "skipped", "completed-empty", "none", "forged"):
+            rc, logs, fake = cr_world(shape, coderabbit="require")
+            expect(rc == EXIT_APPROVAL and fake.merge_calls == 0 and fake.merged is None
+                   and any("coderabbit requirement is not met" in s for s in logs),
+                   f"--coderabbit require, green, but CodeRabbit {shape}: not merged, exit 4 (rc={rc})")
+        rc, logs, fake = cr_world("reviewed")
+        expect(rc == 0 and fake.merged is not None and any("coderabbit: reviewed" in s for s in logs),
+               f"green and CodeRabbit reviewed the exact head: merged (rc={rc})")
+        rc, logs, fake = cr_world("reviewed-quiet")
+        expect(rc == 0 and fake.merged is not None,
+               f"a review with no findings (summary-only record) is a review (rc={rc})")
+        for shape in ("rate-limited", "skipped", "none", "pending", "unreadable"):
+            rc, logs, fake = cr_world(shape)
+            expect(rc == 0 and fake.merged is not None and any(f"coderabbit: {shape} on" in s for s in logs),
+                   f"default (report): a {shape} head merges, and the log says so (rc={rc})")
+        rc, logs, fake = cr_world("rate-limited")
+        recorded = State(Git(fake_work[0], env), fake.n).load().get("coderabbit", [])
+        merged_line = next((s for s in logs if s.startswith("MERGED #")), "")
+        expect(recorded and recorded[-1]["state"] == "rate-limited" and recorded[-1]["head"] == fake.merged
+               and recorded[-1]["mode"] == "report" and "coderabbit on" in merged_line
+               and "rate-limited" in merged_line,
+               "default (report): the head's state is recorded in the state file and in the MERGED line")
+        rc, logs, fake = cr_world("reviewed", coderabbit="require")
+        expect(rc == 0 and "reviewed" in next((s for s in logs if s.startswith("MERGED #")), ""),
+               f"--coderabbit require and reviewed: merged, and the MERGED line records the review (rc={rc})")
+
+        reads = [0]
+
+        def pending_then_reviewed(sha: str) -> dict:
+            reads[0] += 1
+            return cr_fixture("pending" if reads[0] == 1 else "reviewed", sha)
+        rc, logs, fake = cr_world(pending_then_reviewed, coderabbit="require")
+        expect(rc == 0 and fake.merge_calls == 1 and any("still running" in s for s in logs),
+               f"a review still running sends the run back to validate; reviewed, it merges (rc={rc})")
+        reads[0] = 0
+
+        def unreadable_then_reviewed(sha: str) -> dict:
+            reads[0] += 1
+            return cr_fixture("unreadable" if reads[0] == 1 else "reviewed", sha)
+        rc, logs, fake = cr_world(unreadable_then_reviewed, coderabbit="require")
+        expect(rc == 0 and fake.merge_calls == 1 and any("could not be read" in s for s in logs),
+               f"an unreadable CodeRabbit read validates again; readable and reviewed, it merges (rc={rc})")
+        rc, logs, fake = cr_world("unreadable", coderabbit="require")
+        expect(rc == EXIT_TIMEOUT and fake.merge_calls == 0 and fake.merged is None,
+               f"evidence that never reads stops after --max-rebases, never merges (rc={rc})")
+
+        # Squashing and rebasing make a new head: a review of the old head is
+        # not a review of the commit that would merge.
+        origin, work, branch = world()
+        old_head = new_connector_pr(work, extra_commit=True)
+        fake = FakeGitHub(origin, env, 41, branch, "skill: bravo", green)
+        fake.coderabbit = lambda s: cr_fixture("reviewed" if s == old_head else "reviewed-older", s, older=old_head)
+        rc, logs = merger(work, fake, require=(), coderabbit="require")
+        new_head = origin_rev(origin, f"refs/heads/{branch}")
+        expect(new_head != old_head and rc == EXIT_APPROVAL and fake.merged is None
+               and any("rate-limited on " + new_head[:12] in s for s in logs),
+               f"a review of the pre-squash head does not carry to the squashed head (rc={rc})")
+
+        origin, work, branch = world()
+        new_connector_pr(work, extra_commit=False)
+        fake = FakeGitHub(origin, env, 42, branch, "skill: bravo", green)
+        fake.coderabbit = "rate-limited"
+        rc, logs = merger(work, fake, require=(), dry_run=True, coderabbit="require")
+        expect(rc == EXIT_APPROVAL and any("[dry run] coderabbit on" in s and "rate-limited" in s for s in logs),
+               f"the dry run reports the CodeRabbit state and refuses under --coderabbit require (rc={rc})")
+        rc, logs = merger(work, fake, require=(), dry_run=True)
+        expect(rc == 0 and any("recorded, not required" in s for s in logs),
+               f"and by default (report) the dry run would merge (rc={rc})")
+        out_lines: list[str] = []
+        show_status(Git(work, env), fake, fake.n, out=out_lines.append)
+        expect(any(line.strip().startswith("coderabbit on head") and "rate-limited" in line for line in out_lines),
+               "status prints the head's CodeRabbit state")
+
         print("dry run:")
         origin, work, branch = world()
         head = new_connector_pr(work)
@@ -3211,6 +3568,11 @@ def main(argv: list[str] | None = None) -> int:
         ap.add_argument("--require-approval", action="append", metavar="NAME",
                         help="reviewer whose current approval is required (repeatable; default: codex)")
         ap.add_argument("--no-approval-required", action="store_true", help="merge on green checks alone")
+        ap.add_argument("--coderabbit", choices=("report", "require"), default="report",
+                        help="report (default): record the head's CodeRabbit state (reviewed, skipped, "
+                             "rate-limited, none) in the log, the state file and the MERGED line, never block; "
+                             "require: the head must carry a CodeRabbit review of that exact commit (a skip or "
+                             "rate-limit notice is not one)")
         ap.add_argument("--expect-workflow", action="append", metavar="NAME",
                         help="workflow that must run on the head (default: CI and security-gate)")
         ap.add_argument("--timeout-min", type=float, default=60.0)
@@ -3249,7 +3611,8 @@ def _main(args: argparse.Namespace, sub: str | None) -> int:
                    expect_workflows=tuple(args.expect_workflow or ("CI", "security-gate")),
                    timeout_s=args.timeout_min * 60, poll_s=args.poll_sec, settle_s=args.settle_sec,
                    max_rebases=args.max_rebases, allow_stale_tools=args.allow_stale_tools,
-                   required=tuple(args.required_context) if args.required_context else None)
+                   required=tuple(args.required_context) if args.required_context else None,
+                   coderabbit=args.coderabbit)
     return Merger(git, gh, opts).run()
 
 
