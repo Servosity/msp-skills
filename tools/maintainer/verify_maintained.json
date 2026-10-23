@@ -1,0 +1,5 @@
+{
+ "_comment": "When the verify-msp-skills feature map (.claude/skills/verify-msp-skills) was last brought current, and the newest cli-printing-press version whose surfaces it covers. Kept outside the skill directory on purpose. .github/workflows/verify-watch.yml opens a verify-map-stale issue when the fleet's newest printing_press_version passes maintained_at_press, when maintained_at is 30 or more days old, or when main's verify results show an ERROR or an unexpected SKIP. Update both fields in the same PR that runs /maintain-verification-skill.",
+ "maintained_at_press": "4.34.0",
+ "maintained_at": "2026-10-23"
+}
