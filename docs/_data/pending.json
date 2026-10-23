@@ -273,9 +273,9 @@
     "released_hash": "sha256:87e79183533f3fa28db63e6f21516f116aec88760aa9ddd8de2f283d95bfc59e"
   },
   "immybot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "immybot-v0.1.9",
+    "latest_tag": "immybot-v0.1.10",
     "current_hash": "sha256:b23628987368481e206d9cae39b3d0e2319ca17c9c526472826057bb67e9a6b4",
     "released_hash": "sha256:b23628987368481e206d9cae39b3d0e2319ca17c9c526472826057bb67e9a6b4"
   },
