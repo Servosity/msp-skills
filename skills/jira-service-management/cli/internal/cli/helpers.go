@@ -508,7 +508,7 @@ func endpointArgsUsageErr(cmd *cobra.Command, flags *rootFlags, err error) error
 			printFlags = &copied
 		}
 		if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-			"error": err.Error(),
+			"error": funnelShownError(err),
 			"usage": endpointUsageLine(cmd),
 		}, printFlags); printErr != nil {
 			return printErr
@@ -947,7 +947,7 @@ func writeAPIErrorEnvelope(w io.Writer, flags *rootFlags, err error, code int) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error": err.Error(),
+		"error": funnelShownError(err),
 		"code":  code,
 	})
 }

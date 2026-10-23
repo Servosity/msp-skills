@@ -494,7 +494,7 @@ func mintMemberCIDToken(ctx context.Context, httpClient *http.Client, tokenURL, 
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
+		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret})))
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {

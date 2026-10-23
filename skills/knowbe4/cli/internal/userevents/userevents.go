@@ -119,11 +119,11 @@ func (c *Client) do(ctx context.Context, method, path string, body any) (json.Ra
 				}
 				continue
 			}
-			return nil, &cliutil.RateLimitError{URL: url, RetryAfter: cliutil.RetryAfter(resp), Body: string(data)}
+			return nil, &cliutil.RateLimitError{URL: url, RetryAfter: cliutil.RetryAfter(resp), Body: cliutil.FunnelWithhold(string(data), []string{c.apiKey})}
 		}
 		c.limiter.OnSuccess()
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return nil, fmt.Errorf("user event API %s %s: HTTP %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(data)))
+			return nil, fmt.Errorf("user event API %s %s: HTTP %d: %s", method, path, resp.StatusCode, cliutil.FunnelWithhold(strings.TrimSpace(string(data)), []string{c.apiKey}))
 		}
 		return json.RawMessage(data), nil
 	}

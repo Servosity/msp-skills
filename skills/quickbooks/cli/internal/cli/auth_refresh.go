@@ -120,7 +120,7 @@ func refreshAccessToken(ctx context.Context, tokenURL, clientID, clientSecret, r
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
-		return "", "", 0, fmt.Errorf("token endpoint returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return "", "", 0, fmt.Errorf("token endpoint returned %d: %s", resp.StatusCode, cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{clientSecret, refreshToken}))
 	}
 	var out struct {
 		AccessToken  string `json:"access_token"`

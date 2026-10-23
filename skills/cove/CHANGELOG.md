@@ -7,6 +7,7 @@ All notable changes to this skill are documented here. Format follows
 ## [0.1.12] - unreleased
 
 ### Security
+- **An error can no longer show your Cove API token.** The JSON-RPC client printed the first 300 bytes of an error answer, and the server's error message, unchanged, so a Login error that repeated the token showed it; the MCP server's endpoint tools masked nothing, because COVE_PASSWORD is not part of their configuration. Now an error whose text carries the API token or the session visa, as written, HTML-entity-encoded, JSON-escaped, URL-encoded at any depth, base64 or hex, is replaced by `[text withheld: it repeated a secret value this program holds]`; the HTTP status is kept. The same check also runs on every error a command prints, including `--json` and `--agent` error output, and on every MCP error result; successful output is unchanged.
 - **Credentials no longer follow a redirect to another server.** If the API answered with a redirect to a different host or port, or from https down to http, the connector forwarded the JSON-RPC login password and session visa to it. It now removes every credential header on such a redirect, and refuses to resend a request body (which can carry a secret) anywhere but the server you configured.
 
 ### Fixed

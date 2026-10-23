@@ -58,6 +58,9 @@ func New(ctx context.Context, profile, region string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): every operation
+	// error passes the shared funnel before a caller can print it.
+	cfg.APIOptions = append(cfg.APIOptions, funnelSDKErrors(cfg.Credentials))
 	resolvedRegion := cfg.Region
 	if resolvedRegion == "" {
 		resolvedRegion = ceRegion

@@ -176,6 +176,8 @@ func RootCmd() *cobra.Command {
 func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): a command's error passes the funnel before Cobra prints it.
+	funnelCommandErrors(rootCmd)
 	// Tenant strings reach stdout/stderr inside JSON, where encoding/json
 	// leaves C1 controls raw (handfixes.json: output-escapes-c1-controls).
 	rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})

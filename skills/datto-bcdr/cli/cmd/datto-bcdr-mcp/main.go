@@ -51,6 +51,8 @@ func main() {
 	s := server.NewMCPServer(
 		"Datto Bcdr",
 		version,
+		// Hand-fix (handfixes.json secret-echo-decoded-funnel): outermost, so every error result passes the funnel.
+		server.WithToolHandlerMiddleware(funnelToolErrors),
 		server.WithToolCapabilities(false),
 	)
 

@@ -107,6 +107,10 @@ func (c *Client) mintClientCredentials(ctx context.Context) (string, error) {
 		// behind a user-controlled BaseURL could reflect the posted client_secret,
 		// and substring masking can be evaded by encoding. Only a strictly
 		// validated RFC-6749 error code survives into the user-visible error.
+		// Hand-fix (handfixes.json secret-echo-decoded-funnel): the complete raw body passes the funnel once, before any branch formats a field out of it.
+		if w := cliutil.FunnelWithhold(string(data), []string{c.Config.ClientSecret, c.Config.RefreshToken}); cliutil.FunnelWithheld(w) {
+			return "", fmt.Errorf("Action1 token endpoint returned HTTP %d: %s", resp.StatusCode, w)
+		}
 		return "", fmt.Errorf("Action1 token endpoint returned HTTP %d%s — check ACTION1_CLIENT_ID / ACTION1_CLIENT_SECRET", resp.StatusCode, tokenErrCode(data))
 	}
 	var tr tokenResponse
