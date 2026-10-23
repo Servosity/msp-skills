@@ -175,9 +175,9 @@
     "released_hash": "sha256:79246ba3aa5d81621c7553a8b1ac7c2aceb65e0c73f0e12874f8b0627fac528b"
   },
   "cove": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "cove-v0.1.11",
+    "latest_tag": "cove-v0.1.12",
     "current_hash": "sha256:c7256f67f12e6921e7ce0f7c99fa376169d820812b0e068ec7113b58c3f809dd",
     "released_hash": "sha256:c7256f67f12e6921e7ce0f7c99fa376169d820812b0e068ec7113b58c3f809dd"
   },
