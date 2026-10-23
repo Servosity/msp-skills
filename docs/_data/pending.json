@@ -588,9 +588,9 @@
     "released_hash": "sha256:f1b8f698de834b9c86bca4e3f98a0aa0797cfc789c64fa0f06a200a24e7e1e4e"
   },
   "wordpress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "wordpress-v0.1.8",
+    "latest_tag": "wordpress-v0.1.9",
     "current_hash": "sha256:85d2ed8291ec75ef082971e23cc1b66afd094cbfeef3866e7f7fe6d8d8eb2576",
     "released_hash": "sha256:85d2ed8291ec75ef082971e23cc1b66afd094cbfeef3866e7f7fe6d8d8eb2576"
   },
