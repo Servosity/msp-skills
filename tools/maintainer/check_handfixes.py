@@ -123,11 +123,35 @@ Exit codes:
        reported as a pass - a reprint that dropped a registered security
        hand-fix would sail through. `--allow-missing-base` is the only opt-out
        and it prints SKIP, never PASS; CI never passes it.
+
+Fleet-wide retirements (tools/maintainer/fleet_handfixes.json)
+--------------------------------------------------------------
+Some hand-fixes recur in dozens of ledgers because a press release lacked
+them. When a later press generates the behavior itself, the registry records
+the id as `retire` with the press version that generates it (`retire_at`) and
+the asserts that pin the press's own shape of it (`native_asserts`). On a
+connector whose recorded press version (manifest.json and
+press/.printing-press.json, which must agree) is at or above `retire_at`:
+
+  * an entry with that id is NOT demanded: its markers describe a hand-fix the
+    press output no longer needs and would no longer match;
+  * the registry's `native_asserts` ARE demanded instead, so the behavior keeps
+    a CI guard (a retirement is never a silent drop);
+  * a ledger `retired` record (written by replay_handfixes.py when it removes
+    the entry) is checked the same way, and a record the registry does not
+    back fails, so a retirement cannot be claimed by editing a ledger alone.
+
+Below `retire_at`, with no recorded version, with versions that disagree, or
+for a connector the registry lists under `keep_manual`, every entry is
+demanded exactly as before. Every id the registry does not retire is always
+demanded.
 """
 from __future__ import annotations
 
 import argparse
+import glob as _glob
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -135,6 +159,7 @@ from typing import Callable
 
 REPO = Path(__file__).resolve().parents[2]
 SKILLS = REPO / "skills"
+REGISTRY = Path(__file__).resolve().parent / "fleet_handfixes.json"
 
 
 # --------------------------------------------------------------------------
@@ -277,8 +302,143 @@ def _load_ledger(path: Path):
     return data, None
 
 
-def check_skill(slug: str) -> list[str]:
-    """Return a list of failure messages (empty == pass) for one skill."""
+_SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+_REGISTRY_CACHE: dict = {}
+
+
+def press_version_key(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def load_registry(path: Path | None = None) -> tuple[dict, str | None]:
+    """The fleet registry, or ({}, None) when there is none (a fixture repo).
+
+    A registry that exists but cannot be read, or that retires an id without a
+    valid `retire_at`, is an error: retiring a security hand-fix on a malformed
+    record would fail open."""
+    p = path or REGISTRY
+    key = str(p)
+    if key in _REGISTRY_CACHE:
+        return _REGISTRY_CACHE[key]
+    if not p.exists():
+        res: tuple[dict, str | None] = ({}, None)
+    else:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            data, err = {}, f"{p.name}: unreadable fleet registry ({e})"
+        else:
+            err = None
+            if not isinstance(data, dict) or not isinstance(data.get("handfixes"), dict):
+                data, err = {}, f"{p.name}: the fleet registry must be an object with a 'handfixes' object"
+            else:
+                for hid, r in data["handfixes"].items():
+                    if not isinstance(r, dict):
+                        err = f"{p.name}: '{hid}' is not an object"
+                    elif r.get("verdict") == "retire" and not (
+                            isinstance(r.get("retire_at"), str) and _SEMVER.match(r["retire_at"])
+                            and isinstance(r.get("native_asserts"), list) and r["native_asserts"]):
+                        err = (f"{p.name}: '{hid}' is retired without an X.Y.Z retire_at and at least "
+                               f"one native assert, so its retirement cannot be checked")
+                    if err:
+                        data = {}
+                        break
+        res = (data, err)
+    _REGISTRY_CACHE[key] = res
+    return res
+
+
+def recorded_press_version(skill_dir: Path) -> tuple[str | None, str]:
+    """The press version that generated this connector, as its metadata records
+    it, or (None, why). onboard.py records it in three places (manifest.json's
+    printing_press_version and press_provenance, and press/.printing-press.json);
+    all three must be present and agree. A missing, malformed or conflicting
+    record means unknown, and unknown retires nothing."""
+    seen: dict[str, str] = {}
+    mf = skill_dir / "manifest.json"
+    pp = skill_dir / "press" / ".printing-press.json"
+    try:
+        m = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
+        meta = json.loads(pp.read_text(encoding="utf-8")) if pp.is_file() else {}
+    except (OSError, json.JSONDecodeError) as e:
+        return None, f"press metadata unreadable ({e})"
+    if not isinstance(m, dict) or not isinstance(meta, dict):
+        return None, "press metadata is not a JSON object"
+    prov = m.get("press_provenance") if isinstance(m.get("press_provenance"), dict) else {}
+    for where, v in (("manifest.json printing_press_version", m.get("printing_press_version")),
+                     ("manifest.json press_provenance", prov.get("printing_press_version")),
+                     ("press/.printing-press.json", meta.get("printing_press_version"))):
+        if v not in (None, ""):
+            seen[where] = str(v).lstrip("v")
+    if not seen:
+        return None, "no press version is recorded"
+    if len(seen) != 3:
+        return None, ("the press version is recorded in only " + ", ".join(sorted(seen))
+                      + "; all of manifest.json printing_press_version, press_provenance and "
+                        "press/.printing-press.json must record it")
+    if len(set(seen.values())) != 1:
+        return None, "recorded press versions disagree: " + ", ".join(f"{k}={v}" for k, v in seen.items())
+    v = next(iter(seen.values()))
+    if not _SEMVER.match(v):
+        return None, f"recorded press version {v!r} is not X.Y.Z"
+    return v, ""
+
+
+def retirement(registry: dict, hid: str, slug: str, version: str | None) -> dict | None:
+    """The registry record that retires `hid` on this connector, or None."""
+    r = (registry.get("handfixes") or {}).get(hid)
+    if not isinstance(r, dict) or r.get("verdict") != "retire" or version is None:
+        return None
+    if slug in (r.get("keep_manual") or {}):
+        return None
+    if press_version_key(version) < press_version_key(r["retire_at"]):
+        return None
+    return r
+
+
+def _native_failures(slug: str, hid: str, skill_dir: Path, record: dict, doc: str) -> list[str]:
+    """The registry's native asserts for a retired id, against this connector.
+
+    A `file` may name one glob (`cli/cmd/*-mcp/main.go`), which must match
+    exactly one file. `if_exists: true` skips an assert whose file is absent
+    (the surface it guards does not exist in this connector). `any_of` passes
+    when one of its alternatives does."""
+    out: list[str] = []
+    for a in record.get("native_asserts") or []:
+        rel = a.get("file", "")
+        hits = sorted(_glob.glob(str(skill_dir / rel))) if "*" in rel else ([str(skill_dir / rel)] if (skill_dir / rel).exists() else [])
+        if not hits:
+            if a.get("if_exists") is True:
+                continue
+            out.append(f"[{slug}] retired handfix '{hid}' (press >= {record['retire_at']}): native file '{rel}' is "
+                       f"missing, so the press's own shape of this fix cannot be confirmed. See {doc}.")
+            continue
+        if len(hits) > 1:
+            out.append(f"[{slug}] retired handfix '{hid}': native file '{rel}' matches {len(hits)} files; it must name one")
+            continue
+        real = Path(hits[0]).relative_to(skill_dir).as_posix()
+        alts = a["any_of"] if isinstance(a.get("any_of"), list) else [a]
+        results = [_assert_failures(slug, f"{hid} (retired, native)", skill_dir, dict(alt, file=real), doc)
+                   for alt in alts]
+        if all(results):
+            out.extend(results[0] if len(results) == 1 else [
+                f"[{slug}] retired handfix '{hid}': none of the {len(results)} native alternatives for "
+                f"'{real}' holds: " + " | ".join(r[0] for r in results)])
+    return out
+
+
+def _registry() -> tuple[dict, str | None]:
+    return load_registry()
+
+
+def check_skill(slug: str, registry: dict | None = None, exclude_ids: set | None = None,
+                only_ids: set | None = None) -> list[str]:
+    """Return a list of failure messages (empty == pass) for one skill.
+
+    `registry` overrides the fleet registry (the self-test passes fixtures);
+    `exclude_ids` leaves named entries out; `only_ids` checks only those
+    (replay_handfixes.py proves the fleet ids it owns, on a tree where a later
+    step still has its own entries to wire)."""
     skill_dir = SKILLS / slug
     ledger_path = skill_dir / "handfixes.json"
     if not ledger_path.exists():
@@ -290,102 +450,140 @@ def check_skill(slug: str) -> list[str]:
 
     doc = data.get("doc", "docs/reprint-survival.md")
     failures: list[str] = []
+    if registry is None:
+        registry, rerr = _registry()
+        if rerr:
+            failures.append(f"[{slug}] {rerr}")
+    version, _why = recorded_press_version(skill_dir)
+    exclude = set(exclude_ids or set())
+    if only_ids is not None:
+        ids = {e.get("id") for e in data["handfixes"]} | {r.get("id") for r in data.get("retired") or [] if isinstance(r, dict)}
+        exclude |= {i for i in ids if i not in only_ids}
 
     for hf in data["handfixes"]:
         hid = hf.get("id", "<unnamed>")
+        if hid in exclude:
+            continue
+        retired = retirement(registry, hid, slug, version)
+        if retired is not None:
+            # Not demanded: the press generates this behavior. Its own shape is.
+            failures.extend(_native_failures(slug, hid, skill_dir, retired, doc))
+            continue
         asserts = hf.get("asserts", [])
         if not asserts:
             failures.append(f"[{slug}] handfix '{hid}' has no asserts; every ledger entry needs at least one grep-able marker")
             continue
         for a in asserts:
-            rel = a.get("file")
-            if not rel:
-                failures.append(f"[{slug}] handfix '{hid}': assert missing 'file'")
-                continue
-            fpath = skill_dir / rel
-            if not fpath.exists():
-                failures.append(
-                    f"[{slug}] handfix '{hid}': file '{rel}' is GONE. A reprint likely "
-                    f"removed it. Restore the hand-fix or update skills/{slug}/handfixes.json. See {doc}."
-                )
-                continue
-            content = fpath.read_text(encoding="utf-8", errors="replace")
+            failures.extend(_assert_failures(slug, hid, skill_dir, a, doc))
 
-            # `code_only: true` counts comment-stripped source instead of the
-            # whole file, so a doc comment can no longer stand in for the code
-            # the assert guards (issue #252).
-            #
-            # A non-boolean value is a hard error, not a shrug. `"code_only":
-            # "true"` is a one-character JSON typo that would otherwise do
-            # NOTHING to the count while still reading, to the author and to the
-            # lint, as a declared intent - a gate failing open in the quietest
-            # possible way.
-            if "code_only" in a and not isinstance(a["code_only"], bool):
-                failures.append(
-                    f"[{slug}] handfix '{hid}': assert on '{rel}' has \"code_only\": "
-                    f"{a['code_only']!r}, which is not a boolean. It must be true (count "
-                    f"comment-stripped source) or false (this assert deliberately targets a "
-                    f"comment). A non-boolean silently changes nothing while looking like it does."
-                )
-                continue
+    for rec in data.get("retired") or []:
+        hid = rec.get("id") if isinstance(rec, dict) else None
+        if not isinstance(hid, str) or hid in exclude:
+            if not isinstance(hid, str):
+                failures.append(f"[{slug}] handfixes.json 'retired' record {rec!r} has no id")
+            continue
+        retired = retirement(registry, hid, slug, version)
+        if retired is None:
+            failures.append(
+                f"[{slug}] handfix '{hid}' is recorded as retired, but tools/maintainer/fleet_handfixes.json does not "
+                f"retire it for this connector at press {version or 'unknown'} ({_why or 'version recorded'}). "
+                f"Restore the entry, or re-run replay_handfixes.py --slug {slug}. See {doc}.")
+            continue
+        failures.extend(_native_failures(slug, hid, skill_dir, retired, doc))
+    return failures
 
-            # `code_only` scopes a `contains` count and nothing else. On an
-            # assert with no `contains`, the flag has no count to strengthen -
-            # and applying it to the `not_contains` scan would WEAKEN that
-            # assert, because a banned pattern resurrected inside a comment
-            # would stop being reported. `not_contains` therefore always reads
-            # the whole file, and the flag is refused here rather than accepted
-            # as a silent downgrade dressed up as a hardening.
-            if "code_only" in a and "contains" not in a:
-                failures.append(
-                    f"[{slug}] handfix '{hid}': assert on '{rel}' sets \"code_only\": "
-                    f"{a['code_only']!r} but has no 'contains' needle for it to scope. "
-                    f"`code_only` narrows a `contains` count to comment-stripped source; a "
-                    f"`not_contains` assert is ALWAYS checked against the whole file, which is "
-                    f"already the strongest form - the banned pattern must be absent from code "
-                    f"and from comments. Stripping comments there could only hide a "
-                    f"reappearance, so the flag is refused instead of quietly weakening the "
-                    f"check. Drop it. See {doc}."
-                )
-                continue
 
-            code_content = content
-            scope = "the file"
-            if a.get("code_only") is True:
-                stripped, why = strip_comments(rel, content)
-                if stripped is None:
-                    failures.append(
-                        f"[{slug}] handfix '{hid}': assert on '{rel}' sets \"code_only\": true, but "
-                        f"{why}. Accepting it there would report a stronger check than was run. "
-                        f"Drop the flag (and narrow the needle instead), or point the assert at a "
-                        f"file whose language has comments."
-                    )
-                    continue
-                code_content = stripped
-                scope = "the comment-stripped source"
+def _assert_failures(slug: str, hid: str, skill_dir: Path, a: dict, doc: str) -> list[str]:
+    """Failure messages for one assert (empty == it holds)."""
+    failures: list[str] = []
+    rel = a.get("file")
+    if not rel:
+        failures.append(f"[{slug}] handfix '{hid}': assert missing 'file'")
+        return failures
+    fpath = skill_dir / rel
+    if not fpath.exists():
+        failures.append(
+            f"[{slug}] handfix '{hid}': file '{rel}' is GONE. A reprint likely "
+            f"removed it. Restore the hand-fix or update skills/{slug}/handfixes.json. See {doc}."
+        )
+        return failures
+    content = fpath.read_text(encoding="utf-8", errors="replace")
 
-            if "contains" in a:
-                needle = a["contains"]
-                min_count = int(a.get("min_count", 1))
-                found = code_content.count(needle)
-                if found < min_count:
-                    failures.append(
-                        f"[{slug}] handfix '{hid}' REGRESSED in {rel}: expected {min_count}x "
-                        f"`{needle}` in {scope}, found {found}. A reprint likely clobbered it. Restore the "
-                        f"hand-fix (or, if intentionally changed, update skills/{slug}/handfixes.json). See {doc}."
-                    )
-            if "not_contains" in a:
-                # Deliberately `content`, never `code_content`: an absence check
-                # is strongest over the whole file.
-                banned = a["not_contains"]
-                if banned in content:
-                    failures.append(
-                        f"[{slug}] handfix '{hid}' REGRESSED in {rel}: banned anti-pattern "
-                        f"`{banned}` is present again in the file (comments included - an absence "
-                        f"check is strongest whole-file). A reprint likely reintroduced it. See {doc}."
-                    )
-            if "contains" not in a and "not_contains" not in a:
-                failures.append(f"[{slug}] handfix '{hid}': assert for '{rel}' needs 'contains' or 'not_contains'")
+    # `code_only: true` counts comment-stripped source instead of the
+    # whole file, so a doc comment can no longer stand in for the code
+    # the assert guards (issue #252).
+    #
+    # A non-boolean value is a hard error, not a shrug. `"code_only":
+    # "true"` is a one-character JSON typo that would otherwise do
+    # NOTHING to the count while still reading, to the author and to the
+    # lint, as a declared intent - a gate failing open in the quietest
+    # possible way.
+    if "code_only" in a and not isinstance(a["code_only"], bool):
+        failures.append(
+            f"[{slug}] handfix '{hid}': assert on '{rel}' has \"code_only\": "
+            f"{a['code_only']!r}, which is not a boolean. It must be true (count "
+            f"comment-stripped source) or false (this assert deliberately targets a "
+            f"comment). A non-boolean silently changes nothing while looking like it does."
+        )
+        return failures
+
+    # `code_only` scopes a `contains` count and nothing else. On an
+    # assert with no `contains`, the flag has no count to strengthen -
+    # and applying it to the `not_contains` scan would WEAKEN that
+    # assert, because a banned pattern resurrected inside a comment
+    # would stop being reported. `not_contains` therefore always reads
+    # the whole file, and the flag is refused here rather than accepted
+    # as a silent downgrade dressed up as a hardening.
+    if "code_only" in a and "contains" not in a:
+        failures.append(
+            f"[{slug}] handfix '{hid}': assert on '{rel}' sets \"code_only\": "
+            f"{a['code_only']!r} but has no 'contains' needle for it to scope. "
+            f"`code_only` narrows a `contains` count to comment-stripped source; a "
+            f"`not_contains` assert is ALWAYS checked against the whole file, which is "
+            f"already the strongest form - the banned pattern must be absent from code "
+            f"and from comments. Stripping comments there could only hide a "
+            f"reappearance, so the flag is refused instead of quietly weakening the "
+            f"check. Drop it. See {doc}."
+        )
+        return failures
+
+    code_content = content
+    scope = "the file"
+    if a.get("code_only") is True:
+        stripped, why = strip_comments(rel, content)
+        if stripped is None:
+            failures.append(
+                f"[{slug}] handfix '{hid}': assert on '{rel}' sets \"code_only\": true, but "
+                f"{why}. Accepting it there would report a stronger check than was run. "
+                f"Drop the flag (and narrow the needle instead), or point the assert at a "
+                f"file whose language has comments."
+            )
+            return failures
+        code_content = stripped
+        scope = "the comment-stripped source"
+
+    if "contains" in a:
+        needle = a["contains"]
+        min_count = int(a.get("min_count", 1))
+        found = code_content.count(needle)
+        if found < min_count:
+            failures.append(
+                f"[{slug}] handfix '{hid}' REGRESSED in {rel}: expected {min_count}x "
+                f"`{needle}` in {scope}, found {found}. A reprint likely clobbered it. Restore the "
+                f"hand-fix (or, if intentionally changed, update skills/{slug}/handfixes.json). See {doc}."
+            )
+    if "not_contains" in a:
+        # Deliberately `content`, never `code_content`: an absence check
+        # is strongest over the whole file.
+        banned = a["not_contains"]
+        if banned in content:
+            failures.append(
+                f"[{slug}] handfix '{hid}' REGRESSED in {rel}: banned anti-pattern "
+                f"`{banned}` is present again in the file (comments included - an absence "
+                f"check is strongest whole-file). A reprint likely reintroduced it. See {doc}."
+            )
+    if "contains" not in a and "not_contains" not in a:
+        failures.append(f"[{slug}] handfix '{hid}': assert for '{rel}' needs 'contains' or 'not_contains'")
     return failures
 
 
@@ -996,6 +1194,94 @@ def _self_test_ratchet() -> list[str]:
     return out
 
 
+def _self_test_retirement() -> list[str]:
+    """Both directions for fleet_handfixes.json retirements, on fixtures.
+
+        retired id, connector at retire_at, native shape present   -> PASS
+            (the entry's own markers are gone and are NOT demanded)
+        same, native shape absent                                  -> FAIL
+        same id, connector below retire_at                         -> FAIL (entry demanded)
+        recorded versions disagree                                 -> FAIL (entry demanded)
+        connector listed in keep_manual                            -> FAIL (entry demanded)
+        an id the registry does not retire                         -> FAIL (always demanded)
+        a ledger `retired` record the registry does not back       -> FAIL
+        a retire record with no native asserts                     -> registry error
+    """
+    import tempfile
+
+    out: list[str] = []
+    reg = {"handfixes": {
+        "fx-retired": {"verdict": "retire", "retire_at": "4.34.0", "reason": "r",
+                       "native_asserts": [{"file": "cli/gen.go", "contains": "nativeGate(", "code_only": True},
+                                          {"file": "cli/cmd/*-mcp/main.go", "any_of": [
+                                              {"contains": "httpTokenEnvVar"}, {"not_contains": "transport"}]}],
+                       "keep_manual": {"manualco": "connector part"}},
+        "fx-replay": {"verdict": "replay", "recipe": "x"}}}
+
+    def run(version: str | None, gen: str, entries: list, retired: list | None = None,
+            slug: str = "acme", prov: str | None = None, mcp_main: str = "const httpTokenEnvVar = \"X\"\n"):
+        with tempfile.TemporaryDirectory() as td:
+            skill = Path(td) / "skills" / slug
+            (skill / "cli" / "cmd" / f"{slug}-mcp").mkdir(parents=True)
+            (skill / "press").mkdir()
+            (skill / "cli" / "gen.go").write_text(gen, encoding="utf-8")
+            (skill / "cli" / "cmd" / f"{slug}-mcp" / "main.go").write_text(mcp_main, encoding="utf-8")
+            m = {"printing_press_version": version, "press_provenance": {"printing_press_version": version}} if version else {}
+            (skill / "manifest.json").write_text(json.dumps(m), encoding="utf-8")
+            pv = version if prov is None else prov
+            (skill / "press" / ".printing-press.json").write_text(
+                json.dumps({"printing_press_version": pv} if pv else {}), encoding="utf-8")
+            led = {"handfixes": entries}
+            if retired is not None:
+                led["retired"] = retired
+            (skill / "handfixes.json").write_text(json.dumps(led), encoding="utf-8")
+            saved = globals()["SKILLS"]
+            try:
+                globals()["SKILLS"] = skill.parent
+                return check_skill(slug, registry=reg)
+            finally:
+                globals()["SKILLS"] = saved
+
+    old_marker = [{"id": "fx-retired", "asserts": [{"file": "cli/gen.go", "contains": "handFixGate("}]}]
+    native = "func nativeGate() {}\n"
+    if run("4.34.0", native, old_marker):
+        out.append("retirement: at retire_at with the native shape present, the retired entry must not be demanded")
+    if not any("native" in f for f in run("4.34.0", "func other() {}\n", old_marker)):
+        out.append("retirement: at retire_at the registry's native asserts must be demanded (a retirement is not a drop)")
+    if not run("4.34.0", native, old_marker, mcp_main="flag.String(\"transport\", \"stdio\")\n"):
+        out.append("retirement: an any_of native assert must fail when no alternative holds")
+    if run("4.34.0", native, old_marker, mcp_main="func main() {}\n") != []:
+        out.append("retirement: an any_of native assert must pass when one alternative holds")
+    if not any("REGRESSED" in f for f in run("4.33.5", native, old_marker)):
+        out.append("retirement: below retire_at the entry must still be demanded")
+    if not any("REGRESSED" in f for f in run("4.34.0", native, old_marker, prov="4.24.0")):
+        out.append("retirement: recorded versions that disagree must retire nothing")
+    if not any("REGRESSED" in f for f in run(None, native, old_marker)):
+        out.append("retirement: no recorded version must retire nothing")
+    if not any("REGRESSED" in f for f in run("4.34.0", native, old_marker, prov="")):
+        out.append("retirement: a version recorded in only some of the places a print records it must retire nothing")
+    if not any("REGRESSED" in f for f in run("4.34.0", native, old_marker, slug="manualco")):
+        out.append("retirement: a keep_manual connector must still have its entry demanded")
+    other = [{"id": "fx-replay", "asserts": [{"file": "cli/gen.go", "contains": "handFixGate("}]}]
+    if not any("REGRESSED" in f for f in run("4.34.0", native, other)):
+        out.append("retirement: an id the registry does not retire must always be demanded")
+    if run("4.34.0", native, [], retired=[{"id": "fx-retired", "retired_at": "4.34.0"}]):
+        out.append("retirement: a backed retired record with the native shape present must pass")
+    if not run("4.34.0", "func other() {}\n", [], retired=[{"id": "fx-retired", "retired_at": "4.34.0"}]):
+        out.append("retirement: a backed retired record must still demand the native shape")
+    if not any("recorded as retired" in f for f in run("4.34.0", native, [], retired=[{"id": "fx-replay"}])):
+        out.append("retirement: a retired record the registry does not back must fail")
+    if not any("recorded as retired" in f for f in run("4.33.5", native, [], retired=[{"id": "fx-retired"}])):
+        out.append("retirement: a retired record on a connector below retire_at must fail")
+    with tempfile.TemporaryDirectory() as td:
+        bad = Path(td) / "fleet_handfixes.json"
+        bad.write_text(json.dumps({"handfixes": {"x": {"verdict": "retire", "retire_at": "4.34.0"}}}), encoding="utf-8")
+        _data, err = load_registry(bad)
+        if not err:
+            out.append("retirement: a retire record without native asserts must be a registry error")
+    return out
+
+
 def self_test() -> int:
     """Both-directions proof for the comment strippers, `code_only`, and the lint.
 
@@ -1193,6 +1479,9 @@ def self_test() -> int:
     # --- the --changed ratchet fires only on NEW or NEWLY WEAKENED asserts ---
     failures.extend(_self_test_ratchet())
 
+    # --- fleet retirements: never demand a retired marker, always demand the rest
+    failures.extend(_self_test_retirement())
+
     if failures:
         print("FAIL: check_handfixes self-test\n")
         for f in failures:
@@ -1205,7 +1494,9 @@ def self_test() -> int:
           "is refused on an assert with no `contains` so a not_contains check can never be "
           "weakened by it (proved on a needle that survives only in a comment), and the --changed "
           "ratchet passes a prose-only edit to a pre-existing weak assert while failing a newly "
-          "added or newly weakened one.")
+          "added or newly weakened one, and a fleet retirement stops demanding only a retired entry on "
+          "a connector recorded at or above retire_at while demanding its native asserts, every "
+          "other entry, and every entry below retire_at, on disagreeing versions or for keep_manual.")
     return 0
 
 
@@ -1230,6 +1521,11 @@ def main() -> int:
                          "Advisory; add --strict to make it fail.")
     ap.add_argument("--strict", action="store_true",
                     help="--lint-asserts only: exit 1 on findings instead of reporting them.")
+    ap.add_argument("--exclude-id", action="append", default=[],
+                    help="leave this ledger entry id out of the check (repeatable); replay_handfixes.py uses it "
+                         "for ids another tool wires later in the same run")
+    ap.add_argument("--only-id", action="append", default=None,
+                    help="check only this ledger entry id (repeatable)")
     ap.add_argument("--self-test", action="store_true",
                     help="run the built-in both-directions proof of the comment strippers, "
                          "code_only and the weak-assert lint, then exit")
@@ -1257,7 +1553,8 @@ def main() -> int:
         if not (SKILLS / slug).is_dir():
             print(f"warning: skills/{slug} not found; skipping", file=sys.stderr)
             continue
-        fails = check_skill(slug)
+        fails = check_skill(slug, exclude_ids=set(args.exclude_id),
+                            only_ids=set(args.only_id) if args.only_id is not None else None)
         if (SKILLS / slug / "handfixes.json").exists():
             checked += 1
         all_failures.extend(fails)

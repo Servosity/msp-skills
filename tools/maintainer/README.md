@@ -135,6 +135,40 @@ the held set cover that code.
   readable JSON fails it.
 - `--self-test` covers every generated shape and the fail-closed paths.
 
+### Fleet-wide hand-fixes after a reprint: `fleet_handfixes.json` and `replay_handfixes.py`
+
+Sixteen hand-fix ids each sit in 10 or more connector ledgers (678 of 1,485 entries on 2026-10-23), in the
+same shared template files, so every reprint re-reconciled them by hand. `fleet_handfixes.json` settles each
+one once against a press release, and `replay_handfixes.py --slug <slug>` applies that settlement.
+`onboard.py` runs it after vendoring, before the secret funnel.
+
+- **retire**: the press generates the behavior from `retire_at` on. On a connector whose recorded press
+  version (manifest.json and `press/.printing-press.json`, which must agree) is at or above it, the tool
+  removes the stale entry and keeps a `retired` record with the registry's reason, and
+  `check_handfixes.py` stops demanding the entry and demands the registry's `native_asserts` instead. Below
+  `retire_at`, with no or disagreeing versions, or for a `keep_manual` connector, the entry is demanded as
+  before. A `retired` record the registry does not back fails.
+- **replay**: the press still lacks it, and a named recipe re-applies it on the press 4.34.0 shape.
+  Hand-written files the entry asserts on are restored from the pre-reprint revision (`--base`, default
+  `HEAD`), dropping declarations the press now generates (a stronger hand-fix copy is kept under its own
+  name); generated files get anchored edits, each pinned as a new ledger assert. An assert the replay would
+  lose is named unless the recipe marks it obsolete with a reason.
+- **delegated**: `secret-echo-decoded-funnel` belongs to `apply_secret_funnel.py`.
+- **floors**: a module the print resolves below a patched version (`golang.org/x/text` v0.42.0,
+  `github.com/klauspost/compress` v1.18.7) is raised with `go get`, then `go mod tidy`, on a print at or
+  above the floor's `applies_from`, never below what `--base` pinned. Older prints get a note only. A floor
+  the press meets is a no-op; set `retire_at` when a press resolves it.
+- Success is measured: `check_handfixes.py --slug` over the ids this tool owns, and on an apply `go build`,
+  `go vet`, `go test` of every package it wrote or restored, each id's registry gates (for example
+  `check_mcp_file_flags.py`, `check_doctor_truth.py`, a class test, or a proof test run with
+  `go test -overlay`, never written into the connector), and after a floor raise `go test ./...` and
+  `check_security_gate.py --slug --require-scanners`. `--check` changes nothing and runs only the ledger
+  check; `--list-outputs` prints every path an apply would write.
+- It fails closed: exit 1 names every site it could not anchor, every restore it could not make, every
+  assert it would lose and every proof that failed.
+- `--self-test` drives every recipe, retirement, keep_manual, delegated ids, floors and the fail-closed paths
+  on a throwaway git repository.
+
 ### Rollout: the shrink-only baseline
 
 `class_baseline.json` lists the connectors that FAIL a class today, per class, using the same

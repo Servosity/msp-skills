@@ -30,11 +30,18 @@ bulk-overwrite a connector's `cli/` tree, you MUST:**
    Preserve every entry it lists (3-way merge, don't blind-overwrite). For a
    targeted fix, prefer a surgical change over a full reprint.
 
-2. **After** generating, prove nothing regressed:
+2. **After** generating, retire or re-apply the fleet-wide hand-fixes (onboard.py
+   does this for you), then prove nothing regressed:
 
    ```bash
+   python3 tools/maintainer/replay_handfixes.py --slug <slug>
    python3 tools/maintainer/check_handfixes.py --slug <slug>
    ```
+
+   `tools/maintainer/fleet_handfixes.json` records, per fleet-wide id, whether the
+   press now generates it (retired: its entry is not demanded from `retire_at` on,
+   the press's own shape is) or the replay tool re-applies it. Reconcile by hand
+   only what the replay names.
 
    If it fails, restore the missing hand-fix (the failure names the file +
    marker) before committing. CI runs this same gate per-skill and will block

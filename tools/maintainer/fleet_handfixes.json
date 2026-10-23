@@ -1,0 +1,338 @@
+{
+ "_comment": "One verdict per fleet-wide hand-fix id (an id in 10 or more connector ledgers), settled against a press release. retire: the press generates the behavior from retire_at on; check_handfixes.py stops demanding the entry on a connector recorded at or above retire_at and demands native_asserts instead, and replay_handfixes.py removes the stale entry and runs the gates. replay: replay_handfixes.py re-applies it after every reprint with the named recipe. delegated: another tool owns it. keep_manual names connectors where the shared id carries a connector-specific part a person must reconcile. floors: minimum module versions every print at or above applies_from must resolve. See docs/reprint-survival.md.",
+ "schema": 1,
+ "settled_against": "4.34.0",
+ "doc": "docs/reprint-survival.md",
+ "handfixes": {
+  "interim-http-security-note-2026-10-22": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard.",
+   "proof": "Raw 4.34.0 ninjaone-mcp: --transport http with no token exits with '<PREFIX>_MCP_HTTP_TOKEN must be set'; no bearer 401, wrong bearer 401; --addr 0.0.0.0 without --tls-cert refuses. Same properties on cipp, servosity and ninjaone in the 2026-10-23 press 4.34.0 method probe, section 2. 62 of 65 raw 4.34.0 renders declare httpTokenEnvVar; the other 3 (connectwise-automate, levelio, n-central) serve stdio only.",
+   "native_asserts": [
+    {
+     "file": "cli/cmd/*-mcp/main.go",
+     "any_of": [
+      {
+       "contains": "httpTokenEnvVar = \"",
+       "code_only": true
+      },
+      {
+       "not_contains": "flag.String(\"transport\""
+      }
+     ]
+    }
+   ],
+   "gates": [],
+   "keep_manual": {
+    "cipp": "The entry also pins SKILL.md '## Read this first: some CIPP GET calls change things', which stays true after the reprint (the GET endpoints still mutate; 4.34.0 only gates them). Move that assert to its own entry, then remove this one."
+   }
+  },
+  "doctor-verdict-tracks-reality": {
+   "verdict": "replay",
+   "recipe": "doctor-verdict",
+   "reason": "Press 4.34.0 took part of the fix (placeholder refusal, info keys) but doctor still prints 'present, not verified' instead of probing the credential, calls a 404 at / 'reachable', and never names the base-URL variable.",
+   "proof": "check_doctor_truth.py on raw 4.34.0 ninjaone, hudu and connectwise-rmm: FAIL (healthy: 'present, not verified'; wrong-base: 'reachable (HTTP 404 at /)'; placeholder never names <PREFIX>_BASE_URL). Same three on main: PASS. 21 of 65 renders already probe credentials (verify_path); the recipe edits only where the generated suggestion block exists and the gate decides.",
+   "gates": [
+    {
+     "kind": "check",
+     "argv": [
+      "check_doctor_truth.py",
+      "--slug",
+      "{slug}"
+     ]
+    }
+   ],
+   "upstream": "cli-printing-press: doctor probes no credential when auth.verify_path is absent, reads a 404 at / as reachable, and never names <PREFIX>_BASE_URL (drafted 2026-10-23, not filed)"
+  },
+  "secret-echo-decoded-funnel": {
+   "verdict": "delegated",
+   "tool": "tools/maintainer/apply_secret_funnel.py",
+   "reason": "Owned by apply_secret_funnel.py, which onboard.py runs after this tool. Its press 4.34.0 shapes are in flight on branch tools/funnel-press-434. Press 4.34.0 alone passes the secret-echo class test (#5169), so the mask-held and mask-return sites may become press-generated there.",
+   "proof": "2026-10-23 press 4.34.0 method probe, section 1: secret-echo class test on raw 4.34.0 cipp, servosity, ninjaone: pass; on raw 4.33.5: 5 encodings leak."
+  },
+  "install-credentials-declared-on-every-channel": {
+   "verdict": "replay",
+   "recipe": "manifest-env-union",
+   "reason": "onboard.py copies manifest.json from the press output, and press 4.34.0 still declares only the credential pair (ninjaone: NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET, against 6 declared on main). mcp-install.md and server.json are rendered from the manifest's env keys, so restoring the declarations in manifest.json restores all three channels.",
+   "proof": "Raw 4.34.0 ninjaone manifest.json server.mcp_config.env: 2 keys; main: 6 (BASE_URL, CLIENT_ID, CLIENT_SECRET, NO_CONFIG_WRITE, OAUTH_SCOPE, TOKEN_URL).",
+   "gates": [],
+   "keep_manual": {
+    "connectwise-rmm": "The entry also pins two generated-file edits (shellout.go \"client-profile\" in blockedRootFlags, a root.go comment) that are this connector's own; re-make them by hand or confirm press 4.34.0 blocks client-profile another way."
+   },
+   "upstream": "cli-printing-press should emit server.mcp_config.env from one declaration of the connector's operator-facing environment (see the entries' spec_encode_followup)."
+  },
+  "mcp-filesystem-destination-gate": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP.",
+   "proof": "check_mcp_file_flags.py: raw 4.24.0 hudu FAIL (53 findings: --db, --output, --input reach the CLI), raw 4.24.0 ninjaone FAIL (93); main PASS; raw 4.34.0 hudu PASS (143 path-flag assertions over 12 flags), connectwise-rmm PASS (164 over 12). End-to-end argv probe (an argument named db=<canary> on 12 mirrored tools): raw 4.24.0 hudu and ninjaone forward --db=<canary> on every tool; main and raw 4.34.0 forward it on none.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "if strings.Contains(k, \"=\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "if err := validateMCPArgumentNames(args, allowedStructuredArgs); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/classify.go",
+     "contains": "if blockedDestinationFlags[flagName] {",
+     "code_only": true
+    }
+   ],
+   "gates": [
+    {
+     "kind": "check",
+     "argv": [
+      "check_mcp_file_flags.py",
+      "--slug",
+      "{slug}"
+     ]
+    }
+   ]
+  },
+  "mcp-argv-value-joined": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag.",
+   "proof": "End-to-end argv probe (a boolean property given the string --deliver=webhook:..., 8 to 12 mirrored tools each): raw 4.24.0 hudu and ninjaone put --deliver=... in its own argv element on every tool; main and raw 4.34.0 ninjaone, hudu, connectwise-rmm on none. The generated TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag passes on raw 4.34.0.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+part)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
+     "code_only": true
+    }
+   ],
+   "gates": [
+    {
+     "kind": "go_test",
+     "pkg": "./internal/mcp/cobratree/",
+     "tests": [
+      "TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag"
+     ]
+    }
+   ]
+  },
+  "mcp-file-flags-refused": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name.",
+   "proof": "check_mcp_file_flags.py: raw 4.24.0 hudu and ninjaone FAIL; main PASS; raw 4.34.0 hudu and connectwise-rmm PASS. Raw 4.34.0 ninjaone fails only through its opt-in confined MCP upload root (os.Root): with os.Root modeled as confined it PASSES, 161 path-flag assertions over 12 flags. 8 of 65 renders carry that upload root (connectsecure, hubspot, jira-service-management, kaseya-bms, ninjaone, pandadoc, pipedrive, runzero), so check_mcp_file_flags needs that allowance before those reprints can pass CI.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "blockedStructuredArgs := blockedStructuredArgsForCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "options = append(options, toolOptionsForFlags(cmd, blockedStructuredArgs, positionals)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "var blockedInputFlags = map[string]bool{",
+     "code_only": true
+    }
+   ],
+   "gates": [
+    {
+     "kind": "check",
+     "argv": [
+      "check_mcp_file_flags.py",
+      "--slug",
+      "{slug}"
+     ]
+    }
+   ],
+   "keep_manual": {
+    "superops": "raw.go declares mcp:inline-only-flags (inline JSON allowed, @path refused), which press 4.34.0 does not understand; re-wire --vars by hand. check_mcp_file_flags.py catches it if missed."
+   },
+   "upstream": "cli-printing-press: honour mcp:inline-only-flags (inline JSON allowed, @path refused) (drafted 2026-10-23, not filed)"
+  },
+  "windows-sddl-alias-sid-compare": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests.",
+   "proof": "The hand-fix's own creds_perms_sddl_test.go, copied verbatim into raw 4.34.0 connectwise-rmm: 4 of 4 tests PASS, GOOS=windows go vet clean. On raw 4.33.5 connectwise-rmm the alias tests do not compile (no evalCredsSecurityResolved) and TestEvalCredsSecurityRefusesNullDACLBehindFlags FAILS.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "evalCredsSecurityResolved(",
+     "code_only": true
+    }
+   ],
+   "gates": [
+    {
+     "kind": "proof_test",
+     "pkg": "internal/cliutil",
+     "template": "creds_sddl_proof_test.go.tmpl",
+     "tests": [
+      "TestRetireProofSDDLAliasesResolveBySID",
+      "TestRetireProofNullDACLBehindFlagsIsRefused"
+     ]
+    }
+   ]
+  },
+  "windows-null-dacl-behind-flags": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused.",
+   "proof": "Same run as windows-sddl-alias-sid-compare: TestEvalCredsSecurityRefusesNullDACLBehindFlags and TestEvalCredsSecurityChecksTheDACLSectionFraming PASS on raw 4.34.0; the NULL DACL test FAILS on raw 4.33.5.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "var daclFlagsRe = regexp.MustCompile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "var aceListRe = regexp.MustCompile(",
+     "code_only": true
+    }
+   ],
+   "gates": [
+    {
+     "kind": "proof_test",
+     "pkg": "internal/cliutil",
+     "template": "creds_sddl_proof_test.go.tmpl",
+     "tests": [
+      "TestRetireProofNullDACLBehindFlagsIsRefused"
+     ]
+    }
+   ]
+  },
+  "no-create-alias-on-destructive-commands": {
+   "verdict": "replay",
+   "recipe": "create-alias-removal",
+   "reason": "Press 4.34.0 still gives every POST endpoint command the hidden alias create, including the destructive ones each ledger names.",
+   "proof": "Raw 4.34.0 connectwise-rmm tasks_schedule.go carries Aliases: []string{\"create\"}; raw 4.34.0 cisco-meraki still carries it on the 3 commands its ledger names.",
+   "gates": [],
+   "upstream": "cli-printing-press: no hidden create alias on a destructive POST (drafted 2026-10-23, not filed)"
+  },
+  "derive-lock-tests-deterministic": {
+   "verdict": "replay",
+   "recipe": "derive-lock-canonical",
+   "reason": "Press 4.34.0's internal/learn/derive_test.go is byte-identical (module path aside) in all 65 renders and to 4.33.5's, so the fixed 200 ms, 500 ms and 5 s windows that failed on a slow Windows runner come back on every reprint.",
+   "proof": "sha1 of the module-normalized 4.34.0 derive_test.go: one value across 65 renders, equal to the 4.33.5 render.",
+   "gates": [],
+   "upstream": "cli-printing-press: learn/derive_test.go uses fixed 200 ms / 500 ms / 5 s windows (drafted 2026-10-23, not filed)"
+  },
+  "no-config-write-switch": {
+   "verdict": "replay",
+   "recipe": "no-config-write",
+   "reason": "A downstream switch (<PREFIX>_NO_CONFIG_WRITE) the press does not have: 0 matches in press 4.34.0 output. Upstream closed the ask not-planned (#4747; reply drafted).",
+   "proof": "grep NO_CONFIG_WRITE over 65 raw 4.34.0 renders: 0 files.",
+   "gates": [],
+   "upstream": "cli-printing-press #4747 (closed not-planned); a reply with a narrower ask is drafted, not posted"
+  },
+  "mcp-recipe-argv-not-flag-like": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag.",
+   "proof": "connectwise-rmm rendered with its research narrative (the recipes come from it): the press's own flag-like recipe tests, ported onto the 4.33.5 render, FAIL 3 of 3 (argv 'fleet --deliver=webhook:... --agent'); on the 4.34.0 render they PASS.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "if_exists": true,
+     "contains": "if recipePositionalNeedsSeparator(selected) && recipeSeparatorIndex(end) < 0 {",
+     "code_only": true
+    }
+   ],
+   "gates": [],
+   "keep_manual": {
+    "connectwise-rmm": "The entry also pins the fix for the press's recipe lifter reading the subcommands reboot-due and task-failures as a required 'slug' parameter; press 4.34.0 still does that. Re-make those two handlers by hand."
+   },
+   "upstream": "cli-printing-press: the recipe lifter reads a hyphenated subcommand as a required slug (drafted 2026-10-23, not filed)"
+  },
+  "dry-run-never-mints": {
+   "verdict": "replay",
+   "recipe": "auth-dry-run",
+   "reason": "Press 4.34.0 stops the client's automatic mint under --dry-run (the hand-fix's TestDryRunNeverMintsAToken passes on it), but auth login --dry-run still sends the client secret to the token URL, and auth set-token and auth logout ignore --dry-run.",
+   "proof": "Hand-fix tests on raw 4.34.0 ninjaone: TestDryRunNeverMintsAToken PASS; TestAuthLoginDryRunSendsNothing FAIL ('auth login --dry-run sent 1 request(s)'). On raw 4.24.0 all three FAIL. class_harness write-safety: raw 4.24.0 ninjaone FAIL, raw 4.34.0 PASS (it does not drive auth login).",
+   "gates": [
+    {
+     "kind": "class",
+     "class": "write-safety"
+    }
+   ],
+   "upstream": "cli-printing-press: auth login, set-token and logout ignore --dry-run (drafted 2026-10-23, not filed)"
+  },
+  "token-request-stays-on-origin": {
+   "verdict": "replay",
+   "recipe": "token-host-compare",
+   "reason": "Press 4.34.0 routes every token request through the same-origin token client (the hand-fix's two redirect tests pass on it), but compares hosts with strings.EqualFold: an IPv6 zone that differs only in case, and a host that only Unicode case folding equates, count as the same origin.",
+   "proof": "Hand-fix tests on raw 4.34.0 ninjaone: TestAuthLoginRefusesATokenRedirectToAnotherOrigin and TestTokenMintRefusesARedirectToAnotherOrigin PASS; TestOAuthTokenSameOriginComparesHostsLikeTheNetwork FAILS on fe80::1%lan0 vs %LAN0 and on k vs U+212A. On raw 4.24.0 both redirect tests FAIL.",
+   "gates": [],
+   "upstream": "cli-printing-press: the token client's same-origin check folds Unicode and IPv6 zone case (drafted 2026-10-23, not filed)"
+  },
+  "env-oauth-secrets-not-persisted": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "reason": "Press 4.34.0 keeps the environment markers through SaveTokens and generates MarkCredentialsExplicit, so a client ID or secret read from the environment is never written by a token save.",
+   "proof": "Proof test (env client ID and secret set, Load, SaveTokens, then every file under the temporary config home searched): raw 4.24.0 ninjaone FAIL (the secret lands in config.toml); main PASS; raw 4.34.0 PASS, with the control (the minted token was written) holding in each.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
+     "code_only": true
+    }
+   ],
+   "gates": [
+    {
+     "kind": "proof_test",
+     "pkg": "internal/config",
+     "template": "env_secret_proof_test.go.tmpl",
+     "tests": [
+      "TestRetireProofEnvClientSecretNeverReachesDisk"
+     ]
+    }
+   ]
+  }
+ },
+ "floors": [
+  {
+   "module": "golang.org/x/text",
+   "min": "v0.42.0",
+   "applies_from": "4.34.0",
+   "reason": "Press 4.34.0 resolves golang.org/x/text v0.14.0 (via mcp-go and jsonschema) in 62 of 65 renders: GO-2026-5970 (fixed v0.39.0) and GO-2026-6629 (fixed v0.41.0). osv-scanner reports module presence, so the security gate fails until it is raised. v0.42.0 is the version measured to clear the gate on cipp.",
+   "upstream": "cli-printing-press: golang.org/x/text and klauspost/compress floors in go.mod.tmpl (drafted 2026-10-23, not filed)"
+  },
+  {
+   "module": "github.com/klauspost/compress",
+   "min": "v1.18.7",
+   "applies_from": "4.34.0",
+   "reason": "Browser-transport renders resolve github.com/klauspost/compress v1.17.4 (via utls): GHSA-259r-337f-4rfw / GO-2026-5841, fixed in v1.18.7.",
+   "upstream": "cli-printing-press: golang.org/x/text and klauspost/compress floors in go.mod.tmpl (drafted 2026-10-23, not filed)"
+  }
+ ]
+}
