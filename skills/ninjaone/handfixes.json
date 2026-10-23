@@ -770,8 +770,8 @@
   {
    "id": "dry-run-never-mints",
    "class": "write-safety",
-   "summary": "--dry-run never mints a token: neither the client's automatic client-credentials mint nor `auth login --dry-run` sends the client secret to the token URL or saves anything",
-   "why": "tools/maintainer/class_harness.py write-safety found every --dry-run of a write command putting one request on the wire: authHeader ran before the dry-run branch and, with no cached token, POSTed the client ID and secret to the token URL and cached the token, while the generated comment and the docs say a dry run sends nothing. `auth login` minted through its own path and ignored --dry-run. Same fix shape as connectwise-rmm, sophos-central and watchguard (dry-run-never-mints). TestDryRunNeverMintsAToken and TestAuthLoginDryRunSendsNothing count requests to a stub token server (each with a live control that proves the probe reaches the mint) and fail on the generated code.",
+   "summary": "--dry-run never mints a token or changes stored credentials: neither the client's automatic client-credentials mint nor `auth login --dry-run` sends the client secret to the token URL, and `auth set-token --dry-run` and `auth logout --dry-run` neither save nor clear anything",
+   "why": "tools/maintainer/class_harness.py write-safety found every --dry-run of a write command putting one request on the wire: authHeader ran before the dry-run branch and, with no cached token, POSTed the client ID and secret to the token URL and cached the token, while the generated comment and the docs say a dry run sends nothing. `auth login` minted through its own path and ignored --dry-run, and `auth set-token` and `auth logout` saved and cleared credentials under --dry-run (found by Codex review round 1). Same fix shape as connectwise-rmm, sophos-central and watchguard (dry-run-never-mints). TestDryRunNeverMintsAToken, TestAuthLoginDryRunSendsNothing and TestAuthSetTokenAndLogoutHonorDryRun count requests to a stub token server (each with a live control that proves the probe reaches the mint) and fail on the generated code.",
    "status": "active",
    "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
    "asserts": [
@@ -796,6 +796,24 @@
     {
      "file": "cli/internal/cli/auth_dry_run_test.go",
      "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - nothing saved)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - nothing changed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_dry_run_test.go",
+     "contains": "func TestAuthSetTokenAndLogoutHonorDryRun(",
      "min_count": 1,
      "code_only": true
     }

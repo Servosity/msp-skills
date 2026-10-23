@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Hand-owned (handfixes.json: redirect-strips-every-credential). The generated
@@ -20,21 +21,34 @@ import (
 // credential: the standard auth headers plus this connector's own.
 var redirectCredentialHeaders = []string{"Authorization", "Proxy-Authorization", "Cookie", "Cookie2"}
 
-// redirectLeavesOrigin reports whether the next hop is on a different
-// host:port than the first request, or downgrades from https to http.
+// redirectLeavesOrigin reports whether the next hop is on a different host or
+// port than the first request, or downgrades from https to http. Hostnames
+// compare case-insensitively and an explicit default port equals none, so
+// https://API.example.com and https://api.example.com:443 stay on the origin.
 func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
-	if next.Host != via[0].URL.Host {
+	first := via[0].URL
+	if !strings.EqualFold(next.Hostname(), first.Hostname()) || explicitPort(next) != explicitPort(first) {
 		return true
 	}
-	if next.Scheme == "https" {
+	if strings.EqualFold(next.Scheme, "https") {
 		return false
 	}
 	for _, hop := range via {
-		if hop.URL.Scheme == "https" {
+		if strings.EqualFold(hop.URL.Scheme, "https") {
 			return true
 		}
 	}
 	return false
+}
+
+// explicitPort is the URL's port, with the scheme's default port treated as
+// absent.
+func explicitPort(u *url.URL) string {
+	p := u.Port()
+	if (p == "443" && strings.EqualFold(u.Scheme, "https")) || (p == "80" && strings.EqualFold(u.Scheme, "http")) {
+		return ""
+	}
+	return p
 }
 
 // stripRedirectCredentials removes every credential header, and every header

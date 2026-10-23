@@ -57,3 +57,24 @@ func TestHandshakeFollowsASameOriginRedirect(t *testing.T) {
 		t.Fatalf("access token = %q", resp.Tokens.Access.Token)
 	}
 }
+
+func TestHandshakeRedirectOriginComparesLikeAURL(t *testing.T) {
+	check := httpClient().CheckRedirect
+	for _, tc := range []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"https://NCENTRAL.example.test/api/auth/authenticate", "https://ncentral.example.test/api/v2/auth/authenticate", true},
+		{"https://ncentral.example.test/api/auth/authenticate", "https://ncentral.example.test:443/api/auth/authenticate", true},
+		{"https://ncentral.example.test/api/auth/authenticate", "https://ncentral.example.test:8443/api/auth/authenticate", false},
+		{"https://ncentral.example.test/api/auth/authenticate", "http://ncentral.example.test/api/auth/authenticate", false},
+		{"https://ncentral.example.test/api/auth/authenticate", "https://elsewhere.example.test/api/auth/authenticate", false},
+	} {
+		first, _ := http.NewRequest(http.MethodPost, tc.from, nil)
+		next, _ := http.NewRequest(http.MethodPost, tc.to, nil)
+		err := check(next, []*http.Request{first})
+		if (err == nil) != tc.allowed {
+			t.Errorf("%s -> %s: err=%v, want allowed=%v", tc.from, tc.to, err, tc.allowed)
+		}
+	}
+}

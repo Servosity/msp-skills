@@ -436,7 +436,7 @@
    "id": "redirect-strips-every-credential",
    "class": "auth-wire",
    "summary": "A redirect that leaves the origin (another host:port, or https down to http) carries no credential: every credential header and every config-file header is stripped, and a hop that would replay a request body (307/308 of a non-GET) is refused",
-   "why": "tools/maintainer/class_harness.py auth-wire found cove sending nothing the harness could see, because doctor never logged in; the JSON-RPC client (coverpc) followed a 307 with the password or visa in the body to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code.",
+   "why": "tools/maintainer/class_harness.py auth-wire found cove sending nothing the harness could see, because doctor never logged in; the JSON-RPC client (coverpc) followed a 307 with the password or visa in the body to a second server on a 307. The generated CheckRedirect deleted only the primary auth header on a cross-host hop; Go itself strips Authorization and Cookie only when the hostname changes (a port change keeps them), never strips a custom header, and replays the body on a 307 or 308, which for a token request is the client secret. Same-origin hops still re-derive auth (ninjaone precedent); a non-GET hop off the origin is refused rather than replayed (connectsecure precedent). The unit tests call the client's real CheckRedirect with every header Go copies onto the next hop and fail on the generated code. The origin compares like a URL: hostnames case-insensitively and an explicit default port as none (Codex review round 1: an upper-case base URL refused a healthy same-origin redirect).",
    "status": "active",
    "spec_encode_followup": "Press-side: client.go.tmpl CheckRedirect should strip every credential header (the primary, composed siblings and config-file headers) on any hop that leaves the origin, compare host:port and scheme, and refuse to replay a body off the origin; a hand-written auth client should get the same CheckRedirect.",
    "asserts": [
@@ -489,6 +489,18 @@
     {
      "file": "cli/internal/coverpc/redirect_test.go",
      "contains": "func TestJSONRPCRefusesARedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_credentials.go",
+     "contains": "func explicitPort(u *url.URL) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/coverpc/redirect.go",
+     "contains": "func explicitPort(u *url.URL) string {",
      "min_count": 1,
      "code_only": true
     }

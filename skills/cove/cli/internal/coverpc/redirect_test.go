@@ -59,3 +59,24 @@ func TestJSONRPCFollowsASameOriginRedirect(t *testing.T) {
 		t.Fatalf("same-origin redirect: %v", err)
 	}
 }
+
+func TestJSONRPCRedirectOriginComparesLikeAURL(t *testing.T) {
+	c := New("https://api.backup.management")
+	for _, tc := range []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"https://API.BACKUP.MANAGEMENT/jsonapi", "https://api.backup.management/jsonapi-canonical", true},
+		{"https://api.backup.management/jsonapi", "https://api.backup.management:443/jsonapi", true},
+		{"https://api.backup.management/jsonapi", "https://api.backup.management:8443/jsonapi", false},
+		{"https://api.backup.management/jsonapi", "http://api.backup.management/jsonapi", false},
+		{"https://api.backup.management/jsonapi", "https://elsewhere.example.test/jsonapi", false},
+	} {
+		first, _ := http.NewRequest(http.MethodPost, tc.from, nil)
+		next, _ := http.NewRequest(http.MethodPost, tc.to, nil)
+		err := c.HTTP.CheckRedirect(next, []*http.Request{first})
+		if (err == nil) != tc.allowed {
+			t.Errorf("%s -> %s: err=%v, want allowed=%v", tc.from, tc.to, err, tc.allowed)
+		}
+	}
+}

@@ -90,7 +90,12 @@ func TestRedirectLeavingTheOriginRefusesToReplayABody(t *testing.T) {
 
 func TestSameOriginRedirectKeepsAuth(t *testing.T) {
 	c := newRedirectTestClient(t)
-	for _, to := range []string{"https://api.example.test/v1/items?page=2", "https://api.example.test/v2/items"} {
+	for _, to := range []string{
+		"https://api.example.test/v1/items?page=2",
+		"https://api.example.test/v2/items",
+		"https://API.Example.TEST/v2/items",     // hostnames compare case-insensitively
+		"https://api.example.test:443/v2/items", // an explicit default port is the same origin
+	} {
 		next, via := redirectTestHop(t, http.MethodGet, "https://api.example.test/v1/items", to)
 		next.Header.Del("clientId")
 		if err := c.HTTPClient.CheckRedirect(next, via); err != nil {

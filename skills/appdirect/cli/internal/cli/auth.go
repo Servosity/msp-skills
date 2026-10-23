@@ -256,6 +256,11 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return configErr(err)
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview saves nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "would save the token to %s\n(dry run - nothing saved)\n", cfg.Path)
+				return nil
+			}
 			cfg.AuthHeaderVal = ""
 			if err := cfg.SaveTokens("", "", args[0], "", cfg.TokenExpiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
@@ -282,6 +287,11 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)
+			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview clears nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "would clear the stored credentials (%s)\n(dry run - nothing changed)\n", cfg.Path)
+				return nil
 			}
 			if err := cfg.ClearTokens(); err != nil {
 				return configErr(fmt.Errorf("clearing tokens: %w", err))
