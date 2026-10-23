@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.10] - unreleased
 
 ### Changed
 - `cli/NOTICE` now names the product `zammad-cli`, the binary this connector installs, instead of the generator's internal `-pp-cli` name. No code change.
