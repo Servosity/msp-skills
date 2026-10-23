@@ -55,7 +55,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `kaseya-bms-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `KASEYA_BMS_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Kaseya BMS MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/kaseya-bms-v0.1.6/kaseya-bms-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Kaseya BMS release on the [releases page](https://github.com/servosity/msp-skills/releases?q=kaseya-bms).)
+[**Download Kaseya BMS MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/kaseya-bms-v0.1.7/kaseya-bms-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Kaseya BMS release on the [releases page](https://github.com/servosity/msp-skills/releases?q=kaseya-bms).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
