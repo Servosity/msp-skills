@@ -553,9 +553,9 @@
     "released_hash": "sha256:1da5f0729d40f51d836e48832dc7e9710d2a4b399568e86ec59ad99092ba5a49"
   },
   "threatdown": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "threatdown-v0.1.2",
+    "latest_tag": "threatdown-v0.1.3",
     "current_hash": "sha256:6d4e8cfd8182feaae38a38ad21e7e809d496be48dbd588229edb28f823ea7764",
     "released_hash": "sha256:6d4e8cfd8182feaae38a38ad21e7e809d496be48dbd588229edb28f823ea7764"
   },
