@@ -1692,6 +1692,22 @@
           "not_contains": "--addr :7777"
         }
       ]
+    },
+    {
+      "id": "mcp-file-flags-refused",
+      "class": "mcp-file-flag",
+      "summary": "An MCP tool call can no longer name a file or directory on the MCP host: `import` declares --input in mcp:write-flags, so the MCP tool no longer forwards a JSONL path for the CLI to open",
+      "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: `import` declares --input in mcp:write-flags, so the MCP tool no longer forwards a JSONL path for the CLI to open. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:write-flags\": \"input\"},",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     }
   ]
 }

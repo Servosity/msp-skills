@@ -220,7 +220,12 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 				}
 				if multipart {
 					if strings.EqualFold(binding.Format, "binary") {
-						multipartFileFields[binding.WireName] = fmt.Sprintf("%v", v)
+						// Hand-fix (handfixes.json: mcp-file-flags-refused): a binary
+						// multipart field is uploaded from a local path. The MCP server
+						// runs as the account that hosts it, so a tool call that named the
+						// path could send any file that account can read to the vendor.
+						// The CLI keeps the upload; MCP refuses it by name.
+						return mcplib.NewToolResultError(fmt.Sprintf("refusing %q: it names a file on the machine running the MCP server, which a tool call may not choose; run this upload with the CLI on the command line", binding.PublicName)), nil
 					} else {
 						multipartFields[binding.WireName] = mcpMultipartFieldValue(v)
 					}

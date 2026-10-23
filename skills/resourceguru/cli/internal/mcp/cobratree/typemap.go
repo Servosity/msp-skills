@@ -31,6 +31,11 @@ func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool, positional
 		if reservedStructuredArgs[flag.Name] {
 			return
 		}
+		// Hand-fix (handfixes.json: mcp-file-flags-refused): a blocked LOCAL
+		// flag is left out of the schema too, not only an inherited one.
+		if blocked[flag.Name] {
+			return
+		}
 		if seen[flag.Name] {
 			return
 		}
@@ -198,6 +203,22 @@ func blockedStructuredArgsForCommand(cmd *cobra.Command) map[string]bool {
 			blocked[flag.Name] = true
 		}
 	})
+	// Hand-fix (handfixes.json: mcp-file-flags-refused): a flag that names a
+	// file or directory on the MCP host is blocked on every command that
+	// carries it, local or inherited. Blocked here, it is left out of the
+	// schema and validateMCPArgumentNames refuses a call that supplies it;
+	// before, cliArgsFromMCP dropped it silently and the command ran without
+	// the input the caller asked for.
+	blockDestination := func(flag *pflag.Flag) {
+		if flag != nil && blockedDestinationFlags[flag.Name] {
+			blocked[flag.Name] = true
+		}
+	}
+	cmd.NonInheritedFlags().VisitAll(blockDestination)
+	cmd.InheritedFlags().VisitAll(blockDestination)
+	for name := range flagWriteSinkNames(cmd) {
+		blocked[name] = true
+	}
 	return blocked
 }
 

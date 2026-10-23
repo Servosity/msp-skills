@@ -14,11 +14,18 @@ import (
 
 var positionalPattern = regexp.MustCompile(`(?:^|\s)(?:<[^>]+>|\[[^\]]+\])`)
 
-func toolOptionsForFlags(cmd *cobra.Command) []mcplib.ToolOption {
+// toolOptionsForFlags advertises cmd's flags as tool parameters, leaving out
+// every flag an MCP caller may not set (handfixes.json:
+// mcp-file-flags-refused): a parameter the handler refuses must not be
+// offered.
+func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {
 	var opts []mcplib.ToolOption
 	seen := map[string]bool{}
 	addFlag := func(flag *pflag.Flag) {
 		if flag == nil || flag.Hidden || flag.Deprecated != "" {
+			return
+		}
+		if blocked[flag.Name] {
 			return
 		}
 		if seen[flag.Name] {

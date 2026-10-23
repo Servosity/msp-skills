@@ -15,7 +15,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.ToolHandlerFunc {
+func shellOutToCLI(cliPath func() (string, error), commandPath []string, blocked, declared, inlineOnly map[string]bool, takesArgs bool) server.ToolHandlerFunc {
 	lookupPath, lookupErr := cliPath()
 	prefixArgs := append([]string{}, commandPath...)
 	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -23,6 +23,12 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.
 			return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v\nTried sibling lookup, RIVERSIDE_FM_CLI_PATH env var, and PATH.", lookupErr)), nil
 		}
 		args := req.GetArguments()
+		// Hand-fix (handfixes.json: mcp-file-flags-refused): refuse a blocked
+		// flag, or any argument this command does not declare, by name -
+		// never drop it silently and never forward it to another command.
+		if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != "" {
+			return mcplib.NewToolResultError(msg), nil
+		}
 		finalArgs := append([]string{}, prefixArgs...)
 		finalArgs = append(finalArgs, cliArgsFromMCP(args)...)
 		if raw, _ := args["args"].(string); strings.TrimSpace(raw) != "" {
@@ -41,6 +47,26 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string) server.
 		}
 		return mcplib.NewToolResultText(string(out)), nil
 	}
+}
+
+// blockedDestinationFlags names the flags that choose a filesystem location on
+// every command (handfixes.json: mcp-file-flags-refused). The MCP server runs
+// the companion CLI as the account that hosts it, so a tool call that could set
+// one could make that account read, write or truncate any path it can reach. A
+// command declares any other such flag with the mcp:write-flags annotation.
+var blockedDestinationFlags = map[string]bool{
+	"audit-dir":           true,
+	"db":                  true,
+	"from-csv":            true,
+	"home":                true,
+	"input":               true,
+	"notes-file":          true,
+	"o":                   true,
+	"out":                 true,
+	"output":              true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
+	"receipt-file":        true,
 }
 
 // blockedRootFlags are root-level CLI flags that an MCP client must not be
