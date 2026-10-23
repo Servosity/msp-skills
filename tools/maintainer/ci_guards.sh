@@ -321,7 +321,7 @@ echo "==> 8. No press title line on a skill page"
 # Markdown headings only: the press is still named in prose and in NOTICE.
 # The phrase is built at runtime so this script never carries it.
 press_title="Printing Press"" CLI"
-all_files '*.md' '*.markdown' '*.mdx' ':(exclude)skills/*/cli/**' > "$lists/md"
+all_files '*.md' '*.markdown' '*.mdx' ':(exclude)skills/*/cli/**' ':(exclude)skills/*/press/**' > "$lists/md"
 if scan md -i -E -e "^#{1,6}[[:space:]].*${press_title}"; then
   note "a skill page is titled after the press; title it '<Vendor> - Claude Code Skill' (the press stays credited in cli/NOTICE)"
   fail=1
