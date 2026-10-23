@@ -1,0 +1,89 @@
+name: verify-watch
+
+# Keeps two things from going quietly stale, each as ONE issue that is opened,
+# updated in place or closed by tools/maintainer/verify_watch.py:
+#
+#   verify-map-stale  the verify-msp-skills feature map is behind the fleet:
+#                     (a) a manifest's printing_press_version passed
+#                     maintained_at_press in tools/maintainer/verify_maintained.json,
+#                     (b) a verify ERROR in main's newest recorded results (the
+#                     verify-<slug> artifacts ci.yml's build rows upload), or no
+#                     results recorded at all, (c) a feature SKIPs where the
+#                     connector's press version has it, (d) maintained_at is 30
+#                     or more days old. The fix is a local, subscription run of
+#                     /maintain-verification-skill plus a stamp update in its PR.
+#   press-watch       mvanhorn/cli-printing-press has a release newer than the
+#                     fleet's newest printing_press_version. Input for the reprint
+#                     decision only: nothing in this workflow reprints.
+#
+# Never opens a duplicate; never closes an issue on evidence it could not read.
+
+on:
+  # Monday 07:00 UTC: after CI's Sunday 06:00 full sweep has uploaded a verdict
+  # for every connector.
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "skills/*/manifest.json"
+      - ".claude/skills/verify-msp-skills/**"
+      - "tools/maintainer/verify_maintained.json"
+  # A change to the watch itself proves itself on its PR: the self-test, then a
+  # read-only dry run against the real repository (no issue is written).
+  pull_request:
+    paths:
+      - ".github/workflows/verify-watch.yml"
+      - "tools/maintainer/verify_watch.py"
+      - "tools/maintainer/verify_maintained.json"
+
+permissions:
+  contents: read
+
+# One writer at a time, so two runs can never both decide to open the issue.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('verify-watch-pr-{0}', github.event.pull_request.number) || 'verify-watch' }}
+  cancel-in-progress: false
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Every trigger fires on its shape and is silent on the healthy fleet
+        run: python3 -I tools/maintainer/verify_watch.py --self-test
+
+      - name: Dry run against the real repository (prints the plan, writes nothing)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: python3 -I tools/maintainer/verify_watch.py --repo "$REPO" --collect --results "$RUNNER_TEMP/verify-results"
+
+  watch:
+    needs: self-test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Open, update or close the verify-map-stale and press-watch issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 -I tools/maintainer/verify_watch.py --repo "$REPO" --collect \
+            --results "$RUNNER_TEMP/verify-results" --apply | tee -a "$GITHUB_STEP_SUMMARY"
