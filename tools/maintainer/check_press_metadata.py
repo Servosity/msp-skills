@@ -263,22 +263,33 @@ def spec_urls(provenance: dict) -> list[str]:
     return out
 
 
-def url_status(url: str, timeout: float = 20.0) -> tuple[int | None, str]:
-    """(status, note) of an UNAUTHENTICATED request: HEAD, then a one-byte GET
-    when HEAD is refused. No credentials, cookies or auth headers are sent."""
-    for method in ("HEAD", "GET"):
-        req = urllib.request.Request(url, method=method, headers={
-            "User-Agent": "msp-skills-check-press-metadata", **({"Range": "bytes=0-0"} if method == "GET" else {})})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.status, method
-        except urllib.error.HTTPError as e:
-            if method == "HEAD" and e.code in (400, 403, 405, 501):
-                continue
-            return e.code, method
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            return None, f"{type(e).__name__}: {e}"[:200]
-    return None, "no answer"
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is an answer, not a hop: a spec URL that redirects (to a
+    login page, say) is not the public spec, so urllib reports the 3xx."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+MAX_SPEC_BYTES = 64 * 1024 * 1024
+
+
+def fetch_url(url: str, timeout: float = 20.0) -> tuple[int | None, bytes | None, str]:
+    """(status, body, note) of ONE unauthenticated GET, redirects not followed.
+    No credentials, cookies or auth headers are sent."""
+    req = urllib.request.Request(url, method="GET", headers={"User-Agent": "msp-skills-check-press-metadata"})
+    try:
+        with _OPENER.open(req, timeout=timeout) as r:
+            body = r.read(MAX_SPEC_BYTES + 1)
+            if len(body) > MAX_SPEC_BYTES:
+                return r.status, None, "larger than 64 MB"
+            return r.status, body, "GET"
+    except urllib.error.HTTPError as e:
+        if 300 <= e.code < 400:
+            return e.code, None, f"a redirect to {e.headers.get('Location', '?')}"
+        return e.code, None, "GET"
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return None, None, f"{type(e).__name__}: {e}"[:200]
 
 
 def spec_source_record(spec_name: str, data: bytes, provenance: dict, repo: Path,
@@ -286,7 +297,8 @@ def spec_source_record(spec_name: str, data: bytes, provenance: dict, repo: Path
     """(record, reason): a record proving the spec's source is public, or None
     and why it is withheld. Public means the spec's exact bytes are already in
     the repository's history outside press/, or the provenance names an
-    http(s) spec URL that answers 2xx without credentials today."""
+    http(s) spec URL that serves exactly this spec (its sha256 is the
+    provenance's spec_checksum) to one unauthenticated GET, with no redirect."""
     blob = git_blob_sha(data)
     found = _git_at(repo, "log", ref, "--format=%H", "-1", f"--find-object={blob}")
     commit = found.stdout.strip() if found.returncode == 0 else ""
@@ -297,13 +309,24 @@ def spec_source_record(spec_name: str, data: bytes, provenance: dict, repo: Path
     if not urls:
         return None, (f"{NOT_PUBLIC}: the provenance records no http(s) spec URL and the spec "
                       "is not in the repository's history")
+    checksum = provenance.get("spec_checksum")
+    if not isinstance(checksum, str) or not checksum:
+        return None, (f"{NOT_PUBLIC}: the provenance records no spec_checksum, so a download "
+                      "cannot be shown to be this spec")
     notes = []
     for url in urls:
-        status, note = url_status(url)
-        if status is not None and 200 <= status < 300:
-            return {"file": spec_name, "basis": "public-url", "url": url, "status": status,
-                    "checked_on": dt.date.today().isoformat()}, ""
-        notes.append(f"{url} answered {status} ({note})" if status is not None else f"{url}: {note}")
+        status, body, note = fetch_url(url)
+        if status is not None and 200 <= status < 300 and body is not None:
+            if checksum in spec_checksums(body):
+                return {"file": spec_name, "basis": "public-url", "url": url, "status": status,
+                        "sha256": "sha256:" + hashlib.sha256(body).hexdigest(),
+                        "checked_on": dt.date.today().isoformat()}, ""
+            notes.append(f"{url} answered {status} but did not serve this spec "
+                         "(its sha256 is not the provenance's spec_checksum)")
+        elif status is not None:
+            notes.append(f"{url} answered {status} ({note})")
+        else:
+            notes.append(f"{url}: {note}")
     if all(": " in n and " answered " not in n for n in notes):
         return None, "spec source unknown: could not reach " + "; ".join(notes)
     return None, f"{NOT_PUBLIC}: " + "; ".join(notes) + " without credentials"
@@ -338,11 +361,12 @@ def check_publication(pub: object, entries: list[str], specs_ok: dict[str, bytes
         if rec["basis"] == "public-url":
             ok = (isinstance(rec.get("url"), str) and rec["url"] in spec_urls(provenance or {})
                   and isinstance(rec.get("status"), int) and 200 <= rec["status"] < 300
+                  and rec.get("sha256") in spec_checksums(data)
                   and isinstance(rec.get("checked_on"), str)
                   and re.fullmatch(r"\d{4}-\d{2}-\d{2}", rec["checked_on"]))
             if not ok:
-                spec_bad[name] = (f"{PUBLICATION} public-url record does not name a 2xx check of a "
-                                  f"spec URL that {PROVENANCE} records")
+                spec_bad[name] = (f"{PUBLICATION} public-url record does not name a 2xx download of "
+                                  f"these bytes from a spec URL that {PROVENANCE} records")
         else:
             commit = rec.get("commit") if isinstance(rec.get("commit"), str) else ""
             ok = (rec.get("blob") == git_blob_sha(data) and re.fullmatch(r"[0-9a-f]{40}", commit)
@@ -640,10 +664,13 @@ def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest)
     def pub(**spec_rec):
         return {**base, PUBLICATION: json.dumps({"schema": 1, "spec": {
             "file": "spec.json", "basis": "public-url", "url": good_prov["spec_url"], "status": 200,
-            "checked_on": "2026-10-22", **spec_rec}}).encode()}
+            "checked_on": "2026-10-22", "sha256": "sha256:" + hashlib.sha256(spec).hexdigest(),
+            **spec_rec}}).encode()}
     expect(not clean(build(t, pub(url="https://elsewhere.invalid/x.json"))),
            "a public-url record naming a URL the provenance does not record fails")
     expect(not clean(build(t, pub(status=401))), "a public-url record with a 401 fails")
+    expect(not clean(build(t, pub(sha256="sha256:" + "0" * 64))),
+           "a public-url record whose download was other bytes fails")
     expect(not clean(build(t, pub(basis="trust-me"))), "an unknown basis fails")
     withheld = json.dumps({"schema": 1, "withheld": {"spec.json": NOT_PUBLIC + ": x"}}).encode()
     expect(clean(build(t, {PROVENANCE: base[PROVENANCE], TOOLS: base[TOOLS], PUBLICATION: withheld})),
@@ -690,11 +717,26 @@ def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest)
     v2, p2 = inspect_dir(d2, man2, repo=repo)
     expect(v2.get("spec.yaml") != "ok", "a spec found only inside another press/ folder is not 'in history'")
     # --check-spec-source at vendoring time, against a local server.
+    spec2 = b'{"openapi": "3.0.1", "paths": {"/b": {}}}\n'  # not in the throwaway history
+
     class H(http.server.BaseHTTPRequestHandler):
-        def do_HEAD(self):
-            self.send_response(200 if self.path == "/public.json" else 401)
+        def _answer(self, body: bool):
+            if self.path == "/redirect.json":  # round 3: a login redirect must not count as public
+                self.send_response(302)
+                self.send_header("Location", "/login")
+                self.end_headers()
+                return
+            code, data = {"/public.json": (200, spec2), "/login": (200, b"<html>sign in</html>"),
+                          "/other.json": (200, b'{"openapi": "3.0.1"}\n')}.get(self.path, (401, b""))
+            self.send_response(code)
+            self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-        do_GET = do_HEAD
+            if body:
+                self.wfile.write(data)
+        def do_HEAD(self):
+            self._answer(False)
+        def do_GET(self):
+            self._answer(True)
         def log_message(self, *a):
             pass
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
@@ -702,12 +744,13 @@ def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         closed_port = sock.getsockname()[1]
-    spec2 = b'{"openapi": "3.0.1", "paths": {"/b": {}}}\n'  # not in the throwaway history
     sum2 = "sha256:" + hashlib.sha256(spec2).hexdigest()
     try:
         port = srv.server_address[1]
         for url, want in ((f"http://127.0.0.1:{port}/public.json", "kept"),
                           (f"http://127.0.0.1:{port}/private.json", NOT_PUBLIC),
+                          (f"http://127.0.0.1:{port}/redirect.json", NOT_PUBLIC),
+                          (f"http://127.0.0.1:{port}/other.json", NOT_PUBLIC),
                           (f"http://127.0.0.1:{closed_port}/x.json", "spec source unknown")):
             prov = {**good_prov, "spec_url": url, "spec_checksum": sum2}
             d = build(t, {PROVENANCE: json.dumps(prov).encode(), "spec.json": spec2})
@@ -745,7 +788,8 @@ def _self_test() -> int:
     good_prov = {"schema_version": 1, "printing_press_version": "4.33.5", "spec_url": spec_url,
                  "generated_at": "2026-10-14T12:00:00Z", "spec_checksum": "sha256:" + hashlib.sha256(spec).hexdigest()}
     public = {"schema": 1, "spec": {"file": "spec.json", "basis": "public-url", "url": spec_url,
-                                    "status": 200, "checked_on": "2026-10-22"}}
+                                    "status": 200, "checked_on": "2026-10-22",
+                                    "sha256": "sha256:" + hashlib.sha256(spec).hexdigest()}}
     good_tools = {"api_name": "x", "tools": [{"name": "a_get", "method": "GET", "path": "/a"}]}
     manifest = {"printing_press_version": "4.33.5",
                 "press_provenance": {"printing_press_version": "4.33.5",
@@ -842,7 +886,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--gitleaks", action="store_true", help="with --inspect: also run gitleaks, if installed")
     ap.add_argument("--check-spec-source", action="store_true",
                     help="with --inspect: keep a spec only when its source is provably public "
-                         "(in the repo's history, or an http(s) spec URL answering without credentials)")
+                         "(in the repo's history, or an http(s) spec URL serving these exact bytes without credentials or a redirect)")
     ap.add_argument("--ref", default="origin/main", help="with --check-spec-source: the history to search")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
