@@ -385,6 +385,9 @@ jobs:
           go vet ./...
           go test -count=1 ./...
 
+      - name: Component-flag validators reject hostile values (one place, not 31 connectors)
+        run: python3 tools/maintainer/check_mcp_file_flags.py --check-component-validators
+
   # Its own job, deliberately. This check is RED BY DESIGN for the window
   # between a version-bump merge and the hand-cut tag that makes its pins real
   # (and for the whole life of a release that was never cut). While it was a

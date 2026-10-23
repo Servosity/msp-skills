@@ -815,6 +815,7 @@ func (st *fnState) transfer(instr ssa.Instruction) {
 	case *ssa.Store:
 		st.storeInto(x.Addr, st.tagsOf(x.Val))
 		st.e.noteCommandField(st.fn, x)
+		st.checkExecCmdField(x)
 	case *ssa.MapUpdate:
 		st.storeInto(x.Map, st.tagsOf(x.Value))
 		if kt := st.tagsOf(x.Key); !kt.empty() {
@@ -878,6 +879,153 @@ func (st *fnState) fieldTags(base ssa.Value, i int, v ssa.Value) tagSet {
 		t.unionGlobal(st.tagsOf(base))
 	}
 	return t
+}
+
+// filteredCharWrite reports whether a one-character builder write
+// (strings.Builder / bytes.Buffer WriteRune or WriteByte) is an allowlist
+// filter: the CFG is simulated from where the character is defined with each
+// of '/', '\\', '.' and NUL in turn, deciding every branch that compares the
+// character with a constant, and the write is a filter only when none of them
+// can reach it. A raw copy (`for _, r := range s { b.WriteRune(r) }`) writes
+// unconditionally and stays tainted; client.cacheResourceTag, which keeps only
+// [a-z0-9_-], is recognised and does not taint the cache directory it names.
+func filteredCharWrite(callee *ssa.Function, args []ssa.Value, instr ssa.CallInstruction) bool {
+	fnObj, ok := callee.Object().(*types.Func)
+	if !ok || fnObj == nil || len(args) < 2 {
+		return false
+	}
+	switch _, key := funcKey(fnObj); key {
+	case "strings.Builder.WriteRune", "strings.Builder.WriteByte", "bytes.Buffer.WriteRune", "bytes.Buffer.WriteByte":
+	default:
+		return false
+	}
+	ch := args[1]
+	target := instr.Block()
+	start := definingBlock(ch)
+	if target == nil || start == nil {
+		return false
+	}
+	for _, forbidden := range []int64{'/', '\\', '.', 0} {
+		if charReaches(start, target, ch, forbidden) {
+			return false
+		}
+	}
+	return true
+}
+
+func definingBlock(v ssa.Value) *ssa.BasicBlock {
+	if in, ok := stripChangeType(v).(ssa.Instruction); ok {
+		return in.Block()
+	}
+	return nil
+}
+
+// stripChangeType sees through a named-type change only. A numeric Convert is
+// NOT stripped: byte(r) narrows, so a rune above 127 the filter let through can
+// become '/', and the compared value and the written value must stay distinct.
+func stripChangeType(v ssa.Value) ssa.Value {
+	for {
+		ct, ok := v.(*ssa.ChangeType)
+		if !ok {
+			return v
+		}
+		v = ct.X
+	}
+}
+
+// sameChar reports whether x is the written character ch itself.
+func sameChar(x, ch ssa.Value) bool {
+	return stripChangeType(x) == stripChangeType(ch)
+}
+
+// charReaches simulates the CFG from start with the character fixed to c and
+// reports whether target is reachable. A branch whose condition compares the
+// character with a constant follows only the side the comparison takes; any
+// other branch follows both.
+func charReaches(start, target *ssa.BasicBlock, ch ssa.Value, c int64) bool {
+	seen := map[*ssa.BasicBlock]bool{}
+	stack := []*ssa.BasicBlock{start}
+	for len(stack) > 0 {
+		b := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if b == target {
+			return true
+		}
+		if seen[b] {
+			continue
+		}
+		seen[b] = true
+		if len(b.Instrs) == 0 {
+			continue
+		}
+		if ifInstr, ok := b.Instrs[len(b.Instrs)-1].(*ssa.If); ok && len(b.Succs) == 2 {
+			if val, known := evalCharCond(ifInstr.Cond, ch, c); known {
+				if val {
+					stack = append(stack, b.Succs[0])
+				} else {
+					stack = append(stack, b.Succs[1])
+				}
+				continue
+			}
+		}
+		stack = append(stack, b.Succs...)
+	}
+	return false
+}
+
+func evalCharCond(cond, ch ssa.Value, c int64) (bool, bool) {
+	if u, ok := cond.(*ssa.UnOp); ok && u.Op == token.NOT {
+		v, known := evalCharCond(u.X, ch, c)
+		return !v, known
+	}
+	bin, ok := cond.(*ssa.BinOp)
+	if !ok {
+		return false, false
+	}
+	var k int64
+	op := bin.Op
+	switch {
+	case sameChar(bin.X, ch):
+		cst, isConst := bin.Y.(*ssa.Const)
+		if !isConst || cst.Value == nil || cst.Value.Kind() != constant.Int {
+			return false, false
+		}
+		k, _ = constant.Int64Val(cst.Value)
+	case sameChar(bin.Y, ch):
+		cst, isConst := bin.X.(*ssa.Const)
+		if !isConst || cst.Value == nil || cst.Value.Kind() != constant.Int {
+			return false, false
+		}
+		k, _ = constant.Int64Val(cst.Value)
+		// k OP ch  ==  ch OP' k
+		switch op {
+		case token.LSS:
+			op = token.GTR
+		case token.LEQ:
+			op = token.GEQ
+		case token.GTR:
+			op = token.LSS
+		case token.GEQ:
+			op = token.LEQ
+		}
+	default:
+		return false, false
+	}
+	switch op {
+	case token.EQL:
+		return c == k, true
+	case token.NEQ:
+		return c != k, true
+	case token.LSS:
+		return c < k, true
+	case token.LEQ:
+		return c <= k, true
+	case token.GTR:
+		return c > k, true
+	case token.GEQ:
+		return c >= k, true
+	}
+	return false, false
 }
 
 // pathBuilder models the standard functions that assemble a path from
@@ -1017,6 +1165,24 @@ func leadingPrefix(v ssa.Value) bool {
 	return strings.HasSuffix(s, ":") && !strings.ContainsAny(s, `/\`)
 }
 
+// checkExecCmdField treats a store into an os/exec.Cmd's Path (the program
+// that runs) or Dir (the directory it runs in) as a sink: exec.Command("x")
+// followed by cmd.Path = v runs a file the value chose.
+func (st *fnState) checkExecCmdField(s *ssa.Store) {
+	fa, ok := s.Addr.(*ssa.FieldAddr)
+	if !ok || qualifiedTypeName(fa.X.Type()) != "os/exec.Cmd" {
+		return
+	}
+	stt, ok := derefStruct(fa.X.Type())
+	if !ok || fa.Field >= stt.NumFields() {
+		return
+	}
+	switch name := stt.Field(fa.Field).Name(); name {
+	case "Path", "Dir":
+		st.recordSink(st.tagsOf(s.Val), sinkSite{Sink: "os/exec.Cmd." + name, Pos: st.e.pos(s.Pos())})
+	}
+}
+
 // checkHTTPDir treats a conversion to net/http.Dir as a sink: the value
 // becomes the root of a file server.
 func (st *fnState) checkHTTPDir(v ssa.Value, from ssa.Value) {
@@ -1145,6 +1311,12 @@ func (st *fnState) call(instr ssa.CallInstruction, common *ssa.CallCommon) []tag
 		}
 		if r, handled := st.e.externalSpecial(st, callee, args, instr); handled {
 			addAll(r)
+			continue
+		}
+		if filteredCharWrite(callee, args, instr) {
+			// An allowlist filter: no path separator, dot or NUL can reach
+			// this write, so what it builds cannot choose a location.
+			external = false
 			continue
 		}
 		if r, handled := st.pathBuilder(callee, args); handled {
@@ -1350,6 +1522,14 @@ func (st *fnState) externalPropagate(common *ssa.CallCommon, args []ssa.Value) t
 	} else if sig := common.Signature(); sig.Recv() != nil {
 		recvIndex = 0
 	}
+	// A method's destination argument is filled from the data arguments AND
+	// from the receiver: json.NewDecoder(strings.NewReader(v)).Decode(&cfg)
+	// carries v through the decoder into cfg.
+	fill := data
+	if recvIndex == 0 && len(args) > 0 {
+		fill = data.clone()
+		fill.union(st.tagsOf(args[0]))
+	}
 	for i, a := range args {
 		if i == recvIndex {
 			if receiverAccumulators[qualifiedTypeName(a.Type())] {
@@ -1358,7 +1538,7 @@ func (st *fnState) externalPropagate(common *ssa.CallCommon, args []ssa.Value) t
 			continue
 		}
 		if isDestination(a.Type()) {
-			st.storeIntoWhole(a, data)
+			st.storeIntoWhole(a, fill)
 		}
 	}
 	return all
