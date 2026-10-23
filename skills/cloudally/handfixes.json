@@ -475,7 +475,7 @@
         },
         {
           "file": "cli/internal/mcp/code_orch.go",
-          "contains": "if ep.Method != \"GET\" && !codeOrchConfirmAccepted(args[\"confirm\"]) {",
+          "contains": "if !codeOrchConfirmAccepted(args[\"confirm\"]) {",
           "code_only": true
         },
         {

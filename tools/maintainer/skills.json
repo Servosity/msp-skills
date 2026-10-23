@@ -471,7 +471,7 @@
       "category": "Backup/DR",
       "display_name": "CloudAlly",
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "cli_hash": "sha256:5c8c993ef5cfd7b68777699d821e092030ff27d2b5dce038a3d13a9ca7afe391",
+      "cli_hash": "sha256:c706b20142923d9879fd972c6afa42a3c0c6abe06a02eead5f927af1c20c9fb9",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

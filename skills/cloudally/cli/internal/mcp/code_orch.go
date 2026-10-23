@@ -1480,19 +1480,21 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 
 	// Hand-fix (handfixes.json: mcp-execute-confirm-gate): a write runs only
 	// when the caller passes confirm=true; otherwise it returns a preview.
-	if ep.Method != "GET" && !codeOrchConfirmAccepted(args["confirm"]) {
-		preview, err := json.Marshal(map[string]any{
-			"preview":     true,
-			"endpoint_id": id,
-			"method":      ep.Method,
-			"path":        ep.Path,
-			"params":      params,
-			"next":        "call cloudally_execute again with confirm=true to send this request",
-		})
-		if err != nil {
-			return mcplib.NewToolResultError(fmt.Sprintf("encoding preview: %v", err)), nil
+	if ep.Method != "GET" {
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			preview, err := json.Marshal(map[string]any{
+				"preview":     true,
+				"endpoint_id": id,
+				"method":      ep.Method,
+				"path":        ep.Path,
+				"params":      params,
+				"next":        "call cloudally_execute again with confirm=true to send this request",
+			})
+			if err != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding preview: %v", err)), nil
+			}
+			return mcplib.NewToolResultText(string(preview)), nil
 		}
-		return mcplib.NewToolResultText(string(preview)), nil
 	}
 
 	c, platformSession, err := newMCPClient(ctx)
