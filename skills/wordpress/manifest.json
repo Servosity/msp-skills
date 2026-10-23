@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "wordpress-pp-mcp",
+  "name": "wordpress-mcp",
   "display_name": "Wordpress",
   "version": "0.1.8",
   "description": "Publish and manage WordPress pages, posts, media",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/wordpress-pp-mcp",
+    "entry_point": "bin/wordpress-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/wordpress-pp-mcp",
+      "command": "${__dirname}/bin/wordpress-mcp",
       "args": [],
       "env": {
         "WORDPRESS_BASE_URL": "${user_config.wordpress_base_url}",

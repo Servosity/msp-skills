@@ -394,7 +394,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/crowdstrike-falcon-msp-pp-cli/config.toml`
+Config file: `~/.config/crowdstrike-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

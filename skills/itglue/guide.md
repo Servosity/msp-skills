@@ -320,7 +320,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/it-glue-myglue-pp-cli/config.toml`
+Config file: `~/.config/itglue-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

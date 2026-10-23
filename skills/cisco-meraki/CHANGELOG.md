@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- `cli/NOTICE` now names the product `cisco-meraki-cli`, the binary this connector installs, instead of the generator's internal `-pp-cli` name. No code change.
+
 ## [0.1.2] - 2026-10-21
 
 ### Fixed

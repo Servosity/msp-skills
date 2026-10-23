@@ -310,7 +310,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/partner-endpoints-pp-cli/config.toml`
+Config file: `~/.config/pax8-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

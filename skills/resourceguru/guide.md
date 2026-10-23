@@ -590,7 +590,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `resourceguru-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/resource-guru-pp-cli/config.toml` (`%USERPROFILE%\.config\resource-guru-pp-cli\config.toml` on Windows); `--home`, `RESOURCEGURU_HOME`, and per-kind env vars can relocate it.
+Run `resourceguru-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/resourceguru-cli/config.toml` (`%USERPROFILE%\.config\resourceguru-cli\config.toml` on Windows); `--home`, `RESOURCEGURU_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

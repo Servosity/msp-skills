@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "maxio-pp-mcp",
+  "name": "maxio-mcp",
   "display_name": "Maxio",
   "version": "0.1.6",
   "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/maxio-pp-mcp",
+    "entry_point": "bin/maxio-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/maxio-pp-mcp",
+      "command": "${__dirname}/bin/maxio-mcp",
       "args": [],
       "env": {
         "MAXIO_API_KEY": "${user_config.maxio_api_key}",

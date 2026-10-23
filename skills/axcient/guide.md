@@ -311,7 +311,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/x360recover-pp-cli/config.toml`
+Config file: `~/.config/axcient-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

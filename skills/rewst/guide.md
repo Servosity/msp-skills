@@ -838,7 +838,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/rewst-schema-pp-cli/config.toml`
+Config file: `~/.config/rewst-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

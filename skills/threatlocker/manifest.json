@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "threatlocker-pp-mcp",
+  "name": "threatlocker-mcp",
   "display_name": "ThreatLocker",
   "version": "0.3.11",
   "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/threatlocker-pp-mcp",
+    "entry_point": "bin/threatlocker-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/threatlocker-pp-mcp",
+      "command": "${__dirname}/bin/threatlocker-mcp",
       "args": [],
       "env": {
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",

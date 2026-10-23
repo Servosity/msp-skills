@@ -651,7 +651,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/ninjaone-public-pp-cli/config.toml`
+Config file: `~/.config/ninjaone-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

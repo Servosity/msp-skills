@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "zammad-pp-mcp",
+  "name": "zammad-mcp",
   "display_name": "Zammad",
   "version": "0.1.9",
   "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/zammad-pp-mcp",
+    "entry_point": "bin/zammad-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/zammad-pp-mcp",
+      "command": "${__dirname}/bin/zammad-mcp",
       "args": [],
       "env": {
         "ZAMMAD_API_TOKEN": "${user_config.zammad_api_token}",

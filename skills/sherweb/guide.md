@@ -315,7 +315,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/sherweb-partner-pp-cli/config.toml`
+Config file: `~/.config/sherweb-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

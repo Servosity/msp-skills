@@ -299,6 +299,32 @@
           "not_contains": "--addr :7777"
         }
       ]
+    },
+    {
+      "id": "api-discovery-hint-names-shipped-binary",
+      "class": "pp-name-leak",
+      "summary": "the `api` discovery hints tell the operator to run datagate-cli, the binary this repo ships, instead of datagate-pp-cli, which does not exist",
+      "why": "The press prints three follow-up hints from api_discovery.go ('Use ... <method> --help', 'Run ... api to list all interfaces', 'Use ... api <interface>'), formatting the binary name as '%s-pp-cli' around the slug. The -pp- strip renamed the binaries and the Cobra strings on every other connector but missed this format string here, so the CLI told an operator (or an agent) to run a binary that is not installed. check_no_pp_leak.py reports the '%s-pp-' format string in Go; a reprint re-emits it.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the strip should rewrite '%s-pp-cli' format strings in generated Go the same way it rewrites the Cobra Use/Example strings (msp-skills strip-pp-cli).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "Run '%s-cli api' to list all interfaces",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "Use '%s-cli api <interface>' to see methods.",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "not_contains": "%s-pp-cli"
+        }
+      ]
     }
   ]
 }

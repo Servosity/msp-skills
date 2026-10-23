@@ -685,7 +685,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `huntress-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/huntress-reference-pp-cli/config.toml` (`%USERPROFILE%\.config\huntress-reference-pp-cli\config.toml` on Windows); `--home`, `HUNTRESS_HOME`, and per-kind env vars can relocate it.
+Run `huntress-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/huntress-cli/config.toml` (`%USERPROFILE%\.config\huntress-cli\config.toml` on Windows); `--home`, `HUNTRESS_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

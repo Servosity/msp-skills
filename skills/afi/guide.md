@@ -301,7 +301,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/afi-calls-pp-cli/config.toml`
+Config file: `~/.config/afi-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
