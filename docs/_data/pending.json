@@ -371,9 +371,9 @@
     "released_hash": "sha256:82dbe47d0b2ba68405adee6a095c3048d5f42c7cc0240a207f1733d3e169ed22"
   },
   "pagerduty": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "pagerduty-v0.1.6",
+    "latest_tag": "pagerduty-v0.1.7",
     "current_hash": "sha256:b70dc01b97b17a2bef5a6002c4360fdbe7a966a0440720ca94d4caa2696b680b",
     "released_hash": "sha256:b70dc01b97b17a2bef5a6002c4360fdbe7a966a0440720ca94d4caa2696b680b"
   },
