@@ -79,6 +79,17 @@ func readHelper(path string) error {
 	return err
 }
 
+// dotSegment lets '.' through, so ".." survives: NOT an allowlist filter.
+func dotSegment(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || r == '.' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 func safeSegment(s string) string {
 	var b strings.Builder
 	for _, r := range s {
@@ -97,7 +108,8 @@ func RootCmd() *cobra.Command {
 	root.PersistentFlags().StringVar(&homeDir, "want-persistent", "", "root dir")
 
 	var direct, at, helper, join, name, cacheKey, page, id, pick, sqlPath, prog, walk, mapped, built, decoded, multi, field, fsName string
-	var joinHead, sprintfLead, sprintfName, concatName, dsn, runeLoop, safeComp string
+	var joinHead, sprintfLead, sprintfName, concatName, dsn, runeLoop, safeComp, dotComp string
+	var decoderIn, execPath, execDir, narrowed string
 	var slice []string
 	opts := &fleetOpts{}
 	run := &cobra.Command{
@@ -142,6 +154,22 @@ func RootCmd() *cobra.Command {
 				rb.WriteRune(r)
 			}
 			_, _ = os.Open(rb.String())
+			var viaDecoder struct{ Path string }
+			_ = json.NewDecoder(strings.NewReader(decoderIn)).Decode(&viaDecoder)
+			_, _ = os.ReadFile(viaDecoder.Path)
+			// Filters on the rune but writes byte(r): a rune above 127 can
+			// narrow to '/', so this is NOT an allowlist filter.
+			var nb strings.Builder
+			for _, r := range narrowed {
+				if r > 127 {
+					nb.WriteByte(byte(r))
+				}
+			}
+			_, _ = os.Open(nb.String())
+			runner := exec.Command("true")
+			runner.Path = execPath
+			runner.Dir = execDir
+			_ = runner.Run()
 			var cfg struct{ Path string }
 			_ = json.Unmarshal([]byte(decoded), &cfg)
 			_, _ = os.ReadFile(cfg.Path)
@@ -151,9 +179,11 @@ func RootCmd() *cobra.Command {
 			_ = send(request{Field: field, File: multi})
 			var o opener = diskOpener{}
 			_ = o.Open(fsName)
-			// A rune-filtered value placed as a path COMPONENT (the filter is
-			// opaque to the analyzer, so it is a component finding, not gated).
+			// Filtered to [a-z]: no separator, dot or NUL can survive, so the
+			// name it builds chooses nothing.
 			_ = os.MkdirAll(filepath.Join(os.TempDir(), safeSegment(safeComp)), 0o700)
+			// A filter that keeps '.' lets ".." through: still a component.
+			_ = os.MkdirAll(filepath.Join(os.TempDir(), dotSegment(dotComp)), 0o700)
 			getter, _ := cmd.Flags().GetString("want-getter")
 			_, _ = os.Stat(getter)
 			_ = os.MkdirAll(homeDir, 0o700)
@@ -181,8 +211,13 @@ func RootCmd() *cobra.Command {
 	f.StringVar(&mapped, "want-map-value", "", "stored in a map")
 	f.StringVar(&built, "want-builder", "", "built with a strings.Builder")
 	f.StringVar(&runeLoop, "want-rune-loop", "", "copied rune by rune into a builder, then opened")
-	f.StringVar(&safeComp, "comp-safe-segment", "", "rune-filtered, then used as a path component")
+	f.StringVar(&safeComp, "not-safe-segment", "", "filtered to [a-z], then used as a path component")
+	f.StringVar(&dotComp, "comp-dot-segment", "", "filtered to [a-z.], then used as a path component")
 	f.StringVar(&decoded, "want-decoded", "", "JSON whose Path is read")
+	f.StringVar(&decoderIn, "want-decoder", "", "JSON streamed through a json.Decoder, whose Path is read")
+	f.StringVar(&execPath, "want-exec-path", "", "set as exec.Cmd.Path after exec.Command")
+	f.StringVar(&execDir, "want-exec-dir", "", "set as exec.Cmd.Dir")
+	f.StringVar(&narrowed, "want-narrowed-byte", "", "filtered as a rune, written as a narrowed byte, then opened")
 	f.StringSliceVar(&slice, "want-slice", nil, "files")
 	f.StringVar(&multi, "want-multipart-file", "", "upload")
 	f.StringVar(&field, "not-multipart-field", "", "form field")

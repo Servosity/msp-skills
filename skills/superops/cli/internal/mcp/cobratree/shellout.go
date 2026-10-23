@@ -40,6 +40,14 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string, blocked
 				if strings.HasPrefix(t, "-") {
 					return mcplib.NewToolResultError(fmt.Sprintf("flag-like argument %q not allowed in positional args field; use structured tool parameters instead", t)), nil
 				}
+				// Hand-fix (handfixes.json: mcp-file-flags-refused): raw
+				// query/mutation resolve an `@file` positional by reading that
+				// local file. Refuse it over MCP for those two commands only
+				// (elsewhere `@Acme` is an ordinary name); pass the GraphQL
+				// document inline instead. The CLI keeps @path.
+				if strings.HasPrefix(t, "@") && resolvesAtPathPositional(prefixArgs) {
+					return mcplib.NewToolResultError(fmt.Sprintf("positional argument %q names a local file on the machine running the MCP server; over MCP pass the value inline, not an @path", t)), nil
+				}
 			}
 			finalArgs = append(finalArgs, tokens...)
 		}
@@ -303,4 +311,11 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (string, 
 		return stdout.String(), fmt.Errorf("cli %s: %w", binPath, err)
 	}
 	return stdout.String(), nil
+}
+
+// resolvesAtPathPositional reports whether the command reads its positional as
+// `@file` (handfixes.json: mcp-file-flags-refused). The parent `raw` tool takes
+// no positionals and refuses undeclared keys, so it cannot dispatch to them.
+func resolvesAtPathPositional(commandPath []string) bool {
+	return len(commandPath) == 2 && commandPath[0] == "raw" && (commandPath[1] == "query" || commandPath[1] == "mutation")
 }

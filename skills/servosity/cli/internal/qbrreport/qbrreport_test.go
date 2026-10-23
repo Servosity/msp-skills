@@ -93,6 +93,14 @@ func TestParseQuarter(t *testing.T) {
 		{"2026-Q2", time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 6, 30, 23, 59, 59, 0, time.UTC), false},
 		{"2026-Q4", time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC), false},
 		{"garbage", time.Time{}, time.Time{}, true},
+		// Must be rejected: trailing text after the year let a path escape the
+		// --out directory when the quarter was used in the report filename.
+		{"2026/../../x-Q1", time.Time{}, time.Time{}, true},
+		{"2026-Q1/..", time.Time{}, time.Time{}, true},
+		{"2026 -Q1", time.Time{}, time.Time{}, true},
+		{"2026-Q5", time.Time{}, time.Time{}, true},
+		{"26-Q1", time.Time{}, time.Time{}, true},
+		{"2026-Q1.", time.Time{}, time.Time{}, true},
 	}
 	for _, c := range cases {
 		from, to, err := ParseQuarter(c.in)
