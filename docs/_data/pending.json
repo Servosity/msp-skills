@@ -252,9 +252,9 @@
     "released_hash": "sha256:4f9e769ea19159fb558970e26697fd606c2d028319493b4b1830f84945342ce0"
   },
   "hubspot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.4",
-    "latest_tag": "hubspot-v0.2.3",
+    "latest_tag": "hubspot-v0.2.4",
     "current_hash": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116",
     "released_hash": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116"
   },
