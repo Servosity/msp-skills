@@ -294,16 +294,16 @@
     "released_hash": "sha256:816fca750250fccb1545cacbd9e411dacbbf9b681f4b1d0440a74765a7c43995"
   },
   "kaseya-bms": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "kaseya-bms-v0.1.5",
+    "latest_tag": "kaseya-bms-v0.1.6",
     "current_hash": "sha256:6c3ff3550ed1a039a277623cb4f5af541277f28141b7016fa15cc76521ad32d8",
     "released_hash": "sha256:6c3ff3550ed1a039a277623cb4f5af541277f28141b7016fa15cc76521ad32d8"
   },
   "knowbe4": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "knowbe4-v0.1.5",
+    "latest_tag": "knowbe4-v0.1.6",
     "current_hash": "sha256:6c16d80106189778cb133fb135790dd605aeb6f1c2b4fcd55fc8979341d460ac",
     "released_hash": "sha256:6c16d80106189778cb133fb135790dd605aeb6f1c2b4fcd55fc8979341d460ac"
   },
