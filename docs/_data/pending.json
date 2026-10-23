@@ -434,9 +434,9 @@
     "released_hash": "sha256:a6f8330b24cd9498d16e50cd2e36fc604e23a4f5f7a2990fe8a4caa7227ce7eb"
   },
   "rewst": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "rewst-v0.1.5",
+    "latest_tag": "rewst-v0.1.6",
     "current_hash": "sha256:26919b63296a6cd9b89d8b56d45e0b76eead76731b1f5f93fe5deab11b96c103",
     "released_hash": "sha256:26919b63296a6cd9b89d8b56d45e0b76eead76731b1f5f93fe5deab11b96c103"
   },
