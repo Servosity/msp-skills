@@ -1,5 +1,5 @@
 {
-  "_comment": "BASE-OWNED suppressions for check_security_gate.py. A finding is suppressed ONLY if its (file, rule) pair is listed here. This is intentionally NOT self-grantable from a PR diff: inline `// #nosec` is no longer honored by the gate, and a change to THIS file is a glaring, reviewed diff line (the security-gate workflow watches it). Add an entry only after a human has vetted that the flagged pattern is safe. The `file` may be repo-relative (skills/<slug>/cli/..., scopes to one connector) OR slug-relative (cli/..., applies fleet-wide to the byte-identical printing-press generated file every connector carries). All scanners (builtin patterns, install scripts, and the external gosec/govulncheck/osv/semgrep set) honor these entries.",
+  "_comment": "BASE-OWNED suppressions for check_security_gate.py. A finding is suppressed ONLY if its (file, rule) pair is listed here. This is intentionally NOT self-grantable from a PR diff: inline `// #nosec` is no longer honored by the gate, and a change to THIS file is a glaring, reviewed diff line (the security-gate workflow watches it). Add an entry only after a human has vetted that the flagged pattern is safe. The `file` may be repo-relative (skills/<slug>/cli/..., scopes to one connector) OR slug-relative (cli/..., applies fleet-wide to the byte-identical printing-press generated file every connector carries). All scanners (builtin patterns, install scripts, and the external gosec/govulncheck/osv/semgrep set) honor these entries. CONTENT-BOUND entries go under \"bound\", not \"suppress\": each also names \"bind\" (\"file\" or \"decl\") and the sha256 of the reviewed bytes (the whole file, or the top-level declaration holding the finding), so it accepts the finding only while that code is byte-for-byte unchanged; any edit is scanned again. `file` may use {slug} for the connector's own directory name; \"slug_neutral\": true hashes with that name put back to a marker. Print the digests with check_security_gate.py --bound-hash skills/<slug>/cli/<file>.go:<line>. An older gate copy ignores \"bound\" entirely.",
   "suppress": [
     {
       "file": "skills/servosity/cli/internal/qbrreport/qbrreport.go",
@@ -1325,6 +1325,262 @@
       "file": "skills/quickbooks/cli/internal/cli/auth_refresh.go",
       "rule": "G704",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The token refresh request goes to intuitTokenURL by default; the only override is the QUICKBOOKS_TOKEN_URL environment variable, an operator-set test hook, not tool-call or API input."
+    }
+  ],
+  "bound": [
+    {
+      "file": "cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:fb4934a2cce4765ddd98a449ba870285233250cf36044b12589b1c761a3cb2ed"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. uint32(self.Dev) reinterprets darwin's int32 dev_t for an equality test against proc_info's uint32 device id; uint64(fd) widens a non-negative descriptor for the syscall argument; the int() conversions widen or come from small kernel counts."
+    },
+    {
+      "file": "cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:fb4934a2cce4765ddd98a449ba870285233250cf36044b12589b1c761a3cb2ed"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. claimClosedStore opens, read-only, the legacy local store files from legacyStoreAdoptPaths under the CLI's own data directory, to check no other process holds them. App-derived local paths."
+    },
+    {
+      "file": "cli/internal/cli/store_adopt_darwin.go",
+      "rule": "msp-unsafe-import",
+      "bind": "file",
+      "sha256": [
+        "sha256:fb4934a2cce4765ddd98a449ba870285233250cf36044b12589b1c761a3cb2ed"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. Same import as the unsafe-import entry for this file (proc_info buffers with exact sizes)."
+    },
+    {
+      "file": "cli/internal/cli/store_adopt_darwin.go",
+      "rule": "unsafe-import",
+      "bind": "file",
+      "sha256": [
+        "sha256:fb4934a2cce4765ddd98a449ba870285233250cf36044b12589b1c761a3cb2ed"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. unsafe.Pointer to local slices and structs passed to the proc_info syscall with that buffer's exact byte size (n*4, n*Sizeof, Sizeof(info)); results are bounded by the returned count. Byte-identical to the 4.33.5 file that 17 connectors already ship with vetted per-connector entries."
+    },
+    {
+      "file": "cli/internal/client/chrome.go",
+      "rule": "G402",
+      "bind": "file",
+      "sha256": [
+        "sha256:1177b7b0e421f09350a02a861506634233aa94a9503ac26f458c08f12471c3c9"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. browser-chrome transport only. InsecureSkipVerify takes trust.insecure, which is true only when the operator sets --insecure, <SLUG>_SKIP_TLS_VERIFY or skip_tls_verify in their own config (self-signed appliances); the MCP bridge refuses --insecure. The default verifies against the system or --ca-cert pool."
+    },
+    {
+      "file": "cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:42ef41d6bdde263b30aed8078914b798465e4743e7cf0430d20c13c48a9b556d"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. The file is !windows."
+    },
+    {
+      "file": "cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:42ef41d6bdde263b30aed8078914b798465e4743e7cf0430d20c13c48a9b556d"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. ReadOpenedConfig, readGlobalCredentialBytes (O_NOFOLLOW) and readExplicitCredentialBytes open the config or credentials path, or the operator's --config profile directory, read-only, then check owner and 0600 on the opened descriptor; errors never include the contents. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+    },
+    {
+      "file": "cli/internal/cliutil/creds_perms_windows.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:c9864b6a96c9e5a91e2b59ceb39aee0dd909eb147fd53ac4eb9d17a536f67883"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. Windows twin of creds_perms_unix.go ReadOpenedConfig: opens the config file read-only and judges the DACL on the same handle. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:e571513abcb713b7c06258185d8cfe5d07608ba8975f6f40f42182f4bc9f4352"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. int32(attr_dataoffset): attrreference_t.attr_dataoffset is a signed int32 in the kernel ABI; darwinAttrBlob rejects a negative or out-of-range offset or length before slicing. The other conversions widen or are bounds-checked against len(buf)."
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:e571513abcb713b7c06258185d8cfe5d07608ba8975f6f40f42182f4bc9f4352"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. openDarwinFollowACL opens, read-only, a path that already passed the mode check, so the ACL is read from the same descriptor. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. uint32(len(buf)): buf starts at 4096 bytes and is only ever resized to need, which is rejected above maxAttrBuf (1 MiB), so the length fits uint32. int(need) widens a uint32 on 64-bit targets."
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+      "rule": "G204",
+      "bind": "file",
+      "sha256": [
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. exec.Command runs the fixed absolute path /usr/bin/dsmemberutil with fixed arguments and a decimal uid from fstat (strconv.FormatUint). No shell, and no caller supplies the command or a flag."
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. openDarwinNoFollow opens a path read-only with O_NOFOLLOW to read its ACL. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+      "rule": "msp-unsafe-import",
+      "bind": "file",
+      "sha256": [
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. Same import as the unsafe-import entry for this file: layout checks and two local pointers passed to the fgetattrlist syscall."
+    },
+    {
+      "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+      "rule": "unsafe-import",
+      "bind": "file",
+      "sha256": [
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. unsafe is used for compile-time layout checks on unix.Attrlist (Sizeof, Offsetof) and to hand fgetattrlist pointers to a local Attrlist and a local buffer with that buffer's own length. No pointer arithmetic, nothing escapes; x/sys has no wrapper for this syscall."
+    },
+    {
+      "file": "cli/internal/cliutil/filelock_unix.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:d897ce6829c35eab9b4f7168427c74b2716f205202a57f1443120532f6a9db04"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. uint32(os.Geteuid()): on POSIX the effective uid is a non-negative uid_t, compared for equality with the file owner. The file is !windows."
+    },
+    {
+      "file": "cli/internal/cliutil/filelock_unix.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:d897ce6829c35eab9b4f7168427c74b2716f205202a57f1443120532f6a9db04"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. ReadConfigTrust opens the config file read-only to decide whether its ca_cert and tls_server_name may be applied, judging the same descriptor it reads. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+    },
+    {
+      "file": "cli/internal/cliutil/filelock_windows.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:fd7590c88a7fc63a73e95af758e46861f5136d84a389840a32ac04a2ad8a0af1"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. Windows twin of filelock_unix.go ReadConfigTrust: opens the config file read-only and judges the DACL on the same handle. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+    },
+    {
+      "file": "cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:82669370a26796ebc04ab47e4f9ef7a29430efd579dc50b8125c2d175349c56d",
+        "sha256:e3f588a471a3d362622c50a0ecd7a9ff3ff20efc15325a326cadede9ae3b3b24"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. Declarations claimLegacyUnscopedDB and readRawRequestBody. The first reads <data dir>/data.db.owner, an app-derived path from defaultDBPathInDir. The second reads the file the operator names with --file on a raw-body upload command; those commands carry mcp:read-flags \"file\", so MCP refuses the flag (InputFlagBlocked), and check_mcp_file_flags.py proves it per connector."
+    },
+    {
+      "file": "cli/internal/client/client.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:a7c02b7dd646a8a0bda1c938ddf2fc30a1882d24dc69cf4f32b26ea35af3e226",
+        "sha256:d521052e0ffaf869a8eeab622975057d60234e35cfa980684e5c480b723c2d72"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. Declarations credentialUTF16 and credentialHTMLHexAll, the secret-echo masking encoders (press #5169). r comes from ranging over a string, so it is 0 to 0x10FFFF; surrogate halves are computed only when r > 0xFFFF, so each fits uint16; byte(u) and byte(u>>8) split a UTF-16 unit on purpose; uint32(r) of a non-negative rune. They only build mask needles."
+    },
+    {
+      "file": "cli/internal/cliutil/text.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:02e8da76d9669e5c0c5bd8da02031f4b99cd77e0a63844f074cb8a7914d5dc3b"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. Declaration appendTerminalRune: byte(r) only under r < 0x100, and the value is only printed as a two-digit hex escape. Nothing is indexed or sized by it."
+    },
+    {
+      "file": "cli/internal/store/store.go",
+      "rule": "G202",
+      "bind": "decl",
+      "sha256": [
+        "sha256:3e388bd6974412134e894734da01a74fd563012027157269a20866ef22015ecc"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. Declaration loadParentKeyLegacyBatch. bareWhere comes from parentKeyLegacyBareWhere: the keys of the generated resourceParentKeyColumns map, each single-quote-escaped. The cursor values and the limit are bound with ? placeholders. No user input reaches the SQL text; the target is the local SQLite store."
+    },
+    {
+      "file": "cli/cmd/{slug}-mcp/main.go",
+      "rule": "G101",
+      "bind": "decl",
+      "slug_neutral": true,
+      "sha256": [
+        "sha256:9991b7aba43070436e3d8be1ea49b24bc3a93dde18afaed625539f8947e77150",
+        "sha256:f2dea1077877af0da0fbf9aef1ea24784900a5905b2f8b21f68340b54369a4a0"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. The const block that names the MCP HTTP token: httpTokenEnvVar is the NAME of the environment variable (<SLUG>_MCP_HTTP_TOKEN) the bearer token is read from; gosec matches 'Token' in the identifier. No secret value is in the binary. slug_neutral: the digest is taken with the connector's own name put back to a marker; servosity's api name servosity-msp gives it a second digest."
+    },
+    {
+      "file": "skills/cipp/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:7692b8d3b5fa5dbbf47696a8694b3fafbaef2fedfaad7f25e48d26a909072a96"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. cipp only (spec-generated, rendered from the library spec.json). resourceWritePaths maps CIPP action names to their API paths, for example exec-get-local-admin-password -> /ExecGetLocalAdminPassword; gosec matches the credential words in the names. Values are endpoint paths, not secrets; the press annotates it #nosec G101."
+    },
+    {
+      "file": "skills/rootly/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:b7d26a3d820d6259eca91a8612f37e8c32f30fdac6d665278c4fb5aead333b99"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. rootly only (spec-generated from its recorded spec). resourceDetailPaths maps resource names to API paths, for example api-keys -> /v1/api_keys/{id}; gosec matches the credential words in the names. Values are endpoint paths, not secrets; the press annotates it #nosec G101."
     }
   ]
 }
