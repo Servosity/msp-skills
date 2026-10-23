@@ -31,9 +31,15 @@ press/ folder wherever one exists:
     with CRLF normalized to LF). This is the parse check for YAML and GraphQL,
     which the standard library cannot parse: the bytes are the ones the press
     parsed;
-  - nothing secret-looking or personal: no private key block, cloud or chat
-    token shape, JWT, or /Users/<name> or /home/<name>/ path. A hit is reported
-    by file and line, never echoed.
+  - nothing secret-looking or personal, in the text or any decoded view of it:
+    no private key block, cloud or chat token shape, JWT, or /Users/<name> or
+    /home/<name>/ path. A hit is reported by file and line, never echoed;
+  - a vendor spec is present only with publication.json's proof that its exact
+    bytes are already in this repository's history outside press/ (git only, no
+    network check anywhere). Every other spec is withheld as "spec source not
+    public"; publishing one from another source is a later, deliberate change.
+    publication.json lists each withheld file with one of FIXED_REASONS, never
+    text from a file, a tool or a server.
 
 A connector WITHOUT a press/ folder is reported in the coverage line, never a
 failure (yet: governance tiers will start requiring it).
@@ -73,9 +79,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -94,8 +98,29 @@ SPECS = ("spec.json", "spec.yaml", "spec.yml", "spec.graphql")
 # withheld, and the proof that a published spec's source is public.
 PUBLICATION = "publication.json"
 ALLOWED = (PROVENANCE, TOOLS) + SPECS + (PUBLICATION,)
-SPEC_BASES = ("public-url", "repo-history")
+# The one way a vendor spec may be published today: its exact bytes are
+# already in this repository's history outside press/. No network check
+# exists anywhere; publishing a spec from another source is a later,
+# deliberate change.
+SPEC_BASES = ("repo-history",)
 NOT_PUBLIC = "spec source not public"
+# publication.json may carry ONLY these reasons: fixed strings this checker
+# owns, never text from a file, a tool or a server (details go to the log).
+FIXED_REASONS = (NOT_PUBLIC, "secret-looking or personal content", "flagged by gitleaks",
+                 "not the spec its checksum names", "unreadable or not valid")
+
+
+def reason_code(verdict: str) -> str:
+    """The fixed publication.json reason for a withheld file's verdict."""
+    if verdict.startswith(NOT_PUBLIC):
+        return NOT_PUBLIC
+    if verdict.startswith("secret-looking or personal content"):
+        return "secret-looking or personal content"
+    if verdict.startswith("gitleaks flags it"):
+        return "flagged by gitleaks"
+    if verdict.startswith("sha256 does not match"):
+        return "not the spec its checksum names"
+    return "unreadable or not valid"
 METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 
 # Secret shapes worth refusing outright in vendor data. ci_guards.sh guard 4's
@@ -252,88 +277,23 @@ def history_path(repo: Path, commit: str, blob: str) -> str | None:
     return None
 
 
-def spec_urls(provenance: dict) -> list[str]:
-    """Every http(s) URL the provenance records as the spec's source."""
-    out = []
-    for key in ("spec_url", "spec_source", "spec_path"):
-        v = provenance.get(key)
-        if isinstance(v, str) and urllib.parse.urlsplit(v).scheme in ("http", "https") \
-                and urllib.parse.urlsplit(v).netloc:
-            out.append(v)
-    return out
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """A redirect is an answer, not a hop: a spec URL that redirects (to a
-    login page, say) is not the public spec, so urllib reports the 3xx."""
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-_OPENER = urllib.request.build_opener(_NoRedirect)
-MAX_SPEC_BYTES = 64 * 1024 * 1024
-
-
-def fetch_url(url: str, timeout: float = 20.0) -> tuple[int | None, bytes | None, str]:
-    """(status, body, note) of ONE unauthenticated GET, redirects not followed.
-    No credentials, cookies or auth headers are sent."""
-    req = urllib.request.Request(url, method="GET", headers={"User-Agent": "msp-skills-check-press-metadata"})
-    try:
-        with _OPENER.open(req, timeout=timeout) as r:
-            body = r.read(MAX_SPEC_BYTES + 1)
-            if len(body) > MAX_SPEC_BYTES:
-                return r.status, None, "larger than 64 MB"
-            return r.status, body, "GET"
-    except urllib.error.HTTPError as e:
-        if 300 <= e.code < 400:
-            return e.code, None, f"a redirect to {e.headers.get('Location', '?')}"
-        return e.code, None, "GET"
-    except (urllib.error.URLError, OSError, ValueError) as e:
-        return None, None, f"{type(e).__name__}: {e}"[:200]
-
-
 def spec_source_record(spec_name: str, data: bytes, provenance: dict, repo: Path,
                        ref: str) -> tuple[dict | None, str]:
-    """(record, reason): a record proving the spec's source is public, or None
-    and why it is withheld. Public means the spec's exact bytes are already in
-    the repository's history outside press/, or the provenance names an
-    http(s) spec URL that serves exactly this spec (its sha256 is the
-    provenance's spec_checksum) to one unauthenticated GET, with no redirect."""
+    """(record, reason): a record proving the spec's exact bytes are already in
+    the repository's history (`ref`) at a path outside every press/ folder,
+    or None and the fixed reason "spec source not public". Offline: git only."""
     blob = git_blob_sha(data)
     found = _git_at(repo, "log", ref, "--format=%H", "-1", f"--find-object={blob}")
     commit = found.stdout.strip() if found.returncode == 0 else ""
-    if commit and history_path(repo, commit, blob):
+    path = history_path(repo, commit, blob) if commit else None
+    if path:
         return {"file": spec_name, "basis": "repo-history", "blob": blob, "commit": commit,
-                "path": history_path(repo, commit, blob)}, ""
-    urls = spec_urls(provenance)
-    if not urls:
-        return None, (f"{NOT_PUBLIC}: the provenance records no http(s) spec URL and the spec "
-                      "is not in the repository's history")
-    checksum = provenance.get("spec_checksum")
-    if not isinstance(checksum, str) or not checksum:
-        return None, (f"{NOT_PUBLIC}: the provenance records no spec_checksum, so a download "
-                      "cannot be shown to be this spec")
-    notes = []
-    for url in urls:
-        status, body, note = fetch_url(url)
-        if status is not None and 200 <= status < 300 and body is not None:
-            if checksum in spec_checksums(body):
-                return {"file": spec_name, "basis": "public-url", "url": url, "status": status,
-                        "sha256": "sha256:" + hashlib.sha256(body).hexdigest(),
-                        "checked_on": dt.date.today().isoformat()}, ""
-            notes.append(f"{url} answered {status} but did not serve this spec "
-                         "(its sha256 is not the provenance's spec_checksum)")
-        elif status is not None:
-            notes.append(f"{url} answered {status} ({note})")
-        else:
-            notes.append(f"{url}: {note}")
-    if all(": " in n and " answered " not in n for n in notes):
-        return None, "spec source unknown: could not reach " + "; ".join(notes)
-    return None, f"{NOT_PUBLIC}: " + "; ".join(notes) + " without credentials"
+                "path": path}, ""
+    return None, NOT_PUBLIC
 
 
 def check_publication(pub: object, entries: list[str], specs_ok: dict[str, bytes],
-                      provenance: dict | None, repo: Path) -> tuple[list[str], dict[str, str]]:
+                      repo: Path) -> tuple[list[str], dict[str, str]]:
     """(folder problems, {spec: reason}) for publication.json against the folder."""
     problems: list[str] = []
     spec_bad: dict[str, str] = {}
@@ -350,31 +310,22 @@ def check_publication(pub: object, entries: list[str], specs_ok: dict[str, bytes
                 problems.append(f"{PUBLICATION}: withheld names {name!r}, not a withholdable press file")
             elif name in entries:
                 problems.append(f"{PUBLICATION}: {name} is listed as withheld but is present")
-            if not isinstance(why, str) or not why.strip():
-                problems.append(f"{PUBLICATION}: withheld {name!r} has no reason")
+            if why not in FIXED_REASONS:
+                problems.append(f"{PUBLICATION}: withheld {name!r} has a reason that is not one of the "
+                                f"fixed reasons ({'; '.join(FIXED_REASONS)})")
         rec = pub.get("spec")
     for name, data in specs_ok.items():
         if not isinstance(rec, dict) or rec.get("file") != name or rec.get("basis") not in SPEC_BASES:
-            spec_bad[name] = (f"published without a recorded public source in {PUBLICATION} "
-                              f"(a vendor spec ships only when its source is provably public)")
+            spec_bad[name] = (f"published without a repo-history record in {PUBLICATION} (a vendor "
+                              "spec ships only when its exact bytes are already in this repository)")
             continue
-        if rec["basis"] == "public-url":
-            ok = (isinstance(rec.get("url"), str) and rec["url"] in spec_urls(provenance or {})
-                  and isinstance(rec.get("status"), int) and 200 <= rec["status"] < 300
-                  and rec.get("sha256") in spec_checksums(data)
-                  and isinstance(rec.get("checked_on"), str)
-                  and re.fullmatch(r"\d{4}-\d{2}-\d{2}", rec["checked_on"]))
-            if not ok:
-                spec_bad[name] = (f"{PUBLICATION} public-url record does not name a 2xx download of "
-                                  f"these bytes from a spec URL that {PROVENANCE} records")
-        else:
-            commit = rec.get("commit") if isinstance(rec.get("commit"), str) else ""
-            ok = (rec.get("blob") == git_blob_sha(data) and re.fullmatch(r"[0-9a-f]{40}", commit)
-                  and _git_at(repo, "merge-base", "--is-ancestor", commit, "HEAD").returncode == 0
-                  and history_path(repo, commit, rec["blob"]) is not None)
-            if not ok:
-                spec_bad[name] = (f"{PUBLICATION} repo-history record does not prove this spec's bytes "
-                                  "are in this repository's history outside press/")
+        commit = rec.get("commit") if isinstance(rec.get("commit"), str) else ""
+        ok = (rec.get("blob") == git_blob_sha(data) and re.fullmatch(r"[0-9a-f]{40}", commit)
+              and _git_at(repo, "merge-base", "--is-ancestor", commit, "HEAD").returncode == 0
+              and history_path(repo, commit, rec["blob"]) is not None)
+        if not ok:
+            spec_bad[name] = (f"{PUBLICATION} repo-history record does not prove this spec's bytes "
+                              "are in this repository's history outside press/")
     if isinstance(rec, dict) and rec.get("file") not in specs_ok:
         problems.append(f"{PUBLICATION}: a spec record for {rec.get('file')!r}, which is not here")
     return problems, spec_bad
@@ -491,7 +442,7 @@ def inspect_dir(d: Path, manifest: dict | None, check_source: bool = False,
                 pub = json.loads(texts[PUBLICATION][1])
             except ValueError as e:
                 verdicts[PUBLICATION] = f"not valid JSON ({e})"
-        extra, spec_bad = check_publication(pub, entries, specs_ok, provenance, repo)
+        extra, spec_bad = check_publication(pub, entries, specs_ok, repo)
         problems += extra
         verdicts.update(spec_bad)
     return verdicts, problems
@@ -569,9 +520,7 @@ def check_fleet(only: str | None = None) -> tuple[list[str], dict]:
             pub = _read_json(d / PUBLICATION) or {}
             for name, why in (pub.get("withheld") or {}).items():
                 if name in SPECS:
-                    key = ("spec withheld: not public" if str(why).startswith(NOT_PUBLIC) else
-                           "spec withheld: source unknown" if str(why).startswith("spec source unknown")
-                           else "spec withheld: other")
+                    key = "spec withheld: not public" if why == NOT_PUBLIC else "spec withheld: other"
                     cov[key] = cov.get(key, 0) + 1
     return findings, cov
 
@@ -652,35 +601,8 @@ def check_floor(base: str) -> list[str]:
 # --------------------------------------------------------------------------- #
 # Self-test: every rule fires on a broken folder and stays silent on a good one.
 # --------------------------------------------------------------------------- #
-def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest) -> None:
-    """The spec publication rule, both ways: in CI (a published spec must carry
-    its proof) and at vendoring time (--check-spec-source decides)."""
-    import http.server
-    import socket
-    import threading
-
-    no_pub = {k: v for k, v in base.items() if k != PUBLICATION}
-    expect(not clean(build(t, no_pub)), "a spec without a publication record fails")
-    def pub(**spec_rec):
-        return {**base, PUBLICATION: json.dumps({"schema": 1, "spec": {
-            "file": "spec.json", "basis": "public-url", "url": good_prov["spec_url"], "status": 200,
-            "checked_on": "2026-10-22", "sha256": "sha256:" + hashlib.sha256(spec).hexdigest(),
-            **spec_rec}}).encode()}
-    expect(not clean(build(t, pub(url="https://elsewhere.invalid/x.json"))),
-           "a public-url record naming a URL the provenance does not record fails")
-    expect(not clean(build(t, pub(status=401))), "a public-url record with a 401 fails")
-    expect(not clean(build(t, pub(sha256="sha256:" + "0" * 64))),
-           "a public-url record whose download was other bytes fails")
-    expect(not clean(build(t, pub(basis="trust-me"))), "an unknown basis fails")
-    withheld = json.dumps({"schema": 1, "withheld": {"spec.json": NOT_PUBLIC + ": x"}}).encode()
-    expect(clean(build(t, {PROVENANCE: base[PROVENANCE], TOOLS: base[TOOLS], PUBLICATION: withheld})),
-           "a withheld spec, recorded with its reason, passes")
-    expect(not clean(build(t, {**no_pub, PUBLICATION: withheld})),
-           "a spec listed as withheld but present fails")
-    odd = json.dumps({"schema": 1, "withheld": {"dogfood-results.json": "x"}}).encode()
-    expect(not clean(build(t, {PROVENANCE: base[PROVENANCE], PUBLICATION: odd})),
-           "withholding a file that is not press metadata fails")
-    # repo-history, in a throwaway repository.
+def _history_repo(t: Path, files: dict[str, bytes]) -> tuple[Path, str]:
+    """A throwaway git repository holding `files`; (path, commit)."""
     repo = t / "histrepo"
     repo.mkdir()
     env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
@@ -689,23 +611,39 @@ def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest)
     def g(*a):
         return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, env=env)
     g("init", "-q", "-b", "main")
-    (repo / "docs").mkdir()
-    (repo / "docs" / "openapi.json").write_bytes(spec)
-    (repo / "skills" / "x" / PRESS_DIR).mkdir(parents=True)
-    (repo / "skills" / "x" / PRESS_DIR / "spec.yaml").write_bytes(b"only: under press\n")
+    for rel, data in files.items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_bytes(data)
     g("add", "-A")
-    g("commit", "-qm", "authored spec")
-    commit = g("rev-parse", "HEAD").stdout.strip()
-    hist = {"schema": 1, "spec": {"file": "spec.json", "basis": "repo-history", "blob": git_blob_sha(spec),
-                                  "commit": commit, "path": "docs/openapi.json"}}
-    def clean_in(d: Path) -> bool:
-        v, p = inspect_dir(d, manifest, repo=repo)
-        return not p and all(x == "ok" for x in v.values())
-    expect(clean_in(build(t, {**no_pub, PUBLICATION: json.dumps(hist).encode()})),
-           "a repo-history record whose blob is in the repo outside press/ passes")
-    other = {**hist, "spec": {**hist["spec"], "blob": git_blob_sha(b"another spec\n")}}
-    expect(not clean_in(build(t, {**no_pub, PUBLICATION: json.dumps(other).encode()})),
+    g("commit", "-qm", "authored specs")
+    return repo, g("rev-parse", "HEAD").stdout.strip()
+
+
+def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest, repo, commit) -> None:
+    """The publication rule both ways: in CI a published spec must carry its
+    repo-history proof and every withheld reason must be a fixed string; at
+    vendoring time (--check-spec-source) a spec is always withheld unless its
+    exact bytes are already in the repository's history outside press/."""
+    no_pub = {k: v for k, v in base.items() if k != PUBLICATION}
+    expect(not clean(build(t, no_pub)), "a spec without a publication record fails")
+    def rec(**over):
+        r = {"file": "spec.json", "basis": "repo-history", "blob": git_blob_sha(spec), "commit": commit,
+             "path": "docs/openapi.json", **over}
+        return {**no_pub, PUBLICATION: json.dumps({"schema": 1, "spec": r}).encode()}
+    expect(not clean(build(t, rec(blob=git_blob_sha(b"another spec\n")))),
            "a repo-history record for different bytes fails")
+    expect(not clean(build(t, rec(basis="public-url", url="https://example.invalid/x"))),
+           "any basis but repo-history fails (no URL proof exists)")
+    withheld = json.dumps({"schema": 1, "withheld": {"spec.json": NOT_PUBLIC}}).encode()
+    expect(clean(build(t, {PROVENANCE: base[PROVENANCE], TOOLS: base[TOOLS], PUBLICATION: withheld})),
+           "a withheld spec with its fixed reason passes")
+    expect(not clean(build(t, {**no_pub, PUBLICATION: withheld})), "a spec listed as withheld but present fails")
+    remote = json.dumps({"schema": 1, "withheld": {"spec.json": NOT_PUBLIC + ": https://x.invalid/login?t=1"}}).encode()
+    expect(not clean(build(t, {PROVENANCE: base[PROVENANCE], TOOLS: base[TOOLS], PUBLICATION: remote})),
+           "a withheld reason that is not one of the fixed strings fails (no remote text)")
+    odd = json.dumps({"schema": 1, "withheld": {"dogfood-results.json": NOT_PUBLIC}}).encode()
+    expect(not clean(build(t, {PROVENANCE: base[PROVENANCE], PUBLICATION: odd})),
+           "withholding a file that is not press metadata fails")
     only_press = b"only: under press\n"
     prov2 = {**good_prov, "spec_checksum": "sha256:" + hashlib.sha256(only_press).hexdigest()}
     man2 = {**manifest, "press_provenance": {**manifest["press_provenance"],
@@ -714,65 +652,30 @@ def _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest)
                    PUBLICATION: json.dumps({"schema": 1, "spec": {
                        "file": "spec.yaml", "basis": "repo-history", "blob": git_blob_sha(only_press),
                        "commit": commit, "path": "skills/x/press/spec.yaml"}}).encode()})
-    v2, p2 = inspect_dir(d2, man2, repo=repo)
+    v2, _ = inspect_dir(d2, man2, repo=repo)
     expect(v2.get("spec.yaml") != "ok", "a spec found only inside another press/ folder is not 'in history'")
-    # --check-spec-source at vendoring time, against a local server.
-    spec2 = b'{"openapi": "3.0.1", "paths": {"/b": {}}}\n'  # not in the throwaway history
-
-    class H(http.server.BaseHTTPRequestHandler):
-        def _answer(self, body: bool):
-            if self.path == "/redirect.json":  # round 3: a login redirect must not count as public
-                self.send_response(302)
-                self.send_header("Location", "/login")
-                self.end_headers()
-                return
-            code, data = {"/public.json": (200, spec2), "/login": (200, b"<html>sign in</html>"),
-                          "/other.json": (200, b'{"openapi": "3.0.1"}\n')}.get(self.path, (401, b""))
-            self.send_response(code)
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            if body:
-                self.wfile.write(data)
-        def do_HEAD(self):
-            self._answer(False)
-        def do_GET(self):
-            self._answer(True)
-        def log_message(self, *a):
-            pass
-    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        closed_port = sock.getsockname()[1]
+    # --check-spec-source (vendoring time): offline, always withheld unless in history.
+    spec2 = b'{"openapi": "3.0.1", "paths": {"/b": {}}}\n'
     sum2 = "sha256:" + hashlib.sha256(spec2).hexdigest()
-    try:
-        port = srv.server_address[1]
-        for url, want in ((f"http://127.0.0.1:{port}/public.json", "kept"),
-                          (f"http://127.0.0.1:{port}/private.json", NOT_PUBLIC),
-                          (f"http://127.0.0.1:{port}/redirect.json", NOT_PUBLIC),
-                          (f"http://127.0.0.1:{port}/other.json", NOT_PUBLIC),
-                          (f"http://127.0.0.1:{closed_port}/x.json", "spec source unknown")):
-            prov = {**good_prov, "spec_url": url, "spec_checksum": sum2}
-            d = build(t, {PROVENANCE: json.dumps(prov).encode(), "spec.json": spec2})
-            rec: dict = {}
-            v, _ = inspect_dir(d, None, check_source=True, repo=repo, ref="HEAD", records=rec)
-            got = "kept" if v.get("spec.json") == "ok" and rec.get("spec", {}).get("basis") == "public-url" \
-                else v.get("spec.json", "")
-            expect(got.startswith(want), f"--check-spec-source: {url.rsplit('/', 1)[1]} -> {want}")
-        prov = {**{k: v for k, v in good_prov.items() if k != "spec_url"}, "spec_checksum": sum2}
-        d = build(t, {PROVENANCE: json.dumps(prov).encode(), "spec.json": spec2})
+    for label, prov in (("no spec URL", {k: v for k, v in good_prov.items() if k != "spec_url"}),
+                        ("a public-looking spec URL", {**good_prov, "spec_url": "https://example.invalid/openapi.json"})):
+        d = build(t, {PROVENANCE: json.dumps({**prov, "spec_checksum": sum2}).encode(), "spec.json": spec2})
         v, _ = inspect_dir(d, None, check_source=True, repo=repo, ref="HEAD", records={})
-        expect(v.get("spec.json", "").startswith(NOT_PUBLIC),
-               "--check-spec-source: no URL and not in history -> withheld, spec source not public")
-        prov = {k: v for k, v in good_prov.items() if k != "spec_url"}
-        d = build(t, {PROVENANCE: json.dumps(prov).encode(), "spec.json": spec})
-        rec = {}
-        v, _ = inspect_dir(d, manifest, check_source=True, repo=repo, ref="HEAD", records=rec)
-        expect(v.get("spec.json") == "ok" and rec.get("spec", {}).get("basis") == "repo-history",
-               "--check-spec-source: the spec's bytes are in the repo outside press/ -> kept (repo-history)")
-    finally:
-        srv.shutdown()
-        srv.server_close()
+        expect(v.get("spec.json") == NOT_PUBLIC and reason_code(v["spec.json"]) == NOT_PUBLIC,
+               f"--check-spec-source: {label}, not in history -> withheld, exactly '{NOT_PUBLIC}'")
+    d = build(t, {PROVENANCE: base[PROVENANCE], "spec.json": spec})
+    got: dict = {}
+    v, _ = inspect_dir(d, manifest, check_source=True, repo=repo, ref="HEAD", records=got)
+    expect(v.get("spec.json") == "ok" and got.get("spec", {}).get("basis") == "repo-history",
+           "--check-spec-source: the spec's exact bytes are in the repo outside press/ -> kept (repo-history)")
+    for verdict, code in (("secret-looking or personal content: line 3: looks like a JWT",
+                           "secret-looking or personal content"),
+                          ("gitleaks flags it (generic-api-key)", "flagged by gitleaks"),
+                          ("sha256 does not match .printing-press.json spec_checksum (x)",
+                           "not the spec its checksum names"),
+                          ("not valid JSON (Expecting value: line 1 column 1 (char 0))", "unreadable or not valid")):
+        expect(reason_code(verdict) == code and code in FIXED_REASONS,
+               f"publication reason for {verdict.split(':')[0]!r} is the fixed string {code!r}")
 
 
 def _self_test() -> int:
@@ -784,12 +687,8 @@ def _self_test() -> int:
         failures += 0 if cond else 1
 
     spec = b'{"openapi": "3.0.1", "paths": {"/a": {}}}\n'
-    spec_url = "https://example.invalid/openapi.json"
-    good_prov = {"schema_version": 1, "printing_press_version": "4.33.5", "spec_url": spec_url,
+    good_prov = {"schema_version": 1, "printing_press_version": "4.33.5",
                  "generated_at": "2026-10-14T12:00:00Z", "spec_checksum": "sha256:" + hashlib.sha256(spec).hexdigest()}
-    public = {"schema": 1, "spec": {"file": "spec.json", "basis": "public-url", "url": spec_url,
-                                    "status": 200, "checked_on": "2026-10-22",
-                                    "sha256": "sha256:" + hashlib.sha256(spec).hexdigest()}}
     good_tools = {"api_name": "x", "tools": [{"name": "a_get", "method": "GET", "path": "/a"}]}
     manifest = {"printing_press_version": "4.33.5",
                 "press_provenance": {"printing_press_version": "4.33.5",
@@ -803,19 +702,29 @@ def _self_test() -> int:
             (d / name).write_bytes(data)
         return d
 
+    tmp_root = tempfile.TemporaryDirectory()
+    t = Path(tmp_root.name)
+    crlf = spec.replace(b"\n", b"\r\n")
+    repo, commit = _history_repo(t, {"docs/openapi.json": spec, "docs/openapi-crlf.json": crlf,
+                                     "skills/x/press/spec.yaml": b"only: under press\n"})
+
+    def proof(data: bytes, path: str) -> bytes:
+        return json.dumps({"schema": 1, "spec": {"file": "spec.json", "basis": "repo-history",
+                                                 "blob": git_blob_sha(data), "commit": commit,
+                                                 "path": path}}).encode()
+
     def clean(d: Path, m: dict | None = manifest) -> bool:
-        v, p = inspect_dir(d, m)
+        v, p = inspect_dir(d, m, repo=repo)
         return not p and all(x == "ok" for x in v.values())
 
     base = {PROVENANCE: json.dumps(good_prov).encode(), TOOLS: json.dumps(good_tools).encode(), "spec.json": spec,
-            PUBLICATION: json.dumps(public).encode()}
-    with tempfile.TemporaryDirectory() as tmp:
-        t = Path(tmp)
+            PUBLICATION: proof(spec, "docs/openapi.json")}
+    with tmp_root:
         expect(clean(build(t, base)), "a complete, consistent folder passes")
-        expect(clean(build(t, {**base, "spec.json": spec.replace(b"\n", b"\r\n")})),
+        expect(clean(build(t, {**base, "spec.json": crlf, PUBLICATION: proof(crlf, "docs/openapi-crlf.json")})),
                "a CRLF checkout of the same spec passes (the press normalizes line endings)")
         expect(clean(build(t, {PROVENANCE: base[PROVENANCE]})), "provenance alone passes")
-        _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest)
+        _publication_cases(t, build, clean, expect, base, spec, good_prov, manifest, repo, commit)
         expect(not clean(build(t, {**base, "dogfood-results.json": b"{}"})),
                "an extra file (a live dogfood transcript) fails")
         expect(not clean(build(t, {**base, ".printing-press-pii-polish.json": b"{}"})),
@@ -858,9 +767,10 @@ def _self_test() -> int:
         expect(not clean(build(t, {**base, TOOLS: json.dumps({"tools": good_tools["tools"],
                                                               "example": jwt.decode()}).encode()})),
                "a JWT fails")
+        real = build(t, base)
         link = build(t, base)
         (link / PROVENANCE).unlink()
-        (link / PROVENANCE).symlink_to(t / "case0" / PROVENANCE)
+        (link / PROVENANCE).symlink_to(real / PROVENANCE)  # a real, readable target
         expect(not clean(link), "a symlinked file fails")
     for v, f, ok in (("4.33.5", "4.28.0", True), ("4.28.0", "4.28.0", True), ("4.27.9", "4.28.0", False),
                      ("4.28.0-rc1", "4.28.0", False), ("4.24.0", "4.28.0", False), (None, "4.28.0", False),
@@ -885,8 +795,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--manifest", metavar="FILE", help="with --inspect: the manifest.json it must agree with")
     ap.add_argument("--gitleaks", action="store_true", help="with --inspect: also run gitleaks, if installed")
     ap.add_argument("--check-spec-source", action="store_true",
-                    help="with --inspect: keep a spec only when its source is provably public "
-                         "(in the repo's history, or an http(s) spec URL serving these exact bytes without credentials or a redirect)")
+                    help="with --inspect: keep a spec only when its exact bytes are already in the "
+                         "repo's history outside press/ (offline, git only); otherwise withhold it")
     ap.add_argument("--ref", default="origin/main", help="with --check-spec-source: the history to search")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
@@ -905,8 +815,9 @@ def main(argv: list[str]) -> int:
             spec = records.get("spec")
             if spec and verdicts.get(spec["file"]) != "ok":
                 spec = None  # gitleaks withheld it after all
-            print(json.dumps({"files": verdicts, "problems": problems, "note": note, "spec_source": spec},
-                             indent=1, sort_keys=True))
+            reasons = {n: reason_code(v) for n, v in verdicts.items() if v != "ok"}
+            print(json.dumps({"files": verdicts, "reasons": reasons, "problems": problems, "note": note,
+                              "spec_source": spec}, indent=1, sort_keys=True))
             return 0
         if args.slug and not registry.SLUG_RE.match(args.slug):
             raise EnvError(f"refusing unsafe slug {args.slug!r}")
