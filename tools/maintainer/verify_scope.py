@@ -528,17 +528,28 @@ def read_records(path: Path) -> list[dict]:
 # The Go the CI security gate runs on
 # --------------------------------------------------------------------------- #
 
-_GO_SPEC = re.compile(r"^\s*go-version:\s*[\"']?([0-9]+\.[0-9]+)[\"']?\s*$", re.M)
+_GO_SPEC = re.compile(r"^\s*go-version:\s*[\"']?([0-9]+\.[0-9]+(?:\.[0-9]+)?)[\"']?\s*$", re.M)
+_GO_SPEC_ENV = re.compile(r"^\s*go-version:\s*\$\{\{\s*env\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}\s*$", re.M)
 
 
-def gate_go_spec() -> str | None:
-    """security-gate.yml's `go-version:` spec (for example "1.26")."""
-    try:
-        text = (ROOT / ".github/workflows/security-gate.yml").read_text(encoding="utf-8")
-    except OSError:
+def gate_go_spec(text: str | None = None) -> str | None:
+    """security-gate.yml's `go-version:` spec: a literal ("1.26", "1.26.10") or
+    `${{ env.NAME }}` resolved from the workflow's top-level `env:` block. The
+    first go-version line decides; anything else is unknown (None)."""
+    if text is None:
+        try:
+            text = (ROOT / ".github/workflows/security-gate.yml").read_text(encoding="utf-8")
+        except OSError:
+            return None
+    lit, ref = _GO_SPEC.search(text), _GO_SPEC_ENV.search(text)
+    if lit and (not ref or lit.start() < ref.start()):
+        return lit.group(1)
+    if not ref:
         return None
-    m = _GO_SPEC.search(text)
-    return m.group(1) if m else None
+    env = re.search(r"^env:\n((?:[ \t]+.*\n|[ \t]*\n)*)", text, re.M)
+    val = env and re.search(rf"^[ \t]+{re.escape(ref.group(1))}:\s*[\"']?([0-9]+\.[0-9]+(?:\.[0-9]+)?)[\"']?\s*(?:#.*)?$",
+                            env.group(1), re.M)
+    return val.group(1) if val else None
 
 
 def newest_patch(spec: str, releases: list[dict]) -> str | None:
@@ -1458,6 +1469,14 @@ def _self_test() -> int:
         expect(ci_go(str(gm), rel) == "go1.26.10",
                "setup-go reads the go line, not the toolchain line (1.26 -> go1.26.10 despite toolchain go1.26.9)")
     expect(gate_go_spec() is not None, "security-gate.yml declares a go-version spec")
+    wf = "env:\n  SCANNER_GO: \"1.26.10\"\n  OTHER: x\njobs:\n  a:\n    steps:\n      - uses: actions/setup-go@v5\n        with:\n          go-version: {v}\n"
+    expect(gate_go_spec(wf.format(v='"1.26"')) == "1.26", "a literal bare minor go-version is read")
+    expect(gate_go_spec(wf.format(v='"1.26.10"')) == "1.26.10", "a literal exact go-version is read")
+    expect(gate_go_spec(wf.format(v="${{ env.SCANNER_GO }}")) == "1.26.10",
+           "go-version: ${{ env.NAME }} resolves from the workflow's top-level env block")
+    expect(gate_go_spec(wf.format(v="${{ env.MISSING }}")) is None, "an env name the workflow does not define is unknown")
+    expect(gate_go_spec(wf.format(v="${{ env.OTHER }}")) is None, "an env value that is not a Go version is unknown")
+    expect(gate_go_spec(wf.format(v="${{ matrix.go }}")) is None, "a non-env expression is unknown (fail closed)")
     rx = gate_logic_re()
     expect(all(rx.match(p) for p in GATE_LOGIC_FALLBACK) and rx.pattern != "^(" + "|".join(
         re.escape(p) for p in GATE_LOGIC_FALLBACK) + ")$",

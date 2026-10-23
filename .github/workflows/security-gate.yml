@@ -144,7 +144,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Gate self-test (the summary, workflow pins and diff scope, both directions)
+      # The fleet-precedent cases build the gate's go/parser helper, so the self-test
+      # needs the same pinned Go the rows use.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.SCANNER_GO }}
+          cache: false
+      - name: Gate self-test (the summary, workflow pins, diff scope and fleet precedent, both directions)
         run: python3 -I tools/maintainer/check_security_gate.py --self-test
 
   scanners:
@@ -239,9 +245,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Pinned, not "1.26": the gate's go/parser helper (fleet precedent) runs on this Go
+      # with GOTOOLCHAIN=local.
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: ${{ env.SCANNER_GO }}
           cache: false
       - uses: actions/setup-python@v5
         with:
