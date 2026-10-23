@@ -497,9 +497,9 @@
     "released_hash": "sha256:ed59b5e984dd2ca9e012d1a410da7a5a0fbb0f6c90d3a93a2d9a566c59091b54"
   },
   "sherweb": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "sherweb-v0.1.7",
+    "latest_tag": "sherweb-v0.1.8",
     "current_hash": "sha256:8606d8d581267a7722f5bfbb35ab50335b7b9a33cb4c63bb46e8cd9024d0ef12",
     "released_hash": "sha256:8606d8d581267a7722f5bfbb35ab50335b7b9a33cb4c63bb46e8cd9024d0ef12"
   },
