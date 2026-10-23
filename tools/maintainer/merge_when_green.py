@@ -146,6 +146,7 @@ rr._form_options_re()  # build-catalog.py's masks, loaded together with that sna
 
 FINGERPRINT_VERSION = "msp-skills-change-fingerprint/2"
 FLAKE_RERUNS = 2
+PUSH_LAG_READS, PUSH_LAG_SLEEP_S = 30, 2  # GitHub's PR API trails a branch push by seconds
 UNKNOWN_RERUNS = 1
 BAD_CONCLUSIONS = {"failure", "timed_out", "cancelled", "action_required", "startup_failure", "stale"}
 
@@ -1090,6 +1091,7 @@ class Merger:
                                  f"--force-with-lease=refs/heads/{branch}:{current}", o.remote,
                                  f"{new}:refs/heads/{branch}", cwd=self.wt)
                     self.say(f"==> pushed {new[:12]} (lease {current[:12]})")
+                    self._await_pushed_head(new, current)
                     current = new
             if o.dry_run:
                 return self._dry_run_report(new, current, base, required, missing)
@@ -1105,6 +1107,21 @@ class Merger:
                 self._count_rebase()
                 continue
             return outcome
+
+    def _await_pushed_head(self, new: str, old: str) -> None:
+        """GitHub's PR API lags a push by seconds: it can still report the head
+        the push replaced. The lease proved `old` was the head when `new` landed,
+        so `old` here means lag; wait (bounded) for `new`. Any third head is a
+        real push by someone else."""
+        for _ in range(PUSH_LAG_READS):
+            head = self.gh.pr(self.o.pr).get("headRefOid")
+            if head == new:
+                return
+            if head != old:
+                raise Stop(EXIT_REFUSED, f"the PR head moved to {str(head)[:12]} after this push; not merging")
+            self.sleep(PUSH_LAG_SLEEP_S)
+        raise Stop(EXIT_REFUSED, f"GitHub still reports {old[:12]} as the PR head "
+                                 f"{PUSH_LAG_READS * PUSH_LAG_SLEEP_S}s after pushing {new[:12]}; re-run")
 
     def _checked_pr(self, head: str | None = None, branch: str | None = None) -> dict:
         """The PR, re-read, with EVERY start-time precondition asserted again:
@@ -2014,6 +2031,8 @@ class FakeGitHub:
         self.after_merge: list[dict] = []
         self.break_origin_after_merge = False  # the proof's fetch then fails
         self.pr_lag_after_merge = 0  # PR reads after a successful merge that still say OPEN
+        self.pr_head_lag_after_push = 0  # PR reads after a branch push that still report the replaced head
+        self._seen_head: str | None = None
         self.close_on_refuse = False  # a refused merge call leaves the PR CLOSED (unknown what landed)
         self.timeout_after_refuse = False  # after a refusal, the next checks read times out (incomplete)
         self._time_out_next = 0
@@ -2032,6 +2051,12 @@ class FakeGitHub:
 
     def pr(self, n: int) -> dict:
         head = self._git("rev-parse", f"refs/heads/{self.branch}") if self.state == "OPEN" else self.merged
+        if self.state == "OPEN":
+            if self._seen_head and head != self._seen_head and self.pr_head_lag_after_push > 0:
+                self.pr_head_lag_after_push -= 1
+                head = self._seen_head
+            else:
+                self._seen_head = head
         state = self.state
         if state == "MERGED" and self.pr_lag_after_merge > 0:
             self.pr_lag_after_merge -= 1
@@ -2304,6 +2329,15 @@ def _self_test() -> int:
         tags_on_origin = sh("git", "--git-dir", str(origin), "tag", "-l", cwd=tmp)
         expect(rc == 0 and any("pushed" in s for s in logs) and "decoy-annotated" not in tags_on_origin,
                "with push.followTags=true, the branch push carries no tag")
+
+        # T1c: GitHub's PR API still reports the replaced head right after this tool's own push.
+        origin, work, branch = world()
+        new_connector_pr(work)  # two commits: squashed, so a push happens
+        fake = FakeGitHub(origin, env, 31, branch, "skill: bravo", green)
+        fake.pr_head_lag_after_push = 3
+        rc, logs = merger(work, fake, require=())
+        expect(rc == 0 and fake.merged is not None and any("pushed" in s for s in logs),
+               f"a PR head that lags this tool's own push is waited out, then merged (rc={rc})")
 
         # T2: unknown conflict stops, pushes nothing, merges nothing.
         print("unknown conflict:")
