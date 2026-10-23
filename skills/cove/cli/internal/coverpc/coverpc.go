@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"cove-pp-cli/internal/cliutil"
@@ -296,6 +297,9 @@ func (c *Client) do(ctx context.Context, method string, params any, visa string)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
+		if w := cliutil.FunnelWithhold(err.Error(), c.heldSecrets(visa)); cliutil.FunnelWithheld(w) {
+			return nil, "", fmt.Errorf("calling %s: %s", method, w)
+		}
 		return nil, "", fmt.Errorf("calling %s: %w", method, err)
 	}
 	defer resp.Body.Close()
@@ -308,14 +312,17 @@ func (c *Client) do(ctx context.Context, method string, params any, visa string)
 		return nil, "", fmt.Errorf("reading %s response: %w", method, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("calling %s: HTTP %d: %s", method, resp.StatusCode, truncate(body, 300))
+		return nil, "", fmt.Errorf("calling %s: HTTP %d: %s", method, resp.StatusCode, c.shownBody(body, visa))
 	}
 	var env responseEnvelope
 	if err := json.Unmarshal(body, &env); err != nil {
-		return nil, "", fmt.Errorf("parsing %s response: %w: %s", method, err, truncate(body, 300))
+		return nil, "", fmt.Errorf("parsing %s response: %w: %s", method, err, c.shownBody(body, visa))
 	}
 	if env.Error != nil {
 		env.Error.Method = method
+		if w := cliutil.FunnelWithhold(string(body), c.heldSecrets(visa)); cliutil.FunnelWithheld(w) {
+			env.Error.Message = w
+		}
 		return nil, env.Visa, env.Error
 	}
 	c.limiter.OnSuccess()
@@ -435,6 +442,31 @@ func (c *Client) SessionAge() (time.Duration, bool) {
 		return 0, false
 	}
 	return time.Since(s.SavedAt), true
+}
+
+// heldSecrets is every credential this client holds or sent with the request:
+// the API token (Password) and the session visa. Hand-fix: handfixes.json
+// secret-echo-decoded-funnel.
+func (c *Client) heldSecrets(extra ...string) []string {
+	return append([]string{c.Creds.Password, c.visa}, extra...)
+}
+
+// shownBody is the text an error shows of the server's answer: the WHOLE
+// answer is checked for an echoed credential, in any encoding the shared
+// funnel decodes, before the 300-byte cut, and the cut text again as shown. A
+// held value too short for the decoded check is masked as written.
+func (c *Client) shownBody(body []byte, extra ...string) string {
+	held := c.heldSecrets(extra...)
+	if w := cliutil.FunnelWithhold(string(body), held); cliutil.FunnelWithheld(w) {
+		return w
+	}
+	text := truncate(body, 300)
+	for _, v := range held {
+		if v = strings.TrimSpace(v); v != "" {
+			text = strings.ReplaceAll(text, v, "****")
+		}
+	}
+	return cliutil.FunnelWithhold(text, held)
 }
 
 func truncate(b []byte, n int) string {

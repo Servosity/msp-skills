@@ -7,6 +7,7 @@ All notable changes to this skill are documented here. Format follows
 ## [0.1.9] - unreleased
 
 ### Security
+- **An error can no longer show a credential the server repeated back in an encoded form.** The CLI and the MCP server masked a key, token or password only as written or URL-escaped. When an API error or an OAuth token endpoint error echoed it HTML-entity-encoded, JSON-escaped, double URL-encoded, base64 or hex, it reached the terminal, `--json` and `--agent` output, and MCP tool results. Now any such text that still carries a credential this program holds, in any of those forms, is replaced whole by `[text withheld: it repeated a secret value this program holds]`; the HTTP status, the hint and the exit code are kept. The same check also runs on every error a command prints, including `--json` and `--agent` error output, and on every MCP error result; successful output is unchanged.
 - **The token request no longer follows a redirect to another server.** `auth login` and the automatic sign-in sent the token request, with your client secret, on to whatever host a redirect from the token URL named. A redirect off the token server now fails instead.
 
 ### Fixed

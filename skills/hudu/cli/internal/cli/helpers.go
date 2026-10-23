@@ -563,7 +563,7 @@ func writeAPIErrorEnvelope(flags *rootFlags, err error, code int) {
 		return
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(map[string]any{
-		"error": err.Error(),
+		"error": funnelShownError(err),
 		"code":  code,
 	})
 }

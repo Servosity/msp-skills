@@ -124,6 +124,10 @@ func mintClientCredentialsToken(ctx context.Context, timeout time.Duration, tena
 	_ = json.Unmarshal(body, &parsed)
 
 	if resp.StatusCode != http.StatusOK || parsed.AccessToken == "" {
+		// Hand-fix (handfixes.json secret-echo-decoded-funnel): the complete raw body passes the funnel once, before any branch formats a field out of it.
+		if w := cliutil.FunnelWithhold(string(body), []string{clientSecret}); cliutil.FunnelWithheld(w) {
+			return "", time.Time{}, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, w)
+		}
 		msg := parsed.ErrorDescription
 		if msg == "" {
 			msg = parsed.Error

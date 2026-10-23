@@ -123,7 +123,7 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 				if resp.StatusCode == http.StatusUnauthorized {
 					hint = fmt.Sprintf(" (401 — check the --datacenter %q is correct and the client id/secret are valid)", dc)
 				}
-				return authErr(fmt.Errorf("token endpoint returned %d%s: %s", resp.StatusCode, hint, strings.TrimSpace(string(body))))
+				return authErr(fmt.Errorf("token endpoint returned %d%s: %s", resp.StatusCode, hint, cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{secret})))
 			}
 
 			var tok struct {
@@ -137,7 +137,7 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 				return fmt.Errorf("parsing token response: %w", err)
 			}
 			if tok.AccessToken == "" {
-				return authErr(fmt.Errorf("token endpoint returned no access_token: %s", strings.TrimSpace(string(body))))
+				return authErr(fmt.Errorf("token endpoint returned no access_token: %s", cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{secret})))
 			}
 
 			expiry := tokenExpiry(tok.ExpiresOn, tok.ExpiresIn)

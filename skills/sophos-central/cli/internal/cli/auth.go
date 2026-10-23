@@ -184,7 +184,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
+		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret})))
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {

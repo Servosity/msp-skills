@@ -245,8 +245,13 @@ func runOAuthLogin(cmd *cobra.Command, flags *rootFlags, clientID, clientSecret 
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
+		// Hand-fix (handfixes.json secret-echo-decoded-funnel): the complete raw body passes the funnel once, before any branch formats a field out of it.
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if w := cliutil.FunnelWithhold(string(raw), []string{clientSecret, code}); cliutil.FunnelWithheld(w) {
+			return fmt.Errorf("exchanging code for token: HTTP %d: %s", resp.StatusCode, w)
+		}
 		var body map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&body); err == nil {
+		if err := json.Unmarshal(raw, &body); err == nil {
 			return fmt.Errorf("exchanging code for token: HTTP %d: %v", resp.StatusCode, body)
 		}
 		return fmt.Errorf("exchanging code for token: HTTP %d", resp.StatusCode)

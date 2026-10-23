@@ -62,6 +62,8 @@ func RootCmd() *cobra.Command {
 func Execute() error {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): a command's error passes the funnel before Cobra prints it.
+	funnelCommandErrors(rootCmd)
 
 	err := rootCmd.Execute()
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {

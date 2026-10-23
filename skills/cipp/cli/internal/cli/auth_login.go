@@ -183,6 +183,10 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 
 	if resp.StatusCode != http.StatusOK {
+		// Hand-fix (handfixes.json secret-echo-decoded-funnel): the complete raw body passes the funnel once, before any branch formats a field out of it.
+		if w := cliutil.FunnelWithhold(maskSecret(string(body), clientSecret), []string{clientSecret}); cliutil.FunnelWithheld(w) {
+			return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, w)
+		}
 		// Azure AD returns a JSON error body with error_description; surface it.
 		var aadErr struct {
 			Error     string `json:"error"`
@@ -200,7 +204,7 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 			// mask at all.
 			return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s: %s", resp.StatusCode, maskSecret(aadErr.Error, clientSecret), maskSecret(desc, clientSecret))
 		}
-		return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, cliutil.SanitizeErrorBody(maskSecret(strings.TrimSpace(string(body)), clientSecret)))
+		return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(maskSecret(strings.TrimSpace(string(body)), clientSecret), []string{clientSecret})))
 	}
 
 	var tok struct {

@@ -641,7 +641,7 @@ func writeAPIErrorEnvelope(w io.Writer, flags *rootFlags, err error, code int) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error": err.Error(),
+		"error": funnelShownError(err),
 		"code":  code,
 	})
 }

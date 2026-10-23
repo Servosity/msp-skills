@@ -9,6 +9,9 @@ All notable changes to this skill are documented here. Format follows
 ### Changed
 - `cli/NOTICE` now names the product `aws-billing-cli`, the binary this connector installs, instead of the generator's internal `-pp-cli` name. No code change.
 
+### Security
+- **An error can no longer show your AWS credentials.** AWS answers can quote the caller's access key ID (a signature error does), and the CLI printed AWS errors unchanged; the MCP server's endpoint tools did not mask the AWS credentials at all. Now an AWS error or API error whose text carries the access key ID, secret access key or session token in use, as written, HTML-entity-encoded, JSON-escaped, URL-encoded at any depth, base64 or hex, shows the operation name followed by `[text withheld: it repeated a secret value this program holds]`. Access-denied and throttling errors are still recognized. The same check also runs on every error a command prints, including `--json` and `--agent` error output, and on every MCP error result; successful output is unchanged.
+
 ## [0.1.7] - 2026-10-22
 
 ### Security

@@ -455,6 +455,8 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		}
 		return nil
 	}
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): the backstops withhold this client's credentials too.
+	c.holdCredentials()
 	return c
 }
 
@@ -1161,6 +1163,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	// requires a network refresh will be re-fetched on the live request path,
 	// not during dry-run.
 	authHeader, err := c.authHeader(ctx)
+	cliutil.FunnelHold(authHeader) // Hand-fix (handfixes.json secret-echo-decoded-funnel): a minted token is held from here on
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1341,7 +1344,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			}
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.shownSummary(respBody, summary, authHeader))
 				}
 			}
 			return json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil
@@ -1355,7 +1358,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			Method:     method,
 			Path:       c.displayURL(path, authHeader),
 			StatusCode: resp.StatusCode,
-			Body:       c.maskCredentialText(truncateBody(respBody), authHeader),
+			Body:       c.shownErrorBody(respBody, authHeader),
 		}
 
 		// Rate limited: classify before provider decoding. The server-driven
@@ -1793,12 +1796,16 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		replacement string
 	}
 	var masks []credentialMask
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): every value the
+	// masks below cover is also held for the decoded check at the end.
+	var held []string
 	seen := map[string]struct{}{}
 	addValue := func(value string) {
 		value = strings.TrimSpace(value)
 		if value == "" {
 			return
 		}
+		held = append(held, value)
 		replacement := maskToken(value)
 		addMask := func(needle string) {
 			if needle == "" {
@@ -1843,7 +1850,37 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 	for _, mask := range masks {
 		masked = strings.ReplaceAll(masked, mask.needle, mask.replacement)
 	}
-	return masked
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): the masks cover a
+	// value as written and URL-escaped. If the text still carries a held value
+	// in any other encoding (HTML entities, JSON escapes, double URL-encoding,
+	// base64, hex, split by a control character or a tag), it is withheld whole.
+	return cliutil.FunnelWithhold(masked, held)
+}
+
+// holdCredentials records every credential maskCredentialText covers with the
+// process-wide funnel (cliutil.FunnelHold), for the error backstops: the CLI's
+// error writers and the MCP server's error results. Hand-fix (handfixes.json secret-echo-decoded-funnel).
+func (c *Client) holdCredentials() {
+	_ = c.maskCredentialText(" ")
+}
+
+// shownErrorBody is the text an error shows of the server's answer (hand-fix
+// handfixes.json secret-echo-decoded-funnel): the WHOLE answer is masked and
+// checked for an echoed credential before the display cut, then the text that
+// will be shown is checked again.
+func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {
+	whole := c.maskCredentialText(string(body), extraCredentials...)
+	return c.maskCredentialText(truncateBody([]byte(whole)), extraCredentials...)
+}
+
+// shownSummary funnels a summary of an answer, such as an HTML page's title
+// (hand-fix handfixes.json secret-echo-decoded-funnel): the whole answer is
+// checked first, then the summary as it will be shown.
+func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {
+	if whole := c.maskCredentialText(string(body), extraCredentials...); cliutil.FunnelWithheld(whole) {
+		return whole
+	}
+	return c.maskCredentialText(summary, extraCredentials...)
 }
 
 func truncateBody(b []byte) string {

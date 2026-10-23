@@ -27,7 +27,11 @@ func RedactTokenBody(body, secret string) string {
 			body = strings.ReplaceAll(body, string(quoted[1:len(quoted)-1]), "<redacted>")
 		}
 	}
-	return cliutil.SanitizeErrorBody(tokenFieldRe.ReplaceAllString(body, "${1}<redacted>${2}"))
+	body = tokenFieldRe.ReplaceAllString(body, "${1}<redacted>${2}")
+	// Hand-fix (handfixes.json secret-echo-decoded-funnel): an echo of the
+	// secret the replacements above missed, in any encoding the shared funnel
+	// decodes, withholds the whole body before the cut.
+	return cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(body, []string{secret}))
 }
 
 // ApplyAsioRequestHeaders adds the Origin and per-request X-Request-ID headers
