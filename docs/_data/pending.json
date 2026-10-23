@@ -455,9 +455,9 @@
     "released_hash": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068"
   },
   "rootly": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "rootly-v0.1.6",
+    "latest_tag": "rootly-v0.1.7",
     "current_hash": "sha256:fa278e9c621bcf91c153339dba7638a3ed343a9c74bc9d377ae79c9d6e897ba3",
     "released_hash": "sha256:fa278e9c621bcf91c153339dba7638a3ed343a9c74bc9d377ae79c9d6e897ba3"
   },
