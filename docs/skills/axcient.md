@@ -42,7 +42,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Axcient, Inc.
 
-**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-06-25 · [receipt →](https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575).
+**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-06-25 · [receipt →](https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575). Verified on v0.2.8; the current release has changed since.
 
 Yes - there is an MCP server for Axcient x360Recover. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Axcient x360Recover to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

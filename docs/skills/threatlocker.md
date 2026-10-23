@@ -42,7 +42,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by ThreatLocker, Inc..
 
-**✓ Live-verified by @geekbrownbear (MSP)** against a production tenant · 2026-08-14 · [receipt →](https://github.com/Servosity/msp-skills/issues/208).
+**✓ Live-verified by @geekbrownbear (MSP)** against a production tenant · 2026-08-14 · [receipt →](https://github.com/Servosity/msp-skills/issues/208). Verified on v0.2.0; the current release has changed since.
 
 Yes - there is an MCP server for ThreatLocker. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects ThreatLocker to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 

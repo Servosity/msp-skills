@@ -26,7 +26,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by DataGate.
 
-**✓ Live-verified by a real MSP** against a production tenant · 2026-09-16 · [receipt →](https://github.com/Servosity/msp-skills/issues/329).
+**✓ Live-verified by a real MSP** against a production tenant · 2026-09-16 · [receipt →](https://github.com/Servosity/msp-skills/issues/329). Verified on v0.1.0; the current release has changed since.
 
 Yes - there is an MCP server for DataGate. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects DataGate to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
