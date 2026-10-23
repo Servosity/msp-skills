@@ -4,6 +4,7 @@
     python3 tools/maintainer/merge_when_green.py 412            # do it
     python3 tools/maintainer/merge_when_green.py 412 --dry-run  # print every step, push and merge nothing
     python3 tools/maintainer/merge_when_green.py approve 412 --reviewer codex --head <sha> --evidence verdict.txt
+    python3 tools/maintainer/merge_when_green.py approve 412 --reviewer codex --carry --ack "<why main's changes do not matter>"
     python3 tools/maintainer/merge_when_green.py status 412
     python3 tools/maintainer/merge_when_green.py --self-test
 
@@ -1880,6 +1881,50 @@ def record_approval(git: Git, gh, pr_n: int, reviewer: str, head: str, evidence:
     return EXIT_OK
 
 
+def carry_approval(git: Git, gh, pr_n: int, reviewer: str, ack: str | None, remote: str = "origin",
+                   out: Callable[[str], None] = print, allow_stale_tools: bool = False) -> int:
+    """Carry `reviewer`'s latest approval to the PR's current head when the
+    change is byte-identical and only main's commits lapsed it. Without --ack
+    it lists those commits' reasons and records nothing; with --ack the
+    operator's statement of why they do not change the reviewed code is
+    stored with the carried approval. It never covers a changed diff or a
+    rewritten main: those need a fresh review."""
+    pr = gh.pr(pr_n)
+    branch, head = pr["headRefName"], pr["headRefOid"]
+    git.run("fetch", "-q", "--no-tags", remote, f"+refs/heads/main:refs/remotes/{remote}/main",
+            f"+refs/heads/{branch}:refs/remotes/{remote}/{branch}")
+    check_tool_freshness(git, remote, allow_stale_tools, out)
+    base = git.out("merge-base", head, f"refs/remotes/{remote}/main")
+    prior = [a for a in State(git, pr_n).load()["approvals"] if a.get("reviewer") == reviewer]
+    if not prior:
+        out(f"REFUSE: no {reviewer} approval of #{pr_n} to carry; record one with --head and --evidence")
+        return EXIT_REFUSED
+    a = prior[-1]
+    ok, reasons = approval_status(git, a, base, head)
+    if ok:
+        out(f"{reviewer} approval of #{pr_n} is already current at {head[:12]}")
+        return EXIT_OK
+    if a.get("fingerprint_version") != FINGERPRINT_VERSION or fingerprint(git, base, head) != a.get("diff_hash"):
+        out(f"REFUSE: #{pr_n}'s change is not byte-identical to the one {reviewer} approved; re-review it")
+        return EXIT_REFUSED
+    if any(r.startswith("main was rewritten") for r in reasons):
+        out(f"REFUSE: {'; '.join(reasons)}; re-review it")
+        return EXIT_REFUSED
+    for r in reasons:
+        out(f"  lapsed by: {r}")
+    if not (ack or "").strip():
+        out("not carried: re-run with --ack '<why these changes on main do not change the reviewed code>'")
+        return EXIT_APPROVAL
+    entry = {"reviewer": reviewer, "head": head, "base": base, "diff_hash": a["diff_hash"],
+             "fingerprint_version": FINGERPRINT_VERSION, "recorded_at": _now(),
+             "evidence_sha256": a.get("evidence_sha256"),
+             "carried_from": {"head": a["head"], "base": a["base"], "lapsed_by": reasons,
+                              "ack": ack.strip(), "by": "approve --carry"}}
+    State(git, pr_n).update(lambda d: d["approvals"].append(entry))
+    out(f"carried {reviewer} approval of #{pr_n} to head {head[:12]}, base {base[:12]} (acknowledged: {ack.strip()})")
+    return EXIT_OK
+
+
 def show_status(git: Git, gh, pr_n: int, remote: str = "origin", out: Callable[[str], None] = print) -> int:
     pr = gh.pr(pr_n)
     branch, head = pr["headRefName"], pr["headRefOid"]
@@ -2417,6 +2462,42 @@ def _self_test() -> int:
             main_commit(work, edit, "main moves")
             rc, logs = merger(work, fake)
             expect(rc == want and (fake.merged is not None) == (want == 0), f"{label} (rc={rc})")
+        # T6c: approve --carry, for a byte-identical change that main's commits lapsed.
+        print("approve --carry:")
+        origin, work, _b = world()
+        head = fix_pr(work)
+        fake = FakeGitHub(origin, env, 13, "fix/alpha", "fix alpha docs", green)
+        approve(work, fake, head)
+        main_commit(work, lambda w: (w / "skills/alpha/cli/main.go").write_text('package main\n\nconst name = "y"\n'),
+                    "main moves")
+        rc, logs = merger(work, fake)
+        expect(rc == EXIT_APPROVAL, f"before carrying, the lapsed approval stops the merge (rc={rc})")
+        said: list[str] = []
+        rc = carry_approval(Git(work, env), fake, fake.n, "codex", None, out=said.append, allow_stale_tools=True)
+        expect(rc == EXIT_APPROVAL and any("lapsed by: main changed skills/alpha/cli/main.go" in s for s in said),
+               f"--carry without --ack lists what lapsed it and records nothing (rc={rc})")
+        rc = carry_approval(Git(work, env), fake, fake.n, "codex", "main.go constant rename; the docs fix reads none",
+                            out=said.append, allow_stale_tools=True)
+        expect(rc == EXIT_OK, f"--carry --ack records the carried approval (rc={rc})")
+        rc, logs = merger(work, fake)
+        expect(rc == 0 and fake.merged is not None, f"with the acknowledged carry it merges (rc={rc})")
+        origin, work, _b = world()
+        head = fix_pr(work)
+        fake = FakeGitHub(origin, env, 14, "fix/alpha", "fix alpha docs", green)
+        approve(work, fake, head)
+        sh("git", "checkout", "-q", "fix/alpha", cwd=work)
+        (work / "skills/alpha/SKILL.md").write_text("# alpha\n\nline one\nFIXED \nline three\n")
+        sh("git", "commit", "-q", "-s", "-am", "one more byte", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        said = []
+        rc = carry_approval(Git(work, env), fake, fake.n, "codex", "anything", out=said.append, allow_stale_tools=True)
+        expect(rc == EXIT_REFUSED and any("not byte-identical" in s for s in said),
+               f"--carry refuses a change that is not byte-identical, even with --ack (rc={rc})")
+        said = []
+        rc = carry_approval(Git(work, env), fake, fake.n, "owner", "x", out=said.append, allow_stale_tools=True)
+        expect(rc == EXIT_REFUSED, f"--carry refuses a reviewer with no approval to carry (rc={rc})")
+
         origin, work, _b = world()
         head = fix_pr(work)
         fake = FakeGitHub(origin, env, 11, "fix/alpha", "fix alpha docs", green)
@@ -3593,7 +3674,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gh-repo", help="owner/repo on GitHub (default: read from the remote URL)")
     if sub == "approve":
         ap.add_argument("--reviewer", required=True, help="who approved, e.g. codex or a GitHub login")
-        ap.add_argument("--head", required=True, help="the exact commit that was reviewed")
+        ap.add_argument("--head", help="the exact commit that was reviewed (required unless --carry)")
+        ap.add_argument("--carry", action="store_true",
+                        help="carry the reviewer's latest approval to the current head: the change must be "
+                             "byte-identical; lists what on main lapsed it")
+        ap.add_argument("--ack", help="with --carry: why those changes on main do not change the reviewed code")
         ap.add_argument("--evidence", type=Path, help="the review text; must end with 'VERDICT: APPROVED', no [P1]")
         ap.add_argument("--allow-stale-tools", action="store_true",
                         help="run even though this tool's code differs from origin/main's (not recommended)")
@@ -3632,7 +3717,13 @@ def _main(args: argparse.Namespace, sub: str | None) -> int:
     git = Git(repo)
     try:
         gh = GitHub(args.gh_repo or gh_slug_from_remote(git, args.remote))
+        if sub == "approve" and args.carry:
+            return carry_approval(git, gh, args.pr, args.reviewer, args.ack, args.remote,
+                                  allow_stale_tools=args.allow_stale_tools)
         if sub == "approve":
+            if not args.head:
+                print("REFUSE: --head is required (or use --carry)")
+                return EXIT_REFUSED
             return record_approval(git, gh, args.pr, args.reviewer, args.head, args.evidence, args.remote,
                                    allow_stale_tools=args.allow_stale_tools)
         if sub == "status":
