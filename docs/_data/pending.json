@@ -448,9 +448,9 @@
     "released_hash": "sha256:e9c3cdf30e839db214ffd66e773c4bfd7928791426aaa46d045ecd542d34e5ee"
   },
   "rocketcyber": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "rocketcyber-v0.1.5",
+    "latest_tag": "rocketcyber-v0.1.6",
     "current_hash": "sha256:b653606ca8b3edc6e51de276b18126510f6e2d5965c15cd955677eb73e452163",
     "released_hash": "sha256:b653606ca8b3edc6e51de276b18126510f6e2d5965c15cd955677eb73e452163"
   },
