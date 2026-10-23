@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- `--agent` turns on agent mode on every command again. Seven commands declared their own `--agent` value flag, so a bare `--agent` stopped with "flag needs an argument" and `--agent --dry-run` sent the live request with "--dry-run" as the filter. They are renamed: `--agent-ids` on `tickets list`, `opportunities list` and `projects list`; `--agent-param` on `remote-session list`; `--agent-id` on `impersonation-request`; `--agent-name` on `time gaps` and `triage`. The API still receives its `agent` parameter.
+
 ## [0.2.21] - 2026-10-22
 
 ### Security

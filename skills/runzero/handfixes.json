@@ -313,6 +313,36 @@
      "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
     }
    ]
+  },
+  {
+   "id": "local-agent-flags-renamed",
+   "class": "local-flag-shadows-global-switch",
+   "summary": "org create-sample and org create-scan take the explorer (agent) ID as --agent-id instead of a local --agent, so --agent is the agent-mode switch on every command; the body still carries its agent field",
+   "why": "A command-local flag that takes a value, registered under the name of a persistent root switch, replaces that switch on its command: Cobra keeps the command's own flag. Every SKILL, guide and MCP recipe tells an agent to add --agent for agent mode, so on this command a bare --agent stopped with 'flag needs an argument', and --agent followed by another flag swallowed that flag as its value (halopsa `tickets list --agent --dry-run` sent the live request: the --dry-run became the agent filter). The press does not reserve the root flag names when it names spec parameters (internal/generator/flag_collision.go reserves only its own --all/--wait/--stdin), so a reprint re-emits the shadow. tools/maintainer/check_command_tree.py now fails any value-taking local flag over a persistent switch.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: reserve the root persistent flag names (agent, json, dry-run, quiet, ...) in reservedFlagNamesForEndpoint so a spec parameter of the same name gets a distinct public flag; until then, keep the rename here.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/org_create-sample.go",
+     "contains": "StringVar(&bodyAgent, \"agent-id\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/org_create-sample.go",
+     "not_contains": "StringVar(&bodyAgent, \"agent\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/org_create-scan.go",
+     "contains": "StringVar(&bodyAgent, \"agent-id\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/org_create-scan.go",
+     "not_contains": "StringVar(&bodyAgent, \"agent\", \"\""
+    }
+   ]
   }
  ]
 }

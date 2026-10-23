@@ -67,14 +67,14 @@ func newNetworksFirmwareUpgradesUpdateNetworkStagedStagesCmd(flags *rootFlags) *
 			} else {
 				bodyMap := map[string]any{}
 				body = bodyMap
-				if cmd.Flags().Changed("json") || bodyJson != "" {
+				if cmd.Flags().Changed("stages-json") || bodyJson != "" {
 					var parsedJson any
 					if err := json.Unmarshal([]byte(bodyJson), &parsedJson); err != nil {
-						return fmt.Errorf("parsing --json JSON: %w", err)
+						return fmt.Errorf("parsing --stages-json JSON: %w", err)
 					}
 					asArray, ok := parsedJson.([]any)
 					if !ok {
-						return fmt.Errorf("--json must be a JSON array, got JSON %T", parsedJson)
+						return fmt.Errorf("--stages-json must be a JSON array, got JSON %T", parsedJson)
 					}
 					bodyMap["_json"] = asArray
 				}
@@ -236,7 +236,7 @@ func newNetworksFirmwareUpgradesUpdateNetworkStagedStagesCmd(flags *rootFlags) *
 			return printErr
 		},
 	}
-	cmd.Flags().StringVar(&bodyJson, "json", "", "Array of Staged Upgrade Groups")
+	cmd.Flags().StringVar(&bodyJson, "stages-json", "", "Array of Staged Upgrade Groups, as a JSON array (the request body)")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

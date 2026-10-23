@@ -117,7 +117,7 @@ func newRemoteSessionListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagAgent, "agent", "", "Agent")
+	cmd.Flags().StringVar(&flagAgent, "agent-param", "", "Agent, sent as the agent query parameter (see also --agent-id)")
 	cmd.Flags().StringVar(&flagAgentId, "agent-id", "", "Agent id")
 	cmd.Flags().StringVar(&flagClientId, "client-id", "", "Client id")
 	cmd.Flags().IntVar(&flagCount, "count", 0, "Count")

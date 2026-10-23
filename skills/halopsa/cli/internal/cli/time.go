@@ -40,10 +40,10 @@ during the window, MINUS tickets that already have a time entry on them in the w
 The Friday-timesheet reconcile.`,
 		Example: strings.Trim(`
   # My open gaps this week
-  halopsa-cli time gaps --agent me --week current --json
+  halopsa-cli time gaps --agent-name me --week current --json
 
   # Another agent's gaps last week
-  halopsa-cli time gaps --agent "Devon" --week last
+  halopsa-cli time gaps --agent-name "Devon" --week last
 `, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -151,7 +151,7 @@ The Friday-timesheet reconcile.`,
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent name (or 'me')")
+	cmd.Flags().StringVar(&agent, "agent-name", "", "Agent name (or 'me')")
 	cmd.Flags().StringVar(&week, "week", "current", "Week scope: current, last, or 'YYYY-MM-DD'")
 	cmd.Flags().IntVar(&limit, "limit", 200, "Max gaps to return")
 	_ = json.Compact

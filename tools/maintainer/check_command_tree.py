@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Gate: no destructive command answers to the name `create`.
+"""Gate: no destructive command answers to the name `create`, and no
+command-local flag breaks a persistent switch it shadows.
 
 Why this exists
 ---------------
@@ -46,12 +47,26 @@ and whose action is destructive or hazardous. In order:
 Words are matched exactly after splitting on punctuation and camelCase (no
 prefix match), so a noun such as `blocks` is not read as the verb `block`.
 
+It also FAILS a command-local flag that takes a value and shadows a
+persistent SWITCH (a flag passed bare, such as the global `--agent` or
+`--json` bool). Cobra keeps the command's own flag, so on that one command
+the documented global usage parses as something else: `halopsa-cli tickets
+list --agent` stops with "flag needs an argument", and `tickets list --agent
+--limit 5` silently filters on an agent named "--limit" (pflag hands a value
+flag the next token even when it starts with a dash). Every SKILL, guide and
+MCP recipe tells an agent to add `--agent`, so it must mean agent mode on
+every command. Live on 2026-10-23: halopsa x7 and runzero x2 (`--agent`),
+cipp and cisco-meraki x1 each (`--json`). The fix is to rename the local flag
+(its wire name stays) and record the edit in that connector's handfixes.json.
+
 What it reports (never fails)
 -----------------------------
-  * Command-local flags that shadow a persistent flag inherited from an
-    ancestor, for example a local `--agent` string flag that silently replaces
-    the global `--agent` agent-mode switch on that one command: one summary
-    line per flag (`--list-shadows` for each).
+  * Every other command-local flag that shadows a persistent flag inherited
+    from an ancestor: one summary line per flag (`--list-shadows` for each).
+    Most redeclare the same flag with the same type (`import --dry-run`). A
+    type change that leaves no switch broken (a body `--timeout` int over the
+    global duration) fails loudly at parse time instead of changing meaning,
+    so it is reported, not failed.
   * The work list: commands that answer to `create` without being named a
     create or judged by rules 1-5. Many are collection creates (POST /roles);
     the words cannot tell those from non-create actions, so they are listed
@@ -82,8 +97,9 @@ Usage:
     python3 tools/maintainer/check_command_tree.py --self-test      # classifier + walker proof
     python3 tools/maintainer/check_command_tree.py --list-unjudged  # print the work list
 
-Exit 0 = no destructive `create` alias anywhere checked; 1 = at least one, or a
-connector whose tree could not be read (a check that cannot look must not pass).
+Exit 0 = no destructive `create` alias and no broken switch anywhere checked;
+1 = at least one, or a connector whose tree could not be read (a check that
+cannot look must not pass).
 Pure stdlib; needs `go` on PATH.
 """
 
@@ -331,6 +347,7 @@ func RootCmd() *cobra.Command {
 	root := &cobra.Command{Use: "fixture"}
 	root.PersistentFlags().Bool("agent", false, "agent mode")
 	root.PersistentFlags().Bool("dry-run", false, "dry run")
+	root.PersistentFlags().Duration("timeout", 0, "request timeout")
 
 	// The same group registered twice; only the SECOND copy carries the alias.
 	for _, aliases := range [][]string{nil, {"create"}} {
@@ -345,7 +362,10 @@ func RootCmd() *cobra.Command {
 	list := &cobra.Command{Use: "list", RunE: noop}
 	list.Flags().String("agent", "", "agent id filter") // shadows root --agent
 	get := &cobra.Command{Use: "get", RunE: noop}
-	tickets.AddCommand(list, get, &cobra.Command{Use: "create-ticket", Aliases: []string{"create"}, RunE: noop,
+	wait := &cobra.Command{Use: "wait", RunE: noop}
+	wait.Flags().Int("timeout", 0, "body timeout in seconds") // a type change, but no switch broken
+	wait.Flags().Bool("agent", false, "redeclared switch")    // a switch over a switch still parses bare
+	tickets.AddCommand(list, get, wait, &cobra.Command{Use: "create-ticket", Aliases: []string{"create"}, RunE: noop,
 		Annotations: map[string]string{"pp:method": "POST", "pp:path": "/tickets"}})
 	root.AddCommand(tickets)
 	// Merge get's inherited flags: its Flags() now holds tickets' --dry-run
@@ -372,6 +392,12 @@ import (
 type shadow struct {
 	Flag  string   `json:"flag"`
 	Owner []string `json:"owner"`
+	// The Value types, and whether each side may be passed bare: pflag sets
+	// NoOptDefVal on a bool, and a flag without one consumes the next token.
+	Type          string `json:"type"`
+	OwnerType     string `json:"owner_type"`
+	Switch        bool   `json:"switch"`
+	OwnerIsSwitch bool   `json:"owner_is_switch"`
 }
 
 type node struct {
@@ -409,7 +435,9 @@ func walk(c *cobra.Command, path []string, persistent map[string]inherited, out 
 			// A different *pflag.Flag under an inherited name is a shadow: Cobra
 			// keeps the command's own flag and never merges the ancestor's.
 			if anc, ok := persistent[f.Name]; ok && anc.flag != f {
-				n.Shadows = append(n.Shadows, shadow{Flag: f.Name, Owner: anc.owner})
+				n.Shadows = append(n.Shadows, shadow{Flag: f.Name, Owner: anc.owner,
+					Type: f.Value.Type(), OwnerType: anc.flag.Value.Type(),
+					Switch: f.NoOptDefVal != "", OwnerIsSwitch: anc.flag.NoOptDefVal != ""})
 			}
 		}
 		sub.Flags().VisitAll(check)
@@ -612,9 +640,26 @@ def findings_for(slug: str, nodes: list[dict]) -> tuple[list[dict], list[dict]]:
                     "command": " ".join(node["path"]),
                     "flag": sh["flag"],
                     "shadows": "root" if not sh["owner"] else " ".join(sh["owner"]),
+                    "type": sh.get("type", ""),
+                    "owner_type": sh.get("owner_type", ""),
+                    "breaks_switch": breaks_switch(sh),
                 }
             )
     return fails, shadows
+
+
+def breaks_switch(sh: dict) -> bool:
+    """A local flag that takes a value, shadowing an ancestor's bare switch.
+
+    The walker reports both sides' pflag NoOptDefVal as `switch` /
+    `owner_is_switch`. A shadow record without them (an older walker, or a
+    hand-built node) is judged on its types instead: a bool owner shadowed by
+    anything but a bool. Missing information never reads as safe."""
+    if "owner_is_switch" in sh and "switch" in sh:
+        return bool(sh["owner_is_switch"]) and not sh["switch"]
+    if "owner_type" in sh and "type" in sh:
+        return sh["owner_type"] == "bool" and sh["type"] != "bool"
+    return True
 
 
 def module_path(cli_dir: Path) -> str:
@@ -850,6 +895,22 @@ def self_test() -> int:
     _, sh = findings_for("selftest", [shadow_node])
     if len(sh) != 1 or sh[0]["flag"] != "agent" or sh[0]["shadows"] != "root":
         bad.append("flag-shadow report did not surface a local --agent")
+    elif not sh[0]["breaks_switch"]:
+        bad.append("a shadow with no type information must not read as safe")
+    # Which shadows break a switch: (record, want). The first two are the live
+    # class (halopsa `tickets list --agent <ids>`, cipp `--json <string>`).
+    switch_cases = [
+        ({"type": "string", "owner_type": "bool", "switch": False, "owner_is_switch": True}, True),
+        ({"type": "int", "owner_type": "bool", "switch": False, "owner_is_switch": True}, True),
+        ({"type": "bool", "owner_type": "bool", "switch": True, "owner_is_switch": True}, False),
+        ({"type": "int", "owner_type": "duration", "switch": False, "owner_is_switch": False}, False),
+        ({"type": "bool", "owner_type": "string", "switch": True, "owner_is_switch": False}, False),
+        ({"type": "string", "owner_type": "bool"}, True),
+        ({"type": "bool", "owner_type": "bool"}, False),
+    ]
+    for rec, want in switch_cases:
+        if breaks_switch(dict(rec, flag="x", owner=[])) != want:
+            bad.append(f"breaks_switch({rec}) should be {want}")
     # Two registrations of one path: the copy WITH the alias must still fail.
     dup = [node(["subscriptions", "purge-json", "purge-subscription"], api="/subscriptions/{id}/purge.json", aliases=()),
            node(["subscriptions", "purge-json", "purge-subscription"], api="/subscriptions/{id}/purge.json")]
@@ -900,11 +961,15 @@ def self_test() -> int:
             f, sh = findings_for("fixture", nodes)
             got_fail = sorted(x["command"] for x in f)
             got_sh = sorted((x["command"], x["flag"], x["shadows"]) for x in sh)
-            want_sh = [("tickets", "dry-run", "root"), ("tickets list", "agent", "root")]
+            want_sh = [("tickets", "dry-run", "root"), ("tickets list", "agent", "root"),
+                       ("tickets wait", "agent", "root"), ("tickets wait", "timeout", "root")]
+            got_broken = sorted((x["command"], x["flag"]) for x in sh if x["breaks_switch"])
             if got_fail != ["subscriptions purge-subscription"]:
                 bad.append(f"walker fixture: create-alias findings {got_fail}, want the duplicate's aliased copy only")
             if got_sh != want_sh:
                 bad.append(f"walker fixture: shadows {got_sh}, want {want_sh}")
+            if got_broken != [("tickets list", "agent")]:
+                bad.append(f"walker fixture: broken switches {got_broken}, want only `tickets list --agent`")
             walker = f"walker fixture ok via {slugs[0]}'s module"
     if bad:
         print("FAIL: check_command_tree self-test")
@@ -912,7 +977,7 @@ def self_test() -> int:
             print("  - " + b)
         return 1
     print(f"PASS: check_command_tree self-test ({len(must_fail)} must-fail, "
-          f"{len(must_pass)} must-pass, 7 bulk, 1 shadow, 1 duplicate; {walker}; {enum})")
+          f"{len(must_pass)} must-pass, 7 bulk, {len(switch_cases) + 1} shadow, 1 duplicate; {walker}; {enum})")
     return 0
 
 
@@ -974,13 +1039,15 @@ def main() -> int:
         unjudged.extend(unjudged_for(slug, nodes))
         named += named_creates_for(slug, nodes)
 
+    broken = [sh for sh in shadows if sh["breaks_switch"]]
+    reported = [sh for sh in shadows if not sh["breaks_switch"]]
     if args.list_shadows:
-        for sh in shadows:
+        for sh in reported:
             print(f"  WARN  [{sh['slug']}] `{sh['command']}` declares its own --{sh['flag']}, "
                   f"shadowing the persistent --{sh['flag']} from {sh['shadows']} (report only)")
     else:
         by_flag: dict[str, list[dict]] = {}
-        for sh in shadows:
+        for sh in reported:
             by_flag.setdefault(sh["flag"], []).append(sh)
         for flag in sorted(by_flag, key=lambda k: (-len(by_flag[k]), k)):
             hits = by_flag[flag]
@@ -1009,10 +1076,16 @@ def main() -> int:
     for f in fails:
         print(f"  FAIL  [{f['slug']}] `{f['resolves_as']}` runs `{f['command']}` "
               f"({f['method']} {f['api_path']}; {f['reason']})")
+    for sh in broken:
+        print(f"  FAIL  [{sh['slug']}] `{sh['command']}` declares a value-taking --{sh['flag']} "
+              f"({sh['type'] or '?'}) over the persistent --{sh['flag']} switch "
+              f"({sh['owner_type'] or '?'}, from {sh['shadows']}): the documented bare --{sh['flag']} "
+              f"swallows the next argument or stops with 'flag needs an argument' on this command")
 
     if args.json:
         Path(args.json).write_text(
-            json.dumps({"create_alias_on_destructive": fails, "flag_shadows": shadows,
+            json.dumps({"create_alias_on_destructive": fails, "switch_broken_by_local_flag": broken,
+                        "flag_shadows": shadows,
                         "create_alias_unjudged": unjudged, "named_creates_trusted": named,
                         "errors": errors, "connectors": len(slugs) + len(enum_errors),
                         "commands": commands},
@@ -1021,13 +1094,17 @@ def main() -> int:
         )
 
     bad_slugs = sorted({f["slug"] for f in fails})
-    if fails or errors:
+    broken_slugs = sorted({sh["slug"] for sh in broken})
+    if fails or errors or broken:
         print(f"\nFAIL: {len(fails)} destructive command(s) answer to `{CREATE_ALIAS}` in "
-              f"{len(bad_slugs)} connector(s); {len(errors)} connector(s) unreadable. "
-              f"Remove the alias (and record it in that connector's handfixes.json).")
+              f"{len(bad_slugs)} connector(s); {len(broken)} local flag(s) break a persistent switch in "
+              f"{len(broken_slugs)} connector(s); {len(errors)} connector(s) unreadable. "
+              f"Remove the alias, or rename the local flag and keep its wire name (and record "
+              f"either in that connector's handfixes.json).")
         return 1
-    print(f"PASS: no destructive command answers to `{CREATE_ALIAS}` across {len(slugs)} "
-          f"connector(s), {commands} commands ({len(shadows)} flag shadow(s) reported).")
+    print(f"PASS: no destructive command answers to `{CREATE_ALIAS}` and no local flag breaks a "
+          f"persistent switch across {len(slugs)} connector(s), {commands} commands "
+          f"({len(reported)} other flag shadow(s) reported).")
     return 0
 
 

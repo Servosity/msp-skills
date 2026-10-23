@@ -139,7 +139,7 @@ func newAddIntuneReusableSettingTemplatePromotedCmd(flags *rootFlags) *cobra.Com
 	cmd.Flags().StringVar(&bodyGUID, "guid", "", "Guid")
 	cmd.Flags().StringVar(&bodyRawJSON, "raw-json", "", "Raw json")
 	cmd.Flags().StringVar(&bodyDisplayname, "displayname", "", "Displayname")
-	cmd.Flags().StringVar(&bodyJson, "json", "", "Json")
+	cmd.Flags().StringVar(&bodyJson, "json-field", "", "Json, sent as the request body's json field (CIPP reads it when rawJSON is absent; see --raw-json)")
 	cmd.Flags().StringVar(&bodyPackage, "package", "", "Package")
 	cmd.Flags().StringVar(&bodyTenantFilter, "tenant-filter", "", "Tenant filter")
 

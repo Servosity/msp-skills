@@ -1717,6 +1717,32 @@
      "not_contains": "--addr :7777"
     }
    ]
+  },
+  {
+   "id": "local-json-flag-renamed",
+   "class": "local-flag-shadows-global-switch",
+   "summary": "networks firmware-upgrades update-network-staged-stages takes its JSON array of staged upgrade groups as --stages-json instead of a local --json, so --json is the JSON-output switch on every command; the body is still sent as _json",
+   "why": "A command-local flag that takes a value, registered under the name of a persistent root switch, replaces that switch on its command: Cobra keeps the command's own flag. Every SKILL, guide and MCP recipe tells an agent to add --json for JSON output, so on this command a bare --json stopped with 'flag needs an argument', and --json followed by another flag swallowed that flag as its value (halopsa `tickets list --agent --dry-run` sent the live request: the --dry-run became the agent filter). The press does not reserve the root flag names when it names spec parameters (internal/generator/flag_collision.go reserves only its own --all/--wait/--stdin), so a reprint re-emits the shadow. tools/maintainer/check_command_tree.py now fails any value-taking local flag over a persistent switch.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: reserve the root persistent flag names (agent, json, dry-run, quiet, ...) in reservedFlagNamesForEndpoint so a spec parameter of the same name gets a distinct public flag; until then, keep the rename here.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/networks_firmware-upgrades_update-network-staged-stages.go",
+     "contains": "StringVar(&bodyJson, \"stages-json\", \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/networks_firmware-upgrades_update-network-staged-stages.go",
+     "contains": "cmd.Flags().Changed(\"stages-json\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/networks_firmware-upgrades_update-network-staged-stages.go",
+     "not_contains": "StringVar(&bodyJson, \"json\", \"\""
+    }
+   ]
   }
  ]
 }
