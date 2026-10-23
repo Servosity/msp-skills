@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/rootly/install.ps1
 ---
 
-# Rootly  -  Printing Press CLI
+# Rootly - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

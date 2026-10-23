@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/zammad/install.ps1
 ---
 
-# Zammad  -  Printing Press CLI
+# Zammad - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

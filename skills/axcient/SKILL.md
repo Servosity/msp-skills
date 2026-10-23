@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/axcient/install.ps1
 ---
 
-# Axcient x360Recover  -  Printing Press CLI
+# Axcient x360Recover - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

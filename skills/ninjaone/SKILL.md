@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/ninjaone/install.ps1
 ---
 
-# NinjaOne  -  Printing Press CLI
+# NinjaOne - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

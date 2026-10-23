@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/atera/install.ps1
 ---
 
-# Atera  -  Printing Press CLI
+# Atera - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

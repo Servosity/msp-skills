@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/gradient/install.ps1
 ---
 
-# Gradient MSP  -  Printing Press CLI
+# Gradient MSP - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

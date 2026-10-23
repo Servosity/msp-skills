@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/connectsecure/install.ps1
 ---
 
-# ConnectSecure  -  Printing Press CLI
+# ConnectSecure - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

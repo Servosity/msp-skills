@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/threatlocker/install.ps1
 ---
 
-# ThreatLocker  -  Printing Press CLI
+# ThreatLocker - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

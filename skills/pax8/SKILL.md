@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pax8/install.ps1
 ---
 
-# Pax8  -  Printing Press CLI
+# Pax8 - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

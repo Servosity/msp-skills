@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-rmm/install.ps1
 ---
 
-# Datto RMM  -  Printing Press CLI
+# Datto RMM - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

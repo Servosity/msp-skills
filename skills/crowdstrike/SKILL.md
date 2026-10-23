@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/crowdstrike/install.ps1
 ---
 
-# CrowdStrike Falcon  -  Printing Press CLI
+# CrowdStrike Falcon - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

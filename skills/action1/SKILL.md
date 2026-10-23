@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/action1/install.ps1
 ---
 
-# Action1  -  Printing Press CLI
+# Action1 - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

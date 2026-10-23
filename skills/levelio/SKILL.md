@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/levelio/install.ps1
 ---
 
-# Level  -  Printing Press CLI
+# Level - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

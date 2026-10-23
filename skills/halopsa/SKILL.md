@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1
 ---
 
-# HaloPSA  -  Printing Press CLI
+# HaloPSA - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

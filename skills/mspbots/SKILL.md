@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/mspbots/install.ps1
 ---
 
-# MSPbots  -  Printing Press CLI
+# MSPbots - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

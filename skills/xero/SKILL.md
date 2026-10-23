@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/xero/install.ps1
 ---
 
-# Xero  -  Printing Press CLI
+# Xero - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

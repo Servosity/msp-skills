@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hubspot/install.ps1
 ---
 
-# HubSpot  -  Printing Press CLI
+# HubSpot - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

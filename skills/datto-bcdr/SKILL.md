@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-bcdr/install.ps1
 ---
 
-# Datto BCDR  -  Printing Press CLI
+# Datto BCDR - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

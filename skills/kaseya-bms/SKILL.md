@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/kaseya-bms/install.ps1
 ---
 
-# Kaseya BMS  -  Printing Press CLI
+# Kaseya BMS - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

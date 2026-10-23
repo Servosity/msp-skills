@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/huntress/install.ps1
 ---
 
-# Huntress  -  Printing Press CLI
+# Huntress - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

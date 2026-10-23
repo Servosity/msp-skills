@@ -107,6 +107,18 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "a .coderabbit.yaml without its generator" fail "rm tools/maintainer/gen_coderabbit_config.py"
   st_case "the generator and .coderabbit.yaml both removed" fail \
     "rm tools/maintainer/gen_coderabbit_config.py .coderabbit.yaml"
+  # Guard 8 reads Markdown headings only. The phrase is assembled from two
+  # halves so this script never carries a line guard 8 would match.
+  ppc="Printing Press"" CLI"
+  ppl="printing press"" cli"
+  st_case "the press title line on a skill page" fail \
+    "printf -- '---\nname: acme\n---\n\n# Acme  -  $ppc\n' > skills/acme/SKILL.md"
+  st_case "the press title line as a lower-case H2 in a guide" fail \
+    "printf '## acme - $ppl\n' >> skills/acme/guide.md"
+  st_case "the press title line + a missing file" fail \
+    "printf '# Acme - $ppc\n' > skills/acme/SKILL.md; rm skills/acme/guide.md"
+  st_case "the phrase in prose, a shell comment and generated cli/ is not a title line" pass \
+    "printf 'Built with the $ppc toolchain.\n' >> skills/acme/README.md; printf '#!/bin/sh\n# $ppc\n' > skills/acme/x.sh; printf '# Acme - $ppc\n' > skills/acme/cli/README.md"
   # Root (or a disk without permissions) reads a chmod 000 path anyway, so
   # these two cases cannot be set up there: skipped, and said so.
   probe="$(mktemp "${TMPDIR:-/tmp}/ci_guards_probe.XXXXXX")"; chmod 000 "$probe"
@@ -290,6 +302,22 @@ else
   # guard into a silent pass.
   echo "$cr_gen is missing, so .coderabbit.yaml cannot be checked against the tree"
   note "restore the generator (and regenerate .coderabbit.yaml)"
+  fail=1
+fi
+
+echo "==> 8. No press title line on a skill page"
+# cli-printing-press titles every SKILL.md "# <Vendor>  -  <press name> CLI".
+# This repo ships Claude Code Skills; the press is credited in each
+# connector's cli/NOTICE, not in the page title (decision 9 of the
+# 2026-10-21 publish plan). 62 SKILL.md files still carried that title in
+# October 2026 because nothing checked it, and onboard.py --resume re-vendors
+# SKILL.md from the press source, so a reprint brings it straight back.
+# Markdown headings only: the press is still named in prose and in NOTICE.
+# The phrase is built at runtime so this script never carries it.
+press_title="Printing Press"" CLI"
+all_files '*.md' '*.markdown' '*.mdx' ':(exclude)skills/*/cli/**' > "$lists/md"
+if scan md -i -E -e "^#{1,6}[[:space:]].*${press_title}"; then
+  note "a skill page is titled after the press; title it '<Vendor> - Claude Code Skill' (the press stays credited in cli/NOTICE)"
   fail=1
 fi
 

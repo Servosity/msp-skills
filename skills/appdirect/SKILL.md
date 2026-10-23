@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/appdirect/install.ps1
 ---
 
-# AppDirect  -  Printing Press CLI
+# AppDirect - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

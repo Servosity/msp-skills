@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/knowbe4/install.ps1
 ---
 
-# KnowBe4  -  Printing Press CLI
+# KnowBe4 - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

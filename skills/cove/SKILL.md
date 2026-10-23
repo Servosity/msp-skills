@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cove/install.ps1
 ---
 
-# Cove Data Protection  -  Printing Press CLI
+# Cove Data Protection - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

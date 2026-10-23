@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.ps1
 ---
 
-# Riverside  -  Printing Press CLI
+# Riverside - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

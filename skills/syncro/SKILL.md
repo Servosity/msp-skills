@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/syncro/install.ps1
 ---
 
-# Syncro  -  Printing Press CLI
+# Syncro - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

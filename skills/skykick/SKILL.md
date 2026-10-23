@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/skykick/install.ps1
 ---
 
-# SkyKick  -  Printing Press CLI
+# SkyKick - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

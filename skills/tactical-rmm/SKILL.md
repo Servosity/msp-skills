@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/tactical-rmm/install.ps1
 ---
 
-# Tactical RMM  -  Printing Press CLI
+# Tactical RMM - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

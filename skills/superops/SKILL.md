@@ -13,7 +13,7 @@ metadata:
         - superops-cli
 ---
 
-# SuperOps  -  Printing Press CLI
+# SuperOps - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

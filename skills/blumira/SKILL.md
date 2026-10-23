@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/blumira/install.ps1
 ---
 
-# Blumira  -  Printing Press CLI
+# Blumira - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
