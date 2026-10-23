@@ -607,6 +607,31 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "member-cid-token-stays-on-origin",
+   "class": "auth-wire",
+   "summary": "`fleet sync --member-cid` mints its child-tenant token through cliutil.OAuthTokenHTTPClient, so a redirect from the token URL to another host never receives the client secret",
+   "why": "Codex review round 3 on PR #441, confirmed by the owner as a secret leak: fleetClientForCID built a plain http.Client for the scoped member-CID mint, and Go replays the form (client_id, client_secret, member_cid) on a 307 to another host. With FALCON_CLIENT_ID/FALCON_CLIENT_SECRET set and the token endpoint answering 307 to a second port, `fleet sync --member-cid <cid>` sent the secret there. TestMemberCIDMintRefusesATokenRedirectToAnotherOrigin failed on the previous commit (the second host received the secret) and passes now; TestMemberCIDMintFollowsASameOriginRedirect is the same-origin control. fleet_sync.go is a hand-authored novel file; a reprint regenerates it as a stub, so this entry is what notices.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "mintClient := cliutil.OAuthTokenHTTPClient(&http.Client{Timeout: flags.timeout})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "not_contains": "mintClient := &http.Client{Timeout: flags.timeout}"
+    },
+    {
+     "file": "cli/internal/cli/fleet_member_cid_token_test.go",
+     "contains": "func TestMemberCIDMintRefusesATokenRedirectToAnotherOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }
