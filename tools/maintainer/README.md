@@ -83,6 +83,41 @@ advisory (no write tool produced an API write even with the switch off: their `_
 typed writes need arguments the probe cannot construct), and **0** let a write through. The two
 sets do not overlap: static flags the source pattern, runtime proves the shipped behavior.
 
+### Wiring the secret-echo funnel into a connector: `apply_secret_funnel.py`
+
+A fresh or reprinted connector fails the secret-echo class: the press's masks cover a credential only as
+written or URL-escaped (cli-printing-press #5145). `apply_secret_funnel.py --slug <slug>` makes the change #444
+made by hand on 72 connectors. `onboard.py` runs it after vendoring.
+
+- It installs the canonical funnel from `tools/maintainer/secret_funnel/`, the one copy of record: the decoder
+  (`internal/cliutil/secret_funnel.go`) and the CLI and MCP error backstops, plus their tests.
+- It makes the anchored edits press 4.19 to 4.33.5 need:
+  - `client.go`: the masking funnel, the whole-body error check, the HTML summary, the token mint and refresh
+    error bodies, and the held credentials;
+  - `root.go` and every CLI error envelope;
+  - the MCP server's outermost tool middleware;
+  - the generated `auth login` exchange.
+- It writes the `secret-echo-decoded-funnel` entry (class `secret-echo`) in `handfixes.json`, asserting only the
+  edits that are present.
+- It is idempotent: a re-run changes nothing. `--check` changes nothing and exits 0 only when the connector is
+  fully wired.
+- Success is measured, not read back from its own edits. Every run passes the ledger through
+  `check_handfixes.py --slug`. Every apply (one that changes nothing too) must also pass `go build ./...`,
+  `go vet ./...` and `class_harness.py --slug <slug> --class secret-echo` with 0 failing; a failure exits 1
+  and names the proof and the sites the run touched. The class test must target `skills/<slug>` in the
+  registry and must exercise the connector: an advisory "not exercised" is not a pass unless the entry
+  declares `"hand_wired": {"class-test": "<how the error path was proven>"}`. `--check` stays cheap: no build.
+- It fails closed. It names, by site id, every site it cannot anchor: a hand-edited `maskCredentialText`, a
+  custom error-body helper, or a hand-written token exchange that formats server text with no funnel call.
+  Wire such a site by hand, add asserts for your wiring, declare it on the entry as
+  `"hand_wired": {"<site id>": "<how it is wired>"}`, and re-run with `--check`.
+- It cannot see a credential a connector reads from the environment outside its `Config`; the class test finds
+  those.
+- `ci_guards.sh` guard 10 runs `--check-drift`: every connector's funnel copies must match the canonical
+  source, so change `tools/maintainer/secret_funnel/` and re-apply, never one copy by hand. A ledger that is not
+  readable JSON fails it.
+- `--self-test` covers every generated shape and the fail-closed paths.
+
 ### Rollout: the shrink-only baseline
 
 `class_baseline.json` lists the connectors that FAIL a class today, per class, using the same

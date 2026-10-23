@@ -107,6 +107,28 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "a .coderabbit.yaml without its generator" fail "rm tools/maintainer/gen_coderabbit_config.py"
   st_case "the generator and .coderabbit.yaml both removed" fail \
     "rm tools/maintainer/gen_coderabbit_config.py .coderabbit.yaml"
+  # Guard 10: every connector's funnel copy matches the canonical source.
+  SF_SRC="$(dirname "$SELF")/apply_secret_funnel.py"
+  SF_CANON="$(dirname "$SELF")/secret_funnel"
+  [ -f "$SF_SRC" ] && [ -d "$SF_CANON" ] || { echo "FAIL: ci_guards self-test needs $SF_SRC and $SF_CANON" >&2; exit 1; }
+  if python3 -I "$SF_SRC" --self-test >"$tmp/sf-selftest.out" 2>&1; then
+    echo "  ok   apply_secret_funnel.py --self-test"
+  else
+    echo "  FAIL apply_secret_funnel.py --self-test"; sed 's/^/       /' "$tmp/sf-selftest.out"; bad=1
+  fi
+  sf_install="cp \"$SF_SRC\" \"$(dirname "$SELF")/check_handfixes.py\" tools/maintainer/ && cp -R \"$SF_CANON\" tools/maintainer/"
+  sf_carrier="mkdir -p skills/acme/cli/internal/cliutil skills/acme/cli/internal/cli skills/acme/cli/cmd/acme-mcp \
+    && printf 'package main\n\nfunc main() { _ = server.NewMCPServer(\n\t\"acme\",\n\tversion,\n) }\n' > skills/acme/cli/cmd/acme-mcp/main.go \
+    && for pair in cliutil_secret_funnel.go.tmpl:internal/cliutil/secret_funnel.go cliutil_secret_funnel_test.go.tmpl:internal/cliutil/secret_funnel_test.go \
+         cli_secret_funnel.go.tmpl:internal/cli/secret_funnel_cli.go cli_secret_funnel_test.go.tmpl:internal/cli/secret_funnel_cli_test.go \
+         mcp_secret_funnel.go.tmpl:cmd/acme-mcp/secret_funnel_mcp.go mcp_secret_funnel_test.go.tmpl:cmd/acme-mcp/secret_funnel_mcp_test.go; do \
+         sed 's#MODULE#acme-pp-cli#' \"tools/maintainer/secret_funnel/\${pair%%:*}\" > \"skills/acme/cli/\${pair#*:}\"; done"
+  st_case "a connector carrying the canonical funnel copies" pass "$sf_install && $sf_carrier"
+  st_case "a connector whose funnel copy was edited by hand" fail \
+    "$sf_install && $sf_carrier && printf '// local edit\n' >> skills/acme/cli/internal/cliutil/secret_funnel.go"
+  st_case "a carrier missing one backstop file" fail \
+    "$sf_install && $sf_carrier && rm skills/acme/cli/cmd/acme-mcp/secret_funnel_mcp.go"
+  st_case "a carrier with the funnel tool removed" fail "$sf_install && $sf_carrier && rm tools/maintainer/apply_secret_funnel.py"
   # Guards 8 and 9 read pages and manifests the way a reader and a JSON
   # parser do (Codex review, round 1). The phrase is assembled from two halves
   # so this script never carries it.
@@ -407,6 +429,27 @@ for f in sys.argv[1:]:
 all_files 'skills/*/manifest.json' > "$lists/manifests"
 if pyscan manifests "$guard8_py"; then
   note "drop a null printing_press_version (and a null-filled press_provenance) instead of guessing; a reprint or onboard records the real one"
+  fail=1
+fi
+
+echo "==> 10. Every connector's secret-echo funnel matches its canonical source"
+# The shared secret-echo funnel (#444) ships byte-identical in every connector
+# that carries it: the decoder in internal/cliutil and the CLI and MCP error
+# backstops, those two with only the Go module path substituted. A copy edited
+# in one connector drifts silently and the class test cannot see it, so every
+# carrier is compared with tools/maintainer/secret_funnel/, the one copy of
+# record that apply_secret_funnel.py installs from.
+sf_tool="tools/maintainer/apply_secret_funnel.py"
+if [ -f "$sf_tool" ]; then
+  if ! sf_out="$(python3 -I "$sf_tool" --check-drift 2>&1)"; then
+    printf '%s\n' "$sf_out"
+    note "change the funnel in tools/maintainer/secret_funnel/ only, then re-run apply_secret_funnel.py --slug <slug> for each connector"
+    fail=1
+  fi
+elif compgen -G 'skills/*/cli/internal/cliutil/secret_funnel.go' > /dev/null; then
+  # Removing the tool must not turn this guard into a silent pass.
+  echo "$sf_tool is missing while connectors carry the funnel, so their copies cannot be checked"
+  note "restore apply_secret_funnel.py and tools/maintainer/secret_funnel/"
   fail=1
 fi
 
