@@ -11,10 +11,6 @@ All notable changes to this skill are documented here. Format follows
 
 ### Changed
 - Internal: two tests of the learning journal's lock handling no longer depend on how fast the machine is (they failed on slow Windows CI runners). The connector itself behaves exactly as before.
-
-## [Unreleased]
-
-### Changed
 - `cli/NOTICE` now names the product `fortinet-cli`, the binary this connector installs, instead of the generator's internal `-pp-cli` name. No code change.
 
 ## [0.1.3] - 2026-10-22
