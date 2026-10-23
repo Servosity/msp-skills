@@ -427,9 +427,9 @@
     "released_hash": "sha256:545bed7407ddd76fb61681090ed4680e1ea4d407544675cff117b8bcc460f223"
   },
   "resourceguru": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "resourceguru-v0.1.6",
+    "latest_tag": "resourceguru-v0.1.7",
     "current_hash": "sha256:7d4fe3fbd3660f5bf9dfbd6a42ed5ca396a0f126e0a5cf608f1fda60b6a9f9a0",
     "released_hash": "sha256:7d4fe3fbd3660f5bf9dfbd6a42ed5ca396a0f126e0a5cf608f1fda60b6a9f9a0"
   },
