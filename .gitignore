@@ -171,7 +171,12 @@ playwright-report/
 test-output/
 
 # ===== AI agent local state =====
-.claude/
+# Local agent state stays out, except the repo's own verification skill
+# (.claude/skills/verify-msp-skills), which is maintained with the code.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/verify-msp-skills/
 .codex/
 .cursor/
 .aider*
@@ -200,4 +205,6 @@ assets/social/*
 
 # Codex review verdicts (worker convention); local verify receipts
 .verify/
+# verify-msp-skills run evidence (per slug, per run). Local proof, never committed.
+.verify-evidence/
 .review/
