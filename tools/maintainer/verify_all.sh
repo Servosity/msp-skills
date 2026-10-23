@@ -315,7 +315,7 @@ warn_rec() { printf '  WARN  %s\n' "$1"; record "$1" repo "" warn 0 /dev/null; }
 echo "== Maintainer gate self-tests (each proved both directions) =="
 for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py check_release_pipeline.py \
          release_matrix.py windows_known_failures.py verify_scope.py check_no_pp_leak.py \
-         check_unix_test_asserts.py; do
+         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py; do
   gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
 done
 gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
@@ -360,6 +360,8 @@ gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
 gate "paths every OS can check out" repo "" 0 python3 tools/maintainer/verify_scope.py path-collisions
 # ci.yml guards: every connector, rules read from the base (findings carry [slug]).
 gate "manifest env schema" fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "${BASE_SHA:-$base}"
+# ci.yml guards: press/ metadata where present, and the press floor for added connectors.
+gate "press metadata + floor" fleet "" 0 python3 tools/maintainer/check_press_metadata.py --base "${BASE_SHA:-$base}"
 if [ "$FULL" = true ]; then
   # Today's full-fleet flags: --strict promotes a stale pin to a failure.
   gate "pinned release artifacts" fleet "" 1 python3 tools/maintainer/check_pinned_artifacts.py --strict
