@@ -165,8 +165,11 @@ once per press release:
   guard. A connector below `retire_at` keeps every entry.
 - **replay**: the press still lacks it. `tools/maintainer/replay_handfixes.py
   --slug <slug>` re-applies it after a reprint (onboard.py runs it), restores the
-  hand-written files the entry pins from the pre-reprint revision, pins every
-  edit it makes, and proves the result by build, vet, tests and the id's gates.
+  hand-written files the entry pins that the reprint lacks from the pre-reprint
+  revision, pins every edit it makes, and proves the result by build, vet (on
+  every release OS), tests and the id's gates. A file the reprint carries is kept
+  as printed, never replaced by its pre-reprint copy; if it lacks the entry's
+  needle, the run names it for a person.
 - **delegated**: another tool owns the id (the secret-echo funnel).
 - **keep_manual**: the shared id carries a connector's own part; a person
   reconciles that connector.

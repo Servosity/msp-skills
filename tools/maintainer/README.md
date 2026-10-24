@@ -149,17 +149,23 @@ one once against a press release, and `replay_handfixes.py --slug <slug>` applie
   `retire_at`, with no or disagreeing versions, or for a `keep_manual` connector, the entry is demanded as
   before. A `retired` record the registry does not back fails.
 - **replay**: the press still lacks it, and a named recipe re-applies it on the press 4.34.0 shape.
-  Hand-written files the entry asserts on are restored from the pre-reprint revision (`--base`, default
-  `HEAD`), dropping declarations the press now generates (a stronger hand-fix copy is kept under its own
-  name); generated files get anchored edits, each pinned as a new ledger assert. An assert the replay would
-  lose is named unless the recipe marks it obsolete with a reason.
+  Hand-written files the entry asserts on that the reprint lacks are restored from the pre-reprint revision
+  (`--base`, default `HEAD`), dropping declarations the press now generates (a stronger hand-fix copy is
+  kept under its own name); generated files get anchored edits, each pinned as a new ledger assert. A file
+  the reprint carries is kept as printed and never replaced by its pre-reprint copy, since the reprint may
+  carry a fix that copy lacks (servosity `doctor_verdict.go` and cipp `auth_login.go` on 4.34.0). If a
+  carried file lacks an entry's needle, the run names it and exits 1; every whole-file copy goes through
+  one write that checks the vendored tree itself. An assert the replay would lose is named unless the
+  recipe marks it obsolete with a reason.
 - **delegated**: `secret-echo-decoded-funnel` belongs to `apply_secret_funnel.py`.
 - **floors**: a module the print resolves below a patched version (`golang.org/x/text` v0.42.0,
   `github.com/klauspost/compress` v1.18.7) is raised with `go get`, then `go mod tidy`, on a print at or
   above the floor's `applies_from`, never below what `--base` pinned. Older prints get a note only. A floor
   the press meets is a no-op; set `retire_at` when a press resolves it.
 - Success is measured: `check_handfixes.py --slug` over the ids this tool owns, and on an apply `go build`,
-  `go vet`, `go test` of every package it wrote or restored, each id's registry gates (for example
+  `go vet`, `go vet` with cgo off once per release OS in `registry.TARGETS` (the host build compiles only its
+  own platform's files, so a name declared twice in a Windows-only file would pass it), `go test` of every
+  package it wrote or restored, each id's registry gates (for example
   `check_mcp_file_flags.py`, `check_doctor_truth.py`, a class test, or a proof test run with
   `go test -overlay`, never written into the connector), and after a floor raise `go test ./...` and
   `check_security_gate.py --slug --require-scanners`. `--check` changes nothing and runs only the ledger
