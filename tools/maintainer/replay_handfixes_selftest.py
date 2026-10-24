@@ -256,6 +256,55 @@ def run(m) -> int:  # m: the replay_handfixes module
             git("clean", "-fdq")
             git("stash", "pop", "-q")
 
+            # A file the reprint carries is kept as printed, never replaced by its
+            # pre-reprint copy, which may lack a fix the reprint carries (servosity
+            # doctor_verdict.go, cipp auth_login.go on press 4.34.0). A file the
+            # reprint lacks is still restored.
+            git("stash", "-q", "--include-untracked")
+            verdict, login = cli / "internal/cli/doctor_verdict.go", cli / "internal/cli/auth_login.go"
+            ncw_test = "cli/internal/config/config_noconfigwrite_test.go"
+            head_ncw = git("show", f"HEAD:skills/acme/{ncw_test}").stdout
+
+            def fresh(helper: str) -> None:
+                git("checkout", "-q", "--", ".")
+                git("clean", "-fdq")
+                reprint(skill, m)
+                w(verdict, helper)
+                w(login, CARRIED_LOGIN)
+
+            fresh(CARRIED_HELPER)
+            sink.clear()
+            rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            expect(rc == 0 and verdict.read_text() == CARRIED_HELPER and login.read_text() == CARRIED_LOGIN,
+                   "a carried file that holds its asserts is kept byte for byte, its fix intact: "
+                   + " | ".join(s for s in sink if "NEEDS" in s or "FAIL" in s)[:400])
+            expect((skill / ncw_test).read_text() == head_ncw,
+                   "in the same run, a hand-written file the reprint lacks is still restored from the pre-reprint revision")
+
+            fresh(CARRIED_HELPER_RENAMED)
+            sink.clear()
+            rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            expect(rc == 1 and verdict.read_text() == CARRIED_HELPER_RENAMED
+                   and any("[assert:doctor-verdict-tracks-reality]" in s and "doctor_verdict.go" in s for s in sink),
+                   "a carried file that lacks an entry's needle is named for a person (exit 1) and left as printed")
+
+            # Every whole-file copy re-checks the vendored tree itself: a presence
+            # check that misjudges a carried file still cannot overwrite it.
+            fresh(CARRIED_HELPER)
+            real_exists = m.Plan.exists
+            m.Plan.exists = lambda self, rel: False if rel == "cli/internal/cli/doctor_verdict.go" else real_exists(self, rel)
+            sink.clear()
+            try:
+                rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            finally:
+                m.Plan.exists = real_exists
+            expect(rc == 1 and verdict.read_text() == CARRIED_HELPER
+                   and any("the reprint carries its own copy" in s and "doctor_verdict.go" in s for s in sink),
+                   "a restore that misjudges a carried file as missing fails closed, naming it, and never overwrites it")
+            git("checkout", "-q", "--", ".")
+            git("clean", "-fdq")
+            git("stash", "pop", "-q")
+
             # Below the retire version (main today): nothing retires, a replay
             # id whose hand-fix is present is already applied, floors only note.
             git("stash", "-q", "--include-untracked")
@@ -345,6 +394,30 @@ def run(m) -> int:  # m: the replay_handfixes module
             sink.clear()
             rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
             expect(rc == 1 and any("[floor:golang.org/x/text]" in s for s in sink), "a floor that cannot be raised is named")
+
+            # The apply proof vets every release OS, not only the host's: a name
+            # declared twice in a Windows-only file passes the host build.
+            p = m.plan_connector(root, "acme", "HEAD", REGISTRY)
+            p.gates, p.tests, p.floor_raises = [], {}, []
+            calls: list[tuple[list[str], str | None, str | None]] = []
+            real_run, real_which = m.subprocess.run, m.shutil.which
+
+            def fake_run(argv, **kw):
+                env = kw.get("env") or {}
+                calls.append((list(argv[:3]), env.get("GOOS"), env.get("CGO_ENABLED")))
+                bad = list(argv[:2]) == ["go", "vet"] and env.get("GOOS") == "windows"
+                return subprocess.CompletedProcess(argv, 1 if bad else 0, "", "redeclared in this block" if bad else "")
+
+            m.subprocess.run, m.shutil.which = fake_run, lambda name: "/usr/bin/" + name
+            try:
+                failed = m.run_proofs(root, "acme", True, p, [])
+            finally:
+                m.subprocess.run, m.shutil.which = real_run, real_which
+            vetted = {g for a, g, c in calls if a[:2] == ["go", "vet"] and g and c == "0"}
+            expect(vetted == {t["goos"] for t in m.registry.TARGETS},
+                   f"an apply vets every release OS with cgo off ({sorted(vetted)})")
+            expect(any("GOOS=windows" in f and "go vet" in f and "redeclared" in f for f in failed),
+                   "a vet failure only Windows sees fails the proof and is named")
         finally:
             m.resolved_version, m.raise_floor = real
 
@@ -375,6 +448,9 @@ func doctorIsInfoKey(key string) bool { return sort.SearchStrings(nil, key) == 0
 
 const doctorBaseURLEnv = "ACME_BASE_URL"
 
+// The pre-reprint bug (servosity, press 4.33.5): the real API root, read as a placeholder.
+const doctorShippedBaseURL = "https://api.acme.test/api/v1"
+
 // doctorBaseURLIsPlaceholder is the old hand-fix copy.
 func doctorBaseURLIsPlaceholder(base string) bool {
 	_, err := url.Parse(base)
@@ -389,6 +465,20 @@ func doctorUnexpectedStatus(status int, path string, report map[string]any) {
 	_ = status
 }
 """
+# The reprint's own copy of the helper: it fixed the constant above.
+CARRIED_HELPER = HELPER.replace('const doctorShippedBaseURL = "https://api.acme.test/api/v1"',
+                                'const doctorShippedBaseURL = ""')
+# As servosity's 4.34.0 library carried it: the fix, and the hand-fix renamed
+# because the press now generates doctorBaseURLIsPlaceholder.
+CARRIED_HELPER_RENAMED = CARRIED_HELPER.replace("func doctorBaseURLIsPlaceholder(",
+                                                "func doctorBaseURLIsShippedPlaceholder(")
+# A hand-written login command (cipp's auth_login.go): the pre-reprint port,
+# and the reprint's stronger one (secret from stdin), both keeping the switch.
+LOGIN = ("package cli\n\n// Hand-authored novel feature (preserved across regen).\n"
+         "func newAcmeAuthLoginCmd(flags *rootFlags) *cobra.Command {\n\tif config.NoConfigWrite() {\n\t}\n"
+         "\tclientSecret := flags.secret\n\treturn nil\n}\n")
+CARRIED_LOGIN = LOGIN.replace("\tclientSecret := flags.secret\n",
+                              "\tclientSecret, err := readSecretFromStdin(cmd.InOrStdin())\n")
 SWITCH = """// NoConfigWriteEnv is the environment switch (issue #270).
 const NoConfigWriteEnv = "ACME_NO_CONFIG_WRITE"
 
@@ -438,6 +528,7 @@ def ledger(m) -> dict:
             A("cli/internal/config/config.go", 'const NoConfigWriteEnv = "ACME_NO_CONFIG_WRITE"'),
             A("cli/internal/config/config.go", "return c.saveCredentialMaterial()"),
             A("cli/internal/cli/auth.go", "if config.NoConfigWrite() {"),
+            A("cli/internal/cli/auth_login.go", "if config.NoConfigWrite() {", code_only=True),
             A("cli/internal/config/config_noconfigwrite_test.go", "func TestNoConfigWriteLeavesNothingOnDisk("),
             A("cli/internal/mcp/mcp_config_resolution_test.go", "func TestMCPClientHonoursTheConfigEnvVar("),
             A("manifest.json", '"ACME_NO_CONFIG_WRITE"')]},
@@ -471,6 +562,7 @@ def before(skill: Path, m) -> None:
     w(cli / "internal/cli/auth_dry_run_test.go", "package cli_test\n\nfunc TestAuthLoginDryRunSendsNothing(t *testing.T) {\n"
       '\trun("", "auth", "set-token", "stub-dry-run-token", "--dry-run")\n}\n')
     w(cli / "internal/cli/doctor_verdict.go", HELPER)
+    w(cli / "internal/cli/auth_login.go", LOGIN)
     w(cli / "internal/cli/doctor.go", GEN + "package cli\n\nfunc d() {\n\tdoctorProbeCredentials(cmd.Context(), c, nil, \"\", nil)\n}\n")
     w(cli / "internal/cli/purge.go", GEN + "package cli\n\nfunc newPurgeCmd(flags *rootFlags) *cobra.Command {\n"
       "\treturn &cobra.Command{\n\t\tUse:   \"purge <id>\",\n\t\tShort: \"Purge things\",\n\t}\n}\n")

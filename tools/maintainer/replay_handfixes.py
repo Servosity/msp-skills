@@ -19,10 +19,13 @@ one once against a press release:
              check_handfixes.py demands the registry's native asserts instead,
              and this tool runs the id's gates.
   replay     the press still lacks it; this tool re-applies it with the named
-             recipe: hand-written files the entry asserts on are restored from
-             the pre-reprint revision (--base, default HEAD), with declarations
-             the press now generates dropped; generated files get anchored
-             edits.
+             recipe: hand-written files the entry asserts on that the reprint
+             lacks are restored from the pre-reprint revision (--base, default
+             HEAD), with declarations the press now generates dropped;
+             generated files get anchored edits. A file the reprint carries is
+             kept as printed, never replaced by its pre-reprint copy (the
+             reprint may carry a fix that copy lacks); if it lacks an entry's
+             needle, the run names it and exits 1.
   delegated  another tool owns it (secret-echo-decoded-funnel:
              apply_secret_funnel.py, which onboard.py runs after this one).
 
@@ -37,11 +40,11 @@ press already meets is a no-op; set `retire_at` once a press resolves it.
 Every step is idempotent and fails closed: an anchor that is missing or
 ambiguous, a file the recipe cannot restore, or an assert the replay would lose
 is named by site, and the run exits 1. Success is measured, never inferred
-from the edits: an apply must pass go build, go vet, check_handfixes.py --slug
-(the delegated ids excluded), go test of every package it wrote, the id gates
-named in the registry, and, when a floor was raised, go test ./... and
-check_security_gate.py --slug --require-scanners. --check stays cheap: planned
-changes and the ledger check, no build.
+from the edits: an apply must pass go build, go vet, go vet for each release OS
+(cgo off), check_handfixes.py --slug (the delegated ids excluded), go test of
+every package it wrote, the id gates named in the registry, and, when a floor
+was raised, go test ./... and check_security_gate.py --slug --require-scanners.
+--check stays cheap: planned changes and the ledger check, no build.
 
 Exit codes: 0 applied (or already applied) and proven. 1 a site needs a person,
 a proof failed, or --check found work to do. 2 bad usage.
@@ -64,6 +67,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import check_handfixes as chf  # noqa: E402  the ledger's own semantics
+import registry  # noqa: E402  the release targets (TARGETS)
 
 ROOT = HERE.parent.parent
 REGISTRY = HERE / "fleet_handfixes.json"
@@ -285,6 +289,24 @@ class Plan:
             self.texts[rel] = text
             self.made.append(f"{rel}: {label}")
 
+    def write_restored(self, site: str, rel: str, text: str, label: str) -> bool:
+        """Write a whole file copied from the pre-reprint revision, only where
+        the reprint left a gap. Every such copy goes through here. A file the
+        vendored tree carries is never replaced, because the reprint may carry
+        a fix the pre-reprint copy lacks. This reads the tree itself, so a
+        caller that misjudged presence cannot overwrite one. A carried copy
+        that differs is named for a person (exit 1). True when written."""
+        if not self.safe(rel):
+            return False
+        if (self.skill / rel).is_file() or rel in self.texts:
+            if self.read(rel) != text:
+                self.hand(site, f"{rel}: the reprint carries its own copy, which differs from {self.base}'s; "
+                                f"replay never replaces a reprinted file with its pre-reprint copy. Diff the "
+                                f"two, keep what the reprint fixed, wire the hand-fix by hand and update its asserts")
+            return False
+        self.write(rel, text, label)
+        return True
+
     def delete(self, rel: str, label: str) -> None:
         if self.safe(rel) and (self.skill / rel).is_file() and rel not in self.deleted:
             self.deleted.add(rel)
@@ -356,7 +378,8 @@ class Plan:
     def restore(self, site: str, rel: str, dedupe: bool = False) -> bool:
         """Bring back a hand-written file the press does not generate, from the
         pre-reprint revision. A file that was generated there is not restored:
-        the press dropped or renamed it, and a person must decide."""
+        the press dropped or renamed it, and a person must decide. A file the
+        reprint carries is kept as printed; the entry's asserts then decide."""
         if self.exists(rel):
             self.add_tests_from(rel)
             return True
@@ -371,7 +394,8 @@ class Plan:
         text = old
         if dedupe and rel.endswith(".go") and not rel.endswith("_test.go"):
             text = self.dedupe(rel, text)
-        self.write(rel, text, f"restored from {self.base}")
+        if not self.write_restored(site, rel, text, f"restored from {self.base}"):
+            return False
         self.add_tests_from(rel)
         self.restore_dependencies(site, rel, text)
         return True
@@ -407,9 +431,9 @@ class Plan:
                 if GENERATED in old[:600]:
                     continue
                 declared = {d["name"] for d in go_decls(old, dep) if d["name"]}
-                if declared & missing:
-                    self.write(dep, old, f"restored from {self.base} (declares {', '.join(sorted(declared & missing))} "
-                                         f"for {rel})")
+                if declared & missing and self.write_restored(
+                        site, dep, old, f"restored from {self.base} (declares {', '.join(sorted(declared & missing))} "
+                                        f"for {rel})"):
                     missing -= declared
 
     def dedupe(self, rel: str, text: str) -> str:
@@ -1263,6 +1287,15 @@ def run_proofs(root: Path, slug: str, full: bool, p: Plan, pkgs: list[str]) -> l
         r = subprocess.run(cmd, cwd=cli, capture_output=True, text=True, timeout=1800, env=go_env())
         if r.returncode != 0:
             return failed + [f"{name}: {_tail(r)}"]
+    # The host compiles only its own platform's files. A name declared twice
+    # where only another release OS builds (a _windows.go file, a //go:build
+    # windows line) passes the host build, so vet every release OS: Go rejects
+    # the duplicate there.
+    for goos, goarch in cross_vet_targets():
+        r = subprocess.run(["go", "vet", "./..."], cwd=cli, capture_output=True, text=True, timeout=1800,
+                           env=dict(go_env(), GOOS=goos, GOARCH=goarch, CGO_ENABLED="0"))
+        if r.returncode != 0:
+            return failed + [f"GOOS={goos} GOARCH={goarch} CGO_ENABLED=0 go vet ./...: {_tail(r)}"]
     test_pkgs = sorted(set(pkgs) | set(p.tests))
     if p.floor_raises:
         r = subprocess.run(["go", "test", "./...", "-count=1"], cwd=cli, capture_output=True, text=True,
@@ -1286,6 +1319,14 @@ def run_proofs(root: Path, slug: str, full: bool, p: Plan, pkgs: list[str]) -> l
             failed.append(f"check_security_gate.py --slug {slug} --require-scanners (after raising "
                           f"{', '.join(m for m, _, _ in p.floor_raises)}): {_tail(r)}")
     return failed
+
+
+def cross_vet_targets() -> list[tuple[str, str]]:
+    """One release target per release OS (registry.TARGETS order)."""
+    seen: dict[str, str] = {}
+    for t in registry.TARGETS:
+        seen.setdefault(t["goos"], t["goarch"])
+    return list(seen.items())
 
 
 CLASS_SUMMARY = re.compile(r"== class ([\w-]+): (\d+) failing / (\d+) checked")
