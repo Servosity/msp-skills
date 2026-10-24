@@ -769,6 +769,46 @@
      "not_contains": "\"error\": err.Error(),"
     }
    ]
+  },
+  {
+   "id": "oauth-audience-on-token-request",
+   "class": "auth-wire",
+   "summary": "The client_credentials token request sends audience=api://p8p.client (overridable with PAX8_AUDIENCE); press 4.34.0 does not emit it",
+   "why": "Pax8's token manager (https://token-manager.pax8.com/oauth/token) requires an audience on the client_credentials request (the hand edit's own comment: without it the mint is rejected or yields an unusable token, so every command fails auth). client.go carries a hand-added resolveClientCredentialsAudience() (PAX8_AUDIENCE, default api://p8p.client) and mintClientCredentials sets it on the form. Press 4.34.0's client.go.tmpl has no audience support and no spec extension expresses one (first noted on the 4.22 reprint as not absorbed upstream), so a reprint regenerates client.go without it. The install-credentials-declared-on-every-channel entry pins only the PAX8_AUDIENCE declarations in manifest.json, server.json and mcp-install.md: a reprint that dropped the code would leave PAX8_AUDIENCE declared but unread. check_env_schema.py then fails, but its fix hint ('Drop it everywhere if the binary no longer reads it') steers toward deleting the declarations, which would remove the override for good; this entry instead fails check_handfixes.py at the dropped lines and names the hand edit to restore. These asserts are code_only so a doc comment naming the function cannot satisfy them.",
+   "status": "active",
+   "spec_encode_followup": "Press fix: an OAuth audience on the client-credentials security scheme (an x-auth-audience style extension with an env override) rendered into the token form by client.go.tmpl.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func resolveClientCredentialsAudience() string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "os.Getenv(\"PAX8_AUDIENCE\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return \"api://p8p.client\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if aud := resolveClientCredentialsAudience(); aud != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "form.Set(\"audience\", aud)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }
