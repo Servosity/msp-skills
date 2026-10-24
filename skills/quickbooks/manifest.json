@@ -22,7 +22,12 @@
         "QUICKBOOKS_ENVIRONMENT": "${user_config.quickbooks_environment}",
         "QUICKBOOKS_REALM_ID": "${user_config.quickbooks_realm_id}",
         "QUICKBOOKS_REFRESH_TOKEN": "${user_config.quickbooks_refresh_token}",
-        "QUICKBOOKS_TOKEN_URL": "${user_config.quickbooks_token_url}"
+        "QUICKBOOKS_TOKEN_URL": "${user_config.quickbooks_token_url}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "QUICKBOOKS_MCP_READ_ONLY": "${user_config.quickbooks_mcp_read_only}",
+        "QUICKBOOKS_NO_LOCAL_DATA": "${user_config.quickbooks_no_local_data}",
+        "QUICKBOOKS_MCP_HTTP_TOKEN": "${user_config.quickbooks_mcp_http_token}",
+        "QUICKBOOKS_USER_AGENT": "${user_config.quickbooks_user_agent}"
       }
     }
   },
@@ -80,6 +85,40 @@
       "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
       "required": false,
       "default": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "quickbooks_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep the local sync and analytics tools available.",
+      "required": false,
+      "sensitive": false
+    },
+    "quickbooks_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to save no API data locally: sync is refused, the response cache is off, and reads go to the API. Commands that read the local mirror still read what is already there. Leave blank to keep the local mirror that sync, search and the analytics read.",
+      "required": false,
+      "sensitive": false
+    },
+    "quickbooks_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "quickbooks_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on QuickBooks Online requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
     }
   },
   "compatibility": {
@@ -90,11 +129,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:14:34.268075Z",
-    "spec_checksum": "sha256:699e07877a1b766fcd77676d62d696dd6f4a4a2e072b92ad4005bb0adb7d6fd2",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-24T22:33:34.905495Z",
+    "spec_checksum": "sha256:67c16647ff3bdbf873e911b4807583bcd56049173093e2ff35da88641e6f1957",
     "spec_format": "internal"
   }
 }

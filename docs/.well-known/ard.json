@@ -1369,7 +1369,7 @@
       ],
       "representativeQueries": [
         "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?",
-        "What do we owe vendors, and when is it due?",
+        "What do we owe vendors, and how overdue is it?",
         "Which overdue invoices should I chase first?",
         "Where does our cash stand across accounts, AR, and AP?",
         "What net cash movement is scheduled over the next 4 weeks?"

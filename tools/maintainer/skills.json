@@ -1728,7 +1728,7 @@
       "category": "Billing",
       "display_name": "QuickBooks Online",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
-      "cli_hash": "sha256:1f01e28ec09243ed687d05443ccc1ab93dd3fdd0d32f5bd76b49e7bb4a1562c0",
+      "cli_hash": "sha256:a20ad9a69719003e0418fa1ad1db66ff509df91722a08dbadbb448782eab8dd2",
       "template_version": 3,
       "version": "0.1.14",
       "cli_hash_at_release": "sha256:9356ad23d29b9a046c31c539e948b51974f03f068ba4db71af09d635ceef20a1",

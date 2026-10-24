@@ -487,9 +487,9 @@
     {
       "name": "quickbooks",
       "type": "skill-md",
-      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`.",
+      "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/SKILL.md",
-      "digest": "sha256:f56a0dbe208ed3c3eeb44145b6b0e4cf57876613947ae25bb437029898bacae2"
+      "digest": "sha256:c104e3d2fc05711b9f80828fbf07057ab8fef919e9dcf473e3adb69ddb4ca20e"
     },
     {
       "name": "quotewerks",

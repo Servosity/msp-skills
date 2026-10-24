@@ -239,12 +239,6 @@
    "read-only",
    "local-data"
   ],
-  "quickbooks": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "quotewerks": [
    "read-only",
    "local-data"

