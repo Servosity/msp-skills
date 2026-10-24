@@ -69,6 +69,12 @@
 
   "_waivers_comment": "Per-slug exemptions from BOTH directions of the comparison (read-but-not-declared and declared-but-not-read). `var` and `reason` are mandatory; a waiver without a non-empty reason is itself a gate failure.",
   "waivers": {
+    "acronis": [
+      {
+        "var": "PRINTING_PRESS_CLIENT_PROFILE",
+        "reason": "Read by the press 4.34.0 platform layer, but acronis registers no platform source (internal/cli/platform_client.go: registerPlatformSource is never called, so registeredPlatformSource stays nil and preparePlatformSession returns without binding anything). Prompting for a client profile would promise a tenant isolation this binary does not provide; Acronis scopes each call by the API client's own tenant and the tenant_id arguments. Declare it if a later print registers a source."
+      }
+    ],
     "aws-billing": [
       {
         "var": "AWS_ACCESS_KEY_ID",
