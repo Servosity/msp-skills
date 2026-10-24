@@ -211,7 +211,7 @@
     {
       "name": "cipp",
       "source": "./skills/cipp",
-      "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+      "description": "Every CIPP endpoint as a typed command, plus cross-tenant fan-out into a local store, offline joins across endpoints, and history over time.",
       "version": "0.1.12",
       "category": "security",
       "tags": [

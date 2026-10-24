@@ -124,3 +124,65 @@ func TestLoadTenantsFromStore(t *testing.T) {
 		t.Fatalf("contoso tenant wrong: %#v", c)
 	}
 }
+
+// TestResolveFanoutEndpoints asserts preset expansion, CSV endpoints, leading-
+// slash normalization, de-duplication, and the unknown-preset error.
+func TestResolveFanoutEndpoints(t *testing.T) {
+	got, err := resolveFanoutEndpoints("/ListUsers", "")
+	if err != nil || len(got) != 1 || got[0] != "/ListUsers" {
+		t.Fatalf("single endpoint: got %v err %v", got, err)
+	}
+
+	got, err = resolveFanoutEndpoints("ListUsers,ListLicenses", "")
+	if err != nil || len(got) != 2 || got[0] != "/ListUsers" || got[1] != "/ListLicenses" {
+		t.Fatalf("CSV endpoints should normalize a leading slash: got %v err %v", got, err)
+	}
+
+	got, err = resolveFanoutEndpoints("", "core")
+	if err != nil {
+		t.Fatalf("preset core: %v", err)
+	}
+	if len(got) != len(fanoutPresets["core"]) {
+		t.Errorf("preset core expanded to %d endpoints, want %d", len(got), len(fanoutPresets["core"]))
+	}
+
+	// Explicit endpoints come first and duplicates collapse.
+	got, err = resolveFanoutEndpoints("/ListUsers", "core")
+	if err != nil {
+		t.Fatalf("endpoint+preset: %v", err)
+	}
+	if got[0] != "/ListUsers" {
+		t.Errorf("explicit --endpoint should lead, got %v", got)
+	}
+	seen := map[string]int{}
+	for _, e := range got {
+		seen[e]++
+		if seen[e] > 1 {
+			t.Errorf("endpoint %q appears twice in %v", e, got)
+		}
+	}
+
+	if _, err := resolveFanoutEndpoints("", "nope"); err == nil {
+		t.Error("an unknown preset must error rather than silently fanning out nothing")
+	}
+
+	if got, err := resolveFanoutEndpoints("", ""); err != nil || len(got) != 0 {
+		t.Errorf("empty input should yield no endpoints and no error, got %v %v", got, err)
+	}
+}
+
+// TestFanoutPresetEndpointsAreNormalized asserts every declared preset endpoint
+// carries a leading slash, so preset entries and --endpoint values agree on the
+// resource_type they derive.
+func TestFanoutPresetEndpointsAreNormalized(t *testing.T) {
+	for name, endpoints := range fanoutPresets {
+		if len(endpoints) == 0 {
+			t.Errorf("preset %q is empty", name)
+		}
+		for _, e := range endpoints {
+			if e == "" || e[0] != '/' {
+				t.Errorf("preset %q endpoint %q must start with /", name, e)
+			}
+		}
+	}
+}

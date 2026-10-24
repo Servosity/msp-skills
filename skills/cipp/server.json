@@ -42,9 +42,33 @@
         },
         {
           "name": "CIPP_NO_CONFIG_WRITE",
-          "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "description": "Set to 1 to keep credentials off disk: auth login and auth set-token refuse and nothing is written, so supply the bearer token in CIPP_API_KEY. Leave blank for the default, which keeps the minted token in the credentials file.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "CIPP_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on CIPP requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CIPP_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to drop every MCP tool not marked read-only, cipp_execute included. Leave blank to allow writes, which run only after a preview the agent confirms.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CIPP_NO_LOCAL_DATA",
+          "description": "Optional. Set to exactly 1 to keep no local copy of CIPP data: reads go to the API, the response cache is off, and fanout --save and --resume refuse to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CIPP_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

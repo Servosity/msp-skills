@@ -170,8 +170,13 @@ func TestAuthLogin_ErrorBodyMasksClientSecret(t *testing.T) {
 			if esc := url.QueryEscape(loginTestSecret); esc != loginTestSecret && strings.Contains(msg, esc) {
 				t.Fatalf("url-encoded client_secret printed:\n%s", msg)
 			}
-			if !strings.Contains(msg, "****mple") {
-				t.Fatalf("the secret should be masked, not deleted:\n%s", msg)
+			// Not plain prose, so it is withheld (handfixes.json
+			// token-error-text-allowlist) rather than shown masked.
+			if !strings.Contains(msg, "****") && !strings.Contains(msg, "withheld") {
+				t.Fatalf("the echoed secret should be masked or withheld:\n%s", msg)
+			}
+			if !strings.Contains(msg, "HTTP 400") {
+				t.Fatalf("the status was lost:\n%s", msg)
 			}
 		})
 	}
@@ -187,8 +192,8 @@ func TestMaskSecret(t *testing.T) {
 	}{
 		{"empty secret changes nothing", "client_secret=abc", "", "client_secret=abc"},
 		{"empty text changes nothing", "", "abc", ""},
-		{"plain occurrence", "client_secret=" + loginTestSecret + "&x=1", loginTestSecret, "client_secret=****mple&x=1"},
-		{"url-encoded occurrence", "client_secret=a%2Fb%2Bc", "a/b+c", "client_secret=****/b+c"},
+		{"plain occurrence", "client_secret=" + loginTestSecret + "&x=1", loginTestSecret, "client_secret=****&x=1"},
+		{"url-encoded occurrence", "client_secret=a%2Fb%2Bc", "a/b+c", "client_secret=****"},
 		{"short secret masks entirely", "k=abc", "abc", "k=****"},
 		{"absent secret is untouched", "nothing here", loginTestSecret, "nothing here"},
 	}

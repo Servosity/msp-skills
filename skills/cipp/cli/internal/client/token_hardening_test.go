@@ -18,6 +18,8 @@ package client
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -562,7 +564,56 @@ func TestMintErrorBodyMasksClientSecret(t *testing.T) {
 	if !strings.Contains(msg, "invalid_request") {
 		t.Fatalf("masking swallowed the vendor's explanation:\n%s", msg)
 	}
-	if !strings.Contains(msg, "****mple") {
-		t.Fatalf("the secret should be replaced by its masked form, not deleted:\n%s", msg)
+	// The echoed form is not plain prose, so the description is withheld
+	// (handfixes.json token-error-text-allowlist) rather than shown masked.
+	if !strings.Contains(msg, "client_secret=****") && !strings.Contains(msg, "withheld") {
+		t.Fatalf("the echoed form should be masked or withheld:\n%s", msg)
+	}
+}
+
+func TestRedactTokenResponseMasksTokenMembers(t *testing.T) {
+	for _, body := range []string{
+		`{"access_token":"minted-bearer-value","expires_in":3600}`,
+		`{"error":"x","refresh_token":"minted-bearer-value"}`,
+		`access_token=minted-bearer-value&token_type=Bearer`,
+	} {
+		if got := RedactTokenResponse(body); strings.Contains(got, "minted-bearer-value") {
+			t.Fatalf("token survived redaction: %q -> %q", body, got)
+		}
+	}
+	if got := RedactTokenResponse(`{"error":"invalid_client","error_description":"bad secret"}`); !strings.Contains(got, "invalid_client") {
+		t.Fatalf("redaction must keep the vendor's explanation: %q", got)
+	}
+}
+
+func TestRedactTokenResponseCatchesEscapedJSON(t *testing.T) {
+	body := `{"error":"invalid_client","error_description":"{\"access_token\":\"minted-bearer-value\"}"}`
+	if got := RedactTokenResponse(body); strings.Contains(got, "minted-bearer-value") {
+		t.Fatalf("escaped token survived: %q", got)
+	}
+}
+
+func TestMintRejectsAlreadyExpiredToken(t *testing.T) {
+	clearVerifyEnv(t)
+	ts := newTokenServer(t, -1)
+	cfg := expiringConfig(t, ts, time.Now().Add(-time.Minute))
+	c := newTestClient(t, cfg)
+	if _, err := c.authHeader(context.Background()); err == nil || !errors.Is(err, ErrExpiredOnArrival) {
+		t.Fatalf("a negative expires_in must be refused, not installed: %v", err)
+	}
+}
+
+func TestRedactTokenResponseCatchesUnicodeEscapes(t *testing.T) {
+	for _, body := range []string{
+		`{"access_token":"\u006dinted-bearer-value"}`,
+		`{"error":"x","error_description":"{\"access_token\":\"\\u006dinted-bearer-value\"}"}`,
+	} {
+		got := RedactTokenResponse(body)
+		var decoded any
+		_ = json.Unmarshal([]byte(got), &decoded)
+		flat, _ := json.Marshal(decoded)
+		if strings.Contains(got, "inted-bearer-value") || strings.Contains(string(flat), "inted-bearer-value") {
+			t.Fatalf("escaped token survived: %q -> %q", body, got)
+		}
 	}
 }

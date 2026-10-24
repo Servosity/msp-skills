@@ -241,12 +241,14 @@ func TestAuthHeader_RemintsExpiredToken(t *testing.T) {
 		t.Fatalf("scope = %q, want %q", form["scope"], want)
 	}
 	// And it must be persisted, or the next process re-mints needlessly.
-	data, err := os.ReadFile(cfg.Path)
+	// Press 4.34 keeps credentials in the data-dir credentials file, so prove
+	// it through a fresh Load rather than by reading config.toml.
+	reloaded, err := config.Load(cfg.Path)
 	if err != nil {
-		t.Fatalf("config not written: %v", err)
+		t.Fatalf("reloading config: %v", err)
 	}
-	if !strings.Contains(string(data), "minted-token-1") {
-		t.Fatalf("minted token not persisted to %s:\n%s", cfg.Path, data)
+	if reloaded.AccessToken != "minted-token-1" {
+		t.Fatalf("minted token not persisted: reloaded access token = %q", reloaded.AccessToken)
 	}
 
 	// Second call must reuse the fresh token, not mint again.
@@ -379,7 +381,8 @@ func TestAuthHeader_StaticAPIKeyWithClientCredsNeverMints(t *testing.T) {
 
 // TestAuthHeader_ExpiresInZeroDoesNotLoop pins the non-conformant-server
 // guard. Storing time.Now() for expires_in: 0 would make the token look
-// expired the instant it arrived and re-mint on every request forever.
+// expired the instant it arrived and re-mint on every request forever;
+// storing the zero time would never re-mint at all.
 func TestAuthHeader_ExpiresInZeroDoesNotLoop(t *testing.T) {
 	clearVerifyEnv(t)
 	ts := newTokenServer(t, 0)
@@ -398,8 +401,10 @@ func TestAuthHeader_ExpiresInZeroDoesNotLoop(t *testing.T) {
 	if got := ts.grantCount(); got != 1 {
 		t.Fatalf("expires_in: 0 produced %d grants over 10 calls, want 1", got)
 	}
-	if !cfg.TokenExpiry.IsZero() {
-		t.Fatalf("expires_in: 0 must store the zero time, got %s", cfg.TokenExpiry)
+	// Not the zero time either: a zero expiry reads as "never re-mint", so
+	// an already-expired token would be reused forever (Codex review r1).
+	if until := time.Until(cfg.TokenExpiry); until <= 0 || until > unknownLifetimeValidity {
+		t.Fatalf("expires_in: 0 must store a short bounded expiry, got %s (in %s)", cfg.TokenExpiry, until)
 	}
 }
 

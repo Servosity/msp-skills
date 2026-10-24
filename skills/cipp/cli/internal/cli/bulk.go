@@ -1,9 +1,12 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
 import (
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,15 +24,54 @@ import (
 type bulkAction struct {
 	Method string
 	Path   string
+	// MultiTenant marks an endpoint that accepts a `selectedTenants` array and
+	// fans out SERVER-SIDE. For these, rows sharing an action and params are
+	// collapsed into ONE call carrying every tenant, instead of one call per
+	// tenant. That is both faster and materially less likely to trip Microsoft
+	// Graph throttling, which is the dominant failure mode for large batches.
+	MultiTenant bool
 }
 
-// bulkActions is the small, documented action→endpoint map. Keep it small; add
-// new actions deliberately.
+// bulkActions is the documented action→endpoint map.
+//
+// The MultiTenant entries are the endpoints whose OpenAPI request body declares
+// a `selectedTenants` property ("Comma-separated list of tenant domains for bulk
+// operations"). All 21 such endpoints in the current spec are represented below
+// or reachable via the generic `deploy-*` names; every one is a deploy/apply
+// shape rather than a per-user mutation, which is why the collapse is safe.
 var bulkActions = map[string]bulkAction{
-	"offboard":       {Method: "POST", Path: "/ExecOffboardUser"},
-	"add-user":       {Method: "POST", Path: "/AddUser"},
-	"remove-user":    {Method: "POST", Path: "/RemoveUser"},
-	"set-forwarding": {Method: "POST", Path: "/ExecEmailForward"},
+	// Per-user mutations: one call per tenant, no server-side fan-out.
+	"offboard":        {Method: "POST", Path: "/ExecOffboardUser"},
+	"add-user":        {Method: "POST", Path: "/AddUser"},
+	"remove-user":     {Method: "POST", Path: "/RemoveUser"},
+	"set-forwarding":  {Method: "POST", Path: "/ExecEmailForward"},
+	"reset-password":  {Method: "POST", Path: "/ExecResetPass"},
+	"reset-mfa":       {Method: "POST", Path: "/ExecResetMFA"},
+	"revoke-sessions": {Method: "POST", Path: "/ExecRevokeSessions"},
+	"disable-user":    {Method: "POST", Path: "/ExecDisableUser"},
+
+	// Multi-tenant deploys: collapse to one server-side fan-out call.
+	"deploy-dlp-policy":          {Method: "POST", Path: "/AddDlpCompliancePolicy", MultiTenant: true},
+	"deploy-retention-policy":    {Method: "POST", Path: "/AddRetentionCompliancePolicy", MultiTenant: true},
+	"deploy-sensitivity-label":   {Method: "POST", Path: "/AddSensitivityLabel", MultiTenant: true},
+	"deploy-sensitive-info-type": {Method: "POST", Path: "/AddSensitiveInfoType", MultiTenant: true},
+	"deploy-named-location":      {Method: "POST", Path: "/AddNamedLocation", MultiTenant: true},
+	"deploy-transport-rule":      {Method: "POST", Path: "/AddTransportRule", MultiTenant: true},
+	"deploy-spam-filter":         {Method: "POST", Path: "/AddSpamFilter", MultiTenant: true},
+	"deploy-connection-filter":   {Method: "POST", Path: "/AddConnectionFilter", MultiTenant: true},
+	"deploy-quarantine-policy":   {Method: "POST", Path: "/AddQuarantinePolicy", MultiTenant: true},
+	"deploy-safelinks-policy":    {Method: "POST", Path: "/AddSafeLinksPolicyFromTemplate", MultiTenant: true},
+	"deploy-exchange-connector":  {Method: "POST", Path: "/AddExConnector", MultiTenant: true},
+	"deploy-defender":            {Method: "POST", Path: "/AddDefenderDeployment", MultiTenant: true},
+	"deploy-app-template":        {Method: "POST", Path: "/ExecDeployAppTemplate", MultiTenant: true},
+	"deploy-contact-template":    {Method: "POST", Path: "/DeployContactTemplates", MultiTenant: true},
+	"deploy-autopilot-config":    {Method: "POST", Path: "/AddAutopilotConfig", MultiTenant: true},
+	"deploy-enrollment":          {Method: "POST", Path: "/AddEnrollment", MultiTenant: true},
+	"deploy-office-app":          {Method: "POST", Path: "/AddOfficeApp", MultiTenant: true},
+	"deploy-choco-app":           {Method: "POST", Path: "/AddChocoApp", MultiTenant: true},
+	"deploy-store-app":           {Method: "POST", Path: "/AddStoreApp", MultiTenant: true},
+	"deploy-msp-app":             {Method: "POST", Path: "/AddMSPApp", MultiTenant: true},
+	"deploy-win32-script-app":    {Method: "POST", Path: "/AddWin32ScriptApp", MultiTenant: true},
 }
 
 // bulkRow is one parsed CSV row.
@@ -107,13 +149,99 @@ func knownActions() []string {
 	return keys
 }
 
-// bulkCheckpoint records completed row indices for resume.
-type bulkCheckpoint struct {
-	CSV       string `json:"csv"`
-	Completed []int  `json:"completed"`
+// bulkBatch is one outgoing request. A per-user action produces one batch per
+// row; a MultiTenant deploy action produces one batch for every row sharing the
+// same action and params, carrying all their tenants in `selectedTenants` so
+// CIPP fans out server-side.
+type bulkBatch struct {
+	Action   string
+	Endpoint string
+	Method   string
+	Params   map[string]any
+	Tenants  []string
+	Indexes  []int
+	// MultiTenant selects the request shape: selectedTenants in the body versus
+	// a single tenantFilter query parameter.
+	MultiTenant bool
 }
 
-func bulkCheckpointPath(csvPath string) (string, error) {
+// paramsFingerprint renders a row's params to a stable key so identical deploys
+// across tenants collapse together. Marshal failures fall back to a unique key,
+// which degrades to per-row calls rather than wrongly merging distinct payloads.
+func paramsFingerprint(index int, params map[string]any) string {
+	b, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Sprintf("unmergeable-%d", index)
+	}
+	return string(b)
+}
+
+// collapseBulkRows groups rows into outgoing requests. Rows whose action is
+// MultiTenant and whose params are identical merge into one call carrying every
+// tenant; everything else stays one call per row.
+//
+// This is the difference between N throttled calls and one server-side fan-out
+// for the deploy family, and Microsoft Graph throttling is the dominant failure
+// mode for large batches.
+func collapseBulkRows(rows []bulkRow) []bulkBatch {
+	batches := make([]bulkBatch, 0, len(rows))
+	merged := map[string]int{} // action+params -> index into batches
+
+	for _, r := range rows {
+		if r.parseError != "" {
+			continue
+		}
+		def, known := bulkActions[strings.ToLower(r.Action)]
+		if known && def.MultiTenant {
+			key := strings.ToLower(r.Action) + "|" + paramsFingerprint(r.Index, r.Params)
+			if at, ok := merged[key]; ok {
+				batches[at].Tenants = append(batches[at].Tenants, r.Tenant)
+				batches[at].Indexes = append(batches[at].Indexes, r.Index)
+				continue
+			}
+			merged[key] = len(batches)
+			batches = append(batches, bulkBatch{
+				Action: r.Action, Endpoint: r.Endpoint, Method: r.Method,
+				Params: r.Params, Tenants: []string{r.Tenant}, Indexes: []int{r.Index},
+				MultiTenant: true,
+			})
+			continue
+		}
+		batches = append(batches, bulkBatch{
+			Action: r.Action, Endpoint: r.Endpoint, Method: r.Method,
+			Params: r.Params, Tenants: []string{r.Tenant}, Indexes: []int{r.Index},
+		})
+	}
+	return batches
+}
+
+// bulkCheckpoint records completed row indices for resume, and the rows whose
+// write came back conflicting (hand-fix handfixes.json bulk-conflict-needs-review):
+// those are never resent automatically, with or without --resume. It holds
+// only hashes and row numbers: the sha256 of the CSV bytes, the sha256 of the
+// CSV's resolved path, completed row indices and needs-review row indices. No
+// CIPP response and no CSV row content is written, in any mode (so nothing of
+// CIPP's data lands on disk under CIPP_NO_LOCAL_DATA=1 either).
+type bulkCheckpoint struct {
+	CSVSHA256   string `json:"csv_sha256"`
+	PathSHA256  string `json:"path_sha256"`
+	Completed   []int  `json:"completed"`
+	NeedsReview []int  `json:"needs_review,omitempty"`
+}
+
+// bulkResolvedPath is the CSV's absolute path with symlinks resolved.
+func bulkResolvedPath(csvPath string) string {
+	resolved := csvPath
+	if abs, err := filepath.Abs(csvPath); err == nil {
+		resolved = abs
+	}
+	if real, err := filepath.EvalSymlinks(resolved); err == nil {
+		resolved = real
+	}
+	return resolved
+}
+
+func bulkCheckpointPath(csvPath string, contentSum []byte) (string, error) {
 	dir, err := fanoutCacheDir()
 	if err != nil {
 		return "", err
@@ -122,42 +250,89 @@ func bulkCheckpointPath(csvPath string) (string, error) {
 	if base == "" {
 		base = "bulk"
 	}
-	return filepath.Join(dir, "bulk-"+checkpointSlug(base)+".json"), nil
+	// Hand-fix (handfixes.json bulk-checkpoint-per-file): a checkpoint belongs
+	// to one CSV's exact bytes at one resolved path. Size and modification time
+	// are not identity: an edit that keeps both must still start from row 0.
+	h := sha256.New()
+	_, _ = h.Write([]byte(bulkResolvedPath(csvPath)))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write(contentSum)
+	return filepath.Join(dir, "bulk-"+checkpointSlug(base)+"-"+hex.EncodeToString(h.Sum(nil)[:8])+".json"), nil
 }
 
-func readBulkCheckpoint(path string) (map[int]bool, error) {
+// bulkCheckpointWritable proves this CSV's checkpoint (or, before it exists,
+// its directory) can be written before any write is sent, so a needs-review
+// hold can never silently fail to persist.
+func bulkCheckpointWritable(cpPath string) error {
+	// An existing checkpoint is rewritten in place (os.WriteFile), so the file
+	// itself must open for writing; O_WRONLY without O_TRUNC leaves it intact.
+	// cpPath comes from bulkCheckpointPath. #nosec G304 -- internal cache path.
+	if f, err := os.OpenFile(cpPath, os.O_WRONLY, 0); err == nil { // #nosec G304
+		return f.Close()
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	f, err := os.CreateTemp(filepath.Dir(cpPath), ".bulk-probe-*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	return os.Remove(name)
+}
+
+func readBulkCheckpoint(path string) (map[int]bool, map[int]bool, error) {
 	done := map[int]bool{}
+	review := map[int]bool{}
 	// path comes from bulkCheckpointPath: a slugified filename under the
 	// per-CLI cache dir, never user-supplied. #nosec G304 -- internal cache path.
 	data, err := os.ReadFile(path) // #nosec G304
 
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return done, nil
+			return done, review, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	var cp bulkCheckpoint
 	if err := json.Unmarshal(data, &cp); err != nil {
-		return nil, fmt.Errorf("parsing checkpoint %s: %w", path, err)
+		return nil, nil, fmt.Errorf("parsing checkpoint %s: %w", path, err)
 	}
 	for _, i := range cp.Completed {
 		done[i] = true
 	}
-	return done, nil
+	for _, i := range cp.NeedsReview {
+		review[i] = true
+	}
+	return done, review, nil
 }
 
-func writeBulkCheckpoint(path, csvPath string, done map[int]bool) error {
-	completed := make([]int, 0, len(done))
-	for i := range done {
-		completed = append(completed, i)
+func writeBulkCheckpoint(path string, csvSum []byte, csvPath string, done, review map[int]bool) error {
+	sorted := func(m map[int]bool) []int {
+		out := make([]int, 0, len(m))
+		for i := range m {
+			out = append(out, i)
+		}
+		sort.Ints(out)
+		return out
 	}
-	sort.Ints(completed)
-	data, err := json.MarshalIndent(bulkCheckpoint{CSV: csvPath, Completed: completed}, "", "  ")
+	pathSum := sha256.Sum256([]byte(bulkResolvedPath(csvPath)))
+	cp := bulkCheckpoint{
+		CSVSHA256:  hex.EncodeToString(csvSum),
+		PathSHA256: hex.EncodeToString(pathSum[:]),
+		Completed:  sorted(done),
+	}
+	if len(review) > 0 {
+		cp.NeedsReview = sorted(review)
+	}
+	data, err := json.MarshalIndent(cp, "", "  ")
 	if err != nil {
 		return err
 	}
-	// Checkpoint records the source CSV path; keep it user-private (0600).
+	// Checkpoint holds only hashes and row numbers; keep it user-private (0600).
 	return os.WriteFile(path, data, 0o600)
 }
 
@@ -168,9 +343,12 @@ func newNovelBulkCmd(flags *rootFlags) *cobra.Command {
 	var flagConcurrency int
 
 	cmd := &cobra.Command{
-		Use:         "bulk",
-		Short:       "Drive create/edit/remove/offboard actions from a CSV with Retry-After backoff and resume-after-429 checkpointing.",
-		Annotations: map[string]string{"mcp:read-only": "false"},
+		Use:   "bulk",
+		Short: "Drive create/edit/remove/offboard actions from a CSV with Retry-After backoff and resume-after-429 checkpointing.",
+		// Not an MCP tool: --from reads a CSV off this machine's disk and
+		// --execute writes without the MCP confirm step. MCP writes go through
+		// cipp_execute, which previews until confirm is true.
+		Annotations: map[string]string{"mcp:read-only": "false", "mcp:hidden": "true", "mcp:read-flags": "from", "pp:data-source": "live"},
 		Long: `Drive bulk write actions from a CSV across tenants.
 
 CSV columns: action,tenant,params_json
@@ -201,6 +379,16 @@ Examples:
 				return usageErr(fmt.Errorf("--from <csv> is required"))
 			}
 
+			// Verify-safe: the verifier runs documented examples verbatim, and
+			// the CSV they name does not exist in its sandbox. Report the plan
+			// shape and exit 0 rather than failing on a missing fixture — a
+			// filesystem read must never happen before the dry-run/verify
+			// short-circuit.
+			if cliutil.IsVerifyEnv() {
+				fmt.Fprintf(cmd.OutOrStdout(), "would read actions from %s and plan one request per row (no writes)\n", flagFrom)
+				return nil
+			}
+
 			// flagFrom is the user's own --from CSV path; opening the file the
 			// operator named is the feature. #nosec G304 -- user-supplied input file.
 			f, err := os.Open(flagFrom) // #nosec G304
@@ -208,9 +396,16 @@ Examples:
 				return fmt.Errorf("opening CSV %q: %w", flagFrom, err)
 			}
 			defer f.Close()
-			rows, err := parseBulkCSV(f)
+			// Hand-fix (handfixes.json bulk-checkpoint-per-file): hash every
+			// byte of the CSV as it is parsed; the resume checkpoint is keyed
+			// on it, so any edit to the file starts a fresh checkpoint.
+			csvHash := sha256.New()
+			rows, err := parseBulkCSV(io.TeeReader(f, csvHash))
 			if err != nil {
 				return err
+			}
+			if _, err := io.Copy(csvHash, f); err != nil {
+				return fmt.Errorf("reading CSV %q: %w", flagFrom, err)
 			}
 			if len(rows) == 0 {
 				return fmt.Errorf("no actionable rows found in %q", flagFrom)
@@ -241,20 +436,25 @@ Examples:
 				return nil
 			}
 
-			// Resume checkpoint.
-			var cpPath string
+			// Checkpoint. Completed rows are skipped only with --resume; rows
+			// marked needs-review are never resent, with or without it.
+			csvSum := csvHash.Sum(nil)
+			cpPath, err := bulkCheckpointPath(flagFrom, csvSum)
+			if err != nil {
+				return err
+			}
+			// Hand-fix (handfixes.json bulk-conflict-needs-review): refuse to
+			// start when a needs-review hold could not be saved.
+			if err := bulkCheckpointWritable(cpPath); err != nil {
+				return fmt.Errorf("bulk --execute needs a writable checkpoint (%s) to hold rows that need review; nothing was sent: %w", cpPath, err)
+			}
+			fileCompleted, review, err := readBulkCheckpoint(cpPath)
+			if err != nil {
+				return err
+			}
 			completed := map[int]bool{}
 			if flagResume {
-				p, err := bulkCheckpointPath(flagFrom)
-				if err != nil {
-					return err
-				}
-				cpPath = p
-				done, err := readBulkCheckpoint(cpPath)
-				if err != nil {
-					return err
-				}
-				completed = done
+				completed = fileCompleted
 			}
 
 			c, err := flags.newClient()
@@ -267,46 +467,120 @@ Examples:
 
 			var firstErr error
 			executed := 0
-			for _, r := range rows {
-				if r.parseError != "" {
+			for _, b := range collapseBulkRows(rows) {
+				// Hand-fix (handfixes.json bulk-conflict-needs-review): a row
+				// whose write came back conflicting may already have taken
+				// effect, so it is never sent again automatically.
+				var held []int
+				for _, idx := range b.Indexes {
+					if review[idx] {
+						held = append(held, idx)
+					}
+				}
+				if len(held) > 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "rows %v (%s): needs review, not sent again (CIPP reported success and a failure for this write; check it in CIPP, then edit the CSV to send it again)\n",
+						held, b.Action)
+					if firstErr == nil {
+						firstErr = partialFailureErr(fmt.Errorf("rows %v need review: CIPP reported success and a failure for this write", b.Indexes))
+					}
 					continue
 				}
-				if flagResume && completed[r.Index] {
-					continue
+				// A batch is skipped only when EVERY row in it is already
+				// checkpointed; a partially-completed merged batch re-sends to
+				// the whole set, which is safe because these deploys are
+				// idempotent applies.
+				if flagResume {
+					allDone := true
+					for _, idx := range b.Indexes {
+						if !completed[idx] {
+							allDone = false
+							break
+						}
+					}
+					if allDone {
+						continue
+					}
 				}
+
 				body := map[string]any{}
-				for k, v := range r.Params {
+				for k, v := range b.Params {
 					body[k] = v
 				}
-				params := map[string]string{"tenantFilter": r.Tenant}
-				_, status, err := c.PostWithParams(ctx, r.Endpoint, params, body)
+				params := map[string]string{}
+				label := b.Tenants[0]
+				if b.MultiTenant {
+					// One server-side fan-out instead of len(Tenants) calls.
+					body["selectedTenants"] = b.Tenants
+					label = fmt.Sprintf("%d tenants", len(b.Tenants))
+				} else {
+					params["tenantFilter"] = b.Tenants[0]
+				}
+
+				data, status, err := c.PostWithParams(ctx, b.Endpoint, params, body)
 				if err != nil {
 					var rle *cliutil.RateLimitError
 					if errors.As(err, &rle) {
-						fmt.Fprintf(cmd.ErrOrStderr(), "row %d (%s/%s): %v\n", r.Index, r.Action, r.Tenant, rle)
+						fmt.Fprintf(cmd.ErrOrStderr(), "rows %v (%s/%s): %v\n", b.Indexes, b.Action, label, rle)
 					} else {
-						fmt.Fprintf(cmd.ErrOrStderr(), "row %d (%s/%s): %v\n", r.Index, r.Action, r.Tenant, err)
+						fmt.Fprintf(cmd.ErrOrStderr(), "rows %v (%s/%s): %v\n", b.Indexes, b.Action, label, err)
 					}
 					if firstErr == nil {
 						firstErr = err
 					}
 					continue
 				}
-				executed++
-				if flagResume {
-					completed[r.Index] = true
+
+				// CIPP hardcodes HTTP 200 on several write entrypoints and
+				// reports the failure as prose inside `Results`. Without this
+				// check a failed deploy is indistinguishable from a successful
+				// one and the batch would report success.
+				verdict, msg, _ := cippResultsVerdict(data)
+				if verdict == cippConflicting {
+					for _, idx := range b.Indexes {
+						review[idx] = true
+					}
+					fmt.Fprintf(cmd.ErrOrStderr(), "rows %v (%s/%s): HTTP %d but %s; marked needs-review and will not be resent\n",
+						b.Indexes, b.Action, label, status, msg)
+					// Save the hold now: a later failure must not lose it.
+					keep := fileCompleted
+					if flagResume {
+						keep = completed
+					}
+					if err := writeBulkCheckpoint(cpPath, csvSum, flagFrom, keep, review); err != nil {
+						return fmt.Errorf("rows %v need review, and the hold could not be saved (%v); stopping so nothing is resent", b.Indexes, err)
+					}
+					if firstErr == nil {
+						firstErr = partialFailureErr(fmt.Errorf("%s", msg))
+					}
+					continue
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "executed row %d: %s %s (tenant=%s) -> HTTP %d\n", r.Index, r.Method, r.Endpoint, r.Tenant, status)
+				if verdict == cippFailure {
+					fmt.Fprintf(cmd.ErrOrStderr(), "rows %v (%s/%s): HTTP %d but %s\n",
+						b.Indexes, b.Action, label, status, msg)
+					if firstErr == nil {
+						firstErr = partialFailureErr(fmt.Errorf("%s", msg))
+					}
+					continue
+				}
+
+				executed += len(b.Indexes)
+				if flagResume {
+					for _, idx := range b.Indexes {
+						completed[idx] = true
+					}
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "executed rows %v: %s %s (%s) -> HTTP %d\n",
+					b.Indexes, b.Method, b.Endpoint, label, status)
 			}
 
-			if flagResume && cpPath != "" {
-				if err := writeBulkCheckpoint(cpPath, flagFrom, completed); err != nil {
+			if flagResume {
+				if err := writeBulkCheckpoint(cpPath, csvSum, flagFrom, completed, review); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "warn: writing checkpoint: %v\n", err)
 				}
 			}
 
 			if firstErr != nil {
-				return classifyAPIError(firstErr, flags)
+				return classifyAPIError(cmd.ErrOrStderr(), firstErr, flags)
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "%d rows executed\n", executed)
 			return nil

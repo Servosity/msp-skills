@@ -6,39 +6,30 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/cipp/">
-    <img src="../../docs/assets/video/cipp/animated-og.gif" alt="CIPP demo - animated preview" width="600">
+    <img src="../../docs/assets/video/cipp/animated-og.gif" alt="CIPP + Microsoft 365 demo - animated preview" width="600">
   </a>
 </p>
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/cipp/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with a local store, offline joins across endpoints, and history over time. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
->
-> For CIPP: the `cipp_execute` tool can call any of CIPP's 299 write actions
-> with no confirmation, so until the fix ships, give the connector a CIPP API
-> client with read-only roles only.
+> The write preview, read-only switch, token-protected HTTP mode and local-data controls described on this page ship in cipp 0.1.13 and later. Check with `cipp-cli --version`.
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the CIPP skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `cipp-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Run installer, host `cipp-mcp` over HTTPS with `CIPP_MCP_HTTP_TOKEN` set, then register it as a Developer Mode connector if your connector settings can send the bearer token. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `cipp-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `cipp-mcp --transport http` with `CIPP_MCP_HTTP_TOKEN` set, on an HTTPS host; every request sends that token. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -46,8 +37,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | **Not self-serve.** Host `cipp-mcp` over HTTPS with `CIPP_MCP_HTTP_TOKEN` set, then wire it into Copilot Studio (**Tools > Add a tool > Model Context Protocol > Server URL**) or a declarative agent, if it can send the bearer token. Needs a Copilot Studio license + tenant admin. See [mcp-install.md](./mcp-install.md). |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote - same HTTPS path as ChatGPT. See [mcp-install.md](./mcp-install.md). |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -147,47 +138,80 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your CIPP portal):
+CIPP is self-hosted, so the CLI needs your instance's API base URL (the value CIPP shows you, ending in `/api`) and a credential from an API client you create in CIPP under **Integrations > CIPP-API**. Let the CLI run the OAuth2 client-credentials exchange, reading the client secret from stdin so it stays out of your shell history:
 
 ```bash
-CIPP_API_KEY=<value> cipp-cli doctor
+cipp-cli auth login --client-id 00000000-0000-0000-0000-000000000000 --tenant-id 00000000-0000-0000-0000-000000000001 --base-url https://cipp.yourmsp.com/api --client-secret - < secret.txt
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
+Or set a bearer token in the environment.
+
+**macOS / Linux:**
+
+```bash
+CIPP_API_KEY=<value> CIPP_BASE_URL=https://cipp.yourmsp.com/api cipp-cli doctor
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:CIPP_API_KEY = "<value>"; $env:CIPP_BASE_URL = "https://cipp.yourmsp.com/api"; cipp-cli doctor
+```
+
+`doctor` calls a real CIPP endpoint with your credential and prints where the CLI keeps its files. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 
 ## What this skill does
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| Which tenants still have users without MFA registered? | `cipp-cli posture --dimension mfa` |
-| How does Conditional Access coverage compare across all tenants? | `cipp-cli posture --dimension ca` |
-| Where am I paying for M365 licenses nobody uses? | `cipp-cli licenses waste` |
-| Which licensed accounts haven't signed in for 90 days, across every client? | `cipp-cli users stale --days 90` |
-| Which tenants drifted off our security baseline since the last check? | `cipp-cli standards drift` |
-| Pull one read across every client tenant at once and keep it locally | `cipp-cli fanout --endpoint /ListUsers --all-tenants --save` |
-| Offboard a batch of departures from a CSV with 429 backoff and resume | `cipp-cli bulk --from offboards.csv --execute` |
+| Which tenants have users with no MFA registered, as one row per tenant? | `cipp-cli posture --dimension mfa` |
+| How does Conditional Access compare across all tenants? | `cipp-cli posture --dimension ca` |
+| Which tenants lack a Conditional Access policy most of the fleet has? | `cipp-cli ca diff` |
+| Which delegated-admin (GDAP) relationships expire in the next 30 days? | `cipp-cli gdap expiring --days 30` |
+| What changed in admin roles since last week? | `cipp-cli changes --resource roles --since 7d` |
+| Everything stored about one client tenant, in one record | `cipp-cli scorecard --tenant contoso.onmicrosoft.com` |
+| Pull one read across every client tenant and keep it locally | `cipp-cli fanout --endpoint /ListMFAUsers --all-tenants --save` |
+| Plan a batch of offboards from a CSV before anything runs | `cipp-cli bulk --from offboards.csv` |
+| Delete the local store, response cache and learn journal | `cipp-cli local-data purge --yes` |
 | Are my CIPP credentials and connectivity healthy? | `cipp-cli doctor` |
 
-Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
+The rollups (`posture`, `ca diff`, `changes`, `scorecard`) read the local store, so run `fanout --save` for the endpoints they need first; each command's `--help` names them. `fanout --save` refuses a tenant's response when anything in the response reads as a failure: failure wording or a failed state anywhere under a status-like field (state, status, result, message, text, detail, reason and the like, at any depth: `"status":{"code":"error"}`) or in a bare message, a populated field named like error, exception or fault (`"error":"HTTP 403"`, whatever the wording), a field named like success or ok that is `false`, or a failed state, in the rows or beside them, and keeps the rows already stored. It stores only a list whose every entry carries the endpoint's id; JSON `null`, an empty answer, a single object or a message is shown, not stored. In the tenant list, and only there, tenant records keep their own Graph token fields (`LastGraphError`, `GraphErrorCount`), so one tenant with a failed Graph token does not stop the fleet. A response with a duplicate key is refused. A row whose own name holds a failure word (a user named "Error Reporting", a group named "Denied Access") is still a row. The trade-off: a list whose rows report their own failed status is refused too; run the same `fanout` with `--json` to see what CIPP returned. Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most CIPP integrations and MCP servers proxy each question into a live, single-tenant API call. That's fine for one record. It dies at QBR time, when you're asking *how many users still lack MFA across all 40 clients* or *which tenants drifted off baseline this month* - every tenant is a separate round trip, and Microsoft Graph throttles you at fleet scale.
+CIPP already answers estate-wide questions itself. Its All Tenants views cover the MFA report, Standards alignment and the licence report, its API returns one estate-wide response for `tenantFilter=AllTenants`, and it ships its own MCP server. If one of those answers your question, use it: it is one call, served from CIPP's reporting cache.
 
-This skill fans one read out across every tenant and persists it into a **local SQLite store**. The fleet questions then become instant local rollups: `posture` joins MFA, Conditional Access, Standards, and BPA per tenant; `licenses waste` joins synced licenses against users to surface unused seats; and `standards drift` compares two synced snapshots over time. Offline, resumable after a 429, and work a stateless API wrapper can't do.
+This connector is a different shape: it is **local-first**. `fanout` runs a CIPP read once per tenant and, with `--save`, keeps the rows in a SQLite file on your machine, each save a dated snapshot. Your agent can then search, join and compare that copy offline - a per-tenant MFA or Conditional Access table in `posture`, every stored signal for one tenant in `scorecard`, the policy one tenant lacks in `ca diff`, your own snapshots over time in `changes` and `standards drift` - without another API call. You already have this data through CIPP; the connector puts a copy where an agent can work across it. It also carries CIPP's full command surface, writes included: in the MCP server, a CIPP API call that changes something comes back as a preview and runs only when the agent confirms it.
+
+The cost of that shape is real: one call per tenant instead of one call for the estate, and a copy of tenant data on your disk. The next section says where it lives and how to remove it.
+
+## Where your data lives
+
+The local copy is on purpose (it is what an agent searches and joins), and it is **not encrypted**. New files are created readable by your account only; beyond that it relies on your operating system's account permissions and full-disk encryption (BitLocker, FileVault).
+
+- **Local store:** a `data*.db` SQLite file in the CLI's data directory, filled by `fanout --save` and by reads in the default `--data-source auto` mode.
+- **Response cache:** GET responses for five minutes under `http/` in the cache directory. Expired files are deleted on a later run.
+- **Credentials:** `credentials.toml` in the data directory. After `auth login` it holds the API client's secret (so the CLI can mint new tokens) and the current token. With `CIPP_NO_CONFIG_WRITE=1`, `auth login` refuses and nothing is stored; set `CIPP_API_KEY` instead.
+- **Learn journal:** a record of the commands you ran, under `learn/` in the state directory. `CIPP_NO_LEARN=1` turns it off.
+- **Resume checkpoints:** `fanout --resume` keeps the tenant domains it has finished in the state directory.
+- `cipp-cli doctor` prints each path for your machine.
+
+Before a successful response is shown, cached or saved, it is checked for your configured credentials (the API key, the client secret, the minted token) in every encoding the CLI can decode, with spaces and invisible characters removed first. A response holding a single value over 64 KiB once spaces are removed, or a response that is not JSON and is over 64 KiB, is withheld instead, because it cannot be decoded whole; read that value in CIPP itself.
+
+To delete the store, cache and journal, run `cipp-cli local-data purge` (lists what it would delete) and then `cipp-cli local-data purge --yes`; `cipp-cli auth logout` removes the stored credentials. To keep no local copy of CIPP data, set `CIPP_NO_LOCAL_DATA=1`: reads go live, the response cache is off, and `fanout --save` and `fanout --resume` refuse. In Claude Desktop it is the extension's **Run without a local copy** setting; for other MCP hosts, put it in the server's `env` block.
+
+When a technician leaves, removing their access in CIPP does not touch what is already on their machine: run `cipp-cli auth logout` and `cipp-cli local-data purge --yes` there, delete the `checkpoints` folder in the CLI's state directory, and rotate the API client's secret in CIPP.
 
 ## The pain this closes
 
-CIPP scopes nearly every endpoint by a single `tenantFilter`, so the portal walks you through one client tenant at a time. The fleet-wide questions an MSP owner actually asks at QBR time - *how many users still lack MFA across all clients, which tenants drifted off baseline, where licenses sit unused* - have no single screen. Per the official [CIPP API documentation](https://docs.cipp.app/user-documentation/cipp/integrations/cipp-api), the API authenticates with an Azure AD app registration over OAuth2 client credentials and runs through Microsoft Graph, which throttles at scale; a bulk change across dozens of tenants hits HTTP 429 / Retry-After, and a halted batch means starting over. CIPP added its own MCP server in June 2026, and it is read-only by design: it leaves out every endpoint CIPP labels as a write, so an agent using it cannot offboard a user, reset MFA, change licenses or convert a mailbox. This connector wraps those endpoints too, one tenant per call, each previewable with `--dry-run`.
+CIPP's own views answer questions about the current state. An AI agent working from live answers alone starts over on every question, and comparing this quarter with last needs dated copies you keep yourself. Scripting CIPP has its own costs: each API client is limited to 100 requests per 10 seconds, per the [CIPP API documentation](https://docs.cipp.app/api-documentation/setup-and-authentication), and some write endpoints answer HTTP 200 with the failure written inside the response's `Results`, so a batch has to read every response to know what happened.
 
-This skill closes that gap:
-
-- **`cipp-cli fanout --endpoint /ListUsers --all-tenants --save`** - run one read across every tenant at once, with throttle-aware backoff and resume-after-halt, into a local store.
-- **`cipp-cli posture --dimension mfa`** (also `ca`, `standards`, `bpa`) - the cross-tenant posture matrix the UI never renders.
-- **`cipp-cli licenses waste`** - assigned-but-unused seats across all tenants.
-- **`cipp-cli users stale --days 90`** - licensed accounts with no recent sign-in, fleet-wide.
-- **`cipp-cli bulk --from offboards.csv --execute`** - drive add-user / offboard / remove-user / set-forwarding from a CSV with 429 backoff and resume-after-429 checkpointing.
+- **`cipp-cli fanout --endpoint /ListMFAUsers --all-tenants --save`** - one read across every tenant, saved locally as a dated snapshot, with HTTP 429 Retry-After handling and `--resume` after a halt.
+- **`cipp-cli posture --dimension mfa`** (also `ca`, `standards`, `dlp`, `retention`, `labels`) - one tenant-by-metric table from the saved rows.
+- **`cipp-cli ca diff`** - the Conditional Access policy one tenant lacks that most of the fleet has.
+- **`cipp-cli changes --resource roles --since 7d`** - rows added, removed or changed between two of your own snapshots.
+- **`cipp-cli bulk --from offboards.csv --execute`** - a CSV-driven batch of user and mailbox actions: plan-only without `--execute`, a non-zero exit when CIPP reports a failure inside an HTTP 200, and per-row `--resume`.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -195,7 +219,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the CIPP MCP server in HTTP mode. In this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The CIPP MCP server runs locally over stdio by default. Its HTTP mode (`cipp-mcp --transport http`) serves `http://127.0.0.1:7777/mcp`, refuses to start until `CIPP_MCP_HTTP_TOKEN` is set, requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert`/`--tls-key` for any other address. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -207,23 +231,27 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my CIPP data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+The CLI and MCP server run on your machine and talk only to your CIPP instance; MSP Skills receives nothing. But the connector does keep an unencrypted local copy of what it reads, so whoever can read your user profile can read that copy. [Where your data lives](#where-your-data-lives) lists the files, how to delete them, and how to run with no local copy (`CIPP_NO_LOCAL_DATA=1`).
+
+### Doesn't CIPP already show this across all tenants?
+
+Often, yes. CIPP's All Tenants views show the MFA report, Standards alignment and the licence report across your estate, and its own MCP server can query `AllTenants`. This connector does not replace those. It keeps a local, dated copy so an agent can join endpoints and compare your own snapshots offline, and it gives the agent CIPP's write endpoints behind a preview-then-confirm step.
 
 ### Do I need my own CIPP instance to use this?
 
-Yes - this drives your own self-hosted CIPP instance's API. In CIPP you create an API client (it issues a client ID, secret, tenant ID, and token URL); the CLI authenticates with OAuth2 client credentials via `cipp-cli auth login`, or you save a bearer token with `cipp-cli auth set-token`. It reads and acts through your CIPP - it does not replace it.
+Yes - this drives your own self-hosted CIPP instance's API. In CIPP you create an API client (it issues a client ID, secret, tenant ID, and token URL); the CLI authenticates with OAuth2 client credentials via `cipp-cli auth login`, or you pipe a bearer token to `cipp-cli auth set-token`. It reads and acts through your CIPP - it does not replace it.
 
-### Will this hit Microsoft Graph or CIPP rate limits?
+### Will this hit CIPP's API rate limit?
 
-The cross-tenant rollups (`posture`, `licenses waste`, `users stale`, `standards drift`) read the local store after one fan-out, so repeat questions cost zero API calls. `fanout` throttles with `--concurrency` and the client retries 429s with Retry-After; `bulk` checkpoints completed rows with `--resume` so a throttled batch continues instead of restarting.
+It can: `fanout` makes one call per tenant, and CIPP allows 100 requests per 10 seconds per API client. The client waits out HTTP 429 using Retry-After, `--concurrency` sets how many tenants run at once, and `--resume` skips tenants a halted run already finished. Once rows are saved, the rollups read the local store and make no API calls.
 
 ### Can this change my tenants, or only read?
 
-Both. CIPP is a full management API, so the CLI can create users, offboard, set forwarding, and more. But the fleet rollups are read-only, and `bulk` prints its plan by default and only writes when you pass `--execute`. If you want reporting only, scope the API client to read-only in CIPP - the credential is the boundary.
+Both. CIPP is a full management API, so the CLI can create users, offboard, set forwarding, and more. In the MCP server, any CIPP API call that changes something returns a preview first and runs only when the agent confirms it; set `CIPP_MCP_READ_ONLY=1` and the server drops its write tools. On the command line, `bulk` plans by default and writes only with `--execute`, and other write commands preview with `--dry-run`. The strongest boundary is still the role you give the API client in CIPP.
 
 ### Does it replace the CIPP portal?
 
-No. CIPP stays your portal for deep single-tenant work. This skill adds the cross-tenant reporting layer and lets your AI agent drive CIPP from natural language.
+No. CIPP stays your portal. This connector lets your AI agent work across a local copy of what CIPP returns and drive CIPP from natural language.
 
 ### What does it cost?
 
@@ -233,19 +261,19 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| **Read (rollups and lists)** | `cipp-cli posture --dimension mfa`, `cipp-cli licenses waste`, `cipp-cli users stale --days 90`, `cipp-cli standards drift`, `cipp-cli fanout --endpoint /ListUsers --all-tenants`, `cipp-cli list-tenants`, `cipp-cli doctor` | Allow |
+| **Read (rollups and lists)** | `cipp-cli posture --dimension mfa`, `cipp-cli ca diff`, `cipp-cli gdap expiring --days 30`, `cipp-cli fanout --endpoint /ListUsers --all-tenants`, `cipp-cli list-tenants`, `cipp-cli doctor` | Allow |
 | **Write (routine)** | `cipp-cli add-user`, `cipp-cli edit-user`, `cipp-cli bulk --from changes.csv --execute` (plans by default; writes only with `--execute`) | Preview with `--dry-run`, then a reviewed write |
 | **Credential / security** | `cipp-cli exec-reset-mfa`, `cipp-cli exec-per-user-mfa`, `cipp-cli exec-get-local-admin-password`, `cipp-cli exec-token-exchange` | Human-in-the-loop only |
 | **Destructive** | `cipp-cli exec-offboard-user`, `cipp-cli remove-user`, `cipp-cli exec-device-delete`, `cipp-cli delete-sharepoint-site` | Human-in-the-loop only, explicit confirmation |
 
-The strongest control is the **scope you grant the CIPP credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+Some CIPP endpoints are called with GET but change things (for example `RemoveStandard`, `ExecSendOrgMessage`, `ExecRunBackup`). The MCP server treats every one of them (43 in this build) as a change that needs confirmation, and `fanout`, `export` and `tail` refuse them. The typed write commands on the command line print CIPP's `Results` text and exit 0 even when that text reports a failure, so read it before reporting success; `bulk` and `cipp_execute` turn such a failure into an error. The strongest control is the **scope you grant the CIPP credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
-Live-verified. Confirmed by Abhi Saini, Bearium Networks (MSP) against their own production tenant ([receipt](https://compoundingteams.com/)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified: Abhi Saini, Bearium Networks (MSP), ran cross-tenant `fanout` against a live CIPP tenant on 2026-08-13 ([receipt](https://compoundingteams.com/)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-06-05._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-23._

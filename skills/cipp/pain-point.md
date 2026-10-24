@@ -3,38 +3,47 @@
 ## The pain
 
 CIPP (the CyberDrain Improved Partner Portal) is how a lot of MSPs run Microsoft
-365 across every client tenant from one place. But CIPP scopes nearly every
-endpoint by a single `tenantFilter` - the portal and the API work one tenant at a
-time. The questions an MSP owner asks at QBR time are the opposite shape: *how
-many users still lack MFA across all clients, which tenants drifted off our
-security baseline, where are we paying for licenses nobody uses, who hasn't
-signed in for 90 days anywhere.* None of those has a single screen.
+365 across every client tenant from one place, and it already answers many
+estate-wide questions itself: its All Tenants views cover the MFA report,
+Standards alignment and the licence report, and its API returns one estate-wide
+response for `tenantFilter=AllTenants`.
 
-Per the official [CIPP API documentation](https://docs.cipp.app/user-documentation/cipp/integrations/cipp-api),
-the API authenticates with an Azure AD app registration over OAuth2 client
-credentials and runs through Microsoft Graph, which throttles at scale. So the
-two ways MSPs answer fleet-wide questions today both hurt: click through each
-tenant in the portal by hand, or hand-roll PowerShell against the API and fight
-HTTP 429 / Retry-After throttling - where a halted bulk change across dozens of
-tenants means starting over. As of June 2026 there's no published single-binary
-CLI or MCP server for CIPP that we could find, so an AI agent has nothing to
-drive in one natural-language step.
+Those views answer questions about the current state. An AI agent working from live
+answers alone starts over on every question, and comparing this quarter with last
+means keeping dated copies yourself. Joining what CIPP returns (which tenant lacks
+a Conditional Access policy most of the fleet has, what changed in admin roles
+since last month) is the kind of join an agent can do in seconds from a local
+copy.
+
+Scripting it has its own costs. Per the [CIPP API documentation](https://docs.cipp.app/api-documentation/setup-and-authentication),
+each API client is limited to 100 requests per 10 seconds. And some CIPP write
+endpoints answer HTTP 200 with the failure written inside the response's
+`Results` (CIPP's `Invoke-EditUser`, for example), so a batch has to read every
+response to know what really happened.
 
 ## What this skill does about it
 
-- **`cipp-cli fanout --endpoint /ListUsers --all-tenants --save`** - runs one read
-  across every tenant at once, with throttle-aware backoff and resume-after-halt,
-  into a local SQLite store. One command replaces the per-tenant click-through.
-- **`cipp-cli posture --dimension mfa`** (also `ca`, `standards`, `bpa`) - the
-  cross-tenant posture matrix the UI never renders, read instantly from the store.
-- **`cipp-cli licenses waste`** - surfaces assigned-but-unused seats across all
-  tenants so the next CSP bill stops paying for empty licenses.
-- **`cipp-cli users stale --days 90`** - flags licensed accounts with no recent
-  sign-in, fleet-wide, in one pass.
-- **`cipp-cli bulk --from offboards.csv --execute`** - drives add-user / offboard /
-  remove-user / set-forwarding from a CSV with 429 backoff and resume-after-429
-  checkpointing, so a throttled batch continues instead of restarting.
+It is local-first: it keeps a copy of what CIPP returns where an AI agent can
+search, join and compare it offline. You already have this data through CIPP.
+
+- **`cipp-cli fanout --endpoint /ListMFAUsers --all-tenants --save`** - runs one
+  read for each tenant and saves the rows in a local SQLite store, with HTTP 429
+  Retry-After handling and `--resume` after a halt. Each save is a dated snapshot.
+- **`cipp-cli posture --dimension mfa`** (also `ca`, `standards`, `dlp`,
+  `retention`, `labels`) - one tenant-by-metric table from the saved rows.
+- **`cipp-cli ca diff`** - the Conditional Access policy one tenant lacks that
+  most of the fleet has.
+- **`cipp-cli changes --resource roles --since 7d`** - rows added, removed or
+  changed between two of your own snapshots.
+- **`cipp-cli bulk --from offboards.csv --execute`** - a CSV-driven batch of user
+  and mailbox actions: plan-only without `--execute`, a non-zero exit when CIPP
+  reports a failure inside an HTTP 200, and per-row `--resume`.
+
+The local copy is not encrypted. `cipp-cli doctor` prints where it lives,
+`cipp-cli local-data purge --yes` deletes the store, cache and learn journal,
+`cipp-cli auth logout` removes stored credentials, and `CIPP_NO_LOCAL_DATA=1`
+keeps no local copy of CIPP data (both from cipp 0.1.13; check `cipp-cli --version`).
 
 ## Status
 
-Live-verified. Confirmed by Abhi Saini, Bearium Networks (MSP) against their own production tenant ([receipt](https://compoundingteams.com/)).
+Live-verified: Abhi Saini, Bearium Networks (MSP), ran cross-tenant `fanout` against a live CIPP tenant on 2026-08-13 ([receipt](https://compoundingteams.com/)).

@@ -63,12 +63,12 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 	return hits
 }
 
-// ncwMint runs one "an ordinary command minted a token" cycle under a
-// throwaway HOME and returns everything that landed on disk.
+// ncwMint runs one "an ordinary command minted a token" cycle under the
+// press sandbox and returns everything that landed on disk.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	isolateCredentials(t)
+	home := os.Getenv("CIPP_HOME")
 	t.Setenv("CIPP_CONFIG", filepath.Join(home, "config.toml"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
@@ -128,9 +128,9 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
+	isolateCredentials(t)
+	home := os.Getenv("CIPP_HOME")
 	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
 	t.Setenv("CIPP_CONFIG", cfgPath)
 
 	// Seed through the connector's own writer so the on-disk format is

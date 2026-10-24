@@ -1,4 +1,10 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+
+// Hand-fix mcp-executor-request-contracts (issue #351): search results carry a
+// params_schema per endpoint (executor input names, x-location, types,
+// required fields, known enum values) and the executor routes inputs by it.
+// request_contracts.json is generated from the OpenAPI spec and the
+// code_orch.go endpoint table; regenerate it after a reprint.
 package mcp
 
 import (
@@ -17,45 +23,6 @@ var requestContractJSON []byte
 var requestContracts = loadRequestContracts()
 var requestContractTerms = indexRequestContracts()
 
-func init() {
-	for i := range codeOrchEndpoints {
-		ep := &codeOrchEndpoints[i]
-		properties, _ := requestContracts[ep.ID]["properties"].(map[string]any)
-		names := make([]string, 0, len(properties))
-		for name := range properties {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			property, _ := properties[name].(map[string]any)
-			if property["x-location"] != "query" {
-				continue
-			}
-			wire, _ := property["x-wire-name"].(string)
-			if wire == "" {
-				wire = name
-			}
-			other, _ := properties[wire].(map[string]any)
-			collision := name != wire && other != nil && other["x-location"] != "query"
-			found := false
-			for i := range ep.QueryParams {
-				binding := &ep.QueryParams[i]
-				if binding.WireName == wire {
-					binding.PublicName = name
-					if collision {
-						binding.PublicOnly = true
-					}
-					found = true
-					break
-				}
-			}
-			if !found {
-				ep.QueryParams = append(ep.QueryParams, codeOrchParamBinding{PublicName: name, WireName: wire, PublicOnly: collision})
-			}
-		}
-	}
-}
-
 func loadRequestContracts() map[string]map[string]any {
 	var contracts map[string]map[string]any
 	if err := json.Unmarshal(requestContractJSON, &contracts); err != nil {
@@ -73,11 +40,12 @@ func requestSearchTerms(text string) []string {
 	return terms
 }
 
+// indexRequestContracts collects each endpoint's input names and enum values
+// so a search for a body field ("ConvertToShared") finds its endpoint.
 func indexRequestContracts() map[string]map[string]bool {
 	result := make(map[string]map[string]bool, len(requestContracts))
 	for id, schema := range requestContracts {
 		terms := map[string]bool{}
-		var visit func(map[string]any)
 		add := func(value string) {
 			exact := strings.ToLower(strings.TrimSpace(value))
 			for _, term := range requestSearchTerms(value) {
@@ -87,10 +55,8 @@ func indexRequestContracts() map[string]map[string]bool {
 				terms[term] = true
 			}
 		}
+		var visit func(map[string]any)
 		visit = func(node map[string]any) {
-			if wire, ok := node["x-wire-name"].(string); ok {
-				add(wire)
-			}
 			if values, ok := node["enum"].([]any); ok {
 				for _, value := range values {
 					add(fmt.Sprint(value))
@@ -123,7 +89,8 @@ func indexRequestContracts() map[string]map[string]bool {
 	return result
 }
 
-// Match ordinary plural inflections without matching arbitrary surrounding text.
+// codeOrchPluralMatch matches ordinary plural inflections without matching
+// arbitrary surrounding text.
 func codeOrchPluralMatch(a, b string) bool {
 	for _, pair := range [][2]string{{a, b}, {b, a}} {
 		singular, plural := pair[0], pair[1]
@@ -142,6 +109,8 @@ func codeOrchPluralMatch(a, b string) bool {
 	return false
 }
 
+// codeOrchRequestScore ranks an endpoint for a search query: an exact input
+// name or enum value scores 4, an exact keyword 2, a substring or plural 1.
 func codeOrchRequestScore(ep *codeOrchEndpoint, query string) int {
 	score := 0
 	seen := map[string]bool{}
@@ -167,7 +136,9 @@ func codeOrchRequestScore(ep *codeOrchEndpoint, query string) int {
 	return score
 }
 
-// Request contracts describe executor inputs, not flattened CLI flag names.
+// codeOrchResolveContract fills path placeholders and collects header inputs
+// the contract declares, removing them from params so they do not also land
+// in the query string or body. Query and body inputs stay in params.
 func codeOrchResolveContract(ep *codeOrchEndpoint, path string, params map[string]any) (string, map[string]string) {
 	headers := map[string]string{}
 	properties, _ := requestContracts[ep.ID]["properties"].(map[string]any)
@@ -179,43 +150,26 @@ func codeOrchResolveContract(ep *codeOrchEndpoint, path string, params map[strin
 	for _, name := range names {
 		property, _ := properties[name].(map[string]any)
 		location, _ := property["x-location"].(string)
-		if location != "path" && location != "template" && location != "header" && location != "query" {
-			continue
-		}
-		wire, _ := property["x-wire-name"].(string)
-		if wire == "" {
-			wire = name
-		}
 		value, present := params[name]
-		consumed := name
-		if !present && (name == wire || properties[wire] == nil) {
-			value, present = params[wire]
-			consumed = wire
-		}
 		if !present {
 			continue
 		}
-		if location == "query" {
-			other, _ := properties[wire].(map[string]any)
-			if name != wire && other != nil && other["x-location"] != "query" {
-				continue
-			}
-			params[wire] = value
-			if name != wire {
-				delete(params, name)
-			}
+		switch location {
+		case "header":
+			headers[name] = formatMCPParamValue(value)
+		case "path":
+			path = strings.ReplaceAll(path, "{"+name+"}", url.PathEscape(formatMCPParamValue(value)))
+		default:
 			continue
 		}
-		if location == "header" {
-			headers[wire] = formatMCPParamValue(value)
-		} else {
-			path = strings.ReplaceAll(path, "{"+wire+"}", url.PathEscape(formatMCPParamValue(value)))
-		}
-		delete(params, consumed)
+		delete(params, name)
 	}
 	return path, headers
 }
 
+// codeOrchHasBody reports whether the endpoint takes a request body. CIPP has
+// DELETE endpoints with bodies; sending their inputs as a query string drops
+// the body the API reads.
 func codeOrchHasBody(ep *codeOrchEndpoint) bool {
 	properties, _ := requestContracts[ep.ID]["properties"].(map[string]any)
 	for _, value := range properties {
@@ -227,6 +181,8 @@ func codeOrchHasBody(ep *codeOrchEndpoint) bool {
 	return false
 }
 
+// codeOrchContractBody is the request body: params["body"] as-is for an
+// endpoint whose body root is not an object, else the params object.
 func codeOrchContractBody(ep *codeOrchEndpoint, params map[string]any) any {
 	properties, _ := requestContracts[ep.ID]["properties"].(map[string]any)
 	body, _ := properties["body"].(map[string]any)
@@ -241,13 +197,8 @@ func codeOrchContractBody(ep *codeOrchEndpoint, params map[string]any) any {
 	return codeOrchWriteBody(params)
 }
 
-func codeOrchQueryKeys(binding codeOrchParamBinding) []string {
-	if binding.PublicOnly {
-		return []string{binding.PublicName}
-	}
-	return []string{binding.PublicName, binding.WireName}
-}
-
+// codeOrchValidatePathInputs refuses a call missing a required path input,
+// which would otherwise reach the API with a literal {placeholder}.
 func codeOrchValidatePathInputs(ep *codeOrchEndpoint, params map[string]any) error {
 	schema := requestContracts[ep.ID]
 	properties, _ := schema["properties"].(map[string]any)
@@ -255,17 +206,11 @@ func codeOrchValidatePathInputs(ep *codeOrchEndpoint, params map[string]any) err
 	for _, field := range required {
 		name, _ := field.(string)
 		property, _ := properties[name].(map[string]any)
-		if property["x-location"] != "path" && property["x-location"] != "template" {
+		if property["x-location"] != "path" {
 			continue
 		}
 		if value, present := params[name]; present && value != nil && formatMCPParamValue(value) != "" {
 			continue
-		}
-		wire, _ := property["x-wire-name"].(string)
-		if wire != "" && properties[wire] == nil {
-			if value, present := params[wire]; present && value != nil && formatMCPParamValue(value) != "" {
-				continue
-			}
 		}
 		return fmt.Errorf("required path parameter %q is missing (see params_schema)", name)
 	}
