@@ -35,3 +35,28 @@ func TestRangerExposureNoDataIsHonest(t *testing.T) {
 		t.Fatalf("expected honest-empty with no ranger/rogues data, got %v", out)
 	}
 }
+
+// TestRangerExposureReadsTheDeviceInventory: Ranger's device inventory syncs as
+// ranger-table-view. The resource named plain "ranger" is the credential-group
+// details endpoint, so a device found there must not be counted, and a device
+// in the inventory must be.
+func TestRangerExposureReadsTheDeviceInventory(t *testing.T) {
+	agents := []map[string]any{
+		agentFix("a1", "MANAGED-1", "SiteA", "24.1.2.6", map[string]any{"lastIpToMgmt": "10.0.0.5"}),
+	}
+	db := newSeededStore(t, agents, nil)
+	seedResource(t, db, "ranger-table-view", []map[string]any{
+		{"id": "d1", "managedState": "Unmanaged", "ip": "10.0.0.20", "name": "PRINTER-2F"},
+	})
+	seedResource(t, db, "ranger", []map[string]any{
+		{"id": "c1", "ip": "10.0.0.30", "name": "cred-detail"},
+	})
+	out := runJSON(t, newNovelRangerExposureCmd(jsonFlags()), "--db", db)
+	if tot, _ := out["total_unmanaged"].(float64); tot != 1 {
+		t.Fatalf("total_unmanaged = %v, want 1 (the inventory device only): %v", out["total_unmanaged"], out)
+	}
+	dev := out["subnets"].([]any)[0].(map[string]any)["devices"].([]any)[0].(map[string]any)
+	if dev["name"] != "PRINTER-2F" {
+		t.Fatalf("counted device = %v, want PRINTER-2F from ranger-table-view", dev)
+	}
+}

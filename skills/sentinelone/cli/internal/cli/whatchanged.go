@@ -46,9 +46,11 @@ type wcChange struct {
 
 // newNovelWhatchangedCmd diffs the latest fleet snapshot against the snapshot
 // nearest the start of the window, answering "what changed across all my
-// tenants since I logged off?" — new threats, agents that went offline,
-// version regressions, and protection-mode flips. The live API has no
-// cross-entity "delta since T" endpoint.
+// tenants since I logged off?": new threats, agents that went offline
+// (isActive true -> false, see agentLiveness), agents isolated from the
+// network (networkStatus connected -> disconnected), version regressions, and
+// protection-mode flips. The live API has no cross-entity "delta since T"
+// endpoint.
 // pp:data-source local
 func newNovelWhatchangedCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
@@ -57,12 +59,19 @@ func newNovelWhatchangedCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "whatchanged",
-		Short: "Diff the fleet against an earlier snapshot: new threats, agents offline, version/mode changes",
+		Short: "Diff the fleet against an earlier snapshot: new threats, agents offline or isolated, version/mode changes",
 		Long: `Compare the most recent history snapshot against the one nearest the start of
 the --since window and report what changed across every site:
 
   + new threats          threats seen now but not at the baseline
-  + agents went offline   network status flipped connected -> disconnected
+  + agents went offline   active -> inactive: SentinelOne reported the agent
+                          active (isActive true) at the baseline and inactive
+                          (isActive false) now, so it stopped checking in to
+                          the console. An agent with no readable isActive in
+                          either snapshot is never reported here.
+  + agents isolated       network status connected -> disconnected: the agent
+                          was isolated with "Disconnect from network". It
+                          still checks in, so this is not "went offline".
   + new / removed agents  endpoints that appeared or disappeared
   + version changes       agentVersion changed between snapshots
   + protection flips      mitigation mode changed (e.g. protect -> detect)
@@ -129,16 +138,32 @@ syncs spanning the window are required.`,
 			if err != nil {
 				return err
 			}
-			baseThreats, err := db.FleetSnapshotRowsByID("threats", baseline)
-			if err != nil {
-				return err
-			}
-			curThreats, err := db.FleetSnapshotRowsByID("threats", latest)
-			if err != nil {
-				return err
+			// Threats are compared only across threats captures: an agents-only
+			// sync records no threats capture, and reading its absence as "no
+			// threats" would report every open threat as resolved.
+			threatsCompared := false
+			var threatBase, threatLatest time.Time
+			var baseThreats, curThreats map[string]json.RawMessage
+			if tTimes, err := db.FleetSnapshotTimes("threats"); err != nil {
+				return fmt.Errorf("reading threat history: %w", err)
+			} else if len(tTimes) >= 2 {
+				threatLatest = tTimes[len(tTimes)-1]
+				threatBase = tTimes[0]
+				if t, ok, _ := db.FleetSnapshotNearestBefore("threats", cutoff); ok && t.Before(threatLatest) {
+					threatBase = t
+				}
+				if threatBase.Before(threatLatest) {
+					if baseThreats, err = db.FleetSnapshotRowsByID("threats", threatBase); err != nil {
+						return err
+					}
+					if curThreats, err = db.FleetSnapshotRowsByID("threats", threatLatest); err != nil {
+						return err
+					}
+					threatsCompared = true
+				}
 			}
 
-			var newAgents, removedAgents, wentOffline, versionChanged, modeFlipped []wcChange
+			var newAgents, removedAgents, wentOffline, isolated, versionChanged, modeFlipped []wcChange
 			for id, raw := range curAgents {
 				cur := decodeObjects([]json.RawMessage{raw})
 				if len(cur) == 0 {
@@ -157,8 +182,13 @@ syncs spanning the window are required.`,
 				ba := base[0]
 				name := gstrFirst(ca, "computerName", "id")
 				site := orUnknown(agentSite(ca))
-				if agentOnline(ba) && !agentOnline(ca) {
-					wentOffline = append(wentOffline, wcChange{Endpoint: name, ID: id, Site: site, Detail: "connected → disconnected"})
+				// Offline is liveness (isActive), both ends explicit; isolation is
+				// the network status and is reported on its own.
+				if agentLiveness(ba) == livenessOnline && agentLiveness(ca) == livenessOffline {
+					wentOffline = append(wentOffline, wcChange{Endpoint: name, ID: id, Site: site, Detail: "active -> inactive"})
+				}
+				if agentNetworkStatus(ba) == "connected" && agentNetworkStatus(ca) == "disconnected" {
+					isolated = append(isolated, wcChange{Endpoint: name, ID: id, Site: site, Detail: "network connected -> disconnected"})
 				}
 				if bv, cv := gstr(ba, "agentVersion"), gstr(ca, "agentVersion"); bv != cv && bv != "" && cv != "" {
 					versionChanged = append(versionChanged, wcChange{Endpoint: name, ID: id, Site: site, Detail: bv + " → " + cv})
@@ -179,7 +209,7 @@ syncs spanning the window are required.`,
 				}
 			}
 
-			var newThreats, resolvedThreats []wcChange
+			newThreats, resolvedThreats := []wcChange{}, []wcChange{}
 			for id, raw := range curThreats {
 				if _, ok := baseThreats[id]; ok {
 					continue
@@ -221,14 +251,19 @@ syncs spanning the window are required.`,
 					"new_threats":      capList(newThreats),
 					"resolved_threats": capList(resolvedThreats),
 					"agents_offline":   capList(wentOffline),
+					"agents_isolated":  capList(isolated),
 					"new_agents":       capList(newAgents),
 					"removed_agents":   capList(removedAgents),
 					"version_changes":  capList(versionChanged),
 					"mode_flips":       capList(modeFlipped),
+					"threats_compared": threatsCompared,
+					"threats_baseline": tsOrEmpty(threatBase),
+					"threats_latest":   tsOrEmpty(threatLatest),
 					"counts": map[string]int{
 						"new_threats":      len(newThreats),
 						"resolved_threats": len(resolvedThreats),
 						"agents_offline":   len(wentOffline),
+						"agents_isolated":  len(isolated),
 						"new_agents":       len(newAgents),
 						"removed_agents":   len(removedAgents),
 						"version_changes":  len(versionChanged),
@@ -250,9 +285,14 @@ syncs spanning the window are required.`,
 					fmt.Fprintf(w, "    %-26s %-20s%s\n", clip(ch.Endpoint, 26), clip(ch.Site, 20), detail)
 				}
 			}
-			section("New threats", newThreats)
-			section("Resolved/cleared threats", resolvedThreats)
+			if threatsCompared {
+				section("New threats", newThreats)
+				section("Resolved/cleared threats", resolvedThreats)
+			} else {
+				fmt.Fprintln(w, "Threats: not compared (needs two threats captures in history; run a sync that includes threats again)")
+			}
 			section("Agents went offline", wentOffline)
+			section("Agents isolated from the network", isolated)
 			section("New agents", newAgents)
 			section("Removed agents", removedAgents)
 			section("Version changes", versionChanged)

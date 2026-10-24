@@ -5,6 +5,7 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,9 @@ type recurrenceGroup struct {
 
 type recurrenceAgent struct {
 	Endpoint    string `json:"endpoint"`
+	AgentID     string `json:"agent_id,omitempty"`
 	Site        string `json:"site,omitempty"`
+	SiteID      string `json:"site_id,omitempty"`
 	Recurring   int    `json:"recurring_threats"`
 	Occurrences int    `json:"total_occurrences"`
 }
@@ -39,9 +42,10 @@ func newNovelThreatsRecurrenceCmd(flags *rootFlags) *cobra.Command {
 		Use:   "recurrence",
 		Short: "Find threats whose hash/name recurs across endpoints or returns after mitigation",
 		Long: `Group threats by file hash (falling back to name) and surface the ones that
-recur — appearing on more than one endpoint, or more than once with a prior
-mitigation in between (the "we cleaned it but it came back" signal of an
-unkilled root cause).
+recur — appearing on more than one endpoint, or detected again on an endpoint
+after an earlier detection there was mitigated (the "we cleaned it but it came
+back" signal of an unkilled root cause). Endpoints are told apart by agent id,
+not hostname, so two customers' same-named machines are two endpoints.
 
 Use --by-agent to instead rank endpoints by how many recurring threats they
 carry (the repeat-offender / misconfigured-host view).`,
@@ -77,13 +81,18 @@ carry (the repeat-offender / misconfigured-host view).`,
 					"No threats in the local store. Run 'sentinelone-cli sync' first.", nil)
 			}
 
-			// Group by hash (fallback name).
+			// Group by hash (fallback name); endpoints by agent identity.
+			type detection struct {
+				created  time.Time
+				hasTime  bool
+				mitAt    time.Time
+				hasMitAt bool
+			}
 			type grp struct {
 				name      string
-				endpoints map[string]bool
+				endpoints map[string]string // endpoint key -> label
+				byEP      map[string][]detection
 				count     int
-				mitigated int
-				active    int
 			}
 			groups := map[string]*grp{}
 			for _, t := range threats {
@@ -96,18 +105,38 @@ carry (the repeat-offender / misconfigured-host view).`,
 				}
 				g := groups[key]
 				if g == nil {
-					g = &grp{name: threatName(t), endpoints: map[string]bool{}}
+					g = &grp{name: threatName(t), endpoints: map[string]string{}, byEP: map[string][]detection{}}
 					groups[key] = g
 				}
 				g.count++
-				if ep := threatEndpoint(t); ep != "" {
-					g.endpoints[ep] = true
+				epKey := threatEndpointKey(t)
+				if epKey == "" {
+					continue
 				}
-				if threatActive(t) {
-					g.active++
-				} else {
-					g.mitigated++
+				g.endpoints[epKey] = recurrenceEndpointLabel(t)
+				d := detection{}
+				d.created, d.hasTime = parseS1Time(threatCreatedAt(t))
+				if !threatActive(t) {
+					d.mitAt, d.hasMitAt = threatMitigatedAt(t)
 				}
+				g.byEP[epKey] = append(g.byEP[epKey], d)
+			}
+			// recurredAfterMitigation: on one endpoint, a detection created after
+			// an earlier detection there finished mitigation.
+			recurredAfterMitigation := func(g *grp) bool {
+				for _, ds := range g.byEP {
+					for _, m := range ds {
+						if !m.hasMitAt {
+							continue
+						}
+						for _, d := range ds {
+							if d.hasTime && d.created.After(m.mitAt) {
+								return true
+							}
+						}
+					}
+				}
+				return false
 			}
 
 			if byAgent {
@@ -119,7 +148,9 @@ carry (the repeat-offender / misconfigured-host view).`,
 					}
 				}
 				type agg struct {
-					site        string
+					endpoint    string
+					agentID     string
+					site        siteRef
 					recurring   map[string]bool
 					occurrences int
 				}
@@ -132,21 +163,21 @@ carry (the repeat-offender / misconfigured-host view).`,
 					if !recurKeys[key] {
 						continue
 					}
-					ep := threatEndpoint(t)
+					ep := threatEndpointKey(t)
 					if ep == "" {
 						continue
 					}
 					a := byEp[ep]
 					if a == nil {
-						a = &agg{site: orUnknown(threatSite(t)), recurring: map[string]bool{}}
+						a = &agg{endpoint: orUnknown(threatEndpoint(t)), agentID: threatAgentID(t), site: threatSiteRef(t), recurring: map[string]bool{}}
 						byEp[ep] = a
 					}
 					a.recurring[key] = true
 					a.occurrences++
 				}
 				var rows []recurrenceAgent
-				for ep, a := range byEp {
-					rows = append(rows, recurrenceAgent{Endpoint: ep, Site: a.site, Recurring: len(a.recurring), Occurrences: a.occurrences})
+				for _, a := range byEp {
+					rows = append(rows, recurrenceAgent{Endpoint: a.endpoint, AgentID: a.agentID, Site: a.site.Label(), SiteID: a.site.ID, Recurring: len(a.recurring), Occurrences: a.occurrences})
 				}
 				sort.SliceStable(rows, func(i, j int) bool {
 					if rows[i].Recurring != rows[j].Recurring {
@@ -179,8 +210,8 @@ carry (the repeat-offender / misconfigured-host view).`,
 					continue
 				}
 				eps := make([]string, 0, len(g.endpoints))
-				for e := range g.endpoints {
-					eps = append(eps, e)
+				for _, label := range g.endpoints {
+					eps = append(eps, label)
 				}
 				sort.Strings(eps)
 				out = append(out, recurrenceGroup{
@@ -189,7 +220,7 @@ carry (the repeat-offender / misconfigured-host view).`,
 					Occurrences:      g.count,
 					DistinctAgents:   len(g.endpoints),
 					Endpoints:        eps,
-					MitigatedAndBack: g.mitigated > 0 && g.active > 0,
+					MitigatedAndBack: recurredAfterMitigation(g),
 				})
 			}
 			if len(out) == 0 {
@@ -230,4 +261,14 @@ carry (the repeat-offender / misconfigured-host view).`,
 	cmd.Flags().BoolVar(&byAgent, "by-agent", false, "Rank endpoints by recurring-threat load instead of grouping by hash")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum rows to show (0 = all)")
 	return cmd
+}
+
+// recurrenceEndpointLabel shows an endpoint as "name (site)" so two
+// same-named machines in different sites read apart.
+func recurrenceEndpointLabel(t map[string]any) string {
+	name := orUnknown(threatEndpoint(t))
+	if site := threatSiteRef(t); site.Key != "(unknown)" {
+		return name + " (" + site.Label() + ")"
+	}
+	return name
 }

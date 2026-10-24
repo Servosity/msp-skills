@@ -12,6 +12,7 @@ import (
 
 type postureRow struct {
 	Site            string  `json:"site"`
+	SiteID          string  `json:"site_id,omitempty"`
 	Agents          int     `json:"agents"`
 	HealthPct       float64 `json:"health_pct"`
 	CoveragePct     float64 `json:"coverage_pct"`
@@ -34,9 +35,13 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 
   health %             online AND up-to-date AND in-protect AND not-infected
   coverage %           agents in Protect mode
-  version compliance % agents on the fleet's current (modal) version
+  version compliance % agents at or above their OS's current (modal) version
   open threats         threats not resolved/mitigated for that site
   oldest open          age in days of the oldest unresolved threat
+
+Online means SentinelOne reports the agent active (isActive true). An agent
+with no readable isActive is not counted as online, so it is never healthy.
+The network status ("Disconnect from network" isolation) is not used.
 
 No single API call returns a tenant-level composite like this.`,
 		Example: `  # Posture scorecard for every site
@@ -75,20 +80,20 @@ No single API call returns a tenant-level composite like this.`,
 					"No agents in the local store. Run 'sentinelone-cli sync' first.", nil)
 			}
 
-			modal := modalVersion(agents)
+			current := modalVersionByOS(agents)
 			now := time.Now()
 
 			type acc struct {
+				site                                 siteRef
 				total, healthy, protected, onVersion int
 				openThreats, oldestDays              int
 			}
 			sites := map[string]*acc{}
-			get := func(site string) *acc {
-				site = orUnknown(site)
-				a := sites[site]
+			get := func(r siteRef) *acc {
+				a := sites[r.Key]
 				if a == nil {
-					a = &acc{}
-					sites[site] = a
+					a = &acc{site: r}
+					sites[r.Key] = a
 				}
 				return a
 			}
@@ -96,12 +101,13 @@ No single API call returns a tenant-level composite like this.`,
 				if agentDecommissioned(a) {
 					continue
 				}
-				s := get(agentSite(a))
+				s := get(agentSiteRef(a))
 				s.total++
 				if agentInProtect(a) {
 					s.protected++
 				}
-				if v := gstr(a, "agentVersion"); v != "" && v == modal {
+				// On version: at or above the current build of the agent's own OS.
+				if v, cur := gstr(a, "agentVersion"), current[agentOS(a)]; v != "" && cur != "" && compareS1Version(v, cur) >= 0 {
 					s.onVersion++
 				}
 				if agentOnline(a) && gbool(a, "isUpToDate") && agentInProtect(a) && !gbool(a, "infected") {
@@ -112,7 +118,7 @@ No single API call returns a tenant-level composite like this.`,
 				if !threatActive(t) {
 					continue
 				}
-				s := get(threatSite(t))
+				s := get(threatSiteRef(t))
 				s.openThreats++
 				if d, ok := daysSince(now, threatCreatedAt(t)); ok && d > s.oldestDays {
 					s.oldestDays = d
@@ -120,14 +126,15 @@ No single API call returns a tenant-level composite like this.`,
 			}
 
 			var rows []postureRow
-			for site, a := range sites {
+			for _, a := range sites {
 				if a.total == 0 {
 					// Site only seen via threats (no managed agents synced).
-					rows = append(rows, postureRow{Site: site, OpenThreats: a.openThreats, OldestOpenDays: a.oldestDays})
+					rows = append(rows, postureRow{Site: a.site.Label(), SiteID: a.site.ID, OpenThreats: a.openThreats, OldestOpenDays: a.oldestDays})
 					continue
 				}
 				rows = append(rows, postureRow{
-					Site:            site,
+					Site:            a.site.Label(),
+					SiteID:          a.site.ID,
 					Agents:          a.total,
 					HealthPct:       round1(float64(a.healthy) / float64(a.total) * 100),
 					CoveragePct:     round1(float64(a.protected) / float64(a.total) * 100),
@@ -141,12 +148,12 @@ No single API call returns a tenant-level composite like this.`,
 
 			if flags.asJSON {
 				return flags.printJSON(cmd, map[string]any{
-					"current_version": modal,
-					"sites":           rows,
+					"current_by_os": current,
+					"sites":         rows,
 				})
 			}
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Tenant posture (current fleet version %s):\n\n", modal)
+			fmt.Fprintf(w, "Tenant posture (current version per OS: %s):\n\n", formatTargets(current))
 			fmt.Fprintf(w, "%-26s %6s %8s %9s %9s %8s %9s\n", "SITE", "AGENTS", "HEALTH", "COVERAGE", "VER-COMPL", "OPEN", "OLDEST-D")
 			for _, r := range rows {
 				fmt.Fprintf(w, "%-26s %6d %7.1f%% %8.1f%% %8.1f%% %8d %9d\n",

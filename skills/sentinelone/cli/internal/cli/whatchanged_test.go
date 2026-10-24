@@ -18,9 +18,9 @@ func TestWhatchangedDiffsSnapshots(t *testing.T) {
 	})
 	seedSnapshot(t, db, "threats", base, nil)
 
-	// Latest: same agent offline on v24, plus a brand-new threat.
+	// Latest: same agent offline (inactive) on v24, plus a brand-new threat.
 	seedSnapshot(t, db, "agents", latest, []map[string]any{
-		agentFix("a1", "BOX-1", "SiteA", "24.1.2.6", map[string]any{"networkStatus": "disconnected"}),
+		agentFix("a1", "BOX-1", "SiteA", "24.1.2.6", map[string]any{"isActive": false}),
 	})
 	seedSnapshot(t, db, "threats", latest, []map[string]any{
 		threatFix("t1", "NewEvil", "abc123", "BOX-1", "SiteA", nil),

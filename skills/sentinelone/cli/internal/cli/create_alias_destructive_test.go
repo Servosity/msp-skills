@@ -28,6 +28,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"reports", "delete"},
 		{"settings", "clear-pending-emails"},
 		{"singularity-marketplace", "enable-or-disable-application"},
+		{"singularity-marketplace", "install-applications"},
 		{"sites", "expire-now", "expire-site"},
 	} {
 		cmd := root

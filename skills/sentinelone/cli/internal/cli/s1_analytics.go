@@ -216,29 +216,119 @@ func compareS1Version(a, b string) int {
 	return 0
 }
 
-// modalVersion returns the most common agentVersion across the fleet (the de
-// facto "current" version), used to flag out-of-date agents.
-func modalVersion(agents []map[string]any) string {
-	counts := map[string]int{}
-	for _, a := range agents {
-		if v := gstr(a, "agentVersion"); v != "" {
-			counts[v]++
-		}
+// agentOS is the agent's OS type as SentinelOne reports it (osType: windows,
+// macos, linux, windows_legacy), lowercased; "unknown" when absent.
+func agentOS(a map[string]any) string {
+	if os := strings.ToLower(strings.TrimSpace(gstr(a, "osType"))); os != "" {
+		return os
 	}
-	best, bestN := "", -1
-	for v, n := range counts {
-		// Tie-break toward the higher version so "current" trends forward.
-		if n > bestN || (n == bestN && compareS1Version(v, best) > 0) {
-			best, bestN = v, n
-		}
-	}
-	return best
+	return "unknown"
 }
 
-// ---- agent state predicates (shared across fleet-health / coverage / posture) ----
+// modalVersionByOS returns, per OS type, the most common agentVersion among
+// live (non-decommissioned) agents: the de facto "current" build for that OS.
+// Agent packages are per OS, so a version is only ever compared with versions
+// of the same OS, and a retired agent never votes for what is current.
+func modalVersionByOS(agents []map[string]any) map[string]string {
+	counts := map[string]map[string]int{}
+	for _, a := range agents {
+		if agentDecommissioned(a) {
+			continue
+		}
+		v := strings.TrimSpace(gstr(a, "agentVersion"))
+		if v == "" {
+			continue
+		}
+		os := agentOS(a)
+		if counts[os] == nil {
+			counts[os] = map[string]int{}
+		}
+		counts[os][v]++
+	}
+	out := map[string]string{}
+	for os, byVersion := range counts {
+		best, bestN := "", -1
+		for v, n := range byVersion {
+			// Tie-break toward the higher version so "current" trends forward.
+			if n > bestN || (n == bestN && compareS1Version(v, best) > 0) {
+				best, bestN = v, n
+			}
+		}
+		out[os] = best
+	}
+	return out
+}
 
+// agentBehindCurrent reports whether a live agent's version is below the
+// current build of its own OS. An agent with no version, or an OS with no
+// current build, is not judged.
+func agentBehindCurrent(a map[string]any, current map[string]string) bool {
+	v := strings.TrimSpace(gstr(a, "agentVersion"))
+	cur := current[agentOS(a)]
+	return v != "" && cur != "" && compareS1Version(v, cur) < 0
+}
+
+// ---- agent state predicates (shared across fleet-health / reclaim / posture / versions plan / whatchanged) ----
+
+// liveness is whether SentinelOne says an agent is checking in to the
+// management console.
+type liveness int
+
+const (
+	livenessUnknown liveness = iota
+	livenessOnline
+	livenessOffline
+)
+
+func (l liveness) String() string {
+	switch l {
+	case livenessOnline:
+		return "online"
+	case livenessOffline:
+		return "offline"
+	}
+	return "unknown"
+}
+
+// agentLiveness reads isActive and nothing else: GET /agents documents it as
+// "Include only active Agents", and the threat filter agentIsActive as "Agents
+// currently connected to the Management Console"; lastActiveDate is the last
+// check-in. networkStatus is NOT liveness. It is the state of the "Disconnect
+// from network" isolation action (spec.yaml POST /agents/actions/disconnect
+// isolates an endpoint, and the agent keeps talking to the console), so a
+// powered-off laptop that was never isolated still reads "connected" and an
+// isolated live server reads "disconnected".
+//
+// Only a JSON boolean is read. A missing, null, string or numeric isActive is
+// livenessUnknown, and callers fail closed on it: unknown is never counted
+// online, and never treated as offline enough to act on.
+func agentLiveness(a map[string]any) liveness {
+	v, ok := gval(a, "isActive")
+	if !ok {
+		return livenessUnknown
+	}
+	b, isBool := v.(bool)
+	switch {
+	case !isBool:
+		return livenessUnknown
+	case b:
+		return livenessOnline
+	default:
+		return livenessOffline
+	}
+}
+
+// agentOnline reports whether the agent is explicitly active. Unknown
+// liveness is not online.
 func agentOnline(a map[string]any) bool {
-	return strings.EqualFold(gstr(a, "networkStatus"), "connected")
+	return agentLiveness(a) == livenessOnline
+}
+
+// agentNetworkStatus is the agent's network-isolation state as SentinelOne
+// reports it ("connected", "disconnected", ...), lowercased. It says whether
+// the endpoint is isolated from the network, not whether it is online.
+func agentNetworkStatus(a map[string]any) string {
+	return strings.ToLower(strings.TrimSpace(gstr(a, "networkStatus")))
 }
 
 func agentDecommissioned(a map[string]any) bool {
@@ -252,8 +342,129 @@ func agentInProtect(a map[string]any) bool {
 	return strings.EqualFold(gstr(a, "mitigationMode"), "protect")
 }
 
+// ---- site identity ----
+
+// siteRef identifies a site. SentinelOne creates a "Default site" in every
+// account (spec.yaml /sites documents isDefault and accountIds), so a site
+// NAME is not unique across the tenants an MSP console holds: every grouping
+// keys on Key (the siteId when present) and shows Label.
+type siteRef struct {
+	Key     string
+	ID      string
+	Name    string
+	Account string
+}
+
+func newSiteRef(id, name, accountID, account string) siteRef {
+	r := siteRef{ID: id, Name: name, Account: account}
+	switch {
+	case id != "":
+		r.Key = "id:" + id
+	case name != "":
+		acct := account
+		if acct == "" {
+			acct = accountID
+		}
+		r.Key = "name:" + acct + "/" + name
+	default:
+		r.Key = "(unknown)"
+	}
+	return r
+}
+
+// Label is the site as shown to a person: "Account / Site" when the account
+// is known, so two accounts' same-named sites read apart.
+func (r siteRef) Label() string {
+	name := r.Name
+	if name == "" {
+		name = r.ID
+	}
+	if name == "" {
+		return "(unknown)"
+	}
+	if r.Account != "" {
+		return r.Account + " / " + name
+	}
+	return name
+}
+
+// Matches reports whether q names this site: its name, its id, or its label,
+// case-insensitively.
+func (r siteRef) Matches(q string) bool {
+	q = strings.TrimSpace(q)
+	return q != "" && (strings.EqualFold(q, r.Name) || q == r.ID || strings.EqualFold(q, r.Label()))
+}
+
+func agentSiteRef(a map[string]any) siteRef {
+	return newSiteRef(gstr(a, "siteId"), gstr(a, "siteName"), gstr(a, "accountId"), gstr(a, "accountName"))
+}
+
+func threatSiteRef(t map[string]any) siteRef {
+	return newSiteRef(
+		gstrFirst(t, "agentRealtimeInfo.siteId", "agentDetectionInfo.siteId", "siteId"),
+		gstrFirst(t, "agentRealtimeInfo.siteName", "agentDetectionInfo.siteName", "siteName"),
+		gstrFirst(t, "agentRealtimeInfo.accountId", "agentDetectionInfo.accountId", "accountId"),
+		gstrFirst(t, "agentRealtimeInfo.accountName", "agentDetectionInfo.accountName", "accountName"),
+	)
+}
+
+// agentSite is the agent's site label (see siteRef.Label).
 func agentSite(a map[string]any) string {
-	return gstrFirst(a, "siteName", "siteId")
+	return agentSiteRef(a).Label()
+}
+
+// ---- endpoint identity ----
+
+// agentKey identifies one agent: its id, else its uuid.
+func agentKey(a map[string]any) string {
+	if id := gstr(a, "id"); id != "" {
+		return "id:" + id
+	}
+	if u := gstr(a, "uuid"); u != "" {
+		return "uuid:" + u
+	}
+	return ""
+}
+
+func threatAgentID(t map[string]any) string {
+	return gstrFirst(t, "agentRealtimeInfo.agentId", "agentDetectionInfo.agentId", "agentId")
+}
+
+func threatAgentUUID(t map[string]any) string {
+	return gstrFirst(t, "agentRealtimeInfo.agentUuid", "agentDetectionInfo.agentUuid", "agentUuid")
+}
+
+// threatEndpointKey identifies the agent a detection belongs to. A hostname is
+// not an identity (two customers both have a "DC01"), so the agent id or uuid
+// wins, and a bare name is keyed together with its site.
+func threatEndpointKey(t map[string]any) string {
+	if id := threatAgentID(t); id != "" {
+		return "id:" + id
+	}
+	if u := threatAgentUUID(t); u != "" {
+		return "uuid:" + u
+	}
+	if name := strings.ToLower(strings.TrimSpace(threatEndpoint(t))); name != "" {
+		return "name:" + threatSiteRef(t).Key + "/" + name
+	}
+	return ""
+}
+
+// threatOnAgent reports whether detection t belongs to agent a. When the
+// detection names its agent (id or uuid) only that counts; a name-only
+// detection matches when the name is unique among synced agents and the sites
+// do not disagree.
+func threatOnAgent(t, a map[string]any, nameUnique bool) bool {
+	tid, tuuid := threatAgentID(t), threatAgentUUID(t)
+	if tid != "" || tuuid != "" {
+		return (tid != "" && tid == gstr(a, "id")) || (tuuid != "" && tuuid == gstr(a, "uuid"))
+	}
+	name := gstr(a, "computerName")
+	if !nameUnique || name == "" || !strings.EqualFold(threatEndpoint(t), name) {
+		return false
+	}
+	ts, as := threatSiteRef(t), agentSiteRef(a)
+	return ts.ID == "" || as.ID == "" || ts.ID == as.ID
 }
 
 // ---- threat field accessors (tolerant of nested threatInfo / flat shapes) ----
@@ -282,14 +493,138 @@ func threatMitigation(t map[string]any) string {
 func threatCreatedAt(t map[string]any) string {
 	return gstrFirst(t, "threatInfo.createdAt", "createdAt", "threatInfo.identifiedAt", "identifiedAt")
 }
-func threatUpdatedAt(t map[string]any) string {
-	return gstrFirst(t, "threatInfo.updatedAt", "updatedAt", "updatedDate")
-}
 func threatEndpoint(t map[string]any) string {
 	return gstrFirst(t, "agentRealtimeInfo.agentComputerName", "agentComputerName", "agentDetectionInfo.agentComputerName")
 }
 func threatSite(t map[string]any) string {
-	return gstrFirst(t, "agentRealtimeInfo.siteName", "siteName")
+	return threatSiteRef(t).Label()
+}
+
+// mitigationCompletingActions is the allowlist of SentinelOne mitigation
+// actions (the /threats/mitigate/{action} enum) whose success means the threat
+// itself was mitigated: each neutralizes the threat's file and runs kill first.
+// Everything else is refused, so it can never set a completion time:
+// "un-quarantine" undoes a quarantine; "kill" (stops the processes) and
+// "network-quarantine" (isolates the endpoint) contain the threat but leave it
+// on disk; and an action name not listed here is unknown, not mitigating.
+var mitigationCompletingActions = map[string]bool{
+	"quarantine":           true,
+	"remediate":            true,
+	"rollback-remediation": true,
+}
+
+// normalizeMitigationAction folds case and "_"/" " separators so
+// "Rollback_Remediation" matches "rollback-remediation" (and "UN_QUARANTINE"
+// still matches the refused "un-quarantine").
+func normalizeMitigationAction(s string) string {
+	return strings.NewReplacer("_", "-", " ", "-").Replace(strings.ToLower(strings.TrimSpace(s)))
+}
+
+// mitigationFieldSet reports whether a record field carries anything: a
+// non-blank string, a non-empty list or object, true, or a non-zero number.
+func mitigationFieldSet(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(x) != ""
+	case []any:
+		return len(x) > 0
+	case map[string]any:
+		return len(x) > 0
+	case bool:
+		return x
+	case float64:
+		return x != 0
+	}
+	return true
+}
+
+// mitigationCounter reads an actionsCounters.<name> count; ok is false when the
+// counter is present but not a number (an unreadable counter is not zero).
+func mitigationCounter(m map[string]any, name string) (n float64, present, ok bool) {
+	s := gstr(m, "actionsCounters."+name)
+	if s == "" {
+		return 0, false, true
+	}
+	n, err := strconv.ParseFloat(s, 64)
+	return n, true, err == nil
+}
+
+// mitigationActionCompleted reports whether one mitigationStatus[] record is a
+// completed mitigation and, if so, when it ended. It fails closed: the action
+// must be in mitigationCompletingActions and its status must say "success";
+// any failure signal disqualifies it - another or absent status (failed,
+// pending, partial), a populated error field, failed or pending-reboot action
+// counters, fewer successes than targets, or a missing or unparseable
+// mitigationEndedAt.
+func mitigationActionCompleted(m map[string]any) (time.Time, bool) {
+	if !mitigationCompletingActions[normalizeMitigationAction(gstr(m, "action"))] {
+		return time.Time{}, false
+	}
+	if !strings.EqualFold(strings.TrimSpace(gstr(m, "status")), "success") {
+		return time.Time{}, false
+	}
+	for _, k := range []string{"error", "errors", "errorMessage", "failure", "failureReason"} {
+		if mitigationFieldSet(m[k]) {
+			return time.Time{}, false
+		}
+	}
+	for _, c := range []string{"failed", "pendingReboot"} {
+		if n, _, ok := mitigationCounter(m, c); !ok || n > 0 {
+			return time.Time{}, false
+		}
+	}
+	succ, hasSucc, okS := mitigationCounter(m, "success")
+	total, hasTotal, okT := mitigationCounter(m, "total")
+	if !okS || !okT || (hasSucc && hasTotal && succ < total) {
+		return time.Time{}, false
+	}
+	return parseS1Time(gstr(m, "mitigationEndedAt"))
+}
+
+// threatMitigatedAt is when mitigation of a detection completed: the EARLIEST
+// mitigationEndedAt among the threat's completed mitigation actions
+// (SentinelOne's top-level mitigationStatus list; see
+// mitigationActionCompleted). The threat was mitigated then, so nothing later
+// moves it - not an un-quarantine, not a re-run remediate. When the threat
+// carries action records they are authoritative: if none qualifies there is
+// no completion time, and mitigatedAt is not substituted. Only a threat with
+// no action records falls back to an explicit mitigatedAt. A threat's
+// updatedAt is NEVER a mitigation time (any later edit, a verdict or a note,
+// moves it), so without one of these the duration is unmeasured.
+func threatMitigatedAt(t map[string]any) (time.Time, bool) {
+	if list, ok := t["mitigationStatus"].([]any); ok && len(list) > 0 {
+		var first time.Time
+		found := false
+		for _, e := range list {
+			m, ok := e.(map[string]any)
+			if !ok {
+				continue
+			}
+			if ts, ok := mitigationActionCompleted(m); ok && (!found || ts.Before(first)) {
+				first, found = ts, true
+			}
+		}
+		return first, found
+	}
+	return parseS1Time(gstrFirst(t, "threatInfo.mitigatedAt", "mitigatedAt"))
+}
+
+// threatTimeToMitigate is the time from detection (createdAt) to mitigation
+// completion (threatMitigatedAt). ok is false - the duration is unmeasured -
+// when either time is missing or the completion precedes detection; a
+// pre-detection completion is never swapped for a later action.
+func threatTimeToMitigate(t map[string]any) (time.Duration, bool) {
+	created, ok := parseS1Time(threatCreatedAt(t))
+	if !ok {
+		return 0, false
+	}
+	done, ok := threatMitigatedAt(t)
+	if !ok || done.Before(created) {
+		return 0, false
+	}
+	return done.Sub(created), true
 }
 
 // threatActive reports whether a threat is still open (not resolved and not

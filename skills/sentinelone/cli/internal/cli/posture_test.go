@@ -11,7 +11,7 @@ func TestPostureScorecard(t *testing.T) {
 	agents := []map[string]any{
 		// SiteA: 2 agents, 1 healthy, 1 unhealthy (offline).
 		agentFix("a1", "A1", "SiteA", "24.1.2.6", nil),
-		agentFix("a2", "A2", "SiteA", "24.1.2.6", map[string]any{"networkStatus": "disconnected"}),
+		agentFix("a2", "A2", "SiteA", "24.1.2.6", map[string]any{"isActive": false}),
 	}
 	threats := []map[string]any{
 		threatFix("t1", "Evil", "deadbeef", "A1", "SiteA", map[string]any{

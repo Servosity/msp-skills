@@ -11,13 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// blastEndpoint is one agent the threat touched, however many detections it
+// raised there. Active is true while any of those detections is still open.
 type blastEndpoint struct {
-	Endpoint   string `json:"endpoint"`
-	Site       string `json:"site,omitempty"`
-	ThreatID   string `json:"threat_id,omitempty"`
-	Mitigation string `json:"mitigation_status,omitempty"`
-	Active     bool   `json:"active"`
-	DetectedAt string `json:"detected_at,omitempty"`
+	Endpoint   string   `json:"endpoint"`
+	AgentID    string   `json:"agent_id,omitempty"`
+	Site       string   `json:"site,omitempty"`
+	SiteID     string   `json:"site_id,omitempty"`
+	ThreatID   string   `json:"threat_id,omitempty"`
+	ThreatIDs  []string `json:"threat_ids"`
+	Detections int      `json:"detections"`
+	Mitigation string   `json:"mitigation_status,omitempty"`
+	Active     bool     `json:"active"`
+	DetectedAt string   `json:"detected_at,omitempty"`
 }
 
 // newNovelThreatsBlastRadiusCmd traces one threat (by sha1, name, or id) across
@@ -31,8 +37,9 @@ func newNovelThreatsBlastRadiusCmd(flags *rootFlags) *cobra.Command {
 		Use:   "blast-radius <hash|name|threat-id>",
 		Short: "Trace one threat across the fleet: every endpoint touched, mitigated vs active, spread timeline",
 		Long: `Given a threat's SHA1, name, or id, join it across every synced threat row to
-show the full containment picture: which endpoints it touched, which are
-mitigated vs still active, the affected sites and groups, and the first/last
+show the full containment picture: which endpoints it touched (one row per
+agent, however many detections it raised there), which still have an active
+detection vs are fully mitigated, the affected sites and groups, and the first/last
 seen timeline. The API returns per-threat rows; this is the endpoint-joined
 view you actually need during incident response.`,
 		Example: `  # By SHA1
@@ -69,9 +76,10 @@ view you actually need during incident response.`,
 				return fmt.Errorf("loading threats: %w", err)
 			}
 
-			var eps []blastEndpoint
+			byEP := map[string]*blastEndpoint{}
+			var order []string
 			sites := map[string]bool{}
-			var mitigated, active int
+			var detActive, detMitigated int
 			var firstSeen, lastSeen time.Time
 			var threatLabel string
 			for _, t := range threats {
@@ -92,12 +100,12 @@ view you actually need during incident response.`,
 				}
 				isActive := threatActive(t)
 				if isActive {
-					active++
+					detActive++
 				} else {
-					mitigated++
+					detMitigated++
 				}
-				site := orUnknown(threatSite(t))
-				sites[site] = true
+				site := threatSiteRef(t)
+				sites[site.Label()] = true
 				detected := threatCreatedAt(t)
 				if ts, ok := parseS1Time(detected); ok {
 					if firstSeen.IsZero() || ts.Before(firstSeen) {
@@ -107,14 +115,40 @@ view you actually need during incident response.`,
 						lastSeen = ts
 					}
 				}
-				eps = append(eps, blastEndpoint{
-					Endpoint:   threatEndpoint(t),
-					Site:       site,
-					ThreatID:   id,
-					Mitigation: threatMitigation(t),
-					Active:     isActive,
-					DetectedAt: detected,
-				})
+				key := threatEndpointKey(t)
+				if key == "" {
+					key = "threat:" + id // no endpoint identity: one row per detection
+				}
+				e := byEP[key]
+				if e == nil {
+					e = &blastEndpoint{Endpoint: threatEndpoint(t), AgentID: threatAgentID(t), Site: site.Label(), SiteID: site.ID, ThreatIDs: []string{}}
+					byEP[key] = e
+					order = append(order, key)
+				}
+				e.Detections++
+				e.ThreatIDs = append(e.ThreatIDs, id)
+				// The row shows the endpoint's newest detection; it stays active
+				// while any detection on it is open.
+				if e.DetectedAt == "" || detected > e.DetectedAt {
+					e.DetectedAt = detected
+					e.ThreatID = id
+					e.Mitigation = threatMitigation(t)
+				}
+				if isActive {
+					e.Active = true
+				}
+			}
+			eps := make([]blastEndpoint, 0, len(order))
+			var active, mitigated int
+			for _, k := range order {
+				e := byEP[k]
+				sort.Strings(e.ThreatIDs)
+				if e.Active {
+					active++
+				} else {
+					mitigated++
+				}
+				eps = append(eps, *e)
 			}
 
 			if len(eps) == 0 {
@@ -137,20 +171,23 @@ view you actually need during incident response.`,
 
 			if flags.asJSON {
 				return flags.printJSON(cmd, map[string]any{
-					"query":           needle,
-					"threat":          threatLabel,
-					"endpoints_total": len(eps),
-					"active":          active,
-					"mitigated":       mitigated,
-					"sites_affected":  siteList,
-					"first_seen":      tsOrEmpty(firstSeen),
-					"last_seen":       tsOrEmpty(lastSeen),
-					"endpoints":       eps,
+					"query":                needle,
+					"threat":               threatLabel,
+					"endpoints_total":      len(eps),
+					"active":               active,
+					"mitigated":            mitigated,
+					"detections_total":     detActive + detMitigated,
+					"detections_active":    detActive,
+					"detections_mitigated": detMitigated,
+					"sites_affected":       siteList,
+					"first_seen":           tsOrEmpty(firstSeen),
+					"last_seen":            tsOrEmpty(lastSeen),
+					"endpoints":            eps,
 				})
 			}
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Blast radius for %s:\n", threatLabel)
-			fmt.Fprintf(w, "  %d endpoints across %d site(s) — %d active, %d mitigated\n", len(eps), len(siteList), active, mitigated)
+			fmt.Fprintf(w, "  %d endpoints across %d site(s) — %d still active, %d fully mitigated (%d detections)\n", len(eps), len(siteList), active, mitigated, detActive+detMitigated)
 			if !firstSeen.IsZero() {
 				fmt.Fprintf(w, "  first seen %s, last seen %s\n", firstSeen.Format("2006-01-02 15:04"), lastSeen.Format("2006-01-02 15:04"))
 			}

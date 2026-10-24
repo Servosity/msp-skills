@@ -1,6 +1,6 @@
 # SentinelOne CLI
 
-**Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics  -  fleet health, threat triage, blast radius, drift  -  that no console view offers.**
+**Every SentinelOne v2.1 endpoint plus offline cross-tenant fleet health and threat triage.**
 
 Query and manage your whole SentinelOne fleet from the terminal: agents, threats, activities, sites, groups, exclusions, Ranger, and more. Sync to a local store for offline full-text search, then run analytics the console can't  -  `fleet-health stale` ranks decaying endpoints, `threats blast-radius` traces one hash across the fleet, `whatchanged --since 24h` diffs overnight, and `posture` rolls up a per-tenant scorecard. Ships an MCP server so an AI agent can drive all of it.
 
@@ -80,7 +80,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sentinelone/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -88,7 +88,9 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
     "sentinelone": {
       "command": "sentinelone-mcp",
       "env": {
-        "SENTINELONE_API_TOKEN": "<your-key>"
+        "SENTINELONE_API_TOKEN": "<your-key>",
+        "SENTINELONE_BASE_URL": "https://<your-console>.sentinelone.net/web/api/v2.1",
+        "SENTINELONE_MCP_READ_ONLY": "1"
       }
     }
   }
@@ -96,6 +98,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`sentinelone-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SENTINELONE_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export SENTINELONE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+sentinelone-mcp --transport http
+```
+
+Set `SENTINELONE_MCP_READ_ONLY=1` (exactly `1`) to list only read-only tools: it removes `sentinelone_execute`, `sync`, `import`, `export`, `workflow_archive`, the `trace_a_threat_across_the_fleet` recipe and the learn-store writers (`teach`, `teach_lookup`, `teach_pattern`, `teach_playbook`, `playbook_amend`, `learnings_confirm`, `learnings_reject`, `learnings_forget`), and `sentinelone_read` still refuses every endpoint that needs confirmation.
 
 ## Authentication
 
@@ -107,14 +120,11 @@ Authenticate with a SentinelOne API token: create a Service User (Settings > Use
 # First export SENTINELONE_BASE_URL=https://<your-console>.sentinelone.net/web/api/v2.1 and SENTINELONE_API_TOKEN, then confirm the console is reachable and the token is valid
 sentinelone-cli doctor
 
-
 # Pull agents, threats, activities, sites, groups into the local store
 sentinelone-cli sync --full
 
-
 # Rank the riskiest, most-decayed endpoints first
 sentinelone-cli fleet-health stale --agent
-
 
 # List active threats, narrowed to the high-gravity fields
 sentinelone-cli threats get --json --select data.threatInfo.threatName,data.threatInfo.sha1,data.agentRealtimeInfo.agentComputerName
@@ -123,11 +133,8 @@ sentinelone-cli threats get --json --select data.threatInfo.threatName,data.thre
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Time-Travel & Diffing
-
-- **`whatchanged`**  -  One answer to 'what changed across all my tenants since I logged off?'  -  new threats, newly-offline or newly-unhealthy agents, version regressions, and protection-mode flips. Needs at least 2 syncs of local history.
+- **`whatchanged`**  -  One answer to 'what changed across all my tenants since I logged off?'  -  new and resolved threats, new and removed agents, agents that went offline or were isolated, agent version changes, and protection-mode flips. Needs at least 2 syncs of local history.
 
   _Reach for this instead of paging Get_Threats + Get_Agents and diffing by hand  -  it returns the cross-entity delta over a window that no single API call provides._
 
@@ -143,7 +150,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Threat Intelligence Joins
-
 - **`threats recurrence`**  -  Surfaces threats whose same hash or name re-appears across endpoints  -  or returns on an endpoint after a prior mitigation  -  the signal of an unkilled root cause. Needs at least 2 syncs of local history.
 
   _Use when a threat keeps coming back  -  it identifies the recurring hash/endpoint pair a single threat listing can't reveal._
@@ -181,7 +187,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Fleet Health & Coverage
-
 - **`fleet-health stale`**  -  Ranks endpoints by a composite decay score  -  last-seen age, last-scan age, out-of-date agent version, and reduced or disabled protection  -  so the riskiest agents triage first.
 
   _Reach for this to answer 'which endpoints are rotting?'  -  a ranked health score the console never computes._
@@ -189,7 +194,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   sentinelone-cli fleet-health stale --agent
   ```
-- **`coverage gaps`**  -  Lists endpoints in detect-only mode, with self-protection off, or with Ranger/firewall/device-control disabled  -  the 'are we actually protecting everyone?' compliance view per tenant.
+- **`coverage gaps`**  -  Lists endpoints in detect-only mode, or with Ranger or the firewall disabled  -  the 'are we actually protecting everyone?' compliance view per tenant.
 
   _Use for compliance/QBR prep  -  it finds unprotected endpoints by site that require joining policy state to site membership._
 
@@ -217,9 +222,22 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   sentinelone-cli fleet-health summary --agent
   ```
+- **`agents reclaim`**  -  Lists agents that still hold a license but no live machine uses: disconnected, with a last check-in past a threshold. Grouped per site (by site id, so two accounts' same-named sites stay apart) with a reclaimable-seat count; a newer record with the same endpoint name is shown as context, never as a reason to list a seat.
+
+  _Reach for this before a monthly license true-up: every long-dead agent is a seat the MSP pays for._
+
+  ```bash
+  sentinelone-cli agents reclaim --days 45 --agent
+  ```
+- **`versions plan`**  -  For a target agent version (default: the newest version seen per OS, since each OS ships its own package), lists the agents still behind it per site and OS, and sets aside offline agents an upgrade job could not reach.
+
+  _Reach for this when scheduling an upgrade wave: it names the reachable machines per site, so the job does not stall on offline ones._
+
+  ```bash
+  sentinelone-cli versions plan --agent
+  ```
 
 ### Reporting & Rollups
-
 - **`posture`**  -  A one-page per-tenant rollup  -  agent health %, coverage %, open-threat count, oldest unresolved, version compliance  -  for the morning MSSP review or a client QBR.
 
   _Reach for this for a client-ready summary  -  it composes health, coverage, and threat metrics into one scorecard the API never returns._
@@ -234,7 +252,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   sentinelone-cli exclusions audit --agent
   ```
-- **`sites risk`**  -  Ranks sites/clients against each other by composite risk  -  open-threat density, coverage gaps, stale agents, MTTR  -  so you know which tenant to call first.
+- **`sites risk`**  -  Ranks sites/clients against each other by composite risk  -  open-threat density, coverage gaps, stale agents and the age of the oldest open threat  -  so you know which tenant to call first.
 
   _Reach for this for the portfolio view  -  it ranks every client by risk in one command._
 
@@ -243,7 +261,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Triage overnight
 
@@ -332,6 +349,15 @@ sentinelone-cli doctor
 
 Under `SENTINELONE_HOME=/srv/sentinelone`, the four dirs resolve to `/srv/sentinelone/config`, `/srv/sentinelone/data`, `/srv/sentinelone/state`, and `/srv/sentinelone/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SENTINELONE_HOME = "C:\srv\sentinelone"
+sentinelone-cli doctor
+```
+
+Under `$env:SENTINELONE_HOME = "C:\srv\sentinelone"`, the four dirs resolve to `C:\srv\sentinelone\config`, `C:\srv\sentinelone\data`, `C:\srv\sentinelone\state`, and `C:\srv\sentinelone\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -352,6 +378,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `SENTINELONE_
 Relocation is one-way. Unsetting `SENTINELONE_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `sentinelone-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `sentinelone-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `sentinelone-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SENTINELONE_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SENTINELONE_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -745,7 +781,7 @@ system operations
 - **`sentinelone-cli system cache-status`** - Get an indication of the system's cache health status. <br>This command returns a positive response when the cache server is up and running. <br>This command does not require authentication. <br>Rate limit: 1 call per second for each IP address that communicates with the Console.
 - **`sentinelone-cli system database-status`** - Get an indication of the system's database health status. <br>This command returns a positive response when the DB server is up and running. <br>This command does not require authentication. <br>Rate limit: 1 call per second for each IP address that communicates with the Console.
 - **`sentinelone-cli system get-config`** - Get the configuration of your SentinelOne system. <br>The response shows basic information of the deployed SKUs and licenses, 2FA, and the Management URL.
-- **`sentinelone-cli system info`** - Get the Console build, version, patch, and release information.
+- **`sentinelone-cli system get-info`** - Get the Console build, version, patch, and release information.
 - **`sentinelone-cli system set-config`** - Change the system configuration. <br>Before you run this, see Get System Config. <br>This command requires a Global Admin user or Support.
 - **`sentinelone-cli system status`** - Get an indication of the system's health status. <br>This command returns a positive response when the Management Console and API server are up and running. This command does not require authentication.<br>Rate limit: 1 call per second for each IP address that communicates with the Console.
 
@@ -868,6 +904,82 @@ users operations
 - **`sentinelone-cli users validate-verification-token`** - When a new user verifies their email, the Management gets a token.  Use this command to validate the token.
 
 
+### agents
+
+
+- **`sentinelone-cli agents dossier`** - Everything about one endpoint on one card: agent state, full threat history, recent activities, and site/group membership  -  the IR handoff view.
+
+- **`sentinelone-cli agents reclaim`** - Lists agents that still hold a license but no live machine uses: disconnected, with a last check-in past a threshold. Grouped per site (by site id, so two accounts' same-named sites stay apart) with a reclaimable-seat count; a newer record with the same endpoint name is shown as context, never as a reason to list a seat.
+
+
+### coverage
+
+
+- **`sentinelone-cli coverage gaps`** - Lists endpoints in detect-only mode, or with Ranger or the firewall disabled  -  the 'are we actually protecting everyone?' compliance view per tenant.
+
+
+### exclusions
+
+
+- **`sentinelone-cli exclusions audit`** - Flags risky exclusions  -  never matched by any threat, wildcard paths, and entries older than a threshold  -  the 'are we hiding real threats?' review.
+
+
+### fleet-health
+
+
+- **`sentinelone-cli fleet-health stale`** - Ranks endpoints by a composite decay score  -  last-seen age, last-scan age, out-of-date agent version, and reduced or disabled protection  -  so the riskiest agents triage first.
+
+- **`sentinelone-cli fleet-health summary`** - At-a-glance fleet counts  -  online/offline/decommissioned, infected, out-of-date, under-protected  -  across all sites in one call.
+
+
+### posture
+
+
+- **`sentinelone-cli posture`** - A one-page per-tenant rollup  -  agent health %, coverage %, open-threat count, oldest unresolved, version compliance  -  for the morning MSSP review or a client QBR.
+
+
+### ranger
+
+
+- **`sentinelone-cli ranger exposure`** - Surfaces unmanaged/rogue endpoints on each subnet by cross-referencing Ranger-discovered devices against managed agents, ranked by managed-peer density.
+
+
+### sites
+
+
+- **`sentinelone-cli sites risk`** - Ranks sites/clients against each other by composite risk  -  open-threat density, coverage gaps, stale agents and the age of the oldest open threat  -  so you know which tenant to call first.
+
+
+### threats
+
+
+- **`sentinelone-cli threats recurrence`** - Surfaces threats whose same hash or name re-appears across endpoints  -  or returns on an endpoint after a prior mitigation  -  the signal of an unkilled root cause. Needs at least 2 syncs of local history.
+
+- **`sentinelone-cli threats mttr`** - Computes mean time from threat detection to mitigation per site, and flags SLA breaches and the longest-unresolved threats. Needs at least 2 syncs of local history.
+
+- **`sentinelone-cli threats blast-radius`** - For one threat, instantly shows every endpoint it touched, which are mitigated vs still active, the affected sites/groups, and the spread timeline.
+
+- **`sentinelone-cli threats verdicts`** - Flags threats whose analyst verdict, confidence level, or incident status changed since the last sync  -  suspicious to malicious, or an auto-mitigated threat re-opened  -  so nothing flips silently. Needs at least 2 syncs of local history.
+
+- **`sentinelone-cli threats triage`** - One ranked, cross-site worklist of every open threat  -  scored by confidence × severity × age  -  so the morning triage order needs zero console scope flips.
+
+
+### versions
+
+
+- **`sentinelone-cli versions rollout`** - Shows agent-version distribution per site over time and flags sites stuck on EOL/old versions or stalled mid-upgrade-wave. Needs at least 2 syncs of local history.
+
+- **`sentinelone-cli versions plan`** - For a target agent version (default: the newest version seen per OS, since each OS ships its own package), lists the agents still behind it per site and OS, and sets aside offline agents an upgrade job could not reach.
+
+
+### whatchanged
+
+
+- **`sentinelone-cli whatchanged`** - One answer to 'what changed across all my tenants since I logged off?'  -  new and resolved threats, new and removed agents, agents that went offline or were isolated, agent version changes, and protection-mode flips. Needs at least 2 syncs of local history.
+
+
+
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -903,6 +1015,8 @@ sentinelone-cli accounts get --dry-run
 sentinelone-cli accounts get --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -929,9 +1043,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `sentinelone-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sentinelone-cli/config.toml` (`%USERPROFILE%\.config\sentinelone-cli\config.toml` on Windows); `--home`, `SENTINELONE_HOME`, and per-kind env vars can relocate it.
+Run `sentinelone-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sentinelone-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\sentinelone-cli\config.toml` on Windows; `--home`, `SENTINELONE_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SENTINELONE_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SENTINELONE_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -952,13 +1068,10 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-
 - **401 Unauthorized on every call**  -  Token expired (SentinelOne rotates every 6 months) or wrong scope  -  regenerate the Service User's API token and re-export SENTINELONE_API_TOKEN.
 - **404 / connection errors**  -  SENTINELONE_BASE_URL must include the /web/api/v2.1 suffix and your exact console host, e.g. https://usea1-partners.sentinelone.net/web/api/v2.1.
 - **A history command says 'need at least 2 syncs'**  -  Drift, rollout, MTTR, and verdict-change views compare snapshots  -  run `sentinelone-cli sync` at least twice over time before using them.
 - **A write command (mitigate, disconnect) reports no body sent**  -  The public spec omits request bodies for some actions  -  pipe the documented fields as JSON via --stdin (echo '{"filter":{"ids":["<id>"]}}' | sentinelone-cli threats mitigate kill --stdin) until typed flags land.
-
----
 
 ## Sources & Inspiration
 

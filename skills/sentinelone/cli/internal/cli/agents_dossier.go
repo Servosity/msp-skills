@@ -11,13 +11,16 @@ import (
 )
 
 type dossierAgent struct {
-	ComputerName  string `json:"computer_name,omitempty"`
-	UUID          string `json:"uuid,omitempty"`
-	ID            string `json:"id,omitempty"`
-	OS            string `json:"os_name,omitempty"`
-	AgentVersion  string `json:"agent_version,omitempty"`
-	Site          string `json:"site,omitempty"`
-	Group         string `json:"group,omitempty"`
+	ComputerName string `json:"computer_name,omitempty"`
+	UUID         string `json:"uuid,omitempty"`
+	ID           string `json:"id,omitempty"`
+	OS           string `json:"os_name,omitempty"`
+	AgentVersion string `json:"agent_version,omitempty"`
+	Site         string `json:"site,omitempty"`
+	Group        string `json:"group,omitempty"`
+	// Liveness is "online" (isActive true), "offline" (isActive false) or
+	// "unknown". NetworkStatus is the network-isolation state, not liveness.
+	Liveness      string `json:"liveness"`
 	NetworkStatus string `json:"network_status,omitempty"`
 	Infected      bool   `json:"infected"`
 	UpToDate      bool   `json:"is_up_to_date"`
@@ -92,19 +95,43 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 				return fmt.Errorf("loading agents: %w", err)
 			}
 
+			// An exact id or uuid names one agent. A computer name can name several
+			// (two customers' "DC01"): then no agent is picked for the caller.
 			var matches []map[string]any
 			for _, a := range agents {
-				name := gstr(a, "computerName")
-				uuid := gstr(a, "uuid")
-				id := gstr(a, "id")
-				if strings.EqualFold(name, query) || strings.EqualFold(uuid, query) || strings.EqualFold(id, query) {
+				if strings.EqualFold(gstr(a, "uuid"), query) || strings.EqualFold(gstr(a, "id"), query) {
 					matches = append(matches, a)
+				}
+			}
+			if len(matches) == 0 {
+				for _, a := range agents {
+					if strings.EqualFold(gstr(a, "computerName"), query) {
+						matches = append(matches, a)
+					}
 				}
 			}
 			if len(matches) == 0 {
 				return honestEmptyJSON(cmd, flags,
 					fmt.Sprintf("No agent in the local store matched %q (by computer name, UUID, or id). Run 'sentinelone-cli sync --resources agents' if the endpoint is new.", query),
 					map[string]any{"query": query})
+			}
+			if len(matches) > 1 {
+				type candidate struct {
+					ID           string `json:"id"`
+					UUID         string `json:"uuid,omitempty"`
+					ComputerName string `json:"computer_name"`
+					Site         string `json:"site"`
+					SiteID       string `json:"site_id,omitempty"`
+				}
+				cands := make([]candidate, 0, len(matches))
+				for _, m := range matches {
+					r := agentSiteRef(m)
+					cands = append(cands, candidate{ID: gstr(m, "id"), UUID: gstr(m, "uuid"), ComputerName: gstr(m, "computerName"), Site: r.Label(), SiteID: r.ID})
+				}
+				sort.SliceStable(cands, func(i, j int) bool { return cands[i].ID < cands[j].ID })
+				return honestEmptyJSON(cmd, flags,
+					fmt.Sprintf("%d agents are named %q; ask again by id or uuid: %s", len(matches), query, describeCandidates(cands, func(c candidate) string { return c.ID + " (" + c.Site + ")" })),
+					map[string]any{"query": query, "ambiguous": true, "candidates": cands})
 			}
 
 			a := matches[0]
@@ -116,8 +143,9 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 				ID:            agentID,
 				OS:            gstr(a, "osName"),
 				AgentVersion:  gstr(a, "agentVersion"),
-				Site:          orUnknown(agentSite(a)),
+				Site:          agentSite(a),
 				Group:         gstr(a, "groupName"),
+				Liveness:      agentLiveness(a).String(),
 				NetworkStatus: gstr(a, "networkStatus"),
 				Infected:      gbool(a, "infected"),
 				UpToDate:      gbool(a, "isUpToDate"),
@@ -125,14 +153,25 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 				LastActive:    gstr(a, "lastActiveDate"),
 			}
 
-			// Threats on this endpoint (match by computer name).
+			// Threats on this endpoint: by agent id/uuid; a detection that names no
+			// agent matches by name only when that name is unique in the store.
+			nameUnique := true
+			if agentName != "" {
+				n := 0
+				for _, other := range agents {
+					if strings.EqualFold(gstr(other, "computerName"), agentName) {
+						n++
+					}
+				}
+				nameUnique = n == 1
+			}
 			threats, err := loadThreats(cmd.Context(), db)
 			if err != nil {
 				return fmt.Errorf("loading threats: %w", err)
 			}
-			var threatRows []dossierThreat
+			threatRows := []dossierThreat{}
 			for _, t := range threats {
-				if agentName != "" && strings.EqualFold(threatEndpoint(t), agentName) {
+				if threatOnAgent(t, a, nameUnique) {
 					threatRows = append(threatRows, dossierThreat{
 						Threat:     threatName(t),
 						SHA1:       clip(threatSHA1(t), 12),
@@ -143,18 +182,22 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 				}
 			}
 
-			// Recent activities for this endpoint (match by agentId or computer name).
+			// Recent activities for this endpoint: an activity that carries an
+			// agentId belongs to that agent only; the name fallback is for
+			// activities with no agentId, and only for a unique name.
 			activities, err := loadResourceObjects(cmd.Context(), db, "activities")
 			if err != nil {
 				return fmt.Errorf("loading activities: %w", err)
 			}
 			var actMatches []map[string]any
 			for _, act := range activities {
-				if agentID != "" && gstr(act, "agentId") == agentID {
-					actMatches = append(actMatches, act)
+				if actAgent := gstr(act, "agentId"); actAgent != "" {
+					if agentID != "" && actAgent == agentID {
+						actMatches = append(actMatches, act)
+					}
 					continue
 				}
-				if agentName != "" && strings.EqualFold(gstr(act, "data.computerName"), agentName) {
+				if nameUnique && agentName != "" && strings.EqualFold(gstr(act, "data.computerName"), agentName) {
 					actMatches = append(actMatches, act)
 				}
 			}
@@ -165,7 +208,7 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 			if len(actMatches) > 10 {
 				actMatches = actMatches[:10]
 			}
-			var actRows []dossierActivity
+			actRows := []dossierActivity{}
 			for _, act := range actMatches {
 				actRows = append(actRows, dossierActivity{
 					Description: gstrFirst(act, "primaryDescription", "data.primaryDescription"),
@@ -184,16 +227,14 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Endpoint dossier: %s\n\n", orUnknown(detail.ComputerName))
-			if len(matches) > 1 {
-				fmt.Fprintf(w, "(%d agents matched %q; showing the first)\n\n", len(matches), query)
-			}
 			fmt.Fprintf(w, "  uuid             %s\n", orUnknown(detail.UUID))
 			fmt.Fprintf(w, "  id               %s\n", orUnknown(detail.ID))
 			fmt.Fprintf(w, "  os               %s\n", orUnknown(detail.OS))
 			fmt.Fprintf(w, "  agent version    %s\n", orUnknown(detail.AgentVersion))
 			fmt.Fprintf(w, "  site             %s\n", detail.Site)
 			fmt.Fprintf(w, "  group            %s\n", orUnknown(detail.Group))
-			fmt.Fprintf(w, "  network status   %s\n", orUnknown(detail.NetworkStatus))
+			fmt.Fprintf(w, "  liveness         %s\n", detail.Liveness)
+			fmt.Fprintf(w, "  network status   %s (isolation state, not liveness)\n", orUnknown(detail.NetworkStatus))
 			fmt.Fprintf(w, "  infected         %t\n", detail.Infected)
 			fmt.Fprintf(w, "  up-to-date       %t\n", detail.UpToDate)
 			fmt.Fprintf(w, "  in protect       %t\n", detail.InProtect)
@@ -215,4 +256,17 @@ Identify the endpoint by computer name, UUID, or agent id (case-insensitive).`,
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/sentinelone-cli/data.db)")
 	return cmd
+}
+
+// describeCandidates joins up to five candidates for an ambiguity message.
+func describeCandidates[T any](items []T, show func(T) string) string {
+	parts := make([]string, 0, len(items))
+	for i, it := range items {
+		if i == 5 {
+			parts = append(parts, fmt.Sprintf("and %d more", len(items)-5))
+			break
+		}
+		parts = append(parts, show(it))
+	}
+	return strings.Join(parts, ", ")
 }

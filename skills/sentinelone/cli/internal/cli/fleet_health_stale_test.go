@@ -14,7 +14,7 @@ func TestFleetHealthStaleRanksDecay(t *testing.T) {
 		agentFix("a-healthy", "HEALTHY-01", "SiteA", "24.1.2.6", nil),
 		// Decayed: offline 30d, out-of-date, detect-only, infected.
 		agentFix("a-bad", "ROTTEN-01", "SiteA", "22.0.0.1", map[string]any{
-			"networkStatus":  "disconnected",
+			"isActive":       false,
 			"isUpToDate":     false,
 			"mitigationMode": "detect",
 			"infected":       true,
@@ -54,7 +54,7 @@ func TestFleetHealthStaleMinScoreFiltersHealthy(t *testing.T) {
 func TestFleetHealthSummaryCounts(t *testing.T) {
 	agents := []map[string]any{
 		agentFix("a1", "ON-1", "SiteA", "24.1.2.6", nil),
-		agentFix("a2", "OFF-1", "SiteA", "24.1.2.6", map[string]any{"networkStatus": "disconnected"}),
+		agentFix("a2", "OFF-1", "SiteA", "24.1.2.6", map[string]any{"isActive": false}),
 		agentFix("a3", "INF-1", "SiteB", "24.1.2.6", map[string]any{"infected": true}),
 	}
 	db := newSeededStore(t, agents, nil)

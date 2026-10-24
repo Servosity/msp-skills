@@ -11,6 +11,7 @@ import (
 
 type siteRiskRow struct {
 	Site           string  `json:"site"`
+	SiteID         string  `json:"site_id,omitempty"`
 	RiskScore      float64 `json:"risk_score"`
 	Agents         int     `json:"agents"`
 	OpenThreats    int     `json:"open_threats"`
@@ -81,6 +82,7 @@ The highest-risk tenants sort to the top so you know where to look first.`,
 
 			now := time.Now()
 			type acc struct {
+				site         siteRef
 				agents       int
 				live         int // non-decommissioned
 				notInProtect int
@@ -89,18 +91,17 @@ The highest-risk tenants sort to the top so you know where to look first.`,
 				oldestDays   int
 			}
 			sites := map[string]*acc{}
-			get := func(s string) *acc {
-				s = orUnknown(s)
-				a := sites[s]
+			get := func(r siteRef) *acc {
+				a := sites[r.Key]
 				if a == nil {
-					a = &acc{}
-					sites[s] = a
+					a = &acc{site: r}
+					sites[r.Key] = a
 				}
 				return a
 			}
 
 			for _, a := range agents {
-				s := get(agentSite(a))
+				s := get(agentSiteRef(a))
 				s.agents++
 				if agentDecommissioned(a) {
 					continue
@@ -117,7 +118,7 @@ The highest-risk tenants sort to the top so you know where to look first.`,
 				if !threatActive(t) {
 					continue
 				}
-				s := get(threatSite(t))
+				s := get(threatSiteRef(t))
 				s.openThreats++
 				if d, ok := daysSince(now, threatCreatedAt(t)); ok && d > s.oldestDays {
 					s.oldestDays = d
@@ -125,7 +126,7 @@ The highest-risk tenants sort to the top so you know where to look first.`,
 			}
 
 			var rows []siteRiskRow
-			for site, a := range sites {
+			for _, a := range sites {
 				denom := a.agents
 				if denom < 1 {
 					denom = 1
@@ -149,7 +150,8 @@ The highest-risk tenants sort to the top so you know where to look first.`,
 				}
 				risk := round1(threatDensity*40 + coverageGapPct*0.3 + stalePct*0.2 + float64(openAge)*0.5)
 				rows = append(rows, siteRiskRow{
-					Site:           site,
+					Site:           a.site.Label(),
+					SiteID:         a.site.ID,
 					RiskScore:      risk,
 					Agents:         a.agents,
 					OpenThreats:    a.openThreats,

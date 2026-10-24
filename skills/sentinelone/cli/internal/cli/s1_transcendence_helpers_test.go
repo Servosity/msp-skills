@@ -66,6 +66,13 @@ func seedSnapshot(t *testing.T, dbPath, entity string, at time.Time, objs []map[
 	}
 	defer db.Close()
 	stamp := at.UTC().Format(time.RFC3339)
+	// Like the real capture, log the capture itself, so an empty one counts.
+	if _, err := db.DB().Exec(
+		`INSERT INTO fleet_capture_log (entity, captured_at, row_count) VALUES (?, ?, ?)
+		 ON CONFLICT(entity, captured_at) DO UPDATE SET row_count = excluded.row_count`,
+		entity, stamp, len(objs)); err != nil {
+		t.Fatalf("log snapshot: %v", err)
+	}
 	for i, o := range objs {
 		raw, err := json.Marshal(o)
 		if err != nil {
@@ -135,6 +142,7 @@ func agentFix(id, name, site, version string, opts map[string]any) map[string]an
 		"siteName":         site,
 		"agentVersion":     version,
 		"networkStatus":    "connected",
+		"isActive":         true,
 		"isUpToDate":       true,
 		"infected":         false,
 		"isDecommissioned": false,

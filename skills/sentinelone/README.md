@@ -12,28 +12,32 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/sentinelone/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics  -  fleet health, threat triage, blast radius, drift  -  that no console view offers. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics  -  fleet health, threat triage, blast radius, drift  -  that no console view offers. Works with the AI you already use - **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `SENTINELONE_MCP_HTTP_TOKEN` is set, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`
+> and `--tls-key` for any other address. It refuses a request body over 4 MiB or
+> one that takes longer than 30 seconds to arrive. Whoever holds the token can
+> call every tool with your SentinelOne credentials, including tools that change
+> your tenant, so treat it like a password, and keep `SENTINELONE_MCP_READ_ONLY=1`
+> on a remote host that only needs to read. See [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the SentinelOne skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `sentinelone-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Run installer, host `sentinelone-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `sentinelone-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md).
+ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `SENTINELONE_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -41,8 +45,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Host `sentinelone-mcp` over HTTPS with a bearer token (the same HTTP mode as ChatGPT), then add it in Copilot Studio as a Model Context Protocol tool. Needs a Copilot Studio license and a tenant admin. See [mcp-install.md](./mcp-install.md). |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same hosted HTTPS endpoint as ChatGPT. See [mcp-install.md](./mcp-install.md). |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -164,6 +168,8 @@ SENTINELONE_API_TOKEN=<value> sentinelone-cli doctor
 | Are we hitting our mitigation SLA, and where are the breaches? | `sentinelone-cli threats mttr --sla 4` |
 | Give me one posture scorecard per client for the QBR deck? | `sentinelone-cli posture` |
 | Rank my clients by risk so I know which tenant to call first? | `sentinelone-cli sites risk` |
+| Which agents still hold a license with no live machine behind them? | `sentinelone-cli agents reclaim --days 30` |
+| Which endpoints need an agent upgrade, per site and OS, and which are reachable now? | `sentinelone-cli versions plan` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -194,7 +200,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the SentinelOne MCP server in HTTP mode. In this build HTTP mode checks a token but has no request size or time limits yet, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `sentinelone-mcp` in HTTP mode: it refuses to start until `SENTINELONE_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. It serves `http://127.0.0.1:7777/mcp` by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -232,8 +238,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| **Read** | `threats triage`, `threats blast-radius`, `fleet-health stale`, `coverage gaps`, `posture`, `sites risk`, `whatchanged`, `exclusions audit`, `search` | Allow |
-| **Write (routine)** | `agents initiate-scan`, `threats mitigate`, `agents disconnect-from-network`, `agents update-software`, `exclusions create` - writes send immediately; `--dry-run` is an opt-in preview, not a default | Preview with `--dry-run`, then a reviewed write |
+| **Read** | `threats triage`, `threats blast-radius`, `fleet-health stale`, `coverage gaps`, `posture`, `sites risk`, `whatchanged`, `exclusions audit`, `agents reclaim`, `versions plan`, `search` | Allow |
+| **Write (routine)** | `agents initiate-scan`, `threats mitigate`, `agents disconnect-from-network`, `agents update-software`, `exclusions create` - each refuses and sends nothing unless you pass `--yes` (send it) or `--dry-run` (preview it) | Preview with `--dry-run`, then a reviewed write with `--yes` |
 | **Destructive / config** | `agents uninstall`, `agents decommission`, `exclusions delete`, `sites delete`, `config-override delete`, `users delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the SentinelOne credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
