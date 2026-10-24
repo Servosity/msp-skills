@@ -1,0 +1,218 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-24T19:10:41.337765Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "huntress",
+  "display_name": "Huntress",
+  "cli_name": "huntress-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:160d1f02a9e68c07e3a1b322033f4077a5b08349bcf44c06cc723cde56cad6c3",
+  "run_id": "20261024-140859-1f628d1f",
+  "category": "monitoring",
+  "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
+  "mcp_binary": "huntress-pp-mcp",
+  "mcp_tool_count": 82,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "basic_auth",
+  "auth_env_vars": [
+    "HUNTRESS_API_KEY",
+    "HUNTRESS_API_SECRET"
+  ],
+  "auth_key_url": "https://www.huntress.com/terms-of-service",
+  "novel_features": [
+    {
+      "name": "fleet-incidents",
+      "command": "fleet-incidents",
+      "description": "One unified, age-sorted incident queue across every client organization, with org names joined in — the morning-sweep view the dashboard can't give."
+    },
+    {
+      "name": "coverage-gaps",
+      "command": "coverage-gaps",
+      "description": "Flags orgs and agents with stale callbacks, unhealthy Defender/firewall, or outdated EDR versions — a fleet posture exposure report."
+    },
+    {
+      "name": "blast-radius",
+      "command": "blast-radius",
+      "description": "Given an indicator (external IP, file hash, or foothold signature), finds every agent, org, and incident that matches it — instant correlation during incident response."
+    },
+    {
+      "name": "triage-age",
+      "command": "triage-age",
+      "description": "SLA aging report: open incidents bucketed by hours-open, broken out by org and severity, with breaches flagged."
+    },
+    {
+      "name": "billing-reconcile",
+      "command": "billing-reconcile",
+      "description": "Compares invoiced and subscribed seat counts against actually deployed agent counts per org and surfaces the delta."
+    },
+    {
+      "name": "drift",
+      "command": "drift",
+      "description": "Diffs the current sync against the prior snapshot: new and removed agents, status flips, new criticals, and version changes."
+    },
+    {
+      "name": "mttr",
+      "command": "mttr",
+      "description": "Computes mean time-to-resolve for incidents from sent-to-resolved timestamps, grouped by org or severity."
+    },
+    {
+      "name": "canary-watch",
+      "command": "canary-watch",
+      "description": "Surfaces only ransomware-canary and foothold incidents in a time window — the highest-signal early-ransomware indicators, fleet-wide."
+    },
+    {
+      "name": "org-scorecard",
+      "command": "org-scorecard",
+      "description": "Per-client QBR scorecard: agent count, coverage percent, open and closed incidents, MTTR, and a posture grade — one client's security story."
+    },
+    {
+      "name": "stale-agents",
+      "command": "stale-agents",
+      "description": "Lists agents whose last callback exceeds a threshold — decommissioned-but-billed machines or broken installs."
+    },
+    {
+      "name": "handoff",
+      "command": "handoff",
+      "description": "Shift-change report of what changed (new criticals, resolutions, escalations) since a timestamp, ready to paste into a handoff note."
+    },
+    {
+      "name": "incident-detail",
+      "command": "incident-detail",
+      "description": "See one incident fully enriched — its remediations, the affected agent, and the org name — in a single lookup."
+    },
+    {
+      "name": "fleet-summary",
+      "command": "fleet-summary",
+      "description": "One-screen fleet top-line: total orgs, agents, open criticals, oldest unactioned critical, orgs below coverage threshold, stale agents."
+    },
+    {
+      "name": "reseller-rollup",
+      "command": "reseller-rollup",
+      "description": "Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side."
+    },
+    {
+      "name": "signal-digest",
+      "command": "signal-digest",
+      "description": "Groups SOC signals by type and organization over a time window, with reported-versus-closed counts: what the Huntress SOC saw across the fleet."
+    },
+    {
+      "name": "escalation-queue",
+      "command": "escalation-queue",
+      "description": "Unresolved escalations across the fleet, critical first and oldest first, with hours open and the organizations each one names: the environmental-issue backlog the incident queue does not show."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "fleet-incidents",
+      "command": "fleet-incidents",
+      "description": "One unified, age-sorted incident queue across every client organization, with org names joined in — the morning-sweep view the dashboard can't give."
+    },
+    {
+      "name": "coverage-gaps",
+      "command": "coverage-gaps",
+      "description": "Flags orgs and agents with stale callbacks, unhealthy Defender/firewall, or outdated EDR versions — a fleet posture exposure report."
+    },
+    {
+      "name": "blast-radius",
+      "command": "blast-radius",
+      "description": "Given an indicator (external IP, file hash, or foothold signature), finds every agent, org, and incident that matches it — instant correlation during incident response."
+    },
+    {
+      "name": "triage-age",
+      "command": "triage-age",
+      "description": "SLA aging report: open incidents bucketed by hours-open, broken out by org and severity, with breaches flagged."
+    },
+    {
+      "name": "billing-reconcile",
+      "command": "billing-reconcile",
+      "description": "Compares invoiced and subscribed seat counts against actually deployed agent counts per org and surfaces the delta."
+    },
+    {
+      "name": "drift",
+      "command": "drift",
+      "description": "Diffs the current sync against the prior snapshot: new and removed agents, status flips, new criticals, and version changes."
+    },
+    {
+      "name": "mttr",
+      "command": "mttr",
+      "description": "Computes mean time-to-resolve for incidents from sent-to-resolved timestamps, grouped by org or severity."
+    },
+    {
+      "name": "canary-watch",
+      "command": "canary-watch",
+      "description": "Surfaces only ransomware-canary and foothold incidents in a time window — the highest-signal early-ransomware indicators, fleet-wide."
+    },
+    {
+      "name": "org-scorecard",
+      "command": "org-scorecard",
+      "description": "Per-client QBR scorecard: agent count, coverage percent, open and closed incidents, MTTR, and a posture grade — one client's security story."
+    },
+    {
+      "name": "stale-agents",
+      "command": "stale-agents",
+      "description": "Lists agents whose last callback exceeds a threshold — decommissioned-but-billed machines or broken installs."
+    },
+    {
+      "name": "handoff",
+      "command": "handoff",
+      "description": "Shift-change report of what changed (new criticals, resolutions, escalations) since a timestamp, ready to paste into a handoff note."
+    },
+    {
+      "name": "incident-detail",
+      "command": "incident-detail",
+      "description": "See one incident fully enriched — its remediations, the affected agent, and the org name — in a single lookup."
+    },
+    {
+      "name": "fleet-summary",
+      "command": "fleet-summary",
+      "description": "One-screen fleet top-line: total orgs, agents, open criticals, oldest unactioned critical, orgs below coverage threshold, stale agents."
+    },
+    {
+      "name": "reseller-rollup",
+      "command": "reseller-rollup",
+      "description": "Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side."
+    },
+    {
+      "name": "signal-digest",
+      "command": "signal-digest",
+      "description": "Groups SOC signals by type and organization over a time window, with reported-versus-closed counts: what the Huntress SOC saw across the fleet."
+    },
+    {
+      "name": "escalation-queue",
+      "command": "escalation-queue",
+      "description": "Unresolved escalations across the fleet, critical first and oldest first, with hours open and the organizations each one names: the environmental-issue backlog the incident queue does not show."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 123,
+    "total": 123,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}

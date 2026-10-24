@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.11] - unreleased
+
+### Changed
+- **Rebuilt on cli-printing-press 4.34.0.** The MCP server's `--transport http` mode refuses to start without `HUNTRESS_MCP_HTTP_TOKEN` and needs TLS off loopback; `HUNTRESS_MCP_READ_ONLY=1` (preset in every install channel) drops the write tools; `HUNTRESS_NO_LOCAL_DATA=1` keeps no local copy of API responses.
+- **Two new local commands.** `signal-digest` groups SOC signals by type and organization over a time window with reported and closed counts. `escalation-queue` lists unresolved escalations, critical first and oldest first, with the organizations each one names.
+
+### Fixed
+- **Local rollups no longer count rows a later full sync removed.** The local commands read the account-level and reseller copies of each data type as one reconciled set. A row is left out only when a later sync walked its whole scope from the first page with no `--param`, `--global-param` or `--resource-param` filter and did not return it; a filtered or resumed sync never removes a row. Rows whose coverage cannot be established are counted and named in a `warning:` line. A store synced by an earlier release records no walk coverage, so its rows are kept with a warning until you run one `sync` with this release.
+- **billing-reconcile keeps each invoice with its account.** An invoice's account is carried across every copy of it, so one account is never split in two; an invoice no copy attributes is listed under `unattributed_invoices` and the totals are withheld.
+- **Unreadable values are shown as unknown, never as 0.** A missing list in an API answer, a null minimum, or an unreadable timestamp now shows as `null` with a `warning:` line in reseller-rollup, billing-reconcile, triage-age, fleet-summary, mttr, org-scorecard, coverage-gaps and signal-digest.
+- **blast-radius matches addresses in any spelling, on both sides.** The `--indicator` value and the stored text are read the same way: an IP matches with or without a port, brackets, an IPv6 zone or the IPv4-mapped prefix, a MAC with any separator, and a domain only as that name or a subdomain, each with or without a label such as `ip:` or `host:` and a trailing dot. So `--indicator 203.0.113.5:443` finds 203.0.113.5. A part of an address (`113.22` in `ip:203.0.113.22`) is reported as a fragment, never exact; each row says how it matched.
+
+### Security
+- **Commands that change your tenant now need `--yes` or `--dry-run`.** Every command that changes your Huntress tenant (the create, update, delete, incident resolution, remediation approval and rejection, and subscription commands, plus `import`) now refuses and sends nothing unless you pass `--yes` (send it) or `--dry-run` (preview it), exiting 2 with `"confirmation_required": true` in the `--json`/`--agent` envelope. A `--yes` saved in a run profile does not count. `siem`, whose POST only reads, is unchanged. Scripts that run a write must add `--yes`.
+- **Every successful answer passes the credential check, including cached ones.** A successful answer that repeats a credential this program holds is refused whole, whether it comes from the API or from the response cache; cache entries written by earlier builds are never read.
+
 ## [0.1.10] - 2026-10-23
 
 ### Security

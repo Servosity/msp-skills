@@ -14,12 +14,19 @@ data directory (next to the local store). They are never logged and never sent a
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **Writes refuse without confirmation.** Every command that changes your Huntress
+  tenant (the create, update, delete, incident resolution, remediation approval and
+  rejection, and subscription commands, plus `import`) refuses to run and sends
+  nothing unless you pass `--yes` to send it or `--dry-run` to preview the request.
+  The refusal is a usage error (exit code 2). A `--yes` saved in a run profile does
+  not count: it has to be typed on the command. Make your agent's policy: preview
+  with `--dry-run`, show the exact command, get approval, then run it with `--yes`.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
-  change anything.
-- **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
-  add any write gating - the preview-then-approve policy above still applies. See
-  AGENTS.md.
+  change anything. The one write-method read, `siem` (an ESQL query over your SIEM
+  logs), runs without `--yes`.
+- **Agent mode is explicit.** `--agent` produces JSON for scripting and does not
+  imply `--yes`: a write in agent mode still refuses, with a JSON envelope carrying
+  `"confirmation_required": true`. See AGENTS.md.
 
 ## Permission tiers
 
@@ -29,9 +36,10 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `accounts memberships update-parameters`, `accounts organizations update-parameters`, `accounts update-parameters`, `memberships update-parameters`, `organizations update-parameters`, `reseller subscription-update-parameters`, `unwanted-access-rules update-parameters` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Write (routine)** | Day-to-day mutations. | `accounts memberships update-parameters`, `accounts organizations update-parameters`, `accounts update-parameters`, `memberships update-parameters`, `organizations update-parameters`, `reseller subscription-update-parameters`, `unwanted-access-rules update-parameters`, the `creation-parameters` commands, `reseller subscription-upgrade-parameters`, `import` | Preview with `--dry-run`, then an approved write with `--yes` |
+| **Incident actions** | Resolves incident reports and approves or rejects their remediations, which Huntress then carries out (or skips) on the affected hosts. | `accounts incident-reports post-v1-accounts-account-id-id-remediations-bulk-approval`, `incident-reports remediations post-v1-incident-reports-incident-report-id-bulk-approval`, `accounts incident-reports remediation-bulk-rejection-parameters`, `incident-reports remediations bulk-rejection-parameters`, `accounts incident-reports post-v1-accounts-account-id-id-resolution`, `incident-reports resolution post-v1-incident-reports-id`, `escalations resolution escalation-parameters` | Human-in-the-loop only: preview with `--dry-run`, a human approves, then `--yes` |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `accounts delete-v1-id`, `accounts memberships delete-v1-accounts-account-id-id`, `accounts organizations delete-v1-accounts-account-id-id`, `memberships delete-v1-id`, `organizations delete-v1-id`, `unwanted-access-rules delete-v1-id` | Human-in-the-loop only, explicit confirmation |
+| **Destructive** | Irreversible data or config loss. | `accounts delete-v1-id`, `accounts memberships delete-v1-accounts-account-id-id`, `accounts organizations delete-v1-accounts-account-id-id`, `memberships delete-v1-id`, `organizations delete-v1-id`, `unwanted-access-rules delete-v1-id` | Human-in-the-loop only, explicit `--yes` |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 
 ## Local learning loop (engine 4.32 and later)
@@ -52,8 +60,11 @@ pointed at an arbitrary path (the filesystem-destination gate refuses `--output`
 - **Scope the credential** to only what your workflow needs. A read/report workflow
   does not need a credential that can run the Destructive or Credential tiers.
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
-  actual write for Write tier and above - the gate lives in your agent's policy,
-  not in the binary's defaults.
+  actual write for Write tier and above. The binary refuses a write without `--yes`,
+  but an agent that can run the CLI can also pass `--yes`, so the approval step has
+  to live in your agent's policy. For an MCP host that must never write, set
+  `HUNTRESS_MCP_READ_ONLY=1`: the server then lists only read-only tools
+  (`huntress_execute`, `import`, `sync` and the other writers are gone).
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the

@@ -16,22 +16,17 @@
       "args": [],
       "env": {
         "HUNTRESS_API_KEY": "${user_config.huntress_api_key}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
         "HUNTRESS_API_SECRET": "${user_config.huntress_api_secret}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
         "HUNTRESS_BASE_URL": "${user_config.huntress_base_url}",
+        "HUNTRESS_MCP_READ_ONLY": "${user_config.huntress_mcp_read_only}",
+        "HUNTRESS_NO_LOCAL_DATA": "${user_config.huntress_no_local_data}",
         "HUNTRESS_MCP_HTTP_TOKEN": "${user_config.huntress_mcp_http_token}",
         "HUNTRESS_USER_AGENT": "${user_config.huntress_user_agent}"
       }
     }
   },
   "user_config": {
-    "printing_press_client_profile": {
-      "type": "string",
-      "title": "Client profile (optional)",
-      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
-      "required": false,
-      "sensitive": true
-    },
     "huntress_api_key": {
       "type": "string",
       "title": "HUNTRESS_API_KEY",
@@ -53,16 +48,38 @@
       "required": false,
       "default": "https://api.huntress.io"
     },
+    "huntress_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "huntress_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "huntress_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
     "huntress_user_agent": {
       "type": "string",
       "title": "User-Agent header",
       "description": "Overrides the User-Agent the CLI sends on Huntress requests. Leave blank to use the CLI's own built-in User-Agent.",
       "required": false
     },
-    "huntress_mcp_http_token": {
+    "printing_press_client_profile": {
       "type": "string",
-      "title": "MCP HTTP transport bearer token",
-      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
       "required": false,
       "sensitive": true
     }
@@ -75,11 +92,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.32.5",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.32.5",
-    "generated_at": "2026-09-28T17:13:00.780151Z",
-    "spec_checksum": "sha256:cab57b837bbb529e6f9b1357ab6c27b78a1b5e7f800883bd9f7faea17dbc2c31",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-24T19:10:41.337765Z",
+    "spec_checksum": "sha256:160d1f02a9e68c07e3a1b322033f4077a5b08349bcf44c06cc723cde56cad6c3",
     "spec_format": "openapi3"
   }
 }

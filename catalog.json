@@ -809,7 +809,7 @@
       "cli_binary": "huntress-cli",
       "mcp_binary": "huntress-mcp",
       "version": "0.1.10",
-      "printing_press_version": "4.32.5",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Huntress",
       "vendor_trademark_owner": "Huntress Labs, Inc",
