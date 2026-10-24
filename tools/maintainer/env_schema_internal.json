@@ -90,6 +90,12 @@
         "reason": "Pure alias. internal/cli/zone.go reads firstNonEmptyEnv(\"AUTOTASK_USERNAME\", \"AUTOTASK_PSA_USER_NAME\"), and AUTOTASK_PSA_USER_NAME - the canonical name Autotask's own docs use - is already declared and required. Prompting twice for the same API-user email would make the install worse, not safer."
       }
     ],
+    "cipp": [
+      {
+        "var": "PRINTING_PRESS_CLIENT_PROFILE",
+        "reason": "Read by the press 4.34.0 platform layer, but cipp registers no platform source (internal/cli/platform_client.go: registeredPlatformSource is nil), so BindMCPServerProfile and the per-command bind return without binding anything. Prompting for a client profile would promise a tenant isolation this binary does not provide; CIPP scopes each call by tenantFilter and by the CIPP role of the API client. Declare it if a later print registers a source."
+      }
+    ],
     "datto-rmm": [
       {
         "var": "DATTO_RMM_API_URL",
