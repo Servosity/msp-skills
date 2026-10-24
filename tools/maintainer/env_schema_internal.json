@@ -16,7 +16,10 @@
     "CLAUDE_SESSION_ID",
     "CLAUDE_CODE_SESSION",
     "CURSOR_SESSION_ID",
-    "CURSOR_TRACE_ID"
+    "CURSOR_TRACE_ID",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY"
   ],
   "_internal_exact_harness_comment": "CODEX_* / CLAUDE_* / CURSOR_* session identifiers are set by the AI harness that launched the CLI, never by an operator: printing-press 4.32.5+ internal/learn/journal.go (JournalHarnessSessionEnvVars) reads the first non-empty one and persists only a bounded hash so sibling tool calls share a journal session key. Prompting an operator for them in a bundle install would be nonsense.",
 
@@ -29,12 +32,14 @@
 
   "_internal_suffixes_comment": "PREFIX-ANCHORED: a name is internal by suffix only when it is exactly <the connector's own env prefix><suffix> - AUVIK_DB counts for auvik, a bare VENDOR_DB never does. check_env_schema.is_internal() enforces that anchoring; it used to match the bare suffix against the whole name, which made ANY variable ending in _DB / _CONFIG / _HOME / _DATA_DIR silently internal in BOTH directions (a real credential named that way was never prompted for, and a phantom prompt for one was never reported). The connector prefix is read from `const envPrefix` where the press ships it (servosity is SERVOSITY_MSP, not SERVOSITY) and derived from the slug otherwise. _CONFIG_DIR and _LEARN_NO_CAPTURE are load-bearing: internal/cliutil/paths.go reaches <PREFIX>_CONFIG_DIR through envDir(kindEnvVar(kind)) and internal/learn/journal.go reaches <PREFIX>_LEARN_NO_CAPTURE through journalEnvTruthy(journalNoCaptureEnvVar). Both hide behind a name-as-parameter helper, so a scan that only reads os.Getenv(\"LITERAL\") never sees them - and without these two rules the gate false-REDs 18 connectors with two press-internal path/telemetry knobs an operator must never be prompted for.",
   "internal_suffixes": [
+    "_CA_CERT",
     "_CACHE_DIR",
     "_CLI_PATH",
     "_CONFIG",
     "_CONFIG_DIR",
     "_DATA_DIR",
     "_DATA_FILE",
+    "_DATA_SOURCE",
     "_DATABASE",
     "_DB",
     "_DB_PATH",
@@ -45,10 +50,14 @@
     "_LEARN_SESSION",
     "_LEARN_SURFACE",
     "_LEDGER_DIR",
+    "_MAX_RESPONSE_BYTES",
+    "_MCP_CHILD",
     "_NO_AUTO_REFRESH",
     "_NO_LEARN",
-    "_STATE_DIR"
+    "_STATE_DIR",
+    "_TLS_SERVER_NAME"
   ],
+  "_internal_press434_comment": "Press 4.34.0 runtime knobs, classified 2026-10-23 on the servosity reprint. HTTP_PROXY / HTTPS_PROXY / ALL_PROXY are the standard proxy variables: client.go reads them only to tell a configured proxy apart from a private address, and net/http reads them itself. <PREFIX>_MCP_CHILD is set by the MCP server on the CLI processes it spawns, never by an operator. <PREFIX>_CA_CERT, <PREFIX>_TLS_SERVER_NAME, <PREFIX>_DATA_SOURCE and <PREFIX>_MAX_RESPONSE_BYTES are optional tuning knobs that each mirror a CLI flag or config key (--ca-cert, --tls-server-name, --data-source); an install prompt would put a <your-...> placeholder into every copy-paste config, and a placeholder CA bundle or TLS name breaks every request. The operator levers this release adds (<PREFIX>_MCP_READ_ONLY, <PREFIX>_NO_LOCAL_DATA, <PREFIX>_MCP_HTTP_TOKEN) stay operator-facing and are declared in the manifest.",
 
   "_operator_exact_comment": "Carve-backs: variables that match an internal rule above but ARE operator input. PRINTING_PRESS_CLIENT_PROFILE binds a tenant-gated MCP server to one client profile; without it a multi-tenant connector answers for the wrong customer, so it belongs in the install prompt (threatlocker already declares it).",
   "operator_exact": [

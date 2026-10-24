@@ -1349,6 +1349,16 @@
       "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. claimClosedStore opens, read-only, the legacy local store files from legacyStoreAdoptPaths under the CLI's own data directory, to check no other process holds them. App-derived local paths."
     },
     {
+      "file": "cli/internal/cli/store_adopt_linux.go",
+      "rule": "G304",
+      "bind": "file",
+      "sha256": [
+        "sha256:f1558c1ff3d0fe2ec566c9a2fc4d43ba8c63ac880062e03fbf4799205cbbb2fd"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. linux only: the Linux twin of the store_adopt_darwin.go G304 entry, which gosec sees only when the gate runs with GOOS=linux, as CI does. The bytes are identical to the store_adopt_linux.go reviewed for press 4.33.5 (fortinet, cisco-duo, connectwise-rmm, google-workspace, threatdown). Both flagged opens are in pinClosedStoreFile, called for each path from legacyStoreAdoptPaths: the CLI's own legacy store data-<legacyHash>.db in its resolved data directory plus the fixed SQLite sidecars -wal, -shm and -journal. os.OpenFile uses O_RDWR with no O_CREATE or O_TRUNC, only to take an F_SETLEASE write lease; the os.Open fallback is read-only and only compares inode/device against /proc/<pid>/fd. Nothing is read or written through either descriptor. No API, MCP, tool-call or tenant input reaches the path."
+    },
+    {
       "file": "cli/internal/cli/store_adopt_darwin.go",
       "rule": "msp-unsafe-import",
       "bind": "file",
