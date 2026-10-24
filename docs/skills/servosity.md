@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Servosity MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `SERVOSITY_MSP_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `SERVOSITY_MSP_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running servosity-mcp in HTTP mode, and in this build HTTP mode asks for no password. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host servosity-mcp in HTTP mode: it refuses to start until SERVOSITY_MSP_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Servosity and client data safe?"
@@ -78,12 +78,14 @@ MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Deskt
 | --- | --- |
 | Where is my attention needed today, ranked worst-first? | `servosity-cli attention --top 5` |
 | What got worse since yesterday, and what recovered? | `servosity-cli drift` |
-| Which clients have backups stale for 7+ days? | `servosity-cli stale-backups --days 7` |
+| Which clients have backups stale for 7+ days? | `servosity-cli stale-backups --days 7 --refresh` |
 | Draft the follow-up email for every client with a stale backup | `servosity-cli email-draft --stale --days 7` |
 | Build the backup section of Acme's QBR as a PDF | `servosity-cli qbr "Acme Co" --out acme-q1.pdf` |
 | Quarter-end: every client's QBR backup report in one pass | `servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/` |
 | Watch every client's restore queue during a DR event | `servosity-cli restore-queue watch` |
 | Does my Servosity bill match what I invoice my clients? | `servosity-cli bill --reconcile invoices.csv` |
+| Which hosts are below 7-year retention or outside the recovery guarantee? | `servosity-cli retention-audit --min 7YEAR` |
+| What one root cause is behind this month's backup failures? | `servosity-cli failure-clusters --top 10` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/servosity/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/servosity/guide.md).
 
@@ -131,8 +133,8 @@ After install, authenticate once with your Servosity credentials, then verify wi
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | servosity-cli attention --top 5; servosity-cli drift; servosity-cli stale-backups --days 7; servosity-cli backup-facts; servosity-cli qbr "Acme Co"; servosity-cli fleet-health; servosity-cli unprovisioned; servosity-cli bill; servosity-cli email-draft --stale --days 7 (drafts only - nothing is sent); servosity-cli restore-queue watch | Allow |
-| Write (routine) | servosity-cli triage --ignore 18,22 --comment "scheduled outage" (issue mutations); servosity-cli import <resource> --input data.jsonl; raw create/update subcommands under the resource groups - --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Read | servosity-cli attention --top 5; servosity-cli drift; servosity-cli stale-backups --days 7; servosity-cli backup-facts; servosity-cli qbr "Acme Co"; servosity-cli fleet-health; servosity-cli unprovisioned; servosity-cli retention-audit --min 7YEAR; servosity-cli failure-clusters --top 10; servosity-cli bill; servosity-cli email-draft --stale --days 7 (drafts only - nothing is sent); servosity-cli restore-queue watch | Allow |
+| Write (routine) | servosity-cli triage --ignore 550e8400-e29b-41d4-a716-446655440000 --comment "scheduled outage" (issue mutations); servosity-cli import <resource> --input data.jsonl; raw create/update subcommands under the resource groups - --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
 | Credentials / destructive | servosity-cli auth set-token; servosity-cli auth logout; resource-group delete subcommands (e.g. companies delete) | Human-in-the-loop only |
 
 First-party: published by Servosity for MSP partners. The skill drives the servosity-cli and servosity-mcp binaries, authenticating with your partner token (SERVOSITY_MSP_TOKEN) - never logged and never sent anywhere except the Servosity API. The fleet views are reads; the write surface is issue triage (ignore/archive/reactivate/comment), import, and raw CRUD under the resource groups, all with the opt-in --dry-run preview. The token's reseller scope is the permission boundary. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/servosity/governance.md).
@@ -149,7 +151,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running servosity-mcp in HTTP mode, and in this build HTTP mode asks for no password. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host servosity-mcp in HTTP mode: it refuses to start until SERVOSITY_MSP_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

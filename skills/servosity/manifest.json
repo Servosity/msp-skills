@@ -15,11 +15,14 @@
       "command": "${__dirname}/bin/servosity-mcp",
       "args": [],
       "env": {
+        "SERVOSITY_MSP_TOKEN": "${user_config.servosity_msp_token}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
         "SERVOSITY_MSP_BASE_URL": "${user_config.servosity_msp_base_url}",
         "SERVOSITY_MSP_RESELLER_ID": "${user_config.servosity_msp_reseller_id}",
-        "SERVOSITY_MSP_TOKEN": "${user_config.servosity_msp_token}",
-        "SERVOSITY_MSP_USER_AGENT": "${user_config.servosity_msp_user_agent}"
+        "SERVOSITY_MSP_USER_AGENT": "${user_config.servosity_msp_user_agent}",
+        "SERVOSITY_MSP_MCP_READ_ONLY": "${user_config.servosity_msp_mcp_read_only}",
+        "SERVOSITY_MSP_NO_LOCAL_DATA": "${user_config.servosity_msp_no_local_data}",
+        "SERVOSITY_MSP_MCP_HTTP_TOKEN": "${user_config.servosity_msp_mcp_http_token}"
       }
     }
   },
@@ -55,6 +58,27 @@
       "title": "User-Agent header",
       "description": "Overrides the User-Agent the CLI sends on Servosity requests. Leave blank to use the CLI's own built-in User-Agent.",
       "required": false
+    },
+    "servosity_msp_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to 1 to drop every MCP tool not marked read-only and make the execute tool refuse state-changing calls. Leave blank to allow previewed writes.",
+      "required": false,
+      "sensitive": false
+    },
+    "servosity_msp_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local fleet mirror.",
+      "required": false,
+      "sensitive": false
+    },
+    "servosity_msp_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -65,11 +89,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.30.3",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.30.3",
-    "generated_at": "2026-08-17T11:55:02.26622Z",
-    "spec_checksum": "sha256:1d8f1f48afe2af51c21d7498669ac5dc312c2ca06d06539ecd2dcf707d74201b",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-23T23:16:53.683038Z",
+    "spec_checksum": "sha256:9bd7423dab4cb199066d874a6557362e6e24ffffcbcb74d58f5964e2fc27d0e7",
     "spec_format": "openapi3"
   }
 }

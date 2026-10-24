@@ -49,8 +49,12 @@ func newNovelQbrAllCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 
 	cmd := &cobra.Command{
-		Use:   "qbr-all",
-		Short: "Generate every client's QBR backup report in one pass, one file per company",
+		Use: "qbr-all",
+		// Hidden from MCP: it writes one report file per company under --out
+		// (default ./qbrs) as the server account. MCP callers use `qbr`, which
+		// prints a single report to stdout.
+		Annotations: map[string]string{"mcp:hidden": "true"},
+		Short:       "Generate every client's QBR backup report in one pass, one file per company",
 		Long: `Loop the QBR assembly over every company in the local store and write one
 report file per client into --out.
 

@@ -170,21 +170,31 @@ runs of 'drift' can compute day-over-day changes.`,
 			}
 			totalCompanies := len(companies)
 
-			if len(companies) > topN {
-				companies = companies[:topN]
+			// Restic/DR backups with no freshness evidence are neither healthy
+			// nor stale: count them so an unhydrated store cannot read as a
+			// clean fleet.
+			unknownFreshness, uerr := countBackupsWithoutFreshness(ctx, db)
+			if uerr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: freshness coverage unavailable (%v)\n", uerr)
+			} else if unknownFreshness > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d backup(s) have no freshness evidence and are not counted as stale or healthy; run 'servosity-cli attention --refresh'\n", unknownFreshness)
 			}
 
 			result := attentionResult{
 				TakenAt:   time.Now().UTC(),
 				Companies: companies,
 				Totals: map[string]int{
-					"companies": totalCompanies,
-					"issues":    totalIssues,
-					"stale":     totalStale,
+					"companies":         totalCompanies,
+					"issues":            totalIssues,
+					"stale":             totalStale,
+					"freshness_unknown": unknownFreshness,
 				},
 			}
 
 			// ---- Persist snapshot for `drift` ----
+			// The snapshot keeps every company; --top trims only the output.
+			// A truncated snapshot made a company that fell out of the top N
+			// look recovered to drift.
 			payload, err := json.Marshal(result)
 			if err != nil {
 				return fmt.Errorf("marshal attention result: %w", err)
@@ -200,6 +210,9 @@ runs of 'drift' can compute day-over-day changes.`,
 			}
 
 			// ---- Emit ----
+			if len(result.Companies) > topN {
+				result.Companies = result.Companies[:topN]
+			}
 			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
 				return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 			}
@@ -301,21 +314,40 @@ func countIssuesFromStore(db *store.Store, agg map[int64]*attentionCompany) erro
 	return rows.Err()
 }
 
+// countBackupsWithoutFreshness counts current restic/DR backups that have no
+// pp_last_success row. Classic backups are excluded: the classic engine has no
+// latest-success endpoint, so they never carry freshness.
+func countBackupsWithoutFreshness(ctx context.Context, db *store.Store) (int, error) {
+	var n int
+	err := db.DB().QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+		  SELECT 'restic' AS engine, CAST(id AS TEXT) AS backup_id FROM restic_backups
+		  UNION ALL
+		  SELECT 'dr', CAST(id AS TEXT) FROM `+drBackupsTable+`
+		) b
+		LEFT JOIN pp_last_success ls ON ls.engine = b.engine AND ls.backup_id = b.backup_id
+		WHERE ls.backup_id IS NULL`).Scan(&n)
+	return n, err
+}
+
 // countStaleFromFreshness increments stale_backups per company from the
 // hydrated pp_last_success table. A backup is stale when its last success
 // predates staleCutoff, or it has never reported a success.
 func countStaleFromFreshness(ctx context.Context, db *store.Store, staleCutoff time.Time, agg map[int64]*attentionCompany) error {
+	// The company name comes from the synced companies table: a client with
+	// stale backups and no open issue has no other source for it.
 	rows, err := db.DB().QueryContext(ctx, `
-		SELECT COALESCE(company_id, 0), COALESCE(last_success, '')
-		  FROM pp_last_success`)
+		SELECT COALESCE(f.company_id, 0), COALESCE(f.last_success, ''), COALESCE(c.name, '')
+		  FROM `+currentFreshnessRows+` f
+		  LEFT JOIN companies c ON CAST(c.id AS INTEGER) = f.company_id`)
 	if err != nil {
 		return fmt.Errorf("reading freshness table: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var companyID int64
-		var lastSuccess string
-		if err := rows.Scan(&companyID, &lastSuccess); err != nil {
+		var lastSuccess, companyName string
+		if err := rows.Scan(&companyID, &lastSuccess, &companyName); err != nil {
 			continue
 		}
 		if companyID == 0 {
@@ -330,7 +362,7 @@ func countStaleFromFreshness(ctx context.Context, db *store.Store, staleCutoff t
 			stale = true // unparseable timestamp ⇒ treat as stale
 		}
 		if stale {
-			bumpStale(agg, companyID, "")
+			bumpStale(agg, companyID, companyName)
 		}
 	}
 	return rows.Err()

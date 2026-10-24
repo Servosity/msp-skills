@@ -20,7 +20,7 @@ func sampleReport() *Report {
 			{Device: "db-prod-01", Restic: "r-9012", LastSuccessful: time.Date(2026, 3, 30, 3, 0, 0, 0, time.UTC), Status: "ok"},
 			{Device: "files-prod-01", Classic: "b-3344", LastSuccessful: time.Date(2026, 3, 29, 22, 0, 0, 0, time.UTC), Status: "dirty"},
 		},
-		SuccessRate: SuccessStats{Total: 24, HardFail: 0, Dirty: 0, RetriedSucceeded: 2, Rate: 98.4},
+		SuccessRate: SuccessStats{Total: 24, HardFail: 0, Dirty: 0, RetriedSucceeded: 2, Rate: 98.4, RateKnown: true},
 		OpenIssues:  []Issue{{ID: "18", Title: "stale backup", Severity: "warning"}},
 	}
 }

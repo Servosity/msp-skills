@@ -5,10 +5,14 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"servosity-msp-pp-cli/internal/cliutil"
 )
 
 // newNovelTriageCmd builds the `triage` command: list open issues with filters,
@@ -16,6 +20,14 @@ import (
 // invocation. The web portal forces one-at-a-time; this command does many
 // in a single call with --dry-run and typed exit codes.
 // pp:data-source live
+// bareFlagPresent reports whether args carry --name as a bare token. The MCP
+// server emits a bare --name only for JSON boolean true; any other JSON value
+// arrives as --name=<value>, which pflag would also read as true ("1", "t",
+// "TRUE"), so only the bare form counts as an MCP confirmation.
+func bareFlagPresent(args []string, name string) bool {
+	return slices.Contains(args, "--"+name)
+}
+
 func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 	var flagAudience string
 	var flagCompany int
@@ -23,6 +35,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 	var flagArchive string
 	var flagReactivate string
 	var flagComment string
+	var flagConfirm bool
 
 	cmd := &cobra.Command{
 		Use:   "triage",
@@ -31,7 +44,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
   servosity-cli triage --audience support --company 4421
 
   # Ignore three issues and add a comment to each
-  servosity-cli triage --ignore 18,22,31 --comment "scheduled outage"`,
+  servosity-cli triage --ignore 550e8400-e29b-41d4-a716-446655440000 --comment "scheduled outage"`,
 		Annotations: map[string]string{"mcp:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			hasMutation := flagIgnore != "" || flagArchive != "" || flagReactivate != ""
@@ -144,7 +157,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			// MUTATE mode.
 			type result struct {
 				Action  string `json:"action"`
-				IssueID int    `json:"issue_id"`
+				IssueID string `json:"issue_id"`
 				OK      bool   `json:"ok"`
 				Comment string `json:"comment,omitempty"`
 				Error   string `json:"error,omitempty"`
@@ -167,7 +180,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 					results = append(results, result{Action: "reactivate", IssueID: id, OK: true})
 				}
 				if flagComment != "" {
-					targets := uniqueInts(ignoreIDs, archiveIDs, reactivateIDs)
+					targets := uniqueIDs(ignoreIDs, archiveIDs, reactivateIDs)
 					for _, id := range targets {
 						results = append(results, result{Action: "comment", IssueID: id, OK: true, Comment: flagComment})
 					}
@@ -183,7 +196,7 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 							"ignored":     len(ignoreIDs),
 							"archived":    len(archiveIDs),
 							"reactivated": len(reactivateIDs),
-							"commented":   len(uniqueInts(ignoreIDs, archiveIDs, reactivateIDs)) * boolToInt(flagComment != ""),
+							"commented":   len(uniqueIDs(ignoreIDs, archiveIDs, reactivateIDs)) * boolToInt(flagComment != ""),
 							"failed":      0,
 						},
 						"dry_run": true,
@@ -196,6 +209,13 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
+			// From the MCP server a mutation needs an explicit confirm, the way
+			// servosity-msp_execute needs confirm: true. An agent previews with
+			// dry_run first; --yes cannot stand in (MCP blocks it).
+			if cliutil.IsMCPChildEnv() && !(flagConfirm && bareFlagPresent(os.Args[1:], "confirm")) {
+				return usageErr(fmt.Errorf("triage changes issue state: preview with dry_run, then re-run with confirm set to true"))
+			}
+
 			c, err := flags.newClient()
 			if err != nil {
 				return err
@@ -204,9 +224,9 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			mutationTotal := 0
 			mutationFailures := 0
 
-			runMutation := func(action, pathTemplate string, id int) {
+			runMutation := func(action, pathTemplate string, id string) {
 				mutationTotal++
-				path := replacePathParam(pathTemplate, "id", strconv.Itoa(id))
+				path := replacePathParam(pathTemplate, "id", id)
 				_, _, err := c.PutWithParams(cmd.Context(), path, map[string]string{}, map[string]any{})
 				r := result{Action: action, IssueID: id, OK: err == nil}
 				if err != nil {
@@ -237,10 +257,10 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			if flagComment != "" {
-				targets := uniqueInts(ignoreIDs, archiveIDs, reactivateIDs)
+				targets := uniqueIDs(ignoreIDs, archiveIDs, reactivateIDs)
 				for _, id := range targets {
 					mutationTotal++
-					path := replacePathParam("/issues/{id}/comments/", "id", strconv.Itoa(id))
+					path := replacePathParam("/issues/{id}/comments/", "id", id)
 					body := map[string]any{"body": flagComment}
 					_, _, err := c.PutWithParams(cmd.Context(), path, map[string]string{}, body)
 					r := result{Action: "comment", IssueID: id, OK: err == nil, Comment: flagComment}
@@ -297,43 +317,49 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagAudience, "audience", "", "Filter list by audience (e.g. support, MSP)")
 	cmd.Flags().IntVar(&flagCompany, "company", 0, "Filter list by company ID")
-	cmd.Flags().StringVar(&flagIgnore, "ignore", "", "Comma-separated issue IDs to mark ignored")
-	cmd.Flags().StringVar(&flagArchive, "archive", "", "Comma-separated issue IDs to archive")
-	cmd.Flags().StringVar(&flagReactivate, "reactivate", "", "Comma-separated issue IDs to reactivate")
+	cmd.Flags().StringVar(&flagIgnore, "ignore", "", "Comma-separated issue IDs (UUIDs, as triage lists them) to mark ignored")
+	cmd.Flags().StringVar(&flagArchive, "archive", "", "Comma-separated issue IDs (UUIDs) to archive")
+	cmd.Flags().StringVar(&flagReactivate, "reactivate", "", "Comma-separated issue IDs (UUIDs) to reactivate")
+	cmd.Flags().BoolVar(&flagConfirm, "confirm", false, "Apply the mutations when run from the MCP server (preview first with --dry-run)")
 	cmd.Flags().StringVar(&flagComment, "comment", "", "Comment to add to every issue named in --ignore/--archive/--reactivate")
 
 	return cmd
 }
 
-// parseTriageIDs splits a comma-separated list of integer issue IDs. Empty
-// input returns a nil slice (no IDs). A non-integer token returns an error
-// that the caller wraps as exit-code 2 (input validation).
-func parseTriageIDs(raw, flagName string) ([]int, error) {
+// triageIssueIDPattern matches the issue IDs the API uses: a UUID (the spec's
+// /issues/{id}/ parameter) or a positive integer. Anything else is refused, so
+// no path text can reach the mutation URL.
+var triageIssueIDPattern = regexp.MustCompile(`^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[1-9][0-9]{0,18})$`)
+
+// parseTriageIDs splits a comma-separated list of issue IDs (UUIDs, as
+// triage lists them, or integers). Empty input returns a nil slice (no IDs).
+// Any other token returns an error that the caller wraps as exit-code 2
+// (input validation).
+func parseTriageIDs(raw, flagName string) ([]string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
 	}
 	parts := strings.Split(raw, ",")
-	out := make([]int, 0, len(parts))
+	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		s := strings.TrimSpace(p)
 		if s == "" {
 			continue
 		}
-		n, err := strconv.Atoi(s)
-		if err != nil {
-			return nil, fmt.Errorf("--%s: %q is not an integer issue ID", flagName, s)
+		if !triageIssueIDPattern.MatchString(s) {
+			return nil, fmt.Errorf("--%s: %q is not an issue ID (a UUID such as 550e8400-e29b-41d4-a716-446655440000)", flagName, s)
 		}
-		out = append(out, n)
+		out = append(out, strings.ToLower(s))
 	}
 	return out, nil
 }
 
-// uniqueInts returns a stable de-duplicated union of the given slices,
+// uniqueIDs returns a stable de-duplicated union of the given slices,
 // preserving first-seen order. Used to compute the comment target set when
 // the same ID appears in multiple mutation flags.
-func uniqueInts(groups ...[]int) []int {
-	seen := map[int]struct{}{}
-	out := []int{}
+func uniqueIDs(groups ...[]string) []string {
+	seen := map[string]struct{}{}
+	out := []string{}
 	for _, g := range groups {
 		for _, n := range g {
 			if _, ok := seen[n]; ok {

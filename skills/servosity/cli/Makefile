@@ -3,7 +3,7 @@
 BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
 
 build:
-	go build -o bin/servosity-cli$(BIN_EXT) ./cmd/servosity-cli
+	go build -trimpath -o bin/servosity-cli$(BIN_EXT) ./cmd/servosity-cli
 
 test:
 	go test ./...
@@ -18,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/servosity-mcp$(BIN_EXT) ./cmd/servosity-mcp
+	go build -trimpath -o bin/servosity-mcp$(BIN_EXT) ./cmd/servosity-mcp
 
 install-mcp:
 	go install ./cmd/servosity-mcp

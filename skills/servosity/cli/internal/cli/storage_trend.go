@@ -330,7 +330,7 @@ func computeCurrentStorageBytes(ctx context.Context, db *store.Store, companyID 
 	legs := []leg{
 		{"classic", `SELECT COALESCE(SUM(CAST(COALESCE(json_extract(data,'$.size_bytes'), json_extract(data,'$.size')) AS INTEGER)), 0) FROM backups WHERE CAST(json_extract(data,'$.company.id') AS INTEGER) = ?`},
 		{"restic", `SELECT COALESCE(SUM(CAST(COALESCE(json_extract(data,'$.size_bytes'), json_extract(data,'$.size')) AS INTEGER)), 0) FROM restic_backups WHERE ` + urlCID + ` = ?`},
-		{"dr", `SELECT COALESCE(SUM(CAST(COALESCE(json_extract(data,'$.size_bytes'), json_extract(data,'$.size')) AS INTEGER)), 0) FROM dr_backups WHERE ` + urlCID + ` = ?`},
+		{"dr", `SELECT COALESCE(SUM(CAST(COALESCE(json_extract(data,'$.size_bytes'), json_extract(data,'$.size')) AS INTEGER)), 0) FROM ` + drBackupsTable + ` WHERE ` + urlCID + ` = ?`},
 	}
 	var total int64
 	for _, l := range legs {

@@ -260,7 +260,9 @@ func runRestoreQueueTick(
 		default:
 		}
 
-		limiter.Wait()
+		if err := limiter.Wait(ctx); err != nil {
+			return err
+		}
 		path := fmt.Sprintf("/companies/%d/restore-queues/", t.ID)
 		data, err := c.Get(ctx, path, nil)
 		if err != nil {

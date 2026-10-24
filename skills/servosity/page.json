@@ -34,7 +34,7 @@
     },
     {
       "question": "Which clients have backups stale for 7+ days?",
-      "command": "servosity-cli stale-backups --days 7"
+      "command": "servosity-cli stale-backups --days 7 --refresh"
     },
     {
       "question": "Draft the follow-up email for every client with a stale backup",
@@ -55,6 +55,14 @@
     {
       "question": "Does my Servosity bill match what I invoice my clients?",
       "command": "servosity-cli bill --reconcile invoices.csv"
+    },
+    {
+      "question": "Which hosts are below 7-year retention or outside the recovery guarantee?",
+      "command": "servosity-cli retention-audit --min 7YEAR"
+    },
+    {
+      "question": "What one root cause is behind this month's backup failures?",
+      "command": "servosity-cli failure-clusters --top 10"
     }
   ],
   "different_vs_wrappers": "Most backup integrations proxy one client's status at a time into live API calls. This skill syncs the whole book - companies, backups, issues, restore activity - into a local SQLite mirror, then answers fleet questions as one local join: attention ranks every client, drift compares any two days from the snapshots it keeps, stale-backups slices by client and age, and qbr-all renders the entire book's reports offline. The snapshot history is the part no stateless wrapper can offer: day-over-day memory the dashboard doesn't keep.",
@@ -62,7 +70,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running servosity-mcp in HTTP mode, and in this build HTTP mode asks for no password. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host servosity-mcp in HTTP mode: it refuses to start until SERVOSITY_MSP_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
@@ -97,12 +105,12 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "servosity-cli attention --top 5; servosity-cli drift; servosity-cli stale-backups --days 7; servosity-cli backup-facts; servosity-cli qbr \"Acme Co\"; servosity-cli fleet-health; servosity-cli unprovisioned; servosity-cli bill; servosity-cli email-draft --stale --days 7 (drafts only - nothing is sent); servosity-cli restore-queue watch",
+      "examples": "servosity-cli attention --top 5; servosity-cli drift; servosity-cli stale-backups --days 7; servosity-cli backup-facts; servosity-cli qbr \"Acme Co\"; servosity-cli fleet-health; servosity-cli unprovisioned; servosity-cli retention-audit --min 7YEAR; servosity-cli failure-clusters --top 10; servosity-cli bill; servosity-cli email-draft --stale --days 7 (drafts only - nothing is sent); servosity-cli restore-queue watch",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "servosity-cli triage --ignore 18,22 --comment \"scheduled outage\" (issue mutations); servosity-cli import <resource> --input data.jsonl; raw create/update subcommands under the resource groups - --dry-run is an opt-in preview, not a default",
+      "examples": "servosity-cli triage --ignore 550e8400-e29b-41d4-a716-446655440000 --comment \"scheduled outage\" (issue mutations); servosity-cli import <resource> --input data.jsonl; raw create/update subcommands under the resource groups - --dry-run is an opt-in preview, not a default",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {

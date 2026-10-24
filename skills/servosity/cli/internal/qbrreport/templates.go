@@ -102,18 +102,19 @@ const htmlTemplate = `<!doctype html>
 <p class="empty">No protected devices found in the local store.</p>
 {{end}}
 
-<h2>Job success rate</h2>
+<h2>Backup success</h2>
 {{if .SuccessRate.Total}}
 <div class="stat-row">
-  <div class="stat"><div class="label">Success rate</div><div class="value">{{pct .SuccessRate.Rate}}</div></div>
-  <div class="stat"><div class="label">Jobs run</div><div class="value">{{.SuccessRate.Total}}</div></div>
+  <div class="stat"><div class="label">Recent success</div><div class="value">{{if .SuccessRate.RateKnown}}{{pct .SuccessRate.Rate}}{{else}}unknown{{end}}</div></div>
+  <div class="stat"><div class="label">Restic/DR backups</div><div class="value">{{.SuccessRate.Total}}</div></div>
   <div class="stat"><div class="label">Hard fail</div><div class="value">{{.SuccessRate.HardFail}}</div></div>
-  <div class="stat"><div class="label">Dirty</div><div class="value">{{.SuccessRate.Dirty}}</div></div>
+  <div class="stat"><div class="label">Stale</div><div class="value">{{.SuccessRate.Dirty}}</div></div>
   <div class="stat"><div class="label">Retried OK</div><div class="value">{{.SuccessRate.RetriedSucceeded}}</div></div>
+  <div class="stat"><div class="label">Unknown</div><div class="value">{{.SuccessRate.Unknown}}</div></div>
 </div>
 {{successBar .SuccessRate}}
 {{else}}
-<p class="empty">No backup jobs recorded in this quarter.</p>
+<p class="empty">No restic/DR backups recorded for this client.</p>
 {{end}}
 
 <h2>Restore tests</h2>

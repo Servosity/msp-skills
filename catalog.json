@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-23",
+  "generated_at": "2026-10-24",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1435,7 +1435,7 @@
       "cli_binary": "servosity-cli",
       "mcp_binary": "servosity-mcp",
       "version": "0.6.10",
-      "printing_press_version": "4.30.3",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",

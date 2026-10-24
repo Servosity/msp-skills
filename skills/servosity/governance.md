@@ -31,8 +31,18 @@ Know exactly how writes are gated - the binary does NOT gate them for you:
   in your agent's policy, not in the binary's defaults.
 - **Read commands are always safe to run.** `attention`, `drift`,
   `stale-backups`, `backup-facts`, `search`, `qbr`, `fleet-health`,
-  `unprovisioned`, `bill`, and `restore-queue watch` only read; `email-draft`
-  writes nothing and sends nothing - it prints email bodies.
+  `unprovisioned`, `retention-audit`, `failure-clusters`, `bill`, and
+  `restore-queue watch` only read; `email-draft` writes nothing and sends
+  nothing - it prints email bodies.
+- **The MCP server previews raw API writes.** The `servosity-msp_execute` tool
+  returns a preview and sends nothing unless the call passes `confirm: true`
+  (a JSON boolean), and `triage` mutations started from the MCP server need
+  `--confirm`. Set `SERVOSITY_MSP_MCP_READ_ONLY=1` to drop every tool not
+  marked read-only and make the execute tool refuse writes.
+- **Secret fields are withheld from MCP results.** Every tool result shows
+  a password, key, token or MFA code field as `[withheld]`; only
+  `servosity-msp_execute` with `confirm: true` returns the value as the API
+  sent it.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting and disables
   interactive prompts; it does not imply `--yes`. It adds no write gating. See
   [AGENTS.md](./AGENTS.md).
@@ -45,9 +55,9 @@ anything below the line.
 
 | Tier | What it does | Example commands | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `qbr-all`, `fleet-health`, `unprovisioned`, `bill`, `email-draft`, `restore-queue watch`, `search`, `sync` | Allow |
+| **Read** | Reports, rollups, search. No change. | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `qbr-all`, `fleet-health`, `unprovisioned`, `retention-audit`, `failure-clusters`, `bill`, `email-draft`, `restore-queue watch`, `search`, `sync` | Allow |
 | **Write (routine)** | Day-to-day mutations on issues and records. | `triage` (`--ignore`/`--archive`/`--reactivate`/`--comment`), `import`, raw create/update subcommands under the resource groups | Preview with `--dry-run`, then an approved write - never blanket `--yes` |
-| **Credential / security** | Touches tokens, keys, MFA. Can change who has access or disclose a live credential. | `credentials rotate`/`delete`, `current-user api-token-list --reveal-token`, `current-user api-token-delete`, `current-user verified-mfa-delete`, `current-user mfa-backup-codes-update`, `resellers agent-install-token`, `resellers postmark-rotate`, `*-backups encryption-key update`, `reissue-spx-key`, `*-backups agent-token` | Human-in-the-loop only. Do not allow an autonomous agent. The `current-user api-token-list` read is excluded from MCP and sync. |
+| **Credential / security** | Touches tokens, keys, MFA. Can change who has access or disclose a live credential. | `credentials rotate`/`delete`, `current-user api-token-list --reveal-token`, `current-user api-token-delete`, `current-user verified-mfa-delete`, `current-user mfa-backup-codes-update`, `resellers agent-install-token`, `resellers postmark-rotate`, `*-backups encryption-key update`, `reissue-spx-key`, `*-backups agent-token` | Human-in-the-loop only. Do not allow an autonomous agent. The `current-user api-token-list` read is excluded from MCP and sync. Over MCP, the other secret reads (encryption keys, stored credentials, MFA codes, DRaaS passwords, agent and install tokens) go through `servosity-msp_execute` and need `confirm: true`; the local store and response cache never keep their values. |
 | **Destructive** | Irreversible data or config loss. | `companies delete`, `companies c2c companies-delete`, `backups delete`, `backup-sets delete`, `dr-backups delete`, `restic-backups delete`, `backups unlock`, `users delete` | Human-in-the-loop only, with an explicit out-of-band confirmation step. |
 
 ## How to lock it down

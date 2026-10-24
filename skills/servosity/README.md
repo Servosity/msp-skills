@@ -11,27 +11,21 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/servosity/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
+Add **fleet-wide backup triage, stale-backup-set detection, overnight drift, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local fleet mirror means your AI can answer cross-client questions the partner portal can't show on one screen - Friday-email-ready in seconds. Built for MSP partners. No code required.
 
 ## Works with your agent
-
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password, so
-> any program on this computer can use it. The MCP tools can also make changes
-> with your credentials. Use the default stdio transport. If you set up a tunnel
-> for a remote agent, shut it down. A fix is on the way.
 
 The five agents MSP owners actually use:
 
 | Your AI agent | How to install the Servosity skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `servosity-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, which asks for no password in this build. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Run installer, host `servosity-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
 | **Claude Code** | Paste the install prompt below. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build it asks for no password. See the security note in [mcp-install.md](./mcp-install.md).
+ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `SERVOSITY_MSP_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI - plus [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw), both via MCP and the pre-wired skill frontmatter. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -153,13 +147,15 @@ Outcome-first, with the single command that answers each question:
 | --- | --- |
 | Where is my attention needed today, ranked worst-first? | `servosity-cli attention --top 5` |
 | What got worse since yesterday, and what recovered? | `servosity-cli drift` |
-| Which clients have backups stale for 7+ days? | `servosity-cli stale-backups --days 7` |
+| Which clients have backups stale for 7+ days? | `servosity-cli stale-backups --days 7 --refresh` |
 | Draft the follow-up email for every stale-backup client | `servosity-cli email-draft --stale --days 7` |
 | Build the backup section of Acme's QBR as a PDF | `servosity-cli qbr "Acme Co" --out acme-q1.pdf` |
 | Quarter-end: every client's QBR report in one pass | `servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/` |
 | Watch every client's restore queue during a DR event | `servosity-cli restore-queue watch` |
 | Does my Servosity bill match what I invoice clients? | `servosity-cli bill --reconcile invoices.csv` |
 | Which installed agents still aren't pulling backups? | `servosity-cli unprovisioned` |
+| Which hosts are below 7-year retention or outside the recovery guarantee? | `servosity-cli retention-audit --min 7YEAR` |
+| What one root cause is behind this month's backup failures? | `servosity-cli failure-clusters --top 10` |
 | First-time hydration of the local fleet mirror | `servosity-cli sync --full` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
@@ -185,7 +181,7 @@ This skill turns per-client portal views into fleet-wide, offline-fast intellige
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the Servosity MCP server in HTTP mode. In this build HTTP mode asks for no password, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `servosity-mcp` in HTTP mode: it refuses to start until `SERVOSITY_MSP_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The connector works only if its authentication settings can send that bearer token, so check yours first. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -221,7 +217,7 @@ The skill authenticates with one partner token, scoped to **your reseller accoun
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `fleet-health`, `unprovisioned`, `bill`, `email-draft` (drafts only - nothing is sent), `restore-queue watch`, `search` | Allow |
+| Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `fleet-health`, `unprovisioned`, `retention-audit`, `failure-clusters`, `bill`, `email-draft` (drafts only - nothing is sent), `restore-queue watch`, `search` | Allow |
 | Write (routine) | `triage` (`--ignore`/`--archive`/`--reactivate`/`--comment`), `import`, raw create/update subcommands under the resource groups | Preview with `--dry-run`, then a reviewed write - never blanket `--yes` |
 | Credential / security | `credentials rotate/delete`, `current-user api-token-list --reveal-token`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update`, `auth set-token`/`logout` | Human-in-the-loop only; the API-token read is excluded from MCP and sync |
 | Destructive | `companies delete` (deletes all backup accounts and data), `backups delete`, `users delete` | Human-in-the-loop only |
@@ -236,4 +232,4 @@ Already used inside Servosity's own backup / DR operations; published here for M
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](https://docs.openclaw.ai), with `metadata.openclaw` frontmatter pre-wired so `openclaw skills install` works directly.
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-05-28._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-23._

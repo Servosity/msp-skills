@@ -42,6 +42,41 @@ const lastSuccessTableDDL = `CREATE TABLE IF NOT EXISTS pp_last_success (
 // classic engine nests it as an object instead (handled separately).
 var companyURLRE = regexp.MustCompile(`/companies/(\d+)`)
 
+// drBackupsTable is where synced DR backups live. Press 4.34.0 stores the
+// dr-backups resource in the generic resources table and emits no typed
+// dr_backups table (4.30.3 did), so every query reads DR backups through this
+// subquery: same id and data columns, on the store the CLI actually writes.
+const drBackupsTable = `(SELECT id, data FROM resources WHERE resource_type = 'dr-backups')`
+
+// currentFreshnessRows is pp_last_success restricted to backups still in the
+// synced inventory, with company and hostname taken from that inventory. sync
+// prunes retired backups but never touches pp_last_success, and a retained row
+// keeps its success evidence but not its ownership: a backup moved to another
+// client reports under the client that owns it now.
+const currentFreshnessRows = `(SELECT ls.engine AS engine, ls.backup_id AS backup_id,
+       inv.company_id AS company_id,
+       COALESCE(NULLIF(inv.hostname, ''), ls.hostname, '') AS hostname,
+       ls.last_success AS last_success
+  FROM pp_last_success ls
+  JOIN (SELECT 'restic' AS engine, CAST(id AS TEXT) AS backup_id,
+               CASE WHEN json_type(data, '$.company') = 'integer' THEN json_extract(data, '$.company')
+            WHEN json_type(data, '$.company') = 'object' THEN CAST(json_extract(data, '$.company.id') AS INTEGER)
+            WHEN instr(json_extract(data, '$.company'), '/companies/') > 0
+              THEN CAST(substr(json_extract(data, '$.company'), instr(json_extract(data, '$.company'), '/companies/') + 11) AS INTEGER)
+       END AS company_id,
+               COALESCE(NULLIF(json_extract(data, '$.device_name'), ''), NULLIF(json_extract(data, '$.display_name'), ''), '') AS hostname
+          FROM restic_backups
+        UNION ALL
+        SELECT 'dr', CAST(id AS TEXT),
+               CASE WHEN json_type(data, '$.company') = 'integer' THEN json_extract(data, '$.company')
+            WHEN json_type(data, '$.company') = 'object' THEN CAST(json_extract(data, '$.company.id') AS INTEGER)
+            WHEN instr(json_extract(data, '$.company'), '/companies/') > 0
+              THEN CAST(substr(json_extract(data, '$.company'), instr(json_extract(data, '$.company'), '/companies/') + 11) AS INTEGER)
+       END,
+               COALESCE(NULLIF(json_extract(data, '$.device_name'), ''), NULLIF(json_extract(data, '$.display_name'), ''), '')
+          FROM ` + drBackupsTable + `) inv
+    ON inv.engine = ls.engine AND inv.backup_id = ls.backup_id)`
+
 // ensureLastSuccessTable creates pp_last_success if absent. Safe to call on
 // every command invocation.
 func ensureLastSuccessTable(ctx context.Context, db *store.Store) error {
@@ -85,19 +120,12 @@ type hydrateBackup struct {
 // within partner scope.
 func collectHydrateTargets(ctx context.Context, db *store.Store) ([]hydrateBackup, error) {
 	var out []hydrateBackup
+	// Both sources exist on every opened store (migrations create
+	// restic_backups and resources); an unsynced engine has zero rows.
 	for _, eng := range []struct{ engine, table string }{
 		{"restic", "restic_backups"},
-		{"dr", "dr_backups"},
+		{"dr", drBackupsTable},
 	} {
-		// A store that has never synced this engine has no table at all;
-		// treat that as zero targets rather than a hard error so --refresh
-		// works on partially-synced stores.
-		var tableCount int
-		if err := db.DB().QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?`, eng.table,
-		).Scan(&tableCount); err != nil || tableCount == 0 {
-			continue
-		}
 		rows, err := db.DB().QueryContext(ctx, fmt.Sprintf(`
 			SELECT id,
 			       json_extract(data, '$.company'),
@@ -126,28 +154,39 @@ func collectHydrateTargets(ctx context.Context, db *store.Store) ([]hydrateBacku
 }
 
 // parseLatestSuccess extracts the last-success timestamp string from a
-// /{engine}-backups/{id}/latest-success/ response. Returns "" (never
-// succeeded / not applicable) for {"date":null} and for the DR-upload-account
-// {"detail":...} sentinel, both of which are normal partner responses.
-func parseLatestSuccess(raw json.RawMessage) string {
-	var resp struct {
-		Date   *string `json:"date"`
-		Detail string  `json:"detail"`
-	}
+// /{engine}-backups/{id}/latest-success/ response. {"date":"..."} is a success
+// time; {"date":null} means the backup never succeeded ("", applicable). The
+// DR-upload-account {"detail":...} sentinel means this endpoint does not apply
+// (its success lives on the paired DR backup): applicable is false, and it is
+// not evidence of failure. ok is false for any other body: no evidence at all.
+func parseLatestSuccess(raw json.RawMessage) (lastSuccess string, applicable bool, ok bool) {
+	var resp map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return ""
+		return "", false, false
 	}
-	if resp.Date == nil {
-		return ""
+	if date, has := resp["date"]; has {
+		var d *string
+		if err := json.Unmarshal(date, &d); err != nil {
+			return "", false, false
+		}
+		if d == nil {
+			return "", true, true
+		}
+		return strings.TrimSpace(*d), true, true
 	}
-	return strings.TrimSpace(*resp.Date)
+	if _, has := resp["detail"]; has {
+		return "", false, true
+	}
+	return "", false, false
 }
 
 // hydrateLastSuccess refreshes pp_last_success by calling latest-success for
 // every restic/dr backup in the local store. Returns (rowsWritten, withSuccess)
 // where withSuccess is how many reported a non-empty success date. Per-backup
-// HTTP errors are tolerated (recorded as empty last_success) so one bad row
-// doesn't abort the sweep.
+// lookup failures (an HTTP error or an unrecognized body) leave the backup's
+// prior row untouched: a failed lookup is no evidence, so it must neither
+// erase a known success nor record "never succeeded". The sweep only fails
+// when every lookup failed.
 func hydrateLastSuccess(ctx context.Context, c *client.Client, db *store.Store) (written int, withSuccess int, err error) {
 	if err := ensureLastSuccessTable(ctx, db); err != nil {
 		return 0, 0, err
@@ -163,11 +202,35 @@ func hydrateLastSuccess(ctx context.Context, c *client.Client, db *store.Store) 
 		targets = targets[:10]
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
+	var lastErr error
+	failed := 0
 	for _, t := range targets {
 		path := fmt.Sprintf("/%s-backups/%s/latest-success/", t.Engine, t.BackupID)
-		lastSuccess := ""
-		if data, gerr := c.Get(ctx, path, nil); gerr == nil {
-			lastSuccess = parseLatestSuccess(data)
+		data, gerr := c.Get(ctx, path, nil)
+		if gerr != nil {
+			if ctx.Err() != nil {
+				return written, withSuccess, ctx.Err()
+			}
+			failed++
+			lastErr = gerr
+			continue
+		}
+		lastSuccess, applicable, ok := parseLatestSuccess(data)
+		if !ok {
+			failed++
+			lastErr = fmt.Errorf("%s: unrecognized latest-success response", path)
+			continue
+		}
+		if !applicable {
+			// No freshness of its own: drop any earlier row so readers
+			// report it as unknown instead of "never succeeded".
+			if _, execErr := db.DB().ExecContext(ctx,
+				`DELETE FROM pp_last_success WHERE engine = ? AND backup_id = ?`, t.Engine, t.BackupID,
+			); execErr != nil {
+				return written, withSuccess, fmt.Errorf("clearing pp_last_success for %s/%s: %w", t.Engine, t.BackupID, execErr)
+			}
+			written++
+			continue
 		}
 		if _, execErr := db.DB().ExecContext(ctx, `
 			INSERT INTO pp_last_success (engine, backup_id, company_id, hostname, last_success, checked_at)
@@ -185,6 +248,9 @@ func hydrateLastSuccess(ctx context.Context, c *client.Client, db *store.Store) 
 		if lastSuccess != "" {
 			withSuccess++
 		}
+	}
+	if failed > 0 && written == 0 {
+		return 0, 0, fmt.Errorf("every latest-success lookup failed (%d); last error: %w", failed, lastErr)
 	}
 	return written, withSuccess, nil
 }

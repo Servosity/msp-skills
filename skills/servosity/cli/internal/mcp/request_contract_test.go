@@ -214,7 +214,7 @@ func TestRequestContractExecuteNamedWriteOnWire(t *testing.T) {
 	var params map[string]any
 	_ = json.Unmarshal([]byte(bodyJSON), &params)
 
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "companies.create", "params": params}))
+	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "companies.create", "params": params, "confirm": true}))
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("execute failed: result=%#v err=%v", result, err)
 	}
@@ -246,7 +246,7 @@ func TestRequestContractExecuteAdvertisedGETBindings(t *testing.T) {
 	defer fixture.Close()
 	requestContractConfig(t, fixture.URL)
 	params := map[string]any{"support_tier": "SILVER"}
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "companies.list", "params": params}))
+	result, err := handleCodeOrchRead(context.Background(), requestContractCall(map[string]any{"endpoint_id": "companies.list", "params": params}))
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("GET execute failed: result=%#v err=%v", result, err)
 	}
@@ -288,7 +288,7 @@ func TestRequestContractPathAndBodyMayShareWireName(t *testing.T) {
 	defer fixture.Close()
 	requestContractConfig(t, fixture.URL)
 	params := map[string]any{"path_id": "42", "id": float64(99)}
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params}))
+	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params, "confirm": true}))
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("execute: %#v %v", result, err)
 	}

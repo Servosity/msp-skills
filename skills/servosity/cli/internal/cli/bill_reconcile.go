@@ -8,8 +8,9 @@
 //     owners do not have to look it up.
 //   - plain mode just renders the bill (table / json / csv).
 //   - --reconcile mode joins the bill against a CSV the MSP exports from
-//     their own invoicing system and surfaces every drift line — clients
-//     being undercharged, overcharged, missing on either side.
+//     their own invoicing system and flags presence drift: clients billed
+//     but not invoiced, and clients invoiced with no billed backups. The
+//     partner bill carries no prices, so there is no dollar delta.
 //
 // Money is held as integer cents end-to-end. Floats are only ever used at
 // the parse boundary (CSV ingest, API JSON decode) and converted to cents
@@ -66,9 +67,9 @@ type reconcileRow struct {
 	CompanyName      string `json:"company_name"`
 	ServosityBackups int    `json:"servosity_backups"`
 	Products         string `json:"products,omitempty"`
-	ServosityCent    int64  `json:"servosity_cents"`
+	ServosityCent    *int64 `json:"servosity_cents"` // nil: the partner bill carries no price
 	InvoicedCent     int64  `json:"invoiced_cents"`
-	DeltaCent        int64  `json:"delta_cents"`
+	DeltaCent        *int64 `json:"delta_cents"` // nil whenever ServosityCent is unknown
 	Note             string `json:"note,omitempty"`
 }
 
@@ -94,13 +95,17 @@ func newNovelBillCmd(flags *rootFlags) *cobra.Command {
 		Long: `Pull the MSP's monthly Servosity bill, with two modes:
 
   bill                       — show the bill (table | json | csv).
-  bill --reconcile <csv>     — compare line-by-line against a CSV of what
-                                you've invoiced YOUR clients and surface
-                                the drift (over/under-charges, missing rows).
+  bill --reconcile <csv>     — compare against a CSV of what you've
+                                invoiced YOUR clients and flag presence
+                                drift: clients Servosity bills you for that
+                                you have not invoiced, and invoiced clients
+                                with no Servosity backups.
 
+The partner bill carries billed backups per company but no prices, so the
+reconcile reports no dollar delta (servosity_cents and delta_cents are null).
 The CSV must have header columns: company_id,company_name,invoiced_amount.
 Amounts may be formatted with or without a leading "$" (e.g. "128.50" or
-"$128.50"). All money is computed in integer cents to avoid float drift.`,
+"$128.50"); invoiced amounts are parsed as integer cents.`,
 		Example: `  # Show this month's Servosity bill
   servosity-cli bill
 
@@ -204,8 +209,13 @@ Amounts may be formatted with or without a leading "$" (e.g. "128.50" or
 				return usageErr(fmt.Errorf("reading %s: %w", reconcilePath, err))
 			}
 			// Resolve bill line-item company NAMES to ids against the local
-			// companies table so the bill side joins to the invoice side.
+			// companies table so the bill side joins to the invoice side. With
+			// no synced companies, read them live: an empty index made every
+			// client appear twice, once per side.
 			nameToID := loadCompanyNameIndex(cmd.Context())
+			if len(nameToID) == 0 {
+				nameToID = liveCompanyNameIndex(cmd.Context(), c)
+			}
 			rows := joinAndScore(lines, invoices, nameToID)
 			report := buildReport(month, rows)
 
@@ -282,6 +292,10 @@ func readInvoicesCSV(path string) (map[string]reconcileRow, error) {
 		}
 	}
 
+	maxIdx := 0
+	for _, required := range []string{"company_id", "company_name", "invoiced_amount"} {
+		maxIdx = max(maxIdx, idx[required])
+	}
 	out := map[string]reconcileRow{}
 	lineNum := 1
 	for {
@@ -296,6 +310,9 @@ func readInvoicesCSV(path string) (map[string]reconcileRow, error) {
 		if len(rec) == 0 {
 			continue
 		}
+		if len(rec) <= maxIdx {
+			return nil, fmt.Errorf("CSV line %d: expected at least %d columns, got %d", lineNum, maxIdx+1, len(rec))
+		}
 		cid := strings.TrimSpace(rec[idx["company_id"]])
 		if cid == "" {
 			// Skip blank rows silently — common when MSPs hand-export.
@@ -306,11 +323,13 @@ func readInvoicesCSV(path string) (map[string]reconcileRow, error) {
 		if err != nil {
 			return nil, fmt.Errorf("CSV line %d: invoiced_amount %q: %w", lineNum, amtStr, err)
 		}
-		row := reconcileRow{
-			CompanyID:    cid,
-			CompanyName:  strings.TrimSpace(rec[idx["company_name"]]),
-			InvoicedCent: cents,
+		// Several invoice lines for one company (a split invoice, or one line
+		// per product) add up; they never replace each other.
+		row, seen := out[cid]
+		if !seen {
+			row = reconcileRow{CompanyID: cid, CompanyName: strings.TrimSpace(rec[idx["company_name"]])}
 		}
+		row.InvoicedCent += cents
 		out[cid] = row
 	}
 	return out, nil
@@ -373,6 +392,24 @@ type billAgg struct {
 // count of billed backups (the bill carries no dollar amount). NOTE is
 // assigned by classifyDrift from billing-presence vs. invoiced.
 func joinAndScore(billLines []billLineItem, invoices map[string]reconcileRow, nameToID map[string]int64) []reconcileRow {
+	// The invoice CSV names each company beside its id, so a bill name that
+	// matches a CSV name joins to that row first, whatever the store holds.
+	// A name two CSV rows share is ambiguous and is left to the company index.
+	invoiceNameToID := map[string]string{}
+	ambiguous := map[string]bool{}
+	for cid, inv := range invoices {
+		name := strings.ToLower(stripBillTag(inv.CompanyName))
+		if name == "" {
+			continue
+		}
+		if prev, ok := invoiceNameToID[name]; ok && prev != cid {
+			ambiguous[name] = true
+		}
+		invoiceNameToID[name] = cid
+	}
+	for name := range ambiguous {
+		delete(invoiceNameToID, name)
+	}
 	billByID := map[string]*billAgg{}
 	for _, line := range billLines {
 		cleanName := stripBillTag(line.Company)
@@ -380,7 +417,9 @@ func joinAndScore(billLines []billLineItem, invoices map[string]reconcileRow, na
 			continue
 		}
 		cid := ""
-		if id, ok := nameToID[strings.ToLower(cleanName)]; ok {
+		if id, ok := invoiceNameToID[strings.ToLower(cleanName)]; ok {
+			cid = id
+		} else if id, ok := nameToID[strings.ToLower(cleanName)]; ok {
 			cid = strconv.FormatInt(id, 10)
 		} else {
 			// Unresolved name: key by the cleaned name so the row still shows.
@@ -425,9 +464,9 @@ func joinAndScore(billLines []billLineItem, invoices map[string]reconcileRow, na
 		} else {
 			row.CompanyName = inv.CompanyName
 		}
-		// ServosityCent stays 0 (no priced bill); delta echoes invoiced so the
-		// existing dollar columns/JSON keys remain populated for consumers.
-		row.DeltaCent = row.InvoicedCent - row.ServosityCent
+		// The partner bill carries no price, so the Servosity cost and the
+		// dollar delta are unknown (null), never a fabricated 0-based delta.
+		// Reconciliation is presence-only: billed backups vs. invoiced.
 		row.Note = classifyDrift(row)
 		rows = append(rows, row)
 	}
@@ -503,14 +542,58 @@ func classifyDrift(row reconcileRow) string {
 }
 
 func buildReport(month string, rows []reconcileRow) reconcileReport {
-	totals := map[string]int64{"servosity": 0, "invoiced": 0, "delta": 0, "servosity_backups": 0}
+	// No "servosity" or "delta" dollar totals: the partner bill has no prices.
+	totals := map[string]int64{"invoiced": 0, "servosity_backups": 0}
 	for _, r := range rows {
-		totals["servosity"] += r.ServosityCent
 		totals["invoiced"] += r.InvoicedCent
 		totals["servosity_backups"] += int64(r.ServosityBackups)
 	}
-	totals["delta"] = totals["invoiced"] - totals["servosity"]
-	return reconcileReport{Month: month, Totals: totals, Rows: rows}
+	meta := map[string]interface{}{
+		"reconciliation": "presence-only: the partner bill exposes billed backups per company but no prices",
+	}
+	unresolved := 0
+	for _, r := range rows {
+		if strings.HasPrefix(r.CompanyID, "name:") {
+			unresolved++
+		}
+	}
+	if unresolved > 0 {
+		meta["unresolved_bill_names"] = unresolved
+		meta["unresolved_hint"] = "rows keyed name:<company> matched no company id or CSV name; check the name in your CSV"
+	}
+	return reconcileReport{Month: month, Totals: totals, Rows: rows, Meta: meta}
+}
+
+// liveCompanyNameIndex reads /companies/ page by page (at most 50 pages) and
+// returns a lower-cased name to id map. Best-effort: a failed page returns
+// what was read so far.
+func liveCompanyNameIndex(ctx context.Context, c resellerClient) map[string]int64 {
+	out := map[string]int64{}
+	for page := 1; page <= 50; page++ {
+		body, err := c.Get(ctx, "/companies/", map[string]string{"page": strconv.Itoa(page), "page_size": "100"})
+		if err != nil {
+			return out
+		}
+		var env struct {
+			Next    *string `json:"next"`
+			Results []struct {
+				ID   json.Number `json:"id"`
+				Name string      `json:"name"`
+			} `json:"results"`
+		}
+		if json.Unmarshal(body, &env) != nil {
+			return out
+		}
+		for _, r := range env.Results {
+			if id, err := r.ID.Int64(); err == nil && strings.TrimSpace(r.Name) != "" {
+				out[strings.ToLower(strings.TrimSpace(r.Name))] = id
+			}
+		}
+		if env.Next == nil || *env.Next == "" || len(env.Results) == 0 {
+			return out
+		}
+	}
+	return out
 }
 
 // renderPlainBill is the no-reconcile path: render the raw bill response

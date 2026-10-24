@@ -56,12 +56,29 @@ type DeviceRow struct {
 // dr_backups; rows missing a created_at fall through into the "unknown"
 // bucket so the rate denominator stays honest.
 type SuccessStats struct {
-	Total            int     `json:"total"`
-	HardFail         int     `json:"hard_fail"`
-	Dirty            int     `json:"dirty"`
-	RetriedSucceeded int     `json:"retried_then_succeeded"`
-	Rate             float64 `json:"rate_pct"`
+	Total            int `json:"total"`
+	HardFail         int `json:"hard_fail"`
+	Dirty            int `json:"dirty"`
+	RetriedSucceeded int `json:"retried_then_succeeded"`
+	// Unknown counts backups with no freshness evidence, and backups whose
+	// latest success is after the quarter ended: that one timestamp cannot
+	// show whether they succeeded during it. Both are left out of Rate.
+	Unknown   int     `json:"unknown"`
+	Rate      float64 `json:"rate_pct"`
+	RateKnown bool    `json:"rate_known"`
+	// AssessedAt is the quarter end, or now while the quarter is still
+	// running. A backup counts as succeeding only when its latest success is
+	// within RecentWindowDays before it; one that went quiet earlier is stale.
+	AssessedAt       time.Time `json:"assessed_at"`
+	RecentWindowDays int       `json:"recent_window_days"`
 }
+
+// qbrRecentWindow is how recent a backup's latest success must be, at the
+// assessment point, for the backup to count as succeeding.
+const qbrRecentWindow = 7 * 24 * time.Hour
+
+// qbrNow is the clock loadSuccessStats reads; tests pin it.
+var qbrNow = time.Now
 
 // RestoreEvent is one row in the restore-tests section. v1 surfaces DR
 // reboot / snapshot events from dr_backups_* tables that occurred within
@@ -292,6 +309,46 @@ func loadReseller(ctx context.Context, db *sql.DB, r *Report) {
 // directly to the numeric id, which matched nothing, so every QBR section
 // came back empty.
 const classicCompanyExpr = `CAST(json_extract(data, '$.company.id') AS INTEGER)`
+
+// drBackupsTable is where synced DR backups live. Press 4.34.0 stores the
+// dr-backups resource in the generic resources table and emits no typed
+// dr_backups table (4.30.3 did), so every QBR query reads DR backups through this
+// subquery: same id and data columns, on the store the CLI actually writes.
+const drBackupsTable = `(SELECT id, data FROM resources WHERE resource_type = 'dr-backups')`
+
+// qbrInventoryRows is every restic and DR backup in the synced inventory,
+// with the company that owns it now.
+const qbrInventoryRows = `(SELECT 'restic' AS engine, CAST(id AS TEXT) AS backup_id,
+               CASE WHEN json_type(data, '$.company') = 'integer' THEN json_extract(data, '$.company')
+            WHEN json_type(data, '$.company') = 'object' THEN CAST(json_extract(data, '$.company.id') AS INTEGER)
+            WHEN instr(json_extract(data, '$.company'), '/companies/') > 0
+              THEN CAST(substr(json_extract(data, '$.company'), instr(json_extract(data, '$.company'), '/companies/') + 11) AS INTEGER)
+       END AS company_id,
+               COALESCE(NULLIF(json_extract(data, '$.device_name'), ''), NULLIF(json_extract(data, '$.display_name'), ''), '') AS hostname
+          FROM restic_backups
+        UNION ALL
+        SELECT 'dr', CAST(id AS TEXT),
+               CASE WHEN json_type(data, '$.company') = 'integer' THEN json_extract(data, '$.company')
+            WHEN json_type(data, '$.company') = 'object' THEN CAST(json_extract(data, '$.company.id') AS INTEGER)
+            WHEN instr(json_extract(data, '$.company'), '/companies/') > 0
+              THEN CAST(substr(json_extract(data, '$.company'), instr(json_extract(data, '$.company'), '/companies/') + 11) AS INTEGER)
+       END,
+               COALESCE(NULLIF(json_extract(data, '$.device_name'), ''), NULLIF(json_extract(data, '$.display_name'), ''), '')
+          FROM ` + drBackupsTable + `)`
+
+// currentFreshnessRows (same as internal/cli/freshness.go) is pp_last_success restricted to backups still in the
+// synced inventory, with company and hostname taken from that inventory. sync
+// prunes retired backups but never touches pp_last_success, and a retained row
+// keeps its success evidence but not its ownership: a backup moved to another
+// client reports under the client that owns it now.
+const currentFreshnessRows = `(SELECT ls.engine AS engine, ls.backup_id AS backup_id,
+       inv.company_id AS company_id,
+       COALESCE(NULLIF(inv.hostname, ''), ls.hostname, '') AS hostname,
+       ls.last_success AS last_success
+  FROM pp_last_success ls
+  JOIN ` + qbrInventoryRows + ` inv
+    ON inv.engine = ls.engine AND inv.backup_id = ls.backup_id)`
+
 const urlCompanyExpr = `CAST(substr(json_extract(data, '$.company'), instr(json_extract(data, '$.company'), '/companies/') + 11) AS INTEGER)`
 
 // loadCoverage builds the device/engine matrix. It union-reads the three
@@ -311,22 +368,22 @@ func loadCoverage(ctx context.Context, db *sql.DB, companyID int64) []DeviceRow 
 	}{
 		{"classic", `
 			SELECT id,
-			       COALESCE(json_extract(data,'$.display_name'),
-			                json_extract(data,'$.login'), id) AS device,
+			       COALESCE(NULLIF(json_extract(data,'$.display_name'),''),
+			                NULLIF(json_extract(data,'$.login'),''), id) AS device,
 			       COALESCE(json_extract(data,'$.state'), '')
 			  FROM backups WHERE ` + classicCompanyExpr + ` = ?`},
 		{"restic", `
 			SELECT id,
-			       COALESCE(json_extract(data,'$.display_name'),
-			                json_extract(data,'$.device_name'), id) AS device,
+			       COALESCE(NULLIF(json_extract(data,'$.display_name'),''),
+			                NULLIF(json_extract(data,'$.device_name'),''), id) AS device,
 			       COALESCE(json_extract(data,'$.state'), '')
 			  FROM restic_backups WHERE ` + urlCompanyExpr + ` = ?`},
 		{"dr", `
 			SELECT id,
-			       COALESCE(json_extract(data,'$.display_name'),
-			                json_extract(data,'$.device_name'), id) AS device,
+			       COALESCE(NULLIF(json_extract(data,'$.display_name'),''),
+			                NULLIF(json_extract(data,'$.device_name'),''), id) AS device,
 			       COALESCE(json_extract(data,'$.state'), '')
-			  FROM dr_backups WHERE ` + urlCompanyExpr + ` = ?`},
+			  FROM ` + drBackupsTable + ` WHERE ` + urlCompanyExpr + ` = ?`},
 	}
 	for _, leg := range legs {
 		rows, err := db.QueryContext(ctx, leg.query, companyID)
@@ -413,8 +470,9 @@ func parseQBRTime(s string) (time.Time, error) {
 // from each backup's last success (pp_last_success, hydrated from the
 // partner-visible latest-success endpoint):
 //
-//	success  = last success falls inside the quarter window  (healthy)
-//	dirty    = succeeded once, but before the quarter         (stale)
+//	success  = last success within 7 days before the assessment point
+//	           (the quarter end, or now while the quarter runs)
+//	dirty    = succeeded once, but not in those 7 days         (stale)
 //	hardfail = never reported a success
 //
 // Total is every restic/dr backup the company owns. Classic backups expose
@@ -422,10 +480,30 @@ func parseQBRTime(s string) (time.Time, error) {
 // rather than counted as silent failures.
 func loadSuccessStats(ctx context.Context, db *sql.DB, companyID int64, from, to time.Time) SuccessStats {
 	var stats SuccessStats
+	asOf := to
+	if now := qbrNow().UTC(); now.Before(asOf) {
+		asOf = now
+	}
+	cutoff := asOf.Add(-qbrRecentWindow)
+	stats.AssessedAt = asOf
+	stats.RecentWindowDays = int(qbrRecentWindow / (24 * time.Hour))
+	// Start from the inventory: a backup with no freshness row (a failed or
+	// skipped lookup) is unknown, not left out of the total. Before any
+	// freshness command has run there is no freshness table at all, and every
+	// backup is unknown.
+	var haveFreshness int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'pp_last_success'`).Scan(&haveFreshness); err == nil && haveFreshness == 0 {
+		var n int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM `+qbrInventoryRows+` inv WHERE inv.company_id = ?`, companyID).Scan(&n); err == nil {
+			stats.Total, stats.Unknown = n, n
+		}
+		return stats
+	}
 	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(last_success, '')
-		  FROM pp_last_success
-		 WHERE company_id = ? AND engine IN ('restic','dr')`,
+		SELECT COALESCE(ls.last_success, ''), CASE WHEN ls.backup_id IS NULL THEN 0 ELSE 1 END
+		  FROM `+qbrInventoryRows+` inv
+		  LEFT JOIN pp_last_success ls ON ls.engine = inv.engine AND ls.backup_id = inv.backup_id
+		 WHERE inv.company_id = ?`,
 		companyID,
 	)
 	if err != nil {
@@ -434,10 +512,15 @@ func loadSuccessStats(ctx context.Context, db *sql.DB, companyID int64, from, to
 	defer rows.Close()
 	for rows.Next() {
 		var ls string
-		if err := rows.Scan(&ls); err != nil {
+		var hasEvidence int
+		if err := rows.Scan(&ls, &hasEvidence); err != nil {
 			continue
 		}
 		stats.Total++
+		if hasEvidence == 0 {
+			stats.Unknown++
+			continue
+		}
 		if strings.TrimSpace(ls) == "" {
 			stats.HardFail++
 			continue
@@ -447,15 +530,22 @@ func loadSuccessStats(ctx context.Context, db *sql.DB, companyID int64, from, to
 			stats.HardFail++
 			continue
 		}
-		if !t.Before(from) && t.Before(to) {
-			// healthy: a success landed inside the quarter
+		if !t.Before(to) {
+			// The latest success is after the quarter: whether one also
+			// landed inside it is not knowable from this timestamp.
+			stats.Unknown++
 			continue
 		}
-		stats.Dirty++ // succeeded once, but not this quarter (stale)
+		if !t.Before(cutoff) {
+			// healthy: a success in the window before the assessment point
+			continue
+		}
+		stats.Dirty++ // no success in the window: stale at the assessment point
 	}
-	if stats.Total > 0 {
-		success := stats.Total - stats.HardFail - stats.Dirty
-		stats.Rate = (float64(success) / float64(stats.Total)) * 100.0
+	if assessed := stats.Total - stats.Unknown; assessed > 0 {
+		success := assessed - stats.HardFail - stats.Dirty
+		stats.Rate = (float64(success) / float64(assessed)) * 100.0
+		stats.RateKnown = true
 	}
 	return stats
 }
@@ -478,8 +568,9 @@ func loadRestoreTests(ctx context.Context, db *sql.DB, companyID int64, from, to
 		       COALESCE(json_extract(s.data, '$.status'), ''),
 		       COALESCE(json_extract(s.data, '$.notes'), '')
 		  FROM dr_backups_snapshots s
-		  JOIN dr_backups d ON d.id = s.dr_backups_id
-		 WHERE (json_extract(d.data, '$.company') = ? OR json_extract(d.data, '$.company') = ?)
+		  JOIN `+drBackupsTable+` d ON d.id = s.dr_backups_id
+		 WHERE (CAST(substr(json_extract(d.data, '$.company'), instr(json_extract(d.data, '$.company'), '/companies/') + 11) AS INTEGER) = ?
+		        OR json_extract(d.data, '$.company') = ?)
 		   AND json_extract(s.data, '$.created_at') >= ?
 		   AND json_extract(s.data, '$.created_at') <  ?`,
 		cid, companyID, from.Format(time.RFC3339), to.Format(time.RFC3339),
@@ -659,14 +750,20 @@ func RenderMarkdown(r *Report, w io.Writer) error {
 	}
 	fmt.Fprintln(bw)
 
-	fmt.Fprintln(bw, "## Job success rate")
+	fmt.Fprintln(bw, "## Backup success")
 	fmt.Fprintln(bw)
 	if r.SuccessRate.Total == 0 {
 		fmt.Fprintln(bw, "_No assessable backups for this client (no restic/DR backups synced)._")
+	} else if !r.SuccessRate.RateKnown {
+		fmt.Fprintf(bw, "**Success for %s: unknown.** None of the %d restic/DR backups has success evidence for the quarter (no recorded success, or the latest is after the quarter ended).\n",
+			r.Quarter, r.SuccessRate.Total)
 	} else {
-		fmt.Fprintf(bw, "**%.1f%% of %d protected backups reported a success in %s** (%d never succeeded, %d stale — last success before this quarter)\n\n",
-			r.SuccessRate.Rate, r.SuccessRate.Total, r.Quarter, r.SuccessRate.HardFail, r.SuccessRate.Dirty)
+		fmt.Fprintf(bw, "**%.1f%% of %d assessable restic/DR backups had a successful run in the %d days before %s** (%d never succeeded, %d stale: no success in that window)\n\n",
+			r.SuccessRate.Rate, r.SuccessRate.Total-r.SuccessRate.Unknown, r.SuccessRate.RecentWindowDays, r.SuccessRate.AssessedAt.Format("2006-01-02"), r.SuccessRate.HardFail, r.SuccessRate.Dirty)
 		fmt.Fprintf(bw, "`%s`\n", asciiBar(r.SuccessRate.Rate))
+		if r.SuccessRate.Unknown > 0 {
+			fmt.Fprintf(bw, "\n%d backup(s) are left out of the rate: no success was recorded for them, or their latest success is after the quarter, so it cannot show whether they succeeded during it.\n", r.SuccessRate.Unknown)
+		}
 	}
 	fmt.Fprintln(bw)
 
@@ -747,6 +844,9 @@ func RenderHTML(r *Report, w io.Writer) error {
 		"pct":      func(f float64) string { return fmt.Sprintf("%.1f%%", f) },
 		"successBar": func(stats SuccessStats) template.HTML {
 			if stats.Total == 0 {
+				return template.HTML("")
+			}
+			if !stats.RateKnown {
 				return template.HTML("")
 			}
 			pct := stats.Rate
@@ -845,14 +945,22 @@ func executiveSummary(r *Report) string {
 		return fmt.Sprintf("%d open issue(s) for %s as of %s. No backup jobs landed in this quarter — confirm sync coverage.",
 			len(r.OpenIssues), r.Company.Name, r.Quarter)
 	}
+	if !r.SuccessRate.RateKnown {
+		return fmt.Sprintf("%s has %d restic/DR backups; the %s success rate is unknown because none has success evidence for the quarter.",
+			r.Company.Name, r.SuccessRate.Total, r.Quarter)
+	}
 	topNote := ""
 	if r.TopIssue != "" {
 		topNote = fmt.Sprintf(" Top open issue: %q.", r.TopIssue)
 	}
 	tests := fmt.Sprintf("%d restore test(s)", len(r.RestoreTests))
+	unknown := ""
+	if r.SuccessRate.Unknown > 0 {
+		unknown = fmt.Sprintf(" (%d not assessable: no success evidence for the quarter)", r.SuccessRate.Unknown)
+	}
 	return fmt.Sprintf(
-		"%s has %d protected backups; %.1f%% reported a successful run in %s. %s recorded.%s",
-		r.Company.Name, r.SuccessRate.Total, r.SuccessRate.Rate, r.Quarter, tests, topNote,
+		"%s has %d restic/DR backups; %.1f%% of the %d assessable had a successful run in the %d days before %s (%s)%s. %s recorded.%s",
+		r.Company.Name, r.SuccessRate.Total, r.SuccessRate.Rate, r.SuccessRate.Total-r.SuccessRate.Unknown, r.SuccessRate.RecentWindowDays, r.SuccessRate.AssessedAt.Format("2006-01-02"), r.Quarter, unknown, tests, topNote,
 	)
 }
 

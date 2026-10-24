@@ -1765,7 +1765,7 @@
       "vendor": "Servosity",
       "vendor_trademark_owner": "Servosity Inc.",
       "first_party": true,
-      "cli_hash": "sha256:8c13ad1e65a6315f3c244637895c3b244be2364c96cdde3104a6537c9f64cf2a",
+      "cli_hash": "sha256:6ad621de3c406fdf0b2f3f18d2286a856de86d5f86428b80a19d07f0ecb95c6a",
       "template_version": 3,
       "version": "0.6.10",
       "cli_hash_at_release": "sha256:ed59b5e984dd2ca9e012d1a410da7a5a0fbb0f6c90d3a93a2d9a566c59091b54",

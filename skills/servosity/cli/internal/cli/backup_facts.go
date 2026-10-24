@@ -143,7 +143,8 @@ SELECT
   COALESCE(ls.last_success, '') AS last_successful_at,
   COALESCE(json_extract(b.data, '$.last_status'),
            json_extract(b.data, '$.status'),
-           json_extract(b.data, '$.state'), '') AS status
+           json_extract(b.data, '$.state'), '') AS status,
+  CASE WHEN ls.backup_id IS NULL THEN 0 ELSE 1 END AS has_freshness
 FROM backups b
 LEFT JOIN companies c ON CAST(c.id AS INTEGER) = ` + classicCID + `
 LEFT JOIN pp_last_success ls ON ls.engine = 'classic' AND ls.backup_id = b.id
@@ -161,7 +162,8 @@ SELECT
   COALESCE(ls.last_success, '') AS last_successful_at,
   COALESCE(json_extract(b.data, '$.last_status'),
            json_extract(b.data, '$.status'),
-           json_extract(b.data, '$.state'), '') AS status
+           json_extract(b.data, '$.state'), '') AS status,
+  CASE WHEN ls.backup_id IS NULL THEN 0 ELSE 1 END AS has_freshness
 FROM restic_backups b
 LEFT JOIN companies c ON CAST(c.id AS INTEGER) = ` + urlCID + `
 LEFT JOIN pp_last_success ls ON ls.engine = 'restic' AND ls.backup_id = b.id
@@ -179,8 +181,9 @@ SELECT
   COALESCE(ls.last_success, '') AS last_successful_at,
   COALESCE(json_extract(b.data, '$.last_status'),
            json_extract(b.data, '$.status'),
-           json_extract(b.data, '$.state'), '') AS status
-FROM dr_backups b
+           json_extract(b.data, '$.state'), '') AS status,
+  CASE WHEN ls.backup_id IS NULL THEN 0 ELSE 1 END AS has_freshness
+FROM ` + drBackupsTable + ` b
 LEFT JOIN companies c ON CAST(c.id AS INTEGER) = ` + urlCID + `
 LEFT JOIN pp_last_success ls ON ls.engine = 'dr' AND ls.backup_id = b.id
 `
@@ -233,7 +236,7 @@ LEFT JOIN pp_last_success ls ON ls.engine = 'dr' AND ls.backup_id = b.id
 				bind = append(bind, sinceTS)
 			}
 
-			query := "SELECT u.company_id, u.company_name, u.engine, u.id, u.hostname, u.last_successful_at, u.status FROM " + unioned + " AS u"
+			query := "SELECT u.company_id, u.company_name, u.engine, u.id, u.hostname, u.last_successful_at, u.status, u.has_freshness FROM " + unioned + " AS u"
 			if len(where) > 0 {
 				query += " WHERE " + strings.Join(where, " AND ")
 			}
@@ -255,8 +258,9 @@ LEFT JOIN pp_last_success ls ON ls.engine = 'dr' AND ls.backup_id = b.id
 					hostname sql.NullString
 					lastOK   sql.NullString
 					st       sql.NullString
+					hasFresh int
 				)
-				if err := rows.Scan(&cid, &cname, &eng, &id, &hostname, &lastOK, &st); err != nil {
+				if err := rows.Scan(&cid, &cname, &eng, &id, &hostname, &lastOK, &st, &hasFresh); err != nil {
 					return fmt.Errorf("scanning backup-facts row: %w", err)
 				}
 				f := backupFact{
@@ -266,7 +270,10 @@ LEFT JOIN pp_last_success ls ON ls.engine = 'dr' AND ls.backup_id = b.id
 					Hostname:         hostname.String,
 					LastSuccessfulAt: lastOK.String,
 					State:            st.String,
-					Health:           backupHealth(lastOK.String, freshnessHydrated, time.Now()),
+					// Per backup, not per store: a backup with no freshness row
+					// (every classic backup; any restic/DR one not yet looked
+					// up) is unknown even when other backups are hydrated.
+					Health: backupHealth(lastOK.String, hasFresh == 1, time.Now()),
 				}
 				if cid.Valid {
 					v := cid.Int64
