@@ -21,34 +21,44 @@ type freshnessRow struct {
 }
 
 // computeFreshness reports, per tenant, the time since the last SUCCESSFUL
-// backup task. Tenants with no successful task ever are breached by
-// definition. Breach threshold is sla.
+// backup: an explicit backup task whose result is ok and whose time is known.
+// Tenants with no such task are breached by definition. Breach threshold is
+// sla. An unrecognized timestamp fails the report.
 func computeFreshness(db *store.Store, sla time.Duration, breachedOnly bool, tenantFilter string, now time.Time) ([]freshnessRow, error) {
-	names := tenantNames(db)
+	names, err := tenantNames(db)
+	if err != nil {
+		return nil, err
+	}
 
 	lastSuccess := map[string]time.Time{}
-	rows, err := db.Query(`SELECT tenant_id, state, result_code, created_at, completed_at FROM task_manager`)
+	rows, err := db.Query(`SELECT id, tenant_id, type, state, result_code, ` + taskTimeColumns + ` FROM task_manager`)
 	if err != nil {
 		return nil, fmt.Errorf("querying task_manager: %w", err)
 	}
 	for rows.Next() {
-		var tid, state, rc, createdAt, completedAt *string
-		if rows.Scan(&tid, &state, &rc, &createdAt, &completedAt) != nil {
+		var id string
+		var tid, typ, state, rc, completedAt, updatedAt, startedAt, enqueuedAt, createdAt *string
+		if err := rows.Scan(&id, &tid, &typ, &state, &rc, &completedAt, &updatedAt, &startedAt, &enqueuedAt, &createdAt); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("reading task_manager: %w", err)
+		}
+		at, known, err := rollupTime(deref(completedAt), deref(updatedAt), deref(startedAt), deref(enqueuedAt), deref(createdAt))
+		if err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("task %s: %w", id, err)
+		}
+		if taskBackupKind(deref(typ)) != "backup" || taskOutcome(deref(state), deref(rc)) != "ok" || !known {
 			continue
 		}
-		if taskOutcome(deref(state), deref(rc)) != "ok" {
-			continue
-		}
-		for _, ts := range []string{deref(completedAt), deref(createdAt)} {
-			if t, ok := parseTime(ts); ok {
-				if t.After(lastSuccess[deref(tid)]) {
-					lastSuccess[deref(tid)] = t
-				}
-				break
-			}
+		if at.After(lastSuccess[deref(tid)]) {
+			lastSuccess[deref(tid)] = at
 		}
 	}
+	err = rows.Err()
 	rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading task_manager: %w", err)
+	}
 
 	// Report over all known tenants so never-backed-up tenants surface too.
 	// Fall back to tenants seen in task data when the tenants table is empty.

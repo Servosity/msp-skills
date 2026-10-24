@@ -20,62 +20,94 @@ type coverageRow struct {
 	Protected     bool   `json:"protected"`
 }
 
-// computeCoverage finds paying tenants (>=1 offering_items row) and whether
-// they are protected (>=1 online agent AND >=1 recent successful task within
-// withinDays). When unprotectedOnly, returns only paying-but-unprotected.
+// computeCoverage finds paying tenants (>=1 offering item that is active or
+// whose status is unknown - an unproven status still gets checked) and whether
+// they are protected (>=1 agent whose status proves it online AND >=1 dated,
+// explicit backup task that succeeded within withinDays). When
+// unprotectedOnly, returns only paying-but-unprotected.
 func computeCoverage(db *store.Store, withinDays int, unprotectedOnly bool, now time.Time) ([]coverageRow, error) {
-	names := tenantNames(db)
+	names, err := tenantNames(db)
+	if err != nil {
+		return nil, err
+	}
 	cutoff := now.Add(-time.Duration(withinDays) * 24 * time.Hour)
 
 	offeringCount := map[string]int{}
-	if rows, err := db.Query(`SELECT tenants_id, COUNT(*) FROM offering_items GROUP BY tenants_id`); err == nil {
-		for rows.Next() {
-			var tid string
-			var c int
-			if rows.Scan(&tid, &c) == nil {
-				offeringCount[tid] = c
-			}
-		}
-		rows.Close()
-	} else {
+	oRows, err := db.Query(`SELECT tenants_id, data FROM offering_items`)
+	if err != nil {
 		return nil, fmt.Errorf("querying offering_items: %w", err)
+	}
+	for oRows.Next() {
+		var tid string
+		var data []byte
+		if err := oRows.Scan(&tid, &data); err != nil {
+			oRows.Close()
+			return nil, fmt.Errorf("reading offering_items: %w", err)
+		}
+		obj, err := decodeRow("offering_items", data)
+		if err != nil {
+			oRows.Close()
+			return nil, err
+		}
+		if offeringStatusOf(obj) != "inactive" {
+			offeringCount[tid]++
+		}
+	}
+	err = oRows.Err()
+	oRows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading offering_items: %w", err)
 	}
 
 	onlineAgents := map[string]int{}
-	if rows, err := db.Query(`SELECT tenant_id, status FROM agent_manager`); err == nil {
-		for rows.Next() {
-			var tid, status *string
-			if rows.Scan(&tid, &status) != nil {
-				continue
-			}
-			if agentOnline(deref(status)) {
-				onlineAgents[deref(tid)]++
-			}
-		}
-		rows.Close()
-	} else {
+	aRows, err := db.Query(`SELECT tenant_id, status FROM agent_manager`)
+	if err != nil {
 		return nil, fmt.Errorf("querying agent_manager: %w", err)
+	}
+	for aRows.Next() {
+		var tid, status *string
+		if err := aRows.Scan(&tid, &status); err != nil {
+			aRows.Close()
+			return nil, fmt.Errorf("reading agent_manager: %w", err)
+		}
+		if agentOnline(deref(status)) {
+			onlineAgents[deref(tid)]++
+		}
+	}
+	err = aRows.Err()
+	aRows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading agent_manager: %w", err)
 	}
 
 	recentSuccess := map[string]bool{}
-	if rows, err := db.Query(`SELECT tenant_id, state, result_code, created_at, completed_at FROM task_manager`); err == nil {
-		for rows.Next() {
-			var tid, state, rc, createdAt, completedAt *string
-			if rows.Scan(&tid, &state, &rc, &createdAt, &completedAt) != nil {
-				continue
-			}
-			if taskOutcome(deref(state), deref(rc)) != "ok" {
-				continue
-			}
-			for _, ts := range []string{deref(completedAt), deref(createdAt)} {
-				if t, ok := parseTime(ts); ok && t.After(cutoff) {
-					recentSuccess[deref(tid)] = true
-				}
-			}
-		}
-		rows.Close()
-	} else {
+	tRows, err := db.Query(`SELECT id, tenant_id, type, state, result_code, ` + taskTimeColumns + ` FROM task_manager`)
+	if err != nil {
 		return nil, fmt.Errorf("querying task_manager: %w", err)
+	}
+	for tRows.Next() {
+		var id string
+		var tid, typ, state, rc, completedAt, updatedAt, startedAt, enqueuedAt, createdAt *string
+		if err := tRows.Scan(&id, &tid, &typ, &state, &rc, &completedAt, &updatedAt, &startedAt, &enqueuedAt, &createdAt); err != nil {
+			tRows.Close()
+			return nil, fmt.Errorf("reading task_manager: %w", err)
+		}
+		at, known, err := rollupTime(deref(completedAt), deref(updatedAt), deref(startedAt), deref(enqueuedAt), deref(createdAt))
+		if err != nil {
+			tRows.Close()
+			return nil, fmt.Errorf("task %s: %w", id, err)
+		}
+		if taskBackupKind(deref(typ)) != "backup" || taskOutcome(deref(state), deref(rc)) != "ok" {
+			continue
+		}
+		if known && at.After(cutoff) {
+			recentSuccess[deref(tid)] = true
+		}
+	}
+	err = tRows.Err()
+	tRows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading task_manager: %w", err)
 	}
 
 	out := make([]coverageRow, 0, len(offeringCount))

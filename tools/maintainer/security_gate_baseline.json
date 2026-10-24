@@ -3,7 +3,6 @@
   "rules": {
     "mcp-http-no-bearer-auth": [
       "abnormal",
-      "acronis",
       "action1",
       "afi",
       "appdirect",
@@ -54,7 +53,6 @@
     ],
     "mcp-go-no-rebinding-guard": [
       "abnormal",
-      "acronis",
       "action1",
       "afi",
       "appdirect",
@@ -186,7 +184,6 @@
     ],
     "mcp-share-command": [],
     "mcp-read-only-switch-skips-typed-tools": [
-      "acronis",
       "afi",
       "axcient",
       "betterstack",

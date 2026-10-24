@@ -27,6 +27,7 @@ type customerCard struct {
 	TasksTotal7d  int    `json:"tasks_total_7d"`
 	TasksOK7d     int    `json:"tasks_ok_7d"`
 	TasksFailed7d int    `json:"tasks_failed_7d"`
+	TasksUndated  int    `json:"tasks_undated,omitempty"`
 	LastSuccess   string `json:"last_success,omitempty"`
 }
 
@@ -57,67 +58,99 @@ func computeCustomerCard(db *store.Store, tenantID string, now time.Time) (custo
 
 	card.ChildTenants = countWhere(db, `SELECT COUNT(*) FROM tenants WHERE parent_id = ?`, tenantID)
 	card.Users = countWhere(db, `SELECT COUNT(*) FROM users WHERE tenants_id = ?`, tenantID)
-	card.OfferingItems = countWhere(db, `SELECT COUNT(*) FROM offering_items WHERE tenants_id = ?`, tenantID)
+	offerings, err := countActiveOfferings(db, tenantID)
+	if err != nil {
+		return card, err
+	}
+	card.OfferingItems = offerings
 	card.UsageRecords = countWhere(db, `SELECT COUNT(*) FROM usages WHERE tenants_id = ?`, tenantID)
 	card.OAuthClients = countWhere(db, `SELECT COUNT(*) FROM clients WHERE tenant_id = ?`, tenantID)
 
-	// Agents: total, online, most recent check-in.
-	if rows, err := db.Query(`SELECT status, last_seen FROM agent_manager WHERE tenant_id = ?`, tenantID); err == nil {
-		var lastSeen time.Time
-		for rows.Next() {
-			var status, seen *string
-			if rows.Scan(&status, &seen) != nil {
-				continue
-			}
-			card.AgentsTotal++
-			if agentOnline(deref(status)) {
-				card.AgentsOnline++
-			}
-			if t, ok := parseTime(deref(seen)); ok && t.After(lastSeen) {
-				lastSeen = t
-			}
+	// Agents: total, online (status proves it), most recent check-in.
+	aRows, err := db.Query(`SELECT id, status, last_seen FROM agent_manager WHERE tenant_id = ?`, tenantID)
+	if err != nil {
+		return card, fmt.Errorf("querying agent_manager: %w", err)
+	}
+	var lastSeen time.Time
+	for aRows.Next() {
+		var id string
+		var status, seen *string
+		if err := aRows.Scan(&id, &status, &seen); err != nil {
+			aRows.Close()
+			return card, fmt.Errorf("reading agent_manager: %w", err)
 		}
-		rows.Close()
-		if !lastSeen.IsZero() {
-			card.LastAgentSeen = lastSeen.UTC().Format(time.RFC3339)
+		card.AgentsTotal++
+		if agentOnline(deref(status)) {
+			card.AgentsOnline++
+		}
+		t, known, err := rollupTime(deref(seen))
+		if err != nil {
+			aRows.Close()
+			return card, fmt.Errorf("agent %s: %w", id, err)
+		}
+		if known && t.After(lastSeen) {
+			lastSeen = t
 		}
 	}
+	err = aRows.Err()
+	aRows.Close()
+	if err != nil {
+		return card, fmt.Errorf("reading agent_manager: %w", err)
+	}
+	if !lastSeen.IsZero() {
+		card.LastAgentSeen = lastSeen.UTC().Format(time.RFC3339)
+	}
 
-	// Tasks: 7-day window stats plus all-time last success.
+	// Backup tasks: 7-day window stats plus all-time last success. Only an
+	// explicit backup task can be a success; an untyped task still counts, and
+	// a task the mirror cannot date is counted (never as ok) in tasks_undated.
 	cutoff := now.Add(-7 * 24 * time.Hour)
-	if rows, err := db.Query(`SELECT state, result_code, created_at, completed_at FROM task_manager WHERE tenant_id = ?`, tenantID); err == nil {
-		var lastSuccess time.Time
-		for rows.Next() {
-			var state, rc, createdAt, completedAt *string
-			if rows.Scan(&state, &rc, &createdAt, &completedAt) != nil {
-				continue
-			}
-			outcome := taskOutcome(deref(state), deref(rc))
-			var ts time.Time
-			for _, s := range []string{deref(completedAt), deref(createdAt)} {
-				if t, ok := parseTime(s); ok {
-					ts = t
-					break
-				}
-			}
-			if outcome == "ok" && ts.After(lastSuccess) {
-				lastSuccess = ts
-			}
-			if ts.IsZero() || ts.Before(cutoff) {
-				continue
-			}
-			card.TasksTotal7d++
-			switch outcome {
-			case "ok":
-				card.TasksOK7d++
-			case "failed":
-				card.TasksFailed7d++
-			}
+	tRows, err := db.Query(`SELECT id, type, state, result_code, `+taskTimeColumns+` FROM task_manager WHERE tenant_id = ?`, tenantID)
+	if err != nil {
+		return card, fmt.Errorf("querying task_manager: %w", err)
+	}
+	var lastSuccess time.Time
+	for tRows.Next() {
+		var id string
+		var typ, state, rc, completedAt, updatedAt, startedAt, enqueuedAt, createdAt *string
+		if err := tRows.Scan(&id, &typ, &state, &rc, &completedAt, &updatedAt, &startedAt, &enqueuedAt, &createdAt); err != nil {
+			tRows.Close()
+			return card, fmt.Errorf("reading task_manager: %w", err)
 		}
-		rows.Close()
-		if !lastSuccess.IsZero() {
-			card.LastSuccess = lastSuccess.UTC().Format(time.RFC3339)
+		ts, known, err := rollupTime(deref(completedAt), deref(updatedAt), deref(startedAt), deref(enqueuedAt), deref(createdAt))
+		if err != nil {
+			tRows.Close()
+			return card, fmt.Errorf("task %s: %w", id, err)
 		}
+		kind := taskBackupKind(deref(typ))
+		if kind == "other" {
+			continue
+		}
+		outcome := taskOutcome(deref(state), deref(rc))
+		if outcome == "ok" && kind == "backup" && known && ts.After(lastSuccess) {
+			lastSuccess = ts
+		}
+		if known && ts.Before(cutoff) {
+			continue
+		}
+		card.TasksTotal7d++
+		if !known {
+			card.TasksUndated++
+		}
+		switch {
+		case outcome == "ok" && kind == "backup" && known:
+			card.TasksOK7d++
+		case outcome == "failed":
+			card.TasksFailed7d++
+		}
+	}
+	err = tRows.Err()
+	tRows.Close()
+	if err != nil {
+		return card, fmt.Errorf("reading task_manager: %w", err)
+	}
+	if !lastSuccess.IsZero() {
+		card.LastSuccess = lastSuccess.UTC().Format(time.RFC3339)
 	}
 
 	return card, nil
@@ -193,7 +226,7 @@ Reads the local store; run 'acronis-cli sync' first.`,
 				fmt.Fprintf(cmd.OutOrStdout(), " (last seen %s)", card.LastAgentSeen)
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintf(cmd.OutOrStdout(), "Tasks (7d):    %d total, %d ok, %d failed\n", card.TasksTotal7d, card.TasksOK7d, card.TasksFailed7d)
+			fmt.Fprintf(cmd.OutOrStdout(), "Tasks (7d):    %d total, %d ok, %d failed, %d undated\n", card.TasksTotal7d, card.TasksOK7d, card.TasksFailed7d, card.TasksUndated)
 			last := card.LastSuccess
 			if last == "" {
 				last = "(never)"

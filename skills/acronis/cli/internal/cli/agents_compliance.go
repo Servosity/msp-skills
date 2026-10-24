@@ -5,6 +5,7 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"acronis-pp-cli/internal/store"
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ type nonCompliantAgent struct {
 	TenantName string `json:"tenant_name"`
 	Hostname   string `json:"hostname"`
 	Version    string `json:"version"`
+	Reason     string `json:"reason"`
 }
 
 type complianceReport struct {
@@ -31,10 +33,70 @@ type complianceReport struct {
 	CompareNote  string              `json:"compare_note,omitempty"`
 }
 
+// parseAgentVersion parses a dotted numeric version ("24.10.38844", optional
+// leading "v") into its components. Anything else is not comparable.
+func parseAgentVersion(v string) ([]int, bool) {
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(strings.TrimPrefix(v, "v"), "V")
+	if v == "" {
+		return nil, false
+	}
+	parts := strings.Split(v, ".")
+	out := make([]int, 0, len(parts))
+	for _, p := range parts {
+		if p == "" || len(p) > 9 {
+			return nil, false
+		}
+		n := 0
+		for _, c := range p {
+			if c < '0' || c > '9' {
+				return nil, false
+			}
+			n = n*10 + int(c-'0')
+		}
+		out = append(out, n)
+	}
+	return out, true
+}
+
+// compareAgentVersions compares two parsed versions numerically, component by
+// component; a missing component is 0 (21.10 == 21.10.0).
+func compareAgentVersions(a, b []int) int {
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var x, y int
+		if i < len(a) {
+			x = a[i]
+		}
+		if i < len(b) {
+			y = b[i]
+		}
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
 // computeCompliance computes the version distribution and (when target != "")
-// the agents whose version is lexically below target.
+// the agents behind target, compared numerically per dotted component. An
+// agent whose version cannot be compared is reported non-compliant with reason
+// "unparseable_version" - never silently compliant. An unparseable target is a
+// usage error.
 func computeCompliance(db *store.Store, target string) (complianceReport, error) {
-	names := tenantNames(db)
+	var targetParts []int
+	if target != "" {
+		var ok bool
+		if targetParts, ok = parseAgentVersion(target); !ok {
+			return complianceReport{}, usageErr(fmt.Errorf("--target %q is not a dotted numeric version such as 24.10.38844", target))
+		}
+	}
+	names, err := tenantNames(db)
+	if err != nil {
+		return complianceReport{}, err
+	}
 	rows, err := db.Query(`SELECT tenant_id, hostname, version FROM agent_manager`)
 	if err != nil {
 		return complianceReport{}, fmt.Errorf("querying agent_manager: %w", err)
@@ -46,13 +108,13 @@ func computeCompliance(db *store.Store, target string) (complianceReport, error)
 	rep.Target = target
 	rep.NonCompliant = []nonCompliantAgent{}
 	if target != "" {
-		rep.CompareNote = "version comparison is lexical (string <) — works for zero-padded semver-like versions"
+		rep.CompareNote = "versions compare numerically per dotted component; an agent whose version cannot be parsed is listed with reason unparseable_version"
 	}
 
 	for rows.Next() {
 		var tenantID, hostname, version *string
-		if rows.Scan(&tenantID, &hostname, &version) != nil {
-			continue
+		if err := rows.Scan(&tenantID, &hostname, &version); err != nil {
+			return complianceReport{}, fmt.Errorf("reading agent_manager: %w", err)
 		}
 		v := deref(version)
 		if v == "" {
@@ -60,15 +122,28 @@ func computeCompliance(db *store.Store, target string) (complianceReport, error)
 		}
 		counts[v]++
 		rep.TotalAgents++
-		if target != "" && v < target {
+		if target == "" {
+			continue
+		}
+		reason := ""
+		if parts, ok := parseAgentVersion(deref(version)); !ok {
+			reason = "unparseable_version"
+		} else if compareAgentVersions(parts, targetParts) < 0 {
+			reason = "behind_target"
+		}
+		if reason != "" {
 			tid := deref(tenantID)
 			rep.NonCompliant = append(rep.NonCompliant, nonCompliantAgent{
 				TenantID:   tid,
 				TenantName: names[tid],
 				Hostname:   deref(hostname),
 				Version:    v,
+				Reason:     reason,
 			})
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return complianceReport{}, fmt.Errorf("reading agent_manager: %w", err)
 	}
 
 	rep.Distribution = make([]versionCount, 0, len(counts))
@@ -145,13 +220,13 @@ func newNovelAgentsComplianceCmd(flags *rootFlags) *cobra.Command {
 					if label == "" {
 						label = a.TenantID
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "  %-24s %-20s %s\n", truncate(label, 24), truncate(a.Hostname, 20), a.Version)
+					fmt.Fprintf(cmd.OutOrStdout(), "  %-24s %-20s %-16s %s\n", truncate(label, 24), truncate(a.Hostname, 20), a.Version, a.Reason)
 				}
 			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&flagTarget, "target", "", "Target version; agents lexically below this are flagged non-compliant")
+	cmd.Flags().StringVar(&flagTarget, "target", "", "Target version (dotted numeric); agents numerically below it, or with an unparseable version, are flagged non-compliant")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/acronis-cli/data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum non-compliant agents to show (0 = all)")
 	return cmd

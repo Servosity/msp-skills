@@ -16,13 +16,13 @@ func TestComputeReconcile(t *testing.T) {
 		mustExec(t, db, `INSERT INTO usages(id, tenants_id, data) VALUES(?,?,?)`,
 			"u1", "t1", `{"name":"backup_storage","value":42}`)
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o1", "t1", `{"name":"backup_storage"}`)
+			"o1", "t1", `{"status":1,"name":"backup_storage"}`)
 		// usage without offering -> unlicensed_usage
 		mustExec(t, db, `INSERT INTO usages(id, tenants_id, data) VALUES(?,?,?)`,
 			"u2", "t1", `{"name":"orphan_metric","value":7}`)
 		// offering without usage -> idle_license
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o2", "t1", `{"name":"unused_edition"}`)
+			"o2", "t1", `{"status":1,"name":"unused_edition"}`)
 
 		rows, err := computeReconcile(db, "")
 		if err != nil {

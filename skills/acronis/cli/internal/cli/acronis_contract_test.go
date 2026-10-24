@@ -212,7 +212,7 @@ func TestAcronisSearchParameters(t *testing.T) {
 }
 
 func TestAcronisValidationErrorIsNotAuth(t *testing.T) {
-	err := classifyAPIError(fmt.Errorf(`HTTP 400: {"details":{"info":"Key: tenant is required"}}`), &rootFlags{})
+	err := classifyAPIError(io.Discard, fmt.Errorf(`HTTP 400: {"details":{"info":"Key: tenant is required"}}`), &rootFlags{})
 	if strings.Contains(err.Error(), "auth") || strings.Contains(err.Error(), "token") {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ func TestAcronisSyncPageCapDoesNotHideRepeatedCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := syncResource(context.Background(), acronisRepeatingPage{}, db, "task-manager", "", true, 2, false, params, io.Discard)
+	result := syncResource(context.Background(), acronisRepeatingPage{}, db, "task-manager", "", true, 2, false, false, params, io.Discard)
 	if result.Err == nil {
 		t.Fatal("cap certified a repeated cursor")
 	}

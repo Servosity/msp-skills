@@ -11,26 +11,39 @@ import (
 )
 
 type reconcileRow struct {
-	TenantID    string   `json:"tenant_id"`
-	TenantName  string   `json:"tenant_name"`
-	Offering    string   `json:"offering"`
-	UsageValue  *float64 `json:"usage_value"`
-	HasOffering bool     `json:"has_offering"`
-	HasUsage    bool     `json:"has_usage"`
-	Finding     string   `json:"finding"`
+	TenantID      string   `json:"tenant_id"`
+	TenantName    string   `json:"tenant_name"`
+	Offering      string   `json:"offering"`
+	ApplicationID string   `json:"application_id,omitempty"`
+	Edition       string   `json:"edition,omitempty"`
+	InfraID       string   `json:"infra_id,omitempty"`
+	UsageValue    *float64 `json:"usage_value"`
+	HasOffering   bool     `json:"has_offering"`
+	HasUsage      bool     `json:"has_usage"`
+	Finding       string   `json:"finding"`
 }
 
-// computeReconcile LEFT JOINs (conceptually, in Go) usages against
-// offering_items per tenant on the offering name, flagging unlicensed usage
-// and idle licenses. tenantFilter (when non-empty) restricts to one tenant.
+// computeReconcile joins usages against offering_items per tenant on the full
+// usage identity (application, name, edition, infrastructure - the key the
+// store keeps these rows by), flagging unlicensed usage and idle licenses. Only
+// an offering item whose status proves it active is a license. A usage whose
+// value is not reported is "usage_value_unknown", never a measured zero.
+// tenantFilter (when non-empty) restricts to one tenant.
 func computeReconcile(db *store.Store, tenantFilter string) ([]reconcileRow, error) {
-	names := tenantNames(db)
+	names, err := tenantNames(db)
+	if err != nil {
+		return nil, err
+	}
 
-	type key struct{ tenant, offering string }
+	type key struct {
+		tenant string
+		id     offeringIdentity
+	}
 	type acc struct {
-		hasOffering bool
-		hasUsage    bool
-		value       *float64
+		hasOffering  bool
+		hasUsage     bool
+		value        float64
+		valueUnknown bool
 	}
 	merged := map[key]*acc{}
 
@@ -43,89 +56,102 @@ func computeReconcile(db *store.Store, tenantFilter string) ([]reconcileRow, err
 		return a
 	}
 
-	// Usages side.
-	uRows, err := db.Query(`SELECT tenants_id, data FROM usages`)
-	if err != nil {
-		return nil, fmt.Errorf("querying usages: %w", err)
+	scan := func(table string, each func(tid string, obj map[string]any)) error {
+		query := `SELECT tenants_id, data FROM ` + table
+		var args []any
+		if tenantFilter != "" {
+			query += ` WHERE tenants_id = ?`
+			args = append(args, tenantFilter)
+		}
+		rows, err := db.Query(query, args...)
+		if err != nil {
+			return fmt.Errorf("querying %s: %w", table, err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var tid string
+			var data []byte
+			if err := rows.Scan(&tid, &data); err != nil {
+				return fmt.Errorf("reading %s: %w", table, err)
+			}
+			obj, err := decodeRow(table, data)
+			if err != nil {
+				return err
+			}
+			each(tid, obj)
+		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("reading %s: %w", table, err)
+		}
+		return nil
 	}
-	for uRows.Next() {
-		var tid string
-		var data []byte
-		if uRows.Scan(&tid, &data) != nil {
-			continue
-		}
-		if tenantFilter != "" && tid != tenantFilter {
-			continue
-		}
-		obj := decodeData(data)
-		if obj == nil {
-			continue
-		}
-		name := usageNameOf(obj)
-		if name == "" {
-			continue
-		}
-		a := get(key{tid, name})
+
+	if err := scan("usages", func(tid string, obj map[string]any) {
+		a := get(key{tid, offeringIdentityOf(obj)})
 		a.hasUsage = true
 		if v, ok := usageValueOf(obj); ok {
-			vv := v
-			a.value = &vv
+			a.value += v
+		} else {
+			a.valueUnknown = true
 		}
+	}); err != nil {
+		return nil, err
 	}
-	uRows.Close()
-
-	// Offering items side.
-	oRows, err := db.Query(`SELECT tenants_id, data FROM offering_items`)
-	if err != nil {
-		return nil, fmt.Errorf("querying offering_items: %w", err)
+	if err := scan("offering_items", func(tid string, obj map[string]any) {
+		if offeringStatusOf(obj) != "active" {
+			return
+		}
+		get(key{tid, offeringIdentityOf(obj)}).hasOffering = true
+	}); err != nil {
+		return nil, err
 	}
-	for oRows.Next() {
-		var tid string
-		var data []byte
-		if oRows.Scan(&tid, &data) != nil {
-			continue
-		}
-		if tenantFilter != "" && tid != tenantFilter {
-			continue
-		}
-		obj := decodeData(data)
-		if obj == nil {
-			continue
-		}
-		name := offeringNameOf(obj)
-		if name == "" {
-			continue
-		}
-		get(key{tid, name}).hasOffering = true
-	}
-	oRows.Close()
 
 	out := make([]reconcileRow, 0, len(merged))
 	for k, a := range merged {
+		var value *float64
+		if a.hasUsage && !a.valueUnknown {
+			v := a.value
+			value = &v
+		}
 		finding := "ok"
 		switch {
 		case a.hasUsage && !a.hasOffering:
 			finding = "unlicensed_usage"
 		case a.hasOffering && !a.hasUsage:
 			finding = "idle_license"
-		case a.hasOffering && a.hasUsage && (a.value == nil || *a.value == 0):
+		case value == nil:
+			finding = "usage_value_unknown"
+		case *value == 0:
 			finding = "idle_license"
 		}
 		out = append(out, reconcileRow{
-			TenantID:    k.tenant,
-			TenantName:  names[k.tenant],
-			Offering:    k.offering,
-			UsageValue:  a.value,
-			HasOffering: a.hasOffering,
-			HasUsage:    a.hasUsage,
-			Finding:     finding,
+			TenantID:      k.tenant,
+			TenantName:    names[k.tenant],
+			Offering:      k.id.Name,
+			ApplicationID: k.id.ApplicationID,
+			Edition:       k.id.Edition,
+			InfraID:       k.id.InfraID,
+			UsageValue:    value,
+			HasOffering:   a.hasOffering,
+			HasUsage:      a.hasUsage,
+			Finding:       finding,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].TenantID != out[j].TenantID {
-			return out[i].TenantID < out[j].TenantID
+		a, b := out[i], out[j]
+		if a.TenantID != b.TenantID {
+			return a.TenantID < b.TenantID
 		}
-		return out[i].Offering < out[j].Offering
+		if a.Offering != b.Offering {
+			return a.Offering < b.Offering
+		}
+		if a.ApplicationID != b.ApplicationID {
+			return a.ApplicationID < b.ApplicationID
+		}
+		if a.Edition != b.Edition {
+			return a.Edition < b.Edition
+		}
+		return a.InfraID < b.InfraID
 	})
 	return out, nil
 }
@@ -169,7 +195,7 @@ func newNovelReconcileUsagesCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No usage/offering data — run 'acronis-cli sync' first.")
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-28s %12s %s\n", "TENANT", "OFFERING", "USAGE", "FINDING")
+			fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-28s %-16s %12s %s\n", "TENANT", "OFFERING", "EDITION", "USAGE", "FINDING")
 			for _, r := range rowsOut {
 				label := r.TenantName
 				if label == "" {
@@ -179,7 +205,7 @@ func newNovelReconcileUsagesCmd(flags *rootFlags) *cobra.Command {
 				if r.UsageValue != nil {
 					val = fmt.Sprintf("%g", *r.UsageValue)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-28s %12s %s\n", truncate(label, 24), truncate(r.Offering, 28), val, r.Finding)
+				fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-28s %-16s %12s %s\n", truncate(label, 24), truncate(r.Offering, 28), truncate(r.Edition, 16), val, r.Finding)
 			}
 			return nil
 		},

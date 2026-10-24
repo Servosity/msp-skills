@@ -19,7 +19,11 @@
         "ACRONIS_BEARER_AUTH": "${user_config.acronis_bearer_auth}",
         "ACRONIS_CLIENT_ID": "${user_config.acronis_client_id}",
         "ACRONIS_CLIENT_SECRET": "${user_config.acronis_client_secret}",
-        "ACRONIS_DATACENTER": "${user_config.acronis_datacenter}"
+        "ACRONIS_DATACENTER": "${user_config.acronis_datacenter}",
+        "ACRONIS_MCP_READ_ONLY": "${user_config.acronis_mcp_read_only}",
+        "ACRONIS_NO_LOCAL_DATA": "${user_config.acronis_no_local_data}",
+        "ACRONIS_MCP_HTTP_TOKEN": "${user_config.acronis_mcp_http_token}",
+        "ACRONIS_USER_AGENT": "${user_config.acronis_user_agent}"
       }
     }
   },
@@ -56,6 +60,35 @@
       "title": "Acronis Cyber Protect Cloud API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from ACRONIS_DATACENTER. Set it only to point at a different host.",
       "required": false
+    },
+    "acronis_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "acronis_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "acronis_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "acronis_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Acronis requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -66,11 +99,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T03:09:58.122005Z",
-    "spec_checksum": "sha256:b7262c505168c885bf6136a76fff04e57ad623386cc88771024a4a473879010c",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-24T21:11:42.33476Z",
+    "spec_checksum": "sha256:e3ec30acb795db5c8cceb1aa0bf49b12eb60371ab3f092b5e5ded0bf306eb392",
     "spec_format": "openapi3"
   }
 }

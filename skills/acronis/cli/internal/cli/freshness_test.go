@@ -17,12 +17,12 @@ func TestComputeFreshness(t *testing.T) {
 		seedTenant(t, db, "t-fresh", "Fresh Co", "customer", "")
 		seedTenant(t, db, "t-stale", "Stale Co", "customer", "")
 		seedTenant(t, db, "t-never", "Never Co", "customer", "")
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k1", `{}`, "t-fresh", "completed", "ok", fresh)
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k2", `{}`, "t-stale", "completed", "ok", stale)
 		// t-never has a failed task only — still "never successful"
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k3", `{}`, "t-never", "failed", "error", fresh)
 
 		rows, err := computeFreshness(db, 24*time.Hour, false, "", now)
@@ -55,7 +55,7 @@ func TestComputeFreshness(t *testing.T) {
 		db := newNovelTestStore(t)
 		seedTenant(t, db, "t-fresh", "Fresh Co", "customer", "")
 		seedTenant(t, db, "t-never", "Never Co", "customer", "")
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k1", `{}`, "t-fresh", "completed", "ok", fresh)
 
 		rows, err := computeFreshness(db, 24*time.Hour, true, "", now)

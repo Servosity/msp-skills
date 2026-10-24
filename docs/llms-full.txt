@@ -94,7 +94,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running acronis-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+A: Yes, on paid plans with Developer Mode. ChatGPT connects only to remote MCP servers over HTTPS, so you host acronis-mcp in HTTP mode: it refuses to start until ACRONIS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send that bearer token. Step-by-step in the install guide.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Acronis data safe?
@@ -102,7 +102,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hit my Acronis API rate limits?
-A: The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+A: The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and each sync re-reads every resource it mirrors, so schedule it rather than running it before every question.
 Q: Do I need to be an Acronis partner?
 A: Yes. You authenticate with an API client created in your own Acronis Management Portal (an OAuth2 client, or a bearer token), so you need partner or admin access to the tenants you want to reach. The CLI can only see what that API client is scoped to.
 Q: Which datacenter does it point at?
@@ -112,7 +112,7 @@ A: No. The console stays best for configuring protection plans and running resto
 Q: When can I trust partner-wide backup rollups?
 A: After an unfiltered acronis-cli sync --full succeeds. Failed, denied, malformed, or truncated resources cause a nonzero exit, and rollups refuse incomplete mirrors. Task tenant filters scan all pages and match exact UUIDs locally. Unmatched legacy agent tenant IDs are reported as a gap, not zero agents; the partner's live re-test remains necessary.
 
-Governance: The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential read from the environment (ACRONIS_CYBER_PROTECT_BEARER_AUTH, or an OAuth2 client via auth login) and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, reports) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion plus the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal.
+Governance: The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential from the environment (ACRONIS_BEARER_AUTH) or an OAuth2 client saved by auth login and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, list and get) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion, OAuth-client creation (it returns a secret) and the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal.
 
 ### Action1 (RMM)
 

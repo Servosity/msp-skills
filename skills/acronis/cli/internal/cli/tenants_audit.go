@@ -24,29 +24,45 @@ type tenantAuditRow struct {
 
 // computeTenantAudit flags enabled customer tenants that deviate from the
 // standard provisioning shape: missing users, offering items, agents, or
-// OAuth clients. includeComplete reports conforming tenants too; kindFilter
+// OAuth clients (offering items count only when active). includeComplete
+// reports conforming tenants too; kindFilter
 // restricts the audited tenant kind (default customer).
 func computeTenantAudit(db *store.Store, kindFilter string, includeComplete bool) ([]tenantAuditRow, error) {
+	var queryErr error
 	countBy := func(query string) map[string]int {
 		m := map[string]int{}
 		rows, err := db.Query(query)
 		if err != nil {
+			queryErr = err
 			return m
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var tid *string
 			var n int
-			if rows.Scan(&tid, &n) == nil {
-				m[deref(tid)] = n
+			if err := rows.Scan(&tid, &n); err != nil {
+				queryErr = err
+				return m
 			}
+			m[deref(tid)] = n
+		}
+		if err := rows.Err(); err != nil {
+			queryErr = err
 		}
 		return m
 	}
 	users := countBy(`SELECT tenants_id, COUNT(*) FROM users GROUP BY tenants_id`)
-	offerings := countBy(`SELECT tenants_id, COUNT(*) FROM offering_items GROUP BY tenants_id`)
+	// Only an offering item whose status proves it active is a provisioned license.
+	offerings, err := activeOfferingCounts(db, "")
+	if err != nil {
+		return nil, err
+	}
 	agents := countBy(`SELECT tenant_id, COUNT(*) FROM agent_manager GROUP BY tenant_id`)
 	clients := countBy(`SELECT tenant_id, COUNT(*) FROM clients GROUP BY tenant_id`)
+	if queryErr != nil {
+		// A failed count must not read as "missing": that is a wrong finding.
+		return nil, fmt.Errorf("counting provisioning rows: %w", queryErr)
+	}
 
 	rows, err := db.Query(`SELECT id, name, kind, enabled FROM tenants`)
 	if err != nil {
@@ -59,8 +75,8 @@ func computeTenantAudit(db *store.Store, kindFilter string, includeComplete bool
 		var id string
 		var name, kind *string
 		var enabled *int
-		if rows.Scan(&id, &name, &kind, &enabled) != nil {
-			continue
+		if err := rows.Scan(&id, &name, &kind, &enabled); err != nil {
+			return nil, fmt.Errorf("reading tenants: %w", err)
 		}
 		if enabled != nil && *enabled == 0 {
 			continue // disabled tenants are expected to be empty

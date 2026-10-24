@@ -18,12 +18,12 @@ func TestComputeCoverage(t *testing.T) {
 		seedTenant(t, db, "t1", "Protected Co", "customer", "")
 		seedTenant(t, db, "t2", "Exposed Co", "customer", "")
 		// t1 pays, has online agent + recent success -> protected
-		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t1", `{"name":"x"}`)
+		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t1", `{"status":1,"name":"x"}`)
 		mustExec(t, db, `INSERT INTO agent_manager(id, data, tenant_id, status) VALUES(?,?,?,?)`, "a1", `{}`, "t1", "online")
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k1", `{}`, "t1", "completed", "ok", recent)
 		// t2 pays but no online agent and no success -> unprotected
-		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o2", "t2", `{"name":"y"}`)
+		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o2", "t2", `{"status":1,"name":"y"}`)
 
 		all, err := computeCoverage(db, 7, false, now)
 		if err != nil {
@@ -65,7 +65,7 @@ func TestComputeCoverage(t *testing.T) {
 func TestCoverageCommand_UnprotectedJSON(t *testing.T) {
 	db := newNovelTestStore(t)
 	seedTenant(t, db, "t2", "Exposed Co", "customer", "")
-	mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o2", "t2", `{"name":"y"}`)
+	mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o2", "t2", `{"status":1,"name":"y"}`)
 
 	cmd := newNovelCoverageCmd(&rootFlags{asJSON: true})
 	var out bytes.Buffer

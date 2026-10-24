@@ -1,0 +1,890 @@
+{
+  "api_name": "acronis",
+  "base_url": "https://{datacenter}.acronis.com",
+  "description": "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "ACRONIS_BEARER_AUTH"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ACRONIS_BEARER_AUTH",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "agent-manager_delete-agent",
+      "description": "Cancel registration of a specific Acronis agent. Required: agent_id. Destructive.",
+      "method": "DELETE",
+      "path": "/api/agent_manager/v2/agents/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent unique identifier (e.g. 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_delete-agents",
+      "description": "Cancel registration and delete service accounts for multiple agents. Required: ids. Destructive.",
+      "method": "DELETE",
+      "path": "/api/agent_manager/v2/agents",
+      "params": [
+        {
+          "name": "ids",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of agent IDs to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_force-agent-update",
+      "description": "Launch a forced agent update bypassing maintenance windows for specified agents. Required: agent_ids. Returns the new AgentManagerForceAgentUpdateResponse.",
+      "method": "POST",
+      "path": "/api/agent_manager/v2/agents/update:force",
+      "params": [
+        {
+          "name": "agent_ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of agent IDs to force update",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_get-agent",
+      "description": "Retrieve details about a specific registered Acronis agent. Required: agent_id. Returns the AgtAgent.",
+      "method": "GET",
+      "path": "/api/agent_manager/v2/agents/{agent_id}",
+      "params": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "location": "path",
+          "description": "Agent unique identifier (e.g. 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_get-agent-update-settings",
+      "description": "Fetch update configuration settings for agents or tenants. Optional: tenant_id. Returns the AgtAgentUpdateSettings.",
+      "method": "GET",
+      "path": "/api/agent_manager/v2/agent_update_settings",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant UUID to scope settings"
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_get-hardware-node",
+      "description": "Retrieve specific hardware node information including storage configuration. Required: node_id. Returns the AgtHardwareNode.",
+      "method": "GET",
+      "path": "/api/agent_manager/v2/hardware_nodes/{node_id}",
+      "params": [
+        {
+          "name": "node_id",
+          "type": "string",
+          "location": "path",
+          "description": "Hardware node identifier (e.g. 5d6e7f80-1a2b-4c3d-9e4f-5a6b7c8d9e0f)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_list-agents",
+      "description": "List all registered Acronis protection agents visible from a specified tenant. Required: tenant_id. Optional: os_family, os_arch, limit (default: 100) (plus 1 more). Returns array of AgtAgent.",
+      "method": "GET",
+      "path": "/api/agent_manager/v2/agents",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant UUID to scope agent listing",
+          "required": true
+        },
+        {
+          "name": "os_family",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by operating system family"
+        },
+        {
+          "name": "os_arch",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by OS architecture"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of agents to return"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Sort order (e.g., hostname asc)"
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_list-hardware-nodes",
+      "description": "List all hardware nodes visible from a specified tenant. Required: tenant_id. Returns array of AgtHardwareNode.",
+      "method": "GET",
+      "path": "/api/agent_manager/v2/hardware_nodes",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant UUID to scope listing",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent-manager_update-agent-update-settings",
+      "description": "Store or update agent update configuration settings including maintenance windows. Optional: automatic, maintenance_window, update_channel. Returns the updated AgtAgentUpdateSettings.",
+      "method": "PUT",
+      "path": "/api/agent_manager/v2/agent_update_settings",
+      "params": [
+        {
+          "name": "automatic",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether updates should be applied automatically"
+        },
+        {
+          "name": "maintenance-window-days-of-week",
+          "wire_name": "maintenance_window.days_of_week",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Days when maintenance window applies"
+        },
+        {
+          "name": "maintenance-window-time-from",
+          "wire_name": "maintenance_window.time_from",
+          "type": "string",
+          "location": "body",
+          "description": "Start time in HH:MM format (UTC)"
+        },
+        {
+          "name": "maintenance-window-time-to",
+          "wire_name": "maintenance_window.time_to",
+          "type": "string",
+          "location": "body",
+          "description": "End time in HH:MM format (UTC)"
+        },
+        {
+          "name": "update_channel",
+          "type": "string",
+          "location": "body",
+          "description": "Update channel to use"
+        }
+      ]
+    },
+    {
+      "name": "clients_create",
+      "description": "Create a new OAuth2 client credential for API authentication. Required: tenant_id, type. Optional: data. Returns the new Client.",
+      "method": "POST",
+      "path": "/api/2/clients",
+      "params": [
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Data"
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant UUID to associate the client with",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Client type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_delete",
+      "description": "Delete an OAuth2 client credential. Required: client_id. Destructive.",
+      "method": "DELETE",
+      "path": "/api/2/clients/{client_id}",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "path",
+          "description": "OAuth2 client identifier (e.g. 00000000-0000-0000-0000-000000000001)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_get",
+      "description": "Retrieve details about a specific OAuth2 client. Required: client_id. Returns the Client.",
+      "method": "GET",
+      "path": "/api/2/clients/{client_id}",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "path",
+          "description": "OAuth2 client identifier (e.g. 00000000-0000-0000-0000-000000000001)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_list",
+      "description": "List OAuth2 client credentials registered in the system. Optional: tenant_id. Returns array of Client.",
+      "method": "GET",
+      "path": "/api/2/clients",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter clients by tenant UUID"
+        }
+      ]
+    },
+    {
+      "name": "idp_request-token",
+      "description": "Request an OAuth2 access token using client credentials, authorization code, or other grant types. Required: grant_type. Optional: client_id, client_secret. Returns the new TokenResponse.",
+      "method": "POST",
+      "path": "/api/2/idp/token",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "body",
+          "description": "OAuth2 client identifier"
+        },
+        {
+          "name": "client_secret",
+          "type": "string",
+          "location": "body",
+          "description": "OAuth2 client secret"
+        },
+        {
+          "name": "grant_type",
+          "type": "string",
+          "location": "body",
+          "description": "OAuth2 grant type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "idp_revoke-token",
+      "description": "Revoke an OAuth2 access or refresh token. Required: token.",
+      "method": "POST",
+      "path": "/api/2/idp/revoke_token",
+      "params": [
+        {
+          "name": "token",
+          "type": "string",
+          "location": "body",
+          "description": "Token to revoke",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "remote_search_remote_search",
+      "description": "Search for tenants and users by name, email, or login across the accessible hierarchy. Required: query. Optional: tenant_id, limit (default: 10). Returns the SearchResults.",
+      "method": "GET",
+      "path": "/api/2/search",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query string",
+          "required": true
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Scope search to a specific tenant subtree"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum results to return"
+        }
+      ]
+    },
+    {
+      "name": "reports_create",
+      "description": "Create a scheduled or on-demand usage report configuration. Optional: parameters, schedule. Returns the new Report.",
+      "method": "POST",
+      "path": "/api/2/reports",
+      "params": [
+        {
+          "name": "parameters",
+          "type": "object",
+          "location": "body",
+          "description": "Parameters"
+        },
+        {
+          "name": "schedule",
+          "type": "object",
+          "location": "body",
+          "description": "Schedule"
+        }
+      ]
+    },
+    {
+      "name": "task-manager_get-activity",
+      "description": "Retrieve details about a specific task activity by ID. Required: activity_id. Returns the TaskActivity.",
+      "method": "GET",
+      "path": "/api/task_manager/v2/activities/{activity_id}",
+      "params": [
+        {
+          "name": "activity_id",
+          "type": "string",
+          "location": "path",
+          "description": "Activity unique identifier (e.g. 7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "task-manager_get-task",
+      "description": "Retrieve details about a specific backup or protection task by ID. Required: task_id. Returns the TaskTask.",
+      "method": "GET",
+      "path": "/api/task_manager/v2/tasks/{task_id}",
+      "params": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "Task unique identifier (e.g. 42)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "task-manager_list-activities",
+      "description": "Fetch a list of task activities with filtering and pagination. Optional: tenant_id, task_id, state (plus 2 more). Returns array of TaskActivity.",
+      "method": "GET",
+      "path": "/api/task_manager/v2/activities",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter activities by tenant UUID"
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter activities by parent task ID"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by activity state"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum activities to return"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Pagination cursor"
+        }
+      ]
+    },
+    {
+      "name": "task-manager_list-tasks",
+      "description": "Fetch a list of backup and protection tasks with filtering, ordering, and pagination support. Optional: tenant_id, state, result_code (plus 5 more). Returns array of TaskTask.",
+      "method": "GET",
+      "path": "/api/task_manager/v2/tasks",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter tasks by tenant UUID"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by task state"
+        },
+        {
+          "name": "result_code",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by task result"
+        },
+        {
+          "name": "policy_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by protection policy ID"
+        },
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by protected resource ID"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "Sort order (e.g., startedAt desc)"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum tasks to return"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Pagination cursor"
+        }
+      ]
+    },
+    {
+      "name": "tenants_create",
+      "description": "Create a new tenant as a child of an existing tenant. Required: kind, name, parent_id. Optional: contact, enabled. Returns the new Tenant.",
+      "method": "POST",
+      "path": "/api/2/tenants",
+      "params": [
+        {
+          "name": "contact-address1",
+          "wire_name": "contact.address1",
+          "type": "string",
+          "location": "body",
+          "description": "Address1"
+        },
+        {
+          "name": "contact-city",
+          "wire_name": "contact.city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "contact-country",
+          "wire_name": "contact.country",
+          "type": "string",
+          "location": "body",
+          "description": "Country"
+        },
+        {
+          "name": "contact-email",
+          "wire_name": "contact.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "contact-firstname",
+          "wire_name": "contact.firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Firstname"
+        },
+        {
+          "name": "contact-lastname",
+          "wire_name": "contact.lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Lastname"
+        },
+        {
+          "name": "contact-phone",
+          "wire_name": "contact.phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the tenant should be enabled"
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant type",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant display name",
+          "required": true
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent tenant UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_delete",
+      "description": "Delete a tenant. The tenant must have no children or active services. Required: tenant_id, version. Destructive.",
+      "method": "DELETE",
+      "path": "/api/2/tenants/{tenant_id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        },
+        {
+          "name": "version",
+          "type": "int",
+          "location": "query",
+          "description": "Tenant version for optimistic concurrency",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_get",
+      "description": "Retrieve details about a specific tenant by ID. Required: tenant_id. Returns the Tenant.",
+      "method": "GET",
+      "path": "/api/2/tenants/{tenant_id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_list",
+      "description": "List tenants in the hierarchy. Can filter by parent tenant UUID or retrieve by specific UUIDs. Optional: parent_id, uuids, subtree_root_id. Returns array of Tenant.",
+      "method": "GET",
+      "path": "/api/2/tenants",
+      "params": [
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter tenants by parent tenant UUID"
+        },
+        {
+          "name": "uuids",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of tenant UUIDs to retrieve"
+        },
+        {
+          "name": "subtree_root_id",
+          "type": "string",
+          "location": "query",
+          "description": "Root tenant UUID for subtree traversal"
+        }
+      ]
+    },
+    {
+      "name": "tenants_update",
+      "description": "Update tenant properties including name, contact, and enabled status. Required: tenant_id, kind, name, parent_id. Optional: contact, enabled. Returns the updated Tenant.",
+      "method": "PUT",
+      "path": "/api/2/tenants/{tenant_id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        },
+        {
+          "name": "contact-address1",
+          "wire_name": "contact.address1",
+          "type": "string",
+          "location": "body",
+          "description": "Address1"
+        },
+        {
+          "name": "contact-city",
+          "wire_name": "contact.city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "contact-country",
+          "wire_name": "contact.country",
+          "type": "string",
+          "location": "body",
+          "description": "Country"
+        },
+        {
+          "name": "contact-email",
+          "wire_name": "contact.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "contact-firstname",
+          "wire_name": "contact.firstname",
+          "type": "string",
+          "location": "body",
+          "description": "Firstname"
+        },
+        {
+          "name": "contact-lastname",
+          "wire_name": "contact.lastname",
+          "type": "string",
+          "location": "body",
+          "description": "Lastname"
+        },
+        {
+          "name": "contact-phone",
+          "wire_name": "contact.phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone"
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the tenant should be enabled"
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant type",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant display name",
+          "required": true
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "body",
+          "description": "Parent tenant UUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_offering-items_list",
+      "description": "List all offering items (services and quotas) configured for a tenant. Required: tenant_id. Optional: edition. Returns array of OfferingItem.",
+      "method": "GET",
+      "path": "/api/2/tenants/{tenant_id}/offering_items",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        },
+        {
+          "name": "edition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by edition name"
+        }
+      ]
+    },
+    {
+      "name": "tenants_offering-items_update",
+      "description": "Enable, disable, or set quotas for offering items on a tenant. Required: tenant_id. Optional: offering_items. Returns array of OfferingItem.",
+      "method": "PUT",
+      "path": "/api/2/tenants/{tenant_id}/offering_items",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        },
+        {
+          "name": "offering_items",
+          "type": "array",
+          "location": "body",
+          "description": "Offering items"
+        }
+      ]
+    },
+    {
+      "name": "tenants_usages_get-tenant",
+      "description": "Get current usage metrics for a tenant across all services and resources. Required: tenant_id. Optional: edition. Returns array of UsageItem.",
+      "method": "GET",
+      "path": "/api/2/tenants/{tenant_id}/usages",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        },
+        {
+          "name": "edition",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by edition"
+        }
+      ]
+    },
+    {
+      "name": "tenants_users_list-tenant",
+      "description": "List all users belonging to a specific tenant. Required: tenant_id. Optional: limit (default: 100), after. Returns array of User.",
+      "method": "GET",
+      "path": "/api/2/tenants/{tenant_id}/users",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant UUID (e.g. 3f8e2a1c-7b4d-4e2f-9a6b-1c2d3e4f5a6b)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of results"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor for pagination"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant backup-health rollup",
+      "command": "health",
+      "description": "See backup success / failure / stale across your entire book of customer tenants in one table."
+    },
+    {
+      "name": "Offline / stale-agent finder",
+      "command": "agents stale",
+      "description": "List backup agents that haven't checked in within a threshold, across every tenant, sorted by customer."
+    },
+    {
+      "name": "Usage-to-billing reconciliation",
+      "command": "reconcile usages",
+      "description": "Flag usage with no matching offering item and offering items with zero usage, per tenant."
+    },
+    {
+      "name": "Coverage gap finder",
+      "command": "coverage",
+      "description": "Surface tenants that pay for protection but have no online agent or no recent successful backup."
+    },
+    {
+      "name": "Usage drift across periods",
+      "command": "usages drift",
+      "description": "Compare per-tenant, per-metric usage between two stored snapshots to see what grew or shrank."
+    },
+    {
+      "name": "Agent-version compliance",
+      "command": "agents compliance",
+      "description": "Show the distribution of agent versions across the estate and flag tenants behind the target version."
+    },
+    {
+      "name": "Tenant-tree explorer",
+      "command": "tree",
+      "description": "Render the Partner -\u003e Customer -\u003e Folder -\u003e Unit hierarchy with per-node agent and user counts."
+    },
+    {
+      "name": "Backup-failure recurrence ranker",
+      "command": "alerts repeat",
+      "description": "Rank resources and tenants by how many distinct days in a window had a failed or missed backup."
+    },
+    {
+      "name": "Last-night failure board",
+      "command": "failures",
+      "description": "Flat list of every failed or missed backup task across all tenants in a recent window, newest first."
+    },
+    {
+      "name": "Backup freshness / SLA report",
+      "command": "freshness",
+      "description": "Time since the last successful backup per tenant, flagged against an SLA threshold — including tenants never backed up."
+    },
+    {
+      "name": "Customer 360 card",
+      "command": "customer",
+      "description": "One cross-resource snapshot of a single customer: tenant record, users, licenses, usage, agents, and 7-day backup outcomes joined."
+    },
+    {
+      "name": "Standard-provisioning auditor",
+      "command": "tenants audit",
+      "description": "Flag enabled customer tenants missing users, offering items, agents, or OAuth clients — onboarding drift in one table."
+    },
+    {
+      "name": "Offering-item / edition inventory",
+      "command": "tenants offering-items inventory",
+      "description": "Estate-wide rollup of which offering items and editions are enabled, with per-SKU tenant counts."
+    }
+  ]
+}

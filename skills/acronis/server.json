@@ -58,6 +58,31 @@
           "isRequired": false,
           "isSecret": false,
           "default": "eu2-cloud"
+        },
+        {
+          "name": "ACRONIS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "ACRONIS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ACRONIS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ACRONIS_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Acronis requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

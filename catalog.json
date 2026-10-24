@@ -51,7 +51,7 @@
       "cli_binary": "acronis-cli",
       "mcp_binary": "acronis-mcp",
       "version": "0.1.9",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Acronis",
       "vendor_trademark_owner": "Acronis International GmbH",

@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"acronis-pp-cli/internal/client"
 	"acronis-pp-cli/internal/cliutil"
 	"acronis-pp-cli/internal/config"
 	"encoding/base64"
@@ -71,6 +72,9 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 			if secret == "" {
 				secret = os.Getenv("ACRONIS_CLIENT_SECRET")
 			}
+			// Hold the secret before anything can print: every error this
+			// command returns passes the CLI backstop (funnelCommandErrors).
+			cliutil.FunnelHold(secret)
 			dc := resolveDatacenter(datacenter)
 			if !acronisValidDatacenter(dc) {
 				return usageErr(fmt.Errorf("datacenter must be a DNS host prefix such as eu8-cloud"))
@@ -110,7 +114,12 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			req.Header.Set("Accept", "application/json")
 
-			httpClient := &http.Client{Timeout: 30 * time.Second}
+			httpClient := &http.Client{
+				Timeout: 30 * time.Second,
+				// The request carries Basic client credentials: never replay
+				// them to wherever a redirect points.
+				CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+			}
 			resp, err := httpClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("calling token endpoint %s: %w", tokenURL, err)
@@ -118,12 +127,26 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 			defer resp.Body.Close()
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 
+			// The token endpoint's text is never shown: only the status and an
+			// allowlisted OAuth error code (acronisOAuthErrorCode).
 			if resp.StatusCode != http.StatusOK {
 				hint := ""
-				if resp.StatusCode == http.StatusUnauthorized {
+				switch {
+				case resp.StatusCode == http.StatusUnauthorized:
 					hint = fmt.Sprintf(" (401 — check the --datacenter %q is correct and the client id/secret are valid)", dc)
+				case resp.StatusCode >= 300 && resp.StatusCode < 400:
+					hint = " (redirect refused: the token request is never re-sent to another location; check --datacenter)"
 				}
-				return authErr(fmt.Errorf("token endpoint returned %d%s: %s", resp.StatusCode, hint, cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{secret})))
+				if code := acronisOAuthErrorCode(body); code != "" {
+					hint += "; error: " + code
+				}
+				// The answer itself is never shown. The shared funnel only says
+				// whether it repeated the secret just sent, which the operator
+				// should know (a misbehaving or impersonated endpoint).
+				if cliutil.FunnelWithheld(cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{secret})) {
+					hint += "; the answer repeated the client secret and is not shown"
+				}
+				return authErr(fmt.Errorf("token endpoint returned %d%s", resp.StatusCode, hint))
 			}
 
 			var tok struct {
@@ -134,11 +157,12 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 				Scope       json.RawMessage `json:"scope"`
 			}
 			if err := json.Unmarshal(body, &tok); err != nil {
-				return fmt.Errorf("parsing token response: %w", err)
+				return authErr(fmt.Errorf("token endpoint returned a malformed token response (HTTP 200)"))
 			}
 			if tok.AccessToken == "" {
-				return authErr(fmt.Errorf("token endpoint returned no access_token: %s", cliutil.FunnelWithhold(strings.TrimSpace(string(body)), []string{secret})))
+				return authErr(fmt.Errorf("token endpoint returned no access_token (HTTP 200)"))
 			}
+			cliutil.FunnelHold(tok.AccessToken)
 
 			expiry := tokenExpiry(tok.ExpiresOn, tok.ExpiresIn)
 
@@ -212,13 +236,30 @@ func acronisStandardBaseURL(base string) bool {
 }
 
 func acronisValidDatacenter(dc string) bool {
-	if len(dc) == 0 || len(dc) > 63 || dc[0] == '-' || dc[len(dc)-1] == '-' {
-		return false
+	return client.HostTemplateLabelOK(dc)
+}
+
+// acronisOAuthErrorCodes is every OAuth 2.0 error code (RFC 6749 4.1.2.1 and
+// 5.2) the login error may name. Nothing else from the token endpoint's answer
+// is ever shown: its text can echo the credentials just sent.
+var acronisOAuthErrorCodes = map[string]bool{
+	"invalid_request": true, "invalid_client": true, "invalid_grant": true,
+	"unauthorized_client": true, "unsupported_grant_type": true, "invalid_scope": true,
+	"access_denied": true, "server_error": true, "temporarily_unavailable": true,
+}
+
+// acronisOAuthErrorCode returns the body's top-level "error" value when it is
+// exactly an allowlisted OAuth error code, else "".
+func acronisOAuthErrorCode(body []byte) string {
+	var obj struct {
+		Error json.RawMessage `json:"error"`
 	}
-	for _, c := range dc {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
-			return false
-		}
+	if json.Unmarshal(body, &obj) != nil {
+		return ""
 	}
-	return true
+	var code string
+	if json.Unmarshal(obj.Error, &code) != nil || !acronisOAuthErrorCodes[code] {
+		return ""
+	}
+	return code
 }

@@ -13,13 +13,13 @@ func TestComputeTenantAudit(t *testing.T) {
 		// complete tenant
 		seedTenant(t, db, "t-full", "Full Co", "customer", "")
 		mustExec(t, db, `INSERT INTO users(id, tenants_id, data) VALUES(?,?,?)`, "u1", "t-full", `{}`)
-		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t-full", `{"name":"x"}`)
+		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t-full", `{"status":1,"name":"x"}`)
 		mustExec(t, db, `INSERT INTO agent_manager(id, data, tenant_id, status) VALUES(?,?,?,?)`, "a1", `{}`, "t-full", "online")
 		mustExec(t, db, `INSERT INTO clients(id, data, tenant_id) VALUES(?,?,?)`, "c1", `{}`, "t-full")
 		// tenant missing agents + clients
 		seedTenant(t, db, "t-gap", "Gap Co", "customer", "")
 		mustExec(t, db, `INSERT INTO users(id, tenants_id, data) VALUES(?,?,?)`, "u2", "t-gap", `{}`)
-		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o2", "t-gap", `{"name":"y"}`)
+		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o2", "t-gap", `{"status":1,"name":"y"}`)
 		// partner kind -> excluded by default kind filter
 		seedTenant(t, db, "t-partner", "Partner Co", "partner", "")
 		// disabled tenant -> always excluded
@@ -47,7 +47,7 @@ func TestComputeTenantAudit(t *testing.T) {
 		db := newNovelTestStore(t)
 		seedTenant(t, db, "t-full", "Full Co", "customer", "")
 		mustExec(t, db, `INSERT INTO users(id, tenants_id, data) VALUES(?,?,?)`, "u1", "t-full", `{}`)
-		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t-full", `{"name":"x"}`)
+		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t-full", `{"status":1,"name":"x"}`)
 		mustExec(t, db, `INSERT INTO agent_manager(id, data, tenant_id, status) VALUES(?,?,?,?)`, "a1", `{}`, "t-full", "online")
 		mustExec(t, db, `INSERT INTO clients(id, data, tenant_id) VALUES(?,?,?)`, "c1", `{}`, "t-full")
 

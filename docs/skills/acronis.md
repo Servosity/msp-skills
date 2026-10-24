@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Acronis Cyber Protect Cloud MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `ACRONIS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `ACRONIS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running acronis-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, on paid plans with Developer Mode. ChatGPT connects only to remote MCP servers over HTTPS, so you host acronis-mcp in HTTP mode: it refuses to start until ACRONIS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send that bearer token. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Acronis data safe?"
@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Will this hit my Acronis API rate limits?"
-    a: "The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint."
+    a: "The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and each sync re-reads every resource it mirrors, so schedule it rather than running it before every question."
   - q: "Do I need to be an Acronis partner?"
     a: "Yes. You authenticate with an API client created in your own Acronis Management Portal (an OAuth2 client, or a bearer token), so you need partner or admin access to the tenants you want to reach. The CLI can only see what that API client is scoped to."
   - q: "Which datacenter does it point at?"
@@ -139,10 +139,10 @@ After install, authenticate once with your Acronis Cyber Protect Cloud credentia
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | acronis-cli health; acronis-cli failures --since 24h; acronis-cli freshness --sla 48h --breached; acronis-cli coverage --unprotected; acronis-cli agents stale --older-than 7d; acronis-cli reconcile usages; acronis-cli customer "<TENANT_ID>"; acronis-cli search "acme" | Allow |
-| Write (routine) | acronis-cli tenants create (provision a customer); acronis-cli tenants update (rename or enable/disable); acronis-cli tenants offering-items update (change SKUs); acronis-cli clients create (issue an API client); acronis-cli agent-manager force-agent-update; acronis-cli agent-manager update-agent-update-settings - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
-| Destructive / config | acronis-cli tenants delete; acronis-cli clients delete; acronis-cli agent-manager delete-agent; acronis-cli agent-manager delete-agents; acronis-cli idp revoke-token; acronis-cli idp request-token | Human-in-the-loop only |
+| Write (routine) | acronis-cli tenants create (provision a customer); acronis-cli tenants update (rename or enable/disable); acronis-cli tenants offering-items update (change SKUs); acronis-cli reports (create a report configuration); acronis-cli agent-manager force-agent-update; acronis-cli agent-manager update-agent-update-settings - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Destructive / config | acronis-cli tenants delete; acronis-cli clients delete; acronis-cli agent-manager delete-agent; acronis-cli agent-manager delete-agents; acronis-cli clients create (returns the new client secret); acronis-cli idp revoke-token; acronis-cli idp request-token | Human-in-the-loop only |
 
-The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential read from the environment (ACRONIS_CYBER_PROTECT_BEARER_AUTH, or an OAuth2 client via auth login) and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, reports) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion plus the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/acronis/governance.md).
+The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential from the environment (ACRONIS_BEARER_AUTH) or an OAuth2 client saved by auth login and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, list and get) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion, OAuth-client creation (it returns a secret) and the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/acronis/governance.md).
 
 ## Frequently asked questions
 
@@ -156,7 +156,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running acronis-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on paid plans with Developer Mode. ChatGPT connects only to remote MCP servers over HTTPS, so you host acronis-mcp in HTTP mode: it refuses to start until ACRONIS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send that bearer token. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
@@ -172,7 +172,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Will this hit my Acronis API rate limits?
 
-The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and each sync re-reads every resource it mirrors, so schedule it rather than running it before every question.
 
 ### Do I need to be an Acronis partner?
 

@@ -1,0 +1,191 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-24T21:11:42.33476Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "acronis",
+  "display_name": "Acronis Cyber Protect Cloud",
+  "cli_name": "acronis-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:e3ec30acb795db5c8cceb1aa0bf49b12eb60371ab3f092b5e5ded0bf306eb392",
+  "run_id": "20261024-140930-09294a6d",
+  "description": "The first real CLI for the Acronis Cyber Protect Cloud platform — every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
+  "mcp_binary": "acronis-pp-mcp",
+  "mcp_tool_count": 30,
+  "mcp_ready": "full",
+  "api_version": "2.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "ACRONIS_BEARER_AUTH"
+  ],
+  "endpoint_template_vars": [
+    "datacenter"
+  ],
+  "endpoint_template_var_defaults": {
+    "datacenter": "eu2-cloud"
+  },
+  "novel_features": [
+    {
+      "name": "Cross-tenant backup-health rollup",
+      "command": "health",
+      "description": "See backup success / failure / stale across your entire book of customer tenants in one table."
+    },
+    {
+      "name": "Offline / stale-agent finder",
+      "command": "agents stale",
+      "description": "List backup agents that haven't checked in within a threshold, across every tenant, sorted by customer."
+    },
+    {
+      "name": "Usage-to-billing reconciliation",
+      "command": "reconcile usages",
+      "description": "Flag usage with no matching offering item and offering items with zero usage, per tenant."
+    },
+    {
+      "name": "Coverage gap finder",
+      "command": "coverage",
+      "description": "Surface tenants that pay for protection but have no online agent or no recent successful backup."
+    },
+    {
+      "name": "Usage drift across periods",
+      "command": "usages drift",
+      "description": "Compare per-tenant, per-metric usage between two stored snapshots to see what grew or shrank."
+    },
+    {
+      "name": "Agent-version compliance",
+      "command": "agents compliance",
+      "description": "Show the distribution of agent versions across the estate and flag tenants behind the target version."
+    },
+    {
+      "name": "Tenant-tree explorer",
+      "command": "tree",
+      "description": "Render the Partner -\u003e Customer -\u003e Folder -\u003e Unit hierarchy with per-node agent and user counts."
+    },
+    {
+      "name": "Backup-failure recurrence ranker",
+      "command": "alerts repeat",
+      "description": "Rank resources and tenants by how many distinct days in a window had a failed or missed backup."
+    },
+    {
+      "name": "Last-night failure board",
+      "command": "failures",
+      "description": "Flat list of every failed or missed backup task across all tenants in a recent window, newest first."
+    },
+    {
+      "name": "Backup freshness / SLA report",
+      "command": "freshness",
+      "description": "Time since the last successful backup per tenant, flagged against an SLA threshold — including tenants never backed up."
+    },
+    {
+      "name": "Customer 360 card",
+      "command": "customer",
+      "description": "One cross-resource snapshot of a single customer: tenant record, users, licenses, usage, agents, and 7-day backup outcomes joined."
+    },
+    {
+      "name": "Standard-provisioning auditor",
+      "command": "tenants audit",
+      "description": "Flag enabled customer tenants missing users, offering items, agents, or OAuth clients — onboarding drift in one table."
+    },
+    {
+      "name": "Offering-item / edition inventory",
+      "command": "tenants offering-items inventory",
+      "description": "Estate-wide rollup of which offering items and editions are enabled, with per-SKU tenant counts."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-tenant backup-health rollup",
+      "command": "health",
+      "description": "See backup success / failure / stale across your entire book of customer tenants in one table."
+    },
+    {
+      "name": "Offline / stale-agent finder",
+      "command": "agents stale",
+      "description": "List backup agents that haven't checked in within a threshold, across every tenant, sorted by customer."
+    },
+    {
+      "name": "Usage-to-billing reconciliation",
+      "command": "reconcile usages",
+      "description": "Flag usage with no matching offering item and offering items with zero usage, per tenant."
+    },
+    {
+      "name": "Coverage gap finder",
+      "command": "coverage",
+      "description": "Surface tenants that pay for protection but have no online agent or no recent successful backup."
+    },
+    {
+      "name": "Usage drift across periods",
+      "command": "usages drift",
+      "description": "Compare per-tenant, per-metric usage between two stored snapshots to see what grew or shrank."
+    },
+    {
+      "name": "Agent-version compliance",
+      "command": "agents compliance",
+      "description": "Show the distribution of agent versions across the estate and flag tenants behind the target version."
+    },
+    {
+      "name": "Tenant-tree explorer",
+      "command": "tree",
+      "description": "Render the Partner -\u003e Customer -\u003e Folder -\u003e Unit hierarchy with per-node agent and user counts."
+    },
+    {
+      "name": "Backup-failure recurrence ranker",
+      "command": "alerts repeat",
+      "description": "Rank resources and tenants by how many distinct days in a window had a failed or missed backup."
+    },
+    {
+      "name": "Last-night failure board",
+      "command": "failures",
+      "description": "Flat list of every failed or missed backup task across all tenants in a recent window, newest first."
+    },
+    {
+      "name": "Backup freshness / SLA report",
+      "command": "freshness",
+      "description": "Time since the last successful backup per tenant, flagged against an SLA threshold — including tenants never backed up."
+    },
+    {
+      "name": "Customer 360 card",
+      "command": "customer",
+      "description": "One cross-resource snapshot of a single customer: tenant record, users, licenses, usage, agents, and 7-day backup outcomes joined."
+    },
+    {
+      "name": "Standard-provisioning auditor",
+      "command": "tenants audit",
+      "description": "Flag enabled customer tenants missing users, offering items, agents, or OAuth clients — onboarding drift in one table."
+    },
+    {
+      "name": "Offering-item / edition inventory",
+      "command": "tenants offering-items inventory",
+      "description": "Estate-wide rollup of which offering items and editions are enabled, with per-SKU tenant counts."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 68,
+    "total": 68,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}

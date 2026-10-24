@@ -8,10 +8,7 @@
    "local-data"
   ],
   "acronis": [
-   "install",
-   "mcp-http",
-   "read-only",
-   "local-data"
+   "install"
   ],
   "action1": [
    "mcp-http",

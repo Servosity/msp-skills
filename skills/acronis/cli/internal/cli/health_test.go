@@ -20,12 +20,12 @@ func TestComputeHealth(t *testing.T) {
 		seedTenant(t, db, "t1", "Acme Corp", "customer", "")
 		seedTenant(t, db, "t2", "Globex", "customer", "")
 		// t1: one ok recent, one failed recent -> not stale.
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k1", `{}`, "t1", "completed", "ok", recent)
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k2", `{}`, "t1", "failed", "error", recent)
 		// t2: one failed but only old -> stale.
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k3", `{}`, "t2", "failed", "error", old)
 
 		rows, err := computeHealth(db, 1, now)
@@ -61,7 +61,7 @@ func TestComputeHealth(t *testing.T) {
 func TestHealthCommand_JSONOutput(t *testing.T) {
 	db := newNovelTestStore(t)
 	seedTenant(t, db, "t1", "Acme Corp", "customer", "")
-	mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at) VALUES(?,?,?,?,?,?)`,
+	mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, created_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 		"k1", `{}`, "t1", "failed", "error", time.Now().Format(time.RFC3339))
 
 	flags := &rootFlags{asJSON: true}

@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - unreleased
+
+### Security
+- Rebuilt on CLI Printing Press 4.34.0 ([GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode now refuses to start until `ACRONIS_MCP_HTTP_TOKEN` is set, rejects any request without that bearer token, serves `http://127.0.0.1:7777/mcp` by default, needs `--tls-cert` and `--tls-key` for any other address, and refuses a request body over 4 MiB or one slower than 30 seconds. The remote-agent instructions (ChatGPT, Copilot Studio, the Gemini app) are back in `mcp-install.md`.
+- A datacenter value (from `ACRONIS_DATACENTER`, the config file, or a `sync` call's `--path-context`) must be one host label such as `us-cloud`; anything else is refused before a request is built.
+- A credential passed in a request (`idp request-token --client-secret`, `idp revoke-token --token`, any credential-named body or query field, and their MCP tools) is withheld from any error that repeats it, like the configured credentials, whether it was sent as text or as a number.
+- No credential field is written to the local store or the response cache: the `client_secret` that `clients create` returns, identity-provider token answers, and any secret-named field in a synced or cached row are dropped before they reach disk, at any depth and under plural names such as `secrets`, `tokens`, `api_keys` and `credentials`, including inside a wrapper object, and a list a response wraps under such a name is never stored as rows. A secret-named field is dropped whatever its value; the only values kept are a number under a count name such as `total_tokens`, and under `code` one of the six task result words Acronis documents (`ok`, `error`, `warning`, `cancelled`, `abandoned`, `timedout`), which the `result_code` column reads. The command's own output still shows them.
+- `ACRONIS_MCP_READ_ONLY=1` now removes every MCP tool not marked read-only, including the typed endpoint tools. The install configs on `mcp-install.md` and the Claude Desktop bundle preset it to `1`.
+
+### Added
+- `ACRONIS_NO_LOCAL_DATA=1` keeps no local copy of API responses (reads go to the API, the response cache is off and `sync` refuses to run). It, `ACRONIS_MCP_READ_ONLY`, `ACRONIS_MCP_HTTP_TOKEN` and `ACRONIS_USER_AGENT` are now declared on all three install channels.
+- Commands from the 4.34.0 engine: the local learning loop (`recall`, `teach`, `teach-lookup`, `teach-pattern`, `teach-playbook`, `learnings`, `playbook`), which reads and writes only this machine's local store; `export`, which writes paginated API data to a local JSONL or JSON file; and `local-data purge`, which lists what it would delete and deletes nothing without `--yes`.
+
+### Fixed
+- A read or write answer is stored only in the table for the endpoint it came from: `task-manager get-activity` no longer adds an activity to the tasks that `failures` and `health` count, and hardware-node reads and the agent update commands no longer add rows to the agents. Hardware nodes and agent update settings are not stored at all, and `--data-source local` refuses them instead of answering from another table.
+- `doctor` no longer reports the API as reachable when no datacenter was chosen: the built-in `eu2-cloud` fill-in is reported as not configured, naming `ACRONIS_DATACENTER` and `ACRONIS_BASE_URL`.
+- `sync` exits non-zero when any resource stops before its last page, including at a `--max-pages` cap, and when rows could not be written to the rollup tables, so an incomplete mirror can no longer feed `health`, `failures`, `coverage` or the usage rollups.
+- `governance.md`, the README and the docs page named the bearer-token variable `ACRONIS_CYBER_PROTECT_BEARER_AUTH`; the binary reads `ACRONIS_BEARER_AUTH`.
+
 ## [0.1.9] - 2026-10-23
 
 ### Changed

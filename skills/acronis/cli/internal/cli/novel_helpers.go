@@ -25,24 +25,28 @@ func atoiPositive(s string) (int, error) {
 	return n, nil
 }
 
-// tenantNames builds a tenant_id -> name lookup from the tenants table. Returns
-// an empty map (never nil) if the table is empty or missing.
-func tenantNames(db *store.Store) map[string]string {
+// tenantNames builds a tenant_id -> name lookup over every mirrored tenant.
+// A query or scan failure is an error: rollups use this map as the tenant set,
+// so a silently short map would drop tenants from their results.
+func tenantNames(db *store.Store) (map[string]string, error) {
 	names := map[string]string{}
 	rows, err := db.Query(`SELECT id, name FROM tenants`)
 	if err != nil {
-		return names
+		return nil, fmt.Errorf("querying tenants: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var id string
 		var name *string
-		if rows.Scan(&id, &name) != nil {
-			continue
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("reading tenants: %w", err)
 		}
 		names[id] = deref(name)
 	}
-	return names
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading tenants: %w", err)
+	}
+	return names, nil
 }
 
 // deref returns the value of a *string or "" if nil.
@@ -72,6 +76,13 @@ func parseTime(s string) (time.Time, bool) {
 		if t, err := time.Parse(f, s); err == nil {
 			return t, true
 		}
+	}
+	// A JSON number stored in a DATETIME column: Unix seconds or milliseconds.
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+		if n > 1e11 {
+			return time.UnixMilli(n).UTC(), true
+		}
+		return time.Unix(n, 0).UTC(), true
 	}
 	return time.Time{}, false
 }
@@ -165,51 +176,163 @@ func decodeData(b []byte) map[string]any {
 }
 
 // taskOutcome classifies a task_manager row's state/result_code into one of
-// "ok", "failed", "running", or "other".
+// "ok", "warning", "failed", "running", or "other". It matches whole values,
+// never substrings: only an explicit successful result ("ok") on a task whose
+// state is "completed" establishes success. Every terminal result that is not ok or warning -
+// including timedout, abandoned, cancelled and any code this connector does not
+// know - is a failure, so a new vendor result code can never read as success.
 func taskOutcome(state, resultCode string) string {
 	s := strings.ToLower(strings.TrimSpace(state))
 	rc := strings.ToLower(strings.TrimSpace(resultCode))
-	// Failure signals win.
-	for _, f := range []string{"fail", "error", "missed", "cancel", "abort"} {
-		if strings.Contains(s, f) || strings.Contains(rc, f) {
-			return "failed"
-		}
-	}
-	for _, ok := range []string{"ok", "success", "succeed", "complete", "done"} {
-		if strings.Contains(s, ok) || strings.Contains(rc, ok) {
-			return "ok"
-		}
-	}
-	for _, r := range []string{"run", "progress", "active", "started", "enqueu", "pending"} {
-		if strings.Contains(s, r) {
+	switch s {
+	case "enqueued", "assigned", "started", "paused", "running", "queued", "pending", "in_progress":
+		if rc == "" {
 			return "running"
 		}
 	}
-	return "other"
-}
-
-// agentOffline reports whether an agent status string indicates offline.
-func agentOffline(status string) bool {
-	s := strings.ToLower(strings.TrimSpace(status))
-	if s == "" {
-		return false
-	}
-	for _, off := range []string{"offline", "unavailable", "disconnect", "down", "inactive", "lost"} {
-		if strings.Contains(s, off) {
-			return true
+	switch rc {
+	case "ok":
+		if s == "completed" {
+			return "ok"
 		}
+		return "other"
+	case "warning":
+		if s == "completed" {
+			return "warning"
+		}
+		return "other"
+	case "":
+		switch s {
+		case "completed":
+			// Finished without a result: nothing proves it succeeded.
+			return "failed"
+		case "failed", "error", "cancelled", "canceled", "abandoned", "timedout":
+			return "failed"
+		}
+		return "other"
 	}
-	return false
+	// Any other result code, known (error, cancelled, abandoned, timedout) or
+	// not, is a failure signal.
+	return "failed"
 }
 
-// usageNameOf extracts the offering/metric name from a usages data JSON object.
-func usageNameOf(obj map[string]any) string {
-	return jsonStr(obj, "name", "offering_item", "usage_name", "offeringItem")
+// taskBackupKind classifies a task row's type: "backup" for an explicit
+// backup task, "other" for a type known not to be a backup (restore,
+// replication, validation, ...), and "unknown" for anything else - no type, or
+// a type this connector does not recognize. Success evidence requires
+// "backup"; failure evidence accepts "backup" or "unknown", so a failure is
+// hidden only when its type is known not to be a backup.
+func taskBackupKind(typ string) string {
+	t := strings.ToLower(strings.TrimSpace(typ))
+	if t == "backup" {
+		return "backup"
+	}
+	if taskNonBackupTypes[t] {
+		return "other"
+	}
+	return "unknown"
 }
 
-// offeringNameOf extracts the offering name from an offering_items data JSON object.
-func offeringNameOf(obj map[string]any) string {
-	return jsonStr(obj, "name", "offering_item", "application_id", "offeringItem", "applicationId")
+// taskNonBackupTypes are task types that are never a backup run.
+var taskNonBackupTypes = map[string]bool{
+	"restore": true, "recovery": true, "recover": true,
+	"replication": true, "replicate": true,
+	"validation": true, "validate": true,
+	"cleanup": true, "retention": true,
+	"conversion": true, "migration": true,
+	"discovery": true, "inventory": true, "scan": true,
+	"update": true, "install": true, "patch": true,
+}
+
+// taskTimeColumns is the SELECT list (in rollupTime order) every task rollup
+// uses to date a task_manager row: completion first, then the progressively
+// earlier lifecycle stamps.
+const taskTimeColumns = `completed_at, updated_at, started_at, enqueued_at, created_at`
+
+// rollupEarliestTime is the earliest stamp a rollup accepts as a real time.
+var rollupEarliestTime = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// rollupTime returns the first non-empty timestamp among candidates, in order.
+// known is false when every candidate is empty. A non-empty value that does not
+// parse is an error: a rollup must never silently reinterpret or drop it.
+func rollupTime(candidates ...string) (t time.Time, known bool, err error) {
+	for _, c := range candidates {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		if parsed, ok := parseTime(c); ok {
+			// A zero or pre-2000 stamp is a placeholder, not a time: reading
+			// it as known would push a failure out of every window.
+			if parsed.Before(rollupEarliestTime) {
+				return time.Time{}, false, nil
+			}
+			return parsed, true, nil
+		}
+		return time.Time{}, false, fmt.Errorf("unrecognized timestamp %q in the local mirror; refusing to report from it", c)
+	}
+	return time.Time{}, false, nil
+}
+
+// agentStatusOf normalizes an agent status to "online", "offline" or
+// "unknown" by exact value. The store derives status from the API's online
+// boolean (store.LookupFieldValue) or its documented online/offline enum; any
+// other value is unknown and is never evidence of a working agent.
+func agentStatusOf(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "online":
+		return "online"
+	case "offline":
+		return "offline"
+	default:
+		return "unknown"
+	}
+}
+
+// agentOnline reports whether an agent status proves the agent is online.
+func agentOnline(status string) bool { return agentStatusOf(status) == "online" }
+
+// agentNotOnline reports whether an agent status fails to prove the agent is
+// online (offline or unknown).
+func agentNotOnline(status string) bool { return !agentOnline(status) }
+
+// offeringIdentity is the full identity of a usage or offering item: the same
+// fields the store keys these rows by (store.ExtractResourceID). Rows that
+// differ in any field are different licenses or metrics and are never merged.
+type offeringIdentity struct {
+	ApplicationID string `json:"application_id,omitempty"`
+	Name          string `json:"offering"`
+	Edition       string `json:"edition,omitempty"`
+	InfraID       string `json:"infra_id,omitempty"`
+}
+
+// offeringIdentityOf extracts the identity from a usages or offering_items
+// data JSON object.
+func offeringIdentityOf(obj map[string]any) offeringIdentity {
+	return offeringIdentity{
+		ApplicationID: jsonStr(obj, "application_id", "applicationId"),
+		Name:          jsonStr(obj, "name", "offering_item", "offeringItem", "usage_name", "usageName"),
+		Edition:       jsonStr(obj, "edition", "offering_edition", "offeringEdition"),
+		InfraID:       jsonStr(obj, "infra_id", "infraId"),
+	}
+}
+
+// offeringStatusOf reads an offering item's status: active (1), inactive (0)
+// or unknown (absent or any other value). Only an explicit active status makes
+// an offering item a license.
+func offeringStatusOf(obj map[string]any) string {
+	v, ok := obj["status"]
+	if !ok || v == nil {
+		return "unknown"
+	}
+	switch s := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v))); s {
+	case "1", "active", "true", "enabled":
+		return "active"
+	case "0", "inactive", "false", "disabled":
+		return "inactive"
+	default:
+		return "unknown"
+	}
 }
 
 // usageValueOf extracts a numeric usage value from a usages data JSON object.
@@ -217,18 +340,57 @@ func usageValueOf(obj map[string]any) (float64, bool) {
 	return jsonNum(obj, "value", "absolute_value", "absoluteValue", "amount", "quantity")
 }
 
-// usageEditionOf extracts the edition from a usages data JSON object.
-func usageEditionOf(obj map[string]any) string {
-	return jsonStr(obj, "edition", "offering_edition", "offeringEdition")
+// decodeRow decodes a data column, failing loudly: a row the rollup cannot read
+// must not silently disappear from its result.
+func decodeRow(table string, data []byte) (map[string]any, error) {
+	obj := decodeData(data)
+	if obj == nil {
+		return nil, fmt.Errorf("undecodable %s row in the local mirror; re-run 'acronis-cli sync --full'", table)
+	}
+	return obj, nil
 }
 
-// agentOnline reports whether an agent status string indicates online.
-func agentOnline(status string) bool {
-	s := strings.ToLower(strings.TrimSpace(status))
-	for _, on := range []string{"online", "connected", "active", "available", "ok", "ready"} {
-		if strings.Contains(s, on) {
-			return true
+// activeOfferingCounts counts, per tenant, the offering items whose status
+// proves them active (offeringStatusOf). tenantID, when non-empty, restricts
+// the scan to that tenant.
+func activeOfferingCounts(db *store.Store, tenantID string) (map[string]int, error) {
+	query := `SELECT tenants_id, data FROM offering_items`
+	var args []any
+	if tenantID != "" {
+		query += ` WHERE tenants_id = ?`
+		args = append(args, tenantID)
+	}
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying offering_items: %w", err)
+	}
+	defer rows.Close()
+	counts := map[string]int{}
+	for rows.Next() {
+		var tid string
+		var data []byte
+		if err := rows.Scan(&tid, &data); err != nil {
+			return nil, fmt.Errorf("reading offering_items: %w", err)
+		}
+		obj, err := decodeRow("offering_items", data)
+		if err != nil {
+			return nil, err
+		}
+		if offeringStatusOf(obj) == "active" {
+			counts[tid]++
 		}
 	}
-	return false
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading offering_items: %w", err)
+	}
+	return counts, nil
+}
+
+// countActiveOfferings is activeOfferingCounts for one tenant.
+func countActiveOfferings(db *store.Store, tenantID string) (int, error) {
+	counts, err := activeOfferingCounts(db, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	return counts[tenantID], nil
 }

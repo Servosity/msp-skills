@@ -44,7 +44,7 @@ func TestAcronisDirectMCPContracts(t *testing.T) {
 		for name := range args {
 			bindings = append(bindings, mcpParamBinding{PublicName: name, WireName: name, Location: "query"})
 		}
-		handler := makeAPIHandler("GET", path, true, false, nil, bindings, nil)
+		handler := makeAPIHandler("GET", path, true, false, nil, mcpPageConfig{}, bindings, nil)
 		result, err := handler(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: args}})
 		if err != nil || result.IsError {
 			t.Fatalf("%s: result=%+v err=%v", path, result, err)
