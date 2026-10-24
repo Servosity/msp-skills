@@ -1583,6 +1583,16 @@
       "reason": "press 4.34.0 template, reviewed 2026-10-23. cipp only (spec-generated, rendered from the library spec.json). resourceWritePaths maps CIPP action names to their API paths, for example exec-get-local-admin-password -> /ExecGetLocalAdminPassword; gosec matches the credential words in the names. Values are endpoint paths, not secrets; the press annotates it #nosec G101."
     },
     {
+      "file": "skills/cipp/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:4275a8954d7bb17e8088ac15ff16193b42ff6f4c19d70b7e396e2077a846f031"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34.0 template, reviewed 2026-10-23 on the cipp reprint. cipp only. The shipped print ran press lock promote, which adds the promoted command names to resourceWritePaths, so this declaration is longer than the fresh render the entry above binds. Same content class: CIPP command names mapped to API paths (exec-get-local-admin-password -> /ExecGetLocalAdminPassword); gosec matches the credential words in the names. Values are endpoint paths, not secrets; the press annotates it #nosec G101."
+    },
+    {
       "file": "skills/rootly/cli/internal/cli/resource_paths.go",
       "rule": "G101",
       "bind": "decl",
