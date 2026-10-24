@@ -34,7 +34,18 @@ type devicesChangesView struct {
 	Items            []statusChangeItem `json:"items"`
 	Added            []string           `json:"added_devices,omitempty"`
 	Removed          []string           `json:"removed_devices,omitempty"`
-	Note             string             `json:"note,omitempty"`
+	// Compared is true only when two comparable snapshots were diffed; when
+	// it is false an empty items list means nothing was checked, not "no
+	// flips".
+	Compared bool `json:"compared"`
+	// Partial is true when either snapshot is not a known-complete scan:
+	// added/removed devices are then not reported.
+	Partial bool `json:"partial"`
+	// StatusUnreported counts devices present in both snapshots whose status
+	// was not reported (or is not an exact integer) in one or both of them,
+	// so no flip could be judged.
+	StatusUnreported int    `json:"status_unreported,omitempty"`
+	Note             string `json:"note,omitempty"`
 }
 
 func newNovelDevicesChangesCmd(flags *rootFlags) *cobra.Command {
@@ -44,10 +55,16 @@ func newNovelDevicesChangesCmd(flags *rootFlags) *cobra.Command {
 		Use:   "changes",
 		Short: "Backup-status flips between local snapshots: regressions and recoveries",
 		Long: strings.Trim(`
-Compares the last-session status between two local snapshots — the newest
-one and the newest one taken at or before --since ago (default: the previous
-snapshot) — and surfaces every flip: healthy→failed regressions and
-failed→healthy recoveries, plus devices added or removed.
+Compares the last-session status between two local snapshots of the same
+partner tree and endpoint (the newest one and the newest one taken at or
+before --since ago; default: the previous snapshot) and surfaces every flip:
+regressions into an adverse or never-run status, recoveries (an adverse or
+never-run status to Completed; nothing else counts as a recovery), other
+changes, plus devices added or removed. Added and removed devices are only
+reported when both snapshots are complete scans. A device whose status is
+missing in either snapshot, or in both, is counted in status_unreported. A
+snapshot with no recorded endpoint (taken before endpoint tracking) is never
+compared: compared is false and no flips are reported.
 
 Requires at least two snapshots: run 'cove-cli snapshot' periodically.
 
@@ -59,12 +76,12 @@ Do NOT use it for storage-size trends; use 'storage growth' instead.
   cove-cli devices changes --since 7d --json`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "local",
 			"pp:no-error-path-probe": "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would diff backup status between the two latest local snapshots")
-				return nil
+				return coveDryRun(cmd, flags, "would diff backup status between the two latest local snapshots")
 			}
 			if err := validateDataSourceStrategy(flags, "local"); err != nil {
 				return err
@@ -87,24 +104,18 @@ Do NOT use it for storage-size trends; use 'storage growth' instead.
 				return err
 			}
 			if !ok {
-				return flags.printJSON(cmd, devicesChangesView{Items: []statusChangeItem{}, Note: "no snapshots yet — " + snapshotPairNote})
+				return flags.printJSON(cmd, devicesChangesView{Items: []statusChangeItem{}, Note: "no snapshots yet; " + snapshotPairNote})
 			}
-			var baseline store.CoveSnapshot
-			var haveBase bool
-			if window > 0 {
-				baseline, haveBase, err = db.CoveSnapshotBefore(ctx, latest.TakenAt.Add(-window))
-			} else {
-				baseline, haveBase, err = db.CoveSnapshotBefore(ctx, latest.TakenAt.Add(-time.Second))
-			}
+			baseline, refusal, err := snapshotBaseline(ctx, db, latest, window)
 			if err != nil {
 				return err
 			}
-			if !haveBase || baseline.ID == latest.ID {
+			if refusal != "" {
 				return flags.printJSON(cmd, devicesChangesView{
 					LatestSnapshot: latest.ID,
 					LatestTakenAt:  latest.TakenAt.Format(time.RFC3339),
 					Items:          []statusChangeItem{},
-					Note:           "only one qualifying snapshot — " + snapshotPairNote,
+					Note:           refusal,
 				})
 			}
 			baseRows, err := db.CoveDeviceStats(ctx, baseline.ID)
@@ -121,6 +132,8 @@ Do NOT use it for storage-size trends; use 'storage growth' instead.
 				LatestSnapshot:   latest.ID,
 				LatestTakenAt:    latest.TakenAt.Format(time.RFC3339),
 				Items:            []statusChangeItem{},
+				Compared:         true,
+				Partial:          !latest.KnownComplete() || !baseline.KnownComplete(),
 			}
 			for id, nr := range newRows {
 				br, existed := baseRows[id]
@@ -128,26 +141,35 @@ Do NOT use it for storage-size trends; use 'storage growth' instead.
 					view.Added = append(view.Added, nr.DeviceName)
 					continue
 				}
-				if br.LastStatus == nr.LastStatus {
+				from, fromOK := snapshotSetting(br, coverpc.ColTotalLastStatus)
+				to, toOK := snapshotSetting(nr, coverpc.ColTotalLastStatus)
+				if !fromOK || !toOK {
+					// Missing on either side, or on both: no flip can be
+					// judged, and silence must not read as "no flips".
+					view.StatusUnreported++
 					continue
 				}
+				if from == to {
+					continue
+				}
+				// One classification for every command: a recovery needs a
+				// Completed session, not merely a status that is no longer bad.
+				fromClass, toClass := coverpc.ClassifyStatus(from, true), coverpc.ClassifyStatus(to, true)
 				kind := "change"
-				wasBad := coverpc.BadSessionStatuses[int(br.LastStatus)] || br.LastStatus == 7
-				isBad := coverpc.BadSessionStatuses[int(nr.LastStatus)] || nr.LastStatus == 7
 				switch {
-				case !wasBad && isBad:
+				case !fromClass.Bad() && toClass.Bad():
 					kind = "regression"
-				case wasBad && !isBad:
+				case fromClass.Bad() && toClass == coverpc.StatusSucceeded:
 					kind = "recovery"
 				}
 				view.Items = append(view.Items, statusChangeItem{
 					AccountID:  id,
 					DeviceName: nr.DeviceName,
 					Customer:   nr.Customer,
-					FromStatus: br.LastStatus,
-					FromName:   coverpc.StatusName(int(br.LastStatus)),
-					ToStatus:   nr.LastStatus,
-					ToName:     coverpc.StatusName(int(nr.LastStatus)),
+					FromStatus: from,
+					FromName:   coverpc.StatusName(int(from)),
+					ToStatus:   to,
+					ToName:     coverpc.StatusName(int(to)),
 					Kind:       kind,
 				})
 			}
@@ -155,6 +177,11 @@ Do NOT use it for storage-size trends; use 'storage growth' instead.
 				if _, still := newRows[id]; !still {
 					view.Removed = append(view.Removed, br.DeviceName)
 				}
+			}
+			if view.Partial {
+				// A device missing from a partial scan was not removed, and
+				// one beyond the baseline's cap was not added.
+				view.Added, view.Removed = nil, nil
 			}
 			sort.Slice(view.Items, func(i, j int) bool {
 				// Regressions first, then customer/device for stable output.
@@ -169,9 +196,21 @@ Do NOT use it for storage-size trends; use 'storage growth' instead.
 			})
 			sort.Strings(view.Added)
 			sort.Strings(view.Removed)
+			var notes []string
 			if len(view.Items) == 0 {
-				view.Note = "no status flips between the compared snapshots"
+				if view.StatusUnreported > 0 {
+					notes = append(notes, "no status flips among the devices that reported a status in both snapshots")
+				} else {
+					notes = append(notes, "no status flips between the compared snapshots")
+				}
 			}
+			if view.StatusUnreported > 0 {
+				notes = append(notes, fmt.Sprintf("%d devices did not report a status in one or both of the snapshots, so no flip was judged for them", view.StatusUnreported))
+			}
+			if view.Partial {
+				notes = append(notes, partialSnapshotNote)
+			}
+			view.Note = strings.Join(notes, "; ")
 			return emitCoveJSON(cmd, flags, view, view.Items)
 		},
 	}

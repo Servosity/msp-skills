@@ -11,6 +11,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"cove-pp-cli/internal/cliutil"
+	"cove-pp-cli/internal/cliutil/testenv"
 )
 
 // mockFleet builds a JSON-RPC server that answers Login and
@@ -78,6 +81,5 @@ func fleetTestEnv(t *testing.T, srv *httptest.Server) {
 	t.Setenv("COVE_USERNAME", "api@test")
 	t.Setenv("COVE_PASSWORD", "secret")
 	t.Setenv("COVE_PARTNER", "TestRoot")
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("XDG_CONFIG_HOME", "")
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 }

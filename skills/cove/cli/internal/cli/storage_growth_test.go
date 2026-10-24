@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"cove-pp-cli/internal/cliutil"
+	"cove-pp-cli/internal/cliutil/testenv"
 )
 
 func TestStorageGrowthComputesDeltas(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	dbPath := seedSnapshots(t) // regressor: 1000→1500, others unchanged/new
 	out, err := runCoveCmd(t, "storage", "growth", "--db", dbPath, "--json")
 	if err != nil {
@@ -52,7 +55,7 @@ func TestStorageGrowthComputesDeltas(t *testing.T) {
 }
 
 func TestStorageGrowthEmptyStoreGuidance(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	out, err := runCoveCmd(t, "storage", "growth", "--db", t.TempDir()+"/empty.db", "--json")
 	if err != nil {
 		t.Fatalf("storage growth empty: %v\n%s", err, out)
@@ -63,7 +66,7 @@ func TestStorageGrowthEmptyStoreGuidance(t *testing.T) {
 }
 
 func TestStorageGrowthRejectsLiveDataSource(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	dbPath := seedSnapshots(t)
 	out, err := runCoveCmd(t, "storage", "growth", "--db", dbPath, "--data-source", "live", "--json")
 	if err == nil {

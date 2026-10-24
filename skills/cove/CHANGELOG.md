@@ -4,6 +4,29 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.13] - unreleased
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.34.0** (the press upgrade behind GHSA-jh26-vhqh-692c). The MCP server's HTTP mode now refuses to start without `COVE_MCP_HTTP_TOKEN`, answers 401 without the matching bearer token, binds 127.0.0.1 by default and needs TLS for any other address. MCP tools refuse file and directory arguments by name. `COVE_MCP_READ_ONLY=1` exposes only read-only tools and `COVE_NO_LOCAL_DATA=1` keeps no local copy of API responses; both, plus `COVE_MCP_HTTP_TOKEN`, are declared on every install channel.
+- `auth token`, which prints the session visa, is no longer an MCP tool. MCP callers use `call`, which signs in for you.
+
+### Added
+- `devices sources`: each device's active data sources across the fleet, with `--without` to list devices missing one. A device whose sources Cove did not report is never listed as missing one.
+- `fleet activity`: the Cove audit trail rolled up per user and per entity and operation, flagged when the window was truncated.
+
+### Fixed
+- **`doctor` no longer calls Cove's own API host a placeholder.** With the three credentials set, it reported an error and skipped the login check on every correctly configured install. It now signs in and reports the result.
+- **`doctor` still checks your sign-in when Cove's first answer is withheld.** If that answer repeated one of your credentials, doctor hid it (correct), but then reported the API as unreachable and skipped the login check. It now reports the API as reachable and signs in.
+- **A failed or unknown backup status can no longer read as healthy.** Column values are parsed exactly: a fractional or unreadable status is "not reported", and an unrecognised status is never counted as healthy.
+- **Snapshots are compared only within one scope.** `storage growth` and `devices changes` compare two snapshots only when both were taken from the same endpoint and partner; an older snapshot that did not record its endpoint is never compared, and the output says so (`compared: false`). A device missing its status in either snapshot is counted as unreported.
+- `billing usage` shows unreported storage as null and leaves it out of the totals instead of counting it as 0.
+- `call` sends only Get and Enumerate methods unless you pass `--yes`.
+
+### Security
+- An error or result that repeats your Cove API token or session visa is withheld in more forms: short tokens in stacked encodings, numbers and booleans in a successful result, and a visa returned under any spelling of its JSON member name.
+- Raw endpoint commands and MCP tools never repeat a response header value in their output or errors, and a visa the server returns is withheld wherever it follows the word "visa" (JSON, plain text, form or query style, a header). A word that merely follows "visa" (for example "visa: required") is no longer treated as a secret, so it can no longer hide ordinary output later in a long-running MCP server.
+- No credential-bearing JSON-RPC call is sent to a non-loopback `http://` address, and a cached session is only reused for the endpoint, partner and user it was created for.
+
 ## [0.1.12] - 2026-10-23
 
 ### Security

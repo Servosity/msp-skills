@@ -639,7 +639,7 @@
       "category": "Backup/DR",
       "display_name": "Cove Data Protection",
       "tagline": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
-      "cli_hash": "sha256:68a259245cc7f3d7f82196475d0fc79055223e4ece0a3a4e420c569e07fbc1db",
+      "cli_hash": "sha256:3f7bd3dc267dff47df35c2d7529f354fc0f70355199c1fe5075573704434b4a2",
       "template_version": 3,
       "version": "0.1.12",
       "cli_hash_at_release": "sha256:c7256f67f12e6921e7ce0f7c99fa376169d820812b0e068ec7113b58c3f809dd",

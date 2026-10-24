@@ -536,7 +536,7 @@
       "cli_binary": "cove-cli",
       "mcp_binary": "cove-mcp",
       "version": "0.1.12",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Cove Data Protection",
       "vendor_trademark_owner": "N-able",

@@ -31,6 +31,9 @@ type failuresView struct {
 	SinceHours    float64       `json:"since_hours,omitempty"`
 	Items         []failureItem `json:"items"`
 	TotalFailures int           `json:"total_failures"`
+	// UnreportedStatus counts devices whose last-session status column was
+	// not reported: they are not listed, and not counted as fine either.
+	UnreportedStatus int `json:"unreported_status,omitempty"`
 	scanCapFields
 }
 
@@ -43,9 +46,12 @@ func newNovelDevicesFailuresCmd(flags *rootFlags) *cobra.Command {
 		Use:   "failures",
 		Short: "Fleet-wide sweep of devices whose last backup session failed",
 		Long: strings.Trim(`
-Lists every device across the whole partner tree whose LAST session ended in
-a bad status — Failed, Aborted, Interrupted, CompletedWithErrors, OverQuota,
-or NotStarted — with the F00 status enum decoded to names.
+Lists every device across the whole partner tree whose LAST session status is
+adverse — Failed, Aborted, Interrupted, CompletedWithErrors, OverQuota,
+NoSelection, InProgressWithFaults, or NotStarted — or is a status this build
+cannot name (listed as StatusN so it is never silently dropped), with the F00
+status enum decoded to names. Devices with no status reported are counted in
+unreported_status.
 
 Use this command to find devices whose LAST session ended badly. Do NOT use
 it to find devices that simply haven't succeeded recently; use
@@ -57,13 +63,13 @@ it to find devices that simply haven't succeeded recently; use
   cove-cli devices failures --include-never-run=false --csv`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "live",
 			"pp:no-error-path-probe": "true",
 			"pp:requires-tier":       "credentials",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would sweep the partner tree for devices with failed last sessions")
-				return nil
+				return coveDryRun(cmd, flags, "would sweep the partner tree for devices with failed last sessions")
 			}
 			window, err := parseCoveSince(since)
 			if err != nil {
@@ -94,17 +100,21 @@ it to find devices that simply haven't succeeded recently; use
 				cutoff = time.Now().Add(-window)
 			}
 			items := make([]failureItem, 0)
+			unreported := 0
 			for _, d := range devices {
 				s := d.Settings
 				status, ok := coverpc.SettingInt(s, coverpc.ColTotalLastStatus)
 				if !ok {
+					unreported++
 					continue
 				}
-				neverRun := status == 7
-				if !coverpc.BadSessionStatuses[int(status)] && !neverRun {
+				class := coverpc.ClassifyStatus(status, true)
+				// Only positive evidence (Completed) or a running session is
+				// left out; an adverse or unnameable status is listed.
+				if class == coverpc.StatusSucceeded || class == coverpc.StatusRunning {
 					continue
 				}
-				if neverRun && !includeNeverRun {
+				if class == coverpc.StatusNeverRun && !includeNeverRun {
 					continue
 				}
 				lastSession, hasSession := coverpc.SettingTime(s, coverpc.ColTotalLastSessionTS)
@@ -139,9 +149,10 @@ it to find devices that simply haven't succeeded recently; use
 				return items[i].DeviceName < items[j].DeviceName
 			})
 			view := failuresView{
-				PartnerID:     root,
-				Items:         items,
-				TotalFailures: len(items),
+				PartnerID:        root,
+				Items:            items,
+				TotalFailures:    len(items),
+				UnreportedStatus: unreported,
 				scanCapFields: scanCapFields{
 					ScannedDevices: scanned,
 					MaxScanPages:   effectiveMaxPages(maxScanPages),
@@ -153,6 +164,14 @@ it to find devices that simply haven't succeeded recently; use
 			}
 			if len(items) == 0 && view.Note == "" {
 				view.Note = fmt.Sprintf("no failed last sessions among %d scanned devices", scanned)
+			}
+			if unreported > 0 {
+				msg := fmt.Sprintf("%d devices did not report a last-session status and are not listed", unreported)
+				if view.Note == "" {
+					view.Note = msg
+				} else {
+					view.Note += "; " + msg
+				}
 			}
 			return emitCoveJSON(cmd, flags, view, view.Items)
 		},

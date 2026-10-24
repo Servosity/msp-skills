@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Cove Data Protection MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `COVE_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `COVE_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running cove-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host cove-mcp in HTTP mode: it refuses to start until COVE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Cove Data Protection data safe?"
@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "What kind of Cove account does it need?"
-    a: "A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@acme.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox."
+    a: "A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@example.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox."
   - q: "Can it restore files or browse backed-up data?"
     a: "No. This skill speaks the Cove management API: fleet health, billing, storage trends, and enumeration. Restores and per-session file browsing run through the Backup Manager client and the storage-node Reporting Service, which this CLI does not cover."
 howto:
@@ -78,7 +78,7 @@ Ask which Cove backups failed last night and get every failed, aborted, or never
 | What is the fleet-wide health rollup, broken down per customer? | `cove-cli fleet health --by partner --json` |
 | Which devices and customers grew their storage fastest this week? | `cove-cli storage growth --since 7d --json` |
 | What is the month-end billing usage per device, with codes decoded? | `cove-cli billing usage --csv` |
-| Which device SKUs or seat counts changed since last month? | `cove-cli billing changes --json` |
+| Which device SKUs changed since last month? | `cove-cli billing changes --json` |
 | Which backup statuses flipped since my last snapshot? | `cove-cli devices changes --since 7d --json` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/cove/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/cove/guide.md).
@@ -147,7 +147,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running cove-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host cove-mcp in HTTP mode: it refuses to start until COVE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
@@ -163,7 +163,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### What kind of Cove account does it need?
 
-A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@acme.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox.
+A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@example.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox.
 
 ### Can it restore files or browse backed-up data?
 

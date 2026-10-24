@@ -55,13 +55,13 @@ use it to find devices whose last status was an error; use
   cove-cli devices stale --days 7 --partner-id 1234 --csv`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "live",
 			"pp:no-error-path-probe": "true",
 			"pp:requires-tier":       "credentials",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would rank devices by days since last successful backup")
-				return nil
+				return coveDryRun(cmd, flags, "would rank devices by days since last successful backup")
 			}
 			if days <= 0 {
 				_ = cmd.Usage()

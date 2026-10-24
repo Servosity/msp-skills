@@ -6,14 +6,31 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"cove-pp-cli/internal/cliutil"
+	"cove-pp-cli/internal/cliutil/testenv"
 	"cove-pp-cli/internal/store"
 )
 
-// seedSnapshots writes two snapshots into a temp store and returns its path.
+// withSettings gives fixture rows the settings map every real snapshot row
+// carries (the hot columns alone cannot tell a reported 0 from a missing
+// column), mirroring the status and storage they hold.
+func withSettings(rows []store.CoveDeviceStat) []store.CoveDeviceStat {
+	for i, r := range rows {
+		rows[i].SettingsJSON = store.MarshalSettings(map[string]string{
+			"I1": r.DeviceName, "I8": r.Customer,
+			"D9F00": strconv.FormatInt(r.LastStatus, 10), "I14": strconv.FormatInt(r.UsedStorage, 10),
+		})
+	}
+	return rows
+}
+
+// seedSnapshots writes two complete snapshots of one scope into a temp store
+// and returns its path.
 func seedSnapshots(t *testing.T) string {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "cove.db")
@@ -24,27 +41,28 @@ func seedSnapshots(t *testing.T) string {
 	defer db.Close()
 	ctx := context.Background()
 	base := time.Now().Add(-24 * time.Hour)
-	if _, err := db.InsertCoveSnapshot(ctx, base, 9000, []store.CoveDeviceStat{
+	scope := store.CoveSnapshotScope{RootPartnerID: 9000, Endpoint: "POST https://api.backup.management/jsonapi", Complete: true}
+	if _, err := db.InsertCoveSnapshotScoped(ctx, base, scope, withSettings([]store.CoveDeviceStat{
 		{AccountID: 1, DeviceName: "regressor", Customer: "Acme", LastStatus: 5, UsedStorage: 1000},
 		{AccountID: 2, DeviceName: "recoverer", Customer: "Acme", LastStatus: 2, UsedStorage: 5000},
 		{AccountID: 3, DeviceName: "steady", Customer: "Globex", LastStatus: 5, UsedStorage: 800},
 		{AccountID: 4, DeviceName: "retired", Customer: "Globex", LastStatus: 5, UsedStorage: 300},
-	}); err != nil {
+	})); err != nil {
 		t.Fatalf("seed baseline: %v", err)
 	}
-	if _, err := db.InsertCoveSnapshot(ctx, time.Now(), 9000, []store.CoveDeviceStat{
+	if _, err := db.InsertCoveSnapshotScoped(ctx, time.Now(), scope, withSettings([]store.CoveDeviceStat{
 		{AccountID: 1, DeviceName: "regressor", Customer: "Acme", LastStatus: 2, UsedStorage: 1500},
 		{AccountID: 2, DeviceName: "recoverer", Customer: "Acme", LastStatus: 5, UsedStorage: 5000},
 		{AccountID: 3, DeviceName: "steady", Customer: "Globex", LastStatus: 5, UsedStorage: 800},
 		{AccountID: 5, DeviceName: "newcomer", Customer: "Globex", LastStatus: 5, UsedStorage: 100},
-	}); err != nil {
+	})); err != nil {
 		t.Fatalf("seed latest: %v", err)
 	}
 	return dbPath
 }
 
 func TestDevicesChangesDetectsFlips(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	dbPath := seedSnapshots(t)
 	out, err := runCoveCmd(t, "devices", "changes", "--db", dbPath, "--json")
 	if err != nil {
@@ -86,13 +104,14 @@ func TestDevicesChangesDetectsFlips(t *testing.T) {
 }
 
 func TestDevicesChangesNeedsTwoSnapshots(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	dbPath := filepath.Join(t.TempDir(), "cove.db")
 	db, err := store.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
-	if _, err := db.InsertCoveSnapshot(context.Background(), time.Now(), 9000, []store.CoveDeviceStat{
+	scope := store.CoveSnapshotScope{RootPartnerID: 9000, Endpoint: "POST https://api.backup.management/jsonapi", Complete: true}
+	if _, err := db.InsertCoveSnapshotScoped(context.Background(), time.Now(), scope, []store.CoveDeviceStat{
 		{AccountID: 1, DeviceName: "only", Customer: "Acme", LastStatus: 5},
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -108,7 +127,7 @@ func TestDevicesChangesNeedsTwoSnapshots(t *testing.T) {
 }
 
 func TestDevicesChangesEmptyStoreGuidance(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	dbPath := filepath.Join(t.TempDir(), "empty.db")
 	out, err := runCoveCmd(t, "devices", "changes", "--db", dbPath, "--json")
 	if err != nil {

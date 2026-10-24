@@ -5,10 +5,12 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
 
+	"cove-pp-cli/internal/coverpc"
 	"cove-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -36,8 +38,15 @@ type storageGrowthView struct {
 	LatestTakenAt    string           `json:"latest_taken_at"`
 	Items            []growthItem     `json:"items"`
 	ByCustomer       []customerGrowth `json:"by_customer"`
-	TotalDeltaBytes  int64            `json:"total_delta_bytes"`
-	Note             string           `json:"note,omitempty"`
+	// Compared is true only when two comparable snapshots were diffed. When
+	// it is false no delta exists, so total_delta_bytes is absent, not 0.
+	Compared        bool   `json:"compared"`
+	TotalDeltaBytes *int64 `json:"total_delta_bytes,omitempty"`
+	// Partial is true when either snapshot is not a known-complete scan.
+	Partial bool `json:"partial"`
+	// UnmeasuredDevices did not report used storage in one of the snapshots.
+	UnmeasuredDevices int    `json:"unmeasured_devices,omitempty"`
+	Note              string `json:"note,omitempty"`
 }
 
 func newNovelStorageGrowthCmd(flags *rootFlags) *cobra.Command {
@@ -48,10 +57,16 @@ func newNovelStorageGrowthCmd(flags *rootFlags) *cobra.Command {
 		Use:   "growth",
 		Short: "Used-storage growth per device and customer, from local snapshots",
 		Long: strings.Trim(`
-Diffs used storage (column I14) between two local snapshots — the newest one
-and the newest one taken at or before --since ago (default: the previous
-snapshot). The vendor console keeps zero history; this trend exists only
-because 'cove-cli snapshot' persists timestamped fleet state in SQLite.
+Diffs used storage (column I14) between two local snapshots of the same
+partner tree and endpoint: the newest one and the newest one taken at or
+before --since ago (default: the previous snapshot). The vendor console keeps
+zero history; this trend exists only because 'cove-cli snapshot' persists
+timestamped fleet state in SQLite. A device whose used storage was not
+reported, or is not an exact non-negative integer, in either snapshot is left
+out (unmeasured_devices), never read as zero, and partial is true when either
+snapshot stopped at its scan cap. A snapshot with no recorded endpoint (taken
+before endpoint tracking) is never compared: compared is false and no delta
+is printed.
 
 Use this command for NUMERIC used-storage deltas over time. Do NOT use it
 for backup-status regressions; use 'devices changes' instead.
@@ -61,12 +76,12 @@ for backup-status regressions; use 'devices changes' instead.
   cove-cli storage growth --top 10 --csv`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "local",
 			"pp:no-error-path-probe": "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would diff used storage between local snapshots")
-				return nil
+				return coveDryRun(cmd, flags, "would diff used storage between local snapshots")
 			}
 			if err := validateDataSourceStrategy(flags, "local"); err != nil {
 				return err
@@ -92,25 +107,19 @@ for backup-status regressions; use 'devices changes' instead.
 				return err
 			}
 			if !ok {
-				return flags.printJSON(cmd, storageGrowthView{Items: []growthItem{}, ByCustomer: []customerGrowth{}, Note: "no snapshots yet — " + snapshotPairNote})
+				return flags.printJSON(cmd, storageGrowthView{Items: []growthItem{}, ByCustomer: []customerGrowth{}, Note: "no snapshots yet; " + snapshotPairNote})
 			}
-			var baseline store.CoveSnapshot
-			var haveBase bool
-			if window > 0 {
-				baseline, haveBase, err = db.CoveSnapshotBefore(ctx, latest.TakenAt.Add(-window))
-			} else {
-				baseline, haveBase, err = db.CoveSnapshotBefore(ctx, latest.TakenAt.Add(-time.Second))
-			}
+			baseline, refusal, err := snapshotBaseline(ctx, db, latest, window)
 			if err != nil {
 				return err
 			}
-			if !haveBase || baseline.ID == latest.ID {
+			if refusal != "" {
 				return flags.printJSON(cmd, storageGrowthView{
 					LatestSnapshot: latest.ID,
 					LatestTakenAt:  latest.TakenAt.Format(time.RFC3339),
 					Items:          []growthItem{},
 					ByCustomer:     []customerGrowth{},
-					Note:           "only one qualifying snapshot — " + snapshotPairNote,
+					Note:           refusal,
 				})
 			}
 			baseRows, err := db.CoveDeviceStats(ctx, baseline.ID)
@@ -124,11 +133,21 @@ for backup-status regressions; use 'devices changes' instead.
 			items := make([]growthItem, 0)
 			perCustomer := map[string]int64{}
 			var totalDelta int64
+			unmeasured := 0
 			for id, nr := range newRows {
 				br, existed := baseRows[id]
 				if !existed {
 					continue // new devices have no baseline to trend against
 				}
+				// A storage column the server did not report is stored as 0;
+				// reading it as a real zero would invent a growth or a shrink.
+				from, fromOK := snapshotCount(br, coverpc.ColUsedStorage)
+				to, toOK := snapshotCount(nr, coverpc.ColUsedStorage)
+				if !fromOK || !toOK {
+					unmeasured++
+					continue
+				}
+				br.UsedStorage, nr.UsedStorage = from, to
 				delta := nr.UsedStorage - br.UsedStorage
 				if delta == 0 {
 					continue
@@ -142,11 +161,14 @@ for backup-status regressions; use 'devices changes' instead.
 					DeltaBytes: delta,
 				}
 				if br.UsedStorage > 0 {
-					item.DeltaPct = float64(int(float64(delta)/float64(br.UsedStorage)*1000)) / 10
+					item.DeltaPct = math.Trunc(float64(delta)/float64(br.UsedStorage)*1000) / 10
 				}
 				items = append(items, item)
-				perCustomer[nr.Customer] += delta
-				totalDelta += delta
+				customerDelta := perCustomer[nr.Customer]
+				if !addExact(&customerDelta, delta) || !addExact(&totalDelta, delta) {
+					return errTotalOverflow("the storage delta total", id)
+				}
+				perCustomer[nr.Customer] = customerDelta
 			}
 			sort.Slice(items, func(i, j int) bool { return items[i].DeltaBytes > items[j].DeltaBytes })
 			if len(items) > top {
@@ -164,11 +186,26 @@ for backup-status regressions; use 'devices changes' instead.
 				LatestTakenAt:    latest.TakenAt.Format(time.RFC3339),
 				Items:            items,
 				ByCustomer:       byCustomer,
-				TotalDeltaBytes:  totalDelta,
+				Compared:         true,
+				TotalDeltaBytes:  &totalDelta,
 			}
+			view.Partial = !latest.KnownComplete() || !baseline.KnownComplete()
+			view.UnmeasuredDevices = unmeasured
+			var notes []string
 			if len(items) == 0 {
-				view.Note = "no storage deltas between the compared snapshots"
+				if unmeasured > 0 {
+					notes = append(notes, "no storage deltas among the devices measured in both snapshots")
+				} else {
+					notes = append(notes, "no storage deltas between the compared snapshots")
+				}
 			}
+			if unmeasured > 0 {
+				notes = append(notes, fmt.Sprintf("%d devices did not report used storage in one of the snapshots and are left out of every total", unmeasured))
+			}
+			if view.Partial {
+				notes = append(notes, partialSnapshotNote)
+			}
+			view.Note = strings.Join(notes, "; ")
 			return emitCoveJSON(cmd, flags, view, view.Items)
 		},
 	}

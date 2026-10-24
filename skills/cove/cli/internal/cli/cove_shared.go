@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -12,12 +13,25 @@ import (
 	"cove-pp-cli/internal/cliutil"
 	"cove-pp-cli/internal/config"
 	"cove-pp-cli/internal/coverpc"
+	"cove-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
 
-// newCoveRPC builds the JSON-RPC client honoring --config / COVE_BASE_URL.
+// newCoveRPC builds the JSON-RPC client for a command that reads the live
+// API, honoring --config / COVE_BASE_URL. It refuses --data-source local: the
+// hand-built live commands have no local equivalent, so they must not dial
+// Cove when the operator asked for local data only.
 func newCoveRPC(flags *rootFlags) (*coverpc.Client, error) {
+	if err := validateDataSourceStrategy(flags, "live"); err != nil {
+		return nil, usageErr(err)
+	}
+	return newCoveRPCLocal(flags)
+}
+
+// newCoveRPCLocal builds the client for a command that only touches the local
+// session cache (auth status, auth logout) and sends nothing.
+func newCoveRPCLocal(flags *rootFlags) (*coverpc.Client, error) {
 	cfg, err := config.Load(flags.configPath)
 	if err != nil {
 		return nil, configErr(err)
@@ -34,6 +48,9 @@ type fleetDevice struct {
 	AccountID int64             `json:"account_id"`
 	PartnerID int64             `json:"partner_id"`
 	Settings  map[string]string `json:"settings,omitempty"`
+	// AccountKnown is false when AccountId was absent or not an exact
+	// integer: AccountID then holds 0, which is no device's id.
+	AccountKnown bool `json:"-"`
 }
 
 // fleetStatsQuery drives the EnumerateAccountStatistics pager.
@@ -87,11 +104,11 @@ func fetchFleetStats(ctx context.Context, c *coverpc.Client, q fleetStatsQuery) 
 		for _, row := range rows {
 			scanned++
 			d := fleetDevice{Settings: coverpc.FlattenSettings(row["Settings"])}
-			if v, ok := row["AccountId"].(float64); ok {
-				d.AccountID = int64(v)
+			if v, ok := coverpc.RowInt(row, "AccountId"); ok {
+				d.AccountID, d.AccountKnown = v, true
 			}
-			if v, ok := row["PartnerId"].(float64); ok {
-				d.PartnerID = int64(v)
+			if v, ok := coverpc.RowInt(row, "PartnerId"); ok {
+				d.PartnerID = v
 			}
 			devices = append(devices, d)
 		}
@@ -128,7 +145,74 @@ func scanCapNote(capHit bool, scanned, maxPages int, what string) string {
 }
 
 // snapshotPairNote explains the two-snapshot requirement for drift commands.
-const snapshotPairNote = "trend commands diff local snapshots — run `cove-cli snapshot` at least twice, some time apart"
+const snapshotPairNote = "trend commands diff local snapshots of the same partner tree and endpoint; run `cove-cli snapshot` at least twice, some time apart"
+
+// partialSnapshotNote qualifies a comparison that involves a snapshot whose
+// scan stopped at its cap (or that predates completeness tracking): a device
+// missing from it was not necessarily removed.
+const partialSnapshotNote = "a compared snapshot is partial (its scan stopped at --max-scan-pages, it skipped devices without a readable AccountId, or it predates completeness tracking), so added and removed devices are not reported and totals cover only devices present in both; re-run `cove-cli snapshot` with a higher --max-scan-pages"
+
+// snapshotBaseline picks the snapshot to compare latest against: the newest
+// one at least window older (default: any older one) of the SAME partner tree
+// at the SAME endpoint. Every comparison command picks its baseline here and
+// every pair it returns passes store.CoveSnapshotsComparable, the one rule.
+// When no comparable baseline exists, refusal says why in plain words and the
+// caller prints no delta at all.
+func snapshotBaseline(ctx context.Context, db *store.Store, latest store.CoveSnapshot, window time.Duration) (baseline store.CoveSnapshot, refusal string, err error) {
+	if !latest.KnownScope() {
+		return store.CoveSnapshot{}, fmt.Sprintf("nothing compared: the latest snapshot (id %d) has no recorded endpoint or partner (it predates endpoint tracking), so it could have come from another endpoint and is never compared with any snapshot; %s", latest.ID, snapshotPairNote), nil
+	}
+	cutoff := latest.TakenAt.Add(-time.Second)
+	if window > 0 {
+		cutoff = latest.TakenAt.Add(-window)
+	}
+	baseline, ok, err := db.CoveSnapshotBeforeInScope(ctx, cutoff, latest.RootPartnerID, latest.Endpoint)
+	if err != nil {
+		return store.CoveSnapshot{}, "", err
+	}
+	if !ok || !store.CoveSnapshotsComparable(latest, baseline) {
+		return store.CoveSnapshot{}, fmt.Sprintf("only one qualifying snapshot for partner %d at %s; %s", latest.RootPartnerID, latest.Endpoint, snapshotPairNote), nil
+	}
+	return baseline, "", nil
+}
+
+// snapshotSetting reads one integer column of a stored device row from its
+// settings map through the one exact parser. ok is false when the server did
+// not report the column or it is not exactly an integer: the row's hot column
+// holds 0 then, which must never be read as a real zero.
+func snapshotSetting(r store.CoveDeviceStat, code string) (int64, bool) {
+	var m map[string]string
+	if err := json.Unmarshal([]byte(r.SettingsJSON), &m); err != nil {
+		return 0, false
+	}
+	return coverpc.SettingInt(m, code)
+}
+
+// snapshotCount is snapshotSetting for a count or byte size: a negative
+// stored value is not a measurement either.
+func snapshotCount(r store.CoveDeviceStat, code string) (int64, bool) {
+	var m map[string]string
+	if err := json.Unmarshal([]byte(r.SettingsJSON), &m); err != nil {
+		return 0, false
+	}
+	return coverpc.SettingCount(m, code)
+}
+
+// addExact adds v to *sum. It reports false and leaves *sum unchanged when
+// the result would overflow int64, so a total is refused, never wrapped.
+func addExact(sum *int64, v int64) bool {
+	r := *sum + v
+	if (v > 0 && r < *sum) || (v < 0 && r > *sum) {
+		return false
+	}
+	*sum = r
+	return true
+}
+
+// errTotalOverflow refuses to print a total that does not fit in int64.
+func errTotalOverflow(what string, accountID int64) error {
+	return fmt.Errorf("%s overflows a 64-bit integer at account %d: a reported value is implausible, so no total is printed rather than a wrapped one", what, accountID)
+}
 
 // emitCoveJSON renders a hand-built command's envelope through the generated
 // output helpers so --select/--compact/--quiet behave like every other
@@ -161,4 +245,19 @@ func parseCoveSince(raw string) (time.Duration, error) {
 		return 0, usageErr(fmt.Errorf("invalid --since %q: use forms like 24h, 7d, 1w", raw))
 	}
 	return d, nil
+}
+
+// authErr marks a credential failure (exit code 4). Press 4.34.0 omits it for a
+// spec with auth type none; Cove's hand-built commands sign in through coverpc.
+func authErr(err error) error { return &cliError{code: 4, err: err} }
+
+// coveDryRun reports a hand-built command's dry run. Under --json (and --agent)
+// it prints the same envelope as writeDryRun, so a caller parsing stdout never
+// gets prose.
+func coveDryRun(cmd *cobra.Command, flags *rootFlags, would string) error {
+	if flags != nil && flags.asJSON {
+		return writeEncodedJSON(cmd.OutOrStdout(), dryRunResult{DryRun: true, Action: cmd.CommandPath(), Would: would}, "", "")
+	}
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: %s\n", would)
+	return err
 }

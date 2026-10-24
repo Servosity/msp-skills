@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/cove-cli ./cmd/cove-cli
+	go build -trimpath -o bin/cove-cli$(BIN_EXT) ./cmd/cove-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/cove-mcp ./cmd/cove-mcp
+	go build -trimpath -o bin/cove-mcp$(BIN_EXT) ./cmd/cove-mcp
 
 install-mcp:
 	go install ./cmd/cove-mcp
