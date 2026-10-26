@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -33,18 +34,21 @@ func newNovelAuditDriftCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "drift",
 		Short:       "One ranked table of security-relevant changes (protection, policy, maintenance) across every tenant in a window",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		Long: `Drift merges the locally synced ActionLog (tenant-scoped events) and the portal
 System Audit (admin Create/Delete/Modify actions) into one newest-first table of
 security-relevant changes across a time window — the cross-tenant "who changed
 what this week" view no single Portal API call returns.
 
-Sync first: threatlocker-cli sync --resources audit,system-audit`,
+Pull first: threatlocker-cli audit pull --since 30d`,
 		Example: strings.Trim(`
   threatlocker-cli audit drift --since 7d --all-tenants --agent
   threatlocker-cli audit drift --since 2026-05-01 --limit 50
 `, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -58,7 +62,7 @@ Sync first: threatlocker-cli sync --resources audit,system-audit`,
 			}
 			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources audit,system-audit' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli audit pull --since 30d' first.", err)
 			}
 			defer db.Close()
 
@@ -67,9 +71,9 @@ Sync first: threatlocker-cli sync --resources audit,system-audit`,
 			// ActionLog (tenant-scoped).
 			alQuery := `SELECT organization_id, date_created, username, action, computer_name, full_path FROM audit`
 			var alArgs []any
-			if !flagAllTenants && flags.orgID != "" {
+			if scope := tlNovelTenantScope(flagAllTenants); scope != "" {
 				alQuery += ` WHERE organization_id = ?`
-				alArgs = append(alArgs, flags.orgID)
+				alArgs = append(alArgs, scope)
 			}
 			alRows, err := db.DB().QueryContext(cmd.Context(), alQuery, alArgs...)
 			if err != nil {
@@ -151,7 +155,7 @@ Sync first: threatlocker-cli sync --resources audit,system-audit`,
 				return flags.printJSON(cmd, events)
 			}
 			if len(events) == 0 {
-				fmt.Fprintln(out, "No drift events in the window. Sync first: threatlocker-cli sync --resources audit,system-audit")
+				fmt.Fprintln(out, "No drift events in the window. Pull first: threatlocker-cli audit pull --since 30d")
 				return nil
 			}
 			headers := []string{"DATE", "SOURCE", "ORG", "ACTOR", "ACTION", "TARGET"}

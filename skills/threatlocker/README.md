@@ -12,28 +12,22 @@
 <p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/threatlocker/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
-Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
-
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password and
-> listens on every network interface. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the ThreatLocker skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `threatlocker-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode asks for no password and listens on every network interface. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Run installer, host `threatlocker-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `threatlocker-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode asks for no password and listens on every network interface. See the security note in [mcp-install.md](./mcp-install.md).
+ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `THREATLOCKER_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -41,8 +35,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode asks for no password and listens on every network interface. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Host `threatlocker-mcp` over HTTPS with a bearer token (the same HTTP mode as ChatGPT), then add it in Copilot Studio as a Model Context Protocol tool. Needs a Copilot Studio license and a tenant admin. See [mcp-install.md](./mcp-install.md). |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same hosted HTTPS endpoint as ChatGPT. See [mcp-install.md](./mcp-install.md). |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -158,10 +152,15 @@ THREATLOCKER_API_KEY=<value> threatlocker-cli doctor
 | What application approvals are pending across all my clients right now? | `threatlocker-cli approvals triage --all-tenants` |
 | Approve this file hash everywhere it's pending, plan first? | `threatlocker-cli approvals approve-batch --hash <sha256> --all-tenants --dry-run` |
 | Which clients are about to lose audit evidence to the 31-day retention cliff? | `threatlocker-cli audit retention-check` |
-| Export every client's audit log before it ages off? | `threatlocker-cli audit export --all-tenants --since 30d` |
+| Save every client's blocked-file (deny) audit events locally before they age off? | `threatlocker-cli audit pull --since 30d` |
+| Export that saved audit log for a SIEM or an auditor? | `threatlocker-cli audit export --all-tenants --since 30d` |
 | What changed across all tenants this week, protection off, policy edits, maintenance? | `threatlocker-cli audit drift --since 7d --all-tenants` |
 | Which ThreatLocker agents are offline or stale across every client? | `threatlocker-cli devices health --all-tenants` |
-| Where does this binary live across my whole book, approved or pending? | `threatlocker-cli applications hunt --hash <sha256>` |
+| Which tenants and endpoints asked to run this file, and which applications already trust it? | `threatlocker-cli applications hunt --hash <sha256>` |
+| Which endpoints were left in maintenance mode? | `threatlocker-cli maintenance open --older-than 24h` |
+| Which tenant needs a look first? | `threatlocker-cli organizations posture` |
+
+The audit rows read what `audit pull` saved, and the other rows read what `sync` saved: run `threatlocker-cli sync` and `threatlocker-cli audit pull --since 30d` first, and keep `audit pull` on a schedule shorter than 31 days.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -178,8 +177,8 @@ ThreatLocker is default-deny, so every new or updated application becomes an app
 This skill closes both:
 
 - **`approvals triage --all-tenants`** - one ranked queue of every pending approval across all tenants, deduped by file hash.
-- **`approvals approve-batch --hash <sha256> --all-tenants --dry-run`** - permit a known-good file everywhere it's pending, plan first.
-- **`audit retention-check`** + **`audit export --all-tenants --since 30d`** - flag tenants near the 31-day cliff and persist their logs locally before evidence ages off.
+- **`approvals approve-batch --hash <sha256> --all-tenants --dry-run`** - permit a known-good file everywhere it's pending, plan first; the live run needs `--yes`.
+- **`audit pull --since 30d`** + **`audit retention-check`** - save every tenant's deny events locally before evidence ages off (`--action permit` adds permitted events), and flag tenants near the 31-day cliff; **`audit export`** hands the saved log to a SIEM or an auditor.
 - **`devices health --all-tenants`** - surface dark and stale agents across the whole book without a tenant-by-tenant sweep.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -188,7 +187,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the ThreatLocker MCP server in HTTP mode. In this build HTTP mode asks for no password and listens on every network interface, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `threatlocker-mcp` in HTTP mode: it refuses to start until `THREATLOCKER_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The connector works only if its authentication settings can send that bearer token, so check yours first. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -208,7 +207,7 @@ The local mirror exists so reads stop hitting the API. After the first `sync`, t
 
 ### How does it handle ThreatLocker's 31-day audit retention?
 
-ThreatLocker's Unified Audit log keeps about 31 days by default. `audit export` persists each tenant's log to JSONL or CSV locally so the evidence outlives that window, and `audit retention-check` reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed.
+ThreatLocker's Unified Audit log keeps about 31 days by default. `audit pull` saves each tenant's deny events (or, with `--action permit`, permitted ones) to the local store so the evidence outlives that window, `audit export` writes it out as JSONL or CSV, and `audit retention-check` reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed.
 
 ### Do I need to be a ThreatLocker MSP or have child tenants?
 
@@ -226,8 +225,9 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `approvals triage`, `audit drift`, `audit retention-check`, `audit export`, `devices health`, `applications hunt`, `search` | Allow |
-| Write (routine) | `approvals approve` / `approve-batch`, `applications create` / `update`, `policies create` / `copy` / `deploy`, `computers maintenance` / `enable-protection` / `restart-service` | Preview with `--dry-run`, then a reviewed write |
+| Read | `approvals triage`, `audit drift`, `audit retention-check`, `audit export`, `devices health`, `applications hunt`, `maintenance open`, `organizations posture`, `search`; `sync` and `audit pull` write only the local store | Allow |
+| Write (routine) | `approvals approve` / `approve-batch` (its live run needs `--yes`), `applications create` / `update`, `policies create` / `copy` / `deploy`, `computers maintenance` / `enable-protection` / `restart-service` | Preview with `--dry-run`, then a reviewed write |
+| Credential | `organizations auth-key`, `computers install-info` (each returns a tenant's agent installation key; CLI only, never offered over MCP, never cached or stored) | Human-in-the-loop only |
 | Destructive / config | `computers delete`, `policies delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the ThreatLocker credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

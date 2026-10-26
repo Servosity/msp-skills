@@ -1637,7 +1637,7 @@
       "cli_binary": "threatlocker-cli",
       "mcp_binary": "threatlocker-mcp",
       "version": "0.3.12",
-      "printing_press_version": "4.30.2",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "ThreatLocker",
       "vendor_trademark_owner": "ThreatLocker, Inc.",

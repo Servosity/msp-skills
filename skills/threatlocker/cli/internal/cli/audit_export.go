@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -20,18 +21,21 @@ func newNovelAuditExportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "export",
 		Short:       "Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		Long: `Export dumps the locally synced Unified Audit (ActionLog) records, which the
 local store retains BEYOND ThreatLocker's 31-day server-side cliff. Default
 output is JSONL (one record per line) for SIEM ingestion; --csv emits the
 promoted columns, --agent/--json emits a JSON array.
 
-Sync first: threatlocker-cli sync --resources audit`,
+Pull first: threatlocker-cli audit pull --since 30d`,
 		Example: strings.Trim(`
   threatlocker-cli audit export --all-tenants --since 2026-04-01 > audit.jsonl
   threatlocker-cli audit export --all-tenants --since 7d --csv > audit.csv
 `, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -46,7 +50,7 @@ Sync first: threatlocker-cli sync --resources audit`,
 
 			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources audit' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli audit pull --since 30d' first.", err)
 			}
 			defer db.Close()
 
@@ -54,9 +58,9 @@ Sync first: threatlocker-cli sync --resources audit`,
 				FROM audit`
 			var clauses []string
 			var sqlArgs []any
-			if !flagAllTenants && flags.orgID != "" {
+			if scope := tlNovelTenantScope(flagAllTenants); scope != "" {
 				clauses = append(clauses, "organization_id = ?")
-				sqlArgs = append(sqlArgs, flags.orgID)
+				sqlArgs = append(sqlArgs, scope)
 			}
 			query += whereClause(clauses)
 			query += ` ORDER BY date_created DESC`

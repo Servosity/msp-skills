@@ -30,8 +30,10 @@ unless someone remembered to export each tenant's log before the window closed.
   known-good file everywhere it's pending in a single command, with a preview plan first.
 - **`audit retention-check`** - per tenant, how close your audit archive is to the 31-day
   cliff and how stale your last sync is, so evidence never ages off unnoticed.
-- **`audit export --all-tenants --since 30d`** - persist every tenant's Unified Audit log
-  to JSONL or CSV locally, keeping compliance evidence past ThreatLocker's retention window.
+- **`audit pull --since 30d`** - save every tenant's Unified Audit deny events to the local store
+  (`--action permit` for permitted ones), keeping compliance evidence past ThreatLocker's
+  retention window; `audit export` writes it
+  out as JSONL or CSV.
 - **`devices health --all-tenants`** - classify every endpoint online / offline / stale /
   isolated across the whole book, so dark agents surface without a tenant-by-tenant sweep.
 

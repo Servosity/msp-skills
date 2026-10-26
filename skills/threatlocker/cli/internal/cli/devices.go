@@ -14,8 +14,9 @@ func newNovelDevicesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "devices",
-		Short:       "devices subcommands: health",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Short:       "Work with devices",
+		Example:     "  threatlocker-cli devices health --all-tenants --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelDevicesHealthCmd(flags))

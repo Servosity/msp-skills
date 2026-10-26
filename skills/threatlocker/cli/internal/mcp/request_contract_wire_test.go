@@ -14,8 +14,11 @@ import (
 	"testing"
 )
 
-// Exercise the real MCP execute handler and client against a local server. These
-// requests never use a tenant or send credentials outside the fixture.
+// Exercise the real MCP read and execute handlers and client against a local
+// server. These requests never use a tenant or send credentials outside the
+// fixture. Press 4.34.0 splits the executor: read-only endpoints go through
+// threatlocker_read, state-changing ones through threatlocker_execute, which
+// previews until confirm is boolean true.
 func TestRequestContractWire(t *testing.T) {
 	type observed struct {
 		method, path, query, auth string
@@ -53,15 +56,33 @@ func TestRequestContractWire(t *testing.T) {
 		id, method, path string
 		params           map[string]any
 		query, body      string
+		read             bool
 	}{
 
-		{"applications.create", "POST", "/Application/ApplicationInsert", map[string]any{"name": "Example app", "description": "fixture", "applicationFiles": []any{map[string]any{"fullPath": "C:\\Example.exe"}}}, "", `{"name":"Example app","description":"fixture","applicationFiles":[{"fullPath":"C:\\Example.exe"}]}`},
-		{"applications.get", "GET", "/Application/ApplicationGetById", map[string]any{"application-id": "fixture-id"}, "applicationId=fixture-id", ""},
+		{"applications.create", "POST", "/Application/ApplicationInsert", map[string]any{"name": "Example app", "description": "fixture", "applicationFiles": []any{map[string]any{"fullPath": "C:\\Example.exe"}}}, "", `{"name":"Example app","description":"fixture","applicationFiles":[{"fullPath":"C:\\Example.exe"}]}`, false},
+		{"applications.get", "GET", "/Application/ApplicationGetById", map[string]any{"application-id": "fixture-id"}, "applicationId=fixture-id", "", true},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
+			handler := handleCodeOrchRead
+			if !tc.read {
+				handler = handleCodeOrchExecute
+				preview := mcplib.CallToolRequest{}
+				preview.Params.Arguments = map[string]any{"endpoint_id": tc.id, "params": tc.params}
+				if result, err := handler(context.Background(), preview); err != nil || result == nil || result.IsError {
+					t.Fatalf("preview failed: %v %#v", err, result)
+				}
+				select {
+				case got := <-seen:
+					t.Fatalf("execute without confirm sent %s %s", got.method, got.path)
+				default:
+				}
+			}
 			req := mcplib.CallToolRequest{}
 			req.Params.Arguments = map[string]any{"endpoint_id": tc.id, "params": tc.params}
-			result, err := handleCodeOrchExecute(context.Background(), req)
+			if !tc.read {
+				req.Params.Arguments.(map[string]any)["confirm"] = true
+			}
+			result, err := handler(context.Background(), req)
 			if err != nil {
 				t.Fatal(err)
 			}

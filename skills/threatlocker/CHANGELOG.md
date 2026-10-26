@@ -4,6 +4,31 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.3.13] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.34.0** ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server splits reads from writes: `threatlocker_read` calls read-only endpoints (including ThreatLocker's POST searches), and `threatlocker_execute` returns a preview of a state-changing call until the agent passes `confirm: true`. `threatlocker-mcp --transport http` refuses to start without `THREATLOCKER_MCP_HTTP_TOKEN`, answers only requests that send `Authorization: Bearer <token>`, serves `http://127.0.0.1:7777/mcp` by default and needs `--tls-cert`/`--tls-key` for any other address. `THREATLOCKER_MCP_READ_ONLY=1` lists only read-only tools.
+- `organizations auth-key` and `computers install-info` return a tenant's agent installation key, so they are now credential-tier: the CLI prints the key to the terminal that asked, never caches or stores it (the local store drops its key columns, and a store an earlier version wrote is cleaned before anything, the MCP `sql`, `search` and `export` tools included, reads it; if it cannot be cleaned, reading it is refused), and the MCP server never returns it (`threatlocker_read`, `threatlocker_execute` and `threatlocker_get` refuse both, and no mirrored tool is listed).
+- With `THREATLOCKER_NO_LOCAL_DATA=1` the CLI and the MCP server save no API data locally: `sync` and `audit pull` are refused, the response cache is off, and reads go to the API.
+
+### Changed
+- **`approvals approve-batch` now needs `--yes` for a live run**, and a tenant: `--org`, `THREATLOCKER_ORG_ID`, or `--all-tenants`. Without them it refuses and sends nothing; `--dry-run` shows the (tenant, request) pairs it would approve. Scripts that ran it without `--yes` must add the flag. Before each approval the live run re-checks the request with ThreatLocker and approves only requests still pending for that file, so a request someone approved or ignored since the last `sync` is skipped. Over MCP the tool can only preview. A `--json` run exits non-zero when any approval in the batch fails.
+- `audit retention-check` counts only complete, gap-free `audit pull` windows as coverage, and reports `unverified` for a tenant whose rows came from no complete pull.
+
+### Added
+- `audit pull --since <window>`: pages the Unified Audit (ActionLog) deny events (`--action permit` or `any-deny` for others) and the System Audit for one time window into the local store, keyed so a re-pull never duplicates rows. `audit export`, `audit drift`, `audit retention-check` and `organizations posture` read what it saves; before it, nothing filled those tables.
+- `maintenance open`: endpoints whose maintenance-mode window is open right now, across tenants, longest-open first, flagged overdue past `--older-than`.
+- `organizations posture`: one row per tenant (endpoints, online, isolated, pending approvals, open maintenance windows, newest audit row), sorted by what needs a look first.
+- `local-data purge` (from the 4.34.0 engine).
+- `THREATLOCKER_MCP_READ_ONLY`, `THREATLOCKER_NO_LOCAL_DATA` and `THREATLOCKER_MCP_HTTP_TOKEN` are declared on every install channel (Claude Desktop bundle, MCP Registry, manual config).
+
+### Fixed
+- `applications hunt --org <tenant>` lists only that tenant's approval requests, like every other local read. Application rules are not stored per tenant, so they are listed either way.
+- `sync` stores application files in the table `applications hunt` reads, and pages online devices, application files and maintenance history instead of stopping after the first page.
+- `doctor` probes the credential with a command that needs no input, so a healthy install is no longer reported as having the wrong base URL, and it treats the shipped base URL as a real host.
+- The help for `devices health`, `applications hunt` and the audit commands names the command that fills their table (`sync` or `audit pull`), and an endpoint counts as online only when its online-device row is as fresh as its computer row.
+- `maintenance open` and `organizations posture` count each maintenance window once, using its newest version.
+
 ## [0.3.12] - 2026-10-23
 
 ### Changed

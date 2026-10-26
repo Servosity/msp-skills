@@ -4,9 +4,6 @@
 
 A single CLI for MSPs running ThreatLocker across many customer tenants. It matches the full read surface of the incumbent MCP server, adds the writes nobody shipped (approve requests, toggle maintenance, push policy), and mirrors every entity into a local SQLite database so you can triage approvals, audit drift, and device health across ALL tenants at once  -  something the per-tenant API forces you to do one header-swap at a time.
 
-Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
-Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
-
 ## Install
 
 This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `threatlocker-cli` and `threatlocker-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
@@ -63,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `THREATLOCKER_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `threatlocker-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `THREATLOCKER_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -80,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/threatlocker/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -97,6 +92,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`threatlocker-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `THREATLOCKER_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export THREATLOCKER_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+threatlocker-mcp --transport http
+```
+
+Set `THREATLOCKER_MCP_READ_ONLY=1` (exactly `1`) to list only read-only tools: that removes `threatlocker_execute`, `approvals_approve_batch`, `audit_pull`, `sync`, `workflow_archive`, `import`, `export` and the learn-store tools (`teach`, `teach_lookup`, `teach_pattern`, `teach_playbook`, `playbook_amend`, `playbook_list`, `recall`, `learnings_confirm`, `learnings_reject`, `learnings_forget`), 17 of the 38 tools, and `threatlocker_read` still refuses every state-changing endpoint.
+
 ## Authentication
 
 Auth is a raw API token in the Authorization header (NO 'Bearer' prefix)  -  a 64-character lowercase hex string created in the portal under Administrators > API Users > Generate API Token. Most calls also need a ManagedOrganizationId header (your tenant GUID); set THREATLOCKER_ORG_ID or pass --org. Tokens renew on each use and silently expire when idle, so run `doctor` if you hit a 401.
@@ -107,18 +113,14 @@ Auth is a raw API token in the Authorization header (NO 'Bearer' prefix)  -  a 6
 # verify your token, org header, and API mode before anything else
 threatlocker-cli doctor
 
-
 # list your managed customer tenants and their GUIDs
 threatlocker-cli organizations list --agent
-
 
 # see pending approval requests across all tenants
 threatlocker-cli approvals list --child-orgs --agent
 
-
 # mirror entities into the local store so cross-tenant commands work offline
 threatlocker-cli sync
-
 
 # the ranked, hash-grouped cross-tenant approval queue
 threatlocker-cli approvals triage --all-tenants --agent
@@ -127,10 +129,7 @@ threatlocker-cli approvals triage --all-tenants --agent
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Cross-tenant intelligence
-
 - **`approvals triage`**  -  One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row.
 
   _Reach for this to clear the morning approval backlog across an entire MSP book without swapping tenant context request-by-request._
@@ -152,9 +151,29 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli devices health --all-tenants --agent
   ```
+- **`applications hunt`**  -  Find a file (by hash, certificate, or path) in every tenant's synced approval requests (tenant, endpoint, status) and application rules (which applications already trust it), in one offline query.
+
+  _Reach for this during incident response to see which tenants and endpoints asked to run a file, and which application rules already trust it, without swapping tenant context per search._
+
+  ```bash
+  threatlocker-cli applications hunt --hash 3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b --agent
+  ```
+- **`maintenance open`**  -  Lists every endpoint whose maintenance-mode window is open right now across all tenants, longest-open first, flagging windows open past an age threshold.
+
+  _Reach for this to catch endpoints a technician left in a maintenance mode that relaxes protection, which keep running that way until someone notices._
+
+  ```bash
+  threatlocker-cli maintenance open --older-than 24h --agent
+  ```
+- **`organizations posture`**  -  One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row.
+
+  _Reach for this before a customer review or a morning sweep to see which tenant needs attention first._
+
+  ```bash
+  threatlocker-cli organizations posture --agent
+  ```
 
 ### MSP write operations
-
 - **`approvals approve-batch`**  -  Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.
 
   _Use this when one trusted updater is blocked everywhere  -  approve it once instead of clicking through 30 portals._
@@ -164,24 +183,29 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Audit & compliance
-
-- **`audit export`**  -  Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff.
+- **`audit export`**  -  Export the Unified Audit log that `audit pull` saved, per tenant or across all tenants, to JSONL/CSV, keeping evidence past ThreatLocker's 31-day retention cliff.
 
   _Run this on a schedule so compliance evidence and incident timelines survive the retention window._
 
   ```bash
   threatlocker-cli audit export --all-tenants --since 2026-04-01 --agent
   ```
-- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is  -  flagging tenants about to lose evidence.
+- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last complete audit pull is  -  flagging tenants about to lose evidence.
 
   _Pick this to catch a broken export before the data it should have captured ages off the 31-day window forever._
 
   ```bash
   threatlocker-cli audit retention-check --agent
   ```
+- **`audit pull`**  -  Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff.
+
+  _Run it on a schedule shorter than 31 days and the local archive keeps the evidence ThreatLocker deletes._
+
+  ```bash
+  threatlocker-cli audit pull --since 30d --agent
+  ```
 
 ### Auth resilience
-
 - **`doctor`**  -  Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause.
 
   _Run this first whenever a script starts returning 401  -  it tells you whether the token expired, the org header is missing, or you're on the deprecated API mode._
@@ -192,14 +216,13 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Morning cross-tenant approval sweep
 
 ```bash
 threatlocker-cli approvals triage --all-tenants --agent --select organizationName,fileName,hash,ageHours,duplicateCount
 ```
 
-Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones.
+Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones. Requires a recent sync --resources approvals.
 
 ### Nightly audit archive before the 31-day cliff
 
@@ -207,7 +230,7 @@ Drain the overnight backlog ranked by age with duplicate hashes collapsed, then 
 threatlocker-cli audit export --all-tenants --since 2026-04-01 --csv > audit-archive.csv
 ```
 
-Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance.
+Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance. Run threatlocker-cli audit pull --since 30d first: the export materializes from the local archive that pull fills.
 
 ### Who disabled protection this week
 
@@ -215,7 +238,7 @@ Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compli
 threatlocker-cli audit drift --since 7d --all-tenants --agent
 ```
 
-One ranked table of protection-off / policy-change / maintenance events across every customer.
+One ranked table of protection-off / policy-change / maintenance events across every customer. Run threatlocker-cli audit pull --since 30d first.
 
 ### Dark-agent health sweep
 
@@ -223,7 +246,7 @@ One ranked table of protection-off / policy-change / maintenance events across e
 threatlocker-cli devices health --all-tenants --agent --select organizationName,computerName,healthClass,lastCheckin
 ```
 
-Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass.
+Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass. Requires a recent sync --resources computers,online-devices.
 
 ### Diagnose a broken automation
 
@@ -272,6 +295,15 @@ threatlocker-cli doctor
 
 Under `THREATLOCKER_HOME=/srv/threatlocker`, the four dirs resolve to `/srv/threatlocker/config`, `/srv/threatlocker/data`, `/srv/threatlocker/state`, and `/srv/threatlocker/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:THREATLOCKER_HOME = "C:\srv\threatlocker"
+threatlocker-cli doctor
+```
+
+Under `$env:THREATLOCKER_HOME = "C:\srv\threatlocker"`, the four dirs resolve to `C:\srv\threatlocker\config`, `C:\srv\threatlocker\data`, `C:\srv\threatlocker\state`, and `C:\srv\threatlocker\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -292,6 +324,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `THREATLOCKER
 Relocation is one-way. Unsetting `THREATLOCKER_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `threatlocker-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `threatlocker-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `threatlocker-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `THREATLOCKER_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `THREATLOCKER_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -435,6 +477,52 @@ ThreatLocker agent versions
 - **`threatlocker-cli versions`** - List available agent versions (label/value/isEnabled/isDefault/osType)
 
 
+### applications
+
+
+- **`threatlocker-cli applications hunt`** - Find a file (by hash, certificate, or path) in every tenant's synced approval requests (tenant, endpoint, status) and application rules (which applications already trust it), in one offline query.
+
+
+### approvals
+
+
+- **`threatlocker-cli approvals triage`** - One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row.
+
+- **`threatlocker-cli approvals approve-batch`** - Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.
+
+
+### audit
+
+
+- **`threatlocker-cli audit export`** - Export the Unified Audit log that `audit pull` saved, per tenant or across all tenants, to JSONL/CSV, keeping evidence past ThreatLocker's 31-day retention cliff.
+
+- **`threatlocker-cli audit retention-check`** - Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last complete audit pull is  -  flagging tenants about to lose evidence.
+
+- **`threatlocker-cli audit drift`** - One ranked table of security-relevant changes  -  protection disabled, policy changed, maintenance toggled  -  across every tenant in a time window.
+
+- **`threatlocker-cli audit pull`** - Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff.
+
+
+### devices
+
+
+- **`threatlocker-cli devices health`** - Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant.
+
+
+### maintenance
+
+
+- **`threatlocker-cli maintenance open`** - Lists every endpoint whose maintenance-mode window is open right now across all tenants (learning, installation or disabled protection), longest-open first, flagging windows past an age threshold.
+
+
+### organizations
+
+
+- **`threatlocker-cli organizations posture`** - One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row.
+
+
+
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -470,6 +558,8 @@ threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-4466
 threatlocker-cli application-files --application-id 550e8400-e29b-41d4-a716-446655440000 --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -479,12 +569,12 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -496,9 +586,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `threatlocker-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatlocker-cli/config.toml` (`%USERPROFILE%\.config\threatlocker-cli\config.toml` on Windows); `--home`, `THREATLOCKER_HOME`, and per-kind env vars can relocate it.
+Run `threatlocker-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatlocker-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\threatlocker-cli\config.toml` on Windows; `--home`, `THREATLOCKER_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `THREATLOCKER_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `THREATLOCKER_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -519,13 +611,10 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-
 - **401 Unauthorized from every call**  -  Run `threatlocker-cli doctor`; most often the sliding-expiry token died from inactivity or the ManagedOrganizationId header is missing.
 - **Empty results but no error**  -  Confirm the ManagedOrganizationId / --org GUID is the tenant you mean; data calls are tenant-scoped.
 - **Audit rows older than ~31 days are gone**  -  ThreatLocker retains ActionLog 31 days; run `audit export` on a schedule and query the local store for older data.
 - **Endpoint deprecated / unexpected shape**  -  Ensure you are on the New API version; the Old API is deprecated and requires the ManagedOrganizationId header on the New one.
-
----
 
 ## Sources & Inspiration
 

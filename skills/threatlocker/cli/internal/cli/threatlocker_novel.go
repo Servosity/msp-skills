@@ -56,6 +56,39 @@ func tlAuthDiagnosis(hasToken, tokenOK, hasOrg bool) string {
 	}
 }
 
+// tlNovelTenantScope is the one rule every local-store novel READ uses to pick
+// the tenant its rows are filtered to. allTenants is the command's
+// --all-tenants value; a command without that flag passes false. Only the
+// explicit --org filters local rows: THREATLOCKER_ORG_ID scopes live requests
+// but never hides local rows, because an MSP that sets it to its parent
+// organization would otherwise see none of its child tenants' rows (see
+// tenantOrgFlag in tenant_scope.go). Hand-wired (class: tenant scope of
+// local-store commands).
+func tlNovelTenantScope(allTenants bool) string {
+	if allTenants {
+		return ""
+	}
+	return tenantOrgFlag
+}
+
+// tlRequireTenantScope is the tenant scope for a command that WRITES per
+// tenant. It uses the operator's tenant setting exactly as the HTTP client
+// resolves it (--org, else THREATLOCKER_ORG_ID), so a write never reaches a
+// tenant the operator did not choose, and it fails closed when neither
+// --all-tenants nor a tenant is set, so a write never spans every synced
+// tenant by default. The scope is returned either way, so a dry-run can show
+// the refusal next to the plan.
+func tlRequireTenantScope(allTenants bool) (string, error) {
+	scope := ""
+	if !allTenants {
+		scope = ResolveTenantOrg(tenantOrgFlag)
+	}
+	if !allTenants && scope == "" {
+		return "", fmt.Errorf("no tenant selected: pass --org <tenant-guid> or set %s to act on one tenant, or pass --all-tenants to act on every synced tenant", TenantOrgEnvVar)
+	}
+	return scope, nil
+}
+
 // tlTimeLayouts are the datetime shapes ThreatLocker timestamps appear in
 // across ActionLog, approval, and audit payloads. Tried in order.
 var tlTimeLayouts = []string{
@@ -128,6 +161,17 @@ func resolveSince(s string, now time.Time) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+// tlFreshOnlineJoin is the one rule devices health and organizations posture
+// use to join online_devices to computers (aliased c and od). A sync never
+// prunes an online_devices row the API stopped returning, so a row counts as
+// evidence the endpoint is online only when it was synced no earlier than the
+// computers row it joins; an older one would outvote the computer's fresher
+// status. julianday() compares instants, so the RFC 3339 stamps the store
+// writes and SQLite's CURRENT_TIMESTAMP default order correctly. Hand-wired
+// (class: stale join membership).
+const tlFreshOnlineJoin = `LEFT JOIN online_devices od ON od.computer_id = c.computer_id
+	AND julianday(od.synced_at) >= julianday(c.synced_at)`
+
 // tlString extracts a non-null string from a *string scan target.
 func tlString(p *string) string {
 	if p == nil {
@@ -140,9 +184,19 @@ func tlString(p *string) string {
 // read-only when the schema exists (no write lock -> no SQLITE_BUSY under
 // parallel reads), else read-write-migrate, with a short retry to ride out the
 // first-run create/migrate race. Non-nil on a nil error.
+//
+// Under THREATLOCKER_NO_LOCAL_DATA=1 it opens an existing store read-only and
+// never creates or migrates one: reading local data stays available, writing
+// any is refused. Hand-wired (class: local-data opt-out bypass).
 func tlOpenStore(ctx context.Context, dbPath string) (*store.Store, error) {
 	if dbPath == "" {
 		dbPath = defaultDBPath("threatlocker-cli")
+	}
+	if localDataDisabled() {
+		if st, ok := tlTryReadOnlyMigrated(dbPath); ok {
+			return st, nil
+		}
+		return nil, fmt.Errorf("no readable local store at %s, and %s=1 forbids creating one", dbPath, noLocalDataEnvVar)
 	}
 	var lastErr error
 	for attempt := 0; attempt < 8; attempt++ {

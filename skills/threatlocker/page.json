@@ -20,7 +20,7 @@
   "pain_points": [
     "ThreatLocker is default-deny: every new or updated application a user runs creates an approval request an admin has to clear. Run it across a book of customer tenants and the requests pile up faster than anyone can triage them, and the Portal makes you work one tenant at a time, switching the managed-organization context for every single one.",
     "The Unified Audit log keeps roughly 31 days by default. Cyber-insurance questionnaires and compliance audits routinely ask for longer, so the evidence you need is the evidence that just aged off, unless someone remembered to export each tenant's log before the cliff.",
-    "Answering \"where does this binary live across all my clients\" or \"which agents went dark this week\" means opening each tenant's Portal in turn. There is no single view that joins approvals, device health, and audit events across the whole book at once."
+    "Answering \"which of my clients has this file turned up in\" or \"which agents went dark this week\" means opening each tenant's Portal in turn. There is no single view that joins approvals, device health, and audit events across the whole book at once."
   ],
   "outcomes": [
     {
@@ -36,7 +36,11 @@
       "command": "threatlocker-cli audit retention-check"
     },
     {
-      "question": "Export every client's audit log before it ages off?",
+      "question": "Save every client's blocked-file (deny) audit events locally before they age off?",
+      "command": "threatlocker-cli audit pull --since 30d"
+    },
+    {
+      "question": "Export that saved audit log for a SIEM or an auditor?",
       "command": "threatlocker-cli audit export --all-tenants --since 30d"
     },
     {
@@ -48,8 +52,16 @@
       "command": "threatlocker-cli devices health --all-tenants"
     },
     {
-      "question": "Where does this binary live across my whole book, approved or pending?",
+      "question": "Which tenants and endpoints asked to run this file, and which applications already trust it?",
       "command": "threatlocker-cli applications hunt --hash <sha256>"
+    },
+    {
+      "question": "Which endpoints were left in maintenance mode?",
+      "command": "threatlocker-cli maintenance open --older-than 24h"
+    },
+    {
+      "question": "Which tenant needs a look first?",
+      "command": "threatlocker-cli organizations posture"
     },
     {
       "question": "Pull every tenant's ThreatLocker data into a local mirror for offline queries?",
@@ -61,7 +73,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running threatlocker-mcp in HTTP mode, and in this build HTTP mode asks for no password and listens on every network interface. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host threatlocker-mcp in HTTP mode: it refuses to start until THREATLOCKER_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
@@ -81,7 +93,7 @@
     },
     {
       "q": "How does it handle ThreatLocker's 31-day audit retention?",
-      "a": "ThreatLocker's Unified Audit log keeps about 31 days by default. audit export persists each tenant's log to JSONL or CSV locally so evidence outlives that window, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed."
+      "a": "ThreatLocker's Unified Audit log keeps about 31 days by default. audit pull saves each tenant's deny events (or, with --action permit, permitted ones) to the local store so evidence outlives that window, audit export writes it out as JSONL or CSV, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed."
     },
     {
       "q": "Do I need to be a ThreatLocker MSP or have child tenants?",
@@ -96,13 +108,18 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "threatlocker-cli approvals triage --all-tenants; threatlocker-cli audit drift --since 7d --all-tenants; threatlocker-cli audit retention-check; threatlocker-cli audit export --all-tenants --since 30d; threatlocker-cli devices health --all-tenants; threatlocker-cli applications hunt --hash <sha256>; threatlocker-cli search",
+      "examples": "threatlocker-cli approvals triage --all-tenants; threatlocker-cli audit drift --since 7d --all-tenants; threatlocker-cli audit retention-check; threatlocker-cli audit export --all-tenants --since 30d; threatlocker-cli devices health --all-tenants; threatlocker-cli applications hunt --hash <sha256>; threatlocker-cli maintenance open; threatlocker-cli organizations posture; threatlocker-cli search; sync and audit pull write only the local store",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "threatlocker-cli approvals approve (permit a file); threatlocker-cli approvals approve-batch (permit a file across tenants); threatlocker-cli applications create / applications update; threatlocker-cli policies create / policies copy / policies deploy; threatlocker-cli computers maintenance / computers enable-protection / computers restart-service - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "examples": "threatlocker-cli approvals approve (permit a file); threatlocker-cli approvals approve-batch (permit a file across tenants); threatlocker-cli applications create / applications update; threatlocker-cli policies create / policies copy / policies deploy; threatlocker-cli computers maintenance / computers enable-protection / computers restart-service - writes send immediately (approvals approve-batch refuses a live run without --yes); --dry-run is an opt-in preview, not a default",
       "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential",
+      "examples": "threatlocker-cli organizations auth-key; threatlocker-cli computers install-info (each returns a tenant's agent installation key; CLI only, never offered over MCP, never cached or stored)",
+      "policy": "Human-in-the-loop only"
     },
     {
       "tier": "Destructive / config",
