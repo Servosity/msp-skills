@@ -40,8 +40,7 @@ func TestCodeOrchExecuteSubstitutesStringPathParams(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := resetMCPPathEnv(t)
 	t.Setenv("NINJAONE_CONFIG", filepath.Join(home, "config.toml"))
 	t.Setenv("NINJAONE_BASE_URL", srv.URL)
 	t.Setenv("NINJAONE_CLIENT_ID", "")
@@ -49,13 +48,27 @@ func TestCodeOrchExecuteSubstitutesStringPathParams(t *testing.T) {
 
 	callExecute := func(endpointID string, params map[string]any) {
 		t.Helper()
-		result, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{
-			Params: mcplib.CallToolParams{
-				Arguments: map[string]any{
-					"endpoint_id": endpointID,
-					"params":      params,
-				},
-			},
+		// Press 4.34.0: GETs run through ninjaone_read; writes preview on
+		// ninjaone_execute (sending nothing) until confirm is boolean true.
+		handler := handleCodeOrchRead
+		args := map[string]any{"endpoint_id": endpointID, "params": params}
+		if ep := findCodeOrchEndpoint(endpointID); ep == nil || ep.Method != "GET" {
+			handler = handleCodeOrchExecute
+			before := len(seen)
+			pv := make(map[string]any, len(params))
+			for k, v := range params {
+				pv[k] = v
+			}
+			preview, err := handler(context.Background(), mcplib.CallToolRequest{
+				Params: mcplib.CallToolParams{Arguments: map[string]any{"endpoint_id": endpointID, "params": pv}},
+			})
+			if err != nil || preview == nil || preview.IsError || len(seen) != before {
+				t.Fatalf("unconfirmed %s: preview=%#v err=%v requests=%d (want preview, no request)", endpointID, preview, err, len(seen)-before)
+			}
+			args["confirm"] = true
+		}
+		result, err := handler(context.Background(), mcplib.CallToolRequest{
+			Params: mcplib.CallToolParams{Arguments: args},
 		})
 		if err != nil {
 			t.Fatalf("handleCodeOrchExecute returned transport error: %v", err)

@@ -94,6 +94,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`ninjaone-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `NINJAONE_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export NINJAONE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+ninjaone-mcp --transport http
+```
+
+Set `NINJAONE_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 NinjaOne uses OAuth2 client-credentials. Create an API app under Administration > Apps > API, then set NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET. The default base URL is https://app.ninjarmm.com; for non-US tenants set NINJAONE_BASE_URL (e.g. https://eu.ninjarmm.com) and NINJAONE_TOKEN_URL (e.g. https://eu.ninjarmm.com/ws/oauth/token). Run 'ninjaone-cli doctor' to confirm auth and reachability.
@@ -120,8 +131,6 @@ ninjaone-cli search 'finance-srv'
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Cross-fleet rollups (local store only)
 - **`patch-compliance`**  -  One row per organization showing percent OS-patched, percent software-patched, failed counts, and the worst-offender device across your whole fleet.
 
@@ -137,12 +146,26 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   ninjaone-cli backup-coverage --agent --select deviceName,org,reason
   ```
-- **`software-audit`**  -  For each software title, counts the distinct versions installed across the fleet and where each version lives; flags titles fragmented across many versions.
+- **`software-audit`**  -  For each software title, reports its install count across the fleet, the number of distinct versions and the version list; flags titles fragmented across many versions.
 
   _Find license sprawl and update lag (the same app at 14 versions) in one query instead of scrolling per-device inventories._
 
   ```bash
   ninjaone-cli software-audit --min-versions 3 --json
+  ```
+- **`low-disk`**  -  Lists every synced volume under a free-space floor (percent or GiB), worst first, with device and organization, so disk-full patch and backup failures are caught before they happen.
+
+  _Full disks are a top cause of failed patches and backups; this is the weekly sweep that finds them across every client at once._
+
+  ```bash
+  ninjaone-cli low-disk --min-free-pct 10 --agent
+  ```
+- **`bitlocker-gaps`**  -  Lists every synced volume whose BitLocker protection is not PROTECTED (unprotected, pending, unknown or not reported), grouped by organization, for encryption audits and cyber-insurance questionnaires.
+
+  _Insurers and auditors ask whether every laptop is encrypted; this answers it per client from one sync._
+
+  ```bash
+  ninjaone-cli bitlocker-gaps --org 2 --agent
   ```
 
 ### Risk and exposure scoring
@@ -185,7 +208,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Monday patch-compliance review
 
@@ -230,6 +252,81 @@ Use --select with dotted paths to keep only the fields you need from a large nes
 ## Usage
 
 Run `ninjaone-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `NINJAONE_CONFIG_DIR`, `NINJAONE_DATA_DIR`, `NINJAONE_STATE_DIR`, or `NINJAONE_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `NINJAONE_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export NINJAONE_HOME=/srv/ninjaone
+ninjaone-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:NINJAONE_HOME = "C:\ProgramData\ninjaone"
+ninjaone-cli doctor
+```
+
+Under `NINJAONE_HOME=/srv/ninjaone`, the four dirs resolve to `/srv/ninjaone/config`, `/srv/ninjaone/data`, `/srv/ninjaone/state`, and `/srv/ninjaone/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:NINJAONE_HOME = "C:\srv\ninjaone"
+ninjaone-cli doctor
+```
+
+Under `$env:NINJAONE_HOME = "C:\srv\ninjaone"`, the four dirs resolve to `C:\srv\ninjaone\config`, `C:\srv\ninjaone\data`, `C:\srv\ninjaone\state`, and `C:\srv\ninjaone\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "ninjaone": {
+      "command": "ninjaone-mcp",
+      "env": {
+        "NINJAONE_HOME": "/srv/ninjaone"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `NINJAONE_DATA_DIR` overrides an explicit `--home` for that kind. Use `NINJAONE_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `NINJAONE_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `ninjaone-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `ninjaone-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `ninjaone-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `NINJAONE_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `NINJAONE_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -606,6 +703,85 @@ Webhook Endpoints
 - **`ninjaone-cli webhook disable`** - Disables Webhook configuration for current application/client
 
 
+### av-sweep
+
+
+- **`ninjaone-cli av-sweep`** - Given a threat name or a stale-definition window, lists every device fleet-wide carrying it, grouped by organization and location.
+
+
+### backup-coverage
+
+
+- **`ninjaone-cli backup-coverage`** - Lists every device with no backup usage (or zero bytes / stale job), grouped by organization, so unprotected endpoints surface immediately.
+
+
+### bitlocker-gaps
+
+
+- **`ninjaone-cli bitlocker-gaps`** - Lists every synced volume whose BitLocker protection is not PROTECTED (unprotected, pending, unknown or not reported), grouped by organization, for encryption audits and cyber-insurance questionnaires.
+
+
+### drift
+
+
+- **`ninjaone-cli drift`** - Diffs the current sync against the previous stored snapshot to show which organizations got better or worse on patch, backup, or stale metrics.
+
+
+### fleet-health
+
+
+- **`ninjaone-cli fleet-health`** - A transparent 0-100 score per organization from patch, backup, AV, and stale-device signals, with the contributing deductions itemized.
+
+
+### low-disk
+
+
+- **`ninjaone-cli low-disk`** - Lists every synced volume under a free-space floor (percent or GiB), worst first, with device and organization, so disk-full patch and backup failures are caught before they happen.
+
+
+### os-eol
+
+
+- **`ninjaone-cli os-eol`** - Lists devices running end-of-life operating systems, grouped by organization, against a curated EOL reference table.
+
+
+### patch-compliance
+
+
+- **`ninjaone-cli patch-compliance`** - One row per organization showing percent OS-patched, percent software-patched, failed counts, and the worst-offender device across your whole fleet.
+
+
+### software-audit
+
+
+- **`ninjaone-cli software-audit`** - For each software title, reports its install count across the fleet, the number of distinct versions and the version list; flags titles fragmented across many versions.
+
+
+### stale-devices
+
+
+- **`ninjaone-cli stale-devices`** - Lists devices whose last contact exceeds a threshold, with days-since and owning organization and location.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`ninjaone-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`ninjaone-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`ninjaone-cli learnings list`** - Inspect taught rows
+- **`ninjaone-cli learnings forget <query>`** - Undo a teach
+- **`ninjaone-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`ninjaone-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`ninjaone-cli teach-pattern`** - Install a query/resource template up front
+- **`ninjaone-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `NINJAONE_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `ninjaone-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -614,9 +790,8 @@ ninjaone-cli activities
 
 # JSON for scripting and agents
 ninjaone-cli activities --json
-
-# Filter to specific fields
-ninjaone-cli activities --json --select id,name,status
+# Filter to specific fields by name
+ninjaone-cli activities --json --select <field>[,<field>...]
 
 # Dry run  -  show the request without sending
 ninjaone-cli activities --dry-run
@@ -625,21 +800,23 @@ ninjaone-cli activities --dry-run
 ninjaone-cli activities --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Health Check
 
@@ -651,9 +828,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/ninjaone-cli/config.toml`
+Run `ninjaone-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/ninjaone-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\ninjaone-cli\config.toml` on Windows; `--home`, `NINJAONE_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `NINJAONE_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `NINJAONE_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -668,7 +847,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### Keeping credentials off disk (optional)
 
-By default the connector caches the token it mints in the config file so the next
+By default the connector caches the token it mints on disk so the next
 command does not have to mint another one. Set `NINJAONE_NO_CONFIG_WRITE=1` to turn that
 off: nothing is written, and each run mints a fresh token instead. Use it when
 your secrets live in Keychain, Windows Credential Manager, or any launcher that
@@ -679,7 +858,7 @@ plaintext copy on disk.
 | --- | --- |
 | Token cache | Not written. A fresh token is minted per invocation. |
 | `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |
-| `auth logout` | Still clears an existing config file. The erase is not a credential write. |
+| `auth logout` | Still clears stored credentials. The erase is not a credential write. |
 | MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
 
 Set it in the shell for CLI use, or through the install prompt of the same name

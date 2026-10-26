@@ -36,6 +36,7 @@ const (
 	rtSoftware        = "queries-software"
 	rtOperatingSys    = "queries-operating-systems"
 	rtDeviceHealth    = "queries-device-health"
+	rtVolumes         = "queries-volumes"
 )
 
 // openNovelStore opens the local store read/write (drift needs writes) with a
@@ -196,6 +197,7 @@ type nvDevice struct {
 	OrgID       string
 	LocationID  string
 	OSName      string
+	NodeClass   string
 	LastContact time.Time
 	HasContact  bool
 	Offline     bool
@@ -218,6 +220,7 @@ func buildDeviceIndex(db *store.Store) (map[string]nvDevice, error) {
 			Name:       nvStr(r, "systemName", "dnsName", "displayName", "name", "hostname"),
 			OrgID:      nvStr(r, "organizationId", "organisationId", "orgId"),
 			LocationID: nvStr(r, "locationId"),
+			NodeClass:  nvStr(r, "nodeClass"),
 			OSName:     nvNested(r, "os", "name", "displayName"),
 		}
 		if d.Name == "" {
@@ -386,16 +389,19 @@ func computeBackupCoverage(db *store.Store, devices map[string]nvDevice, orgName
 	}
 	protected := map[string]bool{}
 	seen := map[string]bool{}
+	reported := map[string]bool{}
 	for _, r := range rows {
 		did := rowDeviceID(r)
 		if did == "" {
 			continue
 		}
 		seen[did] = true
-		// Treat any non-zero usage as protected; fall back to "row exists".
-		used, ok := nvFloat(r, "usedBytes", "used", "totalSize", "size", "revisionCount", "count")
-		if !ok || used > 0 {
+		isProtected, isReported := backupUsageEvidence(r)
+		if isProtected {
 			protected[did] = true
+		}
+		if isReported {
+			reported[did] = true
 		}
 	}
 	var gaps []backupCoverageRow
@@ -404,8 +410,10 @@ func computeBackupCoverage(db *store.Store, devices map[string]nvDevice, orgName
 			continue
 		}
 		reason := "no backup-usage record"
-		if seen[d.ID] {
+		if reported[d.ID] {
 			reason = "backup usage is zero"
+		} else if seen[d.ID] {
+			reason = "backup usage not reported"
 		}
 		gaps = append(gaps, backupCoverageRow{
 			DeviceID:   d.ID,
@@ -422,6 +430,53 @@ func computeBackupCoverage(db *store.Store, devices map[string]nvDevice, orgName
 		return gaps[i].DeviceName < gaps[j].DeviceName
 	})
 	return gaps, len(devices), nil
+}
+
+// backupUsageSizeFields are spec.yaml BackupUsage's size fields (bytes), the
+// read-only totals included; backupUsageLegacyFields are the flat keys this
+// command read before (kept beside them so no existing signal is dropped).
+var backupUsageSizeFields = []string{
+	"revisionsCurrentSize", "revisionsPreviousSize", "revisionsDeletedSize",
+	"localFileFolderSize", "localImageSize", "localImageV2Size",
+	"cloudFileFolderSize", "cloudImageSize", "cloudImageV2Size",
+	"revisionsTotalSize", "cloudTotalSize", "localTotalSize",
+}
+var backupUsageLegacyFields = []string{"usedBytes", "used", "totalSize", "size", "revisionCount", "count"}
+
+// backupUsageEvidence reads one /v2/queries/backup/usage row (spec.yaml
+// DeviceUsageReport -> NodeWithDetailedReferences, usage in
+// references.backupUsage). protected: a documented size above zero or a
+// successful backup job on record. reported: the row carries any usage field
+// at all, so a row that is not protected reads as zero usage rather than as
+// unknown. A row with no usage field is neither: unknown coverage is a gap.
+// Class backup-coverage-reads-documented-usage.
+func backupUsageEvidence(r map[string]any) (protected, reported bool) {
+	sources := []map[string]any{r}
+	if refs, ok := r["references"].(map[string]any); ok {
+		if usage, ok := refs["backupUsage"].(map[string]any); ok {
+			sources = append(sources, usage)
+		}
+	}
+	if usage, ok := r["backupUsage"].(map[string]any); ok {
+		sources = append(sources, usage)
+	}
+	for _, src := range sources {
+		for _, field := range append(append([]string{}, backupUsageSizeFields...), backupUsageLegacyFields...) {
+			if v, ok := nvFloat(src, field); ok {
+				reported = true
+				if v > 0 {
+					protected = true
+				}
+			}
+		}
+		if _, ok := nvEpoch(src, "lastSuccessfulBackupJob"); ok {
+			reported, protected = true, true
+		}
+		if _, ok := nvEpoch(src, "lastFailedBackupJob"); ok {
+			reported = true
+		}
+	}
+	return protected, reported
 }
 
 // staleRow describes a device past its last-contact threshold.

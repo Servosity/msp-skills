@@ -36,7 +36,7 @@ Reads the local store; run 'ninjaone-cli sync' first.`,
 		Example: `  # Titles fragmented across 3+ versions
   ninjaone-cli software-audit --min-versions 3
 
-  # Where is a specific product installed, as JSON
+  # Install count and versions of one product, as JSON
   ninjaone-cli software-audit --name "TeamViewer" --json`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

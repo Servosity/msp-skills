@@ -2,11 +2,6 @@
   "activities.get": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "before": {
         "type": "string",
         "x-location": "query",
@@ -175,11 +170,6 @@
   "backup.get-integrity-check-jobs": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "ddf": {
         "type": "string",
         "x-location": "query",
@@ -221,11 +211,6 @@
   "backup.get-jobs": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "ddf": {
         "type": "string",
         "x-location": "query",
@@ -269,7 +254,7 @@
     "properties": {
       "deviceId": {
         "description": "Device id",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "planUid": {
@@ -284,7 +269,6 @@
     "additionalProperties": true,
     "properties": {
       "checklistTemplateIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -374,7 +358,6 @@
     "additionalProperties": true,
     "properties": {
       "checklistTemplateIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -456,7 +439,7 @@
       },
       "organizationId": {
         "description": "Organization identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "phone": {
@@ -495,7 +478,7 @@
       },
       "organizationId": {
         "description": "Organization identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "phone": {
@@ -754,8 +737,10 @@
     "additionalProperties": true,
     "properties": {
       "disabledFeatures": {
-        "description": "List of features that will be disabled during maintenance",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "end": {
@@ -1003,7 +988,7 @@
     "properties": {
       "id": {
         "description": "Script identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "parameters": {
@@ -1166,26 +1151,27 @@
       },
       "locationId": {
         "description": "Location identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "nodeRoleId": {
         "description": "Node Role identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "organizationId": {
         "description": "Organization identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "policyId": {
         "description": "Assigned policy ID (overrides organization policy mapping, or reverts to organization policy if Null)",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "userData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
@@ -1333,11 +1319,6 @@
   "devices-detailed.get": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -1354,11 +1335,6 @@
   "devices.get": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -1376,7 +1352,6 @@
     "additionalProperties": true,
     "properties": {
       "devices": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -1453,7 +1428,6 @@
         "x-location": "body"
       },
       "allowedTechnicianRoles": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -1471,7 +1445,6 @@
         "x-location": "body"
       },
       "fields": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -1515,7 +1488,7 @@
         "x-location": "path"
       },
       "include-technician-roles": {
-        "description": "Includes allowed technician roles.",
+        "description": "Includes allowed technician roles. (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeTechnicianRoles"
@@ -1530,7 +1503,7 @@
     "additionalProperties": true,
     "properties": {
       "include-technician-roles": {
-        "description": "Includes allowed technician roles.",
+        "description": "Includes allowed technician roles. (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeTechnicianRoles"
@@ -1579,7 +1552,6 @@
     "additionalProperties": true,
     "properties": {
       "allowedTechnicianRoles": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -1601,7 +1573,6 @@
         "x-location": "path"
       },
       "fields": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -1652,7 +1623,7 @@
       },
       "locationId": {
         "description": "The id of the location the device belongs to",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "name": {
@@ -1662,12 +1633,12 @@
       },
       "orgId": {
         "description": "The id of the organization the device belongs to",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "roleId": {
         "description": "The id of the role to use for this device. Must be a sub-role of Unmanaged Device",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "serialNumber": {
@@ -1718,7 +1689,7 @@
       },
       "locationId": {
         "description": "The id of the location the device belongs to",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "name": {
@@ -1732,7 +1703,7 @@
       },
       "orgId": {
         "description": "The id of the organization the device belongs to",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "serialNumber": {
@@ -1961,16 +1932,15 @@
     "properties": {
       "destinationFolderId": {
         "description": "Destination folder",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "destinationOrganizationId": {
         "description": "Destination client. Use when the root folder of the client does not exist.",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "documentIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -1978,7 +1948,6 @@
         "x-location": "body"
       },
       "folderIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -2047,11 +2016,6 @@
   "locations.get": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "pageSize": {
         "type": "string",
         "x-location": "query",
@@ -2101,7 +2065,6 @@
     "additionalProperties": true,
     "properties": {
       "clientChecklistIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -2269,11 +2232,6 @@
   "organization.devices.get-organization": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "id": {
         "type": "string",
         "x-location": "path"
@@ -2307,7 +2265,8 @@
         "x-location": "body"
       },
       "fields": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
@@ -2343,7 +2302,7 @@
         "x-location": "path"
       },
       "include-roles": {
-        "description": "Includes user role information",
+        "description": "Includes user role information (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeRoles"
@@ -2499,7 +2458,7 @@
         "additionalProperties": true,
         "properties": {
           "nodeRoleId": {
-            "description": "Identifier for the nodeRole target of this installer. Acceptable values include integers, 'auto', or an empty string.",
+            "description": "Identifier for the nodeRole target of this installer. Acceptable values include integers, 'auto', or an empty string. (default: auto)",
             "type": "string"
           }
         },
@@ -2524,16 +2483,11 @@
       },
       "locationId": {
         "description": "Location identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "organizationId": {
         "description": "Organization identifier",
-        "type": "string",
-        "x-location": "body"
-      },
-      "usageLimit": {
-        "description": "Usage limit",
         "type": "integer",
         "x-location": "body"
       }
@@ -2630,7 +2584,8 @@
         "x-location": "body"
       },
       "fields": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
@@ -2644,12 +2599,15 @@
         "x-location": "body"
       },
       "tags": {
-        "description": "Tags",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "userData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       }
@@ -2717,7 +2675,8 @@
         "x-location": "body"
       },
       "fields": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
@@ -2735,12 +2694,15 @@
         "x-location": "body"
       },
       "tags": {
-        "description": "Tags",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "userData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       }
@@ -2811,7 +2773,6 @@
     "additionalProperties": true,
     "properties": {
       "clientChecklistIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -2869,7 +2830,8 @@
         "x-location": "path"
       },
       "fields": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
@@ -2893,7 +2855,8 @@
         "x-location": "body"
       },
       "fields": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
@@ -2917,12 +2880,15 @@
         "x-location": "body"
       },
       "tags": {
-        "description": "Tags",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "userData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       }
@@ -2969,11 +2935,6 @@
   "organizations-detailed.get": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "of": {
         "type": "string",
         "x-location": "query",
@@ -2996,12 +2957,12 @@
         "x-location": "body"
       },
       "fields": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
       "locations": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -3024,7 +2985,6 @@
         "x-location": "body"
       },
       "policies": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -3032,8 +2992,10 @@
         "x-location": "body"
       },
       "tags": {
-        "description": "Tags",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "template-organization-id": {
@@ -3043,7 +3005,8 @@
         "x-wire-name": "templateOrganizationId"
       },
       "userData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       }
@@ -3053,11 +3016,6 @@
   "organizations.get": {
     "additionalProperties": true,
     "properties": {
-      "after": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "after"
-      },
       "of": {
         "type": "string",
         "x-location": "query",
@@ -3075,7 +3033,6 @@
     "additionalProperties": true,
     "properties": {
       "channels": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -3088,12 +3045,11 @@
         "x-location": "body"
       },
       "enabled": {
-        "description": "Policy condition enabled",
+        "description": "Policy condition enabled (default: true)",
         "type": "boolean",
         "x-location": "body"
       },
       "matchAll": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -3101,7 +3057,6 @@
         "x-location": "body"
       },
       "matchAny": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -3109,7 +3064,7 @@
         "x-location": "body"
       },
       "notificationAction": {
-        "description": "Policy condition notification action",
+        "description": "Policy condition notification action (default: NONE)",
         "enum": [
           "NONE",
           "SEND"
@@ -3118,7 +3073,7 @@
         "x-location": "body"
       },
       "notifyOnReset": {
-        "description": "Policy condition notify on reset",
+        "description": "Policy condition notify on reset (default: false)",
         "type": "boolean",
         "x-location": "body"
       },
@@ -3127,7 +3082,7 @@
         "x-location": "path"
       },
       "priority": {
-        "description": "Policy condition priority",
+        "description": "Policy condition priority (default: NONE)",
         "enum": [
           "NONE",
           "LOW",
@@ -3138,12 +3093,11 @@
         "x-location": "body"
       },
       "resetThreshold": {
-        "description": "Policy condition reset threshold (seconds)",
+        "description": "Policy condition reset threshold (seconds) (default: 14400)",
         "type": "integer",
         "x-location": "body"
       },
       "scripts": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -3151,7 +3105,7 @@
         "x-location": "body"
       },
       "severity": {
-        "description": "Policy condition severity",
+        "description": "Policy condition severity (default: NONE)",
         "enum": [
           "NONE",
           "MINOR",
@@ -3172,7 +3126,6 @@
     "additionalProperties": true,
     "properties": {
       "channels": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -3185,12 +3138,11 @@
         "x-location": "body"
       },
       "enabled": {
-        "description": "Policy condition enabled",
+        "description": "Policy condition enabled (default: true)",
         "type": "boolean",
         "x-location": "body"
       },
       "eventIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -3198,7 +3150,7 @@
         "x-location": "body"
       },
       "notificationAction": {
-        "description": "Policy condition notification action",
+        "description": "Policy condition notification action (default: NONE)",
         "enum": [
           "NONE",
           "SEND"
@@ -3207,7 +3159,7 @@
         "x-location": "body"
       },
       "notifyOnReset": {
-        "description": "Policy condition notify on reset",
+        "description": "Policy condition notify on reset (default: false)",
         "type": "boolean",
         "x-location": "body"
       },
@@ -3215,15 +3167,15 @@
         "additionalProperties": true,
         "properties": {
           "duration": {
-            "description": "Occurrence duration",
+            "description": "Occurrence duration (default: 5)",
             "type": "integer"
           },
           "enabled": {
-            "description": "Occurrence enabled",
+            "description": "Occurrence enabled (default: false)",
             "type": "boolean"
           },
           "threshold": {
-            "description": "Occurrence threshold",
+            "description": "Occurrence threshold (default: 2)",
             "type": "integer"
           }
         },
@@ -3235,7 +3187,7 @@
         "x-location": "path"
       },
       "priority": {
-        "description": "Policy condition priority",
+        "description": "Policy condition priority (default: NONE)",
         "enum": [
           "NONE",
           "LOW",
@@ -3246,12 +3198,11 @@
         "x-location": "body"
       },
       "resetThreshold": {
-        "description": "Policy condition reset threshold (seconds)",
+        "description": "Policy condition reset threshold (seconds) (default: 14400)",
         "type": "integer",
         "x-location": "body"
       },
       "scripts": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -3259,7 +3210,7 @@
         "x-location": "body"
       },
       "severity": {
-        "description": "Policy condition severity",
+        "description": "Policy condition severity (default: NONE)",
         "enum": [
           "NONE",
           "MINOR",
@@ -3279,7 +3230,7 @@
         "additionalProperties": true,
         "properties": {
           "condition": {
-            "description": "Text condition",
+            "description": "Text condition (default: CONTAINS)",
             "enum": [
               "CONTAINS",
               "NOT_CONTAINS"
@@ -3287,7 +3238,7 @@
             "type": "string"
           },
           "include": {
-            "description": "Text include",
+            "description": "Text include (default: ALL)",
             "enum": [
               "ALL",
               "ANY"
@@ -3295,8 +3246,10 @@
             "type": "string"
           },
           "values": {
-            "description": "Text values",
-            "type": "string"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object",
@@ -3399,7 +3352,7 @@
         "x-location": "body"
       },
       "enabled": {
-        "description": "Policy Enabled Flag",
+        "description": "Policy Enabled Flag (default: true)",
         "type": "boolean",
         "x-location": "body"
       },
@@ -3460,7 +3413,7 @@
       },
       "parentPolicyId": {
         "description": "Parent Policy identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "template-policy-id": {
@@ -3480,11 +3433,6 @@
   "queries.get-antivirus-status-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3516,11 +3464,6 @@
   "queries.get-antivirus-threats": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3542,11 +3485,6 @@
   "queries.get-computer-systems": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3568,11 +3506,6 @@
   "queries.get-custom-fields-detailed-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3604,11 +3537,6 @@
   "queries.get-custom-fields-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3640,11 +3568,6 @@
   "queries.get-device-health-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3666,11 +3589,6 @@
   "queries.get-device-usage": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "includeDeletedDevices": {
         "type": "string",
         "x-location": "query",
@@ -3687,11 +3605,6 @@
   "queries.get-disk-drives": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3713,11 +3626,6 @@
   "queries.get-installed-ospatches": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3749,11 +3657,6 @@
   "queries.get-installed-software-patches": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3800,11 +3703,6 @@
   "queries.get-last-logged-on-users-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3821,11 +3719,6 @@
   "queries.get-network-interfaces": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3842,11 +3735,6 @@
   "queries.get-operating-systems": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3868,11 +3756,6 @@
   "queries.get-pending-failed-rejected-ospatches": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3909,11 +3792,6 @@
   "queries.get-pending-failed-rejected-software-patches": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3955,11 +3833,6 @@
   "queries.get-policy-overrides-1": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -3976,11 +3849,6 @@
   "queries.get-processors": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -4002,11 +3870,6 @@
   "queries.get-raidcontroller-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -4028,11 +3891,6 @@
   "queries.get-raiddrive-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -4054,11 +3912,6 @@
   "queries.get-scoped-custom-fields-detailed-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "fields": {
         "type": "string",
         "x-location": "query",
@@ -4090,11 +3943,6 @@
   "queries.get-scoped-custom-fields-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "fields": {
         "type": "string",
         "x-location": "query",
@@ -4126,11 +3974,6 @@
   "queries.get-software": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -4157,11 +4000,6 @@
   "queries.get-volumes": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -4188,11 +4026,6 @@
   "queries.get-windows-services-report": {
     "additionalProperties": true,
     "properties": {
-      "cursor": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "cursor"
-      },
       "df": {
         "type": "string",
         "x-location": "query",
@@ -4288,7 +4121,7 @@
       },
       "relEntityId": {
         "description": "Related Entity Identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "relEntityType": {
@@ -4616,7 +4449,7 @@
     "properties": {
       "entityId": {
         "description": "For tab types that require an id to create (currently, only NODE_ROLE types), this field is the ID of the entity",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "entityType": {
@@ -4630,7 +4463,6 @@
         "x-location": "body"
       },
       "items": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -4738,7 +4570,7 @@
       },
       "tabId": {
         "description": "Tab id",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       }
     },
@@ -4791,7 +4623,6 @@
     "additionalProperties": true,
     "properties": {
       "items": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -4805,7 +4636,7 @@
       },
       "roleId": {
         "description": "Role id",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "tabId": {
@@ -4878,7 +4709,6 @@
     "additionalProperties": true,
     "properties": {
       "assetIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -4893,7 +4723,6 @@
         "x-location": "path"
       },
       "tagIdsToAdd": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -4901,7 +4730,6 @@
         "x-location": "body"
       },
       "tagIdsToRemove": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -4975,7 +4803,7 @@
       },
       "mergeIntoTagId": {
         "description": "If merging into an existing tag, you must provide the target tag id here",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "mergeMethod": {
@@ -4993,7 +4821,6 @@
         "x-location": "body"
       },
       "tagIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -5018,7 +4845,6 @@
         "x-location": "path"
       },
       "tagIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -5064,7 +4890,6 @@
     "additionalProperties": true,
     "properties": {
       "additionalAssignedTechnicianIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -5073,11 +4898,10 @@
       },
       "assignedAppUserId": {
         "description": "Assigned app user id",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "attributes": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -5088,12 +4912,16 @@
         "additionalProperties": true,
         "properties": {
           "emails": {
-            "description": "emails",
-            "type": "string"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "uids": {
-            "description": "List of user uids to be carbon-copied",
-            "type": "string"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object",
@@ -5101,7 +4929,7 @@
       },
       "clientId": {
         "description": "Client (Organization) identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "description": {
@@ -5120,6 +4948,7 @@
             "type": "string"
           },
           "public": {
+            "description": "Public",
             "type": "boolean"
           },
           "timeTracked": {
@@ -5127,29 +4956,26 @@
             "type": "integer"
           }
         },
-        "required": [
-          "public"
-        ],
         "type": "object",
         "x-location": "body"
       },
       "locationId": {
         "description": "Location identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "nodeId": {
         "description": "Device identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "parentTicketId": {
         "description": "Ticket parent identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "priority": {
-        "description": "Priority",
+        "description": "Priority (default: NONE)",
         "enum": [
           "NONE",
           "LOW",
@@ -5165,7 +4991,7 @@
         "x-location": "body"
       },
       "severity": {
-        "description": "Severity",
+        "description": "Severity (default: NONE)",
         "enum": [
           "NONE",
           "MINOR",
@@ -5187,13 +5013,15 @@
         "x-location": "body"
       },
       "tags": {
-        "description": "Tags",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "ticketFormId": {
         "description": "Ticket form identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "type": {
@@ -5210,7 +5038,6 @@
     },
     "required": [
       "clientId",
-      "description",
       "subject",
       "ticketFormId"
     ],
@@ -5365,7 +5192,6 @@
         "x-location": "path"
       },
       "filters": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -5373,13 +5199,15 @@
         "x-location": "body"
       },
       "includeColumns": {
-        "description": "Include columns",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "lastCursorId": {
         "description": "Last cursor id",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "pageSize": {
@@ -5393,7 +5221,6 @@
         "x-location": "body"
       },
       "sortBy": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -5410,7 +5237,6 @@
     "additionalProperties": true,
     "properties": {
       "additionalAssignedTechnicianIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },
@@ -5419,11 +5245,10 @@
       },
       "assignedAppUserId": {
         "description": "Assigned app user id",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "attributes": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -5434,12 +5259,16 @@
         "additionalProperties": true,
         "properties": {
           "emails": {
-            "description": "emails",
-            "type": "string"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "uids": {
-            "description": "List of user uids to be carbon-copied",
-            "type": "string"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object",
@@ -5447,26 +5276,26 @@
       },
       "clientId": {
         "description": "Client (Organization) identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "locationId": {
         "description": "Location identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "nodeId": {
         "description": "Device identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "parentTicketId": {
         "description": "Ticket parent identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "priority": {
-        "description": "Priority",
+        "description": "Priority (default: NONE)",
         "enum": [
           "NONE",
           "LOW",
@@ -5482,7 +5311,7 @@
         "x-location": "body"
       },
       "severity": {
-        "description": "Severity",
+        "description": "Severity (default: NONE)",
         "enum": [
           "NONE",
           "MINOR",
@@ -5504,13 +5333,15 @@
         "x-location": "body"
       },
       "tags": {
-        "description": "Tags",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "ticketFormId": {
         "description": "Ticket form identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "ticketId": {
@@ -5589,7 +5420,7 @@
       },
       "organizationId": {
         "description": "Organization identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       },
       "phone": {
@@ -5598,7 +5429,7 @@
         "x-location": "body"
       },
       "send-invitation": {
-        "description": "Whether to send invitation to end user during creation",
+        "description": "Whether to send invitation to end user during creation (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "sendInvitation"
@@ -5747,7 +5578,7 @@
       },
       "organizationId": {
         "description": "Organization identifier",
-        "type": "string",
+        "type": "integer",
         "x-location": "body"
       }
     },
@@ -5816,7 +5647,7 @@
     "additionalProperties": true,
     "properties": {
       "include-roles": {
-        "description": "Includes user role information",
+        "description": "Includes user role information (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeRoles"
@@ -5869,17 +5700,19 @@
     "additionalProperties": true,
     "properties": {
       "activities": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
         "type": "object",
         "x-location": "body"
       },
       "expand": {
-        "description": "Which references to expand in payloads",
-        "type": "string",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "x-location": "body"
       },
       "headers": {
-        "description": "JSON value",
         "items": {
           "type": "object"
         },
@@ -5887,7 +5720,6 @@
         "x-location": "body"
       },
       "organizationIds": {
-        "description": "JSON value",
         "items": {
           "type": "integer"
         },

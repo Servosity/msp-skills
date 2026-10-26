@@ -20,7 +20,13 @@
         "NINJAONE_CLIENT_SECRET": "${user_config.ninjaone_client_secret}",
         "NINJAONE_OAUTH_SCOPE": "${user_config.ninjaone_oauth_scope}",
         "NINJAONE_TOKEN_URL": "${user_config.ninjaone_token_url}",
-        "NINJAONE_NO_CONFIG_WRITE": "${user_config.ninjaone_no_config_write}"
+        "NINJAONE_NO_CONFIG_WRITE": "${user_config.ninjaone_no_config_write}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "NINJAONE_MCP_READ_ONLY": "${user_config.ninjaone_mcp_read_only}",
+        "NINJAONE_NO_LOCAL_DATA": "${user_config.ninjaone_no_local_data}",
+        "NINJAONE_MCP_UPLOAD_ROOT": "${user_config.ninjaone_mcp_upload_root}",
+        "NINJAONE_USER_AGENT": "${user_config.ninjaone_user_agent}",
+        "NINJAONE_MCP_HTTP_TOKEN": "${user_config.ninjaone_mcp_http_token}"
       }
     }
   },
@@ -66,6 +72,47 @@
       "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "ninjaone_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "ninjaone_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "ninjaone_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank. Reserved for MCP file uploads: no NinjaOne MCP tool in this release takes a file, so the server never opens a local path and this setting has no effect.",
+      "required": false,
+      "sensitive": false
+    },
+    "ninjaone_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on NinjaOne requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "ninjaone_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -76,11 +123,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T02:54:27.52011Z",
-    "spec_checksum": "sha256:20614fd747a37ffae33ac5a6ae4cc2ca1b08fa21d154307cebba49d7014ec00f",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-26T22:37:12.785183Z",
+    "spec_checksum": "sha256:9f52c9db5355efc61c61a83b1d5dc7fdb66220d633eb9706acf6424c533813f0",
     "spec_format": "openapi3"
   }
 }

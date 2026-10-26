@@ -264,12 +264,6 @@
    "read-only",
    "local-data"
   ],
-  "ninjaone": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "pagerduty": [
    "mcp-http",
    "write-gating",

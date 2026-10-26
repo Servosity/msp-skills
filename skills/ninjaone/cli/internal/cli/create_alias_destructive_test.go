@@ -19,14 +19,14 @@ import (
 func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 	root := RootCmd()
 	for _, path := range [][]string{
-		{"alert", "reset", "alert-set-activity-data"},
+		{"alert", "item-reset", "alert-set-activity-data"},
 		{"checklist", "archive-template"},
 		{"device", "patch", "submit-ospatch-apply"},
 		{"device", "reboot", "devices"},
 		{"device", "script", "run-on-device"},
 		{"device", "windows-service", "control"},
 		{"devices", "node-approval-operation"},
-		{"document-templates", "archive", "document-template"},
+		{"document-templates", "item-archive", "document-template"},
 		{"knowledgebase", "archive-knowledge-base-articles"},
 		{"organization", "archive-checklists"},
 	} {

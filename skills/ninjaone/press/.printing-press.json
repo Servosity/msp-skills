@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T02:54:27.52011Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-26T22:37:12.785183Z",
+  "printing_press_version": "4.34.0",
   "api_name": "ninjaone",
   "display_name": "NinjaOne",
   "cli_name": "ninjaone-pp-cli",
@@ -18,11 +18,13 @@
   "owner": "dstevens",
   "printer": "dstevens",
   "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
   "spec_format": "openapi3",
-  "spec_checksum": "sha256:20614fd747a37ffae33ac5a6ae4cc2ca1b08fa21d154307cebba49d7014ec00f",
-  "run_id": "20260605-220121",
+  "spec_source": "official",
+  "spec_checksum": "sha256:9f52c9db5355efc61c61a83b1d5dc7fdb66220d633eb9706acf6424c533813f0",
+  "run_id": "20261024-184248-4a5ea8bb",
   "category": "monitoring",
-  "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
+  "description": "Every NinjaOne report, plus a local store for fleet-wide patch, backup, AV and health answers.",
   "mcp_binary": "ninjaone-pp-mcp",
   "mcp_tool_count": 244,
   "mcp_ready": "full",
@@ -89,6 +91,83 @@
       "name": "Fleet drift (week-over-week)",
       "command": "drift",
       "description": "Diffs the current sync against the previous stored snapshot to show which organizations got better or worse on patch, backup, or stale metrics."
+    },
+    {
+      "name": "Low-disk-space finder",
+      "command": "low-disk",
+      "description": "Lists every synced volume under a free-space floor (percent or GiB), worst first, with device and organization, so disk-full patch and backup failures are caught before they happen."
+    },
+    {
+      "name": "BitLocker encryption gaps",
+      "command": "bitlocker-gaps",
+      "description": "Lists every synced volume whose BitLocker protection is not PROTECTED (unprotected, pending, unknown or not reported), grouped by organization, for encryption audits and cyber-insurance questionnaires."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet patch-compliance rollup",
+      "command": "patch-compliance",
+      "description": "One row per organization showing percent OS-patched, percent software-patched, failed counts, and the worst-offender device across your whole fleet."
+    },
+    {
+      "name": "Backup-coverage gap finder",
+      "command": "backup-coverage",
+      "description": "Lists every device with no backup usage (or zero bytes / stale job), grouped by organization, so unprotected endpoints surface immediately."
+    },
+    {
+      "name": "Software sprawl audit",
+      "command": "software-audit",
+      "description": "For each software title, counts the distinct versions installed across the fleet and where each version lives; flags titles fragmented across many versions."
+    },
+    {
+      "name": "Fleet health score",
+      "command": "fleet-health",
+      "description": "A transparent 0-100 score per organization from patch, backup, AV, and stale-device signals, with the contributing deductions itemized."
+    },
+    {
+      "name": "AV threat fleet sweep",
+      "command": "av-sweep",
+      "description": "Given a threat name or a stale-definition window, lists every device fleet-wide carrying it, grouped by organization and location."
+    },
+    {
+      "name": "Stale / abandoned device detector",
+      "command": "stale-devices",
+      "description": "Lists devices whose last contact exceeds a threshold, with days-since and owning organization and location."
+    },
+    {
+      "name": "Unsupported-OS / EOL exposure",
+      "command": "os-eol",
+      "description": "Lists devices running end-of-life operating systems, grouped by organization, against a curated EOL reference table."
+    },
+    {
+      "name": "Fleet drift (week-over-week)",
+      "command": "drift",
+      "description": "Diffs the current sync against the previous stored snapshot to show which organizations got better or worse on patch, backup, or stale metrics."
+    },
+    {
+      "name": "Low-disk-space finder",
+      "command": "low-disk",
+      "description": "Lists every synced volume under a free-space floor (percent or GiB), worst first, with device and organization, so disk-full patch and backup failures are caught before they happen."
+    },
+    {
+      "name": "BitLocker encryption gaps",
+      "command": "bitlocker-gaps",
+      "description": "Lists every synced volume whose BitLocker protection is not PROTECTED (unprotected, pending, unknown or not reported), grouped by organization, for encryption audits and cyber-insurance questionnaires."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 208,
+    "total": 208,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 98,
+      "grade": "A",
+      "total": 98
+    }
+  }
 }

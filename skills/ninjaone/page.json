@@ -73,7 +73,7 @@
     },
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running ninjaone-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, on Plus, Pro, Team, Business, Enterprise and Education plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host ninjaone-mcp in HTTP mode: it refuses to start until NINJAONE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send that bearer token. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",

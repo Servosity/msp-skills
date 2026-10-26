@@ -30,12 +30,18 @@ func TestCustomFieldsKeyOnDeviceID(t *testing.T) {
 		// NodeAttributesDetailed: deviceId + entityType + fields array
 		"queries-custom-fields-detailed": `{"deviceId":1001,"entityType":"NODE","fields":[{"name":"AssetTag","value":"A-1"}]}`,
 	}
+	// custom-fields-detailed rows carry entityType, whose spec.yaml enum (NODE, END_USER,
+	// LOCATION, ORGANIZATION) means one id can name four entities: it is the discriminator.
+	wantKey := map[string]string{
+		"queries-custom-fields":          "1001",
+		"queries-custom-fields-detailed": "1001\x00NODE",
+	}
 	for resource, raw := range cases {
 		if id := ExtractResourceID(resource, decodeOrFatal(t, raw)); id != "1001" {
 			t.Errorf("%s: want primary id 1001, got %q", resource, id)
 		}
-		if got := storageKey(t, resource, raw); got != "1001" {
-			t.Errorf("%s: want bare deviceId key 1001 (one row per device), got %q", resource, got)
+		if got := storageKey(t, resource, raw); got != wantKey[resource] {
+			t.Errorf("%s: want key %q (one row per device entity), got %q", resource, wantKey[resource], got)
 		}
 	}
 }
