@@ -22,6 +22,7 @@ Rebuilt on CLI Printing Press 4.34.0 (the press upgrade that carries the fix for
 - **`--agent` no longer implies `--yes`.** A command that asks for confirmation now needs `--yes` passed on its own.
 
 ### Fixed
+- Search finds short all-caps values such as `WEB`, `SQL` and `DNS` again ([#464](https://github.com/Servosity/msp-skills/issues/464)). The local search index rebuilds once, automatically, the first time the CLI or the MCP server opens the store after upgrading; nothing needs to be run by hand.
 - **`onboard --apply` writes only to the company you name.** Template folders are always created under `--company`, even when the template file carries a different `company_id`.
 - **`onboard --init --dry-run` writes nothing.** It reports where the example template would go.
 - **`onboard --init` keeps an edited template.** When the template file already exists it stops with an error; pass `--yes` to replace it with the example.
