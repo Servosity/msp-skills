@@ -110,10 +110,10 @@ def _read_specs(surface: dict) -> list:
 
 def _token_paths(urls: dict) -> set:
     """The path(s) the OAuth/token exchange posts to: the path of the configured
-    token or authorization URL (the harness points it at the fake server, whose
-    path is '/'). Only a request to one of these is a token mint; nothing is
-    classified a mint by a 'token' substring or a 'grant_type' body, because a
-    data write can carry either."""
+    token or authorization URL (the harness points it at the fake server's
+    reserved ch.TOKEN_PATH, never its root). Only a request to one of these is
+    a token mint; nothing is classified a mint by a 'token' substring or a
+    'grant_type' body, because a data write can carry either."""
     from urllib.parse import urlparse
     out = set()
     for k, v in urls.items():
@@ -193,8 +193,15 @@ def run(ctx: ch.Ctx) -> list[str]:
             ro_env = {**base_env, **urls, "HOME": ch.fresh_home(ctx, "write-ro"), ro_var: "1"}
             # Discover from the UNION of both tool lists, so a write tool exposed
             # only when the switch is ON (an inverted registration) is probed.
-            writes = _union_write_tools(ch.mcp_list_tools(ctx.mcp_bin, ctrl_env),
-                                        ch.mcp_list_tools(ctx.mcp_bin, ro_env))[:MAX_WRITE_PROBES]
+            # Every request sent while a read-only session runs is attributed to
+            # read-only, its tools/list discovery included (#439 gap 3): a
+            # connector that writes once at startup and remembers it in HOME
+            # would otherwise write during discovery and pass.
+            ctrl_tools = ch.mcp_list_tools(ctx.mcp_bin, ctrl_env)
+            mark = len(api.capture.requests)
+            ro_tools = ch.mcp_list_tools(ctx.mcp_bin, ro_env)
+            ro_sent = list(api.capture.requests[mark:])
+            writes = _union_write_tools(ctrl_tools, ro_tools)[:MAX_WRITE_PROBES]
             write_ep = next((lf.endpoint for lf in ch.leaves(ctx.surface)
                              if lf.endpoint and lf.method in WRITE_METHODS
                              and not lf.read_only), "")
@@ -204,22 +211,24 @@ def run(ctx: ch.Ctx) -> list[str]:
                 {"jsonrpc": "2.0", "id": i, "method": "tools/call",
                  "params": {"name": t["name"], "arguments": _write_args(t, write_ep)}}
                 for i, t in enumerate(writes, start=20)]
+            ctrl_writes: list = []
             if writes:
                 mark = len(api.capture.requests)
                 ch.mcp_session(ctx.mcp_bin, calls, ctrl_env)
                 ctrl_writes = _mutating(api.capture.requests[mark:], read_specs, token_paths)
                 mark = len(api.capture.requests)
                 ch.mcp_session(ctx.mcp_bin, calls, ro_env)
-                ro_writes = _mutating(api.capture.requests[mark:], read_specs, token_paths)
-                if ro_writes:
-                    paths = sorted({f"{r[1]} {r[2].split('?')[0]}" for r in ro_writes})
-                    findings.append(
-                        f"[{ctx.slug}] {len(ro_writes)} write request(s) reached the API with "
-                        f"{ro_var}=1 ({paths}); the read-only switch must stop every write")
-                elif not ctrl_writes:
-                    findings.append(
-                        f"NOTE: [{ctx.slug}] read-only not proven - no write tool produced an API "
-                        f"write even with {ro_var} off, so the probe could not exercise the gate")
+                ro_sent += api.capture.requests[mark:]
+            ro_writes = _mutating(ro_sent, read_specs, token_paths)
+            if ro_writes:
+                paths = sorted({f"{r[1]} {r[2].split('?')[0]}" for r in ro_writes})
+                findings.append(
+                    f"[{ctx.slug}] {len(ro_writes)} write request(s) reached the API with "
+                    f"{ro_var}=1 ({paths}); the read-only switch must stop every write")
+            elif writes and not ctrl_writes:
+                findings.append(
+                    f"NOTE: [{ctx.slug}] read-only not proven - no write tool produced an API "
+                    f"write even with {ro_var} off, so the probe could not exercise the gate")
         finally:
             api.stop()
 
@@ -335,6 +344,31 @@ def self_test() -> bool:
     if _mutating([the_mint], token_paths=tok):
         print("    write-safety self-test: the configured token exchange was counted as a write")
         ok = False
+    # (#439 gap 2) the harness's own wiring never makes the token path the
+    # API root: a connector whose data write is `POST /` must not have it
+    # exempted as a token exchange, while the mint itself still is.
+    wiring = ch.classify_env(ch.FIXTURE_MANIFEST)
+    urls = ch.apply_urls(wiring, "http://127.0.0.1:9")
+    harness_tok = _token_paths(urls)
+    root_write = ("h", "POST", "/", {}, '{"name":"x"}')
+    if not harness_tok or "/" in harness_tok:
+        print(f"    write-safety self-test: the harness points the token URL at the API root "
+              f"(token paths {sorted(harness_tok)}), so a data write to `POST /` is exempted as a mint")
+        ok = False
+    if len(_mutating([root_write], token_paths=harness_tok)) != 1:
+        print("    write-safety self-test: a data write to `POST /` was not counted as a write")
+        ok = False
+    mint = ("h", "POST", next(iter(harness_tok), "/"), {}, "grant_type=client_credentials")
+    if _mutating([mint], token_paths=harness_tok):
+        print("    write-safety self-test: the mint to the harness's token path was counted as a write")
+        ok = False
+
+    # (#439 gap 3) every request a read-only session sends counts as
+    # read-only, its tools/list discovery included. The stand-in writes once
+    # per HOME at startup (and remembers it), so in the read-only HOME that
+    # write lands during discovery; its write TOOL honors the switch.
+    ok = _self_test_discovery_window(ok)
+
     # A read that rides a write method is exempt only for THAT method and path:
     # a POST search is not a write, but a DELETE on the same path is.
     surf = {"commands": [{"name": "tables", "subcommands": [
@@ -379,6 +413,43 @@ def self_test() -> bool:
     if len(none) > 0:
         print("    write-safety self-test: an empty dry-run capture was flagged")
         ok = False
+    return ok
+
+
+_BOOT_MCP = '''marker = os.path.join(HOME, "acme-booted")
+if __BOOT__ and not os.path.exists(marker):
+    call("POST", "/v1/boot", b"{}")
+    open(marker, "w").close()
+TOOLS = [{"name": "items_create", "annotations": {"readOnlyHint": False},
+          "inputSchema": {"type": "object", "properties": {}}}]
+def on_call(params):
+    if RO:
+        return {"content": [{"type": "text", "text": "refused: read-only"}], "isError": True}
+    call("POST", "/v1/items", b"{}")
+    return {"content": [{"type": "text", "text": "created"}]}
+serve(TOOLS, on_call)
+'''
+
+
+def _self_test_discovery_window(ok: bool) -> bool:
+    import tempfile
+    for label, boot, want in (("writes once at startup", "True", True),
+                              ("never writes at startup", "False", False)):
+        with tempfile.TemporaryDirectory(prefix="write-safety-selftest-") as tmp:
+            ctx = ch.fixture_ctx(tmp, 'print("done")', _BOOT_MCP.replace("__BOOT__", boot))
+            findings = run(ctx)
+        hit = [f for f in findings if "ACME_MCP_READ_ONLY=1" in f and "/v1/boot" in f]
+        other = [f for f in findings if f not in hit]
+        if want and not hit:
+            print(f"    write-safety self-test: a connector that {label} under the read-only switch "
+                  f"passed (its tools/list discovery is outside the read-only window): {findings}")
+            ok = False
+        if not want and hit:
+            print(f"    write-safety self-test: a connector that {label} was flagged: {hit}")
+            ok = False
+        if other:
+            print(f"    write-safety self-test: unexpected findings on the stand-in ({label}): {other}")
+            ok = False
     return ok
 
 

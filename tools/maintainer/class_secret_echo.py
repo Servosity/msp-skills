@@ -128,8 +128,12 @@ def run(ctx: ch.Ctx) -> list[str]:
             for mode in ("--json", "--agent"):
                 out = _run_cli(ctx, list(lf.path) + [mode, "--no-input"], env)
                 scan(f"`{' '.join(lf.path)} {mode}` (success headers)", out)
-        _probe_mcp(ctx, _read_tools(ctx, ch.mcp_list_tools(ctx.mcp_bin, env)),
-                   ok_server, env, scan, "success headers")
+        # The MCP probe gets its OWN fresh HOME (#439 gap 4): a response cache
+        # it shared with the CLI runs above could serve it the cached body, so
+        # the reflected header would never reach the MCP surface.
+        mcp_env = env_for(ok_server)
+        _probe_mcp(ctx, _read_tools(ctx, ch.mcp_list_tools(ctx.mcp_bin, mcp_env)),
+                   ok_server, mcp_env, scan, "success headers")
         reached_server += len(ok_server.capture.requests)
     finally:
         ok_server.stop()
@@ -225,6 +229,32 @@ def self_test() -> bool:
         print("    secret-echo self-test: did NOT undo a nested base64-of-urlescaped secret")
         ok = False
 
+    # 4. (#439 gap 1) a base64 blob right after a non-alphabet character is
+    #    decoded on its own: `a.` + a blob carrying the secret at an offset (so
+    #    no precomputed encoding matches) must not decode shifted by the prefix.
+    dotted = "a." + _b64.b64encode(("x" + secret).encode()).decode()
+    if not ch.leaks(dotted, secret):
+        print("    secret-echo self-test: did NOT decode a base64 blob behind a `.`-prefixed run")
+        ok = False
+    for sep in (";", "&", "%", "=", "\\"):
+        if not ch.leaks("ab" + sep + _b64.b64encode(("x" + secret).encode()).decode(), secret):
+            print(f"    secret-echo self-test: did NOT decode a base64 blob behind a {sep!r}-prefixed run")
+            ok = False
+
+    #    A decoder change must never lose a reconstruction the previous decoder
+    #    made: every input of this corpus that the pre-#439 decoder (frozen
+    #    below) reconstructs must still be reconstructed, e.g. a blob with an
+    #    interior `.` (the review input b[:16] + "." + b[16:]).
+    ok = _self_test_decoder_union(secret, ok)
+
+    # 5. (#439 gap 4) surface parity on the success probe: the MCP server must
+    #    not inherit the HOME the CLI success probe just used, or a response
+    #    cache the two share serves MCP a cached body and the reflected header
+    #    never reaches it. The stand-in CLI caches 200 bodies in HOME and prints
+    #    nothing; the stand-in MCP serves that cache when present, and otherwise
+    #    returns the live response WITH its headers (the leak).
+    ok = _self_test_success_home(ok)
+
     # Silent on a correctly masked, credential-free error.
     masked = f'{{"error":"HTTP 403","body":"token ****{secret[-4:]} rejected"}}'
     if ch.leaks(masked, secret):
@@ -235,6 +265,112 @@ def self_test() -> bool:
     if ch.leaks('{"data":[{"id":1,"name":"device-a"}]}', secret):
         print("    secret-echo self-test: fired on credential-free data (false positive)")
         ok = False
+    return ok
+
+
+# The base64 candidate decoder as it shipped before #439 (its run pattern
+# swallowed `=%.&;\` and `-` into one run and dropped the non-alphabet bytes at
+# decode time). Frozen here as the reference: the live decoder must reconstruct
+# everything this one did.
+_PRE439_RUN = __import__("re").compile(r"[A-Za-z0-9+/_=%.&;\\-]{12,}")
+
+
+def _pre439_base64_decodings(text: str) -> list[str]:
+    import base64 as _b64
+    out = []
+    for run in set(_PRE439_RUN.findall(text)):
+        std = run.replace("-", "+").replace("_", "/").rstrip("=")
+        if len(std) < 12:
+            continue
+        for cand in (std, std + "=" * (-len(std) % 4)):
+            try:
+                dec = _b64.b64decode(cand, validate=False).decode("latin-1", "replace")
+            except Exception:  # noqa: BLE001
+                continue
+            if dec:
+                out.append(dec)
+    return out
+
+
+def _decoder_corpus(secret: str) -> list[str]:
+    import base64 as _b64
+    blobs = []
+    for pre in ("", "x", "xy", "xyz"):
+        raw = (pre + secret).encode()
+        blobs += [_b64.b64encode(raw).decode(), _b64.urlsafe_b64encode(raw).decode().rstrip("=")]
+    seps = (".", "%", "&", ";", "\\", "=", "-", "_", "+", "/")
+    corpus = []
+    for b in blobs:
+        corpus += [b, "a." + b, b + ".z", '"' + b + '"']
+        for sep in seps:
+            corpus += ["ab" + sep + b, b + sep + "zz"]
+            for i in (1, 4, 7, 12, 16, 21, len(b) // 2, len(b) - 3):
+                corpus.append(b[:i] + sep + b[i:])
+            corpus.append(b[:8] + sep + b[8:20] + sep + b[20:])
+    return corpus
+
+
+def _self_test_decoder_union(secret: str, ok: bool) -> bool:
+    corpus = _decoder_corpus(secret)
+    live = ch._base64_decodings
+    try:
+        ch._base64_decodings = _pre439_base64_decodings
+        before = [bool(ch.leaks(x, secret)) for x in corpus]
+    finally:
+        ch._base64_decodings = live
+    after = [bool(ch.leaks(x, secret)) for x in corpus]
+    lost = [x for x, b, a in zip(corpus, before, after) if b and not a]
+    if lost:
+        print(f"    secret-echo self-test: the decoder lost {len(lost)} reconstruction(s) the pre-#439 "
+              f"decoder made, e.g. {lost[0]!r}")
+        ok = False
+    if sum(before) < len(corpus) // 4:
+        print("    secret-echo self-test: the decoder-union corpus has too few known positives to prove anything")
+        ok = False
+    return ok
+
+
+_CACHE_CLI = '''status, headers, body = call("GET", "/v1/items")
+if status == 200:
+    with open(os.path.join(HOME, "acme-cache.json"), "w") as f:
+        f.write(body)
+print("done")
+'''
+_CACHE_MCP = '''TOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True},
+          "inputSchema": {"type": "object", "properties": {}}}]
+def on_call(params):
+    cache = os.path.join(HOME, "acme-cache.json")
+    if os.path.exists(cache):
+        with open(cache) as f:
+            return {"content": [{"type": "text", "text": f.read()}]}
+    status, headers, body = call("GET", "/v1/items")
+    if status != 200:
+        return {"content": [{"type": "text", "text": "HTTP %d" % status}], "isError": True}
+    return {"content": [{"type": "text", "text": __TEXT__}]}
+serve(TOOLS, on_call)
+'''
+
+
+def _self_test_success_home(ok: bool) -> bool:
+    import tempfile
+    for label, text, want in (
+            ("an MCP server that prints a 200 response's headers", 'json.dumps(headers) + body', True),
+            ("an MCP server that prints only the 200 body", "body", False)):
+        with tempfile.TemporaryDirectory(prefix="secret-echo-selftest-") as tmp:
+            ctx = ch.fixture_ctx(tmp, _CACHE_CLI, _CACHE_MCP.replace("__TEXT__", text))
+            findings = run(ctx)
+        hit = [f for f in findings if "MCP tool" in f and "success headers" in f]
+        other = [f for f in findings if f not in hit]
+        if want and not hit:
+            print(f"    secret-echo self-test: {label} sharing the CLI's response cache was not "
+                  f"caught (the MCP success probe must get its own HOME): {findings}")
+            ok = False
+        if not want and hit:
+            print(f"    secret-echo self-test: {label} was flagged (false positive): {hit}")
+            ok = False
+        if other:
+            print(f"    secret-echo self-test: unexpected findings on the stand-in ({label}): {other}")
+            ok = False
     return ok
 
 
