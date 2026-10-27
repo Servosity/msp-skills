@@ -11,13 +11,12 @@ import (
 	"sort"
 	"strings"
 
-	"immybot-pp-cli/internal/store"
-
 	"github.com/spf13/cobra"
 )
 
 type deploymentHealth struct {
 	AssignmentID   string  `json:"assignment_id"`
+	AssignmentType string  `json:"assignment_type,omitempty"`
 	TargetName     string  `json:"target_name,omitempty"`
 	MaintenanceID  string  `json:"maintenance_identifier,omitempty"`
 	TenantID       string  `json:"tenant_id,omitempty"`
@@ -69,7 +68,7 @@ func newNovelDeploymentHealthCmd(flags *rootFlags) *cobra.Command {
 				}
 				return nil
 			}
-			db, err := store.OpenWithContext(ctx, dbPath)
+			db, err := immyOpenMirror(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}
@@ -79,36 +78,45 @@ func newNovelDeploymentHealthCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			arows, err := db.DB().QueryContext(ctx, `
-				SELECT json_extract(data,'$.assignmentId'),
-				       COALESCE(json_extract(data,'$.statusName'), json_extract(data,'$.status'))
-				FROM resources
-				WHERE resource_type IN ('maintenance-actions','maintenance-actions-maintenance-item','maintenance-actions-version')`)
+				SELECT id, json_extract(data,'$.assignmentId'), json_extract(data,'$.assignmentType'),
+				       `+immyActionOutcomeColumns+`
+				`+immyActionFrom+immyActionOrder)
 			if err != nil {
 				return fmt.Errorf("querying maintenance actions: %w", err)
 			}
+			// Local and global assignments number their ids separately; an
+			// action names its assignment by assignmentId plus assignmentType
+			// (DatabaseType), so every tally is keyed by both.
 			type tally struct{ actions, ok, bad int }
-			tallies := map[string]*tally{}
+			type akey struct{ dbType, id string }
+			tallies := map[akey]*tally{}
+			seen := map[string]struct{}{}
 			for arows.Next() {
-				var assignment, status sql.NullString
-				if err := arows.Scan(&assignment, &status); err != nil {
+				var rowID, assignment, assignmentType sql.NullString
+				var oc immyActionOutcomeRow
+				if err := arows.Scan(append([]any{&rowID, &assignment, &assignmentType}, oc.dest()...)...); err != nil {
 					_ = arows.Close()
 					return fmt.Errorf("scanning maintenance action: %w", err)
+				}
+				if immyActionSeen(seen, rowID) {
+					continue
 				}
 				view.ScannedActions++
 				id := nullStr(assignment)
 				if id == "" {
 					continue
 				}
-				tl := tallies[id]
+				k := akey{immyKnownDatabaseType(nullStr(assignmentType)), id}
+				tl := tallies[k]
 				if tl == nil {
 					tl = &tally{}
-					tallies[id] = tl
+					tallies[k] = tl
 				}
 				tl.actions++
-				st := nullStr(status)
-				if immyIsFailureStatus(st) {
+				switch o := oc.outcome(); {
+				case o.Failed:
 					tl.bad++
-				} else if strings.EqualFold(strings.TrimSpace(st), "success") || strings.EqualFold(strings.TrimSpace(st), "succeeded") {
+				case o.Succeeded:
 					tl.ok++
 				}
 			}
@@ -121,33 +129,46 @@ func newNovelDeploymentHealthCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// Name the deployments now that the action rows are closed.
-			names := map[string][2]string{}
-			tenants := map[string]string{}
+			type named struct{ name, mid, tenant string }
+			names := map[akey]named{}
 			trows, err := db.DB().QueryContext(ctx, `
-				SELECT id, json_extract(data,'$.targetName'), json_extract(data,'$.maintenanceIdentifier'), json_extract(data,'$.tenantId')
+				SELECT id, resource_type, json_extract(data,'$.targetName'), json_extract(data,'$.maintenanceIdentifier'), json_extract(data,'$.tenantId')
 				FROM resources WHERE resource_type IN ('target-assignments','target-assignments-global')`)
 			if err == nil {
 				for trows.Next() {
-					var id, name, mid, tenant sql.NullString
-					if err := trows.Scan(&id, &name, &mid, &tenant); err != nil {
+					var id, rtype, name, mid, tenant sql.NullString
+					if err := trows.Scan(&id, &rtype, &name, &mid, &tenant); err != nil {
 						break
 					}
-					names[nullStr(id)] = [2]string{nullStr(name), nullStr(mid)}
-					tenants[nullStr(id)] = nullStr(tenant)
+					names[akey{immyAssignmentDatabaseType(nullStr(rtype)), nullStr(id)}] = named{nullStr(name), nullStr(mid), nullStr(tenant)}
 				}
 				_ = trows.Err()
 				_ = trows.Close()
 			}
 
-			for id, tl := range tallies {
+			for k, tl := range tallies {
+				n, ok := names[k]
+				if !ok && k.dbType == "" {
+					// An action with no assignmentType (not a vendor shape)
+					// takes a name only when exactly one store has that id.
+					l, lok := names[akey{"Local", k.id}]
+					g, gok := names[akey{"Global", k.id}]
+					switch {
+					case lok && !gok:
+						n = l
+					case gok && !lok:
+						n = g
+					}
+				}
 				d := deploymentHealth{
-					AssignmentID:  id,
-					TargetName:    names[id][0],
-					MaintenanceID: names[id][1],
-					TenantID:      tenants[id],
-					Actions:       tl.actions,
-					Succeeded:     tl.ok,
-					Failed:        tl.bad,
+					AssignmentID:   k.id,
+					AssignmentType: k.dbType,
+					TargetName:     n.name,
+					MaintenanceID:  n.mid,
+					TenantID:       n.tenant,
+					Actions:        tl.actions,
+					Succeeded:      tl.ok,
+					Failed:         tl.bad,
 				}
 				if tl.actions > 0 {
 					d.SuccessRate = float64(tl.ok) / float64(tl.actions)
@@ -165,7 +186,10 @@ func newNovelDeploymentHealthCmd(flags *rootFlags) *cobra.Command {
 				if view.Deployments[i].SuccessRate != view.Deployments[j].SuccessRate {
 					return view.Deployments[i].SuccessRate < view.Deployments[j].SuccessRate
 				}
-				return view.Deployments[i].AssignmentID < view.Deployments[j].AssignmentID
+				if view.Deployments[i].AssignmentID != view.Deployments[j].AssignmentID {
+					return view.Deployments[i].AssignmentID < view.Deployments[j].AssignmentID
+				}
+				return view.Deployments[i].AssignmentType < view.Deployments[j].AssignmentType
 			})
 			if flagLimit > 0 && len(view.Deployments) > flagLimit {
 				view.Deployments = view.Deployments[:flagLimit]

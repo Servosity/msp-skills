@@ -328,7 +328,7 @@
       "type": "skill-md",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot. Trigger phrases: `what failed in last night's maintenance window`, `which tenants are still on an old version of chrome`, `why didn't this computer get the deployment`, `what changed in the fleet since yesterday`, `which computers does this script reach`, `which machines are stuck onboarding`, `use immybot`, `run immybot`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/SKILL.md",
-      "digest": "sha256:d6160e3eeb0e0e4435fb1e8a49d46ff31f7825494c76b3946dfbc0c0d6353030"
+      "digest": "sha256:cedac32faf5e3c5c954be5d8bf59154bc522b7e1551c823105c1ba8cd05c588b"
     },
     {
       "name": "itglue",

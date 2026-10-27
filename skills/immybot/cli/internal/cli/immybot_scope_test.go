@@ -21,6 +21,12 @@ func TestApplyDerivedOAuthScope(t *testing.T) {
 		{name: "trailing slash trimmed", baseURL: "https://acme.immy.bot/", want: "https://acme.immy.bot/.default"},
 		{name: "placeholder subdomain ignored", subdomain: "your-instance", want: ""},
 		{name: "nothing known", want: ""},
+		// A .mcpb host leaves ${user_config.<key>} in place for a field the
+		// operator left blank; config.Load ignores it (cliutil.EnvOverride), so
+		// the scope must too.
+		{name: "unresolved base url placeholder ignored", baseURL: "${user_config.immybot_base_url}", subdomain: "acme", want: "https://acme.immy.bot/.default"},
+		{name: "unresolved scope placeholder ignored", scope: "${user_config.immybot_oauth_scope}", subdomain: "acme", want: "https://acme.immy.bot/.default"},
+		{name: "unresolved subdomain placeholder ignored", subdomain: "${user_config.immybot_subdomain}", want: ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1,0 +1,187 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-26T23:50:56.160484Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "immybot",
+  "display_name": "ImmyBot",
+  "cli_name": "immybot-pp-cli",
+  "creator": {
+    "handle": "geekbrownbear",
+    "name": "Abhi Saini"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "geekbrownbear",
+  "printer": "geekbrownbear",
+  "printer_name": "Abhi Saini",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:30ec604684f80691771694b2a4b1eca695a14b5e0cef671ccba81f062475578d",
+  "run_id": "20261026-180347-7f465071",
+  "category": "monitoring",
+  "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
+  "mcp_binary": "immybot-pp-mcp",
+  "mcp_tool_count": 550,
+  "mcp_ready": "full",
+  "api_version": "v1",
+  "auth_type": "bearer_token",
+  "auth_preference": "entra",
+  "auth_env_vars": [
+    "IMMYBOT_CLIENT_ID",
+    "IMMYBOT_CLIENT_SECRET",
+    "IMMYBOT_TENANT_ID"
+  ],
+  "endpoint_template_vars": [
+    "subdomain"
+  ],
+  "endpoint_template_env_overrides": {
+    "subdomain": "IMMYBOT_SUBDOMAIN"
+  },
+  "endpoint_template_var_defaults": {
+    "subdomain": "your-instance"
+  },
+  "novel_features": [
+    {
+      "name": "Session triage",
+      "command": "session-triage",
+      "description": "Group the last window's failed maintenance actions by normalized root cause instead of reading the same error on forty machines."
+    },
+    {
+      "name": "Version spread",
+      "command": "version-spread",
+      "description": "Semver-ordered distribution of one software title across every tenant, flagging everything below a floor."
+    },
+    {
+      "name": "Fleet diff",
+      "command": "fleet-diff",
+      "description": "What changed between two syncs: computers added or removed, software versions moved, assignments modified. Record a baseline with --snapshot after a sync, then compare with --since."
+    },
+    {
+      "name": "Onboarding stalled",
+      "command": "onboarding-stalled",
+      "description": "Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted."
+    },
+    {
+      "name": "Assignment explain",
+      "command": "assignment-explain",
+      "description": "Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed."
+    },
+    {
+      "name": "Script blast radius",
+      "command": "script-blast-radius",
+      "description": "Every maintenance task, software package and computer that a script reaches before you edit it."
+    },
+    {
+      "name": "PSA reconcile",
+      "command": "psa-reconcile",
+      "description": "Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets."
+    },
+    {
+      "name": "Deployment health",
+      "command": "deployment-health",
+      "description": "Historical success rate per deployment, including ones that never worked."
+    },
+    {
+      "name": "Drift",
+      "command": "drift",
+      "description": "Per-tenant compliance posture across every software title, ranked by how far installed versions trail the newest version seen in the fleet."
+    },
+    {
+      "name": "Computer dossier",
+      "command": "computer-dossier",
+      "description": "Identity, tenant, installed software and recent maintenance history for one computer, assembled from the local mirror in one pass."
+    },
+    {
+      "name": "Schedule orphans",
+      "command": "schedule-orphans",
+      "description": "Maintenance schedules whose target, tenant or target type no longer exists, plus disabled schedules, from the local mirror."
+    },
+    {
+      "name": "Provider link health",
+      "command": "provider-link-health",
+      "description": "Every RMM or PSA provider link that is disabled, unhealthy or reporting a sync failure, with the failure messages ImmyBot recorded."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Session triage",
+      "command": "session-triage",
+      "description": "Group the last window's failed maintenance actions by normalized root cause instead of reading the same error on forty machines."
+    },
+    {
+      "name": "Version spread",
+      "command": "version-spread",
+      "description": "Semver-ordered distribution of one software title across every tenant, flagging everything below a floor."
+    },
+    {
+      "name": "Fleet diff",
+      "command": "fleet-diff",
+      "description": "What changed between two syncs: computers added or removed, software versions moved, assignments modified. Record a baseline with --snapshot after a sync, then compare with --since."
+    },
+    {
+      "name": "Onboarding stalled",
+      "command": "onboarding-stalled",
+      "description": "Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted."
+    },
+    {
+      "name": "Assignment explain",
+      "command": "assignment-explain",
+      "description": "Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed."
+    },
+    {
+      "name": "Script blast radius",
+      "command": "script-blast-radius",
+      "description": "Every maintenance task, software package and computer that a script reaches before you edit it."
+    },
+    {
+      "name": "PSA reconcile",
+      "command": "psa-reconcile",
+      "description": "Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets."
+    },
+    {
+      "name": "Deployment health",
+      "command": "deployment-health",
+      "description": "Historical success rate per deployment, including ones that never worked."
+    },
+    {
+      "name": "Drift",
+      "command": "drift",
+      "description": "Per-tenant compliance posture across every software title, ranked by how far installed versions trail the newest version seen in the fleet."
+    },
+    {
+      "name": "Computer dossier",
+      "command": "computer-dossier",
+      "description": "Identity, tenant, installed software and recent maintenance history for one computer, assembled from the local mirror in one pass."
+    },
+    {
+      "name": "Schedule orphans",
+      "command": "schedule-orphans",
+      "description": "Maintenance schedules whose target, tenant or target type no longer exists, plus disabled schedules, from the local mirror."
+    },
+    {
+      "name": "Provider link health",
+      "command": "provider-link-health",
+      "description": "Every RMM or PSA provider link that is disabled, unhealthy or reporting a sync failure, with the failure messages ImmyBot recorded."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 390,
+    "total": 390,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 97,
+      "grade": "A",
+      "total": 97
+    }
+  }
+}

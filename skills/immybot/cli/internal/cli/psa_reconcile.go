@@ -1,7 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Novel feature: PSA/RMM provider-link reconciliation.
-// pp:data-source auto
+// pp:data-source local
 
 package cli
 
@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"immybot-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -41,18 +39,25 @@ type oneSidedClient struct {
 	ReconcileReason string `json:"reason"`
 }
 
+// psaReconcileView is the reconcile result. LocalComputers counts the distinct
+// computers in the mirrored roster (immyComputerRosterTypes).
+// UnlinkedComputerCount and OrphanedAssetCount are the totals before --limit
+// caps their lists; UnlinkedComputerCount is null, like linked_computers is 0,
+// when a matched link carries no computer roster and the split was not computed.
 type psaReconcileView struct {
-	Provider           string             `json:"provider,omitempty"`
-	DataSource         string             `json:"data_source"`
-	ProviderLinksSeen  int                `json:"provider_links_seen"`
-	LocalComputers     int                `json:"local_computers"`
-	LinkedComputers    int                `json:"linked_computers"`
-	UnlinkedComputers  []unlinkedComputer `json:"unlinked_computers"`
-	OrphanedAssets     []linkedAsset      `json:"orphaned_provider_assets"`
-	UnmappedClients    []oneSidedClient   `json:"unmapped_provider_clients"`
-	TenantsWithNoLink  []string           `json:"tenants_with_no_provider_client"`
-	LiveRefreshSkipped string             `json:"live_refresh_skipped,omitempty"`
-	Note               string             `json:"note,omitempty"`
+	Provider              string             `json:"provider,omitempty"`
+	DataSource            string             `json:"data_source"`
+	ProviderLinksSeen     int                `json:"provider_links_seen"`
+	LocalComputers        int                `json:"local_computers"`
+	LinkedComputers       int                `json:"linked_computers"`
+	UnlinkedComputerCount *int               `json:"unlinked_computer_count"`
+	UnlinkedComputers     []unlinkedComputer `json:"unlinked_computers"`
+	OrphanedAssetCount    int                `json:"orphaned_provider_asset_count"`
+	OrphanedAssets        []linkedAsset      `json:"orphaned_provider_assets"`
+	UnmappedClients       []oneSidedClient   `json:"unmapped_provider_clients"`
+	TenantsWithNoLink     []string           `json:"tenants_with_no_provider_client"`
+	LiveRefreshSkipped    string             `json:"live_refresh_skipped,omitempty"`
+	Note                  string             `json:"note,omitempty"`
 }
 
 func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
@@ -82,13 +87,11 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 			ctx, cancel := boundCtx(cmd.Context(), flags)
 			defer cancel()
 
-			strategy := strings.ToLower(strings.TrimSpace(flags.dataSource))
-			if strategy == "" {
-				strategy = "auto"
-			}
+			// The reconcile reads the local mirror only; it has no live path,
+			// so it never reports another data source.
 			view := psaReconcileView{
 				Provider:          strings.TrimSpace(flagProvider),
-				DataSource:        strategy,
+				DataSource:        "local",
 				UnlinkedComputers: make([]unlinkedComputer, 0),
 				OrphanedAssets:    make([]linkedAsset, 0),
 				UnmappedClients:   make([]oneSidedClient, 0),
@@ -102,7 +105,7 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 				}
 				return nil
 			}
-			db, err := store.OpenWithContext(ctx, dbPath)
+			db, err := immyOpenMirror(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}
@@ -136,34 +139,18 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("closing provider links: %w", err)
 			}
 
-			// Side B: the local roster.
-			crows, err := db.DB().QueryContext(ctx, `
-				SELECT id, json_extract(data,'$.name'), json_extract(data,'$.tenantId'), json_extract(data,'$.tenant')
-				FROM resources WHERE resource_type IN ('computers','computers-paged','computers-dx')`)
+			// Side B: the local roster, each resource read with its own
+			// schema's field names (immyComputerShapes).
+			roster, err := immyLoadComputers(ctx, db, immyComputerRosterTypes)
 			if err != nil {
-				return fmt.Errorf("querying computers: %w", err)
+				return err
 			}
 			localComputers := map[string]unlinkedComputer{}
-			for crows.Next() {
-				var id, name, tenantID, tenant sql.NullString
-				if err := crows.Scan(&id, &name, &tenantID, &tenant); err != nil {
-					_ = crows.Close()
-					return fmt.Errorf("scanning computer: %w", err)
+			for _, c := range roster.list() {
+				localComputers[c.ID] = unlinkedComputer{
+					ComputerID: c.ID, ComputerName: c.Name,
+					TenantID: c.TenantID, TenantName: c.TenantName,
 				}
-				if nullStr(id) == "" {
-					continue
-				}
-				localComputers[nullStr(id)] = unlinkedComputer{
-					ComputerID: nullStr(id), ComputerName: nullStr(name),
-					TenantID: nullStr(tenantID), TenantName: nullStr(tenant),
-				}
-			}
-			if err := crows.Err(); err != nil {
-				_ = crows.Close()
-				return fmt.Errorf("iterating computers: %w", err)
-			}
-			if err := crows.Close(); err != nil {
-				return fmt.Errorf("closing computers: %w", err)
 			}
 			view.LocalComputers = len(localComputers)
 
@@ -192,6 +179,12 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 			linkedIDs := map[string]struct{}{}
 			mappedTenants := map[string]struct{}{}
 			provFilter := strings.TrimSpace(flagProvider)
+			// A discrepancy is only reported against a roster that was read:
+			// a matched link whose computers (or providerClients) are null
+			// says nothing about which local computers (or tenants) it links.
+			// Every matched link must carry the roster: a computer that a
+			// roster-less link names is indistinguishable from an unlinked one.
+			var noComputerRoster, noClientRoster []string
 
 			for _, l := range links {
 				if provFilter != "" && l.id != provFilter && !strings.EqualFold(l.name, provFilter) {
@@ -201,11 +194,12 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 				label := firstNonEmpty(l.name, l.id)
 
 				var assets []map[string]any
-				if l.computers != "" {
-					_ = json.Unmarshal([]byte(l.computers), &assets)
+				if l.computers == "" || json.Unmarshal([]byte(l.computers), &assets) != nil || assets == nil {
+					noComputerRoster = append(noComputerRoster, label)
 				}
 				for _, a := range assets {
-					cid := anyToString(a["id"])
+					asset := immyComputerFromObject(immyProviderLinkComputerFields, a)
+					cid := asset.ID
 					if cid == "" {
 						cid = anyToString(a["deviceId"])
 					}
@@ -216,17 +210,17 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 					if _, ok := localComputers[cid]; !ok {
 						view.OrphanedAssets = append(view.OrphanedAssets, linkedAsset{
 							ComputerID:   cid,
-							ComputerName: anyToString(a["computerName"]),
-							TenantID:     anyToString(a["tenantId"]),
-							TenantName:   anyToString(a["tenantName"]),
+							ComputerName: asset.Name,
+							TenantID:     asset.TenantID,
+							TenantName:   asset.TenantName,
 							ProviderLink: label,
 						})
 					}
 				}
 
 				var clients []map[string]any
-				if l.clients != "" {
-					_ = json.Unmarshal([]byte(l.clients), &clients)
+				if l.clients == "" || json.Unmarshal([]byte(l.clients), &clients) != nil || clients == nil {
+					noClientRoster = append(noClientRoster, label)
 				}
 				for _, c := range clients {
 					linked := anyToString(c["linkedToTenantId"])
@@ -245,24 +239,46 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			for id, c := range localComputers {
-				if _, ok := linkedIDs[id]; !ok {
+			// linked_computers counts LOCAL computers a matched link names, so
+			// linked + unlinked always equals local_computers; a linked id
+			// with no local computer is an orphaned asset, never "linked".
+			if view.ProviderLinksSeen > 0 && len(noComputerRoster) == 0 {
+				for id, c := range localComputers {
+					if _, ok := linkedIDs[id]; ok {
+						view.LinkedComputers++
+						continue
+					}
 					view.UnlinkedComputers = append(view.UnlinkedComputers, c)
 				}
+				n := len(view.UnlinkedComputers)
+				view.UnlinkedComputerCount = &n
 			}
-			view.LinkedComputers = len(linkedIDs)
-
-			for id, name := range tenantNames {
-				if _, ok := mappedTenants[id]; !ok {
-					view.TenantsWithNoLink = append(view.TenantsWithNoLink, firstNonEmpty(name, id))
+			view.OrphanedAssetCount = len(view.OrphanedAssets)
+			tenantsComputed := view.ProviderLinksSeen > 0 && len(noClientRoster) == 0
+			if tenantsComputed {
+				for id, name := range tenantNames {
+					if _, ok := mappedTenants[id]; !ok {
+						view.TenantsWithNoLink = append(view.TenantsWithNoLink, firstNonEmpty(name, id))
+					}
 				}
 			}
 
 			sort.Slice(view.UnlinkedComputers, func(i, j int) bool {
-				return view.UnlinkedComputers[i].ComputerName < view.UnlinkedComputers[j].ComputerName
+				a, b := view.UnlinkedComputers[i], view.UnlinkedComputers[j]
+				if a.ComputerName != b.ComputerName {
+					return a.ComputerName < b.ComputerName
+				}
+				return a.ComputerID < b.ComputerID
 			})
 			sort.Slice(view.OrphanedAssets, func(i, j int) bool {
-				return view.OrphanedAssets[i].ComputerName < view.OrphanedAssets[j].ComputerName
+				a, b := view.OrphanedAssets[i], view.OrphanedAssets[j]
+				if a.ComputerName != b.ComputerName {
+					return a.ComputerName < b.ComputerName
+				}
+				if a.ComputerID != b.ComputerID {
+					return a.ComputerID < b.ComputerID
+				}
+				return a.ProviderLink < b.ProviderLink
 			})
 			sort.Slice(view.UnmappedClients, func(i, j int) bool {
 				return view.UnmappedClients[i].ExternalName < view.UnmappedClients[j].ExternalName
@@ -273,9 +289,23 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 				view.OrphanedAssets = capAssets(view.OrphanedAssets, flagLimit)
 			}
 
-			if view.ProviderLinksSeen == 0 {
-				view.Note = "no provider links matched; run 'immybot-cli sync --resources provider-links' or check --provider"
+			notes := make([]string, 0, 2)
+			switch {
+			case view.ProviderLinksSeen == 0:
+				notes = append(notes, "no provider links matched, so nothing was reconciled; run 'immybot-cli sync --resources provider-links' or check --provider")
+			default:
+				if len(noComputerRoster) > 0 {
+					sort.Strings(noComputerRoster)
+					notes = append(notes, fmt.Sprintf("unlinked computers were not computed: matched provider link(s) %s carry no computer roster "+
+						"(pass --provider to reconcile one link that does)", strings.Join(noComputerRoster, ", ")))
+				}
+				if len(noClientRoster) > 0 {
+					sort.Strings(noClientRoster)
+					notes = append(notes, fmt.Sprintf("tenants with no provider client were not computed: matched provider link(s) %s carry no provider-client roster",
+						strings.Join(noClientRoster, ", ")))
+				}
 			}
+			view.Note = strings.Join(notes, "; ")
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
@@ -284,13 +314,26 @@ func newNovelPsaReconcileCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), view.Note)
 				return nil
 			}
+			if view.Note != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), view.Note)
+			}
+			// The totals, not the --limit-capped list lengths; a split the
+			// rosters could not support says so instead of printing 0.
+			linked, unlinked := "not computed", "not computed"
+			if view.UnlinkedComputerCount != nil {
+				linked, unlinked = fmt.Sprint(view.LinkedComputers), fmt.Sprint(*view.UnlinkedComputerCount)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Provider links reconciled: %d\n", view.ProviderLinksSeen)
 			fmt.Fprintf(cmd.OutOrStdout(), "  local computers          %d\n", view.LocalComputers)
-			fmt.Fprintf(cmd.OutOrStdout(), "  linked to a provider     %d\n", view.LinkedComputers)
-			fmt.Fprintf(cmd.OutOrStdout(), "  unlinked computers       %d\n", len(view.UnlinkedComputers))
-			fmt.Fprintf(cmd.OutOrStdout(), "  orphaned provider assets %d\n", len(view.OrphanedAssets))
+			fmt.Fprintf(cmd.OutOrStdout(), "  linked to a provider     %s\n", linked)
+			fmt.Fprintf(cmd.OutOrStdout(), "  unlinked computers       %s\n", unlinked)
+			fmt.Fprintf(cmd.OutOrStdout(), "  orphaned provider assets %d\n", view.OrphanedAssetCount)
 			fmt.Fprintf(cmd.OutOrStdout(), "  unmapped provider clients %d\n", len(view.UnmappedClients))
-			fmt.Fprintf(cmd.OutOrStdout(), "  tenants with no provider client %d\n", len(view.TenantsWithNoLink))
+			tenants := "not computed"
+			if tenantsComputed {
+				tenants = fmt.Sprint(len(view.TenantsWithNoLink))
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "  tenants with no provider client %s\n", tenants)
 			return nil
 		},
 	}

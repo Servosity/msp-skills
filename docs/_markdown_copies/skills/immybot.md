@@ -95,7 +95,7 @@ After install, authenticate once with your ImmyBot credentials, then verify with
 | Read | session-triage, version-spread, fleet-diff, onboarding-stalled, deployment-health, assignment-explain, computer-dossier, drift, script-blast-radius, psa-reconcile, search | Allow |
 | Endpoint and fleet execution | scripts create-run-adhoc-metascript, run-immy-service, maintenance-actions create-latest-action-for-tenants, schedules create-bulk-run-now, maintenance-sessions rerun create, computers registry create-keys, target-assignments create, software create-global-upload | Human-in-the-loop, explicit confirmation. These run code or deploy software on real client machines. |
 | Write (data) | tenants create, persons create, tags create, groups create, preferences update-application, import | Preview with --dry-run, then a reviewed write |
-| Credential / security | auth login, oauth get-access-tokens, access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id, roles create | Human-in-the-loop only |
+| Credential / security | auth login, oauth get-access-tokens, access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id, access create-update-azure-tenant-auth-details, roles create | Human-in-the-loop only. The two access auth-details commands return the tenant's app registration secret, so they are CLI only, never cached or stored, never offered over MCP. |
 | Destructive | computers create-bulk-delete, scripts delete-global-by-id, software delete-global-by-identifier, brandings delete-by-id | Require explicit human approval; never autonomous |
 | Local config | profile save, auth logout, sync, export, learnings, feedback | Allow (no server effect) |
 
@@ -113,7 +113,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

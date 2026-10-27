@@ -497,7 +497,7 @@
     {
       "name": "immybot",
       "source": "./skills/immybot",
-      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
+      "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
       "version": "0.1.11",
       "category": "rmm",
       "tags": [
