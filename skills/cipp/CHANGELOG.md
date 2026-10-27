@@ -18,6 +18,7 @@ Rebuilt on CLI Printing Press 4.34.0.
 - MCP library `github.com/mark3labs/mcp-go` v0.57.0.
 
 ### Fixed
+- Search finds short all-caps values such as `WEB`, `SQL` and `DNS` again ([#464](https://github.com/Servosity/msp-skills/issues/464)). The local search index rebuilds once, the first time a command opens the store read-write after upgrading (for example `cipp-cli fanout ... --save`); the MCP server opens the store read-only, so run one such command first.
 - **`posture --dimension mfa` reads the right data.** It now counts from the rows `fanout` saves from `/ListMFAUsers`, which carry MFA registration. Earlier builds read `/ListUsers`, which has no MFA fields, so their MFA numbers were wrong. Run `cipp-cli fanout --endpoint /ListMFAUsers --all-tenants --save` before `posture --dimension mfa`.
 - `fanout --save` replaces a tenant's stored rows in one step instead of keeping rows CIPP no longer returns, unwraps CIPP's `Results` envelope, and keeps the stored rows when CIPP answers with a failure message. Rows are stored per tenant, so two tenants with the same id (license SKUs, for example) no longer overwrite each other.
 - `fanout`, `export` and `tail` accept only `List*` and `Get*` read endpoints.
