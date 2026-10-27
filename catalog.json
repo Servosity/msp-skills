@@ -786,7 +786,7 @@
       "skill_path": "skills/hudu",
       "cli_binary": "hudu-cli",
       "mcp_binary": "hudu-mcp",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Hudu",

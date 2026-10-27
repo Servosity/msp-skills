@@ -259,11 +259,11 @@
     "released_hash": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116"
   },
   "hudu": {
-    "state": "binary-pending",
-    "version": "0.1.16",
+    "state": "version-pending",
+    "version": "0.1.17",
     "latest_tag": "hudu-v0.1.16",
     "current_hash": "sha256:ccb282914fbe150e342cc6b22f4cbfcff75b22fdf07c5d8c400df1ae39e02d19",
-    "released_hash": "sha256:a6281807b4f52e1eb8b204cd9369b18f2d579172f3c2d74dd870ddf46b9dcd1d"
+    "released_hash": "sha256:ccb282914fbe150e342cc6b22f4cbfcff75b22fdf07c5d8c400df1ae39e02d19"
   },
   "huntress": {
     "state": "up-to-date",
