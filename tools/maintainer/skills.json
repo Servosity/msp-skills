@@ -398,8 +398,8 @@
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:0f2e7a64ea956d0d2c3dcefb1c035d767c9a0c17d86863c0d0b0fbdb29f7152e",
       "template_version": 3,
-      "version": "0.1.12",
-      "cli_hash_at_release": "sha256:5e9f04574aa11ac796186df69b1ad17440f28f653b8037cab7db0c9666c60d76",
+      "version": "0.1.13",
+      "cli_hash_at_release": "sha256:0f2e7a64ea956d0d2c3dcefb1c035d767c9a0c17d86863c0d0b0fbdb29f7152e",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -979,8 +979,8 @@
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
       "cli_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
       "template_version": 3,
-      "version": "0.1.10",
-      "cli_hash_at_release": "sha256:67800ebb70b3a1e948e1b865bc6cc2ccad76bd4ad77aed7c17b8c0d047bc36a9",
+      "version": "0.1.11",
+      "cli_hash_at_release": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1744,8 +1744,8 @@
       "tagline": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.",
       "cli_hash": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52",
       "template_version": 3,
-      "version": "0.2.5",
-      "cli_hash_at_release": "sha256:f72a961364fb04006aa26c685c1f1d3a84733d46d715d18ac9a27dbf19630759",
+      "version": "0.2.6",
+      "cli_hash_at_release": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -2009,8 +2009,8 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
       "cli_hash": "sha256:74b951adbf638da0028972a3fa79a0ed08bc9e3443e8ed61df1582d85b6a0c85",
       "template_version": 3,
-      "version": "0.3.12",
-      "cli_hash_at_release": "sha256:831654eaf80bd6a4f0b796715c6878071dd718f9aa908f196f568d17e4c6a4a7",
+      "version": "0.3.13",
+      "cli_hash_at_release": "sha256:74b951adbf638da0028972a3fa79a0ed08bc9e3443e8ed61df1582d85b6a0c85",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",

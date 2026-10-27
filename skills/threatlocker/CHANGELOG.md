@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.3.13] - unreleased
+## [0.3.13] - 2026-10-27
 
 ### Security
 - **Rebuilt on Printing Press 4.34.0** ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server splits reads from writes: `threatlocker_read` calls read-only endpoints (including ThreatLocker's POST searches), and `threatlocker_execute` returns a preview of a state-changing call until the agent passes `confirm: true`. `threatlocker-mcp --transport http` refuses to start without `THREATLOCKER_MCP_HTTP_TOKEN`, answers only requests that send `Authorization: Bearer <token>`, serves `http://127.0.0.1:7777/mcp` by default and needs `--tls-cert`/`--tls-key` for any other address. `THREATLOCKER_MCP_READ_ONLY=1` lists only read-only tools.

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.11] - unreleased
+## [0.1.11] - 2026-10-27
 
 ### Changed
 - **Rebuilt on cli-printing-press 4.34.0.** The MCP server's `--transport http` mode refuses to start without `HUNTRESS_MCP_HTTP_TOKEN` and needs TLS off loopback; `HUNTRESS_MCP_READ_ONLY=1` (preset in every install channel) drops the write tools; `HUNTRESS_NO_LOCAL_DATA=1` keeps no local copy of API responses.

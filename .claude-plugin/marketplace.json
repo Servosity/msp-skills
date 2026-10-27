@@ -212,7 +212,7 @@
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "Every CIPP endpoint as a typed command, plus cross-tenant fan-out into a local store, offline joins across endpoints, and history over time.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "cipp",
@@ -485,7 +485,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "huntress",
@@ -900,7 +900,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -1006,7 +1006,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.12",
+      "version": "0.3.13",
       "category": "security",
       "tags": [
         "threatlocker",
