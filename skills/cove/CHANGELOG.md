@@ -15,6 +15,7 @@ All notable changes to this skill are documented here. Format follows
 - `fleet activity`: the Cove audit trail rolled up per user and per entity and operation, flagged when the window was truncated.
 
 ### Fixed
+- Search finds short all-caps values such as `WEB`, `SQL` and `DNS` again ([#464](https://github.com/Servosity/msp-skills/issues/464)). The local search index rebuilds once, the first time a command opens the store read-write after upgrading (for example `cove-cli snapshot`); the MCP server opens the store read-only, so run one such command first.
 - **`doctor` no longer calls Cove's own API host a placeholder.** With the three credentials set, it reported an error and skipped the login check on every correctly configured install. It now signs in and reports the result.
 - **`doctor` still checks your sign-in when Cove's first answer is withheld.** If that answer repeated one of your credentials, doctor hid it (correct), but then reported the API as unreachable and skipped the login check. It now reports the API as reachable and signs in.
 - **A failed or unknown backup status can no longer read as healthy.** Column values are parsed exactly: a fractional or unreadable status is "not reported", and an unrecognised status is never counted as healthy.
