@@ -8,12 +8,12 @@ func summaryTestAgents() []map[string]any {
 	return []map[string]any{
 		// online + in protect + healthy
 		agentFix("a1", "ONLINE-1", "SiteA", "24.1.2.6", nil),
-		// offline (disconnected, not decommissioned)
-		agentFix("a2", "OFFLINE-1", "SiteA", "24.1.2.6", map[string]any{"networkStatus": "disconnected"}),
+		// offline (inactive, not decommissioned)
+		agentFix("a2", "OFFLINE-1", "SiteA", "24.1.2.6", map[string]any{"isActive": false}),
 		// infected + out-of-date (online)
 		agentFix("a3", "INFECTED-1", "SiteB", "24.1.2.6", map[string]any{"infected": true, "isUpToDate": false}),
 		// decommissioned (excluded from quality counts; counts as decommissioned, not offline)
-		agentFix("a4", "DECOMM-1", "SiteB", "24.1.2.6", map[string]any{"networkStatus": "disconnected", "isDecommissioned": true}),
+		agentFix("a4", "DECOMM-1", "SiteB", "24.1.2.6", map[string]any{"isActive": false, "isDecommissioned": true}),
 	}
 }
 
@@ -65,12 +65,12 @@ func TestFleetHealthSummaryBySiteSumsToFleet(t *testing.T) {
 	sum := map[string]float64{}
 	for _, s := range sites {
 		m := s.(map[string]any)
-		for _, k := range []string{"total", "online", "offline", "decommissioned", "infected", "out_of_date", "under_protected"} {
+		for _, k := range []string{"total", "online", "offline", "unknown_status", "decommissioned", "infected", "out_of_date", "under_protected"} {
 			v, _ := m[k].(float64)
 			sum[k] += v
 		}
 	}
-	for _, k := range []string{"total", "online", "offline", "decommissioned", "infected", "out_of_date", "under_protected"} {
+	for _, k := range []string{"total", "online", "offline", "unknown_status", "decommissioned", "infected", "out_of_date", "under_protected"} {
 		fv, _ := fleet[k].(float64)
 		if sum[k] != fv {
 			t.Fatalf("per-site %s sum = %v, want fleet %v", k, sum[k], fv)

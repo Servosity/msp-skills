@@ -19,10 +19,12 @@ func newNovelVersionsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "versions",
 		Short: "Agent-version distribution across the fleet; 'versions rollout' shows progress over time",
-		Long: `Show how agent versions are distributed across the fleet right now: the
-de-facto current version (the most common), how many endpoints are behind it,
-and the full histogram. Use 'versions rollout' to see how a version is
-spreading per site over time (requires repeated syncs).`,
+		Long: `Show how agent versions are distributed across the fleet right now, per OS:
+the de-facto current version of each OS (the most common among live agents),
+how many endpoints are behind it, and the full histogram. Windows, macOS and
+Linux agents ship separate packages, so a version is only compared with
+versions of the same OS. Use 'versions rollout' to see how a version is
+spreading over time (requires repeated syncs).`,
 		Example: `  # Current version spread
   sentinelone-cli versions
 
@@ -55,8 +57,9 @@ spreading per site over time (requires repeated syncs).`,
 					"No agents in the local store. Run 'sentinelone-cli sync' first.", nil)
 			}
 
-			modal := modalVersion(agents)
-			counts := map[string]int{}
+			current := modalVersionByOS(agents)
+			type vkey struct{ os, version string }
+			counts := map[vkey]int{}
 			total := 0
 			behind := 0
 			for _, a := range agents {
@@ -67,56 +70,64 @@ spreading per site over time (requires repeated syncs).`,
 				if v == "" {
 					v = "(unknown)"
 				}
-				counts[v]++
+				counts[vkey{agentOS(a), v}]++
 				total++
-				if v != "(unknown)" && modal != "" && compareS1Version(v, modal) < 0 {
+				if agentBehindCurrent(a, current) {
 					behind++
 				}
 			}
 
 			type vrow struct {
+				OS      string  `json:"os"`
 				Version string  `json:"version"`
 				Count   int     `json:"count"`
 				Pct     float64 `json:"pct"`
 				Status  string  `json:"status"`
 			}
-			var dist []vrow
-			for v, c := range counts {
+			dist := []vrow{}
+			for k, c := range counts {
+				cur := current[k.os]
 				status := "behind"
 				switch {
-				case v == "(unknown)":
+				case k.version == "(unknown)" || cur == "":
 					status = "unknown"
-				case v == modal:
+				case k.version == cur:
 					status = "current"
-				case compareS1Version(v, modal) > 0:
+				case compareS1Version(k.version, cur) > 0:
 					status = "ahead"
 				}
 				pct := 0.0
 				if total > 0 {
 					pct = round1(float64(c) / float64(total) * 100)
 				}
-				dist = append(dist, vrow{Version: v, Count: c, Pct: pct, Status: status})
+				dist = append(dist, vrow{OS: k.os, Version: k.version, Count: c, Pct: pct, Status: status})
 			}
-			sort.SliceStable(dist, func(i, j int) bool { return compareS1Version(dist[i].Version, dist[j].Version) > 0 })
+			sort.SliceStable(dist, func(i, j int) bool {
+				if dist[i].OS != dist[j].OS {
+					return dist[i].OS < dist[j].OS
+				}
+				return compareS1Version(dist[i].Version, dist[j].Version) > 0
+			})
 
 			if flags.asJSON {
 				return flags.printJSON(cmd, map[string]any{
-					"current_version": modal,
-					"total_agents":    total,
-					"behind_current":  behind,
-					"distribution":    dist,
+					"current_by_os":  current,
+					"total_agents":   total,
+					"behind_current": behind,
+					"distribution":   dist,
 				})
 			}
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Agent versions across %d agents — current is %s, %d behind:\n\n", total, modal, behind)
-			fmt.Fprintf(w, "%-18s %7s %8s  %s\n", "VERSION", "COUNT", "PCT", "STATUS")
+			fmt.Fprintf(w, "Agent versions across %d agents — current is %s, %d behind:\n\n", total, formatTargets(current), behind)
+			fmt.Fprintf(w, "%-15s %-18s %7s %8s  %s\n", "OS", "VERSION", "COUNT", "PCT", "STATUS")
 			for _, r := range dist {
-				fmt.Fprintf(w, "%-18s %7d %7.1f%%  %s\n", r.Version, r.Count, r.Pct, r.Status)
+				fmt.Fprintf(w, "%-15s %-18s %7d %7.1f%%  %s\n", r.OS, r.Version, r.Count, r.Pct, r.Status)
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/sentinelone-cli/data.db)")
 	cmd.AddCommand(newNovelVersionsRolloutCmd(flags))
+	cmd.AddCommand(newNovelVersionsPlanCmd(flags))
 	return cmd
 }

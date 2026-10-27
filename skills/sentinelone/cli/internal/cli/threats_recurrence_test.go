@@ -23,8 +23,11 @@ func TestThreatsRecurrenceGroupsByHash(t *testing.T) {
 	if de, _ := g["distinct_endpoints"].(float64); de != 2 {
 		t.Fatalf("distinct_endpoints = %v, want 2", g["distinct_endpoints"])
 	}
-	if back, _ := g["recurred_after_mitigation"].(bool); !back {
-		t.Fatalf("expected recurred_after_mitigation true (one mitigated + one active)")
+	// One mitigated detection on BOX-1 and one active on BOX-2 is spread, not
+	// a comeback: recurrence after mitigation needs a redetection on the SAME
+	// endpoint after its mitigation ended (TestRecurrenceRequiresMitigationBeforeRedetection).
+	if back, _ := g["recurred_after_mitigation"].(bool); back {
+		t.Fatalf("recurred_after_mitigation = true for detections on two different endpoints")
 	}
 }
 

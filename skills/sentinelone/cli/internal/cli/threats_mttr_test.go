@@ -15,7 +15,7 @@ func TestThreatsMTTRComputesDurationsAndBreaches(t *testing.T) {
 			"mitigationStatus": "mitigated",
 			"incidentStatus":   "resolved",
 			"createdAt":        now.Add(-5 * time.Hour).Format(time.RFC3339),
-			"updatedAt":        now.Format(time.RFC3339),
+			"mitigatedAt":      now.Format(time.RFC3339),
 		}),
 		// Still active for ~30h — an SLA breach at sla=24.
 		threatFix("t2", "Lingering", "h2", "BOX-2", "SiteA", map[string]any{
@@ -49,7 +49,7 @@ func TestThreatsMTTRMeanIgnoresTimestamplessMitigations(t *testing.T) {
 			"mitigationStatus": "mitigated",
 			"incidentStatus":   "resolved",
 			"createdAt":        now.Add(-6 * time.Hour).Format(time.RFC3339),
-			"updatedAt":        now.Format(time.RFC3339),
+			"mitigatedAt":      now.Format(time.RFC3339),
 		}),
 		// Mitigated but with no usable timestamps: counted, never averaged.
 		threatFix("m2", "Stampless", "h2", "BOX-2", "SiteA", map[string]any{

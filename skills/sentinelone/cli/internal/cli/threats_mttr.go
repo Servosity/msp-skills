@@ -12,7 +12,9 @@ import (
 
 type mttrRow struct {
 	Site             string  `json:"site"`
+	SiteID           string  `json:"site_id,omitempty"`
 	Mitigated        int     `json:"mitigated"`
+	Unmeasured       int     `json:"mitigated_unmeasured"`
 	MeanHours        float64 `json:"mean_mttr_hours"`
 	Active           int     `json:"active"`
 	OldestActiveDays int     `json:"oldest_active_days"`
@@ -32,9 +34,17 @@ func newNovelThreatsMttrCmd(flags *rootFlags) *cobra.Command {
 		Use:   "mttr",
 		Short: "Mean time-to-mitigate per site, SLA breaches, and the longest-unresolved threats",
 		Long: `Compute, per site, the mean time from threat detection (createdAt) to
-mitigation (the threat's last update once mitigated), plus how many active
-threats remain and the age of the oldest. Threats whose time-to-mitigate
-exceeded the --sla window, and active threats older than it, count as breaches.`,
+mitigation, plus how many active threats remain and the age of the oldest.
+Mitigation time is when the threat's FIRST completed mitigation action ended
+(mitigationStatus[].mitigationEndedAt of a successful quarantine, remediate or
+rollback-remediation); later actions, such as an un-quarantine or a re-run
+remediate, do not move it. An un-quarantine, a kill or network-quarantine
+alone, an unknown action, and a failed, pending or errored action never count.
+Only a threat with no action records falls back to its mitigatedAt; a threat's
+last update is never used, since a later verdict or note moves it. A mitigated
+threat with no such time, or one that precedes detection, is counted as
+mitigated_unmeasured and left out of the mean. Threats whose time-to-mitigate exceeded the --sla window, and
+active threats older than it, count as breaches.`,
 		Example: `  # MTTR with a 24h SLA (default)
   sentinelone-cli threats mttr
 
@@ -69,6 +79,7 @@ exceeded the --sla window, and active threats older than it, count as breaches.`
 
 			now := time.Now()
 			type acc struct {
+				site        siteRef
 				sumHours    float64
 				mitigated   int
 				measured    int // mitigated threats with usable timestamps; the mean's denominator
@@ -77,19 +88,18 @@ exceeded the --sla window, and active threats older than it, count as breaches.`
 				slaBreaches int
 			}
 			sites := map[string]*acc{}
-			get := func(s string) *acc {
-				s = orUnknown(s)
-				a := sites[s]
+			get := func(r siteRef) *acc {
+				a := sites[r.Key]
 				if a == nil {
-					a = &acc{}
-					sites[s] = a
+					a = &acc{site: r}
+					sites[r.Key] = a
 				}
 				return a
 			}
 			var totMitigated, totMeasured int
 			var totSumHours float64
 			for _, t := range threats {
-				a := get(threatSite(t))
+				a := get(threatSiteRef(t))
 				created, hasCreated := parseS1Time(threatCreatedAt(t))
 				if threatActive(t) {
 					a.active++
@@ -104,10 +114,9 @@ exceeded the --sla window, and active threats older than it, count as breaches.`
 					}
 					continue
 				}
-				// Mitigated: duration = last update - detection.
-				mitigatedAt, hasMit := parseS1Time(threatUpdatedAt(t))
-				if hasCreated && hasMit && mitigatedAt.After(created) {
-					h := mitigatedAt.Sub(created).Hours()
+				// Mitigated: duration = mitigation completion - detection.
+				if ttm, ok := threatTimeToMitigate(t); ok {
+					h := ttm.Hours()
 					a.sumHours += h
 					a.mitigated++
 					a.measured++
@@ -125,7 +134,7 @@ exceeded the --sla window, and active threats older than it, count as breaches.`
 			}
 
 			var rows []mttrRow
-			for site, a := range sites {
+			for _, a := range sites {
 				mean := 0.0
 				if a.measured > 0 && a.sumHours > 0 {
 					// Mean over threats with measured durations only; mitigated
@@ -133,8 +142,10 @@ exceeded the --sla window, and active threats older than it, count as breaches.`
 					mean = round1(a.sumHours / float64(a.measured))
 				}
 				rows = append(rows, mttrRow{
-					Site:             site,
+					Site:             a.site.Label(),
+					SiteID:           a.site.ID,
 					Mitigated:        a.mitigated,
+					Unmeasured:       a.mitigated - a.measured,
 					MeanHours:        mean,
 					Active:           a.active,
 					OldestActiveDays: a.oldestDays,

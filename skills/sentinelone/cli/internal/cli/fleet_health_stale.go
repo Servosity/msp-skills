@@ -40,7 +40,7 @@ exposes only as separate filters:
 
   + 1.0  per day since last check-in
   + 0.3  per day since last completed scan (or +20 if never scanned)
-  + 25   out-of-date agent (or +15 if merely behind the fleet's modal version)
+  + 25   out-of-date agent (or +15 if merely behind the modal version of its OS)
   + 20   running in detect-only (not Protect) mode
   + 50   currently infected
 
@@ -78,7 +78,7 @@ Decommissioned agents are excluded by default (they are expected offline).`,
 			}
 
 			now := time.Now()
-			modal := modalVersion(agents)
+			current := modalVersionByOS(agents)
 
 			var ranked []staleAgent
 			for _, a := range agents {
@@ -86,7 +86,7 @@ Decommissioned agents are excluded by default (they are expected offline).`,
 					continue
 				}
 				score := 0.0
-				var reasons []string
+				reasons := []string{}
 
 				lastActive := gstr(a, "lastActiveDate")
 				daysOff := 0
@@ -119,7 +119,7 @@ Decommissioned agents are excluded by default (they are expected offline).`,
 				if !gbool(a, "isUpToDate") {
 					score += 25
 					reasons = append(reasons, "out-of-date agent")
-				} else if modal != "" && version != "" && compareS1Version(version, modal) < 0 {
+				} else if agentBehindCurrent(a, current) {
 					score += 15
 					reasons = append(reasons, "behind fleet version")
 				}
@@ -163,13 +163,13 @@ Decommissioned agents are excluded by default (they are expected offline).`,
 				return flags.printJSON(cmd, map[string]any{
 					"total_matching": total,
 					"showing":        len(ranked),
-					"modal_version":  modal,
+					"current_by_os":  current,
 					"agents":         ranked,
 				})
 			}
 
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Most-decayed endpoints (%d shown of %d; fleet modal version %s):\n\n", len(ranked), total, modal)
+			fmt.Fprintf(w, "Most-decayed endpoints (%d shown of %d; current version per OS: %s):\n\n", len(ranked), total, formatTargets(current))
 			fmt.Fprintf(w, "%6s  %-26s %-18s %5s  %s\n", "SCORE", "ENDPOINT", "SITE", "DAYS", "WHY")
 			for _, s := range ranked {
 				fmt.Fprintf(w, "%6.0f  %-26s %-18s %5d  %s\n",

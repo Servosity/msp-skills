@@ -8,16 +8,17 @@
 ## What it authenticates as
 
 The skill drives the `sentinelone-cli` binary (and `sentinelone-mcp`),
-authenticating with `SENTINELONE_API_TOKEN`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the SentinelOne API.
+authenticating with `SENTINELONE_API_TOKEN`. Credentials come from the environment, or from
+`credentials.toml` when you save a token with `auth set-token` (written owner-only, mode 0600);
+they are never logged and never sent anywhere except the SentinelOne API.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **Writes need `--yes`.** A command that changes your SentinelOne tenant refuses and sends nothing unless you pass `--yes` (send it) or `--dry-run` (preview the request without sending), and exits 2 with `"confirmation_required": true` in `--json`/`--agent` output. A `--yes` saved in a run profile does not count. Make your agent's policy: preview with `--dry-run`, show the exact command, get approval, then run it with `--yes`.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
-- **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
-  add any write gating - the preview-then-approve policy above still applies. See
+- **Agent mode is explicit.** `--agent` produces JSON for scripting and does not
+  imply `--yes` - the preview-then-approve policy above still applies. See
   AGENTS.md.
 
 ## Permission tiers
@@ -28,8 +29,8 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `accounts create`, `accounts policy update-account`, `accounts reactivate`, `accounts reactivate account`, `accounts update`, `agents clear-remote-shell`, `agents reset-local-config`, `agents set-external-id`, ... (102 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | `accounts uninstall-password`, `accounts uninstall-password generate-regenerate`, `accounts uninstall-password get`, `accounts uninstall-password get-metadata`, `accounts uninstall-password revoke`, `groups regenerate-key regenerate-group-token`, `users api-token-details`, `users api-token-details token-by-user-id`, ... (16 total) | Human-in-the-loop only |
+| **Write (routine)** | Day-to-day mutations. | `accounts create`, `accounts policy update-account`, `accounts reactivate`, `accounts reactivate account`, `accounts update`, `agents clear-remote-shell`, `agents reset-local-config`, `agents set-external-id`, ... (102 total) | Preview with `--dry-run`, then an approved write with `--yes` |
+| **Credential / security** | Touches tokens, keys, MFA, agent passphrases. | `agents get-passphrase`, `users login-by-token`, `accounts uninstall-password`, `accounts uninstall-password generate-regenerate`, `accounts uninstall-password get`, `accounts uninstall-password get-metadata`, `accounts uninstall-password revoke`, `groups regenerate-key regenerate-group-token`, `users api-token-details`, `users api-token-details token-by-user-id`, ... (18 total) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `cloud-detection delete-rules`, `config-override delete`, `config-override delete-configoverride`, `device-control delete-rules`, `exclusions delete`, `filters delete`, `filters delete-deep-visibility`, `firewall-control delete-rules`, ... (27 total) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 

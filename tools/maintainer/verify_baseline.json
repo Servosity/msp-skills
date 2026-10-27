@@ -341,11 +341,6 @@
    "read-only",
    "local-data"
   ],
-  "sentinelone": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "sherweb": [
    "mcp-http",
    "read-only",

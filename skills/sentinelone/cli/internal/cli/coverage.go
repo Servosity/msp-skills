@@ -58,6 +58,7 @@ Use 'coverage gaps' to list the specific endpoints with protection holes.`,
 
 			type cov struct {
 				Site      string  `json:"site"`
+				SiteID    string  `json:"site_id,omitempty"`
 				Total     int     `json:"total"`
 				Protected int     `json:"protected"`
 				Coverage  float64 `json:"coverage_pct"`
@@ -68,11 +69,11 @@ Use 'coverage gaps' to list the specific endpoints with protection holes.`,
 				if agentDecommissioned(a) {
 					continue
 				}
-				site := orUnknown(agentSite(a))
-				c := sites[site]
+				site := agentSiteRef(a)
+				c := sites[site.Key]
 				if c == nil {
-					c = &cov{Site: site}
-					sites[site] = c
+					c = &cov{Site: site.Label(), SiteID: site.ID}
+					sites[site.Key] = c
 				}
 				c.Total++
 				grandTotal++

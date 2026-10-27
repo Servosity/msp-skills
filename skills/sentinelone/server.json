@@ -41,6 +41,19 @@
           "isSecret": false
         },
         {
+          "name": "SENTINELONE_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "SENTINELONE_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "SENTINELONE_USER_AGENT",
           "description": "Overrides the User-Agent the CLI sends on SentinelOne requests.",
           "isRequired": false,

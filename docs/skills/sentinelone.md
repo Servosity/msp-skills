@@ -12,7 +12,7 @@ faqs:
   - q: "Is the SentinelOne MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `SENTINELONE_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `SENTINELONE_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running sentinelone-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host sentinelone-mcp in HTTP mode: it refuses to start until SENTINELONE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my SentinelOne data safe?"
@@ -40,7 +40,7 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by SentinelOne, Inc..
+> Not affiliated with, endorsed by, or sponsored by SentinelOne, Inc.
 
 **✓ Live-verified by an MSP via GitHub report** against a production tenant · 2026-06-16. The version it verified was not recorded.
 
@@ -134,11 +134,11 @@ After install, authenticate once with your SentinelOne credentials, then verify 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | sentinelone-cli threats triage; sentinelone-cli threats blast-radius "<hash>"; sentinelone-cli fleet-health stale; sentinelone-cli coverage gaps; sentinelone-cli posture; sentinelone-cli sites risk; sentinelone-cli versions rollout; sentinelone-cli whatchanged --since 24h; sentinelone-cli exclusions audit; sentinelone-cli search | Allow |
-| Write (routine) | sentinelone-cli agents initiate-scan (start a disk scan); sentinelone-cli threats mitigate (mitigate matching threats); sentinelone-cli agents disconnect-from-network (network-isolate an endpoint); sentinelone-cli agents update-software; sentinelone-cli exclusions create - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Read | sentinelone-cli threats triage; sentinelone-cli threats blast-radius "<hash>"; sentinelone-cli fleet-health stale; sentinelone-cli coverage gaps; sentinelone-cli posture; sentinelone-cli sites risk; sentinelone-cli versions rollout; sentinelone-cli whatchanged --since 24h; sentinelone-cli exclusions audit; sentinelone-cli agents reclaim; sentinelone-cli versions plan; sentinelone-cli search | Allow |
+| Write (routine) | sentinelone-cli agents initiate-scan (start a disk scan); sentinelone-cli threats mitigate (mitigate matching threats); sentinelone-cli agents disconnect-from-network (network-isolate an endpoint); sentinelone-cli agents update-software; sentinelone-cli exclusions create - each refuses and sends nothing unless you pass --yes (send it) or --dry-run (preview it) | Preview with --dry-run, then a reviewed write with --yes |
 | Destructive / config | sentinelone-cli agents uninstall; sentinelone-cli agents decommission; sentinelone-cli exclusions delete; sentinelone-cli sites delete; sentinelone-cli config-override delete; sentinelone-cli users delete | Human-in-the-loop only |
 
-The skill drives the sentinelone-cli and sentinelone-mcp binaries, authenticating with a SENTINELONE_API_TOKEN read from the environment, never logged and never sent anywhere except the SentinelOne API. The read commands (threats triage, blast-radius, recurrence, mttr, verdicts; fleet-health, coverage gaps, posture, sites risk, versions rollout, ranger exposure, exclusions audit, whatchanged, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the destructive and credential tiers (agents uninstall / decommission, exclusions delete, sites delete, config-override delete, users delete, uninstall-password and API-token commands) human-only. The strongest control is the role you scope the API token to. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/sentinelone/governance.md).
+The skill drives the sentinelone-cli and sentinelone-mcp binaries, authenticating with a SENTINELONE_API_TOKEN read from the environment, never logged and never sent anywhere except the SentinelOne API. The read commands (threats triage, blast-radius, recurrence, mttr, verdicts; fleet-health, coverage gaps, posture, sites risk, versions rollout, ranger exposure, exclusions audit, agents reclaim, versions plan, whatchanged, search) change nothing. Every command that changes the tenant refuses and sends nothing unless it is given --yes (send it) or --dry-run (preview it), and the MCP server asks for confirm on every non-read endpoint; the recommended policy is still preview with --dry-run, show the exact command, get approval, then run it with --yes. Keep the destructive and credential tiers (agents uninstall / decommission, exclusions delete, sites delete, config-override delete, users delete, uninstall-password, agents get-passphrase, users login-by-token and API-token commands) human-only. Credential resources are never synced into the local store, secret-named fields are dropped before anything is stored or cached, and the MCP server asks for confirm before any read that returns a credential. The strongest control is the role you scope the API token to. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/sentinelone/governance.md).
 
 ## Frequently asked questions
 
@@ -152,7 +152,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running sentinelone-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host sentinelone-mcp in HTTP mode: it refuses to start until SENTINELONE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

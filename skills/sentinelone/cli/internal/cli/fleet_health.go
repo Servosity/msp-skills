@@ -11,9 +11,11 @@ import (
 
 type siteHealth struct {
 	Site         string `json:"site"`
+	SiteID       string `json:"site_id,omitempty"`
 	Total        int    `json:"total"`
 	Online       int    `json:"online"`
 	Offline      int    `json:"offline"`
+	Unknown      int    `json:"unknown_status"`
 	Infected     int    `json:"infected"`
 	OutOfDate    int    `json:"out_of_date"`
 	NotInProtect int    `json:"not_in_protect"`
@@ -31,6 +33,12 @@ func newNovelFleetHealthCmd(flags *rootFlags) *cobra.Command {
 		Long: `Roll up the health of every synced agent across all sites in one view:
 online vs offline, infected, out-of-date, decommissioned, and how many are not
 running in Protect mode. The console shows one site at a time; this joins them.
+
+Online means SentinelOne reports the agent active (isActive true: it is
+checking in to the console); offline means isActive false. An agent with no
+readable isActive is counted as unknown_status, never as online. The network
+status is not used: it is the "Disconnect from network" isolation state, and
+an isolated agent that still checks in counts as online.
 
 Run 'sentinelone-cli sync' first to populate the local store.`,
 		Example: `  # Cross-site fleet health rollup
@@ -69,24 +77,29 @@ Run 'sentinelone-cli sync' first to populate the local store.`,
 			}
 
 			total := len(agents)
-			var online, infected, decommissioned, outOfDate, notInProtect int
+			var online, offline, unknown, infected, decommissioned, outOfDate, notInProtect int
 			sites := map[string]*siteHealth{}
 			for _, a := range agents {
-				site := orUnknown(agentSite(a))
-				sh := sites[site]
+				site := agentSiteRef(a)
+				sh := sites[site.Key]
 				if sh == nil {
-					sh = &siteHealth{Site: site}
-					sites[site] = sh
+					sh = &siteHealth{Site: site.Label(), SiteID: site.ID}
+					sites[site.Key] = sh
 				}
 				sh.Total++
 				if agentDecommissioned(a) {
 					decommissioned++
 				}
-				if agentOnline(a) {
+				switch agentLiveness(a) {
+				case livenessOnline:
 					online++
 					sh.Online++
-				} else {
+				case livenessOffline:
+					offline++
 					sh.Offline++
+				default:
+					unknown++
+					sh.Unknown++
 				}
 				if gbool(a, "infected") {
 					infected++
@@ -101,7 +114,6 @@ Run 'sentinelone-cli sync' first to populate the local store.`,
 					sh.NotInProtect++
 				}
 			}
-			offline := total - online
 
 			siteList := make([]*siteHealth, 0, len(sites))
 			for _, sh := range sites {
@@ -114,6 +126,7 @@ Run 'sentinelone-cli sync' first to populate the local store.`,
 					"total_agents":   total,
 					"online":         online,
 					"offline":        offline,
+					"unknown_status": unknown,
 					"infected":       infected,
 					"out_of_date":    outOfDate,
 					"not_in_protect": notInProtect,
@@ -123,8 +136,8 @@ Run 'sentinelone-cli sync' first to populate the local store.`,
 			}
 
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Fleet health: %d agents — %d online, %d offline, %d infected, %d out-of-date, %d not-in-protect, %d decommissioned\n\n",
-				total, online, offline, infected, outOfDate, notInProtect, decommissioned)
+			fmt.Fprintf(w, "Fleet health: %d agents - %d online, %d offline, %d unknown status, %d infected, %d out-of-date, %d not-in-protect, %d decommissioned\n\n",
+				total, online, offline, unknown, infected, outOfDate, notInProtect, decommissioned)
 			fmt.Fprintf(w, "%-28s %6s %7s %9s %9s %11s\n", "SITE", "TOTAL", "ONLINE", "INFECTED", "OUTDATED", "NOTPROTECT")
 			for _, sh := range siteList {
 				fmt.Fprintf(w, "%-28s %6d %7d %9d %9d %11d\n",

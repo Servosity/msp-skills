@@ -13,6 +13,7 @@ type fleetCounts struct {
 	Total          int `json:"total"`
 	Online         int `json:"online"`
 	Offline        int `json:"offline"`
+	Unknown        int `json:"unknown_status"`
 	Decommissioned int `json:"decommissioned"`
 	Infected       int `json:"infected"`
 	OutOfDate      int `json:"out_of_date"`
@@ -20,7 +21,8 @@ type fleetCounts struct {
 }
 
 type fleetSiteRow struct {
-	Site string `json:"site"`
+	Site   string `json:"site"`
+	SiteID string `json:"site_id,omitempty"`
 	fleetCounts
 }
 
@@ -43,12 +45,18 @@ stale' instead.
 Counts (decommissioned agents are excluded from the live-fleet health counts
 since they are expected offline):
 
-  online          network status connected
-  offline         not connected and not decommissioned
+  online          active (isActive true): checking in to the console
+  offline         inactive (isActive false) and not decommissioned
+  unknown_status  no readable isActive and not decommissioned; never
+                  counted as online
   decommissioned  retired endpoints
   infected        currently flagged infected
   out_of_date     agent not on the current build
   under_protected agent in detect-only (not Protect) mode
+
+The network status is not used for online/offline: it is the "Disconnect
+from network" isolation state, and an isolated agent that still checks in
+counts as online.
 
 Add --by-site to break the totals out per tenant.`,
 		Example: `  # Fleet totals across every site
@@ -85,12 +93,13 @@ Add --by-site to break the totals out per tenant.`,
 
 			var fleet fleetCounts
 			perSite := map[string]*fleetCounts{}
-			getSite := func(s string) *fleetCounts {
-				s = orUnknown(s)
-				c := perSite[s]
+			siteRefs := map[string]siteRef{}
+			getSite := func(r siteRef) *fleetCounts {
+				c := perSite[r.Key]
 				if c == nil {
 					c = &fleetCounts{}
-					perSite[s] = c
+					perSite[r.Key] = c
+					siteRefs[r.Key] = r
 				}
 				return c
 			}
@@ -101,10 +110,17 @@ Add --by-site to break the totals out per tenant.`,
 				if decomm {
 					c.Decommissioned++
 				}
-				if agentOnline(a) {
+				switch agentLiveness(a) {
+				case livenessOnline:
 					c.Online++
-				} else if !decomm {
-					c.Offline++
+				case livenessOffline:
+					if !decomm {
+						c.Offline++
+					}
+				default:
+					if !decomm {
+						c.Unknown++
+					}
 				}
 				// Live-fleet quality counts exclude decommissioned endpoints.
 				if decomm {
@@ -124,14 +140,15 @@ Add --by-site to break the totals out per tenant.`,
 			for _, a := range agents {
 				tally(&fleet, a)
 				if bySite {
-					tally(getSite(agentSite(a)), a)
+					tally(getSite(agentSiteRef(a)), a)
 				}
 			}
 
 			var siteRows []fleetSiteRow
 			if bySite {
-				for site, c := range perSite {
-					siteRows = append(siteRows, fleetSiteRow{Site: site, fleetCounts: *c})
+				for key, c := range perSite {
+					r := siteRefs[key]
+					siteRows = append(siteRows, fleetSiteRow{Site: r.Label(), SiteID: r.ID, fleetCounts: *c})
 				}
 				sort.SliceStable(siteRows, func(i, j int) bool { return siteRows[i].Site < siteRows[j].Site })
 			}
@@ -151,16 +168,17 @@ Add --by-site to break the totals out per tenant.`,
 			fmt.Fprintf(w, "Fleet summary (%d agents):\n\n", fleet.Total)
 			fmt.Fprintf(w, "  online           %d\n", fleet.Online)
 			fmt.Fprintf(w, "  offline          %d\n", fleet.Offline)
+			fmt.Fprintf(w, "  unknown status   %d\n", fleet.Unknown)
 			fmt.Fprintf(w, "  decommissioned   %d\n", fleet.Decommissioned)
 			fmt.Fprintf(w, "  infected         %d\n", fleet.Infected)
 			fmt.Fprintf(w, "  out-of-date      %d\n", fleet.OutOfDate)
 			fmt.Fprintf(w, "  under-protected  %d\n", fleet.NotInProtect)
 			if bySite {
-				fmt.Fprintf(w, "\n%-26s %6s %7s %7s %7s %8s %9s %9s\n",
-					"SITE", "TOTAL", "ONLINE", "OFFLN", "DECOMM", "INFECTED", "OUT-DATE", "UNDERPRO")
+				fmt.Fprintf(w, "\n%-26s %6s %7s %7s %7s %7s %8s %9s %9s\n",
+					"SITE", "TOTAL", "ONLINE", "OFFLN", "UNKNWN", "DECOMM", "INFECTED", "OUT-DATE", "UNDERPRO")
 				for _, r := range siteRows {
-					fmt.Fprintf(w, "%-26s %6d %7d %7d %7d %8d %9d %9d\n",
-						clip(r.Site, 26), r.Total, r.Online, r.Offline, r.Decommissioned, r.Infected, r.OutOfDate, r.NotInProtect)
+					fmt.Fprintf(w, "%-26s %6d %7d %7d %7d %7d %8d %9d %9d\n",
+						clip(r.Site, 26), r.Total, r.Online, r.Offline, r.Unknown, r.Decommissioned, r.Infected, r.OutOfDate, r.NotInProtect)
 				}
 			}
 			return nil

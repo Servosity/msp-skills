@@ -50,7 +50,7 @@ managed agent inventory to surface unmanaged endpoints, grouped by /24 subnet
 and ranked by how many managed peers sit beside them (high managed density +
 an unmanaged device = a likely blind spot worth investigating).
 
-Requires 'ranger' and/or 'rogues' to be synced. A device is treated as
+Requires 'ranger-table-view' (the Ranger device inventory) and/or 'rogues' to be synced. A device is treated as
 unmanaged when it is a rogue, when Ranger marks it unmanaged, or when its IP
 does not match any managed agent.`,
 		Example: `  # Unmanaged exposure by subnet
@@ -84,13 +84,17 @@ does not match any managed agent.`,
 			if err != nil {
 				return fmt.Errorf("loading rogues: %w", err)
 			}
-			ranger, err := loadResourceObjects(cmd.Context(), db, "ranger")
+			// The device inventory syncs as ranger-table-view (/ranger/table-view).
+			// The resource named plain "ranger" is /ranger/cred-groups/details,
+			// credential records with no device fields: reading it here made
+			// every Ranger-discovered device invisible.
+			ranger, err := loadResourceObjects(cmd.Context(), db, "ranger-table-view")
 			if err != nil {
 				return fmt.Errorf("loading ranger inventory: %w", err)
 			}
 			if len(rogues) == 0 && len(ranger) == 0 {
 				return honestEmptyJSON(cmd, flags,
-					"No Ranger or rogues data in the local store. Run 'sentinelone-cli sync --resources ranger,rogues' first.", nil)
+					"No Ranger or rogues data in the local store. Run 'sentinelone-cli sync --resources ranger-table-view,rogues' first.", nil)
 			}
 
 			// Managed agent IPs + per-subnet managed counts.

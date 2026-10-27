@@ -92,7 +92,7 @@ low-confidence one. Resolved and mitigated threats are excluded.`,
 				if !threatActive(t) {
 					continue
 				}
-				if site != "" && !strings.EqualFold(threatSite(t), site) {
+				if site != "" && !threatSiteRef(t).Matches(site) {
 					continue
 				}
 
@@ -180,6 +180,6 @@ low-confidence one. Resolved and mitigated threats are excluded.`,
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/sentinelone-cli/data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum threats to show (0 = all)")
-	cmd.Flags().StringVar(&site, "site", "", "Only triage threats for this site (case-insensitive)")
+	cmd.Flags().StringVar(&site, "site", "", "Only triage threats for this site: its name, id, or \"Account / Site\" label (case-insensitive)")
 	return cmd
 }
